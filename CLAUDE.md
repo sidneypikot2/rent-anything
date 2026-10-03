@@ -8,7 +8,7 @@ When compacting, keep the list of modified files, the current RAA ticket and bra
 A session cannot see its own context size, so judge by what it holds: at a natural break (checks green, PR opened, handover) in a session that has run long, has already been summarised once, or has taken in browser screenshots or large logs, suggest `/compact` — or `/clear` when the ticket is handed over.
 
 When adding a gem or library, or using a third-party API not already used in this repo, look up the official documentation first. Follow existing in-repo usage otherwise.
-Use context7 directly for a single lookup; use the DocsExplorer subagent only when several technologies need looking up at once. For Next.js, the docs bundled in `web/node_modules/next/dist/docs/` match the installed version.
+Use context7 directly for a single lookup; use the `docs-explorer` subagent only when several technologies need looking up at once. For Next.js, the docs bundled in `web/node_modules/next/dist/docs/` match the installed version.
 
 A repeated mistake or a recurring review comment is an edit to a `.claude/rules/` file (or a hook, if it must always hold), proposed as a PR — not a correction that stays in chat. `/raa-finish` asks for these at the end of every task.
 

@@ -136,6 +136,11 @@ don't. When a task changes what `script/smoke` walks through (see `tools/smoke/t
 update the test in the same PR. When it changes an endpoint, regenerate the API contract
 (`script/check-api --write`) and commit both generated files.
 
+Run `script/check` and `script/smoke` in the background (`run_in_background`) and carry
+on — the session is notified when they finish, so don't poll or sleep. They outlast the
+foreground limit (5 minutes, set in `.claude/settings.json`) on a full backend suite.
+`script/test` on a few specs stays in the foreground.
+
 In a worktree, run `script/worktree-env` once before the first `docker compose` command:
 it gives the worktree its own ports and project name so its containers don't collide with
 the main stack. (The `script/` commands above do this themselves.)

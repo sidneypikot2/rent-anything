@@ -5,7 +5,14 @@
 #   2. a rule's `paths:` pattern matches no file (such a rule never loads);
 #   3. CLAUDE.md outgrows 100 lines (it loads into every session);
 #   4. SPEC.md still describes as "not built" a route that config/routes.rb now has.
-# Plain bash + git. Run from anywhere; exits 1 and lists every problem. Used by CI.
+# and keeps the Claude Code config wired up. Claude Code skips what it can't read without
+# saying so, so these fail when:
+#   5. .claude/settings.json or .mcp.json isn't valid JSON;
+#   6. a hook names an unknown event or a script that doesn't exist or isn't executable,
+#      a .claude/hooks/ script isn't wired to any event, or an allow rule names a missing script;
+#   7. an agent lacks a name or description, or its name isn't the kebab-case file name;
+#   8. a skill lacks a description, or its name isn't the kebab-case directory name.
+# Plain bash, git and jq. Run from anywhere; exits 1 and lists every problem. Used by CI.
 set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
@@ -66,6 +73,62 @@ while IFS= read -r route; do
     fail "SPEC.md lists \`$route\` under \"Not built\", but routes.rb has \"$segment\" — delete that section of SPEC.md"
   fi
 done < <(awk '/^## / { unbuilt = /[Nn]ot built/ } unbuilt && /^\|/' SPEC.md | grep -oE '`/[a-z_/:]+`' | tr -d '`' | sort -u)
+
+# 5. The JSON config parses.
+settings=.claude/settings.json
+for json in "$settings" .mcp.json; do
+  jq empty "$json" 2>/dev/null || fail "$json is not valid JSON"
+done
+
+# 6. Hooks and allow rules point at real scripts. The events are the ones in
+#    code.claude.com/docs/en/hooks; add a new one here when you first use it.
+if jq empty "$settings" 2>/dev/null; then
+  events=" PreToolUse PostToolUse PostToolUseFailure PostToolBatch Notification UserPromptSubmit
+    UserPromptExpansion SessionStart SessionEnd Stop StopFailure SubagentStart SubagentStop PreCompact
+    PostCompact PermissionRequest PermissionDenied Setup TeammateIdle TaskCreated TaskCompleted
+    Elicitation ElicitationResult ConfigChange WorktreeCreate WorktreeRemove InstructionsLoaded
+    CwdChanged FileChanged "
+  while IFS= read -r event; do
+    [[ "$events" == *[[:space:]]"$event"[[:space:]]* ]] || fail "$settings: unknown hook event \"$event\""
+  done < <(jq -r '.hooks // {} | keys[]' "$settings")
+
+  commands="$(jq -r '.hooks // {} | .[][] | .hooks[]? | .command // empty' "$settings")"
+  while IFS= read -r script; do
+    [[ -x "$script" ]] || fail "$settings: hook command \"$script\" doesn't exist or isn't executable"
+  done < <(grep -oE '"\$CLAUDE_PROJECT_DIR"/[^[:space:]";]+' <<<"$commands" | sed 's|^"\$CLAUDE_PROJECT_DIR"/||' | sort -u)
+  for hook in .claude/hooks/*; do
+    [[ "$commands" == *"/$hook"* ]] || fail "$hook isn't wired to any event in $settings"
+  done
+
+  while IFS= read -r script; do
+    [[ -x "$script" ]] || fail "$settings: allow rule names \"$script\", which doesn't exist or isn't executable"
+  done < <(jq -r '.permissions.allow // [] | .[]' "$settings" \
+    | sed -nE 's/^Bash\(((script|\.claude)\/[^[:space:]:)]+).*/\1/p' | sort -u)
+fi
+
+# 7 and 8. Agent and skill frontmatter. Claude Code reads it only when `---` is the first
+#    line, and quietly ignores a file or field it can't use.
+frontmatter() { # file, field -> the field's value, or nothing
+  awk -v key="$2" 'NR == 1 && $0 != "---" { exit } NR > 1 && /^---$/ { exit }
+    NR > 1 && index($0, key ":") == 1 { sub(/^[^:]*:[[:space:]]*/, ""); print; exit }' "$1"
+}
+KEBAB='^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+for agent in .claude/agents/*.md; do
+  name="$(frontmatter "$agent" name)"
+  [[ -n "$(frontmatter "$agent" description)" ]] || fail "$agent has no description in its frontmatter"
+  if [[ -z "$name" ]]; then
+    fail "$agent has no name in its frontmatter"
+  elif [[ ! "$name" =~ $KEBAB || "$name" != "$(basename "$agent" .md)" ]]; then
+    fail "$agent: name \"$name\" should be kebab-case and match the file name"
+  fi
+done
+for skill in .claude/skills/*/SKILL.md; do
+  dir="$(basename "$(dirname "$skill")")"
+  name="$(frontmatter "$skill" name)"
+  [[ -n "$(frontmatter "$skill" description)" ]] || fail "$skill has no description in its frontmatter"
+  [[ "$dir" =~ $KEBAB ]] || fail "$skill: directory \"$dir\" should be kebab-case (it is the /command name)"
+  [[ -z "$name" || "$name" == "$dir" ]] || fail "$skill: name \"$name\" should match its directory, \"$dir\""
+done
 
 if (( errors > 0 )); then
   echo "check-docs: $errors problem(s)" >&2

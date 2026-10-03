@@ -1,5 +1,5 @@
 ---
-name: DocsExplorer
+name: docs-explorer
 description: Documentation lookup specialist. Use only when several libraries or technologies need looking up at once — it fetches their docs in parallel. For a single lookup, call context7 directly instead.
 tools: WebFetch, WebSearch, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: sonnet
