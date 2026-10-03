@@ -1,0 +1,44 @@
+# macOS
+.DS_Store
+
+# --- Claude Code ---
+/.claude/scheduled_tasks.lock
+/.claude/settings.local.json
+/.claude/worktrees/
+/CLAUDE.local.md
+
+# Per-worktree Compose ports, written by script/worktree-env
+/.env
+
+# --- Rails backend ---
+/backend/.bundle
+/backend/.env*
+!/backend/.env.example
+/backend/log/*
+/backend/tmp/*
+!/backend/log/.keep
+!/backend/tmp/.keep
+/backend/tmp/pids/*
+!/backend/tmp/pids/
+!/backend/tmp/pids/.keep
+/backend/storage/*
+!/backend/storage/.keep
+/backend/tmp/storage/*
+!/backend/tmp/storage/
+!/backend/tmp/storage/.keep
+/backend/config/*.key
+/backend/config/master.key
+/backend/public/assets
+
+# --- Next.js web ---
+/web/node_modules
+/web/.next
+/web/out
+/web/next-env.d.ts
+/web/.env*
+!/web/.env.example
+/web/*.tsbuildinfo
+
+# --- Tooling ---
+/tools/smoke/node_modules
+/tools/smoke/test-results
