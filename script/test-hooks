@@ -141,6 +141,22 @@ grep KEY config/.env.local
 cat backend/config/master.key
 cat backend/config/credentials/production.key && cat backend/config/production.key
 cat backend/.kamal/secrets
+cat backend/.kamal/secrets-common
+cat "backend/.env"
+psql < backend/.env
+x=$(cat backend/.env)
+cat backend/config/master.key; echo done
+sh -c "cat backend/.env | head"
+docker compose exec backend bash -lc 'grep KEY .env.production'
+ruby -e "puts File.read('backend/config/master.key')"
+bin/rails runner "puts File.read('config/master.key')"
+echo "$(cat backend/.env)"
+cat "backend/.env" "a b"
+echo "`cat backend/.env`"
+cat backend/.env*
+cat {backend/.env,/dev/null}
+ssh host "cat backend/.env | head"
+watch "cat backend/.env"
 CASES
 
 while IFS= read -r command; do
@@ -180,6 +196,9 @@ cat backend/.env.example
 cp backend/.env.example /tmp/copy
 cat .env
 ls backend
+echo "secrets live in config/master.key, never committed"
+grep -rn "master.key\|db:drop" .claude
+jq -n '{e: ["Sensitive: .env files, config/master.key, config/credentials*.yml.enc, .kamal/secrets in any repo"]}'
 CASES
 
 # Prose in a heredoc (a commit message, a PR body) is not a command...
@@ -192,6 +211,34 @@ expect_bash block "$task" "$(printf 'bash <<EOF\ngit stash\nEOF')"
 expect_bash block "$main" "docker compose run --rm backend bin/rails db:drop"
 expect_bash block "$main" "docker compose run --rm backend bin/rails db:reset"
 expect_bash allow "$task" "docker compose run --rm backend bin/rails db:drop"
+for destructive in db:setup db:migrate:reset db:schema:load db:seed:replant db:truncate_all \
+  "runner 'User.delete_all'" "runner \"Booking.destroy_all\"" "runner 'ActiveRecord::Base.connection.truncate(:users)'"; do
+  expect_bash block "$main" "docker compose run --rm backend bin/rails $destructive"
+  expect_bash allow "$task" "docker compose run --rm backend bin/rails $destructive"
+done
+expect_bash block "$main" "docker compose exec backend bin/rake db:schema:load"
+expect_bash block "$main" 'docker compose run --rm backend bash -c "bin/rails db:drop"'
+expect_bash block "$main" "bin/rails db:drop:all"
+expect_bash block "$main" "bin/rails db:drop;"
+expect_bash block "$main" "RAILS_ENV=test script/test; docker compose run --rm backend bin/rails db:drop"
+expect_bash block "$main" "bin/rails runner 'ActiveRecord::Base.logger = nil; User.delete_all'"
+expect_bash block "$main" "bin/rails r 'User.delete_all'"
+expect_bash block "$sandbox" "$(printf 'python3 -c "\nimport os\nos.system(\\"cat backend/.env\\")\n"')"
+expect_bash allow "$task" 'git commit -m "Never cat backend/.env or master.key in a session"'
+expect_bash allow "$main" 'gh pr create --title x --body "secrets stay in backend/.env and .kamal/secrets"'
+expect_bash block "$main" "bin/rails db:drop; echo RAILS_ENV=test"
+expect_bash block "$main" "bin/rails db:drop # RAILS_ENV=test"
+expect_bash block "$main" "RAILS_ENV=test bin/rails db:drop && bin/rails db:reset"
+expect_bash block "$main" "bin/rails db:schema:load:primary"
+expect_bash allow "$main" "bin/rails runner 'puts Listing.first.title.truncate(20)'"
+expect_bash allow "$main" 'echo "run bin/rails db:setup to start"'
+expect_bash block "$task" "cat backend/config/master.key.bak"
+expect_bash block "$task" "cat backend/.env{,}"
+expect_bash block "$task" 'node -e "require(\"fs\").readFileSync(\"backend/.env\")"'
+expect_bash block "$task" "$(printf 'echo "a\n" ; cat backend/.env "x y"')"
+expect_bash allow "$main" "docker compose run --rm -e RAILS_ENV=test backend bin/rails db:schema:load"
+expect_bash allow "$main" "docker compose run --rm backend bin/rails db:migrate:status"
+expect_bash allow "$main" "docker compose run --rm backend bin/rails runner 'puts User.count'"
 
 # --- guard-bash: commits and pushes on main, before the git hooks are enabled -------------
 

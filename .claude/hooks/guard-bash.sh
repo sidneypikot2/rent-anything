@@ -119,15 +119,55 @@ while IFS= read -r seg; do
     && block "discarding a whole directory's changes; restore the specific files you changed instead."
 done < <(grep -Eo -- "${GIT}(checkout|restore)[[:space:]]${SEG}" <<<"$cmd" || true)
 
+# --- Prose ------------------------------------------------------------------------------
+# A message or a pattern that mentions a database task or a secret file isn't refused by
+# the two sections below: a quoted string with whitespace in it is blanked when it is an
+# argument of echo, printf, jq, grep or rg, or of -m, --message, --title or --body, and
+# holds no command substitution. Any other quoted string may be run (sh -c, ssh, watch,
+# python -c ...) and is kept.
+prose_blanked="$(awk '
+  { text = (NR == 1 ? "" : text "\n") $0 }
+  END {
+    out = ""; q = ""; buf = ""; prose = 0
+    n = length(text)
+    for (i = 1; i <= n; i++) {
+      c = substr(text, i, 1)
+      if (q == "") {
+        if (c == "\"" || c == "'"'"'") {
+          q = c; buf = ""
+          pre = out; sub(/[ \t]+$/, "", pre)
+          cur = pre; sub(/^.*[;&|(\n]/, "", cur); sub(/^[ \t]+/, "", cur)
+          prose = (cur ~ /^(echo|printf|jq|grep|rg)([ \t]|$)/ || pre ~ /[ \t](-m|--message|--title|--body)$/)
+        } else out = out c
+        continue
+      }
+      if (q == "\"" && c == "\\" && i < n) { buf = buf c substr(text, i + 1, 1); i++; continue }
+      if (c != q) { buf = buf c; continue }
+      if (prose && buf ~ /[ \t\n]/ && buf !~ /\$\(|`/) buf = ""
+      out = out q buf q; q = ""
+    }
+    if (q != "") out = out q buf
+    print out
+  }' <<<"$cmd")"
+
 # --- Databases and volumes --------------------------------------------------------------
 
 matches "docker([[:space:]]+|-)compose${SEG}[[:space:]]down${SEG}[[:space:]](-v|--volumes)([[:space:]]|$)" \
   && block "docker compose down --volumes deletes the database. In a worktree use script/worktree-down; never on the main stack."
 matches "docker[[:space:]]+(volume[[:space:]]+(rm|prune)|system[[:space:]]+prune)([[:space:]]|$)" \
   && block "deleting Docker volumes deletes the development database."
-if matches "(rails|rake)[[:space:]]+(${SEG}[[:space:]])?db:(drop|reset|purge)" && ! in_linked_worktree; then
-  block "db:drop / db:reset / db:purge on the main checkout's database. A worktree stack has its own throwaway database."
-fi
+# Tasks that empty or rebuild the database, and runner scripts that delete every row. The
+# test database is rebuilt by script/test anyway, so RAILS_ENV=test is fine.
+# Each command is judged on its own, so RAILS_ENV=test elsewhere in the line doesn't count.
+# A runner's code can hold `;`, so it is read to the end of the line.
+DB_TASK="(rails|rake)[[:space:]]+(${SEG}[[:space:]])?db:(drop|reset|purge|setup|migrate:reset|schema:load|seed:replant|truncate_all)"
+DB_RUNNER="rails[[:space:]]+(${SEG}[[:space:]])?(runner|r)[[:space:]].*(delete_all|destroy_all|connection\.truncate|truncate_tables?)"
+while IFS= read -r seg; do
+  [[ -n "$seg" ]] || continue
+  grep -Eq 'RAILS_ENV=test([[:space:]]|$)' <<<"$seg" && continue
+  in_linked_worktree && break
+  block "this empties or rebuilds the main checkout's development database (db:drop, db:reset, db:schema:load, delete_all, ...). A worktree stack has its own throwaway database; RAILS_ENV=test is allowed."
+done < <(grep -Eo -- "[^;&|]*(${DB_TASK}|${DB_RUNNER})" <<<"$prose_blanked" || true)
 
 # --- Secret files, named in a shell command ---------------------------------------------
 # The Read deny rules in settings.json cover the Read tool and a few commands Claude Code
@@ -135,10 +175,14 @@ fi
 # does needs these files' contents, so any command that names one is refused.
 # `.env.example` is documentation, and a worktree's root `.env` only holds port numbers.
 
-named="$(sed -E 's/\.env\.example//g' <<<"$cmd")"
+named="$(sed -E 's/\.env\.example//g' <<<"$prose_blanked")"
 # Any `.env.<something>` counts (.env.local, .env.staging, .env.production.local, ...):
 # the dotenv naming convention, not a list of the names in use today.
-SECRET='(^|[^A-Za-z0-9_])backend/\.env|(^|[^A-Za-z0-9_])\.env\.[A-Za-z0-9_]|master\.key|config/[A-Za-z0-9_]+\.key|\.kamal/secrets'
+# The path must be a whole shell word, so prose or a grep pattern that mentions one
+# ("config/master.key, never committed", "master.key\|...") isn't refused.
+W_START='(^|[][[:space:]"'"'"'`=<>(,{])[^][[:space:]"'"'"'`;&|<>(),{}*?]*'
+W_END='([][[:space:]"'"'"'`;&|)>,{}*?]|\\["'"'"']|$)'
+SECRET="${W_START}(backend/\.env|\.env\.[A-Za-z0-9_][A-Za-z0-9_.]*|(master|config/[A-Za-z0-9_/]+)\.key(\.[A-Za-z0-9_.]+)?|\.kamal/secrets([-.][A-Za-z0-9_.-]*)?)${W_END}"
 if grep -Eq -- "$SECRET" <<<"$named" \
   || { [[ "$cd_dir" == backend || "$cd_dir" == */backend ]] && grep -Eq -- '(^|[[:space:]"'"'"'=<])\.env([[:space:]"'"'"';|&)]|$)' <<<"$named"; }; then
   block "this command names a secret file (backend/.env, a .env.<name> file, a *.key file or .kamal/secrets). Sessions don't read or copy secrets; see backend/.env.example for the variable names."
