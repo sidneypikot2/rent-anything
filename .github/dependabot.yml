@@ -1,0 +1,46 @@
+version: 2
+# Everything targets staging: main only receives releases (staging -> main).
+updates:
+- package-ecosystem: bundler
+  directory: "/backend"
+  target-branch: staging
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 10
+  # Deliberately pinned in the Gemfile (see the comments there) — don't propose these.
+  ignore:
+  - dependency-name: json
+    versions: [ ">= 3" ]
+  - dependency-name: redis
+    versions: [ ">= 6" ]
+# The web app. Next.js majors change APIs (see web/AGENTS.md) — a decision, not a bump.
+- package-ecosystem: npm
+  directory: "/web"
+  target-branch: staging
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: "next"
+    update-types: [ "version-update:semver-major" ]
+  - dependency-name: "eslint-config-next"
+    update-types: [ "version-update:semver-major" ]
+# The PostGIS, Redis and Node images in docker-compose.yml. Major versions are a
+# decision (a new Postgres major needs a data migration), and the Playwright image is
+# pinned to tools/smoke/package.json — neither is proposed.
+- package-ecosystem: docker-compose
+  directory: "/"
+  target-branch: staging
+  schedule:
+    interval: monthly
+  open-pull-requests-limit: 5
+  ignore:
+  - dependency-name: "*"
+    update-types: [ "version-update:semver-major" ]
+  - dependency-name: "mcr.microsoft.com/playwright"
+- package-ecosystem: github-actions
+  directory: "/"
+  target-branch: staging
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 10

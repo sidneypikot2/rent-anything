@@ -1,0 +1,36 @@
+---
+openapi: 3.0.3
+info:
+  title: Rent-Anything API
+  version: v1
+paths:
+  "/api/v1/health":
+    get:
+      summary: Liveness and database check
+      tags:
+      - Health
+      responses:
+        '200':
+          description: the API and its database answer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - ok
+                  postgis:
+                    type: string
+                required:
+                - status
+                - postgis
+servers:
+- url: http://localhost:3000
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

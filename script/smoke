@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Browser smoke test: starts this checkout's Compose stack and drives the real web app in
+# the Playwright container — pages load without script errors and the browser reaches the
+# API (tools/smoke/tests/). The only check that executes the web app. Used by CI.
+#
+#   script/smoke
+#
+# Needs Docker only. On failure, traces and screenshots are in tools/smoke/test-results/.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+# shellcheck source=script/lib.sh
+source script/lib.sh
+ensure_worktree_env
+
+port() { local value=""; [[ -f .env ]] && value="$(sed -n "s/^$1=//p" .env | head -n1)"; echo "${value:-$2}"; }
+backend_port="$(port BACKEND_PORT 3100)"
+web_port="$(port FRONTEND_PORT 8100)"
+
+docker compose up -d db redis backend web
+
+# The backend runs db:prepare before it listens, and the web container installs its
+# dependencies on a first boot; both take a while.
+wait_for() { # name, url
+  echo "smoke: waiting for the $1 ($2)"
+  for _ in $(seq 1 150); do
+    curl -fs -o /dev/null "$2" && return 0
+    sleep 2
+  done
+  echo "smoke: the $1 never came up — see: docker compose logs $1" >&2
+  exit 1
+}
+wait_for backend "http://localhost:$backend_port/up"
+wait_for web "http://localhost:$web_port/"
+
+docker compose run --rm smoke

@@ -1,0 +1,115 @@
+# Host ports are overridable so a second checkout (a git worktree) can run its own stack
+# next to this one: `script/worktree-env` writes a root .env with a free set, which
+# Compose reads automatically. Without a .env the defaults below apply. The web app finds
+# its backend by the same offset (web/src/lib/config.ts): 8100+N talks to 3100+N.
+# The defaults differ from PikotChat's (8080/3000/5432/6379) so both stacks can run at once.
+services:
+  db:
+    # PostGIS on PostgreSQL 18: listing locations and area boundaries are geography columns.
+    # imresamu/postgis is the multi-arch build by a docker-postgis maintainer; the official
+    # postgis/postgis image is amd64-only and runs emulated (slowly) on Apple silicon.
+    image: imresamu/postgis:18-3.6
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "${DB_PORT:-5532}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6479}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    # RAILS_ENV lives here (not in `environment:` below) so it only applies to the server
+    # process. `environment:` is inherited by every `docker compose run backend ...`,
+    # including the specs — which need to fall back to their own `test` default.
+    command: bash -c "export RAILS_ENV=development && rm -f tmp/pids/server.pid && ./bin/rails db:prepare && ./bin/rails server -b 0.0.0.0"
+    volumes:
+      - ./backend:/app
+      - bundle_cache:/usr/local/bundle
+    ports:
+      - "${BACKEND_PORT:-3100}:3000"
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      FRONTEND_ORIGIN: http://localhost:${FRONTEND_PORT:-8100}
+      REDIS_URL: redis://redis:6379/1
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    image: node:24-alpine
+    working_dir: /web
+    # Dependencies go into a named volume (not the host's web/node_modules), reinstalled
+    # only when the lockfile changes.
+    command: >
+      sh -c "cmp -s package-lock.json node_modules/.installed-lock 2>/dev/null
+      || (npm ci --no-audit --no-fund && cp package-lock.json node_modules/.installed-lock);
+      npm run dev -- --hostname 0.0.0.0 --port 8080"
+    volumes:
+      - ./web:/web
+      - web_node_modules:/web/node_modules
+      # The API contract the web types are generated from (npm run api:types).
+      - ./backend/swagger:/backend/swagger:ro
+    ports:
+      - "${FRONTEND_PORT:-8100}:8080"
+    environment:
+      # Server-side rendering runs inside the container, so it reaches the API by its
+      # service name; the browser uses localhost:<backend port> (web/src/lib/config.ts).
+      API_INTERNAL_URL: http://backend:3000
+      NEXT_TELEMETRY_DISABLED: "1"
+    depends_on:
+      - backend
+
+  # Browser smoke test — run with script/smoke; the profile keeps it out of
+  # `docker compose up`. The image tag must match @playwright/test in
+  # tools/smoke/package.json, or Playwright can't find its browsers.
+  smoke:
+    image: mcr.microsoft.com/playwright:v1.63.0-noble
+    profiles: ["smoke"]
+    init: true
+    ipc: host
+    working_dir: /smoke
+    volumes:
+      - ./tools/smoke:/smoke
+    environment:
+      FRONTEND_PORT: ${FRONTEND_PORT:-8100}
+      BACKEND_PORT: ${BACKEND_PORT:-3100}
+      CI: ${CI:-}
+    command: >
+      sh -c "cmp -s package-lock.json node_modules/.installed-lock 2>/dev/null
+      || (npm ci --no-audit --no-fund --silent && cp package-lock.json node_modules/.installed-lock);
+      npx playwright test"
+    depends_on:
+      - web
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+  bundle_cache:
+  web_node_modules:

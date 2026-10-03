@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Lints the code. The one place the rubocop and eslint commands live.
+#
+#   script/lint               backend (rubocop) and frontend (eslint on web/)
+#   script/lint backend [rubocop arguments, e.g. -a app/models/user.rb]
+#   script/lint frontend [eslint arguments, e.g. src/app/page.tsx]
+#
+# Rubocop paths are relative to backend/, eslint paths to web/. Uses the running
+# containers when the stack is up, one-off containers otherwise. Needs Docker only.
+set -uo pipefail
+
+cd "$(dirname "$0")/.." || exit 1
+# shellcheck source=script/lib.sh
+source script/lib.sh
+
+area="${1:-all}"
+case "$area" in
+  all|backend|frontend) shift || true ;;
+  *) echo "usage: script/lint [backend [rubocop args] | frontend [eslint args]]" >&2; exit 2 ;;
+esac
+
+ensure_worktree_env
+status=0
+if [[ "$area" == all || "$area" == backend ]]; then
+  if [[ "$area" == all ]]; then backend_do - bin/rubocop || status=1
+  else backend_do - bin/rubocop "$@" || status=1; fi
+fi
+if [[ "$area" == all || "$area" == frontend ]]; then
+  if [[ "$area" == all ]]; then web_do npx eslint || status=1
+  else web_do npx eslint "$@" || status=1; fi
+fi
+exit "$status"
