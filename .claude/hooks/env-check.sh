@@ -38,6 +38,19 @@ if [[ "$(git rev-parse --path-format=absolute --git-dir 2>/dev/null)" != "$(git 
   [[ -f .env ]] || notes+=("this worktree has no .env yet: run script/worktree-env before the first docker compose command")
 fi
 
+# Hooks and guards run from the main checkout ($CLAUDE_PROJECT_DIR) even in a worktree
+# session, so it has to sit on an up-to-date staging for merged hook changes to apply.
+# Compared with the last fetch only: a session start doesn't touch the network.
+main_root="$(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | head -n1)"
+if [[ -n "$main_root" ]]; then
+  main_branch="$(git -C "$main_root" branch --show-current 2>/dev/null || true)"
+  if [[ "$main_branch" != "staging" ]]; then
+    notes+=("the main checkout is on ${main_branch:-a detached HEAD}, not staging — hooks run from there, so merged hook changes don't apply until it is back on an up-to-date staging. Tell the user (in that checkout, once its tree is clean: git switch staging && git pull --ff-only); don't switch it yourself")
+  elif behind="$(git -C "$main_root" rev-list --count HEAD..origin/staging 2>/dev/null)" && (( behind > 0 )); then
+    notes+=("the main checkout's staging is $behind commit(s) behind origin/staging — hooks run from there (git pull --ff-only in it, if its tree is clean)")
+  fi
+fi
+
 echo "Environment: $where; ${stack:-Docker unavailable}."
 for note in ${notes[@]+"${notes[@]}"}; do
   echo "- $note"
