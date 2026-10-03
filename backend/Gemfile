@@ -37,7 +37,7 @@ gem "solid_queue"
 gem "bootsnap", require: false
 
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
-gem "image_processing", "~> 1.2"
+gem "image_processing", "~> 2.2"
 
 # Redis-backed Action Cable adapter (chat). actioncable's redis adapter requires "< 6".
 gem "redis", "< 6"
