@@ -62,7 +62,8 @@ so a stale local `staging` makes it refuse a branch that is merged:
 1. `git fetch --prune` (the remote branch is deleted by GitHub on merge; this clears the
    stale ref).
 2. Update the main checkout only if it is on `staging` with a clean tree:
-   `git pull --ff-only`. If it's on another branch or has changes, leave it alone and say
+   `git merge --ff-only origin/staging` (not `git pull`: its `staging` may have no upstream,
+   and step 1 already fetched). If it's on another branch or has changes, leave it alone and say
    so — the user or another session is working there. (The session hooks and guards run
    from this checkout, so it should normally sit on an up-to-date `staging`.)
 3. Delete the merged local branch: `git branch -d <branch>` (`-d`, not `-D`). If git still
