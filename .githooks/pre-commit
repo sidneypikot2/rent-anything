@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Refuses commits on the two protected branches. Work goes on a task branch
+# (<area>/raa-<n>-<summary>), reaches staging through a pull request, and main through a
+# release (staging -> main). Enabled by `git config core.hooksPath .githooks` (Claude
+# Code sessions set it on start; see README). Also runs as pre-merge-commit.
+branch="$(git branch --show-current)"
+if [[ "$branch" == "main" || "$branch" == "staging" ]]; then
+  echo "pre-commit: refusing to commit on $branch — create a task branch first:" >&2
+  echo "  git switch -c <area>/raa-<n>-<kebab-summary>" >&2
+  exit 1
+fi
