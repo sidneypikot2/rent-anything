@@ -40,6 +40,9 @@ export function AuthCard({ role, redirectTo }: Props) {
   const [mode, setMode] = useState<Mode>("signin");
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
+  const [confirmError, setConfirmError] = useState<string>();
+  // Sign-up's two password fields show and hide together, so they can be compared.
+  const [showPasswords, setShowPasswords] = useState(false);
   const signup = mode === "signup";
 
   // Already signed in with this role (back button, a second tab): skip the form.
@@ -52,6 +55,8 @@ export function AuthCard({ role, redirectTo }: Props) {
   function switchTo(next: Mode) {
     setMode(next);
     setError(undefined);
+    setConfirmError(undefined);
+    setShowPasswords(false);
   }
 
   async function run(action: () => ReturnType<typeof signIn>) {
@@ -71,6 +76,11 @@ export function AuthCard({ role, redirectTo }: Props) {
     const password = value("password");
 
     if (signup && role !== "admin") {
+      // A typing check only; the API takes one password.
+      if (password !== value("password_confirmation")) {
+        setConfirmError("Passwords don't match");
+        return;
+      }
       const phone = value("phone");
       void run(() =>
         signUp({ email, password, name: value("name"), phone: phone || undefined, role }),
@@ -132,8 +142,22 @@ export function AuthCard({ role, redirectTo }: Props) {
               minLength={signup ? 8 : undefined}
               hint={signup ? "At least 8 characters" : undefined}
               action={forgotPassword}
+              visible={signup ? showPasswords : undefined}
+              onVisibleChange={signup ? setShowPasswords : undefined}
               required
             />
+            {signup && (
+              <PasswordField
+                label="Confirm password"
+                name="password_confirmation"
+                autoComplete="new-password"
+                error={confirmError}
+                visible={showPasswords}
+                onVisibleChange={setShowPasswords}
+                onChange={() => setConfirmError(undefined)}
+                required
+              />
+            )}
             {error && (
               <p role="alert" data-testid="auth-error" className="text-sm text-danger">
                 {error}

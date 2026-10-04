@@ -51,19 +51,37 @@ test("sign-up and the partner guard", async ({ page }) => {
   collectErrors(page, errors);
   const stamp = Date.now();
 
-  async function signUp(path, name, email) {
+  const password = () => page.getByLabel("Password", { exact: true });
+  const confirmation = () => page.getByLabel("Confirm password");
+
+  async function signUp(path, name, email, { checkConfirmation = false } = {}) {
     await page.goto(path);
     await page.getByRole("button", { name: "Create one" }).click();
     await page.getByLabel("Full name").fill(name);
     await page.getByLabel("Email").fill(email);
-    await page.getByLabel("Password").fill("password123");
+    await password().fill("password123");
+
+    if (checkConfirmation) {
+      // The two fields show and hide together.
+      await page.getByRole("button", { name: "Show" }).first().click();
+      await expect(password()).toHaveAttribute("type", "text");
+      await expect(confirmation()).toHaveAttribute("type", "text");
+
+      // A mismatch is caught before anything is sent.
+      await confirmation().fill("password124");
+      await page.getByRole("button", { name: "Create account" }).click();
+      await expect(page.getByText("Passwords don't match")).toBeVisible();
+      await expect(page).toHaveURL(new RegExp(`${path}$`));
+    }
+
+    await confirmation().fill("password123");
     await page.getByRole("button", { name: "Create account" }).click();
   }
 
   await page.goto("/partner");
   await expect(page).toHaveURL(/\/partner\/login$/);
 
-  await signUp("/login", "Smoke Guest", `guest-${stamp}@example.com`);
+  await signUp("/login", "Smoke Guest", `guest-${stamp}@example.com`, { checkConfirmation: true });
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByTestId("nav-user")).toHaveText("Smoke Guest");
 

@@ -9,15 +9,34 @@ type Props = {
   error?: string;
   // Shown at the right of the label row, e.g. a "Forgot password?" link.
   action?: ReactNode;
+  // Controlled visibility, to link several fields (password + confirmation). Omit both
+  // and the field keeps its own state.
+  visible?: boolean;
+  onVisibleChange?: (visible: boolean) => void;
 } & Omit<ComponentProps<"input">, "type">;
 
 // A password input like Field, with a Show/Hide toggle inside it.
-export function PasswordField({ label, hint, error, action, className, id, ...props }: Props) {
+export function PasswordField({
+  label,
+  hint,
+  error,
+  action,
+  visible: controlledVisible,
+  onVisibleChange,
+  className,
+  id,
+  ...props
+}: Props) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const noteId = `${inputId}-note`;
   const note = error ?? hint;
-  const [visible, setVisible] = useState(false);
+  const [ownVisible, setOwnVisible] = useState(false);
+  const visible = controlledVisible ?? ownVisible;
+  const setVisible = (next: boolean) => {
+    if (controlledVisible === undefined) setOwnVisible(next);
+    onVisibleChange?.(next);
+  };
 
   return (
     <div className="flex flex-col gap-1 text-sm font-medium">
@@ -43,7 +62,7 @@ export function PasswordField({ label, hint, error, action, className, id, ...pr
           type="button"
           aria-controls={inputId}
           aria-pressed={visible}
-          onClick={() => setVisible((shown) => !shown)}
+          onClick={() => setVisible(!visible)}
           disabled={props.disabled}
           className="absolute inset-y-0 right-0 px-3 text-xs font-semibold text-primary hover:text-primary-hover disabled:opacity-50"
         >
