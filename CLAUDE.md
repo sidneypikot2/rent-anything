@@ -43,7 +43,7 @@ Work is tracked in Jira, not in this repo: project `RAA` (Rent-Anything-Anywhere
 
 ## Running and checking
 
-Requires Docker Desktop only (and `jq`, `gh`). `docker compose up` — web at http://localhost:8100, backend at http://localhost:3100 (health check `/up`, API health `/api/v1/health`, OpenAPI at `/api-docs/v1/openapi.yaml`). The ports differ from PikotChat's so both stacks can run at once. First run creates the databases via `db:prepare`; the web container installs its dependencies into a volume.
+Requires Docker Desktop only (and `jq`, `gh`). `docker compose up` — web at http://localhost:8100, backend at http://localhost:3100 (health check `/up`, API health `/api/v1/health`, OpenAPI at `/api-docs/v1/openapi.yaml`; the team reads the docs on Scalar, published from `staging` by `.github/workflows/api-docs.yml`). The ports differ from PikotChat's so both stacks can run at once. First run creates the databases via `db:prepare`; the web container installs its dependencies into a volume.
 
 ```bash
 script/test [spec/path_spec.rb[:LINE]]    # backend specs; no argument: the full suite
