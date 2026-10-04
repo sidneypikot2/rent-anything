@@ -16,13 +16,13 @@ git worktree list
 ```
 
 Works from a fresh session: everything needed is in the Jira ticket (project and cloudId
-are in `CLAUDE.md`). Read it first — the description ends with `Discord thread:`,
-`Branch:` and `PR:` lines written by `/raa-task`.
+are in `CLAUDE.md`). Read it first — the description ends with `Branch:` and
+`PR:` lines written by `/raa-task`.
 
 If this session has already done work on a *different* RAA ticket, say so before anything
 else and recommend `/clear` and running `/raa-finish` again — every turn re-sends the whole
 conversation. Carry on here only if the user says to. The session that did this task's
-own work is fine (step 6 uses it).
+own work is fine (step 5 uses it).
 
 ## 1. Confirm the merge
 
@@ -71,13 +71,7 @@ so a stale local `staging` makes it refuse a branch that is merged:
    says it isn't merged, stop and report; when the checkout couldn't be updated in
    step 2, leave the branch and say so.
 
-## 5. Closing note
-
-Post one closing line in the task's Discord thread with the Discord `reply` tool
-(`chat_id` = the thread ID from the ticket), plus anything that did not get done. Skip it,
-and say so, when the thread is "none" or the Discord tool isn't available.
-
-## 6. Lessons
+## 5. Lessons
 
 What did CI, a reviewer or the user have to correct during this task? Look at the PR's
 failed checks and review comments, and at what the user corrected in this session if it

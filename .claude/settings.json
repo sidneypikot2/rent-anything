@@ -6,7 +6,6 @@
   },
   "permissions": {
     "allow": [
-      "Bash(.claude/skills/raa-task/scripts/discord-thread.sh:*)",
       "Bash(script/test:*)",
       "Bash(script/lint:*)",
       "Bash(script/check-docs)",
