@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
+import { PasswordField } from "@/components/ui/password-field";
 import { Pill } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, Price, SectionTitle } from "@/components/ui/typography";
 
@@ -107,6 +108,12 @@ export default function UiKit() {
           <Field label="Email" name="email" type="email" placeholder="you@example.com" />
           <Field label="Phone" name="phone" type="tel" hint="With country code, e.g. +63" />
           <Field label="Password" name="password" type="password" error="At least 8 characters" />
+          <PasswordField
+            label="Password with Show/Hide"
+            name="password-toggle"
+            hint="PasswordField, with an action in the label row"
+            action={<span className="text-xs font-medium text-link">Forgot password?</span>}
+          />
           <Field label="Disabled" name="disabled" disabled />
         </div>
       </Showcase>

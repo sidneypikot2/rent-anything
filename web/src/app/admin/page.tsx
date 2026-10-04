@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AuthCard } from "@/components/landing/auth-card";
+import { AuthCard } from "@/components/auth/auth-card";
 import { PlaceholderBlock } from "@/components/landing/placeholder-block";
 import { ButtonLink } from "@/components/ui/button";
 import { DisplayTitle } from "@/components/ui/typography";
@@ -32,7 +32,7 @@ export default function AdminHome() {
           ))}
         </div>
       </div>
-      <AuthCard mode="signin" audience="admin" title="Sign in" />
+      <AuthCard role="admin" />
     </main>
   );
 }

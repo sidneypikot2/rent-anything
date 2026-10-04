@@ -5,9 +5,9 @@ paths:
 
 # Backend conventions
 
-Topic rules load on top of this one when their files are read: `backend-migrations.md` (anything under `db/`). Add a topic rule (auth, payments, bookings) when that area is built — `SPEC.md` holds the design until then.
+Topic rules load on top of this one when their files are read: `backend-migrations.md` (anything under `db/`), `auth.md` (auth services, controllers, the web session). Add a topic rule (payments, bookings) when that area is built — `SPEC.md` holds the design until then.
 
-**API-only** (`ActionController::API`), versioned under `/api/v1` (`app/controllers/api/v1/`) — no views, no cookie sessions. The web app and the future mobile app are both clients of the same API. Access tokens are short-lived JWTs (`app/lib/json_web_token.rb`) sent as `Authorization: Bearer <token>`; refresh tokens arrive with sign-up (M1). CORS allows `ENV["FRONTEND_ORIGIN"]` (default `http://localhost:8100`).
+**API-only** (`ActionController::API`), versioned under `/api/v1` (`app/controllers/api/v1/`) — no views, no cookie sessions. The web app and the future mobile app are both clients of the same API. Access tokens are short-lived JWTs (`app/lib/json_web_token.rb`) sent as `Authorization: Bearer <token>`, with a refresh token from every sign-in (`auth.md`). CORS allows `ENV["FRONTEND_ORIGIN"]` (default `http://localhost:8100`).
 
 **API contract**: every endpoint has an rswag request spec (`spec/requests/api/v1/`, `require "swagger_helper"`) that both tests it and describes it, with a response `schema` — strict validation is on, so a response key the schema doesn't declare fails the spec. `swagger/v1/openapi.yaml` and `web/src/api/schema.d.ts` are generated from those specs: after changing an endpoint run `script/check-api --write` and commit both. Never edit either by hand (a hook blocks it).
 

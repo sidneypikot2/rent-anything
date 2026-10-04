@@ -16,6 +16,39 @@ RSpec.configure do |config|
       components: {
         securitySchemes: {
           bearer: { type: :http, scheme: :bearer, bearerFormat: "JWT" }
+        },
+        schemas: {
+          user: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              email: { type: :string },
+              name: { type: :string },
+              phone: { type: :string, nullable: true },
+              role: { type: :string, enum: %w[guest partner admin] }
+            },
+            required: %w[id email name phone role]
+          },
+          auth_tokens: {
+            type: :object,
+            properties: {
+              access_token: { type: :string },
+              refresh_token: { type: :string },
+              expires_in: { type: :integer, description: "Seconds until the access token expires" },
+              user: { "$ref" => "#/components/schemas/user" }
+            },
+            required: %w[access_token refresh_token expires_in user]
+          },
+          error: {
+            type: :object,
+            properties: { error: { type: :string } },
+            required: %w[error]
+          },
+          validation_errors: {
+            type: :object,
+            properties: { errors: { type: :array, items: { type: :string } } },
+            required: %w[errors]
+          }
         }
       }
     }

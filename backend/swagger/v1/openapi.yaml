@@ -26,6 +26,283 @@ paths:
                 required:
                 - status
                 - postgis
+  "/api/v1/me":
+    get:
+      summary: The signed-in user
+      tags:
+      - Auth
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the user
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/user"
+        '401':
+          description: an expired token
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/partner/me":
+    get:
+      summary: The signed-in partner
+      tags:
+      - Auth
+      description: Partner-only, like everything under /api/v1/partner.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/user"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/oauth/{provider}":
+    post:
+      summary: Sign in or sign up with Google or Facebook
+      tags:
+      - Auth
+      description: "`token` is a Google Identity Services ID token or a Facebook Login
+        access token. A new account gets `role`; an existing one must already have
+        it."
+      parameters:
+      - name: provider
+        in: path
+        schema:
+          type: string
+          enum:
+          - google
+          - facebook
+        required: true
+      responses:
+        '200':
+          description: a new user is created with the entry point's role
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/auth_tokens"
+        '401':
+          description: the provider rejects the token
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest's Google account on /partner/login
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '404':
+          description: unknown provider
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '422':
+          description: token missing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                role:
+                  type: string
+                  enum:
+                  - guest
+                  - partner
+              required:
+              - token
+              - role
+  "/api/v1/registrations":
+    post:
+      summary: Sign up with email and password
+      tags:
+      - Auth
+      description: "`role` is the entry point: `guest` from /login, `partner` from
+        /partner/login. Admin accounts are never self-made."
+      parameters: []
+      responses:
+        '201':
+          description: a sign-up from /partner makes a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/auth_tokens"
+        '422':
+          description: email already taken, in any case
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                name:
+                  type: string
+                phone:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+                role:
+                  type: string
+                  enum:
+                  - guest
+                  - partner
+              required:
+              - email
+              - name
+              - password
+              - role
+  "/api/v1/session":
+    post:
+      summary: Sign in with email and password
+      tags:
+      - Auth
+      description: "`role` is the entry point signed in from; an account of another
+        role gets 403."
+      parameters: []
+      responses:
+        '200':
+          description: signed in
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/auth_tokens"
+        '401':
+          description: an account made with Google has no password
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a partner account signing in on /login
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '422':
+          description: unknown role
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                role:
+                  type: string
+                  enum:
+                  - guest
+                  - partner
+                  - admin
+              required:
+              - email
+              - password
+              - role
+    delete:
+      summary: Sign out (revoke a refresh token)
+      tags:
+      - Auth
+      parameters: []
+      responses:
+        '204':
+          description: an unknown token is ignored
+        '422':
+          description: token missing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+              required:
+              - refresh_token
+  "/api/v1/tokens/refresh":
+    post:
+      summary: Trade a refresh token for new tokens
+      tags:
+      - Auth
+      description: Each refresh token works once. Reusing one revokes every session
+        of that user.
+      parameters: []
+      responses:
+        '200':
+          description: new tokens; the old refresh token is spent
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/auth_tokens"
+        '401':
+          description: an unknown token
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '422':
+          description: token given as an array
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+              required:
+              - refresh_token
 servers:
 - url: http://localhost:3000
 components:
@@ -34,3 +311,61 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  schemas:
+    user:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum:
+          - guest
+          - partner
+          - admin
+      required:
+      - id
+      - email
+      - name
+      - phone
+      - role
+    auth_tokens:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+          description: Seconds until the access token expires
+        user:
+          "$ref": "#/components/schemas/user"
+      required:
+      - access_token
+      - refresh_token
+      - expires_in
+      - user
+    error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+      - error
+    validation_errors:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: string
+      required:
+      - errors
