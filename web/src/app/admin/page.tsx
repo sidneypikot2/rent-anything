@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { AuthCard } from "@/components/landing/auth-card";
 import { PlaceholderBlock } from "@/components/landing/placeholder-block";
+import { ButtonLink } from "@/components/ui/button";
+import { DisplayTitle } from "@/components/ui/typography";
 
 export const metadata: Metadata = {
   title: "Admin · Rent-Anything",
@@ -18,7 +20,12 @@ export default function AdminHome() {
   return (
     <main className="mx-auto grid w-full max-w-5xl flex-1 gap-10 px-4 py-12 md:grid-cols-[1fr_20rem]">
       <div className="flex flex-col gap-6">
-        <h1 className="text-3xl font-semibold tracking-tight">Admin console</h1>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <DisplayTitle>Admin console</DisplayTitle>
+          <ButtonLink href="/admin/ui-kit" variant="soft" size="sm">
+            UI kit
+          </ButtonLink>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {PANELS.map((panel) => (
             <PlaceholderBlock key={panel.title} {...panel} />

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AuthCard } from "@/components/landing/auth-card";
 import { PlaceholderBlock } from "@/components/landing/placeholder-block";
+import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 
 export const metadata: Metadata = {
   title: "Partners · Rent-Anything",
@@ -19,13 +20,13 @@ export default function PartnerHome() {
   return (
     <main className="mx-auto grid w-full max-w-5xl flex-1 gap-10 px-4 py-12 md:grid-cols-[1fr_20rem]">
       <div className="flex flex-col gap-6">
-        <h1 className="text-4xl font-semibold tracking-tight">List with Rent-Anything</h1>
+        <DisplayTitle>List with Rent-Anything</DisplayTitle>
         <p className="text-lg text-muted">
           Rental shops, tour operators, van operators and guesthouses in Moalboal: reach travellers
           who book their whole trip in one place.
         </p>
         <section className="flex flex-col gap-3">
-          <h2 className="text-xl font-semibold">How it works</h2>
+          <SectionTitle>How it works</SectionTitle>
           <div className="grid gap-3 sm:grid-cols-2">
             {STEPS.map((step) => (
               <PlaceholderBlock key={step.title} {...step} />

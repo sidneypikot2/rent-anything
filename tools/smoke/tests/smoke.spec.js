@@ -24,10 +24,12 @@ test("home page renders and reaches the API", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-// The partner and admin entry points render with their own forms.
-for (const [path, heading, form] of [
+// The partner and admin entry points render with their own forms, and the UI kit page
+// renders every component.
+for (const [path, heading, testId] of [
   ["/partner", "List with Rent-Anything", "partner-signup"],
   ["/admin", "Admin console", "admin-signin"],
+  ["/admin/ui-kit", "Tidal Grove", "ui-kit"],
 ]) {
   test(`${path} renders`, async ({ page }) => {
     const errors = [];
@@ -35,7 +37,7 @@ for (const [path, heading, form] of [
 
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(heading);
-    await expect(page.getByTestId(form)).toBeVisible();
+    await expect(page.getByTestId(testId)).toBeVisible();
 
     expect(errors).toEqual([]);
   });
