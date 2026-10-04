@@ -16,13 +16,13 @@ git worktree list
 ```
 
 Works from a fresh session: everything needed is in the Jira ticket (project and cloudId
-are in `CLAUDE.md`). Read it first — the description ends with `Discord thread:`,
-`Branch:` and `PR:` lines written by `/raa-task`.
+are in `CLAUDE.md`). Read it first — the description ends with `Branch:` and
+`PR:` lines written by `/raa-task`.
 
 If this session has already done work on a *different* RAA ticket, say so before anything
 else and recommend `/clear` and running `/raa-finish` again — every turn re-sends the whole
 conversation. Carry on here only if the user says to. The session that did this task's
-own work is fine (step 6 uses it).
+own work is fine (step 5 uses it).
 
 ## 1. Confirm the merge
 
@@ -61,22 +61,17 @@ so a stale local `staging` makes it refuse a branch that is merged:
 
 1. `git fetch --prune` (the remote branch is deleted by GitHub on merge; this clears the
    stale ref).
-2. Update the main checkout only if it is on `staging` with a clean tree:
-   `git merge --ff-only origin/staging` (not `git pull`: its `staging` may have no upstream,
-   and step 1 already fetched). If it's on another branch or has changes, leave it alone and say
-   so — the user or another session is working there. (The session hooks and guards run
+2. Update the main checkout only if its tree is clean and it is on `staging` or on this
+   task's branch (a task without a migration was branched in place there): `git switch staging`
+   if needed, then `git merge --ff-only origin/staging` (not `git pull`: its `staging` may have
+   no upstream, and step 1 already fetched). If it's on another branch or has changes, leave it
+   alone and say so — the user or another session is working there. (The session hooks and guards run
    from this checkout, so it should normally sit on an up-to-date `staging`.)
 3. Delete the merged local branch: `git branch -d <branch>` (`-d`, not `-D`). If git still
    says it isn't merged, stop and report; when the checkout couldn't be updated in
    step 2, leave the branch and say so.
 
-## 5. Closing note
-
-Post one closing line in the task's Discord thread with the Discord `reply` tool
-(`chat_id` = the thread ID from the ticket), plus anything that did not get done. Skip it,
-and say so, when the thread is "none" or the Discord tool isn't available.
-
-## 6. Lessons
+## 5. Lessons
 
 What did CI, a reviewer or the user have to correct during this task? Look at the PR's
 failed checks and review comments, and at what the user corrected in this session if it
