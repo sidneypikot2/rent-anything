@@ -13,7 +13,7 @@ background: false
 This skill runs in a subagent, so the screenshots it takes never enter the session that
 asked for it. You have not seen that session's conversation: everything you know about the
 task is below and in the Jira ticket (project and cloudId are in `CLAUDE.md`; the ticket's
-description ends with its `Discord thread:`, `Branch:` and `PR:` lines).
+description ends with its `Branch:` and `PR:` lines).
 
 Verify: $ARGUMENTS
 
@@ -23,7 +23,7 @@ git diff --stat origin/staging...HEAD
 ```
 
 If nothing above says what to verify, verify what the diff changes, and say that is what
-you did. With no ticket key, skip the Jira and Discord steps and say so.
+you did. With no ticket key, skip the Jira step and say so.
 
 `script/smoke` already proves the basics automatically — the web app loads without
 script errors and reaches the API (`tools/smoke/tests/`). Run it first; if it fails, fix
@@ -99,8 +99,6 @@ Screenshots are the most expensive part of a verification run. Keep them few and
   versions, so find the attachment-upload operation with its `discover` tool rather than
   from memory. Embed the file once — don't also attach it to the issue separately. If the
   upload can't be done, say so and give the screenshot paths instead.
-- Discord: one line in the task's thread saying what was verified, pointing at the ticket.
-  Don't re-upload the screenshots there.
 - Do this when the PR is opened and the ticket moves to In Review.
 
 ## Return
