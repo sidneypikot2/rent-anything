@@ -44,7 +44,10 @@ fi
 main_root="$(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | head -n1)"
 if [[ -n "$main_root" ]]; then
   main_branch="$(git -C "$main_root" branch --show-current 2>/dev/null || true)"
-  if [[ "$main_branch" != "staging" ]]; then
+  # A task without a migration is branched in place, cut from an up-to-date staging.
+  if [[ "$main_branch" =~ ^(frontend|backend|infra)/raa-[0-9]+- ]]; then
+    :
+  elif [[ "$main_branch" != "staging" ]]; then
     notes+=("the main checkout is on ${main_branch:-a detached HEAD}, not staging — hooks run from there, so merged hook changes don't apply until it is back on an up-to-date staging. Tell the user (in that checkout, once its tree is clean: git switch staging && git fetch && git merge --ff-only origin/staging); don't switch it yourself")
   elif behind="$(git -C "$main_root" rev-list --count HEAD..origin/staging 2>/dev/null)" && (( behind > 0 )); then
     notes+=("the main checkout's staging is $behind commit(s) behind origin/staging — hooks run from there (git fetch && git merge --ff-only origin/staging in it, if its tree is clean)")
