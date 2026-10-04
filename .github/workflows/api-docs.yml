@@ -1,0 +1,55 @@
+name: API docs
+
+# Publishes the API contract to Scalar's registry, so the team can read the docs without
+# running the stack. Runs when the generated contract changes on staging; run it by hand
+# (workflow_dispatch) for the first publish or to republish.
+on:
+  push:
+    branches: [ staging ]
+    paths: [ backend/swagger/v1/openapi.yaml ]
+  workflow_dispatch:
+
+# The job only reads the repository; it talks to Scalar with its own token.
+permissions:
+  contents: read
+
+# Two merges in a row: only the newest contract needs publishing.
+concurrency:
+  group: api-docs
+  cancel-in-progress: true
+
+env:
+  # Pinned: a new version of the CLI runs with SCALAR_API_KEY in scope. It needs Node >= 24.
+  SCALAR_CLI: "@scalar/cli@2.8.0"
+  SPEC: backend/swagger/v1/openapi.yaml
+
+jobs:
+  publish:
+    # A manual run can pick any branch; only staging's contract goes on the team's docs.
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Validate the contract
+        run: npx --yes "$SCALAR_CLI" document validate "$SPEC"
+
+      # info.version stays "v1" across changes, so --force overwrites that version on every
+      # publish; without it Scalar rejects every publish after the first. The docs are private:
+      # only members of the Scalar team can read them.
+      # auth login reads SCALAR_API_KEY itself, which keeps the token out of the process list.
+      - name: Publish to Scalar
+        env:
+          SCALAR_API_KEY: ${{ secrets.SCALAR_API_KEY }}
+        run: |
+          npx --yes "$SCALAR_CLI" auth login
+          npx --yes "$SCALAR_CLI" registry publish "$SPEC" \
+            --namespace rent-anything --slug rent-anything-api \
+            --version "$(yq '.info.version' "$SPEC")" --private --force
