@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { PasswordField } from "@/components/ui/password-field";
 import { oauthSignIn, signIn, signUp, type OauthProvider, type Role } from "@/lib/auth/actions";
+import { DASHBOARD_PATHS } from "@/lib/auth/paths";
 import { useSession } from "@/lib/auth/session";
 import { OauthButtons, hasOauthProviders } from "./oauth-buttons";
 
@@ -20,9 +21,9 @@ const TITLES: Record<Role, Record<Mode, string>> = {
 
 type Props = {
   // The entry point: a guest form makes guests, a partner form partners. Admin is
-  // sign-in only: no sign-up, no Google/Facebook, no password reset.
+  // sign-in only: no sign-up, no Google/Facebook, no password reset. Signing in lands
+  // on the role's dashboard.
   role: Role;
-  redirectTo: string;
 };
 
 // A link-styled button for switching views inside the card.
@@ -34,8 +35,9 @@ function TextButton({ onClick, children }: { onClick: () => void; children: Reac
   );
 }
 
-export function AuthCard({ role, redirectTo }: Props) {
+export function AuthCard({ role }: Props) {
   const router = useRouter();
+  const redirectTo = DASHBOARD_PATHS[role];
   const selfServe = role !== "admin";
   const [mode, setMode] = useState<Mode>("signin");
   const [error, setError] = useState<string>();

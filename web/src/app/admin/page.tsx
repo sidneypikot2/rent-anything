@@ -32,7 +32,7 @@ export default function AdminHome() {
           ))}
         </div>
       </div>
-      <AuthCard role="admin" redirectTo="/admin" />
+      <AuthCard role="admin" />
     </main>
   );
 }

@@ -78,21 +78,27 @@ test("sign-up and the partner guard", async ({ page }) => {
     await page.getByRole("button", { name: "Create account" }).click();
   }
 
+  // Signed out, both dashboards send you to their login.
   await page.goto("/partner");
   await expect(page).toHaveURL(/\/partner\/login$/);
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/login$/);
 
   await signUp("/login", "Smoke Guest", `guest-${stamp}@example.com`, { checkConfirmation: true });
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByTestId("guest-dashboard")).toBeVisible();
   await expect(page.getByTestId("nav-user")).toHaveText("Smoke Guest");
 
+  // A guest on a partner page is sent to their own dashboard.
   await page.goto("/partner");
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).not.toHaveURL(/\/partner/);
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByTestId("nav-signin")).toBeVisible();
 
   await signUp("/partner/login", "Smoke Partner", `partner-${stamp}@example.com`);
-  await expect(page).toHaveURL(/\/partner$/);
+  await expect(page).toHaveURL(/\/partner\/dashboard$/);
   await expect(page.getByTestId("partner-dashboard")).toBeVisible();
 
   expect(errors).toEqual([]);
