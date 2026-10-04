@@ -21,7 +21,7 @@ export function ApiStatus() {
   else if (!isPending) label = `API ${data.status} · PostGIS ${data.postgis}`;
 
   return (
-    <p data-testid="api-status" className="text-sm text-neutral-500">
+    <p data-testid="api-status" className="text-sm text-muted">
       {label}
     </p>
   );

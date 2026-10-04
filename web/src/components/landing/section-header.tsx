@@ -14,13 +14,13 @@ export function SectionHeader({ section }: { section: Section }) {
   const label = SECTION_LABELS[section];
 
   return (
-    <header className="border-b border-neutral-200 dark:border-neutral-800">
+    <header className="bg-navy text-white">
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-3">
         <Link href={section === "guest" ? "/" : `/${section}`} className="font-semibold">
-          Rent-Anything
-          {label && <span className="ml-2 text-sm font-normal text-neutral-500">{label}</span>}
+          Rent-<span className="text-gold">Anything</span>
+          {label && <span className="ml-2 text-sm font-normal text-mist">{label}</span>}
         </Link>
-        <nav className="text-sm text-neutral-600 dark:text-neutral-400">
+        <nav className="text-sm text-mist [&_a]:hover:text-white">
           {section === "guest" && <Link href="/partner">List with us</Link>}
           {section === "partner" && <Link href="/">Book a trip</Link>}
         </nav>

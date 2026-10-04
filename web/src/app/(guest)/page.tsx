@@ -17,7 +17,7 @@ export default function Home() {
     <main className="mx-auto grid w-full max-w-5xl flex-1 gap-10 px-4 py-12 md:grid-cols-[1fr_20rem]">
       <div className="flex flex-col gap-6">
         <h1 className="text-4xl font-semibold tracking-tight">Plan your trip to Moalboal</h1>
-        <p className="text-lg text-neutral-600 dark:text-neutral-400">
+        <p className="text-lg text-muted">
           Tours, airport transfers, motorbikes, freediving gear and stays, booked together in one
           cart.
         </p>
