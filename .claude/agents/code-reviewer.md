@@ -18,9 +18,9 @@ What to check, where the diff touches it:
 
 - **Service boundary.** Business logic and validation live in a service under
   `backend/app/services/`; a controller only turns a service's result into a response.
-- **Authorization.** A lookup goes through `current_user` (an owner's listings, a renter's
+- **Authorization.** A lookup goes through `current_user` (a partner's listings, a guest's
   bookings and carts), or the service raises `NotAuthorizedError`. Every new write action
-  has a spec for the wrong-user case (another renter, another owner, a non-admin).
+  has a spec for the wrong-user case (another guest, another partner, a non-admin).
 - **Money.** Amounts are integer centavos (`*_cents`), never floats or decimals parsed from
   strings. A booking stores its price breakdown and commission rate when it is created;
   later changes to a listing's prices or a category's commission must not change it.

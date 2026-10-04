@@ -18,13 +18,13 @@ IPROG RentGo for vehicles; Klook/Traveloka for activities; Airbnb/Agoda for stay
 risk is not competition but having enough listings and trust in one place, so launch in
 one area with the categories tourists already search for, prove bookings, then expand.
 
-**Money**: the renter pays everything in-app; the platform keeps a commission per booking
-(rate set per category), holds the security deposit, and pays the owner out after the
+**Money**: the guest pays everything in-app; the platform keeps a commission per booking
+(rate set per category), holds the security deposit, and pays the partner out after the
 rental ends. Escrow and payouts go through a licensed gateway — the platform never holds
 funds itself.
 
-**Owners** are individuals and small businesses: rental shops, tour operators, van
-operators, guesthouses and small resorts. Owners are ID-verified before they can list;
+**Partners** are individuals and small businesses: rental shops, tour operators, van
+operators, guesthouses and small resorts. Partners are ID-verified before they can list;
 listings are approved by an admin.
 
 ## Domain decisions
@@ -62,7 +62,14 @@ availability works.
 Bookings hold a `period tstzrange`. A `EXCLUDE USING gist (listing_unit_id WITH =, period
 WITH &&) WHERE (state is active)` constraint makes overlapping bookings of the same unit
 impossible even under concurrent checkouts. Activity and shuttle seats are counted under a
-row lock on the slot. Owners block dates with `availability_blocks`.
+row lock on the slot. Partners block dates with `availability_blocks`.
+
+### Three entry points
+
+- `/` is for guests (travellers, signed in or not). A sign-up there creates a **guest**.
+- `/partner` is for partners (suppliers). A sign-up there creates a **partner**.
+- `/admin` is for the team. Sign-in only; admin accounts are never self-made.
+- `partner` and `admin` are reserved: no area may use them as its slug.
 
 ### Area-first, with a cart per area
 
@@ -77,8 +84,8 @@ row lock on the slot. Owners block dates with `availability_blocks`.
 - The cart holds nothing: availability and price are re-quoted at checkout, and changed
   items are flagged.
 - **Checkout** creates a `trip` with one booking per item and one payment, split to each
-  owner. Instant-book items are held for 15 minutes while payment completes. Request-to-book
-  items go out as requests first ("Send requests"), and the traveller pays once owners
+  partner. Instant-book items are held for 15 minutes while payment completes. Request-to-book
+  items go out as requests first ("Send requests"), and the traveller pays once partners
   accept — a declined item is never charged.
 
 ### Booking lifecycle
@@ -94,34 +101,34 @@ snapshotted on the booking.
 
 ### Trust
 
-ID verification (government ID + selfie) before an owner can list; admin approval of
-owners and listings; reviews after completion; condition photos at pickup and return;
-deposits held in-app; an owner's exact location and contact details are revealed only
+ID verification (government ID + selfie) before a partner can list; admin approval of
+partners and listings; reviews after completion; condition photos at pickup and return;
+deposits held in-app; a partner's exact location and contact details are revealed only
 after a booking is paid (keeps deals on the platform).
 
 ## Integrations (confirm against current docs when the milestone starts)
 
-- **Payments — Xendit (xenPlatform)**: split payments to a sub-account per owner,
+- **Payments — Xendit (xenPlatform)**: split payments to a sub-account per partner,
   GCash/Maya/cards, disbursements to GCash and banks. Webhooks are idempotent, keyed by the
   gateway's event id. E-wallets can't authorise-and-hold, so the deposit is charged and
   refunded after a clean return. PayMongo is the fallback if xenPlatform onboarding
   (business registration) blocks.
 - **Phone OTP**: an SMS provider behind `Sms::Sender` (Semaphore or Twilio Verify; chosen at M1).
 - **Maps**: MapLibre GL with MapTiler tiles on the web; search is PostGIS on the API.
-  Owners drop a pin rather than geocoding an address.
+  Partners drop a pin rather than geocoding an address.
 - **Files**: Active Storage on S3-compatible storage (Cloudflare R2). ID documents in a
   private bucket, reachable only through short-lived signed URLs for admins.
-- **Chat**: Action Cable over Redis, one conversation per listing + renter.
+- **Chat**: Action Cable over Redis, one conversation per listing + guest.
 
 ## Roadmap
 
 | # | Milestone | Contents |
 |---|---|---|
 | M0 | Foundation | Monorepo, Docker stack, API contract, CI, Claude workflow |
-| M1 | Auth & accounts | Email/password, phone OTP, JWT access + refresh tokens, roles (renter, owner, admin), profile |
+| M1 | Auth & accounts | Email/password, phone OTP, JWT access + refresh tokens, roles (guest, partner, admin), profile |
 | M2 | Areas, categories, listings | Listing CRUD, photos, attrs schema, pricing tiers, PostGIS search, area home (map + list), listing page |
-| M3 | Availability & quotes | Units, blocks, activity slots, transfer routes, the exclusion constraint, quotes, owner calendar |
-| M4 | Cart, booking & payments | Per-area cart (server + guest merge), trip checkout, booking lifecycle, Xendit split payment + webhooks, commission, deposit, cancellation policies, payouts |
+| M3 | Availability & quotes | Units, blocks, activity slots, transfer routes, the exclusion constraint, quotes, partner calendar |
+| M4 | Cart, booking & payments | Per-area cart (server + signed-out cart merge), trip checkout, booking lifecycle, Xendit split payment + webhooks, commission, deposit, cancellation policies, payouts |
 | M5 | Trust | ID verification + admin review, listing approval, reviews, contact masking |
 | M6 | Chat | Conversations per listing/booking |
 | M7 | Operations | Pickup/return checklists with photos, disputes, admin console |
@@ -129,7 +136,7 @@ after a booking is paid (keeps deals on the platform).
 
 Later, once the first area has steady bookings: curated bundles, delivery by riders, a
 damage-protection partner, more categories (cars, boats, camping, event gear), more areas
-and English/Filipino/Cebuano, owner tools (dynamic pricing, fleets, analytics), iCal sync
+and English/Filipino/Cebuano, partner tools (dynamic pricing, fleets, analytics), iCal sync
 for stays, loyalty and referrals.
 
 ## Not built: API routes
@@ -146,8 +153,8 @@ Planned shape; the route tables below are checked against `routes.rb`.
 | `/api/v1/quotes` | price and availability for a listing and period |
 | `/api/v1/areas/:slug/cart` | the signed-in user's cart for that area, and its items |
 | `/api/v1/checkouts` | turn a cart into a trip, bookings and a payment |
-| `/api/v1/bookings` | a renter's bookings; owner accept/decline |
-| `/api/v1/owner/listings` | an owner's listings, units, calendar and routes |
+| `/api/v1/bookings` | a guest's bookings; partner accept/decline |
+| `/api/v1/partner/listings` | a partner's listings, units, calendar and routes |
 | `/api/v1/kyc_submissions` | ID + selfie upload |
 | `/api/v1/webhooks/xendit` | payment and payout events |
 | `/api/v1/admin/listings` | approval queue, commission per category, disputes |

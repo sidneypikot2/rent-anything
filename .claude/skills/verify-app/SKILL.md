@@ -1,6 +1,6 @@
 ---
 name: verify-app
-description: Run Rent-Anything locally and prove a change works in the real app - start the Docker stack, seed the dev test accounts, drive the web app in Chrome (renter, owner and admin views), capture screenshots and post them to the Jira ticket.
+description: Run Rent-Anything locally and prove a change works in the real app - start the Docker stack, seed the dev test accounts, drive the web app in Chrome (guest, partner and admin views), capture screenshots and post them to the Jira ticket.
 argument-hint: "<RAA-n> <what to verify>"
 disable-model-invocation: true
 context: fork
@@ -54,8 +54,8 @@ change.
 ## 2. Test data
 
 Once sign-up exists (M1), test accounts come from the development seeds
-(`docker compose exec -T -e RAILS_ENV=development backend bin/rails db:seed`): a renter, an
-owner with a Moalboal listing, and an admin. The seed file is the source of truth for
+(`docker compose exec -T -e RAILS_ENV=development backend bin/rails db:seed`): a guest, a
+partner with a Moalboal listing, and an admin. The seed file is the source of truth for
 their emails and password. Use these, never the user's real accounts. If the seeds don't
 cover what you need to verify, say so rather than creating data by hand.
 
@@ -65,7 +65,7 @@ in `command:`, not in `environment:`, so exec'd processes don't inherit it.
 ## 3. Drive it in Chrome
 
 1. Open `http://localhost:8100` in a new tab.
-2. For anything involving two roles (a renter books, the owner accepts), use one tab per
+2. For anything involving two roles (a guest books, the partner accepts), use one tab per
    role in separate windows or profiles, and sign in one at a time. Use one tab as the
    actor and the other as the observer when clicks in the second tab don't register.
 3. Exercise the change the way a user would, including the unhappy path (empty input,
