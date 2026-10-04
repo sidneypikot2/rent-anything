@@ -19,7 +19,7 @@ test("home page renders and reaches the API", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Moalboal");
   await expect(page.getByTestId("api-status")).toContainText("API ok");
-  await expect(page.getByTestId("guest-cta")).toBeVisible();
+  await expect(page.getByTestId("nav-signin")).toBeVisible();
 
   expect(errors).toEqual([]);
 });
@@ -28,7 +28,7 @@ test("home page renders and reaches the API", async ({ page }) => {
 // page renders every component.
 for (const [path, heading, testId] of [
   ["/login", null, "guest-signin"],
-  ["/partner/login", "List with Rent-Anything", "partner-signup"],
+  ["/partner/login", "List with Rent-Anything", "partner-signin"],
   ["/admin", "Admin console", "admin-signin"],
   ["/admin/ui-kit", "Tidal Grove", "ui-kit"],
 ]) {
@@ -53,11 +53,11 @@ test("sign-up and the partner guard", async ({ page }) => {
 
   async function signUp(path, name, email) {
     await page.goto(path);
-    await page.getByRole("button", { name: "Create account" }).first().click();
+    await page.getByRole("button", { name: "Create one" }).click();
     await page.getByLabel("Full name").fill(name);
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill("password123");
-    await page.getByRole("button", { name: "Create account" }).last().click();
+    await page.getByRole("button", { name: "Create account" }).click();
   }
 
   await page.goto("/partner");

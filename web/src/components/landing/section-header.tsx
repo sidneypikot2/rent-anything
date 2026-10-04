@@ -29,9 +29,18 @@ export function SectionHeader({ section }: { section: Section }) {
           )}
         </Link>
         <nav className="flex items-center gap-4 text-sm font-medium text-on-dark [&_a]:hover:text-white">
-          {section === "guest" && <Link href="/partner/login">List with us</Link>}
-          {section === "partner" && <Link href="/">Book a trip</Link>}
-          <AccountNav section={section} />
+          {section === "guest" && (
+            <>
+              <AccountNav section={section} />
+              <Link href="/partner/login">List with us</Link>
+            </>
+          )}
+          {section !== "guest" && (
+            <>
+              {section === "partner" && <Link href="/">Book a trip</Link>}
+              <AccountNav section={section} />
+            </>
+          )}
         </nav>
       </div>
     </header>

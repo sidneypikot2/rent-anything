@@ -1,11 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Card, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
-import { Pill } from "@/components/ui/pill";
+import { PasswordField } from "@/components/ui/password-field";
 import { oauthSignIn, signIn, signUp, type OauthProvider, type Role } from "@/lib/auth/actions";
 import { useSession } from "@/lib/auth/session";
 import { OauthButtons, hasOauthProviders } from "./oauth-buttons";
@@ -20,16 +20,24 @@ const TITLES: Record<Role, Record<Mode, string>> = {
 
 type Props = {
   // The entry point: a guest form makes guests, a partner form partners. Admin is
-  // sign-in only, with no sign-up and no Google/Facebook.
+  // sign-in only: no sign-up, no Google/Facebook, no password reset.
   role: Role;
   redirectTo: string;
-  initialMode?: Mode;
 };
 
-export function AuthCard({ role, redirectTo, initialMode = "signin" }: Props) {
+// A link-styled button for switching views inside the card.
+function TextButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} className="font-semibold text-link hover:underline">
+      {children}
+    </button>
+  );
+}
+
+export function AuthCard({ role, redirectTo }: Props) {
   const router = useRouter();
   const selfServe = role !== "admin";
-  const [mode, setMode] = useState<Mode>(selfServe ? initialMode : "signin");
+  const [mode, setMode] = useState<Mode>("signin");
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
   const signup = mode === "signup";
@@ -40,6 +48,11 @@ export function AuthCard({ role, redirectTo, initialMode = "signin" }: Props) {
   useEffect(() => {
     if (signedInHere) router.replace(redirectTo);
   }, [signedInHere, redirectTo, router]);
+
+  function switchTo(next: Mode) {
+    setMode(next);
+    setError(undefined);
+  }
 
   async function run(action: () => ReturnType<typeof signIn>) {
     setPending(true);
@@ -84,19 +97,26 @@ export function AuthCard({ role, redirectTo, initialMode = "signin" }: Props) {
     );
   }
 
+  // Password reset isn't built yet: the link is there so the layout is final.
+  const forgotPassword = selfServe && !signup && (
+    <button type="button" className="text-xs font-medium text-link hover:underline">
+      Forgot password?
+    </button>
+  );
+
   return (
     <Card data-testid={`${role}-${mode}`} className="w-full self-start">
-      <CardBody pad="lg" className="flex flex-col gap-4">
+      <CardBody pad="lg" className="flex flex-col gap-5">
         <h2 className="font-display text-2xl font-bold italic">{TITLES[role][mode]}</h2>
 
-        {selfServe && (
-          <div className="flex gap-2" role="group" aria-label="Sign in or create an account">
-            <Pill on={!signup} onClick={() => setMode("signin")}>
-              Sign in
-            </Pill>
-            <Pill on={signup} onClick={() => setMode("signup")}>
-              Create account
-            </Pill>
+        {selfServe && hasOauthProviders() && (
+          <div className="flex flex-col gap-4">
+            <OauthButtons disabled={pending} onToken={onOauthToken} />
+            <div className="flex items-center gap-3 text-xs text-muted" aria-hidden="true">
+              <span className="h-px flex-1 bg-line" />
+              or continue with email
+              <span className="h-px flex-1 bg-line" />
+            </div>
           </div>
         )}
 
@@ -105,13 +125,13 @@ export function AuthCard({ role, redirectTo, initialMode = "signin" }: Props) {
             {signup && <Field label="Full name" name="name" type="text" autoComplete="name" required />}
             <Field label="Email" name="email" type="email" autoComplete="email" required />
             {signup && <Field label="Phone" name="phone" type="tel" autoComplete="tel" hint="Optional" />}
-            <Field
+            <PasswordField
               label="Password"
               name="password"
-              type="password"
               autoComplete={signup ? "new-password" : "current-password"}
               minLength={signup ? 8 : undefined}
               hint={signup ? "At least 8 characters" : undefined}
+              action={forgotPassword}
               required
             />
             {error && (
@@ -125,11 +145,19 @@ export function AuthCard({ role, redirectTo, initialMode = "signin" }: Props) {
           </fieldset>
         </form>
 
-        {selfServe && hasOauthProviders() && (
-          <>
-            <p className="text-center text-xs text-muted">or</p>
-            <OauthButtons disabled={pending} onToken={onOauthToken} />
-          </>
+        {selfServe && (
+          <p className="text-center text-sm text-muted">
+            {signup ? (
+              <>
+                Already have an account? <TextButton onClick={() => switchTo("signin")}>Sign in</TextButton>
+              </>
+            ) : (
+              <>
+                Don&apos;t have an account?{" "}
+                <TextButton onClick={() => switchTo("signup")}>Create one</TextButton>
+              </>
+            )}
+          </p>
         )}
       </CardBody>
     </Card>

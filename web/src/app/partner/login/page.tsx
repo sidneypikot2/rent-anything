@@ -35,7 +35,7 @@ export default function PartnerLogin() {
           </div>
         </section>
       </div>
-      <AuthCard role="partner" redirectTo="/partner" initialMode="signup" />
+      <AuthCard role="partner" redirectTo="/partner" />
     </main>
   );
 }

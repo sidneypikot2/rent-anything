@@ -8,17 +8,16 @@ import type { Section } from "@/components/landing/section-header";
 
 const LOGIN_PATHS: Partial<Record<Section, string>> = { guest: "/login", partner: "/partner/login" };
 
-// The header's account links: "Sign in" for the section's login page, or the signed-in
-// user's name and "Sign out".
+// The header's account links: the signed-in user's name and "Sign out", or, signed out,
+// "Sign in" in the guest section only (partner and admin pages show their own form).
 export function AccountNav({ section }: { section: Section }) {
   const router = useRouter();
   const session = useSession();
   if (session === undefined) return null;
 
   if (session === null) {
-    const loginPath = LOGIN_PATHS[section];
-    return loginPath ? (
-      <Link href={loginPath} data-testid="nav-signin">
+    return section === "guest" ? (
+      <Link href="/login" data-testid="nav-signin">
         Sign in
       </Link>
     ) : null;
