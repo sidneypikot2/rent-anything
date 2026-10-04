@@ -30,10 +30,21 @@ RSpec.describe "Tokens", type: :request do
         schema "$ref" => "#/components/schemas/error"
 
         let!(:other_session) { Auth::IssueTokens.call(user)[:refresh_token] }
-        before { RefreshToken.find_by_token(refresh_token).revoke! }
+        before { RefreshToken.find_by_token(refresh_token).update!(revoked_at: 2.minutes.ago) }
 
         run_test! do
           expect(RefreshToken.find_by_token(other_session)).not_to be_active
+        end
+      end
+
+      response "401", "a token spent seconds ago (two tabs refreshing at once) leaves other sessions alone" do
+        schema "$ref" => "#/components/schemas/error"
+
+        let!(:other_session) { Auth::IssueTokens.call(user)[:refresh_token] }
+        before { RefreshToken.find_by_token(refresh_token).revoke! }
+
+        run_test! do
+          expect(RefreshToken.find_by_token(other_session)).to be_active
         end
       end
 

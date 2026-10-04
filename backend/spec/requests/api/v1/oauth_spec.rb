@@ -47,7 +47,7 @@ RSpec.describe "OAuth", type: :request do
       response "403", "a guest's Google account on /partner/login" do
         schema "$ref" => "#/components/schemas/error"
         let(:body) { { token: "google-id-token", role: "partner" } }
-        before { create(:user, email: "ana@example.com") }
+        before { create(:user, :oauth_only, email: "ana@example.com") }
 
         run_test! { expect(OauthIdentity.count).to eq(0) }
       end
@@ -57,6 +57,13 @@ RSpec.describe "OAuth", type: :request do
         let(:provider) { "myspace" }
 
         run_test!
+      end
+
+      response "422", "the email belongs to a password account, which is never linked" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        before { create(:user, email: "ana@example.com") }
+
+        run_test! { expect(OauthIdentity.count).to eq(0) }
       end
 
       response "422", "token missing" do

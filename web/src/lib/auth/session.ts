@@ -7,15 +7,30 @@ export type Session = { accessToken: string; refreshToken: string; user: User };
 
 // The signed-in session lives in this browser's localStorage: an access token (15 min),
 // the refresh token that renews it, and the user. Storage can throw (private windows,
-// blocked site data), so every access is guarded and a failure reads as signed out.
+// blocked site data); then the session is kept in memory and lasts until the page reloads.
 const KEY = "raa.session";
 const CHANGE_EVENT = "raa:session";
 
+let memory: string | null = null;
+let storageFailed = false;
+
 function readRaw(): string | null {
+  if (storageFailed) return memory;
   try {
     return window.localStorage.getItem(KEY);
   } catch {
-    return null;
+    storageFailed = true;
+    return memory;
+  }
+}
+
+function writeRaw(value: string | null) {
+  memory = value;
+  try {
+    if (value === null) window.localStorage.removeItem(KEY);
+    else window.localStorage.setItem(KEY, value);
+  } catch {
+    storageFailed = true;
   }
 }
 
@@ -38,20 +53,12 @@ export function saveSession(tokens: AuthTokens) {
     refreshToken: tokens.refresh_token,
     user: tokens.user,
   };
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(session));
-  } catch {
-    // Without storage the session lasts until the page reloads.
-  }
+  writeRaw(JSON.stringify(session));
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
 export function clearSession() {
-  try {
-    window.localStorage.removeItem(KEY);
-  } catch {
-    // Nothing stored.
-  }
+  writeRaw(null);
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 

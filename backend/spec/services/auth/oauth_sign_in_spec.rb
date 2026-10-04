@@ -20,11 +20,21 @@ RSpec.describe Auth::OauthSignIn do
     expect(User.count).to eq(1)
   end
 
-  it "links Google to an existing account with the same verified email" do
-    user = create(:user, email: "ana@example.com")
+  it "links Google to a passwordless account with the same verified email" do
+    user = create(:user, :oauth_only, email: "ana@example.com")
+    user.oauth_identities.create!(provider: "facebook", uid: "fb-1")
 
     expect(sign_in.dig(:user, "id")).to eq(user.id)
-    expect(user.oauth_identities.pluck(:provider)).to eq([ "google" ])
+    expect(user.oauth_identities.pluck(:provider)).to contain_exactly("facebook", "google")
+  end
+
+  # Email sign-ups don't prove the address: linking would let whoever registered it first
+  # share the real owner's account.
+  it "never links to a password account, even with Google's verified email" do
+    create(:user, email: "ana@example.com")
+
+    expect { sign_in }.to raise_error(ActiveRecord::RecordInvalid, /already exists/)
+    expect(OauthIdentity.count).to eq(0)
   end
 
   it "doesn't link Facebook to an existing account, since its email isn't verified" do

@@ -45,12 +45,9 @@ export function AuthCard({ role, redirectTo, initialMode = "signin" }: Props) {
     setPending(true);
     setError(undefined);
     const result = await action();
-    if (result.ok) {
-      router.replace(redirectTo);
-    } else {
-      setError(result.error);
-      setPending(false);
-    }
+    setPending(false);
+    if (result.ok) router.replace(redirectTo);
+    else setError(result.error);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -73,6 +70,18 @@ export function AuthCard({ role, redirectTo, initialMode = "signin" }: Props) {
   function onOauthToken(provider: OauthProvider, token: string) {
     if (role === "admin") return;
     void run(() => oauthSignIn(provider, token, role));
+  }
+
+  // Shown while the redirect happens, and for good where the form's page is the
+  // destination (/admin).
+  if (signedInHere) {
+    return (
+      <Card data-testid={`${role}-signed-in`} className="w-full self-start">
+        <CardBody pad="lg">
+          <p className="text-sm text-muted">Signed in as {session.user.name}.</p>
+        </CardBody>
+      </Card>
+    );
   }
 
   return (

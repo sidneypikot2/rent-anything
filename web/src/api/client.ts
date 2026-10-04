@@ -8,7 +8,13 @@ import type { paths } from "./schema";
 // (`npm run api:types`) — never call fetch against the API directly. In the browser it
 // also sends the signed-in user's access token (src/lib/auth/).
 export function apiClient() {
-  const client = createClient<paths>({ baseUrl: apiBaseUrl() });
+  const client = bareApiClient();
   if (typeof window !== "undefined") client.use(authMiddleware);
   return client;
+}
+
+// Without the auth middleware: only for the token refresh inside that middleware, which
+// must not recurse into itself.
+export function bareApiClient() {
+  return createClient<paths>({ baseUrl: apiBaseUrl() });
 }

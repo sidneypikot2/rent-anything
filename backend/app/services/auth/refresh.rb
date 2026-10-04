@@ -1,7 +1,10 @@
 module Auth
   # Trades a refresh token for a new access + refresh token. A token that was already used
-  # means it leaked: every session of that user is revoked.
+  # means it leaked: every session of that user is revoked — unless it was spent within
+  # REUSE_GRACE, which is two tabs refreshing the same token at once, not a thief.
   class Refresh < Base
+    REUSE_GRACE = 1.minute
+
     def initialize(refresh_token)
       @refresh_token = refresh_token
     end
@@ -16,7 +19,7 @@ module Auth
         if record&.active?
           record.revoke!
           IssueTokens.call(record.user)
-        elsif record&.revoked_at
+        elsif record&.revoked_at && record.revoked_at < REUSE_GRACE.ago
           record.user.refresh_tokens.active.update_all(revoked_at: Time.current)
           nil
         end

@@ -1,6 +1,5 @@
-import createClient, { type Middleware } from "openapi-fetch";
-import type { paths } from "@/api/schema";
-import { apiBaseUrl } from "@/lib/config";
+import type { Middleware } from "openapi-fetch";
+import { bareApiClient } from "@/api/client";
 import { clearSession, getSession, saveSession } from "./session";
 
 // One refresh at a time: requests that hit an expired token together share it.
@@ -11,11 +10,15 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!session) return null;
 
   // A bare client (no middleware), so a failed refresh can't recurse.
-  const { data } = await createClient<paths>({ baseUrl: apiBaseUrl() }).POST(
+  const { data } = await bareApiClient().POST(
     "/api/v1/tokens/refresh",
     { body: { refresh_token: session.refreshToken } },
   );
   if (!data) {
+    // Another tab may have rotated this same token first; then its new session is
+    // already in storage. Only clear when the stored session is still the failed one.
+    const current = getSession();
+    if (current && current.refreshToken !== session.refreshToken) return current.accessToken;
     clearSession();
     return null;
   }

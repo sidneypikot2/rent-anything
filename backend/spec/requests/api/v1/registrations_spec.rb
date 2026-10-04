@@ -62,6 +62,20 @@ RSpec.describe "Registrations", type: :request do
         run_test!
       end
 
+      response "422", "password given as a number" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { super().merge(password: 12_345_678) }
+
+        run_test! { expect(User.count).to eq(0) }
+      end
+
+      response "422", "phone given as a number" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { super().merge(phone: 639_171_234_567) }
+
+        run_test! { expect(User.count).to eq(0) }
+      end
+
       response "422", "password too short" do
         schema "$ref" => "#/components/schemas/validation_errors"
         let(:body) { super().merge(password: "short") }
