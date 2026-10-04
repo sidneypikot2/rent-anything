@@ -1,7 +1,7 @@
 # Rent-Anything
 
 Plan a trip to one area in one place: tours and activities, airport transfers, motorbikes
-and trikes, freediving and water gear, cameras and stays from local owners — in one cart
+and trikes, freediving and water gear, cameras and stays from local partners — in one cart
 per area. Launching in Moalboal, Cebu.
 
 - `backend/` — Rails 8.1 API (Ruby 4.0.6, PostgreSQL 18 + PostGIS)

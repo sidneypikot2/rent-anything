@@ -19,6 +19,24 @@ test("home page renders and reaches the API", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Moalboal");
   await expect(page.getByTestId("api-status")).toContainText("API ok");
+  await expect(page.getByTestId("guest-signup")).toBeVisible();
 
   expect(errors).toEqual([]);
 });
+
+// The partner and admin entry points render with their own forms.
+for (const [path, heading, form] of [
+  ["/partner", "List with Rent-Anything", "partner-signup"],
+  ["/admin", "Admin console", "admin-signin"],
+]) {
+  test(`${path} renders`, async ({ page }) => {
+    const errors = [];
+    collectErrors(page, errors);
+
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(heading);
+    await expect(page.getByTestId(form)).toBeVisible();
+
+    expect(errors).toEqual([]);
+  });
+}
