@@ -27,7 +27,14 @@ class RefreshToken < ApplicationRecord
     revoked_at.nil? && expires_at.future?
   end
 
+  # Sign-out.
   def revoke!
     update!(revoked_at: Time.current) if revoked_at.nil?
+  end
+
+  # Swapped for a new token (Auth::Refresh): revoked, and marked so a later replay is caught.
+  def rotate!
+    now = Time.current
+    update!(revoked_at: now, rotated_at: now)
   end
 end

@@ -21,6 +21,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_000000) do
     t.string "token_digest", null: false
     t.datetime "expires_at", null: false
     t.datetime "revoked_at"
+    t.datetime "rotated_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["token_digest"], name: "index_refresh_tokens_on_token_digest", unique: true

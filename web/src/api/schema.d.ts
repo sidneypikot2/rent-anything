@@ -108,7 +108,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description role and email in the request are ignored */
+                /** @description the updated user */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -174,7 +174,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description a sign-up from /partner creates a partner */
+                /** @description the account is created and signed in */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -271,8 +271,15 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description an unknown token is ignored */
+                /** @description signed out; an unknown or already revoked token is ignored */
                 204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description the refresh token is missing or not a string */
+                422: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -296,7 +303,7 @@ export interface paths {
         put?: never;
         /**
          * Swap a refresh token for a new access and refresh token
-         * @description The presented refresh token is revoked (rotation). Presenting one that was already rotated or revoked signs the user out everywhere.
+         * @description The presented refresh token is rotated out. Presenting it again within 10 seconds (two tabs refreshing at once) still works; after that it counts as a replay and signs the user out everywhere. A token revoked by sign-out is just invalid.
          */
         post: {
             parameters: {
@@ -313,7 +320,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description a new pair; the old refresh token no longer works */
+                /** @description a new pair; the old refresh token is rotated out */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -329,6 +336,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description the refresh token is missing or not a string */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
                     };
                 };
             };

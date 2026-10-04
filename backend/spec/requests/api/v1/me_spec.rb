@@ -75,17 +75,18 @@ RSpec.describe "Me", type: :request do
       response "200", "the updated user" do
         schema "$ref" => "#/components/schemas/user"
 
-        run_test! do
-          expect(response.parsed_body).to include("name" => "Maria S.", "phone" => "09171234567")
+        context "with a new name and phone" do
+          run_test! do
+            expect(response.parsed_body).to include("name" => "Maria S.", "phone" => "09171234567")
+          end
         end
-      end
 
-      response "200", "role and email in the request are ignored" do
-        schema "$ref" => "#/components/schemas/user"
-        let(:body) { { user: { name: "Maria", role: "admin", email: "evil@example.com" } } }
+        context "with a role and email in the request, which are ignored" do
+          let(:body) { { user: { name: "Maria", role: "admin", email: "evil@example.com" } } }
 
-        run_test! do
-          expect(user.reload).to have_attributes(role: "guest", email: "maria@example.com")
+          run_test! do
+            expect(user.reload).to have_attributes(role: "guest", email: "maria@example.com")
+          end
         end
       end
 

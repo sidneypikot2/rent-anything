@@ -19,6 +19,9 @@ class CreateUsersAndRefreshTokens < ActiveRecord::Migration[8.1]
       t.string :token_digest, null: false
       t.datetime :expires_at, null: false
       t.datetime :revoked_at
+      # Set when the token was swapped for a new one (not when signed out): presenting a
+      # rotated token again is a replay.
+      t.datetime :rotated_at
       t.timestamps
 
       t.index :token_digest, unique: true

@@ -9,12 +9,11 @@ module Api
       end
 
       def refresh
-        render json: Auth::Refresh.call(params[:refresh_token])
+        render json: Auth::Refresh.call(request_values(:refresh_token))
       end
 
-      # Signing out revokes the refresh token; the access token runs out on its own (15 min).
       def destroy
-        RefreshToken.find_by_token(params[:refresh_token])&.revoke!
+        Auth::SignOut.call(request_values(:refresh_token))
         head :no_content
       end
     end

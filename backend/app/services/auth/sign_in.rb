@@ -8,22 +8,11 @@ module Auth
     end
 
     def call
-      check_values!
+      require_strings!(User.new, @values, present: %i[email password])
       user = User.authenticate_by(email: @values[:email], password: @values[:password])
       raise InvalidCredentials, "Invalid email or password" unless user
 
       SessionIssuer.call(user)
-    end
-
-    private
-
-    def check_values!
-      record = User.new
-      require_strings!(record, @values)
-      %i[email password].each do |key|
-        record.errors.add(key, :blank) if @values[key].blank?
-      end
-      raise ActiveRecord::RecordInvalid, record if record.errors.any?
     end
   end
 end

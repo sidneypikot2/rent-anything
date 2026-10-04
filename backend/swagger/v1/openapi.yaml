@@ -56,7 +56,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: role and email in the request are ignored
+          description: the updated user
           content:
             application/json:
               schema:
@@ -97,7 +97,7 @@ paths:
       parameters: []
       responses:
         '201':
-          description: a sign-up from /partner creates a partner
+          description: the account is created and signed in
           content:
             application/json:
               schema:
@@ -185,7 +185,9 @@ paths:
       parameters: []
       responses:
         '204':
-          description: an unknown token is ignored
+          description: signed out; an unknown or already revoked token is ignored
+        '422':
+          description: the refresh token is missing or not a string
       requestBody:
         content:
           application/json:
@@ -201,16 +203,24 @@ paths:
       summary: Swap a refresh token for a new access and refresh token
       tags:
       - Auth
-      description: The presented refresh token is revoked (rotation). Presenting one
-        that was already rotated or revoked signs the user out everywhere.
+      description: The presented refresh token is rotated out. Presenting it again
+        within 10 seconds (two tabs refreshing at once) still works; after that it
+        counts as a replay and signs the user out everywhere. A token revoked by sign-out
+        is just invalid.
       parameters: []
       responses:
         '200':
-          description: a new pair; the old refresh token no longer works
+          description: a new pair; the old refresh token is rotated out
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/session"
+        '422':
+          description: the refresh token is missing or not a string
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
         '401':
           description: the refresh token is not valid
           content:

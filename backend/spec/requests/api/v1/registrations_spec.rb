@@ -30,20 +30,21 @@ RSpec.describe "Registrations", type: :request do
       response "201", "the account is created and signed in" do
         schema "$ref" => "#/components/schemas/session"
 
-        run_test! do
-          json = response.parsed_body
-          expect(json["user"]).to include("email" => "maria@example.com", "role" => "guest", "phone" => nil)
-          expect(JsonWebToken.decode(json["access_token"])[:sub]).to eq(json["user"]["id"])
-          expect(json["expires_in"]).to eq(15.minutes.to_i)
+        context "as a guest, by default" do
+          run_test! do
+            json = response.parsed_body
+            expect(json["user"]).to include("email" => "maria@example.com", "role" => "guest", "phone" => nil)
+            expect(JsonWebToken.decode(json["access_token"])[:sub]).to eq(json["user"]["id"])
+            expect(json["expires_in"]).to eq(15.minutes.to_i)
+          end
         end
-      end
 
-      response "201", "a sign-up from /partner creates a partner" do
-        schema "$ref" => "#/components/schemas/session"
-        let(:attrs) { super().merge(role: "partner", phone: "+63 917-123-4567") }
+        context "as a partner (a sign-up from /partner)" do
+          let(:attrs) { super().merge(role: "partner", phone: "+63 917-123-4567") }
 
-        run_test! do
-          expect(response.parsed_body["user"]).to include("role" => "partner", "phone" => "+639171234567")
+          run_test! do
+            expect(response.parsed_body["user"]).to include("role" => "partner", "phone" => "+639171234567")
+          end
         end
       end
 
