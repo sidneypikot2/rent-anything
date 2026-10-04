@@ -17,4 +17,4 @@ paths:
 
 **`cache_schema.rb` and `queue_schema.rb`** belong to Solid Cache and Solid Queue. They change only when those gems are upgraded; don't write migrations against them.
 
-**After a migration**: a running stack applies it on restart (`docker compose restart backend` re-runs `db:prepare`). The test database follows `schema.rb` on the next `rspec` run. Each worktree stack has its own database, so a migration applied in one is not applied in another.
+**After a migration**: a running stack applies it on restart (`docker compose restart backend` re-runs `db:prepare`). The test database follows `schema.rb` on the next `rspec` run. Each worktree stack has its own database, so a migration applied in one is not applied in another. A new migration is written in a worktree (`/raa-task` step 4; `guard-edit.sh` blocks one written with Edit/Write in the main checkout, not one from `rails g`), so the main development database only gets it once it merges.

@@ -26,7 +26,7 @@ These apply to every task, whether or not `/raa-task` was run:
 
 ## Git safety
 
-Do task work in a git worktree (`.claude/worktrees/<name>`), not by switching the main checkout's branch — the user and other sessions work there. Never stash, reset or discard existing work to make room; if something is in the way, stop and report it. Stage only the files that belong to the task. `.githooks/` refuses commits and pushes on `main` and `staging` (enabled by `core.hooksPath`, set on session start); `.claude/hooks/guard-bash.sh` and `guard-edit.sh` block the destructive commands and edits to generated files. Don't work around either — when one blocks something that should be allowed, fix the guard and add the case to `script/test-hooks`.
+Branch in place from an up-to-date `staging`; a task that adds a migration or changes `.claude/hooks/`, `.githooks/` or `.claude/settings.json` works in a git worktree (`.claude/worktrees/<name>`) instead — a migration then runs against a throwaway database, and unmerged hooks don't run live (`/raa-task` step 4). Start a task only when the main checkout is clean and on `staging` — otherwise someone is working there: stop and report. Never stash, reset or discard existing work to make room; if something is in the way, stop and report it. Stage only the files that belong to the task. `.githooks/` refuses commits and pushes on `main` and `staging` (enabled by `core.hooksPath`, set on session start); `.claude/hooks/guard-bash.sh` and `guard-edit.sh` block the destructive commands and edits to generated files. Don't work around either — when one blocks something that should be allowed, fix the guard and add the case to `script/test-hooks`.
 
 ## Project overview
 

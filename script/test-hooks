@@ -13,6 +13,8 @@ guard_edit="$repo_root/.claude/hooks/guard-edit.sh"
 
 # Hooks inherit GIT_DIR etc. when this runs from inside one; the sandbox must not.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+# Cloud sessions set it, and guard-edit lets a new migration through there.
+unset CLAUDE_CODE_REMOTE
 
 sandbox="$(mktemp -d)"
 trap 'rm -rf "$sandbox"' EXIT
@@ -271,6 +273,12 @@ expect_edit block "$task/backend/swagger/v1/openapi.yaml"
 expect_edit block "$task/backend/db/migrate/20260101000000_merged.rb"
 expect_edit block "$task/backend/db/migrate/20260303000000_on_staging.rb"
 expect_edit allow "$task/backend/db/migrate/20260202000000_new.rb"
+# A new migration needs a worktree; one that already exists stays editable. Cloud sessions
+# have no worktree.
+expect_edit block "$main/backend/db/migrate/20260202000000_new.rb"
+echo "# wip" > "$main/backend/db/migrate/20260404000000_wip.rb"
+expect_edit allow "$main/backend/db/migrate/20260404000000_wip.rb"
+CLAUDE_CODE_REMOTE=true expect_edit allow "$main/backend/db/migrate/20260202000000_new.rb"
 expect_edit block "$task/backend/.env"
 expect_edit block "$task/backend/.env.staging"
 expect_edit block "$task/backend/.env.production.local"

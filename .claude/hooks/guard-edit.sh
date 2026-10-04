@@ -41,7 +41,17 @@ case "$path" in
       if git -C "$(dirname "$path")" cat-file -e "$ref:$name" 2>/dev/null; then
         block "this migration is already on ${ref#origin/}; write a new migration instead of changing one that has run."
       fi
-    done ;;
+    done
+    # A task with a migration works in a worktree, so its schema change runs against that
+    # stack's throwaway database, not the main one. Cloud sessions have no worktree.
+    if [[ ! -e "$path" && "${CLAUDE_CODE_REMOTE:-}" != "true" ]]; then
+      dir="$(dirname "$path")"
+      while [[ ! -d "$dir" ]]; do dir="$(dirname "$dir")"; done
+      d="$(git -C "$dir" rev-parse --path-format=absolute --git-dir 2>/dev/null || true)"
+      c="$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+      [[ -n "$d" && "$d" == "$c" ]] \
+        && block "migrations are written in a worktree (see CLAUDE.md, Git safety): commit, switch the main checkout back to staging, git worktree add .claude/worktrees/<name> <branch>, run script/worktree-env and continue there."
+    fi ;;
 esac
 
 exit 0
