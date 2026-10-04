@@ -46,7 +46,7 @@ export default function UiKit() {
           {SWATCHES.map((swatch) => (
             <Card key={swatch.name}>
               <div className={`h-16 border-b border-line ${swatch.className}`} />
-              <CardBody className="p-3">
+              <CardBody pad="sm">
                 <p className="font-display font-bold">{swatch.name}</p>
                 <p className="text-xs tabular-nums text-muted">{swatch.hex}</p>
                 <p className="mt-1 text-xs text-muted">{swatch.use}</p>

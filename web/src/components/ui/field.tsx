@@ -20,8 +20,8 @@ export function Field({ label, hint, error, className, ...props }: Props) {
         aria-describedby={note ? noteId : undefined}
         className={cn(
           "rounded-lg border-[1.5px] bg-surface px-3 py-2 font-normal text-foreground outline-none",
-          "placeholder:text-muted/60 focus:border-primary disabled:bg-surface-2",
-          error ? "border-danger" : "border-line",
+          "placeholder:text-muted/80 focus:border-primary disabled:bg-surface-2",
+          error ? "border-danger" : "border-line-strong",
           className,
         )}
         {...props}

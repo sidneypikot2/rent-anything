@@ -17,7 +17,7 @@ export function AuthCard({ mode, audience, title }: Props) {
 
   return (
     <Card data-testid={`${audience}-${mode}`} className="w-full self-start">
-      <CardBody className="p-5">
+      <CardBody pad="lg">
         <h2 className="font-display text-2xl font-bold italic">{title}</h2>
         <form className="mt-4">
           <fieldset disabled className="flex flex-col gap-3">

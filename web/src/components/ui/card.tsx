@@ -12,6 +12,13 @@ export function Card({ className, ...props }: ComponentProps<"div">) {
   );
 }
 
-export function CardBody({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("p-4", className)} {...props} />;
+const PADDING = { sm: "p-3", md: "p-4", lg: "p-5" };
+
+// Padding is a prop because cn() doesn't merge: a p-* className wouldn't reliably win.
+export function CardBody({
+  pad = "md",
+  className,
+  ...props
+}: { pad?: keyof typeof PADDING } & ComponentProps<"div">) {
+  return <div className={cn(PADDING[pad], className)} {...props} />;
 }
