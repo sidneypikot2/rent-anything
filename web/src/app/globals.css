@@ -1,22 +1,66 @@
 @import "tailwindcss";
 
+/* The Coastal Elegance palette. Use the semantic tokens below (bg-surface, text-muted,
+   border-line, bg-primary, bg-cta, ...) in components; they switch for dark mode. */
+@theme {
+  --color-navy: #0d2137;
+  --color-ocean: #1b5a7a;
+  --color-horizon: #2e86ab;
+  --color-lagoon: #1a9b8a;
+  --color-mint: #52a882;
+  --color-gold: #d4a847;
+  --color-coral: #e8725a;
+  --color-cloud: #f5f9fc;
+  --color-mist: #c5dde8;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f5f9fc;
+  --foreground: #0d2137;
+  --surface: #fafcfd;
+  --line: #c5dde8;
+  /* Darker than the palette's #6E8FA0, which is 3.2:1 on the page background. */
+  --muted: #557587;
+  --link: #1b5a7a;
+  --sky-tint: #e3f1f8;
+  --seafoam-tint: #e1f5ee;
+  --sand-tint: #fbf3e1;
+  --coral-tint: #fceae6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #091722;
+    --foreground: #e8f4fb;
+    --surface: #0f2233;
+    --line: #1e3a50;
+    --muted: #a8c8dc;
+    --link: #5bb3d6;
+    --sky-tint: #0f2a3d;
+    --seafoam-tint: #0c2720;
+    --sand-tint: #2a2010;
+    --coral-tint: #2d1510;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --color-link: var(--link);
+  --color-sky-tint: var(--sky-tint);
+  --color-seafoam-tint: var(--seafoam-tint);
+  --color-sand-tint: var(--sand-tint);
+  --color-coral-tint: var(--coral-tint);
+  /* Primary buttons are ocean with white text; calls to action (book, sign up) are coral
+     with navy text, since white on coral is only 3:1. */
+  --color-primary: var(--color-ocean);
+  --color-primary-hover: var(--color-horizon);
+  --color-cta: var(--color-coral);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {

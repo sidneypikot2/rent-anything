@@ -15,7 +15,7 @@ export function AuthCard({ mode, audience, title }: Props) {
   return (
     <section
       data-testid={`${audience}-${mode}`}
-      className="w-full rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+      className="w-full rounded-xl border border-line bg-surface p-5"
     >
       <h2 className="text-lg font-semibold">{title}</h2>
       <form className="mt-4">
@@ -26,13 +26,13 @@ export function AuthCard({ mode, audience, title }: Props) {
           <Field label="Password" name="password" type="password" />
           <button
             type="submit"
-            className="mt-1 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900"
+            className="mt-1 rounded-lg bg-cta px-4 py-2 text-sm font-semibold text-navy disabled:opacity-50"
           >
             {signup ? "Create account" : "Sign in"}
           </button>
         </fieldset>
       </form>
-      <p className="mt-3 text-xs text-neutral-500">Accounts open soon.</p>
+      <p className="mt-3 text-xs text-muted">Accounts open soon.</p>
     </section>
   );
 }
@@ -44,7 +44,7 @@ function Field({ label, name, type }: { label: string; name: string; type: strin
       <input
         name={name}
         type={type}
-        className="rounded-lg border border-neutral-300 px-3 py-2 disabled:bg-neutral-100 dark:border-neutral-700 dark:disabled:bg-neutral-900"
+        className="rounded-lg border border-line bg-background px-3 py-2 disabled:bg-sky-tint"
       />
     </label>
   );

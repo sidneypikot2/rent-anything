@@ -20,7 +20,7 @@ export default function PartnerHome() {
     <main className="mx-auto grid w-full max-w-5xl flex-1 gap-10 px-4 py-12 md:grid-cols-[1fr_20rem]">
       <div className="flex flex-col gap-6">
         <h1 className="text-4xl font-semibold tracking-tight">List with Rent-Anything</h1>
-        <p className="text-lg text-neutral-600 dark:text-neutral-400">
+        <p className="text-lg text-muted">
           Rental shops, tour operators, van operators and guesthouses in Moalboal: reach travellers
           who book their whole trip in one place.
         </p>
