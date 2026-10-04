@@ -1,9 +1,13 @@
-# This file should ensure the existence of records required to run the application in every environment (production,
-# development, test). The code here should be idempotent so that it can be executed at any point in every environment.
-# The data can then be loaded with the bin/rails db:seed command (or created alongside the database with db:setup).
-#
-# Example:
-#
-#   ["Action", "Comedy", "Drama", "Horror"].each do |genre_name|
-#     MovieGenre.find_or_create_by!(name: genre_name)
-#   end
+# Records the app needs to run. Idempotent: `bin/rails db:seed` can run any number of times.
+
+# Admin accounts are never self-made (sign-up only makes guests and partners), so
+# development gets one here. Production admins are created by hand at launch (M8).
+if Rails.env.development?
+  password = ENV.fetch("ADMIN_PASSWORD", "admin-password")
+  User.find_or_create_by!(email: "admin@rent-anything.test") do |admin|
+    admin.name = "Admin"
+    admin.role = "admin"
+    admin.password = password
+    puts "Created admin@rent-anything.test with password #{password.inspect}"
+  end
+end

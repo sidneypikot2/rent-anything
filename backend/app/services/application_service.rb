@@ -5,4 +5,15 @@ class ApplicationService
   def self.call(...)
     new(...).call
   end
+
+  private
+
+  # Request values keep their JSON type (ApplicationController#request_values), so a hash or
+  # array where a string belongs is a 422 here rather than being stringified or dropped.
+  def require_strings!(record, values)
+    values.each do |key, value|
+      record.errors.add(key, "must be a string") unless value.nil? || value.is_a?(String)
+    end
+    raise ActiveRecord::RecordInvalid, record if record.errors.any?
+  end
 end

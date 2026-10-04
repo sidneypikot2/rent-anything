@@ -26,6 +26,207 @@ paths:
                 required:
                 - status
                 - postgis
+  "/api/v1/me":
+    get:
+      summary: The signed-in user
+      tags:
+      - Auth
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: the user the access token belongs to
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/user"
+        '401':
+          description: no valid access token
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    patch:
+      summary: Update the signed-in user's profile
+      tags:
+      - Auth
+      description: Only name and phone; email, role and password are not changed here.
+      security:
+      - bearer: []
+      parameters: []
+      responses:
+        '200':
+          description: role and email in the request are ignored
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/user"
+        '422':
+          description: invalid values
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '401':
+          description: no valid access token
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    phone:
+                      type: string
+                      nullable: true
+              required:
+              - user
+  "/api/v1/registrations":
+    post:
+      summary: Sign up as a guest or a partner
+      tags:
+      - Auth
+      parameters: []
+      responses:
+        '201':
+          description: a sign-up from /partner creates a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/session"
+        '422':
+          description: the request is invalid
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    email:
+                      type: string
+                    password:
+                      type: string
+                      minLength: 8
+                      maxLength: 72
+                    phone:
+                      type: string
+                      nullable: true
+                    role:
+                      type: string
+                      enum:
+                      - guest
+                      - partner
+                      default: guest
+                  required:
+                  - name
+                  - email
+                  - password
+              required:
+              - user
+  "/api/v1/sessions":
+    post:
+      summary: Sign in with email and password
+      tags:
+      - Auth
+      parameters: []
+      responses:
+        '200':
+          description: signed in
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/session"
+        '401':
+          description: wrong email or password
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '422':
+          description: email or password missing or not a string
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required:
+              - email
+              - password
+    delete:
+      summary: 'Sign out: revoke a refresh token'
+      tags:
+      - Auth
+      parameters: []
+      responses:
+        '204':
+          description: an unknown token is ignored
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+              required:
+              - refresh_token
+  "/api/v1/sessions/refresh":
+    post:
+      summary: Swap a refresh token for a new access and refresh token
+      tags:
+      - Auth
+      description: The presented refresh token is revoked (rotation). Presenting one
+        that was already rotated or revoked signs the user out everywhere.
+      parameters: []
+      responses:
+        '200':
+          description: a new pair; the old refresh token no longer works
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/session"
+        '401':
+          description: the refresh token is not valid
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+              required:
+              - refresh_token
 servers:
 - url: http://localhost:3000
 components:
@@ -34,3 +235,64 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  schemas:
+    user:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum:
+          - guest
+          - partner
+          - admin
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - name
+      - email
+      - phone
+      - role
+      - created_at
+    session:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+        user:
+          "$ref": "#/components/schemas/user"
+      required:
+      - access_token
+      - refresh_token
+      - expires_in
+      - user
+    error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+      - error
+    validation_errors:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: string
+      required:
+      - errors

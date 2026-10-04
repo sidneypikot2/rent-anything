@@ -8,6 +8,13 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       resource :health, only: :show, controller: "health"
+
+      # Auth (RAA-22)
+      resources :registrations, only: :create
+      resources :sessions, only: :create
+      post "sessions/refresh", to: "sessions#refresh"
+      delete "sessions", to: "sessions#destroy"
+      resource :me, only: %i[show update], controller: "me"
     end
   end
 end

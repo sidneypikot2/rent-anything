@@ -145,8 +145,6 @@ Planned shape; the route tables below are checked against `routes.rb`.
 
 | Route | Purpose |
 |---|---|
-| `/api/v1/registrations` | sign up (email + password, phone) |
-| `/api/v1/sessions` | sign in; returns access + refresh tokens |
 | `/api/v1/otp_verifications` | verify the phone OTP |
 | `/api/v1/areas` | list areas; `/api/v1/areas/:slug` with its categories |
 | `/api/v1/listings` | search (area, category, bounding box, dates) and show |

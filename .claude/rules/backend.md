@@ -5,9 +5,9 @@ paths:
 
 # Backend conventions
 
-Topic rules load on top of this one when their files are read: `backend-migrations.md` (anything under `db/`). Add a topic rule (auth, payments, bookings) when that area is built — `SPEC.md` holds the design until then.
+Topic rules load on top of this one when their files are read: `backend-migrations.md` (anything under `db/`), `backend-auth.md` (accounts, tokens, `authenticate_user!`). Add a topic rule (payments, bookings) when that area is built — `SPEC.md` holds the design until then.
 
-**API-only** (`ActionController::API`), versioned under `/api/v1` (`app/controllers/api/v1/`) — no views, no cookie sessions. The web app and the future mobile app are both clients of the same API. Access tokens are short-lived JWTs (`app/lib/json_web_token.rb`) sent as `Authorization: Bearer <token>`; refresh tokens arrive with sign-up (M1). CORS allows `ENV["FRONTEND_ORIGIN"]` (default `http://localhost:8100`).
+**API-only** (`ActionController::API`), versioned under `/api/v1` (`app/controllers/api/v1/`) — no views, no cookie sessions. The web app and the future mobile app are both clients of the same API. Access tokens are short-lived JWTs sent as `Authorization: Bearer <token>`, renewed with refresh tokens (`backend-auth.md`). CORS allows `ENV["FRONTEND_ORIGIN"]` (default `http://localhost:8100`).
 
 **API contract**: every endpoint has an rswag request spec (`spec/requests/api/v1/`, `require "swagger_helper"`) that both tests it and describes it, with a response `schema` — strict validation is on, so a response key the schema doesn't declare fails the spec. `swagger/v1/openapi.yaml` and `web/src/api/schema.d.ts` are generated from those specs: after changing an endpoint run `script/check-api --write` and commit both. Never edit either by hand (a hook blocks it).
 
@@ -15,7 +15,7 @@ Topic rules load on top of this one when their files are read: `backend-migratio
 
 **Authorization** is plain Ruby, no gem: scope lookups through the user (`current_user.listings.find(...)`) where possible; otherwise the service raises `NotAuthorizedError`, which `ApplicationController` renders as 403. `RecordNotFound` → 404, `RecordInvalid` → 422 with `errors`. Every new write action needs a spec for the wrong-user case.
 
-**Request values**: don't coerce a value from the request with `.to_s`, `.to_i` or the like in a service — `nil.to_s` turns a missing key into a deliberate empty value, and a hash or array gets stringified and saved. A missing or wrong-typed value is a 422 (add an error and raise `ActiveRecord::RecordInvalid`), with a spec for it.
+**Request values**: don't coerce a value from the request with `.to_s`, `.to_i` or the like in a service — `nil.to_s` turns a missing key into a deliberate empty value, and a hash or array gets stringified and saved. A missing or wrong-typed value is a 422 (add an error and raise `ActiveRecord::RecordInvalid`), with a spec for it. `permit` silently drops a hash where a scalar belongs, so pass services `request_values(...)` (`ApplicationController`), which keeps JSON types, and check string fields with `require_strings!` (`ApplicationService`). A missing top-level key (`ParameterMissing`) is a 422 too.
 
 **Money** is integer centavos in `*_cents` columns, PHP only. Never floats. A booking snapshots its price breakdown and commission rate when it is created.
 
