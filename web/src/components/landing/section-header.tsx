@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AccountNav } from "@/components/auth/account-nav";
 
 export type Section = "guest" | "partner" | "admin";
 
@@ -27,9 +28,10 @@ export function SectionHeader({ section }: { section: Section }) {
             </span>
           )}
         </Link>
-        <nav className="text-sm font-medium text-on-dark [&_a]:hover:text-white">
-          {section === "guest" && <Link href="/partner">List with us</Link>}
+        <nav className="flex items-center gap-4 text-sm font-medium text-on-dark [&_a]:hover:text-white">
+          {section === "guest" && <Link href="/partner/login">List with us</Link>}
           {section === "partner" && <Link href="/">Book a trip</Link>}
+          <AccountNav section={section} />
         </nav>
       </div>
     </header>

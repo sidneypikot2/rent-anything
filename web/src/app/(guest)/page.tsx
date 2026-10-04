@@ -1,6 +1,6 @@
 import { ApiStatus } from "@/components/api-status";
-import { AuthCard } from "@/components/landing/auth-card";
 import { PlaceholderBlock } from "@/components/landing/placeholder-block";
+import { ButtonLink } from "@/components/ui/button";
 import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 
 const CATEGORIES = [
@@ -12,10 +12,10 @@ const CATEGORIES = [
 ];
 
 // The guest landing page. Placeholder until the area pages exist (M2); the first area is
-// Moalboal. Sign-ups here will create guest accounts (M1).
+// Moalboal. Guests sign in or sign up at /login.
 export default function Home() {
   return (
-    <main className="mx-auto grid w-full max-w-5xl flex-1 gap-10 px-4 py-12 md:grid-cols-[1fr_20rem]">
+    <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-12">
       <div className="flex flex-col gap-6">
         <DisplayTitle>
           Plan your trip to <span className="not-italic text-primary">Moalboal</span>
@@ -24,6 +24,11 @@ export default function Home() {
           Tours, airport transfers, motorbikes, freediving gear and stays, booked together in one
           cart.
         </p>
+        <div>
+          <ButtonLink href="/login" data-testid="guest-cta">
+            Sign in or create an account
+          </ButtonLink>
+        </div>
         <ApiStatus />
         <section className="flex flex-col gap-3">
           <SectionTitle>What you can book</SectionTitle>
@@ -34,7 +39,6 @@ export default function Home() {
           </div>
         </section>
       </div>
-      <AuthCard mode="signup" audience="guest" title="Create a guest account" />
     </main>
   );
 }

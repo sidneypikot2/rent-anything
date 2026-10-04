@@ -17,6 +17,10 @@ gem "bcrypt", "~> 3.1.7"
 # Issue/verify JWTs for API access tokens
 gem "jwt"
 
+# Verifies Google Sign-In ID tokens (Google::Auth::IDTokens.verify_oidc). Facebook tokens
+# are checked against the Graph API with Net::HTTP; no gem needed.
+gem "googleauth"
+
 # PostGIS: geography columns for listing locations and area boundaries, geo search
 gem "activerecord-postgis-adapter", "~> 11.1"
 

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { AuthCard } from "@/components/landing/auth-card";
+import { AuthCard } from "@/components/auth/auth-card";
 import { PlaceholderBlock } from "@/components/landing/placeholder-block";
 import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 
 export const metadata: Metadata = {
-  title: "Partners · Rent-Anything",
+  title: "Partner sign in · Rent-Anything",
   description: "List your tours, transfers, rentals and stays with Rent-Anything.",
 };
 
@@ -15,8 +15,9 @@ const STEPS = [
   { title: "4. Get paid", note: "Payouts after each completed booking, minus commission" },
 ];
 
-// The partner (supplier) landing page. Sign-ups here will create partner accounts (M1).
-export default function PartnerHome() {
+// The only public partner page: sign in or become a partner. Every other /partner page
+// needs a partner account (PartnerGuard). A sign-up here creates a partner.
+export default function PartnerLogin() {
   return (
     <main className="mx-auto grid w-full max-w-5xl flex-1 gap-10 px-4 py-12 md:grid-cols-[1fr_20rem]">
       <div className="flex flex-col gap-6">
@@ -34,7 +35,7 @@ export default function PartnerHome() {
           </div>
         </section>
       </div>
-      <AuthCard mode="signup" audience="partner" title="Become a partner" />
+      <AuthCard role="partner" redirectTo="/partner" initialMode="signup" />
     </main>
   );
 }

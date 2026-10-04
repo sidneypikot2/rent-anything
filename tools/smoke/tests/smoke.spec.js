@@ -19,15 +19,16 @@ test("home page renders and reaches the API", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Moalboal");
   await expect(page.getByTestId("api-status")).toContainText("API ok");
-  await expect(page.getByTestId("guest-signup")).toBeVisible();
+  await expect(page.getByTestId("guest-cta")).toBeVisible();
 
   expect(errors).toEqual([]);
 });
 
-// The partner and admin entry points render with their own forms, and the UI kit page
-// renders every component.
+// The login pages and the admin entry point render with their own forms, and the UI kit
+// page renders every component.
 for (const [path, heading, testId] of [
-  ["/partner", "List with Rent-Anything", "partner-signup"],
+  ["/login", null, "guest-signin"],
+  ["/partner/login", "List with Rent-Anything", "partner-signup"],
   ["/admin", "Admin console", "admin-signin"],
   ["/admin/ui-kit", "Tidal Grove", "ui-kit"],
 ]) {
@@ -36,9 +37,45 @@ for (const [path, heading, testId] of [
     collectErrors(page, errors);
 
     await page.goto(path);
-    await expect(page.getByRole("heading", { level: 1 })).toContainText(heading);
+    if (heading) await expect(page.getByRole("heading", { level: 1 })).toContainText(heading);
     await expect(page.getByTestId(testId)).toBeVisible();
 
     expect(errors).toEqual([]);
   });
 }
+
+// Sign-up through the real API, and the /partner guard: signed out goes to
+// /partner/login, a guest is sent home, a partner gets the dashboard.
+test("sign-up and the partner guard", async ({ page }) => {
+  const errors = [];
+  collectErrors(page, errors);
+  const stamp = Date.now();
+
+  async function signUp(path, name, email) {
+    await page.goto(path);
+    await page.getByRole("button", { name: "Create account" }).first().click();
+    await page.getByLabel("Full name").fill(name);
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill("password123");
+    await page.getByRole("button", { name: "Create account" }).last().click();
+  }
+
+  await page.goto("/partner");
+  await expect(page).toHaveURL(/\/partner\/login$/);
+
+  await signUp("/login", "Smoke Guest", `guest-${stamp}@example.com`);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByTestId("nav-user")).toHaveText("Smoke Guest");
+
+  await page.goto("/partner");
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByTestId("nav-signin")).toBeVisible();
+
+  await signUp("/partner/login", "Smoke Partner", `partner-${stamp}@example.com`);
+  await expect(page).toHaveURL(/\/partner$/);
+  await expect(page.getByTestId("partner-dashboard")).toBeVisible();
+
+  expect(errors).toEqual([]);
+});
