@@ -180,10 +180,16 @@ named="$(sed -E 's/\.env\.example//g' <<<"$prose_blanked")"
 # the dotenv naming convention, not a list of the names in use today.
 # The path must be a whole shell word, so prose or a grep pattern that mentions one
 # ("config/master.key, never committed", "master.key\|...") isn't refused.
-W_START='(^|[][[:space:]"'"'"'`=<>(,{])[^][[:space:]"'"'"'`;&|<>(),{}*?]*'
+W_BOUND='(^|[][[:space:]"'"'"'`=<>(,{])'
+W_CHARS='[^][[:space:]"'"'"'`;&|<>(),{}*?]*'
+W_START="${W_BOUND}${W_CHARS}"
 W_END='([][[:space:]"'"'"'`;&|)>,{}*?]|\\["'"'"']|$)'
-SECRET="${W_START}(backend/\.env|\.env\.[A-Za-z0-9_][A-Za-z0-9_.]*|(master|config/[A-Za-z0-9_/]+)\.key(\.[A-Za-z0-9_.]+)?|\.kamal/secrets([-.][A-Za-z0-9_.-]*)?)${W_END}"
-if grep -Eq -- "$SECRET" <<<"$named" \
+SECRET="${W_START}(backend/\.env|(master|config/[A-Za-z0-9_/]+)\.key(\.[A-Za-z0-9_.]+)?|\.kamal/secrets([-.][A-Za-z0-9_.-]*)?)${W_END}"
+# A `.env.<name>` file starts its word or follows a directory, `$VAR` / `${VAR}` (empty, it
+# leaves the bare name), a `\`, `host:`, `REF:` or curl's `@`: `process.env.FOO` is none of those.
+DOTENV_AFTER='([/:@\\]|\$[A-Za-z0-9_@#?!-]*)'
+DOTENV="(^|[][[:space:]\"'\`=<>(,{}])(${W_CHARS}${DOTENV_AFTER})?\.env\.[A-Za-z0-9_][A-Za-z0-9_.]*${W_END}"
+if grep -Eq -- "$SECRET" <<<"$named" || grep -Eq -- "$DOTENV" <<<"$named" \
   || { [[ "$cd_dir" == backend || "$cd_dir" == */backend ]] && grep -Eq -- '(^|[[:space:]"'"'"'=<])\.env([[:space:]"'"'"';|&)]|$)' <<<"$named"; }; then
   block "this command names a secret file (backend/.env, a .env.<name> file, a *.key file or .kamal/secrets). Sessions don't read or copy secrets; see backend/.env.example for the variable names."
 fi

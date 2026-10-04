@@ -140,11 +140,17 @@ text and screenshot paths only.
 
 ## 5. Review, then pull request
 
-1. Review the branch's diff twice, in fresh contexts: `/code-review` for general
-   correctness, and the `code-reviewer` subagent for this project's own rules (service
-   boundary, authorization specs, money and booking rules, the API contract). Fix findings that
-   affect correctness or the ticket's requirements; note in the PR any you deliberately
-   left.
+1. Review the branch's diff in fresh contexts: `/code-review` for general correctness,
+   and the `code-reviewer` subagent for this project's own rules (service boundary,
+   authorization specs, money and booking rules, the API contract, the `.claude/rules/` conventions). Each costs
+   tens of thousands of tokens, so match them to the change:
+   - **Both**: backend and frontend tasks, and any change to a guard, a hook or a CI
+     workflow — on RAA-24 and RAA-25 each caught a real hole the other missed.
+   - **`/code-review` at low effort only**: other small infra or tooling changes.
+   - **Neither**: text-only edits to instruction files (`script/check-docs` covers them).
+
+   Fix findings that affect correctness or the ticket's requirements; note in the PR any
+   you deliberately left, and which reviews ran.
 2. Commit, push, open the PR against `staging` (`gh pr create --base staging`) — never
    against `main`, which only takes releases:
    - title per `CLAUDE.md`, same area label as the ticket;
