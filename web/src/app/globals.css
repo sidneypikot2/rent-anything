@@ -1,70 +1,62 @@
 @import "tailwindcss";
 
-/* The Coastal Elegance palette. Use the semantic tokens below (bg-surface, text-muted,
-   border-line, bg-primary, bg-cta, ...) in components; they switch for dark mode. */
+/* The Tidal Grove palette: blue-green accents on white, light-only. Components use the
+   semantic tokens below (bg-surface, text-muted, border-line, bg-primary, ...) and the
+   primitives in src/components/ui/; /admin/ui-kit shows them all. */
 @theme {
-  --color-navy: #0d2137;
-  --color-ocean: #1b5a7a;
-  --color-horizon: #2e86ab;
-  --color-lagoon: #1a9b8a;
-  --color-mint: #52a882;
-  --color-gold: #d4a847;
-  --color-coral: #e8725a;
-  --color-cloud: #f5f9fc;
-  --color-mist: #c5dde8;
+  --color-cerulean: #0369a1;
+  --color-emerald: #059669;
+  --color-aqua: #22d3ee;
+  --color-fern: #6ee7b7;
+  --color-mist: #f0f9ff;
+  --color-sage: #ecfdf5;
+  --color-navy: #0c1b2e;
 }
 
 :root {
-  --background: #f5f9fc;
-  --foreground: #0d2137;
-  --surface: #fafcfd;
-  --line: #c5dde8;
-  /* Darker than the palette's #6E8FA0, which is 3.2:1 on the page background. */
-  --muted: #557587;
-  --link: #1b5a7a;
-  --sky-tint: #e3f1f8;
-  --seafoam-tint: #e1f5ee;
-  --sand-tint: #fbf3e1;
-  --coral-tint: #fceae6;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #091722;
-    --foreground: #e8f4fb;
-    --surface: #0f2233;
-    --line: #1e3a50;
-    --muted: #a8c8dc;
-    --link: #5bb3d6;
-    --sky-tint: #0f2a3d;
-    --seafoam-tint: #0c2720;
-    --sand-tint: #2a2010;
-    --coral-tint: #2d1510;
-  }
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #0c1b2e;
+  --surface: #ffffff;
+  --surface-2: #f0f9ff;
+  --muted: #334b5c;
+  --line: #bae6fd;
+  --line-2: #a7f3d0;
+  /* Form field outlines: line is 1.3:1 on white, too faint for an input (needs 3:1). */
+  --line-strong: #5b8db3;
+  --link: #0369a1;
+  /* Text and links on navy. */
+  --on-dark: #7dd3fc;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
-  --color-line: var(--line);
+  --color-surface-2: var(--surface-2);
   --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-line-strong: var(--line-strong);
   --color-link: var(--link);
-  --color-sky-tint: var(--sky-tint);
-  --color-seafoam-tint: var(--seafoam-tint);
-  --color-sand-tint: var(--sand-tint);
-  --color-coral-tint: var(--coral-tint);
-  /* Primary buttons are ocean with white text; calls to action (book, sign up) are coral
-     with navy text, since white on coral is only 3:1. */
-  --color-primary: var(--color-ocean);
-  --color-primary-hover: var(--color-horizon);
-  --color-cta: var(--color-coral);
-  --font-sans: var(--font-geist-sans);
+  --color-on-dark: var(--on-dark);
+  /* Primary is cerulean with white text (5.9:1). White on emerald is only 3.8:1, so the
+     secondary button uses a darker emerald (5.5:1); emerald itself is for fills and icons.
+     Aqua is a fill under navy text, never text on white. */
+  --color-primary: var(--color-cerulean);
+  --color-primary-hover: #075985;
+  --color-secondary: #047857;
+  --color-secondary-hover: #065f46;
+  /* Status colours for form states. Not part of the brand palette. */
+  --color-danger: #b91c1c;
+  --color-warning: #b45309;
+  --font-sans: var(--font-dm-sans);
+  --font-display: var(--font-cormorant);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
