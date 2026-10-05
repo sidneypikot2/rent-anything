@@ -48,15 +48,24 @@ module Auth
         # Email sign-ups don't prove they own the address, so a password account is never
         # linked: whoever registered victim@gmail.com with a password would otherwise share
         # the real owner's account once they used Google.
-        unless profile[:email_verified] && user.password_digest.nil?
-          invalid!("An account with this email already exists. Sign in with your password.")
-        end
+        invalid!(existing_account_message(user)) unless profile[:email_verified] && user.password_digest.nil?
       else
         user = User.create!(email: profile[:email], name: profile[:name].presence || profile[:email], role: @role)
       end
 
       user.oauth_identities.create!(provider: @provider, uid: profile[:uid])
       user
+    end
+
+    # Names the role, since the same email can also have an account of the other role, and
+    # how that account signs in: a Facebook sign-in can reach an account made with Google.
+    def existing_account_message(user)
+      way_in = if user.password_digest
+        "your email and password"
+      else
+        user.oauth_identities.pluck(:provider).map(&:capitalize).sort.join(" or ")
+      end
+      "A #{@role} account with this email already exists. Sign in with #{way_in}."
     end
   end
 end
