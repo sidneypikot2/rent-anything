@@ -16,6 +16,11 @@ Rails.application.routes.draw do
       post "tokens/refresh", to: "tokens#refresh"
       resource :me, only: %i[show update], controller: "me"
 
+      # Guest discovery (RAA-33): public, no sign-in.
+      get "search", to: "search#index"
+      resources :areas, only: %i[index show], param: :slug
+      resources :activities, only: :index
+
       namespace :partner do
         resource :me, only: :show, controller: "me"
       end

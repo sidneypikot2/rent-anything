@@ -48,6 +48,157 @@ RSpec.configure do |config|
             type: :object,
             properties: { errors: { type: :array, items: { type: :string } } },
             required: %w[errors]
+          },
+          area_ref: {
+            type: :object,
+            properties: { slug: { type: :string }, name: { type: :string } },
+            required: %w[slug name]
+          },
+          tag: {
+            type: :object,
+            properties: {
+              slug: { type: :string },
+              name: { type: :string },
+              kind: { type: :string, enum: %w[activity feature theme] }
+            },
+            required: %w[slug name kind]
+          },
+          # A listing as guests see it: never its location (revealed only after a paid booking).
+          listing_summary: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              title: { type: :string },
+              category: { type: :string },
+              area_slug: { type: :string }
+            },
+            required: %w[id title category area_slug]
+          },
+          area: {
+            type: :object,
+            properties: {
+              slug: { type: :string },
+              name: { type: :string },
+              kind: { type: :string, enum: %w[region province city town island] },
+              parent_name: { type: :string, nullable: true }
+            },
+            required: %w[slug name kind parent_name]
+          },
+          area_card: {
+            type: :object,
+            properties: {
+              slug: { type: :string },
+              name: { type: :string },
+              kind: { type: :string, enum: %w[region province city town island] },
+              parent_name: { type: :string, nullable: true },
+              landmark_count: { type: :integer },
+              listing_count: { type: :integer },
+              activities: { type: :array, items: { "$ref" => "#/components/schemas/tag" } }
+            },
+            required: %w[slug name kind parent_name landmark_count listing_count activities]
+          },
+          area_detail: {
+            type: :object,
+            properties: {
+              area: { "$ref" => "#/components/schemas/area" },
+              landmarks: {
+                type: :array,
+                items: {
+                  type: :object,
+                  properties: {
+                    slug: { type: :string },
+                    name: { type: :string },
+                    description: { type: :string },
+                    tags: { type: :array, items: { "$ref" => "#/components/schemas/tag" } }
+                  },
+                  required: %w[slug name description tags]
+                }
+              },
+              listings: {
+                type: :array,
+                items: {
+                  type: :object,
+                  description: "A listing summary plus its booking type; no location",
+                  properties: {
+                    id: { type: :integer },
+                    title: { type: :string },
+                    category: { type: :string },
+                    area_slug: { type: :string },
+                    booking_type: { type: :string, enum: %w[rental stay activity transfer] }
+                  },
+                  required: %w[id title category area_slug booking_type]
+                }
+              }
+            },
+            required: %w[area landmarks listings]
+          },
+          activity: {
+            type: :object,
+            properties: {
+              slug: { type: :string },
+              name: { type: :string },
+              area_count: { type: :integer },
+              landmark_count: { type: :integer }
+            },
+            required: %w[slug name area_count landmark_count]
+          },
+          search_results: {
+            type: :object,
+            properties: {
+              areas: {
+                type: :array,
+                items: {
+                  type: :object,
+                  properties: {
+                    slug: { type: :string },
+                    name: { type: :string },
+                    kind: { type: :string, enum: %w[region province city town island] },
+                    parent_name: { type: :string, nullable: true }
+                  },
+                  required: %w[slug name kind parent_name]
+                }
+              },
+              landmarks: {
+                type: :array,
+                items: {
+                  type: :object,
+                  properties: {
+                    slug: { type: :string },
+                    name: { type: :string },
+                    area: { "$ref" => "#/components/schemas/area_ref" }
+                  },
+                  required: %w[slug name area]
+                }
+              },
+              tags: {
+                type: :array,
+                description: "Matching tags, each with the bookable areas that have landmarks carrying it, " \
+                  "most landmarks first",
+                items: {
+                  type: :object,
+                  properties: {
+                    slug: { type: :string },
+                    name: { type: :string },
+                    kind: { type: :string, enum: %w[activity feature theme] },
+                    areas: {
+                      type: :array,
+                      items: {
+                        type: :object,
+                        properties: {
+                          slug: { type: :string },
+                          name: { type: :string },
+                          landmark_count: { type: :integer }
+                        },
+                        required: %w[slug name landmark_count]
+                      }
+                    }
+                  },
+                  required: %w[slug name kind areas]
+                }
+              },
+              listings: { type: :array, items: { "$ref" => "#/components/schemas/listing_summary" } }
+            },
+            required: %w[areas landmarks tags listings]
           }
         }
       }
