@@ -69,7 +69,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         name: string;
-                        /** @description Digits, spaces, ( ) - and a leading +; 7 to 20 characters */
+                        /** @description Digits, spaces, ( ) - and a leading +; 7 to 15 digits */
                         phone: string;
                     };
                 };
@@ -93,7 +93,7 @@ export interface paths {
                         "application/json": components["schemas"]["error"];
                     };
                 };
-                /** @description phone that isn't a phone number */
+                /** @description phone with no digits */
                 422: {
                     headers: {
                         [name: string]: unknown;

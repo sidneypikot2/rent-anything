@@ -15,7 +15,7 @@ RSpec.describe "Complete profile", type: :request do
         type: :object,
         properties: {
           name: { type: :string },
-          phone: { type: :string, description: "Digits, spaces, ( ) - and a leading +; 7 to 20 characters" }
+          phone: { type: :string, description: "Digits, spaces, ( ) - and a leading +; 7 to 15 digits" }
         },
         required: %w[name phone]
       }
@@ -75,6 +75,13 @@ RSpec.describe "Complete profile", type: :request do
         run_test! do |response|
           expect(response.parsed_body["errors"]).to include("Phone must be a phone number")
         end
+      end
+
+      response "422", "phone with no digits" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { super().merge(phone: "-------") }
+
+        run_test! { expect(user.reload.registration_complete).to be(false) }
       end
 
       response "401", "signed out" do

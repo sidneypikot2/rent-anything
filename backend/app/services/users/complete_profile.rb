@@ -1,9 +1,8 @@
 module Users
   # Finishes sign-up (RAA-32): sign-up asks only for email and password, so a new account
-  # sets its name and phone here, and is then registration_complete. Both are required.
+  # sets its name and phone here, and is then registration_complete. Both are required;
+  # the phone's format is the model's rule.
   class CompleteProfile < ApplicationService
-    PHONE_FORMAT = /\A\+?[0-9 ()-]{7,20}\z/
-
     def initialize(user, params)
       @user = user
       @params = params
@@ -12,7 +11,6 @@ module Users
     def call
       name = required_string(:name, "Name")
       phone = required_string(:phone, "Phone")
-      invalid!("Phone must be a phone number") unless phone.match?(PHONE_FORMAT)
 
       @user.update!(name: name, phone: phone, registration_complete: true)
       @user

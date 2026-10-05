@@ -25,6 +25,21 @@ RSpec.describe User do
     expect(user).not_to be_valid
   end
 
+  it "accepts phone numbers written with spaces, dashes, brackets and a leading +" do
+    %w[+639171234567 09171234567].push("(032) 123-4567", "+63 917 123 4567").each do |phone|
+      expect(build(:user, phone: phone)).to be_valid, phone
+    end
+  end
+
+  it "rejects a phone that isn't a phone number" do
+    [ "abc", "-------", "( ) ( )", "12345", "+1234567890123456", "917+1234567", "0917 123 4567 ext 2" ].each do |phone|
+      user = build(:user, phone: phone)
+
+      expect(user).not_to be_valid, phone
+      expect(user.errors[:phone]).to include("must be a phone number")
+    end
+  end
+
   it "is held to that by the database too" do
     user = create(:user)
 

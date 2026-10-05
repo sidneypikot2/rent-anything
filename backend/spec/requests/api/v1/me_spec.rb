@@ -118,6 +118,16 @@ RSpec.describe "Me", type: :request do
         run_test!
       end
 
+      response "422", "phone that isn't a phone number" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { { phone: "abc" } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Phone must be a phone number")
+          expect(user.reload.phone).to eq("+639171234567")
+        end
+      end
+
       response "422", "phone given as a number" do
         schema "$ref" => "#/components/schemas/validation_errors"
         let(:body) { { phone: 639171234567 } }

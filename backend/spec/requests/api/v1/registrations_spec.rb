@@ -97,6 +97,16 @@ RSpec.describe "Registrations", type: :request do
         run_test! { expect(User.count).to eq(0) }
       end
 
+      response "422", "phone that isn't a phone number" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { super().merge(phone: "abc") }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Phone must be a phone number")
+          expect(User.count).to eq(0)
+        end
+      end
+
       response "422", "phone given as a number" do
         schema "$ref" => "#/components/schemas/validation_errors"
         let(:body) { super().merge(phone: 639_171_234_567) }
