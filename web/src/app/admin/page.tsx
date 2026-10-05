@@ -32,7 +32,7 @@ export default function AdminHome() {
           ))}
         </div>
       </div>
-      <AuthCard role="admin" />
+      <AuthCard role="admin" mode="signin" />
     </main>
   );
 }

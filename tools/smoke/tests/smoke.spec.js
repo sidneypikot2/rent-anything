@@ -20,15 +20,18 @@ test("home page renders and reaches the API", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Moalboal");
   await expect(page.getByTestId("api-status")).toContainText("API ok");
   await expect(page.getByTestId("nav-signin")).toBeVisible();
+  await expect(page.getByTestId("nav-register")).toHaveAttribute("href", "/register");
 
   expect(errors).toEqual([]);
 });
 
-// The login pages and the admin entry point render with their own forms, and the UI kit
+// The sign-in and sign-up pages and the admin entry point render with their own forms, and the UI kit
 // page renders every component.
 for (const [path, heading, testId] of [
   ["/login", null, "guest-signin"],
+  ["/register", null, "guest-signup"],
   ["/partner/login", "List with Rent-Anything", "partner-signin"],
+  ["/partner/register", "List with Rent-Anything", "partner-signup"],
   ["/admin", "Admin console", "admin-signin"],
   ["/admin/ui-kit", "Tidal Grove", "ui-kit"],
 ]) {
@@ -56,7 +59,6 @@ test("sign-up and the partner guard", async ({ page }) => {
 
   async function signUp(path, name, email, { checkConfirmation = false } = {}) {
     await page.goto(path);
-    await page.getByRole("button", { name: "Create one" }).click();
     await page.getByLabel("Full name").fill(name);
     await page.getByLabel("Email").fill(email);
     await password().fill("password123");
@@ -84,7 +86,12 @@ test("sign-up and the partner guard", async ({ page }) => {
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/login$/);
 
-  await signUp("/login", "Smoke Guest", `guest-${stamp}@example.com`, { checkConfirmation: true });
+  // Sign-in links to sign-up.
+  await page.goto("/login");
+  await page.getByRole("link", { name: "Create one" }).click();
+  await expect(page).toHaveURL(/\/register$/);
+
+  await signUp("/register", "Smoke Guest", `guest-${stamp}@example.com`, { checkConfirmation: true });
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByTestId("guest-dashboard")).toBeVisible();
   await expect(page.getByTestId("nav-user")).toHaveText("Smoke Guest");
@@ -97,7 +104,7 @@ test("sign-up and the partner guard", async ({ page }) => {
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByTestId("nav-signin")).toBeVisible();
 
-  await signUp("/partner/login", "Smoke Partner", `partner-${stamp}@example.com`);
+  await signUp("/partner/register", "Smoke Partner", `partner-${stamp}@example.com`);
   await expect(page).toHaveURL(/\/partner\/dashboard$/);
   await expect(page.getByTestId("partner-dashboard")).toBeVisible();
 

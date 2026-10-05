@@ -1,13 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Card, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { PasswordField } from "@/components/ui/password-field";
 import { oauthSignIn, signIn, signUp, type OauthProvider, type Role } from "@/lib/auth/actions";
-import { DASHBOARD_PATHS } from "@/lib/auth/paths";
+import { DASHBOARD_PATHS, LOGIN_PATHS, REGISTER_PATHS } from "@/lib/auth/paths";
 import { useSession } from "@/lib/auth/session";
 import { OauthButtons, hasOauthProviders } from "./oauth-buttons";
 
@@ -24,28 +25,21 @@ type Props = {
   // sign-in only: no sign-up, no Google/Facebook, no password reset. Signing in lands
   // on the role's dashboard.
   role: Role;
+  // Set by the route: /login and /partner/login sign in, /register and
+  // /partner/register sign up. Admin is always "signin".
+  mode: Mode;
 };
 
-// A link-styled button for switching views inside the card.
-function TextButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} className="font-semibold text-link hover:underline">
-      {children}
-    </button>
-  );
-}
-
-export function AuthCard({ role }: Props) {
+export function AuthCard({ role, mode }: Props) {
   const router = useRouter();
   const redirectTo = DASHBOARD_PATHS[role];
   const selfServe = role !== "admin";
-  const [mode, setMode] = useState<Mode>("signin");
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
   const [confirmError, setConfirmError] = useState<string>();
   // Sign-up's two password fields show and hide together, so they can be compared.
   const [showPasswords, setShowPasswords] = useState(false);
-  const signup = mode === "signup";
+  const signup = selfServe && mode === "signup";
 
   // Already signed in with this role (back button, a second tab): skip the form.
   const session = useSession();
@@ -53,13 +47,6 @@ export function AuthCard({ role }: Props) {
   useEffect(() => {
     if (signedInHere) router.replace(redirectTo);
   }, [signedInHere, redirectTo, router]);
-
-  function switchTo(next: Mode) {
-    setMode(next);
-    setError(undefined);
-    setConfirmError(undefined);
-    setShowPasswords(false);
-  }
 
   async function run(action: () => ReturnType<typeof signIn>) {
     setPending(true);
@@ -77,7 +64,7 @@ export function AuthCard({ role }: Props) {
     const email = value("email");
     const password = value("password");
 
-    if (signup && role !== "admin") {
+    if (signup) {
       // A typing check only; the API takes one password.
       if (password !== value("password_confirmation")) {
         setConfirmError("Passwords don't match");
@@ -117,9 +104,9 @@ export function AuthCard({ role }: Props) {
   );
 
   return (
-    <Card data-testid={`${role}-${mode}`} className="w-full self-start">
+    <Card data-testid={`${role}-${signup ? "signup" : "signin"}`} className="w-full self-start">
       <CardBody pad="lg" className="flex flex-col gap-5">
-        <h2 className="font-display text-2xl font-bold italic">{TITLES[role][mode]}</h2>
+        <h2 className="font-display text-2xl font-bold italic">{TITLES[role][signup ? "signup" : "signin"]}</h2>
 
         {selfServe && hasOauthProviders() && (
           <div className="flex flex-col gap-4">
@@ -171,18 +158,15 @@ export function AuthCard({ role }: Props) {
           </fieldset>
         </form>
 
-        {selfServe && (
+        {role !== "admin" && (
           <p className="text-center text-sm text-muted">
-            {signup ? (
-              <>
-                Already have an account? <TextButton onClick={() => switchTo("signin")}>Sign in</TextButton>
-              </>
-            ) : (
-              <>
-                Don&apos;t have an account?{" "}
-                <TextButton onClick={() => switchTo("signup")}>Create one</TextButton>
-              </>
-            )}
+            {signup ? "Already have an account? " : "Don't have an account? "}
+            <Link
+              href={signup ? LOGIN_PATHS[role] : REGISTER_PATHS[role]}
+              className="font-semibold text-link hover:underline"
+            >
+              {signup ? "Sign in" : "Create one"}
+            </Link>
           </p>
         )}
       </CardBody>
