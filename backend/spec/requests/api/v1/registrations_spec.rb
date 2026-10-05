@@ -22,6 +22,17 @@ RSpec.describe "Registrations", type: :request do
 
       let(:body) { { email: "Ana@Example.com", name: "Ana Reyes", phone: "+639171234567", password: "password123", role: "guest" } }
 
+      response "201", "a partner can sign up with a guest's email" do
+        schema "$ref" => "#/components/schemas/auth_tokens"
+        let(:body) { super().merge(role: "partner") }
+        let!(:guest) { create(:user, email: "ana@example.com") }
+
+        run_test! do |response|
+          expect(response.parsed_body.dig("user", "id")).not_to eq(guest.id)
+          expect(User.where(email: "ana@example.com").pluck(:role)).to contain_exactly("guest", "partner")
+        end
+      end
+
       response "201", "account created and signed in" do
         schema "$ref" => "#/components/schemas/auth_tokens"
 
@@ -90,7 +101,7 @@ RSpec.describe "Registrations", type: :request do
         run_test! { expect(User.count).to eq(0) }
       end
 
-      response "422", "email already taken, in any case" do
+      response "422", "email already taken by the same role, in any case" do
         schema "$ref" => "#/components/schemas/validation_errors"
         before { create(:user, email: "ana@example.com") }
 

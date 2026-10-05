@@ -33,15 +33,24 @@ RSpec.describe Auth::OauthSignIn do
   it "never links to a password account, even with Google's verified email" do
     create(:user, email: "ana@example.com")
 
-    expect { sign_in }.to raise_error(ActiveRecord::RecordInvalid, /already exists/)
+    expect { sign_in }.to raise_error(ActiveRecord::RecordInvalid,
+      "Validation failed: A guest account with this email already exists. Sign in with your email and password.")
     expect(OauthIdentity.count).to eq(0)
   end
 
   it "doesn't link Facebook to an existing account, since its email isn't verified" do
     create(:user, email: "ana@example.com")
 
-    expect { sign_in(provider: "facebook") }.to raise_error(ActiveRecord::RecordInvalid, /already exists/)
+    expect { sign_in(provider: "facebook") }.to raise_error(ActiveRecord::RecordInvalid, /A guest account .* email and password/)
     expect(OauthIdentity.count).to eq(0)
+  end
+
+  it "points a Facebook sign-in at the provider of a passwordless account it can't link to" do
+    user = create(:user, :oauth_only, email: "ana@example.com")
+    user.oauth_identities.create!(provider: "google", uid: "uid-1")
+
+    expect { sign_in(provider: "facebook") }.to raise_error(ActiveRecord::RecordInvalid, /already exists. Sign in with Google\.\z/)
+    expect(user.oauth_identities.pluck(:provider)).to eq([ "google" ])
   end
 
   it "creates a Facebook user when the email is new" do
@@ -50,11 +59,27 @@ RSpec.describe Auth::OauthSignIn do
     expect(result[:user]).to include("email" => "ana@example.com", "role" => "partner")
   end
 
-  it "refuses a linked identity whose user has another role" do
-    user = create(:user, :partner)
-    user.oauth_identities.create!(provider: "google", uid: "uid-1")
+  it "keeps one account per role for the same provider account" do
+    guest_id = sign_in(role: "guest").dig(:user, "id")
+    partner_id = sign_in(role: "partner").dig(:user, "id")
 
-    expect { sign_in(role: "guest") }.to raise_error(NotAuthorizedError)
+    expect(partner_id).not_to eq(guest_id)
+    expect(sign_in(role: "guest").dig(:user, "id")).to eq(guest_id)
+    expect(sign_in(role: "partner").dig(:user, "id")).to eq(partner_id)
+    expect(OauthIdentity.where(provider: "google", uid: "uid-1").count).to eq(2)
+  end
+
+  it "only links by email within the entry point's role" do
+    guest = create(:user, :oauth_only, email: "ana@example.com")
+
+    expect(sign_in(role: "partner").dig(:user, "id")).not_to eq(guest.id)
+    expect(guest.oauth_identities).to be_empty
+  end
+
+  it "doesn't let a guest's password account block a partner sign-up with Google" do
+    create(:user, email: "ana@example.com")
+
+    expect(sign_in(role: "partner")[:user]).to include("role" => "partner")
   end
 
   it "refuses a provider account without an email" do

@@ -211,7 +211,7 @@ export interface paths {
         put?: never;
         /**
          * Sign in or sign up with Google or Facebook
-         * @description `token` is a Google Identity Services ID token or a Facebook Login access token. A new account gets `role`; an existing one must already have it.
+         * @description `token` is a Google Identity Services ID token or a Facebook Login access token. It signs in to, links or creates an account of `role` only, so one Google account can have a guest and a partner account.
          */
         post: {
             parameters: {
@@ -243,15 +243,6 @@ export interface paths {
                 };
                 /** @description the provider rejects the token */
                 401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["error"];
-                    };
-                };
-                /** @description a guest's Google account on /partner/login */
-                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -336,7 +327,7 @@ export interface paths {
                         "application/json": components["schemas"]["auth_tokens"];
                     };
                 };
-                /** @description email already taken, in any case */
+                /** @description email already taken by the same role, in any case */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -373,7 +364,7 @@ export interface paths {
         put?: never;
         /**
          * Sign in with email and password
-         * @description `role` is the entry point signed in from; an account of another role gets 403.
+         * @description `role` is the entry point signed in from. Email is unique per role, so only that role's account is looked up; an account of another role is not found (401).
          */
         post: {
             parameters: {
@@ -404,15 +395,6 @@ export interface paths {
                 };
                 /** @description an account made with Google has no password */
                 401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["error"];
-                    };
-                };
-                /** @description a partner account signing in on /login */
-                403: {
                     headers: {
                         [name: string]: unknown;
                     };

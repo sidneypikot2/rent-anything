@@ -7,7 +7,8 @@ RSpec.describe "OAuth", type: :request do
       consumes "application/json"
       produces "application/json"
       description "`token` is a Google Identity Services ID token or a Facebook Login access token. " \
-        "A new account gets `role`; an existing one must already have it."
+        "It signs in to, links or creates an account of `role` only, so one Google account can " \
+        "have a guest and a partner account."
       parameter name: :provider, in: :path, schema: { type: :string, enum: %w[google facebook] }
       parameter name: :body, in: :body, schema: {
         type: :object,
@@ -23,6 +24,22 @@ RSpec.describe "OAuth", type: :request do
       let(:profile) { { uid: "g-123", email: "ana@example.com", email_verified: true, name: "Ana Reyes" } }
 
       before { allow(Auth::Providers::Google).to receive(:verify).with("google-id-token").and_return(profile) }
+
+      response "200", "a guest's Google account on /partner/login gets its own partner account" do
+        schema "$ref" => "#/components/schemas/auth_tokens"
+        let(:body) { { token: "google-id-token", role: "partner" } }
+        let!(:guest) do
+          create(:user, :oauth_only, email: "ana@example.com").tap do |user|
+            user.oauth_identities.create!(provider: "google", uid: "g-123")
+          end
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["user"]).to include("email" => "ana@example.com", "role" => "partner")
+          expect(response.parsed_body.dig("user", "id")).not_to eq(guest.id)
+          expect(OauthIdentity.where(provider: "google", uid: "g-123").pluck(:role)).to contain_exactly("guest", "partner")
+        end
+      end
 
       response "200", "a new user is created with the entry point's role" do
         schema "$ref" => "#/components/schemas/auth_tokens"
@@ -42,14 +59,6 @@ RSpec.describe "OAuth", type: :request do
         end
 
         run_test!
-      end
-
-      response "403", "a guest's Google account on /partner/login" do
-        schema "$ref" => "#/components/schemas/error"
-        let(:body) { { token: "google-id-token", role: "partner" } }
-        before { create(:user, :oauth_only, email: "ana@example.com") }
-
-        run_test! { expect(OauthIdentity.count).to eq(0) }
       end
 
       response "404", "unknown provider" do
