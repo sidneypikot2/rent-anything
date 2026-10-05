@@ -22,16 +22,17 @@ class Area < ApplicationRecord
   scope :bookable, -> { where(id: Listing.active.select(:area_id)) }
 
   # The bookable areas and every area above them: Cebu shows when Cebu City has a listing.
-  scope :browsable, -> { where("areas.id IN (#{browsable_ids_sql})") }
-
-  def self.browsable_ids_sql
-    <<~SQL.squish
-      WITH RECURSIVE browsable(id, parent_id) AS (
-        #{unscoped.bookable.select(:id, :parent_id).to_sql}
-        UNION
-        SELECT areas.id, areas.parent_id FROM areas JOIN browsable ON browsable.parent_id = areas.id
+  scope :browsable, -> {
+    where(<<~SQL.squish)
+      areas.id IN (
+        WITH RECURSIVE browsable(id, parent_id) AS (
+          SELECT bookable.id, bookable.parent_id FROM areas bookable
+          WHERE EXISTS (SELECT 1 FROM listings WHERE listings.area_id = bookable.id AND listings.status = 'active')
+          UNION
+          SELECT parents.id, parents.parent_id FROM areas parents JOIN browsable ON browsable.parent_id = parents.id
+        )
+        SELECT id FROM browsable
       )
-      SELECT id FROM browsable
     SQL
-  end
+  }
 end

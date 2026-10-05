@@ -6,8 +6,10 @@ module Discovery
 
     def call
       areas = Area.bookable.includes(:parent)
-        .select("areas.*", "(#{count_sql('listings', "listings.status = 'active'")}) AS listing_count",
-          "(#{count_sql('landmarks', "landmarks.status = 'published'")}) AS landmark_count")
+        .select("areas.*",
+          "(SELECT COUNT(*) FROM listings WHERE listings.area_id = areas.id AND listings.status = 'active') AS listing_count",
+          "(SELECT COUNT(*) FROM landmarks WHERE landmarks.area_id = areas.id AND landmarks.status = 'published') " \
+            "AS landmark_count")
         .order(Arel.sql("listing_count DESC"), :name)
         .to_a
       activities = top_activities(areas.map(&:id))
@@ -22,10 +24,6 @@ module Discovery
     end
 
     private
-
-    def count_sql(table, condition)
-      "SELECT COUNT(*) FROM #{table} WHERE #{table}.area_id = areas.id AND #{condition}"
-    end
 
     # area id => activity tags, most landmarks first.
     def top_activities(area_ids)
