@@ -158,7 +158,10 @@ text and screenshot paths only.
      change was not verified in the running app), and the ticket link. The ticket carries
      the full detail; don't copy it into the PR.
 3. `gh pr checks --watch`. If a check fails, read the log, fix it, push, and watch again —
-   the task isn't in review until CI is green.
+   the task isn't in review until CI is green. When the watch returns, run `gh pr checks <PR>`
+   once more and read every row: green means each one is `pass` or `skipping` and none is
+   `pending` — not the tail of the watch output (on the RAA-28 release, `smoke` was still
+   running and then failed).
 4. Transition the ticket to **In Review**, and record the PR URL in its state lines. If
    the user asked for a `verify-app` run, post its screenshots to the ticket.
 
