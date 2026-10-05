@@ -13,6 +13,8 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY Gemfile Gemfile.lock ./
+# Unset locally (Compose installs every group); Render passes development:test (render.yaml).
+ARG BUNDLE_WITHOUT
 RUN bundle install
 
 COPY . .
