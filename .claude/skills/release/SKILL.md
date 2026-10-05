@@ -36,8 +36,9 @@ From `git log origin/main..origin/staging`:
     deploy. Read each one: is it safe against existing rows, and does the running code
     survive the moment between migration and restart?
   - `backend/config/environments/production.rb`, CORS / `FRONTEND_ORIGIN`,
-    `web/src/lib/config.ts`.
-  - `backend/.env.example` — a new variable there (or in `web/.env.example`) has to exist in the production host's settings
+    `web/src/lib/config.ts`, `render.yaml`, `web/vercel.json`, `backend/Dockerfile`.
+  - `backend/.env.example` — a new variable there (or in `web/.env.example`) has to exist in the
+    Render (or Vercel) dashboard
     **before** the merge, or the deploy boots without it.
 - Anything a ticket says was not verified in the running app.
 
@@ -68,7 +69,8 @@ Tell the user the pull request is ready and what to do before and after merging:
 
 - merge with a **merge commit**, not squash or rebase — `staging` has to stay an ancestor
   of `main`, or the next release shows every old commit again;
-- after the merge, once production exists: check the backend's `/up` returns 200 and open the
-  app. The production URLs go in `CLAUDE.md` when the host is set up (M8).
+- after the merge, Render and Vercel deploy `main` by themselves: once both deploys finish, check
+  the backend's `/up` returns 200 and open the app (URLs in `.claude/rules/infra.md`, Hosting).
+  The first request after idle waits for Render's free tier to wake.
 
 Don't merge it yourself.
