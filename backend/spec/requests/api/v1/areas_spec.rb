@@ -62,6 +62,7 @@ RSpec.describe "Areas", type: :request do
         run_test! do |response|
           json = response.parsed_body
           expect(json["area"]).to include("slug" => "bantayan-island", "parent_name" => "Cebu")
+          expect(json["areas"]).to be_empty
           expect(json["landmarks"].pluck("slug")).to eq(%w[kota-beach virgin-island])
           expect(json["landmarks"].first).to include("description" => "Sandbar beach")
           expect(json["landmarks"].first["tags"].pluck("slug")).to eq(%w[swimming white-sand])
@@ -71,6 +72,19 @@ RSpec.describe "Areas", type: :request do
             { "id" => honda.id, "title" => "Honda Click 125", "category" => "Motorcycle",
               "area_slug" => "bantayan-island", "booking_type" => "rental" }
           )
+        end
+      end
+
+      response "200", "a province lists the areas under it that have something to book" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "cebu" }
+        let!(:mactan) { create(:area, slug: "mactan", name: "Mactan", parent: cebu) }
+
+        run_test! do |response|
+          json = response.parsed_body
+          expect(json["areas"].pluck("slug")).to eq(%w[bantayan-island cebu-city])
+          expect(json["landmarks"]).to be_empty
+          expect(json["listings"]).to be_empty
         end
       end
 

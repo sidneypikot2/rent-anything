@@ -117,6 +117,25 @@ RSpec.describe "Search", type: :request do
         end
       end
 
+      response "200", "landmarks and tags in an area with nothing to book stay hidden" do
+        schema "$ref" => "#/components/schemas/search_results"
+        let(:q) { "oslob" }
+
+        run_test! do |response|
+          expect(response.parsed_body.values).to all(be_empty)
+        end
+      end
+
+      response "200", "a tag only found in an area with nothing to book stays hidden" do
+        schema "$ref" => "#/components/schemas/search_results"
+        let!(:whale_watching) { create(:tag, slug: "whale-watching", name: "Whale watching", landmarks: [ oslob_reef ]) }
+        let(:q) { "whale" }
+
+        run_test! do |response|
+          expect(response.parsed_body["tags"]).to be_empty
+        end
+      end
+
       response "200", "exact name ranks first" do
         schema "$ref" => "#/components/schemas/search_results"
         let(:q) { "virgin island" }
@@ -140,5 +159,18 @@ RSpec.describe "Search", type: :request do
         run_test!
       end
     end
+  end
+
+  # rswag sends a list as one comma-joined string, so these go through plain requests.
+  it "refuses a query given as a list" do
+    get "/api/v1/search", params: { q: [ "kota", "beach" ] }
+
+    expect(response).to have_http_status(:unprocessable_content)
+  end
+
+  it "refuses a query given as an object" do
+    get "/api/v1/search", params: { q: { name: "kota" } }
+
+    expect(response).to have_http_status(:unprocessable_content)
   end
 end

@@ -250,11 +250,11 @@ class SeedDiscoverySampleData < ActiveRecord::Migration[8.1]
 
     LISTINGS.each do |email, area, category, title, location, status, attrs, landmarks, description|
       insert "listings", { title:, status:, description:, attrs: attrs.to_json, location: point(location),
-        partner_id: raw("(SELECT id FROM users WHERE email = #{quote(email)} AND role = 'partner')"),
+        partner_id: raw(partner_id(email)),
         area_id: id_of("areas", area), category_id: id_of("categories", category) }
       landmarks.each do |landmark|
         insert "listing_landmarks", {
-          listing_id: raw("(SELECT max(id) FROM listings WHERE title = #{quote(title)})"),
+          listing_id: raw("(SELECT id FROM listings WHERE title = #{quote(title)} AND partner_id = #{partner_id(email)})"),
           landmark_id: id_of("landmarks", landmark), relation: "visits"
         }, timestamps: false
       end
@@ -291,6 +291,10 @@ class SeedDiscoverySampleData < ActiveRecord::Migration[8.1]
     values = values.merge(created_at: raw("now()"), updated_at: raw("now()")) if timestamps
     sql_values = values.values.map { |value| value.is_a?(Raw) ? value.sql : quote(value) }
     execute "INSERT INTO #{table} (#{values.keys.join(', ')}) VALUES (#{sql_values.join(', ')})"
+  end
+
+  def partner_id(email)
+    "(SELECT id FROM users WHERE email = #{quote(email)} AND role = 'partner')"
   end
 
   def id_of(table, slug)

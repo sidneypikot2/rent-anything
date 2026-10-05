@@ -101,6 +101,11 @@ RSpec.configure do |config|
             type: :object,
             properties: {
               area: { "$ref" => "#/components/schemas/area" },
+              areas: {
+                type: :array,
+                description: "Areas under this one that have something to book",
+                items: { "$ref" => "#/components/schemas/area" }
+              },
               landmarks: {
                 type: :array,
                 items: {
@@ -130,7 +135,7 @@ RSpec.configure do |config|
                 }
               }
             },
-            required: %w[area landmarks listings]
+            required: %w[area areas landmarks listings]
           },
           activity: {
             type: :object,

@@ -101,7 +101,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description published landmarks and active listings */
+                /** @description a province lists the areas under it that have something to book */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -758,6 +758,8 @@ export interface components {
         };
         area_detail: {
             area: components["schemas"]["area"];
+            /** @description Areas under this one that have something to book */
+            areas: components["schemas"]["area"][];
             landmarks: {
                 slug: string;
                 name: string;

@@ -3,7 +3,8 @@ module Discovery
   # listings, grouped by kind. Matching ignores case and accents (unaccent), finds the query
   # anywhere in a name or alias, and tolerates small typos (pg_trgm word similarity). Within
   # a group: exact name first, then names that start with the query, then the rest by
-  # similarity. Areas show only when they or an area under them have something to book.
+  # similarity. Only places that lead somewhere bookable show: areas when they or an area
+  # under them have an active listing, landmarks and tags when they are in such an area.
   class Search < ApplicationService
     MIN_LENGTH = 2
     LIMIT = 5
@@ -20,7 +21,7 @@ module Discovery
       {
         areas: areas.map { |area| AreaSerializer.call(area) },
         landmarks: landmarks.map { |landmark| landmark_json(landmark) },
-        tags: tags.map { |tag| tag_json(tag) },
+        tags: tag_results,
         listings: listings.map { |listing| ListingSummarySerializer.call(listing) }
       }
     end
@@ -37,11 +38,13 @@ module Discovery
     end
 
     def landmarks
-      matching(Landmark.published.includes(:area), "landmarks")
+      matching(Landmark.published.where(area_id: Area.bookable.select(:id)).includes(:area), "landmarks")
     end
 
     def tags
-      matching(Tag.all, "tags")
+      bookable_tags = LandmarkTag.joins(:landmark).merge(Landmark.published)
+        .where(landmarks: { area_id: Area.bookable.select(:id) }).select(:tag_id)
+      matching(Tag.where(id: bookable_tags), "tags")
     end
 
     def listings
@@ -96,8 +99,10 @@ module Discovery
       { slug: landmark.slug, name: landmark.name, area: { slug: landmark.area.slug, name: landmark.area.name } }
     end
 
-    def tag_json(tag)
-      TagSerializer.call(tag).merge(areas: TagAreas.call(tag))
+    def tag_results
+      matched = tags.to_a
+      areas = TagAreas.call(matched.map(&:id))
+      matched.map { |tag| TagSerializer.call(tag).merge(areas: areas.fetch(tag.id, [])) }
     end
 
     # The query as a model, so a bad one is a RecordInvalid (422) like any other.

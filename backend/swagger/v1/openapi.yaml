@@ -50,7 +50,8 @@ paths:
           type: string
       responses:
         '200':
-          description: published landmarks and active listings
+          description: a province lists the areas under it that have something to
+            book
           content:
             application/json:
               schema:
@@ -610,6 +611,11 @@ components:
       properties:
         area:
           "$ref": "#/components/schemas/area"
+        areas:
+          type: array
+          description: Areas under this one that have something to book
+          items:
+            "$ref": "#/components/schemas/area"
         landmarks:
           type: array
           items:
@@ -659,6 +665,7 @@ components:
             - booking_type
       required:
       - area
+      - areas
       - landmarks
       - listings
     activity:
