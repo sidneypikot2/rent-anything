@@ -13,7 +13,7 @@ Next.js 16 App Router, TypeScript (strict), Tailwind CSS 4, TanStack Query. **Th
 
 **Server vs client**: public browse pages (`/[area]`, `/[area]/[category]`, `/listings/[id]`) are Server Components that fetch on the server, for SEO and fast first paint. Signed-in pages (cart, bookings, partner dashboard, admin) are Client Components using TanStack Query (provider in `src/app/providers.tsx`). Mark a file `"use client"` only where it needs state, effects or browser APIs, and keep server-only values (anything without `NEXT_PUBLIC_`) out of client files.
 
-**Three sections**: guest pages are in the `src/app/(guest)/` route group, partner pages under `src/app/partner/`, admin pages under `src/app/admin/`, each with its own layout and `SectionHeader` (`src/components/landing/`). A sign-up on `/login` makes a guest and one on `/partner/login` a partner; `/admin` has no sign-up. Every other `/partner` page is partner-only (`auth.md`). `partner` and `admin` can never be area slugs.
+**Three sections**: guest pages are in the `src/app/(guest)/` route group, partner pages under `src/app/partner/`, admin pages under `src/app/admin/`, each with its own layout and `SectionHeader` (`src/components/landing/`). A sign-up on `/register` makes a guest and one on `/partner/register` a partner; `/admin` has no sign-up. Every other `/partner` page is partner-only (`auth.md`). `partner` and `admin` can never be area slugs.
 
 **Area first**: every traveller-facing page lives under an area (`/moalboal/...`), and the selected area and trip dates travel in the URL. The cart is per area: never show or mix another area's cart items.
 

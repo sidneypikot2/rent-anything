@@ -11,7 +11,7 @@ const CATEGORIES = [
 ];
 
 // The guest landing page. Placeholder until the area pages exist (M2); the first area is
-// Moalboal. Guests sign in or sign up at /login (the header's "Sign in").
+// Moalboal. Guests sign in at /login and sign up at /register (both in the header).
 export default function Home() {
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-12">

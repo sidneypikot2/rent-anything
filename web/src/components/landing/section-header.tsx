@@ -10,7 +10,8 @@ const SECTION_LABELS: Record<Section, string> = {
 };
 
 // The site header for one of the three entry points: guests at /, partners at
-// /partner, developers at /admin. Each section links to the other public one.
+// /partner, developers at /admin. Sections don't link to each other: partners and guests
+// have separate entry points.
 export function SectionHeader({ section }: { section: Section }) {
   const label = SECTION_LABELS[section];
 
@@ -29,18 +30,7 @@ export function SectionHeader({ section }: { section: Section }) {
           )}
         </Link>
         <nav className="flex items-center gap-4 text-sm font-medium text-on-dark [&_a]:hover:text-white">
-          {section === "guest" && (
-            <>
-              <AccountNav section={section} />
-              <Link href="/partner/login">List with us</Link>
-            </>
-          )}
-          {section !== "guest" && (
-            <>
-              {section === "partner" && <Link href="/">Book a trip</Link>}
-              <AccountNav section={section} />
-            </>
-          )}
+          <AccountNav section={section} />
         </nav>
       </div>
     </header>
