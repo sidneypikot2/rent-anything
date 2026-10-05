@@ -4,6 +4,131 @@
  */
 
 export interface paths {
+    "/api/v1/activities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Activities guests can do in bookable areas
+         * @description Activity tags with the number of bookable areas and published landmarks that have them, most areas first. Activities with no bookable area are left out.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description activities with counts */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["activity"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Destinations with something to book
+         * @description Areas with at least one active listing, most listings first, each with its top three activities (by how many published landmarks carry them).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description bookable areas */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["area_card"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/areas/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A destination: its landmarks and what to book there */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description a province lists the areas under it that have something to book */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["area_detail"];
+                    };
+                };
+                /** @description unknown area */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -353,6 +478,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search destinations, landmarks, tags and listings
+         * @description One search box over areas, published landmarks, tags (activities, features, themes) and active listings. Accent- and typo-tolerant, and matches each record's aliases. At most 5 results per group. Areas without anything to book are left out, and listings carry no location.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description At least 2 characters */
+                    q: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description exact name ranks first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["search_results"];
+                    };
+                };
+                /** @description query missing */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/session": {
         parameters: {
             query?: never;
@@ -546,6 +722,91 @@ export interface components {
         };
         validation_errors: {
             errors: string[];
+        };
+        area_ref: {
+            slug: string;
+            name: string;
+        };
+        tag: {
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            kind: "activity" | "feature" | "theme";
+        };
+        listing_summary: {
+            id: number;
+            title: string;
+            category: string;
+            area_slug: string;
+        };
+        area: {
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            kind: "region" | "province" | "city" | "town" | "island";
+            parent_name: string | null;
+        };
+        area_card: {
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            kind: "region" | "province" | "city" | "town" | "island";
+            parent_name: string | null;
+            landmark_count: number;
+            listing_count: number;
+            activities: components["schemas"]["tag"][];
+        };
+        area_detail: {
+            area: components["schemas"]["area"];
+            /** @description Areas under this one that have something to book */
+            areas: components["schemas"]["area"][];
+            landmarks: {
+                slug: string;
+                name: string;
+                description: string;
+                tags: components["schemas"]["tag"][];
+            }[];
+            listings: {
+                id: number;
+                title: string;
+                category: string;
+                area_slug: string;
+                /** @enum {string} */
+                booking_type: "rental" | "stay" | "activity" | "transfer";
+            }[];
+        };
+        activity: {
+            slug: string;
+            name: string;
+            area_count: number;
+            landmark_count: number;
+        };
+        search_results: {
+            areas: {
+                slug: string;
+                name: string;
+                /** @enum {string} */
+                kind: "region" | "province" | "city" | "town" | "island";
+                parent_name: string | null;
+            }[];
+            landmarks: {
+                slug: string;
+                name: string;
+                area: components["schemas"]["area_ref"];
+            }[];
+            /** @description Matching tags, each with the bookable areas that have landmarks carrying it, most landmarks first */
+            tags: {
+                slug: string;
+                name: string;
+                /** @enum {string} */
+                kind: "activity" | "feature" | "theme";
+                areas: {
+                    slug: string;
+                    name: string;
+                    landmark_count: number;
+                }[];
+            }[];
+            listings: components["schemas"]["listing_summary"][];
         };
     };
     responses: never;

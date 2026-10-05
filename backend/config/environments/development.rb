@@ -3,6 +3,10 @@ require "active_support/core_ext/integer/time"
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
+  # The web container's server-rendered pages call the API as http://backend:3000
+  # (API_INTERNAL_URL in docker-compose.yml); host authorization would block that name.
+  config.hosts << "backend"
+
   # Make code changes take effect immediately without server restart.
   config.enable_reloading = true
 
