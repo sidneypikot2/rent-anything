@@ -12,14 +12,6 @@ module Auth
       invalid!("#{name} is required") unless value.is_a?(String) && value.present?
     end
 
-    # The role comes from the entry point the client is on (/login, /partner/login,
-    # /admin), so a guest can't sign in on /partner/login and vice versa.
-    def check_role_matches!(user, role)
-      return if user.role == role
-
-      raise NotAuthorizedError, "This is a #{user.role} account. Sign in from the #{user.role} page."
-    end
-
     def invalid!(message)
       record = User.new
       record.errors.add(:base, message)

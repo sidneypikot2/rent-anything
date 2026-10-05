@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_04_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_05_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -22,9 +22,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_000000) do
     t.string "uid", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["provider", "uid"], name: "index_oauth_identities_on_provider_and_uid", unique: true
+    t.string "role", null: false
+    t.index ["provider", "uid", "role"], name: "index_oauth_identities_on_provider_and_uid_and_role", unique: true
     t.index ["user_id"], name: "index_oauth_identities_on_user_id"
-    t.check_constraint "provider::text = ANY (ARRAY['google'::character varying, 'facebook'::character varying]::text[])", name: "oauth_identities_provider_check"
+    t.check_constraint "provider::text = ANY (ARRAY['google'::character varying::text, 'facebook'::character varying::text])", name: "oauth_identities_provider_check"
   end
 
   create_table "refresh_tokens", force: :cascade do |t|
@@ -46,11 +47,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_04_000000) do
     t.string "role", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["email", "role"], name: "index_users_on_email_and_role", unique: true
+    t.index ["id", "role"], name: "index_users_on_id_and_role", unique: true
     t.check_constraint "email::text = lower(email::text)", name: "users_email_lowercase_check"
-    t.check_constraint "role::text = ANY (ARRAY['guest'::character varying, 'partner'::character varying, 'admin'::character varying]::text[])", name: "users_role_check"
+    t.check_constraint "role::text = ANY (ARRAY['guest'::character varying::text, 'partner'::character varying::text, 'admin'::character varying::text])", name: "users_role_check"
   end
 
   add_foreign_key "oauth_identities", "users"
+  add_foreign_key "oauth_identities", "users", column: ["user_id", "role"], primary_key: ["id", "role"], name: "fk_oauth_identities_user_role"
   add_foreign_key "refresh_tokens", "users"
 end

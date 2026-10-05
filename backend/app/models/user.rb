@@ -1,5 +1,6 @@
 # One table for every account. The role is fixed by where the account was made: a sign-up
-# from / is a guest, one from /partner a partner; admins are never self-made.
+# from / is a guest, one from /partner a partner; admins are never self-made. Email is unique
+# per role, so one person can have a guest and a partner account with the same address.
 class User < ApplicationRecord
   ROLES = %w[guest partner admin].freeze
   SELF_SERVE_ROLES = %w[guest partner].freeze
@@ -13,7 +14,7 @@ class User < ApplicationRecord
 
   normalizes :email, with: ->(email) { email.strip.downcase }
 
-  validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
+  validates :email, presence: true, uniqueness: { scope: :role }, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :name, presence: true
   # Accounts made by Google or Facebook have no password; email sign-ups must set one.
   validates :password, presence: true, on: :password_signup
