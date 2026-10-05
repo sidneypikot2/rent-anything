@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ComponentProps } from "react";
 import { cn } from "./cn";
 
@@ -7,6 +8,19 @@ export function Card({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       className={cn("overflow-hidden rounded-2xl border-[1.5px] border-line bg-surface", className)}
+      {...props}
+    />
+  );
+}
+
+// A whole card that is one link: a search result, a destination in a list.
+export function CardLink({ className, ...props }: ComponentProps<typeof Link>) {
+  return (
+    <Link
+      className={cn(
+        "block rounded-2xl border-[1.5px] border-line bg-surface transition-colors hover:border-primary hover:bg-surface-2",
+        className,
+      )}
       {...props}
     />
   );

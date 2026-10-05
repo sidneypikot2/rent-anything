@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AuthCard } from "@/components/auth/auth-card";
 
 export const metadata: Metadata = {
-  title: "Create an account · Rent-Anything",
+  title: "Create an account",
 };
 
 // Guest sign-up: an account made here is a guest. Partners sign up at /partner/register.

@@ -1,19 +1,23 @@
 import type { ComponentProps } from "react";
 import { cn } from "./cn";
 
+const TITLE_SIZES = {
+  page: "text-4xl leading-tight sm:text-5xl",
+  // The home page hero.
+  hero: "text-5xl leading-[1.05] sm:text-6xl",
+};
+
 // Page and section headings use the display face in italic, as the brand sheet does.
 // A page has one h1; render the look elsewhere with as="p".
 export function DisplayTitle({
   as: Tag = "h1",
+  size = "page",
   className,
   ...props
-}: { as?: "h1" | "p" } & ComponentProps<"h1">) {
+}: { as?: "h1" | "p"; size?: keyof typeof TITLE_SIZES } & ComponentProps<"h1">) {
   return (
     <Tag
-      className={cn(
-        "font-display text-4xl font-bold italic leading-tight tracking-tight sm:text-5xl",
-        className,
-      )}
+      className={cn("font-display font-bold italic tracking-tight", TITLE_SIZES[size], className)}
       {...props}
     />
   );

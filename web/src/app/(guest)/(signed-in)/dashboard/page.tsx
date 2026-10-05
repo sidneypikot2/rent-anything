@@ -24,7 +24,7 @@ export default function GuestDashboard() {
         <DisplayTitle>Hi, {session?.user.name}</DisplayTitle>
         <div>
           <ButtonLink href="/" size="sm">
-            Plan a trip to Moalboal
+            Find a destination
           </ButtonLink>
         </div>
       </div>
