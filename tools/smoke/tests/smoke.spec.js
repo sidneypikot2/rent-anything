@@ -59,8 +59,8 @@ test("search a landmark and open its destination", async ({ page }) => {
 for (const [path, heading, testId] of [
   ["/login", null, "guest-signin"],
   ["/register", null, "guest-signup"],
-  ["/partner/login", "List with Tripinas", "partner-signin"],
-  ["/partner/register", "List with Tripinas", "partner-signup"],
+  ["/partner/login", "List with TripKoNext", "partner-signin"],
+  ["/partner/register", "List with TripKoNext", "partner-signup"],
   ["/admin", "Admin console", "admin-signin"],
   ["/admin/ui-kit", "Tidal Grove", "ui-kit"],
 ]) {
