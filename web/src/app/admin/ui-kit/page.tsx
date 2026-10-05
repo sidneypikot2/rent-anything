@@ -9,7 +9,7 @@ import { Pill, PillLink } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, Price, SectionTitle } from "@/components/ui/typography";
 
 export const metadata: Metadata = {
-  title: "UI kit · Rent-Anything",
+  title: "UI kit",
 };
 
 // The Tidal Grove palette as Tailwind classes (defined in globals.css), with what each

@@ -18,7 +18,7 @@ const TRIP_NEEDS: { title: string; bookingTypes: Listing["booking_type"][] }[] =
 
 export async function generateMetadata(props: PageProps<"/[area]">): Promise<Metadata> {
   const detail = await getArea((await props.params).area);
-  return { title: detail ? `${detail.area.name} · Rent-Anything` : "Not found · Rent-Anything" };
+  return { title: detail ? detail.area.name : "Not found" };
 }
 
 // A destination: the places to see there and everything to book. Booking comes later (M3).

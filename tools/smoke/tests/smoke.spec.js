@@ -18,7 +18,7 @@ test("home page renders and reaches the API", async ({ page }) => {
   collectErrors(page, errors);
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("island escape");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Find your next escape");
   await expect(page.getByTestId("nav-signin")).toBeVisible();
   await expect(page.getByTestId("nav-register")).toHaveAttribute("href", "/register");
   // Rendered on the server from the API (the sample destinations, RAA-33).
@@ -59,8 +59,8 @@ test("search a landmark and open its destination", async ({ page }) => {
 for (const [path, heading, testId] of [
   ["/login", null, "guest-signin"],
   ["/register", null, "guest-signup"],
-  ["/partner/login", "List with Rent-Anything", "partner-signin"],
-  ["/partner/register", "List with Rent-Anything", "partner-signup"],
+  ["/partner/login", "List with Tripinas", "partner-signin"],
+  ["/partner/register", "List with Tripinas", "partner-signup"],
   ["/admin", "Admin console", "admin-signin"],
   ["/admin/ui-kit", "Tidal Grove", "ui-kit"],
 ]) {

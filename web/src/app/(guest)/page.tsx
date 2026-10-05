@@ -6,6 +6,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { PillLink } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
+import { BRAND, TAGLINE, TAGLINE_EN } from "@/lib/brand";
 
 const FEATURES = [
   { icon: "🧺", title: "One cart per trip", body: "Tours, rides, gear and a room for the same place, paid in one checkout." },
@@ -31,14 +32,14 @@ export default async function Home() {
       <section className="border-b border-line bg-linear-to-br from-mist via-surface to-sage px-4 pb-16 pt-14 text-center sm:pt-20">
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-5">
           <span className="rounded-full border-[1.5px] border-line bg-surface px-4 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
-            ✦ Islands and cities of Cebu
+            ✦ {TAGLINE}
           </span>
           <DisplayTitle size="hero">
-            Find your next <span className="not-italic text-primary">island escape</span>
+            Find your next <span className="not-italic text-primary">escape</span>
           </DisplayTitle>
           <p className="max-w-md text-lg text-muted">
-            Search a place, a landmark or something you love doing. We&apos;ll show you where to go and what to
-            book there.
+            Beach or summit, city or village: search a place, a landmark or something you love doing.
+            We&apos;ll show you where to go and book the rest in one cart.
           </p>
           <SearchBox />
           {activities.length > 0 && (
@@ -96,7 +97,7 @@ export default async function Home() {
         </section>
 
         <section className="flex flex-col gap-4">
-          <SectionTitle>Why Rent-Anything</SectionTitle>
+          <SectionTitle>Why {BRAND}</SectionTitle>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {FEATURES.map((feature) => (
               <Card key={feature.title}>
@@ -114,8 +115,10 @@ export default async function Home() {
 
         <section className="flex flex-col items-start gap-4 rounded-3xl bg-navy p-8 text-white sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <SectionTitle>Your next island trip starts here.</SectionTitle>
-            <p className="mt-1 text-on-dark">Create a free account to keep one cart per destination.</p>
+            <SectionTitle>{TAGLINE}</SectionTitle>
+            <p className="mt-1 text-on-dark">
+              {TAGLINE_EN} Create a free account to keep one cart per destination.
+            </p>
           </div>
           <ButtonLink href="/register" variant="accent">
             Create an account

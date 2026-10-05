@@ -7,7 +7,7 @@ import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { PillLink } from "@/components/ui/pill";
 import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 
-export const metadata: Metadata = { title: "Search · Rent-Anything" };
+export const metadata: Metadata = { title: "Search" };
 
 // Full search results, grouped like the autocomplete. An activity lists the destinations
 // that have it, most matching places first.
