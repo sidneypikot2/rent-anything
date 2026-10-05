@@ -101,6 +101,16 @@ RSpec.describe "Me", type: :request do
         end
       end
 
+      response "422", "a complete profile can't clear its phone" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:user) { create(:user, :profile_complete) }
+        let(:body) { { phone: nil } }
+
+        run_test! do
+          expect(user.reload.phone).to eq("+639171234567")
+        end
+      end
+
       response "422", "name given as null" do
         schema "$ref" => "#/components/schemas/validation_errors"
         let(:body) { { name: nil } }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { apiClient } from "@/api/client";
 import { Button } from "@/components/ui/button";
-import { DASHBOARD_PATHS, LOGIN_PATHS } from "@/lib/auth/paths";
+import { COMPLETE_PROFILE_PATHS, DASHBOARD_PATHS, LOGIN_PATHS } from "@/lib/auth/paths";
 import { clearSession, useSession } from "@/lib/auth/session";
 
 type GuardedRole = "guest" | "partner";
@@ -34,7 +34,17 @@ async function confirmRole(role: GuardedRole) {
 // The page renders only once the API confirms the role, which is also what keeps the
 // data safe if this client check is bypassed. Guest pages live in
 // src/app/(guest)/(signed-in)/, partner pages in src/app/partner/(protected)/.
-export function RoleGuard({ role, children }: { role: GuardedRole; children: ReactNode }) {
+// Until name and phone are set, every guarded page sends the user to complete-profile;
+// that page itself (`completeProfile`) sends a user who's done to the dashboard.
+export function RoleGuard({
+  role,
+  completeProfile = false,
+  children,
+}: {
+  role: GuardedRole;
+  completeProfile?: boolean;
+  children: ReactNode;
+}) {
   const router = useRouter();
   const session = useSession();
   const hasRole = session?.user.role === role;
@@ -51,6 +61,13 @@ export function RoleGuard({ role, children }: { role: GuardedRole; children: Rea
     if (session === null) router.replace(LOGIN_PATHS[role]);
     else if (!hasRole) router.replace(DASHBOARD_PATHS[session.user.role]);
   }, [session, hasRole, role, router]);
+
+  // Asked of the API, not the cached session, so a stale session can't skip the step.
+  const wrongStep = data !== undefined && data.registration_complete === completeProfile;
+  useEffect(() => {
+    if (!wrongStep) return;
+    router.replace(completeProfile ? DASHBOARD_PATHS[role] : COMPLETE_PROFILE_PATHS[role]);
+  }, [wrongStep, completeProfile, role, router]);
 
   useEffect(() => {
     if (!(error instanceof GuardError)) return;
@@ -72,7 +89,7 @@ export function RoleGuard({ role, children }: { role: GuardedRole; children: Rea
     );
   }
 
-  if (!hasRole || !data) {
+  if (!hasRole || !data || wrongStep) {
     return (
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-12">
         <p data-testid="role-guard" className="text-sm text-muted">

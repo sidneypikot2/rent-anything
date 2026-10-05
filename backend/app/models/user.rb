@@ -15,7 +15,9 @@ class User < ApplicationRecord
   normalizes :email, with: ->(email) { email.strip.downcase }
 
   validates :email, presence: true, uniqueness: { scope: :role }, format: { with: URI::MailTo::EMAIL_REGEXP }
-  validates :name, presence: true
+  # Sign-up takes only email and password; name and phone are required from the
+  # complete-profile step on (RAA-32), and a CHECK constraint holds the same rule.
+  validates :name, :phone, presence: true, if: :registration_complete?
   # Accounts made by Google or Facebook have no password; email sign-ups must set one.
   validates :password, presence: true, on: :password_signup
   validates :password, length: { minimum: 8, maximum: 72 }, allow_nil: true

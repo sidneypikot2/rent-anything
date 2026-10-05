@@ -57,6 +57,14 @@ export function saveSession(tokens: AuthTokens) {
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
+// After the user changes on the server (completing their profile), keep the tokens.
+export function updateSessionUser(user: User) {
+  const session = getSession();
+  if (!session) return;
+  writeRaw(JSON.stringify({ ...session, user }));
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+}
+
 export function clearSession() {
   writeRaw(null);
   window.dispatchEvent(new Event(CHANGE_EVENT));

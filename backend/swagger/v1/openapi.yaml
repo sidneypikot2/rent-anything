@@ -26,6 +26,54 @@ paths:
                 required:
                 - status
                 - postgis
+  "/api/v1/me/complete_profile":
+    put:
+      summary: Finish sign-up with a name and phone
+      tags:
+      - Auth
+      description: Sign-up asks only for email and password; the web app sends a user
+        whose `registration_complete` is false here before anything else. Both fields
+        are required. Guests and partners alike.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: a partner completes theirs
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/user"
+        '422':
+          description: phone that isn't a phone number
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                phone:
+                  type: string
+                  description: Digits, spaces, ( ) - and a leading +; 7 to 20 characters
+              required:
+              - name
+              - phone
   "/api/v1/me":
     get:
       summary: The signed-in user
@@ -196,7 +244,9 @@ paths:
       tags:
       - Auth
       description: "`role` is the entry point: `guest` from /login, `partner` from
-        /partner/login. Admin accounts are never self-made."
+        /partner/login. Admin accounts are never self-made. `name` and `phone` are
+        optional; the account starts with `registration_complete: false` until PUT
+        /api/v1/me/complete_profile."
       parameters: []
       responses:
         '201':
@@ -239,7 +289,6 @@ paths:
                   - partner
               required:
               - email
-              - name
               - password
               - role
   "/api/v1/session":
@@ -371,6 +420,7 @@ components:
           type: string
         name:
           type: string
+          nullable: true
         phone:
           type: string
           nullable: true
@@ -380,12 +430,16 @@ components:
           - guest
           - partner
           - admin
+        registration_complete:
+          type: boolean
+          description: False until name and phone are set (PUT /api/v1/me/complete_profile)
       required:
       - id
       - email
       - name
       - phone
       - role
+      - registration_complete
     auth_tokens:
       type: object
       properties:
