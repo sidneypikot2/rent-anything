@@ -6,7 +6,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { PillLink } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
-import { BRAND, TAGLINE, TAGLINE_EN } from "@/lib/brand";
+import { BRAND, TAGLINE } from "@/lib/brand";
 
 const FEATURES = [
   { icon: "🧺", title: "One cart per trip", body: "Tours, rides, gear and a room for the same place, paid in one checkout." },
@@ -117,7 +117,7 @@ export default async function Home() {
           <div>
             <SectionTitle>{TAGLINE}</SectionTitle>
             <p className="mt-1 text-on-dark">
-              {TAGLINE_EN} Create a free account to keep one cart per destination.
+              Tours, rides, gear and stays from local partners, paid in one checkout. Create a free account to keep one cart per destination.
             </p>
           </div>
           <ButtonLink href="/register" variant="accent">

@@ -7,6 +7,7 @@ import { apiClient } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { DASHBOARD_PATHS, LOGIN_PATHS } from "@/lib/auth/paths";
 import { clearSession, useSession } from "@/lib/auth/session";
+import { BRAND } from "@/lib/brand";
 
 type GuardedRole = "guest" | "partner";
 
@@ -63,7 +64,7 @@ export function RoleGuard({ role, children }: { role: GuardedRole; children: Rea
     return (
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-start gap-3 px-4 py-12">
         <p role="alert" className="text-sm text-danger">
-          Couldn&apos;t reach Tripinas. Check your connection and try again.
+          Couldn&apos;t reach {BRAND}. Check your connection and try again.
         </p>
         <Button size="sm" variant="soft" onClick={() => void refetch()}>
           Try again
