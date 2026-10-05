@@ -14,7 +14,7 @@ Rails.application.routes.draw do
       resource :session, only: %i[create destroy]
       post "oauth/:provider", to: "oauth#create", as: :oauth
       post "tokens/refresh", to: "tokens#refresh"
-      resource :me, only: :show, controller: "me"
+      resource :me, only: %i[show update], controller: "me"
 
       namespace :partner do
         resource :me, only: :show, controller: "me"

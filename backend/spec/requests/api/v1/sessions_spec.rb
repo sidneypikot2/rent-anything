@@ -71,6 +71,13 @@ RSpec.describe "Sessions", type: :request do
 
         run_test!
       end
+
+      response "429", "too many attempts from one IP" do
+        schema "$ref" => "#/components/schemas/error"
+        before { exceed_auth_rate_limit(Api::V1::SessionsController) }
+
+        run_test!
+      end
     end
 
     delete "Sign out (revoke a refresh token)" do

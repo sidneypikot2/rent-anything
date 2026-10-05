@@ -98,6 +98,13 @@ RSpec.describe "Registrations", type: :request do
           expect(response.parsed_body["errors"]).to include("Email has already been taken")
         end
       end
+
+      response "429", "too many attempts from one IP" do
+        schema "$ref" => "#/components/schemas/error"
+        before { exceed_auth_rate_limit(Api::V1::RegistrationsController) }
+
+        run_test!
+      end
     end
   end
 end

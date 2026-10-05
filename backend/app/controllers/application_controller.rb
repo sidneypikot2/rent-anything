@@ -8,6 +8,13 @@ class ApplicationController < ActionController::API
   rescue_from NotAuthorizedError, with: :render_forbidden
   rescue_from ActiveRecord::RecordInvalid, with: :render_unprocessable
 
+  # Sign-in and sign-up attempts per IP, counted per endpoint in config.cache_store.
+  AUTH_RATE_LIMIT = { to: 10, within: 3.minutes }.freeze
+
+  def self.limit_auth_attempts(**options)
+    rate_limit(**AUTH_RATE_LIMIT, with: :render_too_many_requests, **options)
+  end
+
   private
 
   attr_reader :current_user
@@ -39,6 +46,10 @@ class ApplicationController < ActionController::API
 
   def render_unprocessable(exception)
     render json: { errors: exception.record.errors.full_messages }, status: :unprocessable_content
+  end
+
+  def render_too_many_requests
+    render json: { error: "Too many attempts. Try again in a few minutes." }, status: :too_many_requests
   end
 
   # An exception raised without a message carries its class name; show the generic text.

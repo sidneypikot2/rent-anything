@@ -1,6 +1,8 @@
 module Api
   module V1
     class SessionsController < ApplicationController
+      limit_auth_attempts only: :create
+
       def create
         render json: Auth::SignIn.call(email: params[:email], password: params[:password], role: params[:role])
       end
