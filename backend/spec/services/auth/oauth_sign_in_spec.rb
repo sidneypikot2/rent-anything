@@ -33,15 +33,24 @@ RSpec.describe Auth::OauthSignIn do
   it "never links to a password account, even with Google's verified email" do
     create(:user, email: "ana@example.com")
 
-    expect { sign_in }.to raise_error(ActiveRecord::RecordInvalid, /already exists/)
+    expect { sign_in }.to raise_error(ActiveRecord::RecordInvalid,
+      "Validation failed: A guest account with this email already exists. Sign in with your email and password.")
     expect(OauthIdentity.count).to eq(0)
   end
 
   it "doesn't link Facebook to an existing account, since its email isn't verified" do
     create(:user, email: "ana@example.com")
 
-    expect { sign_in(provider: "facebook") }.to raise_error(ActiveRecord::RecordInvalid, /already exists/)
+    expect { sign_in(provider: "facebook") }.to raise_error(ActiveRecord::RecordInvalid, /A guest account .* email and password/)
     expect(OauthIdentity.count).to eq(0)
+  end
+
+  it "points a Facebook sign-in at the provider of a passwordless account it can't link to" do
+    user = create(:user, :oauth_only, email: "ana@example.com")
+    user.oauth_identities.create!(provider: "google", uid: "uid-1")
+
+    expect { sign_in(provider: "facebook") }.to raise_error(ActiveRecord::RecordInvalid, /already exists. Sign in with Google\.\z/)
+    expect(user.oauth_identities.pluck(:provider)).to eq([ "google" ])
   end
 
   it "creates a Facebook user when the email is new" do
