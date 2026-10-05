@@ -50,11 +50,27 @@ RSpec.describe Auth::OauthSignIn do
     expect(result[:user]).to include("email" => "ana@example.com", "role" => "partner")
   end
 
-  it "refuses a linked identity whose user has another role" do
-    user = create(:user, :partner)
-    user.oauth_identities.create!(provider: "google", uid: "uid-1")
+  it "keeps one account per role for the same provider account" do
+    guest_id = sign_in(role: "guest").dig(:user, "id")
+    partner_id = sign_in(role: "partner").dig(:user, "id")
 
-    expect { sign_in(role: "guest") }.to raise_error(NotAuthorizedError)
+    expect(partner_id).not_to eq(guest_id)
+    expect(sign_in(role: "guest").dig(:user, "id")).to eq(guest_id)
+    expect(sign_in(role: "partner").dig(:user, "id")).to eq(partner_id)
+    expect(OauthIdentity.where(provider: "google", uid: "uid-1").count).to eq(2)
+  end
+
+  it "only links by email within the entry point's role" do
+    guest = create(:user, :oauth_only, email: "ana@example.com")
+
+    expect(sign_in(role: "partner").dig(:user, "id")).not_to eq(guest.id)
+    expect(guest.oauth_identities).to be_empty
+  end
+
+  it "doesn't let a guest's password account block a partner sign-up with Google" do
+    create(:user, email: "ana@example.com")
+
+    expect(sign_in(role: "partner")[:user]).to include("role" => "partner")
   end
 
   it "refuses a provider account without an email" do

@@ -132,8 +132,8 @@ paths:
       tags:
       - Auth
       description: "`token` is a Google Identity Services ID token or a Facebook Login
-        access token. A new account gets `role`; an existing one must already have
-        it."
+        access token. It signs in to, links or creates an account of `role` only,
+        so one Google account can have a guest and a partner account."
       parameters:
       - name: provider
         in: path
@@ -152,12 +152,6 @@ paths:
                 "$ref": "#/components/schemas/auth_tokens"
         '401':
           description: the provider rejects the token
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/error"
-        '403':
-          description: a guest's Google account on /partner/login
           content:
             application/json:
               schema:
@@ -212,7 +206,7 @@ paths:
               schema:
                 "$ref": "#/components/schemas/auth_tokens"
         '422':
-          description: email already taken, in any case
+          description: email already taken by the same role, in any case
           content:
             application/json:
               schema:
@@ -253,8 +247,9 @@ paths:
       summary: Sign in with email and password
       tags:
       - Auth
-      description: "`role` is the entry point signed in from; an account of another
-        role gets 403."
+      description: "`role` is the entry point signed in from. Email is unique per
+        role, so only that role's account is looked up; an account of another role
+        is not found (401)."
       parameters: []
       responses:
         '200':
@@ -265,12 +260,6 @@ paths:
                 "$ref": "#/components/schemas/auth_tokens"
         '401':
           description: an account made with Google has no password
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/error"
-        '403':
-          description: a partner account signing in on /login
           content:
             application/json:
               schema:

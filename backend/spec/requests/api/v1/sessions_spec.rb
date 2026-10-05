@@ -6,7 +6,8 @@ RSpec.describe "Sessions", type: :request do
       tags "Auth"
       consumes "application/json"
       produces "application/json"
-      description "`role` is the entry point signed in from; an account of another role gets 403."
+      description "`role` is the entry point signed in from. Email is unique per role, so only that " \
+        "role's account is looked up; an account of another role is not found (401)."
       parameter name: :body, in: :body, schema: {
         type: :object,
         properties: {
@@ -20,12 +21,37 @@ RSpec.describe "Sessions", type: :request do
       let!(:user) { create(:user, email: "ana@example.com", password: "password123") }
       let(:body) { { email: "ANA@example.com ", password: "password123", role: "guest" } }
 
+      response "200", "the same email has a guest and a partner account: the page picks one" do
+        schema "$ref" => "#/components/schemas/auth_tokens"
+        let!(:partner) { create(:user, :partner, email: "ana@example.com", password: "partner-pass") }
+        let(:body) { { email: "ana@example.com", password: "partner-pass", role: "partner" } }
+
+        run_test! do |response|
+          expect(response.parsed_body["user"]).to include("id" => partner.id, "role" => "partner")
+        end
+      end
+
       response "200", "signed in" do
         schema "$ref" => "#/components/schemas/auth_tokens"
 
         run_test! do |response|
           expect(response.parsed_body.dig("user", "id")).to eq(user.id)
         end
+      end
+
+      response "401", "a guest account signing in on /partner/login" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:body) { super().merge(role: "partner") }
+
+        run_test!
+      end
+
+      response "401", "the guest's password on /partner/login, when the partner account has another" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:body) { super().merge(role: "partner") }
+        before { create(:user, :partner, email: "ana@example.com", password: "partner-pass") }
+
+        run_test!
       end
 
       response "401", "wrong password" do
@@ -38,22 +64,6 @@ RSpec.describe "Sessions", type: :request do
       response "401", "an account made with Google has no password" do
         schema "$ref" => "#/components/schemas/error"
         let!(:user) { create(:user, :oauth_only, email: "ana@example.com") }
-
-        run_test!
-      end
-
-      response "403", "a guest account signing in on /partner/login" do
-        schema "$ref" => "#/components/schemas/error"
-        let(:body) { super().merge(role: "partner") }
-
-        run_test! do |response|
-          expect(response.parsed_body["error"]).to include("guest account")
-        end
-      end
-
-      response "403", "a partner account signing in on /login" do
-        schema "$ref" => "#/components/schemas/error"
-        let!(:user) { create(:user, :partner, email: "ana@example.com", password: "password123") }
 
         run_test!
       end
