@@ -14,3 +14,9 @@ export const LOGIN_PATHS: Record<Role, string> = {
   partner: "/partner/login",
   admin: "/admin",
 };
+
+// Where the self-serve roles sign up. Admins are never self-made.
+export const REGISTER_PATHS: Record<Exclude<Role, "admin">, string> = {
+  guest: "/register",
+  partner: "/partner/register",
+};

@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ButtonLink } from "@/components/ui/button";
 import { signOut } from "@/lib/auth/actions";
-import { DASHBOARD_PATHS, LOGIN_PATHS } from "@/lib/auth/paths";
+import { DASHBOARD_PATHS, LOGIN_PATHS, REGISTER_PATHS } from "@/lib/auth/paths";
 import { useSession } from "@/lib/auth/session";
 import type { Section } from "@/components/landing/section-header";
 
 // The header's account links: the signed-in user's name (to their dashboard) and
-// "Sign out", or, signed out, "Sign in" in the guest section only (partner and admin
-// pages show their own form).
+// "Sign out", or, signed out, "Sign in" and "Create an account" in the guest section
+// only (partner and admin pages show their own form).
 export function AccountNav({ section }: { section: Section }) {
   const router = useRouter();
   const session = useSession();
@@ -17,9 +18,19 @@ export function AccountNav({ section }: { section: Section }) {
 
   if (session === null) {
     return section === "guest" ? (
-      <Link href={LOGIN_PATHS.guest} data-testid="nav-signin">
-        Sign in
-      </Link>
+      <span className="flex items-center gap-4">
+        <Link href={LOGIN_PATHS.guest} data-testid="nav-signin">
+          Sign in
+        </Link>
+        <ButtonLink
+          href={REGISTER_PATHS.guest}
+          variant="accent"
+          size="sm"
+          data-testid="nav-register"
+        >
+          Create an account
+        </ButtonLink>
+      </span>
     ) : null;
   }
 
