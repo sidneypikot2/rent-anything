@@ -62,8 +62,10 @@ update its body instead of opening a second one.
 
 ## 4. Checks, then stop
 
-`gh pr checks <PR> --watch`. If a check fails, read the log and report it — the fix goes
-through a normal task into `staging`, never as a commit on the release.
+`gh pr checks <PR> --watch`, then `gh pr checks <PR>` once more, reading every row: green
+means each one is `pass` or `skipping` and none is `pending`, not the tail of the watch output.
+If a check fails, read the log and report it — the fix goes through a normal task into
+`staging`, never as a commit on the release.
 
 Tell the user the pull request is ready and what to do before and after merging:
 
