@@ -11,7 +11,7 @@ export function SiteFooter() {
         <nav className="flex flex-wrap gap-x-5 gap-y-2 [&_a]:hover:text-white">
           <Link href="/#destinations">Destinations</Link>
           <Link href="/#activities">Activities</Link>
-          <Link href="/partner">List with us</Link>
+          <Link href="/partner/register">List with us</Link>
         </nav>
         <p>Local partners in Cebu · Book everything for one trip in one cart</p>
       </div>

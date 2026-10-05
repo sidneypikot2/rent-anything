@@ -24,7 +24,8 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
     return () => clearTimeout(timer);
   }, [text]);
 
-  const enabled = query.length >= MIN_LENGTH;
+  // Characters, not UTF-16 units, to match the API's count (an emoji is one).
+  const enabled = [...query].length >= MIN_LENGTH;
   const { data, isError } = useQuery({
     queryKey: ["search", query],
     queryFn: async () => {
@@ -61,10 +62,8 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
             if (event.key === "Escape") setOpen(false);
           }}
           placeholder="Try Bantayan, Kota Beach or snorkelling"
-          role="combobox"
           aria-label="Search destinations, landmarks and activities"
           aria-controls={listId}
-          aria-expanded={showPanel}
           autoComplete="off"
           minLength={MIN_LENGTH}
           required
@@ -80,6 +79,9 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
         <div
           id={listId}
           data-testid="search-suggestions"
+          // Keeps focus in the input while a suggestion is clicked: Safari doesn't focus a
+          // clicked link, so the form's blur would close the panel before the click lands.
+          onMouseDown={(event) => event.preventDefault()}
           className="absolute inset-x-0 top-full z-20 mt-2 max-h-[70vh] overflow-y-auto rounded-2xl border-[1.5px] border-line bg-surface p-2 shadow-xl shadow-primary/10"
         >
           {isError ? (

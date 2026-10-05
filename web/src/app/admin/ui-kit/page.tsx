@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { Card, CardBody } from "@/components/ui/card";
+import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { PasswordField } from "@/components/ui/password-field";
-import { Pill } from "@/components/ui/pill";
+import { Pill, PillLink } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, Price, SectionTitle } from "@/components/ui/typography";
 
 export const metadata: Metadata = {
@@ -60,6 +60,9 @@ export default function UiKit() {
       <Showcase title="Typography">
         <div className="flex flex-col gap-2">
           <Eyebrow>Eyebrow</Eyebrow>
+          <DisplayTitle as="p" size="hero">
+            Hero title
+          </DisplayTitle>
           <DisplayTitle as="p">Display title</DisplayTitle>
           <SectionTitle>Section title</SectionTitle>
           <p>Body text in DM Sans, the face for everything that isn&apos;t a heading.</p>
@@ -100,6 +103,7 @@ export default function UiKit() {
               {category}
             </Pill>
           ))}
+          <PillLink href="/admin/ui-kit">🤿 Pill as link</PillLink>
         </div>
       </Showcase>
 
@@ -123,6 +127,17 @@ export default function UiKit() {
           <ListingCard badge={<Badge>Best value</Badge>} tint="bg-sage" title="Sardine run snorkel" price="₱1,200" unit="/ person" />
           <ListingCard badge={<Badge tone="emerald">Eco tour</Badge>} tint="bg-mist" title="Kawasan canyoneering" price="₱2,500" unit="/ person" />
           <ListingCard tint="bg-sage" title="Honda Click 125" price="₱450" unit="/ day" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <CardLink href="/admin/ui-kit" className="flex items-center gap-3 p-4">
+            <span aria-hidden className="text-2xl">
+              🏝️
+            </span>
+            <span>
+              <span className="block font-semibold">Card as link</span>
+              <span className="block text-sm text-muted">The whole card is one link</span>
+            </span>
+          </CardLink>
         </div>
       </Showcase>
     </main>

@@ -1,8 +1,7 @@
-import Link from "next/link";
 import type { Activity, AreaCard } from "@/api/discovery";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { Card, CardBody } from "@/components/ui/card";
+import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { areaIcon, tagIcon } from "./icons";
 
 const KIND_LABELS: Record<string, string> = {
@@ -51,10 +50,10 @@ export function DestinationCard({ area }: { area: AreaCard }) {
 // "Browse by activity": an activity and how many destinations offer it.
 export function ActivityCard({ activity }: { activity: Activity }) {
   return (
-    <Link
+    <CardLink
       href={`/search?q=${encodeURIComponent(activity.name)}`}
       data-testid="activity-card"
-      className="group flex flex-col items-center gap-2 rounded-2xl border-[1.5px] border-line bg-surface p-4 text-center transition-colors hover:border-primary hover:bg-surface-2"
+      className="flex flex-col items-center gap-2 p-4 text-center"
     >
       <span aria-hidden className="flex size-12 items-center justify-center rounded-full bg-fern/50 text-2xl">
         {tagIcon(activity.slug)}
@@ -64,6 +63,6 @@ export function ActivityCard({ activity }: { activity: Activity }) {
         {activity.area_count} {activity.area_count === 1 ? "destination" : "destinations"} · {activity.landmark_count}{" "}
         {activity.landmark_count === 1 ? "spot" : "spots"}
       </span>
-    </Link>
+    </CardLink>
   );
 }

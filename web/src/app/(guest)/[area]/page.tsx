@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getArea, type AreaDetail } from "@/api/discovery";
 import { areaIcon, tagIcon } from "@/components/discovery/icons";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardBody } from "@/components/ui/card";
+import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
 
 type Listing = AreaDetail["listings"][number];
@@ -49,15 +48,12 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
             <ul className="grid gap-2 sm:grid-cols-2">
               {areas.map((child) => (
                 <li key={child.slug}>
-                  <Link
-                    href={`/${child.slug}`}
-                    className="flex items-center gap-3 rounded-2xl border-[1.5px] border-line bg-surface p-4 font-semibold hover:border-primary"
-                  >
+                  <CardLink href={`/${child.slug}`} className="flex items-center gap-3 p-4 font-semibold">
                     <span aria-hidden className="text-2xl">
                       {areaIcon(child.kind)}
                     </span>
                     {child.name}
-                  </Link>
+                  </CardLink>
                 </li>
               ))}
             </ul>

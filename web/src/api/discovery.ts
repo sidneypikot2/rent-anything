@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import { cache } from "react";
 import { serverApiClient } from "./server-client";
 import type { components } from "./schema";
 
@@ -25,14 +26,15 @@ export async function getActivities(): Promise<Activity[]> {
   return data;
 }
 
-// null when there is no such area.
-export async function getArea(slug: string): Promise<AreaDetail | null> {
+// null when there is no such area. Cached per request: the page and its metadata share
+// one call.
+export const getArea = cache(async (slug: string): Promise<AreaDetail | null> => {
   await connection();
   const { data, response } = await serverApiClient().GET("/api/v1/areas/{slug}", { params: { path: { slug } } });
   if (response.status === 404) return null;
   if (!data) throw new Error("Couldn't load this destination");
   return data;
-}
+});
 
 export async function search(q: string): Promise<SearchResults> {
   await connection();

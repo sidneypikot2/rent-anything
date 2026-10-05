@@ -4,8 +4,8 @@ import { tagIcon } from "@/components/discovery/icons";
 import { SearchBox } from "@/components/discovery/search-box";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
-import { Eyebrow, SectionTitle } from "@/components/ui/typography";
-import Link from "next/link";
+import { PillLink } from "@/components/ui/pill";
+import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
 
 const FEATURES = [
   { icon: "🧺", title: "One cart per trip", body: "Tours, rides, gear and a room for the same place, paid in one checkout." },
@@ -33,9 +33,9 @@ export default async function Home() {
           <span className="rounded-full border-[1.5px] border-line bg-surface px-4 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
             ✦ Islands and cities of Cebu
           </span>
-          <h1 className="font-display text-5xl font-bold italic leading-[1.05] tracking-tight sm:text-6xl">
+          <DisplayTitle size="hero">
             Find your next <span className="not-italic text-primary">island escape</span>
-          </h1>
+          </DisplayTitle>
           <p className="max-w-md text-lg text-muted">
             Search a place, a landmark or something you love doing. We&apos;ll show you where to go and what to
             book there.
@@ -44,13 +44,9 @@ export default async function Home() {
           {activities.length > 0 && (
             <div className="flex flex-wrap justify-center gap-2">
               {activities.slice(0, 6).map((activity) => (
-                <Link
-                  key={activity.slug}
-                  href={`/search?q=${encodeURIComponent(activity.name)}`}
-                  className="rounded-full border-[1.5px] border-line bg-surface px-4 py-1 text-sm font-medium text-muted transition-colors hover:border-primary hover:text-primary"
-                >
+                <PillLink key={activity.slug} href={`/search?q=${encodeURIComponent(activity.name)}`}>
                   {tagIcon(activity.slug)} {activity.name}
-                </Link>
+                </PillLink>
               ))}
             </div>
           )}
@@ -118,7 +114,7 @@ export default async function Home() {
 
         <section className="flex flex-col items-start gap-4 rounded-3xl bg-navy p-8 text-white sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="font-display text-3xl font-bold italic">Your next island trip starts here.</h2>
+            <SectionTitle>Your next island trip starts here.</SectionTitle>
             <p className="mt-1 text-on-dark">Create a free account to keep one cart per destination.</p>
           </div>
           <ButtonLink href="/register" variant="accent">

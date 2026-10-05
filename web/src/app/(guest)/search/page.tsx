@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { search, type SearchResults } from "@/api/discovery";
 import { areaIcon, tagIcon } from "@/components/discovery/icons";
 import { SearchBox } from "@/components/discovery/search-box";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardBody } from "@/components/ui/card";
+import { Card, CardBody, CardLink } from "@/components/ui/card";
+import { PillLink } from "@/components/ui/pill";
 import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 
 export const metadata: Metadata = { title: "Search · Rent-Anything" };
@@ -14,7 +14,8 @@ export const metadata: Metadata = { title: "Search · Rent-Anything" };
 export default async function SearchPage(props: PageProps<"/search">) {
   const { q } = await props.searchParams;
   const query = typeof q === "string" ? q.trim() : "";
-  const results = query.length >= 2 ? await search(query) : null;
+  // Characters, not UTF-16 units, to match the API's minimum (an emoji is one).
+  const results = [...query].length >= 2 ? await search(query) : null;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-10">
@@ -54,15 +55,12 @@ function Results({ results }: { results: SearchResults }) {
                 <ul className="flex flex-wrap gap-2">
                   {tag.areas.map((area) => (
                     <li key={area.slug}>
-                      <Link
-                        href={`/${area.slug}`}
-                        className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-line px-4 py-1 text-sm font-medium text-primary hover:border-primary"
-                      >
-                        {area.name}
-                        <span className="text-xs text-muted">
+                      <PillLink href={`/${area.slug}`}>
+                        <span className="text-primary">{area.name}</span>
+                        <span className="text-xs">
                           {area.landmark_count} {area.landmark_count === 1 ? "spot" : "spots"}
                         </span>
-                      </Link>
+                      </PillLink>
                     </li>
                   ))}
                 </ul>
@@ -116,10 +114,7 @@ function LinkGroup({ title, items }: { title: string; items: Item[] }) {
       <ul className="grid gap-2 sm:grid-cols-2">
         {items.map((item) => (
           <li key={item.key}>
-            <Link
-              href={item.href}
-              className="flex items-center gap-3 rounded-2xl border-[1.5px] border-line bg-surface p-3 hover:border-primary"
-            >
+            <CardLink href={item.href} className="flex items-center gap-3 p-3">
               <span aria-hidden className="text-2xl">
                 {item.icon}
               </span>
@@ -128,7 +123,7 @@ function LinkGroup({ title, items }: { title: string; items: Item[] }) {
                 {item.note && <span className="block truncate text-sm text-muted">{item.note}</span>}
               </span>
               <Badge tone="mist">View</Badge>
-            </Link>
+            </CardLink>
           </li>
         ))}
       </ul>
