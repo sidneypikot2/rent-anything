@@ -63,7 +63,7 @@ export function RoleGuard({ role, children }: { role: GuardedRole; children: Rea
     return (
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-start gap-3 px-4 py-12">
         <p role="alert" className="text-sm text-danger">
-          Couldn&apos;t reach Rent-Anything. Check your connection and try again.
+          Couldn&apos;t reach Tripinas. Check your connection and try again.
         </p>
         <Button size="sm" variant="soft" onClick={() => void refetch()}>
           Try again

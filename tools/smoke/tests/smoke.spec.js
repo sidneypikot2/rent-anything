@@ -1,5 +1,6 @@
-// What this proves: the web app renders without script errors and the browser reaches
-// the API through the same address and CORS setup a person's browser uses. It is a smoke
+// What this proves: the web app renders without script errors, the server renders pages
+// from the API, and the browser reaches the API through the same address and CORS setup a
+// person's browser uses. It is a smoke
 // test — one happy path through the parts everything else depends on, not feature
 // coverage. Extend it as the core path grows (area page, add to cart, checkout).
 import { test, expect } from "@playwright/test";
@@ -17,10 +18,38 @@ test("home page renders and reaches the API", async ({ page }) => {
   collectErrors(page, errors);
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Moalboal");
-  await expect(page.getByTestId("api-status")).toContainText("API ok");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Find your next escape");
   await expect(page.getByTestId("nav-signin")).toBeVisible();
   await expect(page.getByTestId("nav-register")).toHaveAttribute("href", "/register");
+  // Rendered on the server from the API (the sample destinations, RAA-33).
+  await expect(page.getByTestId("destination-card").first()).toBeVisible();
+  await expect(page.getByTestId("activity-card").first()).toBeVisible();
+
+  expect(errors).toEqual([]);
+});
+
+// The search box asks the API from the browser (CORS and ports), then leads to a
+// destination page rendered on the server.
+test("search a landmark and open its destination", async ({ page }) => {
+  const errors = [];
+  collectErrors(page, errors);
+
+  await page.goto("/");
+  await page.getByTestId("search-input").fill("kota");
+  const suggestions = page.getByTestId("search-suggestions");
+  await expect(suggestions).toContainText("Kota Beach");
+  await suggestions.getByRole("link", { name: /^Kota Beach/ }).click();
+
+  await expect(page).toHaveURL(/\/bantayan-island#kota-beach$/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Bantayan Island");
+  await expect(page.locator("#kota-beach")).toBeVisible();
+
+  // Enter opens the full results page.
+  await page.goto("/");
+  await page.getByTestId("search-input").fill("snorkelling");
+  await page.getByTestId("search-input").press("Enter");
+  await expect(page).toHaveURL(/\/search\?q=snorkelling$/);
+  await expect(page.getByTestId("search-results")).toContainText("Bantayan Island");
 
   expect(errors).toEqual([]);
 });
@@ -30,8 +59,8 @@ test("home page renders and reaches the API", async ({ page }) => {
 for (const [path, heading, testId] of [
   ["/login", null, "guest-signin"],
   ["/register", null, "guest-signup"],
-  ["/partner/login", "List with Rent-Anything", "partner-signin"],
-  ["/partner/register", "List with Rent-Anything", "partner-signup"],
+  ["/partner/login", "List with Tripinas", "partner-signin"],
+  ["/partner/register", "List with Tripinas", "partner-signup"],
   ["/admin", "Admin console", "admin-signin"],
   ["/admin/ui-kit", "Tidal Grove", "ui-kit"],
 ]) {

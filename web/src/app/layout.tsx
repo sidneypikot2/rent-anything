@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, DM_Sans, Geist_Mono } from "next/font/google";
+import { BRAND, TAGLINE } from "@/lib/brand";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -22,8 +23,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Rent-Anything",
-  description: "Plan your trip to one place: tours, transfers, rentals and stays in one cart.",
+  // Pages set a short title ("Search"); the template adds the brand.
+  title: { default: `${BRAND} · ${TAGLINE}`, template: `%s · ${BRAND}` },
+  description: `${TAGLINE} Islands, mountains and cities of the Philippines: tours, rides, gear and stays for one trip in one cart.`,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
