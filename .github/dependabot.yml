@@ -1,0 +1,52 @@
+version: 2
+# Everything targets staging: main only receives releases (staging -> main).
+# Major versions are a decision, not a bump: they change APIs (Next.js, TypeScript,
+# ESLint), break pins (json < 3, redis < 6 — see the Gemfile) or must follow the runtime
+# (@types/node should match the Node major in docker-compose.yml). They are proposed by no
+# ecosystem below except github-actions; take one on as its own ticket.
+updates:
+- package-ecosystem: bundler
+  directory: "/backend"
+  target-branch: staging
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: "*"
+    update-types: [ "version-update:semver-major" ]
+- package-ecosystem: npm
+  directory: "/web"
+  target-branch: staging
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: "*"
+    update-types: [ "version-update:semver-major" ]
+  # Packages that only work at matching versions arrive as one pull request.
+  groups:
+    react:
+      patterns: [ "react", "react-dom", "@types/react", "@types/react-dom" ]
+    next:
+      patterns: [ "next", "eslint-config-next" ]
+    eslint:
+      patterns: [ "eslint", "@eslint/*" ]
+# The PostGIS, Redis and Node images in docker-compose.yml. A new Postgres major needs a
+# data migration, and the Playwright image is pinned to tools/smoke/package.json — neither
+# is proposed.
+- package-ecosystem: docker-compose
+  directory: "/"
+  target-branch: staging
+  schedule:
+    interval: monthly
+  open-pull-requests-limit: 5
+  ignore:
+  - dependency-name: "*"
+    update-types: [ "version-update:semver-major" ]
+  - dependency-name: "mcr.microsoft.com/playwright"
+- package-ecosystem: github-actions
+  directory: "/"
+  target-branch: staging
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 10

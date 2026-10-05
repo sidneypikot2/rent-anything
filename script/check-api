@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# The API contract, end to end. The rswag request specs describe every endpoint;
+# backend/swagger/v1/openapi.yaml is generated from them, and web/src/api/schema.d.ts
+# (the web app's types) from that. Both files are committed, so the web app and the
+# future mobile app build against the same contract. Fails when either is stale.
+#
+#   script/check-api            check (CI)
+#   script/check-api --write    regenerate both files after changing an endpoint
+#
+# Needs Docker only.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+# shellcheck source=script/lib.sh
+source script/lib.sh
+ensure_worktree_env
+
+mode="${1:-check}"
+case "$mode" in check|--write) ;; *) echo "usage: script/check-api [--write]" >&2; exit 2 ;; esac
+
+spec="backend/swagger/v1/openapi.yaml"
+types="web/src/api/schema.d.ts"
+
+backend_do test bin/rails db:prepare >/dev/null
+if [[ "$mode" == --write ]]; then
+  backend_do test bundle exec rake rswag:specs:swaggerize >/dev/null
+  web_do npx openapi-typescript ../backend/swagger/v1/openapi.yaml -o src/api/schema.d.ts --silent
+  echo "check-api: wrote $spec and $types"
+  exit 0
+fi
+
+# Generate into scratch locations and compare, leaving the committed files alone.
+backend_do test env OPENAPI_ROOT=tmp/openapi-check bundle exec rake rswag:specs:swaggerize >/dev/null
+problems=0
+cmp -s "backend/tmp/openapi-check/v1/openapi.yaml" "$spec" \
+  || { echo "check-api: $spec is out of date with the request specs" >&2; problems=1; }
+web_do sh -c 'npx openapi-typescript ../backend/swagger/v1/openapi.yaml -o /tmp/schema.d.ts --silent && cmp -s /tmp/schema.d.ts src/api/schema.d.ts' \
+  || { echo "check-api: $types is out of date with $spec" >&2; problems=1; }
+
+if (( problems )); then
+  echo "check-api: run script/check-api --write and commit both files" >&2
+  exit 1
+fi
+echo "check-api: ok"
