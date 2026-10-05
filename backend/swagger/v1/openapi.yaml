@@ -51,6 +51,49 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+    patch:
+      summary: Edit the signed-in user's profile
+      tags:
+      - Auth
+      description: Only `name` and `phone`; keys left out are unchanged. A blank or
+        null `phone` clears it.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: a blank phone clears it
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/user"
+        '422':
+          description: phone given as a number
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                phone:
+                  type: string
+                  nullable: true
   "/api/v1/partner/me":
     get:
       summary: The signed-in partner
@@ -131,6 +174,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/validation_errors"
+        '429':
+          description: too many attempts from one IP
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
       requestBody:
         content:
           application/json:
@@ -168,6 +217,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/validation_errors"
+        '429':
+          description: too many attempts from one IP
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
       requestBody:
         content:
           application/json:
@@ -226,6 +281,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/validation_errors"
+        '429':
+          description: too many attempts from one IP
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
       requestBody:
         content:
           application/json:

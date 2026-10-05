@@ -88,7 +88,57 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Edit the signed-in user's profile
+         * @description Only `name` and `phone`; keys left out are unchanged. A blank or null `phone` clears it.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        phone?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description a blank phone clears it */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["user"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description phone given as a number */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/partner/me": {
@@ -227,6 +277,15 @@ export interface paths {
                         "application/json": components["schemas"]["validation_errors"];
                     };
                 };
+                /** @description too many attempts from one IP */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -284,6 +343,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+                /** @description too many attempts from one IP */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
                     };
                 };
             };
@@ -359,6 +427,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+                /** @description too many attempts from one IP */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
                     };
                 };
             };
