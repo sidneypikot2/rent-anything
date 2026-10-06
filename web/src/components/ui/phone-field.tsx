@@ -1,76 +1,34 @@
-"use client";
-
-import { getCountries, getCountryCallingCode, type CountryCode } from "libphonenumber-js";
-import { useId, useSyncExternalStore } from "react";
+import { useId } from "react";
 import { cn } from "./cn";
-
-const names = new Intl.DisplayNames(["en"], { type: "region" });
-
-// "🇵🇭": a flag is the country code's two letters as regional indicator symbols.
-function flag(country: string) {
-  return String.fromCodePoint(...[...country].map((letter) => 0x1f1a5 + letter.charCodeAt(0)));
-}
-
-const DIAL_CODES = getCountries()
-  .map((country) => ({
-    country,
-    name: names.of(country) ?? country,
-    code: getCountryCallingCode(country),
-  }))
-  .sort((a, b) => (a.country === "PH" ? -1 : b.country === "PH" ? 1 : a.name.localeCompare(b.name)));
-
-const noSubscription = () => () => {};
-
-// Country names and their order come from Intl, which can differ between the server's
-// Node and the browser, so the server renders only the chosen code and the browser adds
-// the named list once it has hydrated.
-function useHydrated() {
-  return useSyncExternalStore(noSubscription, () => true, () => false);
-}
 
 type Props = {
   label: string;
-  country: CountryCode;
   number: string;
-  onCountryChange: (country: CountryCode) => void;
   onNumberChange: (number: string) => void;
   required?: boolean;
   hint?: string;
   error?: string;
 };
 
-// A phone number as a dial code and the number after it. The caller joins and checks
-// them (libphonenumber-js) and sends one international number.
-export function PhoneField({ label, country, number, onCountryChange, onNumberChange, required, hint, error }: Props) {
+// A Philippine phone number: a fixed +63 in front of the number, drawn as one field. The
+// caller checks it (libphonenumber-js) and sends one international number.
+export function PhoneField({ label, number, onNumberChange, required, hint, error }: Props) {
   const inputId = useId();
   const noteId = useId();
-  const hydrated = useHydrated();
   const note = error ?? hint;
-  const box = "rounded-lg border-[1.5px] bg-surface px-3 py-2 font-normal text-foreground outline-none focus:border-primary";
-  const border = error ? "border-danger" : "border-line-strong";
 
   return (
     <div className="flex flex-col gap-1 text-sm font-medium">
       <label htmlFor={inputId}>{label}</label>
-      <div className="flex gap-2">
-        <select
-          aria-label="Country code"
-          value={country}
-          onChange={(event) => onCountryChange(event.target.value as CountryCode)}
-          className={cn(box, border, "w-28 shrink-0")}
-        >
-          {hydrated ? (
-            DIAL_CODES.map((option) => (
-              <option key={option.country} value={option.country}>
-                {flag(option.country)} +{option.code} {option.name}
-              </option>
-            ))
-          ) : (
-            <option value={country}>
-              {flag(country)} +{getCountryCallingCode(country)}
-            </option>
-          )}
-        </select>
+      <div
+        className={cn(
+          "flex overflow-hidden rounded-lg border-[1.5px] bg-surface focus-within:border-primary",
+          error ? "border-danger" : "border-line-strong",
+        )}
+      >
+        <span aria-hidden className="flex items-center border-r-[1.5px] border-line-strong bg-surface-2 px-3 font-normal text-muted">
+          🇵🇭 +63
+        </span>
         <input
           id={inputId}
           type="tel"
@@ -81,7 +39,7 @@ export function PhoneField({ label, country, number, onCountryChange, onNumberCh
           onChange={(event) => onNumberChange(event.target.value)}
           aria-invalid={error ? true : undefined}
           aria-describedby={note ? noteId : undefined}
-          className={cn(box, border, "min-w-0 flex-1 placeholder:text-muted/80")}
+          className="min-w-0 flex-1 bg-transparent px-3 py-2 font-normal text-foreground outline-none placeholder:text-muted/80"
         />
       </div>
       {note && (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { isValidPhoneNumber, parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
+import { isValidPhoneNumber, parsePhoneNumberFromString } from "libphonenumber-js";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { apiClient } from "@/api/client";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,8 @@ import { Card, CardBody } from "@/components/ui/card";
 import { ComboboxField, type ComboboxOption } from "@/components/ui/combobox-field";
 import { Field } from "@/components/ui/field";
 import { PhoneField } from "@/components/ui/phone-field";
-import { SelectField } from "@/components/ui/select-field";
 import { useSession } from "@/lib/auth/session";
-import { COUNTRY_OPTIONS, DEFAULT_COUNTRY, countryName } from "@/lib/countries";
+import { countryName } from "@/lib/countries";
 import {
   citiesOf,
   findByName,
@@ -22,6 +21,10 @@ import {
   type Place,
 } from "@/lib/ph-address";
 import { partnerProfileKey, type PartnerProfile } from "./use-partner-profile";
+
+// Partners are in the Philippines for now: the form takes PH addresses and +63 numbers.
+// The API accepts any country, so adding others back is a change here only.
+const COUNTRY = "PH";
 
 function formatPhone(phone: string | null) {
   return phone ? (parsePhoneNumberFromString(phone)?.formatInternational() ?? phone) : null;
@@ -93,18 +96,17 @@ function toOptions(places: Place[]): ComboboxOption[] {
   return places.map((place) => ({ value: place.code, label: place.name }));
 }
 
-// Philippine suggestions, loaded the first time the address country is the Philippines.
-function usePhAddressData(country: string) {
+// The Philippine places behind the address suggestions, loaded when the form opens.
+function usePhAddressData() {
   const [data, setData] = useState<PhAddressData>();
   useEffect(() => {
-    if (country !== "PH" || data) return;
     let current = true;
     void loadPhAddressData().then((loaded) => current && setData(loaded));
     return () => {
       current = false;
     };
-  }, [country, data]);
-  return country === "PH" ? data : undefined;
+  }, []);
+  return data;
 }
 
 type Body = {
@@ -134,15 +136,16 @@ function ProfileForm({
   const queryClient = useQueryClient();
   const session = useSession();
   const { address } = profile;
-  const savedPhone = profile.phone ? parsePhoneNumberFromString(profile.phone) : undefined;
+  const savedPhone = profile.phone ? parsePhoneNumberFromString(profile.phone, COUNTRY) : undefined;
 
   const [displayName, setDisplayName] = useState(profile.display_name ?? "");
   const [firstName, setFirstName] = useState(profile.legal_first_name ?? "");
   const [lastName, setLastName] = useState(profile.legal_last_name ?? "");
-  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(savedPhone?.country ?? (DEFAULT_COUNTRY as CountryCode));
-  const [phoneNumber, setPhoneNumber] = useState(savedPhone ? savedPhone.formatNational() : (profile.phone ?? ""));
+  // A PH number reopens as the part after +63; any other keeps its own + code.
+  const [phoneNumber, setPhoneNumber] = useState(
+    savedPhone?.country === COUNTRY ? savedPhone.nationalNumber : (profile.phone ?? ""),
+  );
   const [phoneError, setPhoneError] = useState<string>();
-  const [country, setCountry] = useState(address.country ?? DEFAULT_COUNTRY);
   const [region, setRegion] = useState(address.region ?? "");
   const [province, setProvince] = useState(address.province ?? "");
   const [city, setCity] = useState(address.city ?? "");
@@ -150,7 +153,7 @@ function ProfileForm({
   const [street, setStreet] = useState(address.street ?? "");
 
   // Codes follow from the names, so a saved address reopens with its suggestions narrowed.
-  const ph = usePhAddressData(country);
+  const ph = usePhAddressData();
   const regionCode = ph && findByName(ph.regions, region)?.code;
   const provinces = ph ? provincesOf(ph, regionCode) : [];
   const provinceCode = findByName(provinces, province)?.code;
@@ -159,16 +162,6 @@ function ProfileForm({
   const cities = ph && regionCode && (provinceCode || !hasProvinces) ? citiesOf(ph, regionCode, provinceCode) : [];
   const cityCode = findByName(cities, city)?.code;
   const zips = ph ? zipsOf(ph, cityCode) : [];
-
-  function changeCountry(next: string) {
-    setCountry(next);
-    setRegion("");
-    setProvince("");
-    setCity("");
-    setZip("");
-    // The phone's dial code follows the address until a number is typed.
-    if (!phoneNumber.trim()) setPhoneCountry(next as CountryCode);
-  }
 
   function changeRegion(text: string, option?: ComboboxOption) {
     const next = option?.value ?? (ph && findByName(ph.regions, text)?.code);
@@ -214,8 +207,8 @@ function ProfileForm({
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isValidPhoneNumber(phoneNumber, phoneCountry)) {
-      setPhoneError("Enter a valid phone number for the country code you picked");
+    if (!isValidPhoneNumber(phoneNumber, COUNTRY)) {
+      setPhoneError("Enter a valid Philippine number, e.g. 917 123 4567");
       return;
     }
     setPhoneError(undefined);
@@ -223,9 +216,9 @@ function ProfileForm({
       display_name: displayName.trim() || null,
       legal_first_name: firstName.trim(),
       legal_last_name: lastName.trim(),
-      phone: parsePhoneNumberFromString(phoneNumber, phoneCountry)!.number,
+      phone: parsePhoneNumberFromString(phoneNumber, COUNTRY)!.number,
       address: {
-        country,
+        country: COUNTRY,
         region: region.trim(),
         province: hasProvinces ? province.trim() || null : null,
         city: city.trim(),
@@ -235,9 +228,8 @@ function ProfileForm({
     });
   }
 
-  const inPhilippines = country === "PH";
   return (
-    <form data-testid="profile-form" onSubmit={onSubmit} className="flex flex-col gap-6">
+    <form data-testid="profile-form" onSubmit={onSubmit} className="flex max-w-2xl flex-col gap-6">
       {save.error && (
         <p role="alert" className="text-sm text-danger">
           {save.error.message}
@@ -280,74 +272,70 @@ function ProfileForm({
         <PhoneField
           label="Phone"
           required
-          country={phoneCountry}
           number={phoneNumber}
-          onCountryChange={setPhoneCountry}
           onNumberChange={(next) => {
             setPhoneNumber(next);
             setPhoneError(undefined);
           }}
           error={phoneError}
-          hint="Pick the country code, then the number, e.g. 917 123 4567"
+          hint="e.g. 917 123 4567"
         />
         <Field label="Email" name="email" type="email" value={profile.email} disabled readOnly hint="Your sign-in email" />
       </fieldset>
 
-      <fieldset className="grid gap-3 sm:grid-cols-2">
+      {/* Six columns so each field is about as wide as what goes in it; one column on phones. */}
+      <fieldset className="grid gap-3 sm:grid-cols-6">
         <legend className="mb-3 font-semibold">Address</legend>
-        <SelectField
-          label="Country"
-          name="country"
-          required
-          autoComplete="country"
-          options={COUNTRY_OPTIONS}
-          value={country}
-          onChange={(event) => changeCountry(event.target.value)}
-        />
-        <ComboboxField
-          label="Region / State"
-          name="region"
-          required
-          value={region}
-          onChange={changeRegion}
-          options={ph ? toOptions(ph.regions) : []}
-        />
+        <div className="sm:col-span-2">
+          <Field label="Country" name="country" value={`🇵🇭 ${countryName(COUNTRY)}`} disabled readOnly />
+        </div>
+        <div className="sm:col-span-4">
+          <ComboboxField
+            label="Region"
+            name="region"
+            required
+            value={region}
+            onChange={changeRegion}
+            options={ph ? toOptions(ph.regions) : []}
+          />
+        </div>
         {/* Always rendered, so nothing after it moves: disabled where the region has no
             provinces. Guidance goes in placeholders, which don't change the layout. */}
-        <ComboboxField
-          label="Province / County"
-          name="province"
-          required={inPhilippines && hasProvinces}
-          disabled={!hasProvinces}
-          value={hasProvinces ? province : ""}
-          onChange={changeProvince}
-          options={toOptions(provinces)}
-          placeholder={!hasProvinces ? "None in this region" : inPhilippines && !regionCode ? "Pick a region first" : undefined}
-        />
-        <ComboboxField
-          label="City / Municipality"
-          name="city"
-          required
-          value={city}
-          onChange={changeCity}
-          options={toOptions(cities)}
-          placeholder={
-            inPhilippines && !regionCode
-              ? "Pick a region first"
-              : inPhilippines && hasProvinces && !provinceCode
-                ? "Pick a province first"
-                : undefined
-          }
-        />
-        <ComboboxField
-          label="ZIP / Postal code"
-          name="postal_code"
-          required
-          value={zip}
-          onChange={(text) => setZip(text)}
-          options={zips.map((code) => ({ value: code, label: code }))}
-        />
+        <div className="sm:col-span-3">
+          <ComboboxField
+            label="Province"
+            name="province"
+            required={hasProvinces}
+            disabled={!hasProvinces}
+            value={hasProvinces ? province : ""}
+            onChange={changeProvince}
+            options={toOptions(provinces)}
+            placeholder={!hasProvinces ? "None in this region" : !regionCode ? "Pick a region first" : undefined}
+          />
+        </div>
+        <div className="sm:col-span-3">
+          <ComboboxField
+            label="City / Municipality"
+            name="city"
+            required
+            value={city}
+            onChange={changeCity}
+            options={toOptions(cities)}
+            placeholder={!regionCode ? "Pick a region first" : hasProvinces && !provinceCode ? "Pick a province first" : undefined}
+          />
+        </div>
         <div className="sm:col-span-2">
+          <ComboboxField
+            label="ZIP code"
+            name="postal_code"
+            required
+            inputMode="numeric"
+            value={zip}
+            onChange={(text) => setZip(text)}
+            options={zips.map((code) => ({ value: code, label: code }))}
+          />
+        </div>
+        <div className="sm:col-span-4">
           <Field
             label="Street"
             name="street"
@@ -358,8 +346,8 @@ function ProfileForm({
             hint="House or building number, street and barangay"
           />
         </div>
-        <p className="text-xs text-muted sm:col-span-2">
-          Philippine places from the{" "}
+        <p className="text-xs text-muted sm:col-span-6">
+          Places from the{" "}
           <a className="text-link underline" href="https://psa.gov.ph/classification/psgc" target="_blank" rel="noreferrer">
             PSA&apos;s geographic codes
           </a>

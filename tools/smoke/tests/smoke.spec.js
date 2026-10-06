@@ -158,11 +158,11 @@ test("sign-up and the partner guard", async ({ page }) => {
   const form = page.getByTestId("profile-form");
   await form.getByLabel("First name").fill("Jun");
   await form.getByLabel("Last name").fill("Dela Cruz");
-  // The dial code starts at +63; the address goes from country down, each field
-  // suggesting places inside the one above it.
-  await expect(form.getByLabel("Country code")).toHaveValue("PH");
+  // Philippines only for now: the phone is the number after +63, and the address goes
+  // from the fixed country down, each field suggesting places inside the one above it.
   await form.getByLabel("Phone", { exact: true }).fill("917 123 4567");
-  await expect(form.getByLabel("Country", { exact: true })).toHaveValue("PH");
+  await expect(form.getByLabel("Country", { exact: true })).toHaveValue(/Philippines/);
+  await expect(form.getByLabel("Country", { exact: true })).toBeDisabled();
   await form.getByRole("combobox", { name: "Region" }).fill("central vis");
   await form.getByRole("option", { name: "Central Visayas" }).click();
   // Fields keep their places: Province is there before and after a region is picked.
@@ -172,7 +172,7 @@ test("sign-up and the partner guard", async ({ page }) => {
   await form.getByRole("combobox", { name: "City / Municipality" }).fill("Moal");
   await form.getByRole("option", { name: "Moalboal" }).click();
   // Moalboal has one ZIP code, filled in for you.
-  await expect(form.getByRole("combobox", { name: "ZIP / Postal code" })).toHaveValue("6032");
+  await expect(form.getByRole("combobox", { name: "ZIP code" })).toHaveValue("6032");
   await form.getByLabel("Street").fill("Poblacion East");
   await page.getByTestId("profile-save").click();
   await expect(page.getByTestId("profile-edit")).toBeVisible();
