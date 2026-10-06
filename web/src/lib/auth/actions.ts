@@ -1,12 +1,5 @@
 import { apiClient } from "@/api/client";
-import {
-  clearSession,
-  getSession,
-  saveSession,
-  updateSessionUser,
-  type AuthTokens,
-  type User,
-} from "./session";
+import { clearSession, getSession, saveSession, type AuthTokens, type User } from "./session";
 
 // The entry point a form is on decides the account's role (SPEC: three entry points).
 export type Role = User["role"];
@@ -22,11 +15,8 @@ function finish(data: AuthTokens | undefined, error: ErrorBody): Result {
     saveSession(data);
     return { ok: true, user: data.user };
   }
-  return { ok: false, error: errorMessage(error) };
-}
-
-function errorMessage(error: ErrorBody) {
-  return error?.error ?? error?.errors?.join(". ") ?? "Something went wrong. Try again.";
+  const message = error?.error ?? error?.errors?.join(". ") ?? "Something went wrong. Try again.";
+  return { ok: false, error: message };
 }
 
 export async function signIn(body: { email: string; password: string; role: Role }) {
@@ -34,19 +24,10 @@ export async function signIn(body: { email: string; password: string; role: Role
   return finish(data, error);
 }
 
-// Email and password only; name and phone follow on the complete-profile step.
+// Email and password only; name and phone are set later (PUT /api/v1/me/complete_profile).
 export async function signUp(body: { email: string; password: string; role: SelfServeRole }) {
   const { data, error } = await apiClient().POST("/api/v1/registrations", { body });
   return finish(data, error);
-}
-
-export async function completeProfile(body: { name: string; phone: string }): Promise<Result> {
-  const { data, error } = await apiClient().PUT("/api/v1/me/complete_profile", { body });
-  if (data) {
-    updateSessionUser(data);
-    return { ok: true, user: data };
-  }
-  return { ok: false, error: errorMessage(error) };
 }
 
 export async function oauthSignIn(provider: OauthProvider, token: string, role: SelfServeRole) {

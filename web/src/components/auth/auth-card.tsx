@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { PasswordField } from "@/components/ui/password-field";
 import { oauthSignIn, signIn, signUp, type OauthProvider, type Role } from "@/lib/auth/actions";
-import { LOGIN_PATHS, REGISTER_PATHS, homePathFor } from "@/lib/auth/paths";
+import { DASHBOARD_PATHS, LOGIN_PATHS, REGISTER_PATHS } from "@/lib/auth/paths";
 import { useSession } from "@/lib/auth/session";
 import { OauthButtons, hasOauthProviders } from "./oauth-buttons";
 
@@ -23,7 +23,7 @@ const TITLES: Record<Role, Record<Mode, string>> = {
 type Props = {
   // The entry point: a guest form makes guests, a partner form partners. Admin is
   // sign-in only: no sign-up, no Google/Facebook, no password reset. Signing in lands
-  // on the role's dashboard, or on complete-profile until name and phone are set.
+  // on the role's dashboard.
   role: Role;
   // Set by the route: /login and /partner/login sign in, /register and
   // /partner/register sign up. Admin is always "signin".
@@ -32,6 +32,7 @@ type Props = {
 
 export function AuthCard({ role, mode }: Props) {
   const router = useRouter();
+  const redirectTo = DASHBOARD_PATHS[role];
   const selfServe = role !== "admin";
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
@@ -43,17 +44,16 @@ export function AuthCard({ role, mode }: Props) {
   // Already signed in with this role (back button, a second tab): skip the form.
   const session = useSession();
   const signedInHere = session?.user.role === role;
-  const redirectTo = signedInHere ? homePathFor(session.user) : undefined;
   useEffect(() => {
-    if (redirectTo) router.replace(redirectTo);
-  }, [redirectTo, router]);
+    if (signedInHere) router.replace(redirectTo);
+  }, [signedInHere, redirectTo, router]);
 
   async function run(action: () => ReturnType<typeof signIn>) {
     setPending(true);
     setError(undefined);
     const result = await action();
     setPending(false);
-    if (result.ok) router.replace(homePathFor(result.user));
+    if (result.ok) router.replace(redirectTo);
     else setError(result.error);
   }
 

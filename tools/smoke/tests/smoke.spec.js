@@ -52,13 +52,9 @@ for (const [path, heading, testId] of [
   });
 }
 
-// Sign-up through the real API, then the complete-profile step (name and phone) before the
-// dashboard, and the /partner guard: signed out goes to /partner/login, a guest is sent
-// home, a partner gets the dashboard.
+// Sign-up through the real API (email and password only), and the /partner guard: signed
+// out goes to /partner/login, a guest is sent home, a partner gets the dashboard.
 test("sign-up and the partner guard", async ({ page }) => {
-  // Two sign-ups, each with its complete-profile step, through a dev server that compiles
-  // each page on first visit: longer than the 30-second default.
-  test.setTimeout(90_000);
   const errors = [];
   collectErrors(page, errors);
   const stamp = Date.now();
@@ -88,12 +84,6 @@ test("sign-up and the partner guard", async ({ page }) => {
     await page.getByRole("button", { name: "Create account" }).click();
   }
 
-  async function completeProfile(name) {
-    await page.getByLabel("Full name").fill(name);
-    await page.getByLabel("Phone").fill("+63 917 123 4567");
-    await page.getByRole("button", { name: "Continue" }).click();
-  }
-
   // Signed out, both dashboards send you to their login.
   await page.goto("/partner");
   await expect(page).toHaveURL(/\/partner\/login$/);
@@ -106,17 +96,10 @@ test("sign-up and the partner guard", async ({ page }) => {
   await expect(page).toHaveURL(/\/register$/);
 
   await signUp("/register", `guest-${stamp}@example.com`, { checkConfirmation: true });
-  await expect(page).toHaveURL(/\/complete-profile$/);
-  await expect(page.getByTestId("guest-complete-profile")).toBeVisible();
-
-  // Unfinished, the dashboard sends you back to the step.
-  await page.goto("/dashboard");
-  await expect(page).toHaveURL(/\/complete-profile$/);
-
-  await completeProfile("Smoke Guest");
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByTestId("guest-dashboard")).toBeVisible();
-  await expect(page.getByTestId("nav-user")).toHaveText("Smoke Guest");
+  // No name yet: the header shows the email.
+  await expect(page.getByTestId("nav-user")).toHaveText(`guest-${stamp}@example.com`);
 
   // A guest on a partner page is sent to their own dashboard.
   await page.goto("/partner");
@@ -128,8 +111,6 @@ test("sign-up and the partner guard", async ({ page }) => {
   await expect(page.getByTestId("guest-signin")).toBeVisible();
 
   await signUp("/partner/register", `partner-${stamp}@example.com`);
-  await expect(page).toHaveURL(/\/partner\/complete-profile$/);
-  await completeProfile("Smoke Partner");
   await expect(page).toHaveURL(/\/partner\/dashboard$/);
   await expect(page.getByTestId("partner-dashboard")).toBeVisible();
 
