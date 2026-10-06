@@ -84,6 +84,7 @@ RSpec.describe "Partner profile", type: :request do
               street: { type: :string },
               city: { type: :string },
               region: { type: :string },
+              province: { type: :string, nullable: true, description: "Optional: none in Metro Manila" },
               postal_code: { type: :string },
               country: { type: :string, description: "ISO 3166-1 alpha-2, e.g. PH" }
             },
@@ -96,7 +97,8 @@ RSpec.describe "Partner profile", type: :request do
       let(:user) { create(:user, :partner) }
       let(:Authorization) { bearer_for(user) }
       let(:address) do
-        { street: "Poblacion East", city: "Moalboal", region: "Cebu", postal_code: "6032", country: "PH" }
+        { street: "Poblacion East", city: "Moalboal", province: "Cebu", region: "Central Visayas", postal_code: "6032",
+          country: "PH" }
       end
       let(:body) do
         { display_name: "Jun's Moto Rentals", legal_first_name: "Jun", legal_last_name: "Dela Cruz",
@@ -109,7 +111,7 @@ RSpec.describe "Partner profile", type: :request do
         run_test! do |response|
           expect(response.parsed_body).to include("legal_last_name" => "Dela Cruz", "complete" => true)
           expect(user.reload.phone).to eq("+63 917 123 4567")
-          expect(user.partner_profile).to have_attributes(city: "Moalboal", postal_code: "6032", country: "PH")
+          expect(user.partner_profile).to have_attributes(city: "Moalboal", province: "Cebu", postal_code: "6032", country: "PH")
         end
       end
 
@@ -136,6 +138,31 @@ RSpec.describe "Partner profile", type: :request do
 
         run_test! do
           expect(user.reload.email).not_to eq("other@example.com")
+        end
+      end
+
+      response "200", "no province, as in Metro Manila; a blank one is stored as null" do
+        schema "$ref" => "#/components/schemas/partner_profile"
+        let(:body) do
+          { legal_first_name: "Jun", legal_last_name: "Dela Cruz", phone: "+639171234567",
+            address: address.merge(city: "City of Makati", region: "National Capital Region", province: " ") }
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["address"]).to include("province" => nil, "city" => "City of Makati")
+          expect(user.reload.partner_profile.province).to be_nil
+        end
+      end
+
+      response "422", "a province given as a number" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) do
+          { legal_first_name: "Jun", legal_last_name: "Dela Cruz", phone: "+639171234567",
+            address: address.merge(province: 72) }
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Province must be text")
         end
       end
 

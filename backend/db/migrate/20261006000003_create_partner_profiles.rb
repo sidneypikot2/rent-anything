@@ -1,5 +1,6 @@
 # Partner profile (RAA-40): a partner's legal name and business address, one row per
-# partner user. The phone stays on users. Every field but display_name is required.
+# partner user. The phone stays on users. Every field but display_name and province is
+# required; province is empty where there is none (Metro Manila, many countries).
 # user_role is always 'partner': with the composite foreign key to users (id, role) it
 # makes the database refuse a profile for a guest or an admin, as on listings.
 class CreatePartnerProfiles < ActiveRecord::Migration[8.1]
@@ -13,6 +14,7 @@ class CreatePartnerProfiles < ActiveRecord::Migration[8.1]
       t.string :street, null: false
       t.string :city, null: false
       t.string :region, null: false
+      t.string :province
       t.string :postal_code, null: false
       t.string :country, limit: 2, null: false, default: "PH"
       t.timestamps

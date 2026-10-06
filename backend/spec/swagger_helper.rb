@@ -47,10 +47,11 @@ RSpec.configure do |config|
                   street: { type: :string, nullable: true },
                   city: { type: :string, nullable: true },
                   region: { type: :string, nullable: true },
+                  province: { type: :string, nullable: true, description: "Null where there is none" },
                   postal_code: { type: :string, nullable: true },
                   country: { type: :string, nullable: true, description: "ISO 3166-1 alpha-2, e.g. PH" }
                 },
-                required: %w[street city region postal_code country]
+                required: %w[street city region province postal_code country]
               },
               complete: { type: :boolean, description: "True once the profile is saved and a phone is set" }
             },

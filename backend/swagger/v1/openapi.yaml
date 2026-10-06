@@ -344,7 +344,7 @@ paths:
           type: string
       responses:
         '200':
-          description: email is ignored
+          description: no province, as in Metro Manila; a blank one is stored as null
           content:
             application/json:
               schema:
@@ -391,6 +391,10 @@ paths:
                       type: string
                     region:
                       type: string
+                    province:
+                      type: string
+                      nullable: true
+                      description: 'Optional: none in Metro Manila'
                     postal_code:
                       type: string
                     country:
@@ -669,6 +673,10 @@ components:
             region:
               type: string
               nullable: true
+            province:
+              type: string
+              nullable: true
+              description: Null where there is none
             postal_code:
               type: string
               nullable: true
@@ -680,6 +688,7 @@ components:
           - street
           - city
           - region
+          - province
           - postal_code
           - country
         complete:

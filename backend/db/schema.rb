@@ -128,6 +128,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_000003) do
     t.string "street", null: false
     t.string "city", null: false
     t.string "region", null: false
+    t.string "province"
     t.string "postal_code", null: false
     t.string "country", limit: 2, default: "PH", null: false
     t.datetime "created_at", null: false

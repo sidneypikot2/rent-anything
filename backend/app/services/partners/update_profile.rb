@@ -1,6 +1,7 @@
 module Partners
   # The signed-in partner saves their profile (RAA-40): legal name, phone and business
-  # address are all required; display_name is optional and a blank one is cleared. The
+  # address are all required. display_name and the address's province are optional (Metro
+  # Manila and many countries have no province), and a blank one is stored as nil. The
   # phone is saved on the user, under the user's phone rule, in the same transaction.
   class UpdateProfile < ApplicationService
     REQUIRED = { legal_first_name: "First name", legal_last_name: "Last name", phone: "Phone" }.freeze
@@ -19,7 +20,8 @@ module Partners
 
       values = REQUIRED.to_h { |key, label| [ key, required_string(@params, key, label) ] }
       address_values = ADDRESS.to_h { |key, label| [ key, required_string(address, key, label) ] }
-      display_name = optional_string(:display_name, "Display name")
+      display_name = optional_string(@params, :display_name, "Display name")
+      province = optional_string(address, :province, "Province")
 
       profile = @user.partner_profile || @user.build_partner_profile
       if @errors.any?
@@ -28,7 +30,7 @@ module Partners
       end
 
       profile.assign_attributes(address_values.merge(values.slice(:legal_first_name, :legal_last_name),
-                                                     display_name: display_name))
+                                                     display_name: display_name, province: province))
       ActiveRecord::Base.transaction do
         @user.update!(phone: values[:phone])
         profile.save!
@@ -46,8 +48,8 @@ module Partners
       nil
     end
 
-    def optional_string(key, label)
-      value = @params[key]
+    def optional_string(source, key, label)
+      value = source[key]
       return nil if value.nil?
       return value.strip.presence if value.is_a?(String)
 

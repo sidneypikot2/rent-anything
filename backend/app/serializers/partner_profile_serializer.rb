@@ -13,6 +13,7 @@ module PartnerProfileSerializer
         street: profile&.street,
         city: profile&.city,
         region: profile&.region,
+        province: profile&.province,
         postal_code: profile&.postal_code,
         country: profile&.country
       },

@@ -5,7 +5,8 @@ FactoryBot.define do
     legal_last_name { "Dela Cruz" }
     street { "Poblacion East" }
     city { "Moalboal" }
-    region { "Cebu" }
+    region { "Central Visayas" }
+    province { "Cebu" }
     postal_code { "6032" }
     country { "PH" }
   end

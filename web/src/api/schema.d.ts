@@ -552,6 +552,8 @@ export interface paths {
                             street: string;
                             city: string;
                             region: string;
+                            /** @description Optional: none in Metro Manila */
+                            province?: string | null;
                             postal_code: string;
                             /** @description ISO 3166-1 alpha-2, e.g. PH */
                             country: string;
@@ -560,7 +562,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description email is ignored */
+                /** @description no province, as in Metro Manila; a blank one is stored as null */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -919,6 +921,8 @@ export interface components {
                 street: string | null;
                 city: string | null;
                 region: string | null;
+                /** @description Null where there is none */
+                province: string | null;
                 postal_code: string | null;
                 /** @description ISO 3166-1 alpha-2, e.g. PH */
                 country: string | null;
