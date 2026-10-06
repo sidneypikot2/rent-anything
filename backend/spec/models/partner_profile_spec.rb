@@ -1,6 +1,8 @@
 require "rails_helper"
 
 RSpec.describe PartnerProfile do
+  it_behaves_like "a profile with a legal name", :partner_profile
+
   it "is valid from the factory" do
     expect(build(:partner_profile)).to be_valid
   end

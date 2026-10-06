@@ -125,6 +125,18 @@ RSpec.describe "Guest profile", type: :request do
         end
       end
 
+      response "422", "a name with digits saves nothing" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { { legal_first_name: "Ana2", legal_last_name: "Reyes", phone: "+639171234567", address: address } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"])
+            .to include("First name can only have letters, spaces, hyphens, apostrophes and periods")
+          expect(user.reload.guest_profile).to be_nil
+          expect(user.phone).to be_nil
+        end
+      end
+
       response "422", "a required field is missing" do
         schema "$ref" => "#/components/schemas/validation_errors"
         let(:body) { { legal_first_name: "Ana", phone: "+639171234567", address: address } }

@@ -1,6 +1,8 @@
 require "rails_helper"
 
 RSpec.describe GuestProfile do
+  it_behaves_like "a profile with a legal name", :guest_profile
+
   it "is valid from the factory, with no province (Metro Manila)" do
     expect(build(:guest_profile)).to be_valid
   end

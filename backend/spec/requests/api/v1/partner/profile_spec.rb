@@ -166,6 +166,20 @@ RSpec.describe "Partner profile", type: :request do
         end
       end
 
+      response "422", "a name with digits saves nothing" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) do
+          { legal_first_name: "Jun", legal_last_name: "Dela Cruz 2", phone: "+639171234567", address: address }
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"])
+            .to include("Last name can only have letters, spaces, hyphens, apostrophes and periods")
+          expect(user.reload.partner_profile).to be_nil
+          expect(user.phone).to be_nil
+        end
+      end
+
       response "422", "a required field is missing" do
         schema "$ref" => "#/components/schemas/validation_errors"
         let(:body) { { legal_first_name: "Jun", phone: "+639171234567", address: address } }
