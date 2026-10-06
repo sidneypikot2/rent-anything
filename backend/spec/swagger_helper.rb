@@ -169,11 +169,27 @@ RSpec.configure do |config|
               },
               areas: {
                 type: :array,
-                description: "Cities, towns and islands, by name",
-                items: { "$ref" => "#/components/schemas/area" }
+                description: "Cities, towns and islands, by name, each with its center for the map",
+                items: { "$ref" => "#/components/schemas/listing_area" }
               }
             },
             required: %w[categories areas]
+          },
+          # An area a listing can be in, with the point the add-listing map flies to.
+          listing_area: {
+            type: :object,
+            properties: {
+              slug: { type: :string },
+              name: { type: :string },
+              kind: { type: :string, enum: %w[region province city town island] },
+              parent_name: { type: :string, nullable: true },
+              center: {
+                type: :object,
+                properties: { lat: { type: :number }, lng: { type: :number } },
+                required: %w[lat lng]
+              }
+            },
+            required: %w[slug name kind parent_name center]
           },
           area: {
             type: :object,

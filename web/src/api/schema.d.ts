@@ -1326,8 +1326,19 @@ export interface components {
                     [key: string]: unknown;
                 };
             }[];
-            /** @description Cities, towns and islands, by name */
-            areas: components["schemas"]["area"][];
+            /** @description Cities, towns and islands, by name, each with its center for the map */
+            areas: components["schemas"]["listing_area"][];
+        };
+        listing_area: {
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            kind: "region" | "province" | "city" | "town" | "island";
+            parent_name: string | null;
+            center: {
+                lat: number;
+                lng: number;
+            };
         };
         area: {
             slug: string;

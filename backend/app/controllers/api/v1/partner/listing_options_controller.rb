@@ -18,7 +18,9 @@ module Api
               { id: category.id, slug: category.slug, name: category.name, booking_type: category.booking_type,
                 parent_name: category.parent&.name, attribute_schema: category.attribute_schema }
             end,
-            areas: areas.map { |area| AreaSerializer.call(area) }
+            areas: areas.map do |area|
+              AreaSerializer.call(area).merge(center: { lat: area.center.y, lng: area.center.x })
+            end
           }
         end
       end

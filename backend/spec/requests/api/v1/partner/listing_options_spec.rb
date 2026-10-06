@@ -22,7 +22,7 @@ RSpec.describe "Partner listing options", type: :request do
             attribute_schema: { type: "object", properties: { waterproof_m: { type: "number" } } })
           create(:category, name: "Tour", booking_type: "activity")
           cebu = create(:area, name: "Cebu", kind: "province")
-          create(:area, name: "Moalboal", kind: "town", parent: cebu)
+          create(:area, name: "Moalboal", kind: "town", parent: cebu, center: "POINT(123.396 9.945)")
         end
 
         run_test! do |response|
@@ -34,7 +34,7 @@ RSpec.describe "Partner listing options", type: :request do
           )
           expect(response.parsed_body["areas"]).to eq(
             [ { "slug" => Area.find_by!(name: "Moalboal").slug, "name" => "Moalboal", "kind" => "town",
-                "parent_name" => "Cebu" } ]
+                "parent_name" => "Cebu", "center" => { "lat" => 9.945, "lng" => 123.396 } } ]
           )
         end
       end
