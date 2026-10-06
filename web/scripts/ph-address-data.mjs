@@ -103,13 +103,23 @@ for (const [, zip, place, region, , province, , cityName] of rows) {
 }
 
 const byNameSort = (a, b) => a.name.localeCompare(b.name);
+
+// A region under both its names, so either finds it: PSGC calls some only by an acronym
+// ("NCR", with "National Capital Region" as the other name) and numbers the rest
+// ("Central Visayas", "Region VII"). Metro Manila is what people call NCR.
+function regionLabel({ name, regionName }) {
+  if (!regionName || regionName === name) return name;
+  if (/^Region /.test(regionName)) return `${name} (${regionName})`;
+  const label = `${regionName} (${name})`;
+  return name === "NCR" ? label.replace(")", ", Metro Manila)") : label;
+}
 const data = {
   source: {
     psgc: "Philippine Standard Geographic Code, Philippine Statistics Authority (via psgc.gitlab.io)",
     zip: "GeoNames postal codes, CC BY 4.0 (geonames.org)",
     built: new Date().toISOString().slice(0, 10),
   },
-  regions: regions.map((r) => ({ code: r.code, name: r.name })).sort(byNameSort),
+  regions: regions.map((r) => ({ code: r.code, name: regionLabel(r) })).sort(byNameSort),
   provinces: provinces.map((p) => ({ code: p.code, name: p.name, region: p.regionCode })).sort(byNameSort),
   cities: cities
     .map((c) => ({

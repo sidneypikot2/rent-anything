@@ -10,24 +10,21 @@ import { Field } from "@/components/ui/field";
 import { PhoneField } from "@/components/ui/phone-field";
 import { useSession } from "@/lib/auth/session";
 import { PHONE_ERROR, editablePhone, formatPhone, toE164 } from "@/lib/ph-phone";
-import { partnerProfileKey, type PartnerProfile } from "./use-partner-profile";
+import { guestProfileKey, type GuestProfile } from "./use-guest-profile";
 
-// The partner's profile (RAA-40): read-only once complete, with Edit to change it; an
-// incomplete profile opens straight in the form. The guest's is its own page
-// (components/guest/): the two will grow different fields.
-export function ProfileDetails({ profile }: { profile: PartnerProfile }) {
+// The guest's profile (RAA-40): read-only once complete, with Edit to change it; an
+// incomplete profile opens straight in the form. Its own page, apart from the partner's,
+// because guests will need different fields as bookings arrive.
+export function GuestProfileDetails({ profile }: { profile: GuestProfile }) {
   const [editing, setEditing] = useState(!profile.complete);
 
   if (editing) {
-    return <ProfileForm profile={profile} onDone={() => setEditing(false)} canCancel={profile.complete} />;
+    return <GuestProfileForm profile={profile} onDone={() => setEditing(false)} canCancel={profile.complete} />;
   }
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <ProfileSection title="Business">
-          <ProfileItem label="Display name" value={profile.display_name ?? "Not set: your legal name is shown"} />
-        </ProfileSection>
         <ProfileSection title="Legal name">
           <ProfileItem label="First name" value={profile.legal_first_name} />
           <ProfileItem label="Last name" value={profile.legal_last_name} />
@@ -39,7 +36,7 @@ export function ProfileDetails({ profile }: { profile: PartnerProfile }) {
         <AddressSection address={profile.address} />
       </div>
       <div>
-        <Button size="sm" variant="soft" data-testid="profile-edit" onClick={() => setEditing(true)}>
+        <Button size="sm" variant="soft" data-testid="guest-profile-edit" onClick={() => setEditing(true)}>
           Edit profile
         </Button>
       </div>
@@ -48,26 +45,24 @@ export function ProfileDetails({ profile }: { profile: PartnerProfile }) {
 }
 
 type Body = {
-  display_name: string | null;
   legal_first_name: string;
   legal_last_name: string;
   phone: string;
   address: ReturnType<ReturnType<typeof usePhAddress>["toBody"]>;
 };
 
-function ProfileForm({
+function GuestProfileForm({
   profile,
   onDone,
   canCancel,
 }: {
-  profile: PartnerProfile;
+  profile: GuestProfile;
   onDone: () => void;
   canCancel: boolean;
 }) {
   const queryClient = useQueryClient();
   const session = useSession();
 
-  const [displayName, setDisplayName] = useState(profile.display_name ?? "");
   const [firstName, setFirstName] = useState(profile.legal_first_name ?? "");
   const [lastName, setLastName] = useState(profile.legal_last_name ?? "");
   const [phoneNumber, setPhoneNumber] = useState(editablePhone(profile.phone));
@@ -76,14 +71,14 @@ function ProfileForm({
 
   const save = useMutation({
     mutationFn: async (body: Body) => {
-      const { data, error } = await apiClient().PUT("/api/v1/partner/profile", { body });
+      const { data, error } = await apiClient().PUT("/api/v1/me/profile", { body });
       if (data) return data;
       const message =
         (error && "errors" in error && error.errors?.join(". ")) || "Couldn't save your profile. Try again.";
       throw new Error(message);
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(partnerProfileKey(session?.user.id), data);
+      queryClient.setQueryData(guestProfileKey(session?.user.id), data);
       onDone();
     },
   });
@@ -97,7 +92,6 @@ function ProfileForm({
     }
     setPhoneError(undefined);
     save.mutate({
-      display_name: displayName.trim() || null,
       legal_first_name: firstName.trim(),
       legal_last_name: lastName.trim(),
       phone,
@@ -106,23 +100,12 @@ function ProfileForm({
   }
 
   return (
-    <form data-testid="profile-form" onSubmit={onSubmit} className="flex max-w-2xl flex-col gap-6">
+    <form data-testid="guest-profile-form" onSubmit={onSubmit} className="flex max-w-2xl flex-col gap-6">
       {save.error && (
         <p role="alert" className="text-sm text-danger">
           {save.error.message}
         </p>
       )}
-
-      <fieldset className="grid gap-3 sm:grid-cols-2">
-        <legend className="mb-3 font-semibold">Business</legend>
-        <Field
-          label="Display name"
-          name="display_name"
-          value={displayName}
-          onChange={(event) => setDisplayName(event.target.value)}
-          hint="Shown to travellers. Leave it blank to use your legal name."
-        />
-      </fieldset>
 
       <fieldset className="grid gap-3 sm:grid-cols-2">
         <legend className="mb-3 font-semibold">Legal name</legend>
@@ -133,6 +116,7 @@ function ProfileForm({
           autoComplete="given-name"
           value={firstName}
           onChange={(event) => setFirstName(event.target.value)}
+          hint="As on your ID"
         />
         <Field
           label="Last name"
@@ -141,6 +125,7 @@ function ProfileForm({
           autoComplete="family-name"
           value={lastName}
           onChange={(event) => setLastName(event.target.value)}
+          hint="As on your ID"
         />
       </fieldset>
 
@@ -163,11 +148,11 @@ function ProfileForm({
       <PhAddressFields address={address} />
 
       <div className="flex gap-2">
-        <Button size="sm" type="submit" data-testid="profile-save" disabled={save.isPending}>
+        <Button size="sm" type="submit" data-testid="guest-profile-save" disabled={save.isPending}>
           {save.isPending ? "Saving…" : "Save profile"}
         </Button>
         {canCancel && (
-          <Button size="sm" variant="soft" type="button" data-testid="profile-cancel" onClick={onDone}>
+          <Button size="sm" variant="soft" type="button" data-testid="guest-profile-cancel" onClick={onDone}>
             Cancel
           </Button>
         )}

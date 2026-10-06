@@ -135,6 +135,30 @@ test("sign-up and the partner guard", async ({ page }) => {
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page).not.toHaveURL(/\/partner/);
 
+  // A new guest's profile is incomplete: the banner leads to their own profile form (no
+  // display name), here with a Metro Manila address, which has no province (RAA-40).
+  await page.getByTestId("guest-profile-banner-link").click();
+  await expect(page).toHaveURL(/\/profile$/);
+  const guestForm = page.getByTestId("guest-profile-form");
+  await expect(guestForm.getByLabel("Display name")).toHaveCount(0);
+  await guestForm.getByLabel("First name").fill("Ana");
+  await guestForm.getByLabel("Last name").fill("Reyes");
+  await guestForm.getByLabel("Phone", { exact: true }).fill("918 111 2222");
+  await guestForm.getByRole("combobox", { name: "Region" }).fill("National Capital");
+  await guestForm.getByRole("option", { name: "National Capital Region" }).click();
+  await expect(guestForm.getByRole("combobox", { name: "Province" })).toBeDisabled();
+  await guestForm.getByRole("combobox", { name: "City / Municipality" }).fill("Makati");
+  await guestForm.getByRole("option", { name: "City of Makati" }).click();
+  await guestForm.getByRole("combobox", { name: "ZIP code" }).fill("1200");
+  await guestForm.getByLabel("Street").fill("12 Ayala Ave");
+  await page.getByTestId("guest-profile-save").click();
+  await expect(page.getByTestId("guest-profile-edit")).toBeVisible();
+  await expect(page.getByTestId("guest-profile")).toContainText("+63 918 111 2222");
+  await expect(page.getByTestId("guest-profile")).toContainText("City of Makati");
+  await page.goto("/dashboard");
+  await expect(page.getByTestId("guest-dashboard")).toBeVisible();
+  await expect(page.getByTestId("guest-profile-banner")).toHaveCount(0);
+
   // The name opens the account menu: Profile, Settings and Sign out.
   await page.getByTestId("nav-user").click();
   await page.getByTestId("nav-menu-profile").click();
