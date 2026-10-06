@@ -21,7 +21,7 @@ export default function GuestDashboard() {
   return (
     <main data-testid="guest-dashboard" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-12">
       <div className="flex flex-col gap-4">
-        <DisplayTitle>Hi, {session?.user.name}</DisplayTitle>
+        <DisplayTitle>Hi, {session?.user.name ?? session?.user.email}</DisplayTitle>
         <div>
           <ButtonLink href="/" size="sm">
             Find a destination

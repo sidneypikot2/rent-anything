@@ -13,6 +13,12 @@ FactoryBot.define do
       role { "admin" }
     end
 
+    # Has been through the complete-profile page.
+    trait :profile_complete do
+      phone { "+639171234567" }
+      registration_complete { true }
+    end
+
     # Made with Google or Facebook: no password.
     trait :oauth_only do
       password { nil }

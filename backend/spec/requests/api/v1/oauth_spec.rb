@@ -46,7 +46,8 @@ RSpec.describe "OAuth", type: :request do
         let(:body) { { token: "google-id-token", role: "partner" } }
 
         run_test! do |response|
-          expect(response.parsed_body["user"]).to include("email" => "ana@example.com", "role" => "partner")
+          expect(response.parsed_body["user"]).to include("email" => "ana@example.com", "role" => "partner",
+            "name" => "Ana Reyes", "registration_complete" => false)
           expect(OauthIdentity.find_by(provider: "google", uid: "g-123")).to be_present
         end
       end

@@ -101,11 +101,31 @@ RSpec.describe "Me", type: :request do
         end
       end
 
+      response "422", "a complete profile can't clear its phone" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:user) { create(:user, :profile_complete) }
+        let(:body) { { phone: nil } }
+
+        run_test! do
+          expect(user.reload.phone).to eq("+639171234567")
+        end
+      end
+
       response "422", "name given as null" do
         schema "$ref" => "#/components/schemas/validation_errors"
         let(:body) { { name: nil } }
 
         run_test!
+      end
+
+      response "422", "phone that isn't a phone number" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { { phone: "abc" } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Phone must be a phone number")
+          expect(user.reload.phone).to eq("+639171234567")
+        end
       end
 
       response "422", "phone given as a number" do

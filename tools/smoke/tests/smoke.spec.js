@@ -55,7 +55,8 @@ test("search a landmark and open its destination", async ({ page }) => {
 });
 
 // The sign-in and sign-up pages and the admin entry point render with their own forms, and the UI kit
-// page renders every component.
+// page renders every component. On the guest's sign-in and sign-up pages the header's own
+// Sign in / Create an account links are hidden: the card is that form.
 for (const [path, heading, testId] of [
   ["/login", null, "guest-signin"],
   ["/register", null, "guest-signup"],
@@ -71,13 +72,17 @@ for (const [path, heading, testId] of [
     await page.goto(path);
     if (heading) await expect(page.getByRole("heading", { level: 1 })).toContainText(heading);
     await expect(page.getByTestId(testId)).toBeVisible();
+    if (path === "/login" || path === "/register") {
+      await expect(page.getByTestId("nav-signin")).toHaveCount(0);
+      await expect(page.getByTestId("nav-register")).toHaveCount(0);
+    }
 
     expect(errors).toEqual([]);
   });
 }
 
-// Sign-up through the real API, and the /partner guard: signed out goes to
-// /partner/login, a guest is sent home, a partner gets the dashboard.
+// Sign-up through the real API (email and password only), and the /partner guard: signed
+// out goes to /partner/login, a guest is sent home, a partner gets the dashboard.
 test("sign-up and the partner guard", async ({ page }) => {
   const errors = [];
   collectErrors(page, errors);
@@ -86,9 +91,8 @@ test("sign-up and the partner guard", async ({ page }) => {
   const password = () => page.getByLabel("Password", { exact: true });
   const confirmation = () => page.getByLabel("Confirm password");
 
-  async function signUp(path, name, email, { checkConfirmation = false } = {}) {
+  async function signUp(path, email, { checkConfirmation = false } = {}) {
     await page.goto(path);
-    await page.getByLabel("Full name").fill(name);
     await page.getByLabel("Email").fill(email);
     await password().fill("password123");
 
@@ -120,22 +124,123 @@ test("sign-up and the partner guard", async ({ page }) => {
   await page.getByRole("link", { name: "Create one" }).click();
   await expect(page).toHaveURL(/\/register$/);
 
-  await signUp("/register", "Smoke Guest", `guest-${stamp}@example.com`, { checkConfirmation: true });
+  await signUp("/register", `guest-${stamp}@example.com`, { checkConfirmation: true });
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByTestId("guest-dashboard")).toBeVisible();
-  await expect(page.getByTestId("nav-user")).toHaveText("Smoke Guest");
+  // No name yet: the header shows the email.
+  await expect(page.getByTestId("nav-user")).toHaveText(`guest-${stamp}@example.com`);
 
   // A guest on a partner page is sent to their own dashboard.
   await page.goto("/partner");
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page).not.toHaveURL(/\/partner/);
 
-  await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page.getByTestId("nav-signin")).toBeVisible();
+  // A new guest's profile is incomplete: the banner leads to their own profile form (no
+  // display name), here with a Metro Manila address, which has no province (RAA-40).
+  await page.getByTestId("guest-profile-banner-link").click();
+  await expect(page).toHaveURL(/\/profile$/);
+  const guestForm = page.getByTestId("guest-profile-form");
+  await expect(guestForm.getByLabel("Display name")).toHaveCount(0);
+  await guestForm.getByLabel("First name").fill("Ana2");
+  await guestForm.getByLabel("Last name").fill("Reyes");
+  await guestForm.getByLabel("Phone", { exact: true }).fill("918 111 2222");
+  await guestForm.getByRole("combobox", { name: "Region" }).fill("National Capital");
+  await guestForm.getByRole("option", { name: "National Capital Region" }).click();
+  await expect(guestForm.getByRole("combobox", { name: "Province" })).toBeDisabled();
+  await guestForm.getByRole("combobox", { name: "City / Municipality" }).fill("Makati");
+  await guestForm.getByRole("option", { name: "City of Makati" }).click();
+  await guestForm.getByRole("combobox", { name: "ZIP code" }).fill("1200");
+  await guestForm.getByLabel("Street").fill("12 Ayala Ave");
+  // A name with a digit is caught before anything is sent; the form stays open.
+  await page.getByTestId("guest-profile-save").click();
+  await expect(guestForm.getByText("First name can only have letters")).toBeVisible();
+  await guestForm.getByLabel("First name").fill("Ana");
+  await expect(guestForm.getByText("First name can only have letters")).toHaveCount(0);
+  await page.getByTestId("guest-profile-save").click();
+  await expect(page.getByTestId("guest-profile-edit")).toBeVisible();
+  await expect(page.getByTestId("guest-profile")).toContainText("+63 918 111 2222");
+  await expect(page.getByTestId("guest-profile")).toContainText("City of Makati");
+  await page.goto("/dashboard");
+  await expect(page.getByTestId("guest-dashboard")).toBeVisible();
+  await expect(page.getByTestId("guest-profile-banner")).toHaveCount(0);
 
-  await signUp("/partner/register", "Smoke Partner", `partner-${stamp}@example.com`);
+  // The name opens the account menu: Profile, Settings and Sign out.
+  await page.getByTestId("nav-user").click();
+  await page.getByTestId("nav-menu-profile").click();
+  await expect(page).toHaveURL(/\/profile$/);
+  await expect(page.getByTestId("guest-profile")).toBeVisible();
+  await expect(page.getByTestId("nav-user-menu")).toHaveCount(0);
+  await page.getByTestId("nav-user").click();
+  await page.getByTestId("nav-menu-signout").click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByTestId("guest-signin")).toBeVisible();
+
+  await signUp("/partner/register", `partner-${stamp}@example.com`);
   await expect(page).toHaveURL(/\/partner\/dashboard$/);
   await expect(page.getByTestId("partner-dashboard")).toBeVisible();
+
+  // A new partner's profile is incomplete: the banner leads to the profile form, and
+  // saving it shows the profile read-only and hides the banner (RAA-40).
+  await page.getByTestId("profile-banner-link").click();
+  await expect(page).toHaveURL(/\/partner\/profile$/);
+  await expect(page.getByTestId("profile-banner")).toHaveCount(0);
+  const form = page.getByTestId("profile-form");
+  await form.getByLabel("First name").fill("Jun");
+  await form.getByLabel("Last name").fill("Dela Cruz");
+  // Philippines only for now: the phone is the number after +63, and the address goes
+  // from the fixed country down, each field suggesting places inside the one above it.
+  await form.getByLabel("Phone", { exact: true }).fill("917 123 4567");
+  await expect(form.getByLabel("Country", { exact: true })).toHaveValue(/Philippines/);
+  await expect(form.getByLabel("Country", { exact: true })).toBeDisabled();
+  await form.getByRole("combobox", { name: "Region" }).fill("central vis");
+  await form.getByRole("option", { name: "Central Visayas" }).click();
+  // Fields keep their places: Province is there before and after a region is picked.
+  await expect(form.getByRole("combobox", { name: "Province" })).toBeEnabled();
+  await form.getByRole("combobox", { name: "Province" }).fill("Cebu");
+  await form.getByRole("option", { name: "Cebu", exact: true }).click();
+  await form.getByRole("combobox", { name: "City / Municipality" }).fill("Moal");
+  await form.getByRole("option", { name: "Moalboal" }).click();
+  // Moalboal has one ZIP code, filled in for you.
+  await expect(form.getByRole("combobox", { name: "ZIP code" })).toHaveValue("6032");
+  await form.getByLabel("Street").fill("Poblacion East");
+  await page.getByTestId("profile-save").click();
+  await expect(page.getByTestId("profile-edit")).toBeVisible();
+  await expect(page.getByTestId("partner-profile")).toContainText("+63 917 123 4567");
+  await expect(page.getByTestId("partner-profile")).toContainText("Moalboal");
+  await page.getByTestId("profile-edit").click();
+  await expect(page.getByTestId("profile-form").getByRole("combobox", { name: "City / Municipality" })).toHaveValue("Moalboal");
+  await page.getByTestId("profile-cancel").click();
+  await page.getByTestId("partner-nav-home").click();
+  await expect(page.getByTestId("partner-dashboard")).toBeVisible();
+  await expect(page.getByTestId("profile-banner")).toHaveCount(0);
+
+  // The partner header links between the partner pages and marks the current one.
+  await expect(page.getByTestId("partner-nav-home")).toHaveAttribute("aria-current", "page");
+  await page.getByTestId("partner-nav-listings").click();
+  await expect(page).toHaveURL(/\/partner\/listings$/);
+  await expect(page.getByTestId("partner-listings")).toBeVisible();
+  await page.getByTestId("partner-nav-calendar").click();
+  await expect(page).toHaveURL(/\/partner\/calendar$/);
+  await expect(page.getByTestId("partner-calendar")).toBeVisible();
+  await page.getByTestId("partner-nav-inbox").click();
+  await expect(page).toHaveURL(/\/partner\/inbox$/);
+  await expect(page.getByTestId("partner-inbox")).toBeVisible();
+  await expect(page.getByTestId("partner-nav-inbox")).toHaveAttribute("aria-current", "page");
+  await page.getByTestId("partner-nav-home").click();
+  await expect(page.getByTestId("partner-dashboard")).toBeVisible();
+
+  // The partner's account menu: Settings, Escape closes it, and Sign out.
+  await page.getByTestId("nav-user").click();
+  await page.getByTestId("nav-menu-settings").click();
+  await expect(page).toHaveURL(/\/partner\/settings$/);
+  await expect(page.getByTestId("partner-settings")).toBeVisible();
+  await page.getByTestId("nav-user").click();
+  await expect(page.getByTestId("nav-user-menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("nav-user-menu")).toHaveCount(0);
+  await page.getByTestId("nav-user").click();
+  await page.getByTestId("nav-menu-signout").click();
+  await expect(page).toHaveURL(/\/partner\/login$/);
 
   expect(errors).toEqual([]);
 });

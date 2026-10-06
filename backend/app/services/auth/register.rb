@@ -9,8 +9,8 @@ module Auth
     def call
       check_role!(@role, User::SELF_SERVE_ROLES)
       require_string!(@params[:email], "Email")
-      require_string!(@params[:name], "Name")
       require_string!(@params[:password], "Password")
+      require_string!(@params[:name], "Name") unless @params[:name].nil?
       require_string!(@params[:phone], "Phone") unless @params[:phone].nil?
       user = User.new(@params.slice(:email, :name, :phone, :password).merge(role: @role))
       user.save!(context: :password_signup)

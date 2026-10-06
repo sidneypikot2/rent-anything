@@ -7,7 +7,8 @@ RSpec.describe "Registrations", type: :request do
       consumes "application/json"
       produces "application/json"
       description "`role` is the entry point: `guest` from /login, `partner` from /partner/login. " \
-        "Admin accounts are never self-made."
+        "Admin accounts are never self-made. `name` and `phone` are optional; the account starts with " \
+        "`registration_complete: false` until PUT /api/v1/me/complete_profile."
       parameter name: :body, in: :body, schema: {
         type: :object,
         properties: {
@@ -17,7 +18,7 @@ RSpec.describe "Registrations", type: :request do
           password: { type: :string, minLength: 8 },
           role: { type: :string, enum: %w[guest partner] }
         },
-        required: %w[email name password role]
+        required: %w[email password role]
       }
 
       let(:body) { { email: "Ana@Example.com", name: "Ana Reyes", phone: "+639171234567", password: "password123", role: "guest" } }
@@ -41,6 +42,22 @@ RSpec.describe "Registrations", type: :request do
           expect(json["user"]).to include("email" => "ana@example.com", "role" => "guest")
           expect(User.find_by(email: "ana@example.com")).to be_present
         end
+      end
+
+      response "201", "email and password alone; the profile is completed later" do
+        schema "$ref" => "#/components/schemas/auth_tokens"
+        let(:body) { { email: "ana@example.com", password: "password123", role: "guest" } }
+
+        run_test! do |response|
+          expect(response.parsed_body["user"]).to include("name" => nil, "phone" => nil, "registration_complete" => false)
+        end
+      end
+
+      response "422", "name given as a number" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { super().merge(name: 42) }
+
+        run_test! { expect(User.count).to eq(0) }
       end
 
       response "201", "a sign-up from /partner makes a partner" do
@@ -78,6 +95,16 @@ RSpec.describe "Registrations", type: :request do
         let(:body) { super().merge(password: 12_345_678) }
 
         run_test! { expect(User.count).to eq(0) }
+      end
+
+      response "422", "phone that isn't a phone number" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { super().merge(phone: "abc") }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Phone must be a phone number")
+          expect(User.count).to eq(0)
+        end
       end
 
       response "422", "phone given as a number" do
