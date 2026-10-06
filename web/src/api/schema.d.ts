@@ -169,6 +169,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/complete_profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Finish sign-up with a name and phone
+         * @description Sign-up asks only for email and password; the web app sends a user whose `registration_complete` is false here before anything else. Both fields are required. Guests and partners alike.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        /** @description Digits, spaces, ( ) - and a leading +; 7 to 15 digits */
+                        phone: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description a partner completes theirs */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["user"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description phone with no digits */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -421,7 +488,7 @@ export interface paths {
         put?: never;
         /**
          * Sign up with email and password
-         * @description `role` is the entry point: `guest` from /login, `partner` from /partner/login. Admin accounts are never self-made.
+         * @description `role` is the entry point: `guest` from /login, `partner` from /partner/login. Admin accounts are never self-made. `name` and `phone` are optional; the account starts with `registration_complete: false` until PUT /api/v1/me/complete_profile.
          */
         post: {
             parameters: {
@@ -434,7 +501,7 @@ export interface paths {
                 content: {
                     "application/json": {
                         email: string;
-                        name: string;
+                        name?: string;
                         phone?: string;
                         password: string;
                         /** @enum {string} */
@@ -705,10 +772,12 @@ export interface components {
         user: {
             id: number;
             email: string;
-            name: string;
+            name: string | null;
             phone: string | null;
             /** @enum {string} */
             role: "guest" | "partner" | "admin";
+            /** @description False until name and phone are set (PUT /api/v1/me/complete_profile) */
+            registration_complete: boolean;
         };
         auth_tokens: {
             access_token: string;

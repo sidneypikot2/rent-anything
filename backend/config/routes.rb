@@ -15,6 +15,7 @@ Rails.application.routes.draw do
       post "oauth/:provider", to: "oauth#create", as: :oauth
       post "tokens/refresh", to: "tokens#refresh"
       resource :me, only: %i[show update], controller: "me"
+      put "me/complete_profile", to: "me/complete_profiles#update", as: :me_complete_profile
 
       # Guest discovery (RAA-33): public, no sign-in.
       get "search", to: "search#index"

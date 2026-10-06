@@ -23,11 +23,15 @@ RSpec.configure do |config|
             properties: {
               id: { type: :integer },
               email: { type: :string },
-              name: { type: :string },
+              name: { type: :string, nullable: true },
               phone: { type: :string, nullable: true },
-              role: { type: :string, enum: %w[guest partner admin] }
+              role: { type: :string, enum: %w[guest partner admin] },
+              registration_complete: {
+                type: :boolean,
+                description: "False until name and phone are set (PUT /api/v1/me/complete_profile)"
+              }
             },
-            required: %w[id email name phone role]
+            required: %w[id email name phone role registration_complete]
           },
           auth_tokens: {
             type: :object,

@@ -22,7 +22,7 @@ export default function PartnerDashboard() {
 
   return (
     <main data-testid="partner-dashboard" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-12">
-      <DisplayTitle>Hi, {session?.user.name}</DisplayTitle>
+      <DisplayTitle>Hi, {session?.user.name ?? session?.user.email}</DisplayTitle>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {STATS.map((label) => (

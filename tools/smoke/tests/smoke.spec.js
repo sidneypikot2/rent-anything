@@ -55,7 +55,8 @@ test("search a landmark and open its destination", async ({ page }) => {
 });
 
 // The sign-in and sign-up pages and the admin entry point render with their own forms, and the UI kit
-// page renders every component.
+// page renders every component. On the guest's sign-in and sign-up pages the header's own
+// Sign in / Create an account links are hidden: the card is that form.
 for (const [path, heading, testId] of [
   ["/login", null, "guest-signin"],
   ["/register", null, "guest-signup"],
@@ -71,13 +72,17 @@ for (const [path, heading, testId] of [
     await page.goto(path);
     if (heading) await expect(page.getByRole("heading", { level: 1 })).toContainText(heading);
     await expect(page.getByTestId(testId)).toBeVisible();
+    if (path === "/login" || path === "/register") {
+      await expect(page.getByTestId("nav-signin")).toHaveCount(0);
+      await expect(page.getByTestId("nav-register")).toHaveCount(0);
+    }
 
     expect(errors).toEqual([]);
   });
 }
 
-// Sign-up through the real API, and the /partner guard: signed out goes to
-// /partner/login, a guest is sent home, a partner gets the dashboard.
+// Sign-up through the real API (email and password only), and the /partner guard: signed
+// out goes to /partner/login, a guest is sent home, a partner gets the dashboard.
 test("sign-up and the partner guard", async ({ page }) => {
   const errors = [];
   collectErrors(page, errors);
@@ -86,9 +91,8 @@ test("sign-up and the partner guard", async ({ page }) => {
   const password = () => page.getByLabel("Password", { exact: true });
   const confirmation = () => page.getByLabel("Confirm password");
 
-  async function signUp(path, name, email, { checkConfirmation = false } = {}) {
+  async function signUp(path, email, { checkConfirmation = false } = {}) {
     await page.goto(path);
-    await page.getByLabel("Full name").fill(name);
     await page.getByLabel("Email").fill(email);
     await password().fill("password123");
 
@@ -120,10 +124,11 @@ test("sign-up and the partner guard", async ({ page }) => {
   await page.getByRole("link", { name: "Create one" }).click();
   await expect(page).toHaveURL(/\/register$/);
 
-  await signUp("/register", "Smoke Guest", `guest-${stamp}@example.com`, { checkConfirmation: true });
+  await signUp("/register", `guest-${stamp}@example.com`, { checkConfirmation: true });
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByTestId("guest-dashboard")).toBeVisible();
-  await expect(page.getByTestId("nav-user")).toHaveText("Smoke Guest");
+  // No name yet: the header shows the email.
+  await expect(page.getByTestId("nav-user")).toHaveText(`guest-${stamp}@example.com`);
 
   // A guest on a partner page is sent to their own dashboard.
   await page.goto("/partner");
@@ -131,9 +136,10 @@ test("sign-up and the partner guard", async ({ page }) => {
   await expect(page).not.toHaveURL(/\/partner/);
 
   await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page.getByTestId("nav-signin")).toBeVisible();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByTestId("guest-signin")).toBeVisible();
 
-  await signUp("/partner/register", "Smoke Partner", `partner-${stamp}@example.com`);
+  await signUp("/partner/register", `partner-${stamp}@example.com`);
   await expect(page).toHaveURL(/\/partner\/dashboard$/);
   await expect(page.getByTestId("partner-dashboard")).toBeVisible();
 

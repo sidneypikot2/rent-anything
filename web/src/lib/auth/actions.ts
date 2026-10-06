@@ -24,13 +24,8 @@ export async function signIn(body: { email: string; password: string; role: Role
   return finish(data, error);
 }
 
-export async function signUp(body: {
-  email: string;
-  name: string;
-  phone?: string;
-  password: string;
-  role: SelfServeRole;
-}) {
+// Email and password only; name and phone are set later (PUT /api/v1/me/complete_profile).
+export async function signUp(body: { email: string; password: string; role: SelfServeRole }) {
   const { data, error } = await apiClient().POST("/api/v1/registrations", { body });
   return finish(data, error);
 }

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_06_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_06_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -143,14 +143,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_000001) do
 
   create_table "users", force: :cascade do |t|
     t.string "email", null: false
-    t.string "name", null: false
+    t.string "name"
     t.string "phone"
     t.string "password_digest"
     t.string "role", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "registration_complete", default: false, null: false
     t.index ["email", "role"], name: "index_users_on_email_and_role", unique: true
     t.index ["id", "role"], name: "index_users_on_id_and_role", unique: true
+    t.check_constraint "NOT registration_complete OR name IS NOT NULL AND phone IS NOT NULL", name: "users_registration_complete_check"
     t.check_constraint "email::text = lower(email::text)", name: "users_email_lowercase_check"
     t.check_constraint "role::text = ANY (ARRAY['guest'::character varying::text, 'partner'::character varying::text, 'admin'::character varying::text])", name: "users_role_check"
   end

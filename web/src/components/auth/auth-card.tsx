@@ -70,10 +70,7 @@ export function AuthCard({ role, mode }: Props) {
         setConfirmError("Passwords don't match");
         return;
       }
-      const phone = value("phone");
-      void run(() =>
-        signUp({ email, password, name: value("name"), phone: phone || undefined, role }),
-      );
+      void run(() => signUp({ email, password, role }));
     } else {
       void run(() => signIn({ email, password, role }));
     }
@@ -90,7 +87,7 @@ export function AuthCard({ role, mode }: Props) {
     return (
       <Card data-testid={`${role}-signed-in`} className="w-full self-start">
         <CardBody pad="lg">
-          <p className="text-sm text-muted">Signed in as {session.user.name}.</p>
+          <p className="text-sm text-muted">Signed in as {session.user.name ?? session.user.email}.</p>
         </CardBody>
       </Card>
     );
@@ -108,22 +105,9 @@ export function AuthCard({ role, mode }: Props) {
       <CardBody pad="lg" className="flex flex-col gap-5">
         <h2 className="font-display text-2xl font-bold italic">{TITLES[role][signup ? "signup" : "signin"]}</h2>
 
-        {selfServe && hasOauthProviders() && (
-          <div className="flex flex-col gap-4">
-            <OauthButtons disabled={pending} onToken={onOauthToken} />
-            <div className="flex items-center gap-3 text-xs text-muted" aria-hidden="true">
-              <span className="h-px flex-1 bg-line" />
-              or continue with email
-              <span className="h-px flex-1 bg-line" />
-            </div>
-          </div>
-        )}
-
         <form onSubmit={submit}>
           <fieldset disabled={pending} className="flex flex-col gap-3">
-            {signup && <Field label="Full name" name="name" type="text" autoComplete="name" required />}
             <Field label="Email" name="email" type="email" autoComplete="email" required />
-            {signup && <Field label="Phone" name="phone" type="tel" autoComplete="tel" hint="Optional" />}
             <PasswordField
               label="Password"
               name="password"
@@ -157,6 +141,17 @@ export function AuthCard({ role, mode }: Props) {
             </Button>
           </fieldset>
         </form>
+
+        {selfServe && hasOauthProviders() && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3 text-xs text-muted" aria-hidden="true">
+              <span className="h-px flex-1 bg-line" />
+              or
+              <span className="h-px flex-1 bg-line" />
+            </div>
+            <OauthButtons disabled={pending} onToken={onOauthToken} />
+          </div>
+        )}
 
         {role !== "admin" && (
           <p className="text-center text-sm text-muted">
