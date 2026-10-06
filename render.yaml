@@ -1,5 +1,6 @@
-# Render Blueprint (RAA-28): the Rails API as a free Docker web service, deployed from `main`
-# only, so a deploy happens on each release (/release). The web app is on Vercel
+# Render Blueprint (RAA-28, RAA-42): the Rails API as a free Docker web service, deployed from
+# `staging` on every merge — the hosted environment is staging until a production host
+# exists (M8); `main` deploys nowhere for now. The web app is on Vercel
 # (web/vercel.json), Postgres on Neon and Redis on Upstash; their URLs are secrets entered in
 # the Render dashboard (`sync: false`), never committed.
 #
@@ -11,7 +12,7 @@ services:
     runtime: docker
     plan: free
     region: singapore
-    branch: main
+    branch: staging
     autoDeployTrigger: commit
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
@@ -42,7 +43,7 @@ services:
       # Upstash, rediss:// (TLS).
       - key: REDIS_URL
         sync: false
-      # The Vercel production URL, e.g. https://rent-anything.vercel.app (no trailing slash).
+      # The Vercel URL, e.g. https://tripkonext-staging.vercel.app (no trailing slash).
       - key: FRONTEND_ORIGIN
         sync: false
       - key: GOOGLE_CLIENT_ID

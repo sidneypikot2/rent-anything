@@ -181,7 +181,7 @@ Report: the branch and commit, the web URL to open, and what to try. Skip the st
 nothing the user can exercise in the app changed.
 
 Stop here. After the user merges the PR, `/raa-finish <RAA-n>` closes the task out. The
-change is then on `staging`; it reaches production with the next `/release`.
+change is then on `staging`, which deploys to the hosted staging environment.
 
 End the report by telling the user to `/clear` before starting another task, and that
 `/raa-finish` works from a fresh session — the ticket holds everything it needs.

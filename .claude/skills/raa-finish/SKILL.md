@@ -33,8 +33,9 @@ say so — nothing below runs on an open PR.
 
 Transition the ticket to **Done** (look the transition ID up for that issue; don't guess).
 If the implementation ended up different from the description, fix the description now.
-Done means merged into `staging`. It is not in production until the next `/release` —
-say so in the report when the task changed something users would notice.
+Done means merged into `staging`, which deploys to the hosted staging environment
+(`.claude/rules/infra.md`, Hosting) — there is no production host yet. When the task changed
+something users would notice, say in the report that it is live there once the deploy finishes.
 
 ## 3. Tear down the worktree
 
