@@ -8,19 +8,24 @@ import { DEFAULT_MAP_CENTER, googleMapsConfig, type LatLng } from "@/lib/map";
 type Props = {
   value: LatLng | null;
   onChange: (location: LatLng) => void;
-  // A point to move to, such as the chosen area's center. The pin stays where it is.
-  focus?: LatLng;
+  // An address to put the pin on once it settles (RAA-41); the partner can still drag it.
+  geocodeQuery?: string;
   error?: string;
 };
 
 const CONFIG = googleMapsConfig();
+const GEOCODE_DELAY_MS = 600;
 let optionsSet = false;
 
 // A Google map the partner clicks to drop the listing's pin on, then drags to adjust it.
-export function LocationPicker({ value, onChange, focus, error }: Props) {
+// A complete address moves the pin there too.
+export function LocationPicker({ value, onChange, geocodeQuery, error }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
+  // Puts the pin at a point (creating it the first time) and reports it; set once the map loads.
+  const placePinRef = useRef<((point: LatLng) => void) | null>(null);
   const [failed, setFailed] = useState(false);
+  const [notFound, setNotFound] = useState(false);
   // The latest callback, so the map's listeners, bound once, never call a stale one.
   const onChangeRef = useRef(onChange);
   useEffect(() => {
@@ -50,9 +55,8 @@ export function LocationPicker({ value, onChange, focus, error }: Props) {
           fullscreenControl: false,
           clickableIcons: false,
         });
-        clickListener = map.addListener("click", (event: google.maps.MapMouseEvent) => {
-          if (!event.latLng) return;
-          const point = { lat: event.latLng.lat(), lng: event.latLng.lng() };
+
+        placePinRef.current = (point) => {
           if (!marker) {
             marker = new AdvancedMarkerElement({ map, position: point, gmpDraggable: true, title: "Listing location" });
             const placed = marker;
@@ -65,7 +69,12 @@ export function LocationPicker({ value, onChange, focus, error }: Props) {
           } else {
             marker.position = point;
           }
+          setNotFound(false);
           onChangeRef.current(point);
+        };
+
+        clickListener = map.addListener("click", (event: google.maps.MapMouseEvent) => {
+          if (event.latLng) placePinRef.current?.({ lat: event.latLng.lat(), lng: event.latLng.lng() });
         });
         mapRef.current = map;
       })
@@ -78,16 +87,35 @@ export function LocationPicker({ value, onChange, focus, error }: Props) {
       clickListener?.remove();
       if (marker) marker.map = null;
       mapRef.current = null;
+      placePinRef.current = null;
     };
   }, []);
 
-  const focusLat = focus?.lat;
-  const focusLng = focus?.lng;
+  // Once the address stops changing, look it up and move the pin there.
   useEffect(() => {
-    if (focusLat === undefined || focusLng === undefined || !mapRef.current) return;
-    mapRef.current.panTo({ lat: focusLat, lng: focusLng });
-    mapRef.current.setZoom(13);
-  }, [focusLat, focusLng]);
+    if (!CONFIG || !geocodeQuery) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      importLibrary("geocoding")
+        .then(({ Geocoder }) => new Geocoder().geocode({ address: geocodeQuery, componentRestrictions: { country: "PH" } }))
+        .then(({ results }) => {
+          const location = results[0]?.geometry.location;
+          if (cancelled || !location || !placePinRef.current || !mapRef.current) return;
+          const point = { lat: location.lat(), lng: location.lng() };
+          placePinRef.current(point);
+          mapRef.current.panTo(point);
+          mapRef.current.setZoom(16);
+        })
+        // ZERO_RESULTS rejects too: leave the pin where it is and say so.
+        .catch(() => {
+          if (!cancelled) setNotFound(true);
+        });
+    }, GEOCODE_DELAY_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [geocodeQuery]);
 
   const unavailable = !CONFIG || failed;
 
@@ -113,11 +141,13 @@ export function LocationPicker({ value, onChange, focus, error }: Props) {
           )}
         />
       )}
-      <span className={cn("text-xs font-normal", error ? "text-danger" : "text-muted")}>
+      <span className={cn("text-xs font-normal", error || notFound ? "text-danger" : "text-muted")}>
         {error ??
-          (value
-            ? `Pinned at ${value.lat.toFixed(5)}, ${value.lng.toFixed(5)}. Drag the pin to adjust.`
-            : "Click the map to drop a pin where travellers meet you or pick it up.")}
+          (notFound
+            ? "Couldn't find that address on the map; drop the pin yourself."
+            : value
+              ? `Pinned at ${value.lat.toFixed(5)}, ${value.lng.toFixed(5)}. Drag the pin to adjust.`
+              : "Fill in the address to place the pin, or click the map where travellers meet you.")}
       </span>
     </div>
   );

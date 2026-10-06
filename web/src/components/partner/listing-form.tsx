@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { PhAddressFields, usePhAddress, type PhAddress } from "@/components/address/ph-address-fields";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Field } from "@/components/ui/field";
@@ -44,6 +45,18 @@ function toAttrs(fields: ReturnType<typeof attributeFields>, values: AttributeVa
   return attrs;
 }
 
+const NO_ADDRESS = { street: null, city: null, region: null, province: null, postal_code: null, country: null };
+
+// The address as one line for Google's geocoder, once every field it needs is filled in.
+function geocodeQuery(address: PhAddress) {
+  const { region, province, city, zip, street } = address.values;
+  const parts = [street, city, address.hasProvinces ? province : "", region].map((part) => part.trim());
+  if (!street.trim() || !city.trim() || !region.trim() || !zip.trim() || (address.hasProvinces && !province.trim())) {
+    return undefined;
+  }
+  return `${parts.filter(Boolean).join(", ")} ${zip.trim()}, Philippines`;
+}
+
 // Adding a listing (RAA-41): what it is, where it is, and the details its category asks for.
 // It is saved as a draft.
 export function ListingForm({ options }: { options: ListingOptions }) {
@@ -51,13 +64,12 @@ export function ListingForm({ options }: { options: ListingOptions }) {
   const create = useCreateListing();
   const [categoryId, setCategoryId] = useState("");
   const [attrValues, setAttrValues] = useState<AttributeValues>({});
-  const [areaSlug, setAreaSlug] = useState("");
+  const address = usePhAddress(NO_ADDRESS);
   const [location, setLocation] = useState<LatLng | null>(null);
   const [locationError, setLocationError] = useState<string>();
 
   const category = options.categories.find((option) => String(option.id) === categoryId);
   const fields = attributeFields(category);
-  const area = options.areas.find((option) => option.slug === areaSlug);
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,7 +83,7 @@ export function ListingForm({ options }: { options: ListingOptions }) {
         title: String(form.get("title") ?? ""),
         description: String(form.get("description") ?? ""),
         category_id: Number(categoryId),
-        area_slug: areaSlug,
+        address: address.toBody(),
         location,
         attrs: toAttrs(fields, attrValues),
       },
@@ -116,27 +128,14 @@ export function ListingForm({ options }: { options: ListingOptions }) {
 
       <fieldset className="flex flex-col gap-4">
         <legend className="mb-2 font-display text-2xl font-bold italic">Where it is</legend>
-        <SelectField
-          label="Area"
-          name="area_slug"
-          required
-          value={areaSlug}
-          onChange={(event) => setAreaSlug(event.target.value)}
-          options={[
-            { value: "", label: "Choose an area" },
-            ...options.areas.map((area) => ({
-              value: area.slug,
-              label: area.parent_name ? `${area.name}, ${area.parent_name}` : area.name,
-            })),
-          ]}
-        />
+        <PhAddressFields address={address} />
         <LocationPicker
           value={location}
           onChange={(point) => {
             setLocation(point);
             setLocationError(undefined);
           }}
-          focus={area?.center}
+          geocodeQuery={geocodeQuery(address)}
           error={locationError}
         />
       </fieldset>
