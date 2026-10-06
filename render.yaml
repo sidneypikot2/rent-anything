@@ -8,7 +8,7 @@
 # Cable connections drop and Solid Queue jobs (run inside Puma, there is no free worker) pause.
 services:
   - type: web
-    name: tripkonext-staging-api
+    name: rent-anything-api
     runtime: docker
     plan: free
     region: singapore
