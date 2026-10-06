@@ -145,6 +145,9 @@ test("sign-up and the partner guard", async ({ page }) => {
 
   // The partner header links between the partner pages and marks the current one.
   await expect(page.getByTestId("partner-nav-home")).toHaveAttribute("aria-current", "page");
+  await page.getByTestId("partner-nav-listings").click();
+  await expect(page).toHaveURL(/\/partner\/listings$/);
+  await expect(page.getByTestId("partner-listings")).toBeVisible();
   await page.getByTestId("partner-nav-calendar").click();
   await expect(page).toHaveURL(/\/partner\/calendar$/);
   await expect(page.getByTestId("partner-calendar")).toBeVisible();

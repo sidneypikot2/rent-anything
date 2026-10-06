@@ -7,6 +7,7 @@ import { useSession } from "@/lib/auth/session";
 
 const LINKS = [
   { href: "/partner/dashboard", label: "Home", testId: "partner-nav-home" },
+  { href: "/partner/listings", label: "Listings", testId: "partner-nav-listings" },
   { href: "/partner/calendar", label: "Calendar", testId: "partner-nav-calendar" },
   { href: "/partner/inbox", label: "Inbox", testId: "partner-nav-inbox" },
 ];
