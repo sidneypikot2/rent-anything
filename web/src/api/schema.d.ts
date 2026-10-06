@@ -236,6 +236,135 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in guest's profile
+         * @description Guest-only (a partner's is /api/v1/partner/profile). Fields are null until the profile is first saved; `complete` drives the web app's banner.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description a saved profile */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["guest_profile"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        /**
+         * Save the signed-in guest's profile
+         * @description Guest-only. Every field is required except `address.province`; `phone` is saved on the user. Email can't be changed here.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        legal_first_name: string;
+                        legal_last_name: string;
+                        phone: string;
+                        address: {
+                            street: string;
+                            city: string;
+                            region: string;
+                            /** @description Optional: none in Metro Manila */
+                            province?: string | null;
+                            postal_code: string;
+                            /** @description ISO 3166-1 alpha-2, e.g. PH */
+                            country: string;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description a display name and an email are ignored */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["guest_profile"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a phone that isn't a phone number saves nothing */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -471,6 +600,136 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in partner's profile
+         * @description Partner-only. Fields are null until the profile is first saved; `complete` drives the web app's banner.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description a saved profile without a phone is not complete */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_profile"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        /**
+         * Save the signed-in partner's profile
+         * @description Partner-only. Every field but `display_name` is required; `phone` is saved on the user. Email can't be changed here.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        display_name?: string | null;
+                        legal_first_name: string;
+                        legal_last_name: string;
+                        phone: string;
+                        address: {
+                            street: string;
+                            city: string;
+                            region: string;
+                            /** @description Optional: none in Metro Manila */
+                            province?: string | null;
+                            postal_code: string;
+                            /** @description ISO 3166-1 alpha-2, e.g. PH */
+                            country: string;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description no province, as in Metro Manila; a blank one is stored as null */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_profile"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a phone that isn't a phone number saves nothing */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -778,6 +1037,38 @@ export interface components {
             role: "guest" | "partner" | "admin";
             /** @description False until name and phone are set (PUT /api/v1/me/complete_profile) */
             registration_complete: boolean;
+        };
+        profile_address: {
+            street: string | null;
+            city: string | null;
+            region: string | null;
+            /** @description Null where there is none */
+            province: string | null;
+            postal_code: string | null;
+            /** @description ISO 3166-1 alpha-2, e.g. PH */
+            country: string | null;
+        };
+        partner_profile: {
+            /** @description Shown to travellers; optional */
+            display_name: string | null;
+            legal_first_name: string | null;
+            legal_last_name: string | null;
+            phone: string | null;
+            /** @description Read-only here */
+            email: string;
+            address: components["schemas"]["profile_address"];
+            /** @description True once the profile is saved and a phone is set */
+            complete: boolean;
+        };
+        guest_profile: {
+            legal_first_name: string | null;
+            legal_last_name: string | null;
+            phone: string | null;
+            /** @description Read-only here */
+            email: string;
+            address: components["schemas"]["profile_address"];
+            /** @description True once the profile is saved and a phone is set */
+            complete: boolean;
         };
         auth_tokens: {
             access_token: string;

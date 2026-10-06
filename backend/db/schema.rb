@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_06_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_06_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -54,6 +54,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_000002) do
     t.integer "weight", limit: 2, default: 1, null: false
     t.index ["tag_id"], name: "index_category_tags_on_tag_id"
     t.check_constraint "weight >= 1 AND weight <= 3", name: "category_tags_weight_check"
+  end
+
+  create_table "guest_profiles", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "user_role", default: "guest", null: false
+    t.string "legal_first_name", null: false
+    t.string "legal_last_name", null: false
+    t.string "street", null: false
+    t.string "city", null: false
+    t.string "region", null: false
+    t.string "province"
+    t.string "postal_code", null: false
+    t.string "country", limit: 2, default: "PH", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_guest_profiles_on_user_id", unique: true
+    t.check_constraint "country::text ~ '^[A-Z]{2}$'::text", name: "guest_profiles_country_check"
+    t.check_constraint "user_role::text = 'guest'::text", name: "guest_profiles_user_role_check"
   end
 
   create_table "landmark_tags", primary_key: ["landmark_id", "tag_id"], force: :cascade do |t|
@@ -119,6 +137,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_000002) do
     t.check_constraint "provider::text = ANY (ARRAY['google'::character varying::text, 'facebook'::character varying::text])", name: "oauth_identities_provider_check"
   end
 
+  create_table "partner_profiles", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "user_role", default: "partner", null: false
+    t.string "display_name"
+    t.string "legal_first_name", null: false
+    t.string "legal_last_name", null: false
+    t.string "street", null: false
+    t.string "city", null: false
+    t.string "region", null: false
+    t.string "province"
+    t.string "postal_code", null: false
+    t.string "country", limit: 2, default: "PH", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_partner_profiles_on_user_id", unique: true
+    t.check_constraint "country::text ~ '^[A-Z]{2}$'::text", name: "partner_profiles_country_check"
+    t.check_constraint "user_role::text = 'partner'::text", name: "partner_profiles_user_role_check"
+  end
+
   create_table "refresh_tokens", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "token_digest", null: false
@@ -161,6 +198,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_000002) do
   add_foreign_key "categories", "categories", column: "parent_id"
   add_foreign_key "category_tags", "categories"
   add_foreign_key "category_tags", "tags"
+  add_foreign_key "guest_profiles", "users"
+  add_foreign_key "guest_profiles", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_guest_profiles_user_role"
   add_foreign_key "landmark_tags", "landmarks"
   add_foreign_key "landmark_tags", "tags"
   add_foreign_key "landmarks", "areas"
@@ -172,5 +211,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_000002) do
   add_foreign_key "listings", "users", column: ["partner_id", "partner_role"], primary_key: ["id", "role"], name: "fk_listings_partner_role"
   add_foreign_key "oauth_identities", "users"
   add_foreign_key "oauth_identities", "users", column: ["user_id", "role"], primary_key: ["id", "role"], name: "fk_oauth_identities_user_role"
+  add_foreign_key "partner_profiles", "users"
+  add_foreign_key "partner_profiles", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_partner_profiles_user_role"
   add_foreign_key "refresh_tokens", "users"
 end

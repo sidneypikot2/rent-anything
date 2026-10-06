@@ -16,6 +16,8 @@ Rails.application.routes.draw do
       post "tokens/refresh", to: "tokens#refresh"
       resource :me, only: %i[show update], controller: "me"
       put "me/complete_profile", to: "me/complete_profiles#update", as: :me_complete_profile
+      get "me/profile", to: "me/profiles#show", as: :me_profile
+      put "me/profile", to: "me/profiles#update"
 
       # Guest discovery (RAA-33): public, no sign-in.
       get "search", to: "search#index"
@@ -24,6 +26,7 @@ Rails.application.routes.draw do
 
       namespace :partner do
         resource :me, only: :show, controller: "me"
+        resource :profile, only: %i[show update]
       end
     end
   end
