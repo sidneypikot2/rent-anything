@@ -165,12 +165,14 @@ test("sign-up and the partner guard", async ({ page }) => {
   await expect(form.getByLabel("Country", { exact: true })).toHaveValue("PH");
   await form.getByRole("combobox", { name: "Region" }).fill("central vis");
   await form.getByRole("option", { name: "Central Visayas" }).click();
+  // Fields keep their places: Province is there before and after a region is picked.
+  await expect(form.getByRole("combobox", { name: "Province" })).toBeEnabled();
   await form.getByRole("combobox", { name: "Province" }).fill("Cebu");
   await form.getByRole("option", { name: "Cebu", exact: true }).click();
   await form.getByRole("combobox", { name: "City / Municipality" }).fill("Moal");
   await form.getByRole("option", { name: "Moalboal" }).click();
   // Moalboal has one ZIP code, filled in for you.
-  await expect(form.getByRole("combobox", { name: "ZIP code" })).toHaveValue("6032");
+  await expect(form.getByRole("combobox", { name: "ZIP / Postal code" })).toHaveValue("6032");
   await form.getByLabel("Street").fill("Poblacion East");
   await page.getByTestId("profile-save").click();
   await expect(page.getByTestId("profile-edit")).toBeVisible();

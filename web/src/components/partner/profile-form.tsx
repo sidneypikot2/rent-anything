@@ -305,34 +305,42 @@ function ProfileForm({
           onChange={(event) => changeCountry(event.target.value)}
         />
         <ComboboxField
-          label={inPhilippines ? "Region" : "Region / State"}
+          label="Region / State"
           name="region"
           required
           value={region}
           onChange={changeRegion}
           options={ph ? toOptions(ph.regions) : []}
         />
-        {hasProvinces && (
-          <ComboboxField
-            label={inPhilippines ? "Province" : "Province / County (optional)"}
-            name="province"
-            required={inPhilippines}
-            value={province}
-            onChange={changeProvince}
-            options={toOptions(provinces)}
-            hint={inPhilippines && !regionCode ? "Pick a region first to see its provinces" : undefined}
-          />
-        )}
+        {/* Always rendered, so nothing after it moves: disabled where the region has no
+            provinces. Guidance goes in placeholders, which don't change the layout. */}
         <ComboboxField
-          label={inPhilippines ? "City / Municipality" : "City"}
+          label="Province / County"
+          name="province"
+          required={inPhilippines && hasProvinces}
+          disabled={!hasProvinces}
+          value={hasProvinces ? province : ""}
+          onChange={changeProvince}
+          options={toOptions(provinces)}
+          placeholder={!hasProvinces ? "None in this region" : inPhilippines && !regionCode ? "Pick a region first" : undefined}
+        />
+        <ComboboxField
+          label="City / Municipality"
           name="city"
           required
           value={city}
           onChange={changeCity}
           options={toOptions(cities)}
+          placeholder={
+            inPhilippines && !regionCode
+              ? "Pick a region first"
+              : inPhilippines && hasProvinces && !provinceCode
+                ? "Pick a province first"
+                : undefined
+          }
         />
         <ComboboxField
-          label="ZIP code"
+          label="ZIP / Postal code"
           name="postal_code"
           required
           value={zip}
@@ -350,19 +358,17 @@ function ProfileForm({
             hint="House or building number, street and barangay"
           />
         </div>
-        {inPhilippines && (
-          <p className="text-xs text-muted sm:col-span-2">
-            Places from the{" "}
-            <a className="text-link underline" href="https://psa.gov.ph/classification/psgc" target="_blank" rel="noreferrer">
-              PSA&apos;s geographic codes
-            </a>
-            ; ZIP codes from{" "}
-            <a className="text-link underline" href="https://www.geonames.org" target="_blank" rel="noreferrer">
-              GeoNames
-            </a>{" "}
-            (CC BY 4.0).
-          </p>
-        )}
+        <p className="text-xs text-muted sm:col-span-2">
+          Philippine places from the{" "}
+          <a className="text-link underline" href="https://psa.gov.ph/classification/psgc" target="_blank" rel="noreferrer">
+            PSA&apos;s geographic codes
+          </a>
+          ; ZIP codes from{" "}
+          <a className="text-link underline" href="https://www.geonames.org" target="_blank" rel="noreferrer">
+            GeoNames
+          </a>{" "}
+          (CC BY 4.0).
+        </p>
       </fieldset>
 
       <div className="flex gap-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import { getCountries, getCountryCallingCode, type CountryCode } from "libphonenumber-js";
-import { useId } from "react";
+import { useId, useSyncExternalStore } from "react";
 import { cn } from "./cn";
 
 const names = new Intl.DisplayNames(["en"], { type: "region" });
@@ -19,6 +19,15 @@ const DIAL_CODES = getCountries()
   }))
   .sort((a, b) => (a.country === "PH" ? -1 : b.country === "PH" ? 1 : a.name.localeCompare(b.name)));
 
+const noSubscription = () => () => {};
+
+// Country names and their order come from Intl, which can differ between the server's
+// Node and the browser, so the server renders only the chosen code and the browser adds
+// the named list once it has hydrated.
+function useHydrated() {
+  return useSyncExternalStore(noSubscription, () => true, () => false);
+}
+
 type Props = {
   label: string;
   country: CountryCode;
@@ -35,6 +44,7 @@ type Props = {
 export function PhoneField({ label, country, number, onCountryChange, onNumberChange, required, hint, error }: Props) {
   const inputId = useId();
   const noteId = useId();
+  const hydrated = useHydrated();
   const note = error ?? hint;
   const box = "rounded-lg border-[1.5px] bg-surface px-3 py-2 font-normal text-foreground outline-none focus:border-primary";
   const border = error ? "border-danger" : "border-line-strong";
@@ -49,11 +59,17 @@ export function PhoneField({ label, country, number, onCountryChange, onNumberCh
           onChange={(event) => onCountryChange(event.target.value as CountryCode)}
           className={cn(box, border, "w-28 shrink-0")}
         >
-          {DIAL_CODES.map((option) => (
-            <option key={option.country} value={option.country}>
-              {flag(option.country)} +{option.code} {option.name}
+          {hydrated ? (
+            DIAL_CODES.map((option) => (
+              <option key={option.country} value={option.country}>
+                {flag(option.country)} +{option.code} {option.name}
+              </option>
+            ))
+          ) : (
+            <option value={country}>
+              {flag(country)} +{getCountryCallingCode(country)}
             </option>
-          ))}
+          )}
         </select>
         <input
           id={inputId}
