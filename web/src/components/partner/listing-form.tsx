@@ -7,6 +7,8 @@ import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
 import { TextareaField } from "@/components/ui/textarea-field";
+import type { LatLng } from "@/lib/map";
+import { LocationPicker } from "./location-picker";
 import { useCreateListing, type ListingCategory, type ListingOptions } from "./use-partner-listings";
 
 // What a category's attribute_schema can say about one field (the shapes the API seeds).
@@ -49,20 +51,28 @@ export function ListingForm({ options }: { options: ListingOptions }) {
   const create = useCreateListing();
   const [categoryId, setCategoryId] = useState("");
   const [attrValues, setAttrValues] = useState<AttributeValues>({});
+  const [areaSlug, setAreaSlug] = useState("");
+  const [location, setLocation] = useState<LatLng | null>(null);
+  const [locationError, setLocationError] = useState<string>();
 
   const category = options.categories.find((option) => String(option.id) === categoryId);
   const fields = attributeFields(category);
+  const area = options.areas.find((option) => option.slug === areaSlug);
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!location) {
+      setLocationError("Drop a pin on the map");
+      return;
+    }
     const form = new FormData(event.currentTarget);
     create.mutate(
       {
         title: String(form.get("title") ?? ""),
         description: String(form.get("description") ?? ""),
         category_id: Number(categoryId),
-        area_slug: String(form.get("area_slug") ?? ""),
-        location: { lat: Number(form.get("lat")), lng: Number(form.get("lng")) },
+        area_slug: areaSlug,
+        location,
         attrs: toAttrs(fields, attrValues),
       },
       { onSuccess: () => router.push("/partner/listings") },
@@ -110,7 +120,8 @@ export function ListingForm({ options }: { options: ListingOptions }) {
           label="Area"
           name="area_slug"
           required
-          defaultValue=""
+          value={areaSlug}
+          onChange={(event) => setAreaSlug(event.target.value)}
           options={[
             { value: "", label: "Choose an area" },
             ...options.areas.map((area) => ({
@@ -119,13 +130,15 @@ export function ListingForm({ options }: { options: ListingOptions }) {
             })),
           ]}
         />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Latitude" name="lat" type="number" step="any" min={-90} max={90} required placeholder="9.9450" />
-          <Field label="Longitude" name="lng" type="number" step="any" min={-180} max={180} required placeholder="123.3960" />
-        </div>
-        <p className="text-xs text-muted">
-          Where travellers meet you or pick it up. Travellers see it only after they book.
-        </p>
+        <LocationPicker
+          value={location}
+          onChange={(point) => {
+            setLocation(point);
+            setLocationError(undefined);
+          }}
+          focus={area?.center}
+          error={locationError}
+        />
       </fieldset>
 
       {fields.length > 0 && (

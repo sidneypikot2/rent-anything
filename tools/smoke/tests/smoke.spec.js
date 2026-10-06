@@ -222,6 +222,7 @@ test("sign-up and the partner guard", async ({ page }) => {
   await page.getByTestId("add-listing").click();
   await expect(page).toHaveURL(/\/partner\/listings\/new$/);
   await expect(page.getByTestId("listing-form")).toBeVisible();
+  await expect(page.getByTestId("location-picker")).toBeVisible();
   await page.getByTestId("partner-nav-calendar").click();
   await expect(page).toHaveURL(/\/partner\/calendar$/);
   await expect(page.getByTestId("partner-calendar")).toBeVisible();

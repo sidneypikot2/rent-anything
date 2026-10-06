@@ -114,7 +114,7 @@ after a booking is paid (keeps deals on the platform).
   refunded after a clean return. PayMongo is the fallback if xenPlatform onboarding
   (business registration) blocks.
 - **Phone OTP**: an SMS provider behind `Sms::Sender` (Semaphore or Twilio Verify; chosen at M1).
-- **Maps**: MapLibre GL with MapTiler tiles on the web; search is PostGIS on the API.
+- **Maps**: Google Maps Platform on the web (Maps JavaScript API, Advanced Markers); search is PostGIS on the API.
   Partners drop a pin rather than geocoding an address.
 - **Files**: Active Storage on S3-compatible storage (Cloudflare R2). ID documents in a
   private bucket, reachable only through short-lived signed URLs for admins.

@@ -82,6 +82,10 @@ services:
       # service name; the browser uses localhost:<backend port> (web/src/lib/config.ts).
       API_INTERNAL_URL: http://backend:3000
       NEXT_TELEMETRY_DISABLED: "1"
+      # Google Maps browser key and map ID (web/src/lib/map.ts), from your shell or ./.env;
+      # without a key the map shows a notice instead.
+      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}
+      NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID: ${NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID:-}
     depends_on:
       - backend
 
