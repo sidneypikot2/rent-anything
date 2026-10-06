@@ -33,6 +33,19 @@ RSpec.configure do |config|
             },
             required: %w[id email name phone role registration_complete]
           },
+          # A profile's address; fields are null until the profile is first saved.
+          profile_address: {
+            type: :object,
+            properties: {
+              street: { type: :string, nullable: true },
+              city: { type: :string, nullable: true },
+              region: { type: :string, nullable: true },
+              province: { type: :string, nullable: true, description: "Null where there is none" },
+              postal_code: { type: :string, nullable: true },
+              country: { type: :string, nullable: true, description: "ISO 3166-1 alpha-2, e.g. PH" }
+            },
+            required: %w[street city region province postal_code country]
+          },
           partner_profile: {
             type: :object,
             properties: {
@@ -41,21 +54,22 @@ RSpec.configure do |config|
               legal_last_name: { type: :string, nullable: true },
               phone: { type: :string, nullable: true },
               email: { type: :string, description: "Read-only here" },
-              address: {
-                type: :object,
-                properties: {
-                  street: { type: :string, nullable: true },
-                  city: { type: :string, nullable: true },
-                  region: { type: :string, nullable: true },
-                  province: { type: :string, nullable: true, description: "Null where there is none" },
-                  postal_code: { type: :string, nullable: true },
-                  country: { type: :string, nullable: true, description: "ISO 3166-1 alpha-2, e.g. PH" }
-                },
-                required: %w[street city region province postal_code country]
-              },
+              address: { "$ref" => "#/components/schemas/profile_address" },
               complete: { type: :boolean, description: "True once the profile is saved and a phone is set" }
             },
             required: %w[display_name legal_first_name legal_last_name phone email address complete]
+          },
+          guest_profile: {
+            type: :object,
+            properties: {
+              legal_first_name: { type: :string, nullable: true },
+              legal_last_name: { type: :string, nullable: true },
+              phone: { type: :string, nullable: true },
+              email: { type: :string, description: "Read-only here" },
+              address: { "$ref" => "#/components/schemas/profile_address" },
+              complete: { type: :boolean, description: "True once the profile is saved and a phone is set" }
+            },
+            required: %w[legal_first_name legal_last_name phone email address complete]
           },
           auth_tokens: {
             type: :object,
