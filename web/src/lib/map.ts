@@ -1,5 +1,6 @@
 // Maps are Google Maps Platform (SPEC.md): the Maps JavaScript API with Advanced Markers.
-// The browser key comes from NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; without one there is no map.
+// The browser key comes from NEXT_PUBLIC_GOOGLE_MAPS_API_KEY (web/.env.local locally, the
+// Vercel dashboard in production); without one there is no map.
 // Advanced Markers only render on a map with a map ID; DEMO_MAP_ID is Google's stand-in
 // until NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID names our own.
 export function googleMapsConfig(): { key: string; mapId: string } | null {
