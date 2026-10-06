@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { AccountMenu } from "@/components/auth/account-menu";
 import { ButtonLink } from "@/components/ui/button";
 import { signOut } from "@/lib/auth/actions";
 import { DASHBOARD_PATHS, LOGIN_PATHS, REGISTER_PATHS } from "@/lib/auth/paths";
 import { useSession } from "@/lib/auth/session";
 import type { Section } from "@/components/landing/section-header";
 
-// The header's account links: the signed-in user's name (to their dashboard) and
-// "Sign out", or, signed out, "Sign in" and "Create an account" in the guest section
-// only (partner and admin pages show their own form), and not on /login or /register,
-// where the card already is that form.
+// The header's account links. Signed in, guests and partners get their account menu
+// (Profile, Settings, Sign out) and admins their name and "Sign out". Signed out,
+// "Sign in" and "Create an account" show in the guest section only (partner and admin
+// pages show their own form), and not on /login or /register, where the card already is
+// that form.
 export function AccountNav({ section }: { section: Section }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -22,7 +24,7 @@ export function AccountNav({ section }: { section: Section }) {
     const onAuthPage = pathname === LOGIN_PATHS.guest || pathname === REGISTER_PATHS.guest;
     return section === "guest" && !onAuthPage ? (
       <span className="flex items-center gap-4">
-        <Link href={LOGIN_PATHS.guest} data-testid="nav-signin">
+        <Link href={LOGIN_PATHS.guest} data-testid="nav-signin" className="hover:text-white">
           Sign in
         </Link>
         <ButtonLink
@@ -36,6 +38,8 @@ export function AccountNav({ section }: { section: Section }) {
       </span>
     ) : null;
   }
+
+  if (section !== "admin") return <AccountMenu section={section} />;
 
   async function onSignOut() {
     await signOut();

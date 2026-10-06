@@ -135,13 +135,48 @@ test("sign-up and the partner guard", async ({ page }) => {
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page).not.toHaveURL(/\/partner/);
 
-  await page.getByRole("button", { name: "Sign out" }).click();
+  // The name opens the account menu: Profile, Settings and Sign out.
+  await page.getByTestId("nav-user").click();
+  await page.getByTestId("nav-menu-profile").click();
+  await expect(page).toHaveURL(/\/profile$/);
+  await expect(page.getByTestId("guest-profile")).toBeVisible();
+  await expect(page.getByTestId("nav-user-menu")).toHaveCount(0);
+  await page.getByTestId("nav-user").click();
+  await page.getByTestId("nav-menu-signout").click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByTestId("guest-signin")).toBeVisible();
 
   await signUp("/partner/register", `partner-${stamp}@example.com`);
   await expect(page).toHaveURL(/\/partner\/dashboard$/);
   await expect(page.getByTestId("partner-dashboard")).toBeVisible();
+
+  // The partner header links between the partner pages and marks the current one.
+  await expect(page.getByTestId("partner-nav-home")).toHaveAttribute("aria-current", "page");
+  await page.getByTestId("partner-nav-listings").click();
+  await expect(page).toHaveURL(/\/partner\/listings$/);
+  await expect(page.getByTestId("partner-listings")).toBeVisible();
+  await page.getByTestId("partner-nav-calendar").click();
+  await expect(page).toHaveURL(/\/partner\/calendar$/);
+  await expect(page.getByTestId("partner-calendar")).toBeVisible();
+  await page.getByTestId("partner-nav-inbox").click();
+  await expect(page).toHaveURL(/\/partner\/inbox$/);
+  await expect(page.getByTestId("partner-inbox")).toBeVisible();
+  await expect(page.getByTestId("partner-nav-inbox")).toHaveAttribute("aria-current", "page");
+  await page.getByTestId("partner-nav-home").click();
+  await expect(page.getByTestId("partner-dashboard")).toBeVisible();
+
+  // The partner's account menu: Settings, Escape closes it, and Sign out.
+  await page.getByTestId("nav-user").click();
+  await page.getByTestId("nav-menu-settings").click();
+  await expect(page).toHaveURL(/\/partner\/settings$/);
+  await expect(page.getByTestId("partner-settings")).toBeVisible();
+  await page.getByTestId("nav-user").click();
+  await expect(page.getByTestId("nav-user-menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("nav-user-menu")).toHaveCount(0);
+  await page.getByTestId("nav-user").click();
+  await page.getByTestId("nav-menu-signout").click();
+  await expect(page).toHaveURL(/\/partner\/login$/);
 
   expect(errors).toEqual([]);
 });
