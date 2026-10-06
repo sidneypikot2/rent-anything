@@ -12,7 +12,7 @@ module Api
         end
 
         def create
-          listing_params = params.slice(:title, :description, :category_id, :area_slug, :location, :attrs)
+          listing_params = params.slice(:title, :description, :category_id, :address, :location, :attrs)
           render json: PartnerListingSerializer.call(Listings::Create.call(current_user, listing_params)),
             status: :created
         end

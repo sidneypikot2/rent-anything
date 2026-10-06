@@ -614,8 +614,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * What a new listing can be: bookable categories and areas
-         * @description Partner-only. Bookable (leaf) categories with the JSON Schema their `attrs` must match, and the cities, towns and islands a listing can be in.
+         * What a new listing can be: its bookable categories
+         * @description Partner-only. Bookable (leaf) categories with the JSON Schema their `attrs` must match.
          */
         get: {
             parameters: {
@@ -628,7 +628,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description leaf categories and listable areas */
+                /** @description leaf categories */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -719,7 +719,7 @@ export interface paths {
         put?: never;
         /**
          * Add a listing
-         * @description Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`).
+         * @description Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area is the city, town or island nearest the pin, within 50 km.
          */
         post: {
             parameters: {
@@ -737,7 +737,16 @@ export interface paths {
                         description?: string;
                         /** @description A bookable (leaf) category */
                         category_id: number;
-                        area_slug: string;
+                        address: {
+                            street: string;
+                            city: string;
+                            region: string;
+                            /** @description Optional: none in Metro Manila */
+                            province?: string | null;
+                            postal_code: string;
+                            /** @description ISO 3166-1 alpha-2, e.g. PH */
+                            country: string;
+                        };
                         location: {
                             lat: number;
                             lng: number;
@@ -749,7 +758,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description saved as a draft */
+                /** @description an address without a province */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -776,7 +785,7 @@ export interface paths {
                         "application/json": components["schemas"]["error"];
                     };
                 };
-                /** @description a title or description too long */
+                /** @description an address that isn't an object */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -1300,6 +1309,7 @@ export interface components {
                 booking_type: "rental" | "stay" | "activity" | "transfer";
             };
             area: components["schemas"]["area_ref"];
+            address: components["schemas"]["profile_address"];
             location: {
                 lat: number;
                 lng: number;
@@ -1326,19 +1336,6 @@ export interface components {
                     [key: string]: unknown;
                 };
             }[];
-            /** @description Cities, towns and islands, by name, each with its center for the map */
-            areas: components["schemas"]["listing_area"][];
-        };
-        listing_area: {
-            slug: string;
-            name: string;
-            /** @enum {string} */
-            kind: "region" | "province" | "city" | "town" | "island";
-            parent_name: string | null;
-            center: {
-                lat: number;
-                lng: number;
-            };
         };
         area: {
             slug: string;

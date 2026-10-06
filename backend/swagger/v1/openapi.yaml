@@ -410,11 +410,11 @@ paths:
               - role
   "/api/v1/partner/listing_options":
     get:
-      summary: 'What a new listing can be: bookable categories and areas'
+      summary: 'What a new listing can be: its bookable categories'
       tags:
       - Partner
       description: Partner-only. Bookable (leaf) categories with the JSON Schema their
-        `attrs` must match, and the cities, towns and islands a listing can be in.
+        `attrs` must match.
       security:
       - bearer: []
       parameters:
@@ -424,7 +424,7 @@ paths:
           type: string
       responses:
         '200':
-          description: leaf categories and listable areas
+          description: leaf categories
           content:
             application/json:
               schema:
@@ -483,7 +483,8 @@ paths:
       - Partner
       description: Partner-only. The listing is saved as a draft; any `status` sent
         is ignored. `attrs` is checked against the category's `attribute_schema` (see
-        `GET /api/v1/partner/listing_options`).
+        `GET /api/v1/partner/listing_options`). The listing's area is the city, town
+        or island nearest the pin, within 50 km.
       security:
       - bearer: []
       parameters:
@@ -493,13 +494,13 @@ paths:
           type: string
       responses:
         '201':
-          description: saved as a draft
+          description: an address without a province
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/partner_listing"
         '422':
-          description: a title or description too long
+          description: an address that isn't an object
           content:
             application/json:
               schema:
@@ -531,8 +532,30 @@ paths:
                 category_id:
                   type: integer
                   description: A bookable (leaf) category
-                area_slug:
-                  type: string
+                address:
+                  type: object
+                  properties:
+                    street:
+                      type: string
+                    city:
+                      type: string
+                    region:
+                      type: string
+                    province:
+                      type: string
+                      nullable: true
+                      description: 'Optional: none in Metro Manila'
+                    postal_code:
+                      type: string
+                    country:
+                      type: string
+                      description: ISO 3166-1 alpha-2, e.g. PH
+                  required:
+                  - street
+                  - city
+                  - region
+                  - postal_code
+                  - country
                 location:
                   type: object
                   properties:
@@ -553,7 +576,7 @@ paths:
               required:
               - title
               - category_id
-              - area_slug
+              - address
               - location
   "/api/v1/partner/profile":
     get:
@@ -1104,6 +1127,8 @@ components:
           - booking_type
         area:
           "$ref": "#/components/schemas/area_ref"
+        address:
+          "$ref": "#/components/schemas/profile_address"
         location:
           type: object
           properties:
@@ -1131,6 +1156,7 @@ components:
       - status
       - category
       - area
+      - address
       - location
       - attrs
       - created_at
@@ -1170,49 +1196,8 @@ components:
             - booking_type
             - parent_name
             - attribute_schema
-        areas:
-          type: array
-          description: Cities, towns and islands, by name, each with its center for
-            the map
-          items:
-            "$ref": "#/components/schemas/listing_area"
       required:
       - categories
-      - areas
-    listing_area:
-      type: object
-      properties:
-        slug:
-          type: string
-        name:
-          type: string
-        kind:
-          type: string
-          enum:
-          - region
-          - province
-          - city
-          - town
-          - island
-        parent_name:
-          type: string
-          nullable: true
-        center:
-          type: object
-          properties:
-            lat:
-              type: number
-            lng:
-              type: number
-          required:
-          - lat
-          - lng
-      required:
-      - slug
-      - name
-      - kind
-      - parent_name
-      - center
     area:
       type: object
       properties:

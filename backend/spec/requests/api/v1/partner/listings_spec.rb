@@ -55,7 +55,8 @@ RSpec.describe "Partner listings", type: :request do
       consumes "application/json"
       produces "application/json"
       description "Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked " \
-        "against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`)."
+        "against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area " \
+        "is the city, town or island nearest the pin, within 50 km."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
       parameter name: :body, in: :body, schema: {
@@ -64,7 +65,18 @@ RSpec.describe "Partner listings", type: :request do
           title: { type: :string, maxLength: 120 },
           description: { type: :string, maxLength: 5000 },
           category_id: { type: :integer, description: "A bookable (leaf) category" },
-          area_slug: { type: :string },
+          address: {
+            type: :object,
+            properties: {
+              street: { type: :string },
+              city: { type: :string },
+              region: { type: :string },
+              province: { type: :string, nullable: true, description: "Optional: none in Metro Manila" },
+              postal_code: { type: :string },
+              country: { type: :string, description: "ISO 3166-1 alpha-2, e.g. PH" }
+            },
+            required: %w[street city region postal_code country]
+          },
           location: {
             type: :object,
             properties: {
@@ -75,12 +87,16 @@ RSpec.describe "Partner listings", type: :request do
           },
           attrs: { type: :object, additionalProperties: true }
         },
-        required: %w[title category_id area_slug location]
+        required: %w[title category_id address location]
       }
 
       let(:user) { create(:user, :partner) }
       let(:Authorization) { bearer_for(user) }
-      let(:area) { create(:area, slug: "moalboal") }
+      let!(:area) { create(:area, slug: "moalboal", name: "Moalboal", center: "POINT(123.396 9.945)") }
+      let(:address) do
+        { street: "Panagsama Beach", city: "Moalboal", province: "Cebu", region: "Central Visayas",
+          postal_code: "6032", country: "PH" }
+      end
       let(:category) do
         create(:category, name: "Tour", booking_type: "activity", attribute_schema: {
           type: "object",
@@ -90,14 +106,18 @@ RSpec.describe "Partner listings", type: :request do
       end
       let(:body) do
         { title: "Sardine run and turtle snorkel", description: "Half a day off Panagsama.",
-          category_id: category.id, area_slug: area.slug, location: { lat: 9.95, lng: 123.37 },
+          category_id: category.id, address: address, location: { lat: 9.95, lng: 123.37 },
           attrs: { guide_included: true, duration_hours: 4 } }
       end
 
-      response "201", "saved as a draft" do
+      response "201", "saved as a draft, in the area nearest the pin" do
         schema "$ref" => "#/components/schemas/partner_listing"
 
-        before { body[:status] = "active" }
+        before do
+          body[:status] = "active"
+          create(:area, slug: "cebu-city", name: "Cebu City", center: "POINT(123.891 10.316)")
+          create(:area, slug: "cebu", name: "Cebu", kind: "province", center: "POINT(123.39 9.95)")
+        end
 
         run_test! do |response|
           expect(response.parsed_body).to include(
@@ -106,7 +126,29 @@ RSpec.describe "Partner listings", type: :request do
             "attrs" => { "guide_included" => true, "duration_hours" => 4 }
           )
           expect(response.parsed_body["area"]).to eq("slug" => "moalboal", "name" => "Moalboal")
+          expect(response.parsed_body["address"]).to eq(address.stringify_keys)
           expect(user.listings.sole).to have_attributes(status: "draft", category: category, area: area)
+        end
+      end
+
+      response "201", "an address without a province" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        before { body[:address] = address.merge(province: nil) }
+
+        run_test! do |response|
+          expect(response.parsed_body["address"]["province"]).to be_nil
+        end
+      end
+
+      response "422", "a pin far from every destination" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:location] = { lat: 14.6, lng: 121.0 } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("No destination near this pin yet")
+          expect(Listing.count).to eq(0)
         end
       end
 
@@ -131,13 +173,13 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
-      response "422", "an unknown category or area" do
+      response "422", "an unknown category" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
-        before { body.merge!(category_id: 0, area_slug: "nowhere") }
+        before { body[:category_id] = 0 }
 
         run_test! do |response|
-          expect(response.parsed_body["errors"]).to include("Category is not one we know", "Area is not one we know")
+          expect(response.parsed_body["errors"]).to include("Category is not one we know")
         end
       end
 
@@ -145,12 +187,15 @@ RSpec.describe "Partner listings", type: :request do
         schema "$ref" => "#/components/schemas/validation_errors"
 
         let(:body) do
-          { title: 42, description: [ "x" ], category_id: "1", location: { lat: "9.95", lng: 200 }, attrs: "none" }
+          { title: 42, description: [ "x" ], category_id: "1", location: { lat: "9.95", lng: 200 }, attrs: "none",
+            address: { street: "", city: 6032, province: 1, region: "Central Visayas" } }
         end
 
         run_test! do |response|
           expect(response.parsed_body["errors"]).to include(
-            "Title is required", "Description must be text", "Category is required", "Area is required",
+            "Title is required", "Description must be text", "Category is required",
+            "Street is required", "City is required", "Province must be text", "ZIP code is required",
+            "Country is required",
             "Latitude must be a number between -90 and 90", "Longitude must be a number between -180 and 180",
             "Details must be an object"
           )
@@ -167,6 +212,16 @@ RSpec.describe "Partner listings", type: :request do
           expect(response.parsed_body["errors"]).to include(
             "Title is too long (maximum is 120 characters)", "Description is too long (maximum is 5000 characters)"
           )
+        end
+      end
+
+      response "422", "an address that isn't an object" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:address] = "Panagsama Beach, Moalboal" }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Address must be an object")
         end
       end
 

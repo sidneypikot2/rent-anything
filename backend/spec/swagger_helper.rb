@@ -135,6 +135,7 @@ RSpec.configure do |config|
                 required: %w[id slug name booking_type]
               },
               area: { "$ref" => "#/components/schemas/area_ref" },
+              address: { "$ref" => "#/components/schemas/profile_address" },
               location: {
                 type: :object,
                 properties: { lat: { type: :number }, lng: { type: :number } },
@@ -144,7 +145,7 @@ RSpec.configure do |config|
               created_at: { type: :string, format: "date-time" },
               updated_at: { type: :string, format: "date-time" }
             },
-            required: %w[id title description status category area location attrs created_at updated_at]
+            required: %w[id title description status category area address location attrs created_at updated_at]
           },
           listing_options: {
             type: :object,
@@ -166,30 +167,9 @@ RSpec.configure do |config|
                   },
                   required: %w[id slug name booking_type parent_name attribute_schema]
                 }
-              },
-              areas: {
-                type: :array,
-                description: "Cities, towns and islands, by name, each with its center for the map",
-                items: { "$ref" => "#/components/schemas/listing_area" }
               }
             },
-            required: %w[categories areas]
-          },
-          # An area a listing can be in, with the point the add-listing map flies to.
-          listing_area: {
-            type: :object,
-            properties: {
-              slug: { type: :string },
-              name: { type: :string },
-              kind: { type: :string, enum: %w[region province city town island] },
-              parent_name: { type: :string, nullable: true },
-              center: {
-                type: :object,
-                properties: { lat: { type: :number }, lng: { type: :number } },
-                required: %w[lat lng]
-              }
-            },
-            required: %w[slug name kind parent_name center]
+            required: %w[categories]
           },
           area: {
             type: :object,
