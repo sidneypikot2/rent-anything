@@ -17,6 +17,11 @@ Rails.application.routes.draw do
       resource :me, only: %i[show update], controller: "me"
       put "me/complete_profile", to: "me/complete_profiles#update", as: :me_complete_profile
 
+      # Guest discovery (RAA-33): public, no sign-in.
+      get "search", to: "search#index"
+      resources :areas, only: %i[index show], param: :slug
+      resources :activities, only: :index
+
       namespace :partner do
         resource :me, only: :show, controller: "me"
       end

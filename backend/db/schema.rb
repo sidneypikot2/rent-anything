@@ -10,11 +10,102 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_06_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_06_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
+  enable_extension "pg_trgm"
   enable_extension "postgis"
+  enable_extension "unaccent"
+
+  create_table "areas", force: :cascade do |t|
+    t.bigint "parent_id"
+    t.string "kind", null: false
+    t.string "slug", null: false
+    t.string "name", null: false
+    t.string "aliases", default: [], null: false, array: true
+    t.geography "center", limit: {srid: 4326, type: "st_point", geographic: true}, null: false
+    t.geography "boundary", limit: {srid: 4326, type: "multi_polygon", geographic: true}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["boundary"], name: "index_areas_on_boundary", using: :gist
+    t.index ["center"], name: "index_areas_on_center", using: :gist
+    t.index ["parent_id"], name: "index_areas_on_parent_id"
+    t.index ["slug"], name: "index_areas_on_slug", unique: true
+    t.check_constraint "kind::text = ANY (ARRAY['region'::character varying::text, 'province'::character varying::text, 'city'::character varying::text, 'town'::character varying::text, 'island'::character varying::text])", name: "areas_kind_check"
+  end
+
+  create_table "categories", force: :cascade do |t|
+    t.bigint "parent_id"
+    t.string "slug", null: false
+    t.string "name", null: false
+    t.string "booking_type"
+    t.jsonb "attribute_schema", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["parent_id"], name: "index_categories_on_parent_id"
+    t.index ["slug"], name: "index_categories_on_slug", unique: true
+    t.check_constraint "booking_type::text = ANY (ARRAY['rental'::character varying::text, 'stay'::character varying::text, 'activity'::character varying::text, 'transfer'::character varying::text])", name: "categories_booking_type_check"
+  end
+
+  create_table "category_tags", primary_key: ["category_id", "tag_id"], force: :cascade do |t|
+    t.bigint "category_id", null: false
+    t.bigint "tag_id", null: false
+    t.integer "weight", limit: 2, default: 1, null: false
+    t.index ["tag_id"], name: "index_category_tags_on_tag_id"
+    t.check_constraint "weight >= 1 AND weight <= 3", name: "category_tags_weight_check"
+  end
+
+  create_table "landmark_tags", primary_key: ["landmark_id", "tag_id"], force: :cascade do |t|
+    t.bigint "landmark_id", null: false
+    t.bigint "tag_id", null: false
+    t.index ["tag_id"], name: "index_landmark_tags_on_tag_id"
+  end
+
+  create_table "landmarks", force: :cascade do |t|
+    t.bigint "area_id", null: false
+    t.string "slug", null: false
+    t.string "name", null: false
+    t.string "aliases", default: [], null: false, array: true
+    t.geography "location", limit: {srid: 4326, type: "st_point", geographic: true}, null: false
+    t.text "description", default: "", null: false
+    t.string "status", default: "draft", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["area_id"], name: "index_landmarks_on_area_id"
+    t.index ["location"], name: "index_landmarks_on_location", using: :gist
+    t.index ["slug"], name: "index_landmarks_on_slug", unique: true
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'published'::character varying::text])", name: "landmarks_status_check"
+  end
+
+  create_table "listing_landmarks", primary_key: ["listing_id", "landmark_id"], force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.bigint "landmark_id", null: false
+    t.string "relation", default: "visits", null: false
+    t.index ["landmark_id"], name: "index_listing_landmarks_on_landmark_id"
+    t.check_constraint "relation::text = ANY (ARRAY['visits'::character varying::text, 'serves'::character varying::text])", name: "listing_landmarks_relation_check"
+  end
+
+  create_table "listings", force: :cascade do |t|
+    t.bigint "area_id", null: false
+    t.bigint "partner_id", null: false
+    t.string "partner_role", default: "partner", null: false
+    t.bigint "category_id", null: false
+    t.string "title", null: false
+    t.text "description", default: "", null: false
+    t.geography "location", limit: {srid: 4326, type: "st_point", geographic: true}, null: false
+    t.string "status", default: "draft", null: false
+    t.jsonb "attrs", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["area_id"], name: "index_listings_on_area_id"
+    t.index ["category_id"], name: "index_listings_on_category_id"
+    t.index ["location"], name: "index_listings_on_location", using: :gist
+    t.index ["partner_id"], name: "index_listings_on_partner_id"
+    t.index ["status"], name: "index_listings_on_status"
+    t.check_constraint "partner_role::text = 'partner'::text", name: "listings_partner_role_check"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'pending'::character varying::text, 'active'::character varying::text])", name: "listings_status_check"
+  end
 
   create_table "oauth_identities", force: :cascade do |t|
     t.bigint "user_id", null: false
@@ -39,6 +130,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_000000) do
     t.index ["user_id"], name: "index_refresh_tokens_on_user_id"
   end
 
+  create_table "tags", force: :cascade do |t|
+    t.string "slug", null: false
+    t.string "name", null: false
+    t.string "aliases", default: [], null: false, array: true
+    t.string "kind", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["slug"], name: "index_tags_on_slug", unique: true
+    t.check_constraint "kind::text = ANY (ARRAY['activity'::character varying::text, 'feature'::character varying::text, 'theme'::character varying::text])", name: "tags_kind_check"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "email", null: false
     t.string "name"
@@ -55,6 +157,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_000000) do
     t.check_constraint "role::text = ANY (ARRAY['guest'::character varying::text, 'partner'::character varying::text, 'admin'::character varying::text])", name: "users_role_check"
   end
 
+  add_foreign_key "areas", "areas", column: "parent_id"
+  add_foreign_key "categories", "categories", column: "parent_id"
+  add_foreign_key "category_tags", "categories"
+  add_foreign_key "category_tags", "tags"
+  add_foreign_key "landmark_tags", "landmarks"
+  add_foreign_key "landmark_tags", "tags"
+  add_foreign_key "landmarks", "areas"
+  add_foreign_key "listing_landmarks", "landmarks"
+  add_foreign_key "listing_landmarks", "listings"
+  add_foreign_key "listings", "areas"
+  add_foreign_key "listings", "categories"
+  add_foreign_key "listings", "users", column: "partner_id"
+  add_foreign_key "listings", "users", column: ["partner_id", "partner_role"], primary_key: ["id", "role"], name: "fk_listings_partner_role"
   add_foreign_key "oauth_identities", "users"
   add_foreign_key "oauth_identities", "users", column: ["user_id", "role"], primary_key: ["id", "role"], name: "fk_oauth_identities_user_role"
   add_foreign_key "refresh_tokens", "users"

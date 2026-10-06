@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { AccountNav } from "@/components/auth/account-nav";
+import { Logo } from "@/components/landing/logo";
+import { BRAND } from "@/lib/brand";
 
 export type Section = "guest" | "partner" | "admin";
 
@@ -20,9 +22,10 @@ export function SectionHeader({ section }: { section: Section }) {
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-3">
         <Link
           href={section === "guest" ? "/" : `/${section}`}
-          className="font-display text-2xl font-bold italic"
+          className="text-2xl"
+          aria-label={label ? `${BRAND} ${label}` : `${BRAND} home`}
         >
-          Rent-<span className="not-italic text-aqua">Anything</span>
+          <Logo />
           {label && (
             <span className="ml-2 font-sans text-sm font-medium not-italic text-on-dark">
               {label}

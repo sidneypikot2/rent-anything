@@ -4,6 +4,64 @@ info:
   title: Rent-Anything API
   version: v1
 paths:
+  "/api/v1/activities":
+    get:
+      summary: Activities guests can do in bookable areas
+      tags:
+      - Discovery
+      description: Activity tags with the number of bookable areas and published landmarks
+        that have them, most areas first. Activities with no bookable area are left
+        out.
+      responses:
+        '200':
+          description: activities with counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/activity"
+  "/api/v1/areas":
+    get:
+      summary: Destinations with something to book
+      tags:
+      - Discovery
+      description: Areas with at least one active listing, most listings first, each
+        with its top three activities (by how many published landmarks carry them).
+      responses:
+        '200':
+          description: bookable areas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/area_card"
+  "/api/v1/areas/{slug}":
+    get:
+      summary: 'A destination: its landmarks and what to book there'
+      tags:
+      - Discovery
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: a province lists the areas under it that have something to
+            book
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/area_detail"
+        '404':
+          description: unknown area
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/health":
     get:
       summary: Liveness and database check
@@ -291,6 +349,35 @@ paths:
               - email
               - password
               - role
+  "/api/v1/search":
+    get:
+      summary: Search destinations, landmarks, tags and listings
+      tags:
+      - Discovery
+      description: One search box over areas, published landmarks, tags (activities,
+        features, themes) and active listings. Accent- and typo-tolerant, and matches
+        each record's aliases. At most 5 results per group. Areas without anything
+        to book are left out, and listings carry no location.
+      parameters:
+      - name: q
+        in: query
+        required: true
+        description: At least 2 characters
+        schema:
+          type: string
+      responses:
+        '200':
+          description: exact name ranks first
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/search_results"
+        '422':
+          description: query missing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
   "/api/v1/session":
     post:
       summary: Sign in with email and password
@@ -473,3 +560,270 @@ components:
             type: string
       required:
       - errors
+    area_ref:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+      required:
+      - slug
+      - name
+    tag:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+          - activity
+          - feature
+          - theme
+      required:
+      - slug
+      - name
+      - kind
+    listing_summary:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        area_slug:
+          type: string
+      required:
+      - id
+      - title
+      - category
+      - area_slug
+    area:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+          - region
+          - province
+          - city
+          - town
+          - island
+        parent_name:
+          type: string
+          nullable: true
+      required:
+      - slug
+      - name
+      - kind
+      - parent_name
+    area_card:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+          - region
+          - province
+          - city
+          - town
+          - island
+        parent_name:
+          type: string
+          nullable: true
+        landmark_count:
+          type: integer
+        listing_count:
+          type: integer
+        activities:
+          type: array
+          items:
+            "$ref": "#/components/schemas/tag"
+      required:
+      - slug
+      - name
+      - kind
+      - parent_name
+      - landmark_count
+      - listing_count
+      - activities
+    area_detail:
+      type: object
+      properties:
+        area:
+          "$ref": "#/components/schemas/area"
+        areas:
+          type: array
+          description: Areas under this one that have something to book
+          items:
+            "$ref": "#/components/schemas/area"
+        landmarks:
+          type: array
+          items:
+            type: object
+            properties:
+              slug:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              tags:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/tag"
+            required:
+            - slug
+            - name
+            - description
+            - tags
+        listings:
+          type: array
+          items:
+            type: object
+            description: A listing summary plus its booking type; no location
+            properties:
+              id:
+                type: integer
+              title:
+                type: string
+              category:
+                type: string
+              area_slug:
+                type: string
+              booking_type:
+                type: string
+                enum:
+                - rental
+                - stay
+                - activity
+                - transfer
+            required:
+            - id
+            - title
+            - category
+            - area_slug
+            - booking_type
+      required:
+      - area
+      - areas
+      - landmarks
+      - listings
+    activity:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        area_count:
+          type: integer
+        landmark_count:
+          type: integer
+      required:
+      - slug
+      - name
+      - area_count
+      - landmark_count
+    search_results:
+      type: object
+      properties:
+        areas:
+          type: array
+          items:
+            type: object
+            properties:
+              slug:
+                type: string
+              name:
+                type: string
+              kind:
+                type: string
+                enum:
+                - region
+                - province
+                - city
+                - town
+                - island
+              parent_name:
+                type: string
+                nullable: true
+            required:
+            - slug
+            - name
+            - kind
+            - parent_name
+        landmarks:
+          type: array
+          items:
+            type: object
+            properties:
+              slug:
+                type: string
+              name:
+                type: string
+              area:
+                "$ref": "#/components/schemas/area_ref"
+            required:
+            - slug
+            - name
+            - area
+        tags:
+          type: array
+          description: Matching tags, each with the bookable areas that have landmarks
+            carrying it, most landmarks first
+          items:
+            type: object
+            properties:
+              slug:
+                type: string
+              name:
+                type: string
+              kind:
+                type: string
+                enum:
+                - activity
+                - feature
+                - theme
+              areas:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    slug:
+                      type: string
+                    name:
+                      type: string
+                    landmark_count:
+                      type: integer
+                  required:
+                  - slug
+                  - name
+                  - landmark_count
+            required:
+            - slug
+            - name
+            - kind
+            - areas
+        listings:
+          type: array
+          items:
+            "$ref": "#/components/schemas/listing_summary"
+      required:
+      - areas
+      - landmarks
+      - tags
+      - listings

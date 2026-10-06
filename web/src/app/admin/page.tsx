@@ -5,7 +5,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { DisplayTitle } from "@/components/ui/typography";
 
 export const metadata: Metadata = {
-  title: "Admin · Rent-Anything",
+  title: "Admin",
 };
 
 const PANELS = [

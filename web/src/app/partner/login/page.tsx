@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { AuthCard } from "@/components/auth/auth-card";
 import { PartnerPitch } from "@/components/landing/partner-pitch";
+import { BRAND } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Partner sign in · Rent-Anything",
-  description: "List your tours, transfers, rentals and stays with Rent-Anything.",
+  title: "Partner sign in",
+  description: `List your tours, transfers, rentals and stays with ${BRAND}.`,
 };
 
 // Partner sign-in; new partners sign up at /partner/register. These two are the only
