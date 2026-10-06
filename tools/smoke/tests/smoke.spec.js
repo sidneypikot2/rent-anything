@@ -135,6 +135,35 @@ test("sign-up and the partner guard", async ({ page }) => {
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page).not.toHaveURL(/\/partner/);
 
+  // A new guest's profile is incomplete: the banner leads to their own profile form (no
+  // display name), here with a Metro Manila address, which has no province (RAA-40).
+  await page.getByTestId("guest-profile-banner-link").click();
+  await expect(page).toHaveURL(/\/profile$/);
+  const guestForm = page.getByTestId("guest-profile-form");
+  await expect(guestForm.getByLabel("Display name")).toHaveCount(0);
+  await guestForm.getByLabel("First name").fill("Ana2");
+  await guestForm.getByLabel("Last name").fill("Reyes");
+  await guestForm.getByLabel("Phone", { exact: true }).fill("918 111 2222");
+  await guestForm.getByRole("combobox", { name: "Region" }).fill("National Capital");
+  await guestForm.getByRole("option", { name: "National Capital Region" }).click();
+  await expect(guestForm.getByRole("combobox", { name: "Province" })).toBeDisabled();
+  await guestForm.getByRole("combobox", { name: "City / Municipality" }).fill("Makati");
+  await guestForm.getByRole("option", { name: "City of Makati" }).click();
+  await guestForm.getByRole("combobox", { name: "ZIP code" }).fill("1200");
+  await guestForm.getByLabel("Street").fill("12 Ayala Ave");
+  // A name with a digit is caught before anything is sent; the form stays open.
+  await page.getByTestId("guest-profile-save").click();
+  await expect(guestForm.getByText("First name can only have letters")).toBeVisible();
+  await guestForm.getByLabel("First name").fill("Ana");
+  await expect(guestForm.getByText("First name can only have letters")).toHaveCount(0);
+  await page.getByTestId("guest-profile-save").click();
+  await expect(page.getByTestId("guest-profile-edit")).toBeVisible();
+  await expect(page.getByTestId("guest-profile")).toContainText("+63 918 111 2222");
+  await expect(page.getByTestId("guest-profile")).toContainText("City of Makati");
+  await page.goto("/dashboard");
+  await expect(page.getByTestId("guest-dashboard")).toBeVisible();
+  await expect(page.getByTestId("guest-profile-banner")).toHaveCount(0);
+
   // The name opens the account menu: Profile, Settings and Sign out.
   await page.getByTestId("nav-user").click();
   await page.getByTestId("nav-menu-profile").click();
@@ -149,6 +178,41 @@ test("sign-up and the partner guard", async ({ page }) => {
   await signUp("/partner/register", `partner-${stamp}@example.com`);
   await expect(page).toHaveURL(/\/partner\/dashboard$/);
   await expect(page.getByTestId("partner-dashboard")).toBeVisible();
+
+  // A new partner's profile is incomplete: the banner leads to the profile form, and
+  // saving it shows the profile read-only and hides the banner (RAA-40).
+  await page.getByTestId("profile-banner-link").click();
+  await expect(page).toHaveURL(/\/partner\/profile$/);
+  await expect(page.getByTestId("profile-banner")).toHaveCount(0);
+  const form = page.getByTestId("profile-form");
+  await form.getByLabel("First name").fill("Jun");
+  await form.getByLabel("Last name").fill("Dela Cruz");
+  // Philippines only for now: the phone is the number after +63, and the address goes
+  // from the fixed country down, each field suggesting places inside the one above it.
+  await form.getByLabel("Phone", { exact: true }).fill("917 123 4567");
+  await expect(form.getByLabel("Country", { exact: true })).toHaveValue(/Philippines/);
+  await expect(form.getByLabel("Country", { exact: true })).toBeDisabled();
+  await form.getByRole("combobox", { name: "Region" }).fill("central vis");
+  await form.getByRole("option", { name: "Central Visayas" }).click();
+  // Fields keep their places: Province is there before and after a region is picked.
+  await expect(form.getByRole("combobox", { name: "Province" })).toBeEnabled();
+  await form.getByRole("combobox", { name: "Province" }).fill("Cebu");
+  await form.getByRole("option", { name: "Cebu", exact: true }).click();
+  await form.getByRole("combobox", { name: "City / Municipality" }).fill("Moal");
+  await form.getByRole("option", { name: "Moalboal" }).click();
+  // Moalboal has one ZIP code, filled in for you.
+  await expect(form.getByRole("combobox", { name: "ZIP code" })).toHaveValue("6032");
+  await form.getByLabel("Street").fill("Poblacion East");
+  await page.getByTestId("profile-save").click();
+  await expect(page.getByTestId("profile-edit")).toBeVisible();
+  await expect(page.getByTestId("partner-profile")).toContainText("+63 917 123 4567");
+  await expect(page.getByTestId("partner-profile")).toContainText("Moalboal");
+  await page.getByTestId("profile-edit").click();
+  await expect(page.getByTestId("profile-form").getByRole("combobox", { name: "City / Municipality" })).toHaveValue("Moalboal");
+  await page.getByTestId("profile-cancel").click();
+  await page.getByTestId("partner-nav-home").click();
+  await expect(page.getByTestId("partner-dashboard")).toBeVisible();
+  await expect(page.getByTestId("profile-banner")).toHaveCount(0);
 
   // The partner header links between the partner pages and marks the current one.
   await expect(page.getByTestId("partner-nav-home")).toHaveAttribute("aria-current", "page");
