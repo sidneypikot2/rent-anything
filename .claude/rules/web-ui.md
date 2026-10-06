@@ -7,7 +7,7 @@ paths:
 
 The palette is Tidal Grove (RAA-20). It is light-only and defined once, in `web/src/app/globals.css`: named colours (`cerulean`, `emerald`, `aqua`, `fern`, `mist`, `sage`, `navy`) and the semantic tokens components use (`background`, `foreground`, `surface`, `surface-2`, `muted`, `line`, `line-2`, `line-strong`, `link`, `on-dark`, `primary`, `primary-hover`, `secondary`, `secondary-hover`, `danger`, `warning`). `/admin/ui-kit` shows the palette and every primitive, for reference.
 
-- **Build from `src/components/ui/`**: `Button` / `ButtonLink`, `Card` / `CardBody`, `Badge`, `Pill`, `Field`, `PasswordField`, `DisplayTitle`, `SectionTitle`, `Eyebrow`, `Price`. Extend a primitive (a new variant, a new prop) rather than restyling one at its call site. A new primitive also goes on `/admin/ui-kit`.
+- **Build from `src/components/ui/`**: `Button` / `ButtonLink`, `Card` / `CardBody`, `Badge`, `Pill`, `Field`, `PasswordField`, `SelectField`, `DisplayTitle`, `SectionTitle`, `Eyebrow`, `Price`. Extend a primitive (a new variant, a new prop) rather than restyling one at its call site. A new primitive also goes on `/admin/ui-kit`.
 - **No raw colours** in components: no hex values and no Tailwind default palette classes (`gray-*`, `blue-*`, `slate-*`). If a colour is missing, add a token in `globals.css`.
 - **Contrast pairs**:
   - white on `primary` or `secondary` (not on `emerald`, which is 3.8:1);

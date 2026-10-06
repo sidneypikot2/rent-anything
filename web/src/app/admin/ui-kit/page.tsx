@@ -5,6 +5,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { PasswordField } from "@/components/ui/password-field";
+import { SelectField } from "@/components/ui/select-field";
 import { Pill, PillLink } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, Price, SectionTitle } from "@/components/ui/typography";
 
@@ -117,6 +118,15 @@ export default function UiKit() {
             name="password-toggle"
             hint="PasswordField, with an action in the label row"
             action={<span className="text-xs font-medium text-link">Forgot password?</span>}
+          />
+          <SelectField
+            label="Country"
+            name="country"
+            hint="SelectField"
+            options={[
+              { value: "PH", label: "Philippines" },
+              { value: "SG", label: "Singapore" },
+            ]}
           />
           <Field label="Disabled" name="disabled" disabled />
         </div>

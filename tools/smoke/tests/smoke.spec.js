@@ -150,6 +150,30 @@ test("sign-up and the partner guard", async ({ page }) => {
   await expect(page).toHaveURL(/\/partner\/dashboard$/);
   await expect(page.getByTestId("partner-dashboard")).toBeVisible();
 
+  // A new partner's profile is incomplete: the banner leads to the profile form, and
+  // saving it shows the profile read-only and hides the banner (RAA-40).
+  await page.getByTestId("profile-banner-link").click();
+  await expect(page).toHaveURL(/\/partner\/profile$/);
+  await expect(page.getByTestId("profile-banner")).toHaveCount(0);
+  const form = page.getByTestId("profile-form");
+  await form.getByLabel("First name").fill("Jun");
+  await form.getByLabel("Last name").fill("Dela Cruz");
+  await form.getByLabel("Phone").fill("+63 917 123 4567");
+  await form.getByLabel("Street").fill("Poblacion East");
+  await form.getByLabel("City").fill("Moalboal");
+  await form.getByLabel("Region / Province").fill("Cebu");
+  await form.getByLabel("ZIP code").fill("6032");
+  await expect(form.getByLabel("Country", { exact: true })).toHaveValue("PH");
+  await page.getByTestId("profile-save").click();
+  await expect(page.getByTestId("profile-edit")).toBeVisible();
+  await expect(page.getByTestId("partner-profile")).toContainText("Moalboal");
+  await page.getByTestId("profile-edit").click();
+  await expect(page.getByTestId("profile-form").getByLabel("City")).toHaveValue("Moalboal");
+  await page.getByTestId("profile-cancel").click();
+  await page.getByTestId("partner-nav-home").click();
+  await expect(page.getByTestId("partner-dashboard")).toBeVisible();
+  await expect(page.getByTestId("profile-banner")).toHaveCount(0);
+
   // The partner header links between the partner pages and marks the current one.
   await expect(page.getByTestId("partner-nav-home")).toHaveAttribute("aria-current", "page");
   await page.getByTestId("partner-nav-listings").click();
