@@ -141,7 +141,7 @@ test("sign-up and the partner guard", async ({ page }) => {
   await expect(page).toHaveURL(/\/profile$/);
   const guestForm = page.getByTestId("guest-profile-form");
   await expect(guestForm.getByLabel("Display name")).toHaveCount(0);
-  await guestForm.getByLabel("First name").fill("Ana");
+  await guestForm.getByLabel("First name").fill("Ana2");
   await guestForm.getByLabel("Last name").fill("Reyes");
   await guestForm.getByLabel("Phone", { exact: true }).fill("918 111 2222");
   await guestForm.getByRole("combobox", { name: "Region" }).fill("National Capital");
@@ -151,6 +151,11 @@ test("sign-up and the partner guard", async ({ page }) => {
   await guestForm.getByRole("option", { name: "City of Makati" }).click();
   await guestForm.getByRole("combobox", { name: "ZIP code" }).fill("1200");
   await guestForm.getByLabel("Street").fill("12 Ayala Ave");
+  // A name with a digit is caught before anything is sent; the form stays open.
+  await page.getByTestId("guest-profile-save").click();
+  await expect(guestForm.getByText("First name can only have letters")).toBeVisible();
+  await guestForm.getByLabel("First name").fill("Ana");
+  await expect(guestForm.getByText("First name can only have letters")).toHaveCount(0);
   await page.getByTestId("guest-profile-save").click();
   await expect(page.getByTestId("guest-profile-edit")).toBeVisible();
   await expect(page.getByTestId("guest-profile")).toContainText("+63 918 111 2222");

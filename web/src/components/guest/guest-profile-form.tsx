@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { apiClient } from "@/api/client";
 import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
 import { AddressSection, ProfileItem, ProfileSection } from "@/components/profile/profile-view";
+import { useNameField } from "@/components/profile/use-name-field";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { PhoneField } from "@/components/ui/phone-field";
@@ -63,8 +64,8 @@ function GuestProfileForm({
   const queryClient = useQueryClient();
   const session = useSession();
 
-  const [firstName, setFirstName] = useState(profile.legal_first_name ?? "");
-  const [lastName, setLastName] = useState(profile.legal_last_name ?? "");
+  const firstName = useNameField("First name", profile.legal_first_name);
+  const lastName = useNameField("Last name", profile.legal_last_name);
   const [phoneNumber, setPhoneNumber] = useState(editablePhone(profile.phone));
   const [phoneError, setPhoneError] = useState<string>();
   const address = usePhAddress(profile.address);
@@ -85,15 +86,16 @@ function GuestProfileForm({
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const firstOk = firstName.validate();
+    const lastOk = lastName.validate();
     const phone = toE164(phoneNumber);
-    if (!phone) {
-      setPhoneError(PHONE_ERROR);
-      return;
-    }
-    setPhoneError(undefined);
+    setPhoneError(phone ? undefined : PHONE_ERROR);
+    if (!firstOk) return firstName.focus();
+    if (!lastOk) return lastName.focus();
+    if (!phone) return;
     save.mutate({
-      legal_first_name: firstName.trim(),
-      legal_last_name: lastName.trim(),
+      legal_first_name: firstName.value,
+      legal_last_name: lastName.value,
       phone,
       address: address.toBody(),
     });
@@ -114,8 +116,7 @@ function GuestProfileForm({
           name="legal_first_name"
           required
           autoComplete="given-name"
-          value={firstName}
-          onChange={(event) => setFirstName(event.target.value)}
+          {...firstName.props}
           hint="As on your ID"
         />
         <Field
@@ -123,8 +124,7 @@ function GuestProfileForm({
           name="legal_last_name"
           required
           autoComplete="family-name"
-          value={lastName}
-          onChange={(event) => setLastName(event.target.value)}
+          {...lastName.props}
           hint="As on your ID"
         />
       </fieldset>
