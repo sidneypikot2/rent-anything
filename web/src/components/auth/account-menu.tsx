@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/components/ui/cn";
 import { signOut } from "@/lib/auth/actions";
 import { LOGIN_PATHS } from "@/lib/auth/paths";
 import { useSession } from "@/lib/auth/session";
@@ -67,7 +68,9 @@ export function AccountMenu({ section }: { section: MenuSection }) {
   }
 
   return (
-    <div ref={root} className="relative">
+    // Full header height: open, the name becomes a tab in the panel's colour and the panel
+    // hangs from the bar's bottom edge beneath it, so the two read as one shape.
+    <div ref={root} className="relative flex self-stretch">
       <button
         ref={trigger}
         type="button"
@@ -75,10 +78,17 @@ export function AccountMenu({ section }: { section: MenuSection }) {
         aria-expanded={open}
         aria-controls="account-menu"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 text-white"
+        className={cn(
+          "flex items-center gap-1 px-3 transition-colors",
+          open ? "bg-surface text-foreground" : "text-white hover:bg-white/10",
+        )}
       >
         {session.user.name ?? session.user.email}
-        <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4 fill-current">
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 20 20"
+          className={cn("size-4 transition-transform", open && "rotate-180")}
+        >
           <path d="M5.5 7.5 10 12l4.5-4.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
         </svg>
       </button>
@@ -86,7 +96,7 @@ export function AccountMenu({ section }: { section: MenuSection }) {
         <ul
           id="account-menu"
           data-testid="nav-user-menu"
-          className="absolute right-0 top-full z-20 mt-2 w-48 rounded-2xl border-[1.5px] border-line bg-surface p-2 shadow-xl shadow-primary/10"
+          className="absolute right-0 top-full z-20 w-56 min-w-full rounded-b-2xl rounded-tl-2xl border-x-[1.5px] border-b-[1.5px] border-line bg-surface p-2 shadow-xl shadow-navy/20"
         >
           {LINKS[section].map(({ href, label, testId }) => (
             <li key={href}>
