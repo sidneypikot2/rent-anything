@@ -8,7 +8,7 @@
 # Cable connections drop and Solid Queue jobs (run inside Puma, there is no free worker) pause.
 services:
   - type: web
-    name: rent-anything-staging-api
+    name: tripkonext-staging-api
     runtime: docker
     plan: free
     region: singapore
@@ -43,7 +43,7 @@ services:
       # Upstash, rediss:// (TLS).
       - key: REDIS_URL
         sync: false
-      # The Vercel URL, e.g. https://rent-anything-staging.vercel.app (no trailing slash).
+      # The Vercel URL, e.g. https://tripkonext-staging.vercel.app (no trailing slash).
       - key: FRONTEND_ORIGIN
         sync: false
       - key: GOOGLE_CLIENT_ID
