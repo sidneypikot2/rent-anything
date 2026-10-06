@@ -33,7 +33,7 @@ export function SectionHeader({ section }: { section: Section }) {
             </span>
           )}
         </Link>
-        <nav className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2 text-sm font-medium text-on-dark [&_a]:hover:text-white">
+        <nav className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2 text-sm font-medium text-on-dark">
           {section === "partner" && <PartnerNav />}
           <AccountNav section={section} />
         </nav>

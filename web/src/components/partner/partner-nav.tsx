@@ -29,7 +29,7 @@ export function PartnerNav() {
               href={href}
               data-testid={testId}
               aria-current={current ? "page" : undefined}
-              className={cn(current && "text-white underline decoration-aqua decoration-2 underline-offset-8")}
+              className={cn("hover:text-white", current && "text-white underline decoration-aqua decoration-2 underline-offset-8")}
             >
               {label}
             </Link>

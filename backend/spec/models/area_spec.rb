@@ -8,6 +8,11 @@ RSpec.describe Area do
     expect(area.errors[:slug]).to include("is reserved")
   end
 
+  it "refuses the signed-in guest pages' paths as slugs" do
+    expect(build(:area, slug: "profile")).not_to be_valid
+    expect(build(:area, slug: "settings")).not_to be_valid
+  end
+
   it "keeps slugs URL-safe" do
     expect(build(:area, slug: "Bantayan Island")).not_to be_valid
   end
