@@ -14,6 +14,11 @@ class Listing < ApplicationRecord
   enum :status, STATUSES.index_with(&:itself), validate: true
 
   validates :title, :location, presence: true
+  validates :title, length: { maximum: 120 }
+  validates :description, length: { maximum: 5000 }
+  # Every new listing has an address (RAA-41); ones made before it have none.
+  validates :street, :city, :region, :postal_code, presence: true, on: :create
+  validates :country, format: { with: /\A[A-Z]{2}\z/, message: "must be a two-letter country code" }
   validate :partner_is_a_partner
   validate :category_is_a_leaf
   validate :attrs_match_category_schema

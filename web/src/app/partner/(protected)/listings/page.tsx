@@ -1,23 +1,42 @@
-import { PlaceholderBlock } from "@/components/landing/placeholder-block";
+"use client";
+
+import { ListingsByCategory } from "@/components/partner/listings-table";
+import { usePartnerListings } from "@/components/partner/use-partner-listings";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { DisplayTitle } from "@/components/ui/typography";
 
-const PANELS = [
-  { title: "Your listings", note: "Everything you offer, draft or published (M2)" },
-  { title: "Add a listing", note: "Category, photos, details and where it is (M2)" },
-  { title: "Pricing", note: "Hourly, daily and weekly rates, or a price per seat (M2)" },
-  { title: "Units", note: "How many of each you have: five pairs of fins is one listing, five units (M3)" },
-];
-
-// The partner's listings: a skeleton until listing management exists (M2).
+// The partner's listings, in any status, sectioned by category (RAA-41).
 export default function PartnerListings() {
+  const { data, error, refetch } = usePartnerListings();
+
   return (
     <main data-testid="partner-listings" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-12">
-      <DisplayTitle>Listings</DisplayTitle>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {PANELS.map((panel) => (
-          <PlaceholderBlock key={panel.title} {...panel} />
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <DisplayTitle>Listings</DisplayTitle>
+        <ButtonLink href="/partner/listings/new" size="sm" data-testid="add-listing">
+          Add listing
+        </ButtonLink>
       </div>
+      {data ? (
+        data.length > 0 ? (
+          <ListingsByCategory listings={data} />
+        ) : (
+          <p data-testid="listings-empty" className="text-sm text-muted">
+            No listings yet. Add the first thing you offer: a tour, a motorbike, a room.
+          </p>
+        )
+      ) : error ? (
+        <div className="flex flex-col items-start gap-3">
+          <p role="alert" className="text-sm text-danger">
+            Couldn&apos;t load your listings.
+          </p>
+          <Button size="sm" variant="soft" onClick={() => void refetch()}>
+            Try again
+          </Button>
+        </div>
+      ) : (
+        <p className="text-sm text-muted">Loading your listings…</p>
+      )}
     </main>
   );
 }

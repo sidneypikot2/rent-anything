@@ -40,6 +40,11 @@ FactoryBot.define do
     partner factory: %i[user partner]
     title { "GoPro Hero 12" }
     location { "POINT(123.368 9.933)" }
+    street { "Panagsama Beach" }
+    city { "Moalboal" }
+    province { "Cebu" }
+    region { "Central Visayas" }
+    postal_code { "6032" }
     status { "active" }
 
     trait :pending do

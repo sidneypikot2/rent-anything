@@ -27,6 +27,8 @@ Rails.application.routes.draw do
       namespace :partner do
         resource :me, only: :show, controller: "me"
         resource :profile, only: %i[show update]
+        resources :listings, only: %i[index create]
+        resource :listing_options, only: :show
       end
     end
   end
