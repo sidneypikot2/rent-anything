@@ -9,6 +9,7 @@ class User < ApplicationRecord
 
   has_many :oauth_identities, dependent: :destroy
   has_many :refresh_tokens, dependent: :delete_all
+  has_one :partner_profile, dependent: :destroy
 
   enum :role, ROLES.index_with(&:itself), validate: true
 

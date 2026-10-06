@@ -296,6 +296,117 @@ paths:
               required:
               - token
               - role
+  "/api/v1/partner/profile":
+    get:
+      summary: The signed-in partner's profile
+      tags:
+      - Partner
+      description: Partner-only. Fields are null until the profile is first saved;
+        `complete` drives the web app's banner.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: a saved profile without a phone is not complete
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_profile"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    put:
+      summary: Save the signed-in partner's profile
+      tags:
+      - Partner
+      description: Partner-only. Every field but `display_name` is required; `phone`
+        is saved on the user. Email can't be changed here.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: email is ignored
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_profile"
+        '422':
+          description: a phone that isn't a phone number saves nothing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name:
+                  type: string
+                  nullable: true
+                legal_first_name:
+                  type: string
+                legal_last_name:
+                  type: string
+                phone:
+                  type: string
+                address:
+                  type: object
+                  properties:
+                    street:
+                      type: string
+                    city:
+                      type: string
+                    region:
+                      type: string
+                    postal_code:
+                      type: string
+                    country:
+                      type: string
+                      description: ISO 3166-1 alpha-2, e.g. PH
+                  required:
+                  - street
+                  - city
+                  - region
+                  - postal_code
+                  - country
+              required:
+              - legal_first_name
+              - legal_last_name
+              - phone
+              - address
   "/api/v1/registrations":
     post:
       summary: Sign up with email and password
@@ -527,6 +638,61 @@ components:
       - phone
       - role
       - registration_complete
+    partner_profile:
+      type: object
+      properties:
+        display_name:
+          type: string
+          nullable: true
+          description: Shown to travellers; optional
+        legal_first_name:
+          type: string
+          nullable: true
+        legal_last_name:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          description: Read-only here
+        address:
+          type: object
+          properties:
+            street:
+              type: string
+              nullable: true
+            city:
+              type: string
+              nullable: true
+            region:
+              type: string
+              nullable: true
+            postal_code:
+              type: string
+              nullable: true
+            country:
+              type: string
+              nullable: true
+              description: ISO 3166-1 alpha-2, e.g. PH
+          required:
+          - street
+          - city
+          - region
+          - postal_code
+          - country
+        complete:
+          type: boolean
+          description: True once the profile is saved and a phone is set
+      required:
+      - display_name
+      - legal_first_name
+      - legal_last_name
+      - phone
+      - email
+      - address
+      - complete
     auth_tokens:
       type: object
       properties:

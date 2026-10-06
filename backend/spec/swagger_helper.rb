@@ -33,6 +33,29 @@ RSpec.configure do |config|
             },
             required: %w[id email name phone role registration_complete]
           },
+          partner_profile: {
+            type: :object,
+            properties: {
+              display_name: { type: :string, nullable: true, description: "Shown to travellers; optional" },
+              legal_first_name: { type: :string, nullable: true },
+              legal_last_name: { type: :string, nullable: true },
+              phone: { type: :string, nullable: true },
+              email: { type: :string, description: "Read-only here" },
+              address: {
+                type: :object,
+                properties: {
+                  street: { type: :string, nullable: true },
+                  city: { type: :string, nullable: true },
+                  region: { type: :string, nullable: true },
+                  postal_code: { type: :string, nullable: true },
+                  country: { type: :string, nullable: true, description: "ISO 3166-1 alpha-2, e.g. PH" }
+                },
+                required: %w[street city region postal_code country]
+              },
+              complete: { type: :boolean, description: "True once the profile is saved and a phone is set" }
+            },
+            required: %w[display_name legal_first_name legal_last_name phone email address complete]
+          },
           auth_tokens: {
             type: :object,
             properties: {
