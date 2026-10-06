@@ -6,9 +6,10 @@ disable-model-invocation: true
 
 # Release staging to main
 
-`main` is what production runs (see `CLAUDE.md`, Project overview — until a production
-host exists, a release only moves `main`, and the production checks below are still worth
-doing so the first real deploy isn't a surprise). The only thing that is ever merged into `main` is `staging`, as a whole. You
+`main` is what production will run (see `CLAUDE.md`, Project overview). Until a production
+host exists, nothing deploys from `main` — the hosted environment deploys from `staging` — so
+a release only moves `main`; the production checks below are still worth doing so the first
+real deploy isn't a surprise. The only thing that is ever merged into `main` is `staging`, as a whole. You
 prepare the pull request; the user merges it.
 
 ```!
@@ -71,8 +72,7 @@ Tell the user the pull request is ready and what to do before and after merging:
 
 - merge with a **merge commit**, not squash or rebase — `staging` has to stay an ancestor
   of `main`, or the next release shows every old commit again;
-- after the merge, Render and Vercel deploy `main` by themselves: once both deploys finish, check
-  the backend's `/up` returns 200 and open the app (URLs in `.claude/rules/infra.md`, Hosting).
-  The first request after idle waits for Render's free tier to wake.
+- nothing deploys after the merge: Render and Vercel track `staging`, not `main`, until a
+  production host exists (`.claude/rules/infra.md`, Hosting).
 
 Don't merge it yourself.
