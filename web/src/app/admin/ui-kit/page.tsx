@@ -6,6 +6,8 @@ import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { PasswordField } from "@/components/ui/password-field";
 import { SelectField } from "@/components/ui/select-field";
+import { TextareaField } from "@/components/ui/textarea-field";
+import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Pill, PillLink } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, Price, SectionTitle } from "@/components/ui/typography";
 import { InteractiveFields } from "./interactive-fields";
@@ -129,6 +131,8 @@ export default function UiKit() {
               { value: "SG", label: "Singapore" },
             ]}
           />
+          <TextareaField label="Description" name="description" hint="TextareaField" />
+          <CheckboxField label="Guide included (CheckboxField)" name="guide" />
           <InteractiveFields />
           <Field label="Disabled" name="disabled" disabled />
         </div>
