@@ -143,5 +143,17 @@ test("sign-up and the partner guard", async ({ page }) => {
   await expect(page).toHaveURL(/\/partner\/dashboard$/);
   await expect(page.getByTestId("partner-dashboard")).toBeVisible();
 
+  // The partner header links between the partner pages and marks the current one.
+  await expect(page.getByTestId("partner-nav-home")).toHaveAttribute("aria-current", "page");
+  await page.getByTestId("partner-nav-calendar").click();
+  await expect(page).toHaveURL(/\/partner\/calendar$/);
+  await expect(page.getByTestId("partner-calendar")).toBeVisible();
+  await page.getByTestId("partner-nav-inbox").click();
+  await expect(page).toHaveURL(/\/partner\/inbox$/);
+  await expect(page.getByTestId("partner-inbox")).toBeVisible();
+  await expect(page.getByTestId("partner-nav-inbox")).toHaveAttribute("aria-current", "page");
+  await page.getByTestId("partner-nav-home").click();
+  await expect(page.getByTestId("partner-dashboard")).toBeVisible();
+
   expect(errors).toEqual([]);
 });

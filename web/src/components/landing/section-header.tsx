@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AccountNav } from "@/components/auth/account-nav";
 import { Logo } from "@/components/landing/logo";
+import { PartnerNav } from "@/components/partner/partner-nav";
 import { BRAND } from "@/lib/brand";
 
 export type Section = "guest" | "partner" | "admin";
@@ -32,7 +33,8 @@ export function SectionHeader({ section }: { section: Section }) {
             </span>
           )}
         </Link>
-        <nav className="flex items-center gap-4 text-sm font-medium text-on-dark [&_a]:hover:text-white">
+        <nav className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2 text-sm font-medium text-on-dark [&_a]:hover:text-white">
+          {section === "partner" && <PartnerNav />}
           <AccountNav section={section} />
         </nav>
       </div>
