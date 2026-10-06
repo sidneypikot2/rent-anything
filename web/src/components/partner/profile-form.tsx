@@ -154,9 +154,11 @@ function ProfileForm({
 
   // Codes follow from the names, so a saved address reopens with its suggestions narrowed.
   const ph = usePhAddressData();
-  const regionCode = ph && findByName(ph.regions, region)?.code;
+  const regionPlace = ph && findByName(ph.regions, region);
+  const regionCode = regionPlace?.code;
   const provinces = ph ? provincesOf(ph, regionCode) : [];
-  const provinceCode = findByName(provinces, province)?.code;
+  const provincePlace = findByName(provinces, province);
+  const provinceCode = provincePlace?.code;
   // Metro Manila has no provinces: its cities hang off the region.
   const hasProvinces = !ph || !regionCode || provinces.length > 0;
   const cities = ph && regionCode && (provinceCode || !hasProvinces) ? citiesOf(ph, regionCode, provinceCode) : [];
@@ -297,10 +299,12 @@ function ProfileForm({
             value={region}
             onChange={changeRegion}
             options={ph ? toOptions(ph.regions) : []}
+            placeholder="Search regions, e.g. Central Visayas"
           />
         </div>
-        {/* Always rendered, so nothing after it moves: disabled where the region has no
-            provinces. Guidance goes in placeholders, which don't change the layout. */}
+        {/* Every field always has a placeholder saying what to do next, so an empty field is
+            never blank after an earlier pick clears it; placeholders don't move the layout.
+            Province is always rendered too, disabled where the region has none. */}
         <div className="sm:col-span-3">
           <ComboboxField
             label="Province"
@@ -310,7 +314,13 @@ function ProfileForm({
             value={hasProvinces ? province : ""}
             onChange={changeProvince}
             options={toOptions(provinces)}
-            placeholder={!hasProvinces ? "None in this region" : !regionCode ? "Pick a region first" : undefined}
+            placeholder={
+              !hasProvinces
+                ? "None in this region"
+                : regionPlace
+                  ? `Search provinces in ${regionPlace.name}`
+                  : "Pick a region first"
+            }
           />
         </div>
         <div className="sm:col-span-3">
@@ -321,7 +331,15 @@ function ProfileForm({
             value={city}
             onChange={changeCity}
             options={toOptions(cities)}
-            placeholder={!regionCode ? "Pick a region first" : hasProvinces && !provinceCode ? "Pick a province first" : undefined}
+            placeholder={
+              !regionPlace
+                ? "Pick a region first"
+                : !hasProvinces
+                  ? `Search cities in ${regionPlace.name}`
+                  : provincePlace
+                    ? `Search cities in ${provincePlace.name}`
+                    : "Pick a province first"
+            }
           />
         </div>
         <div className="sm:col-span-2">
@@ -333,6 +351,7 @@ function ProfileForm({
             value={zip}
             onChange={(text) => setZip(text)}
             options={zips.map((code) => ({ value: code, label: code }))}
+            placeholder={`e.g. ${zips[0] ?? "6032"}`}
           />
         </div>
         <div className="sm:col-span-4">
@@ -343,6 +362,7 @@ function ProfileForm({
             autoComplete="street-address"
             value={street}
             onChange={(event) => setStreet(event.target.value)}
+            placeholder="e.g. 12 Rizal St, Poblacion"
             hint="House or building number, street and barangay"
           />
         </div>
