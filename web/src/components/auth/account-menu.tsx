@@ -21,7 +21,8 @@ const LINKS: Record<MenuSection, { href: string; label: string; testId: string }
   ],
 };
 
-const ITEM = "block w-full rounded-lg px-3 py-2 text-left text-foreground hover:bg-surface-2";
+// px-3, like the trigger, so the items line up under the name.
+const ITEM = "block w-full px-3 py-2 text-left text-foreground hover:bg-surface-2";
 
 // The signed-in user's name in the header, opening their account links and Sign out.
 // A plain disclosure (button + list), not an ARIA menu widget: it closes on Escape, on a
@@ -96,7 +97,7 @@ export function AccountMenu({ section }: { section: MenuSection }) {
         <ul
           id="account-menu"
           data-testid="nav-user-menu"
-          className="absolute right-0 top-full z-20 w-56 min-w-full rounded-b-2xl rounded-tl-2xl border-x-[1.5px] border-b-[1.5px] border-line bg-surface p-2 shadow-xl shadow-navy/20"
+          className="absolute inset-x-0 top-full z-20 min-w-40 overflow-hidden rounded-b-2xl bg-surface py-2 shadow-xl shadow-navy/20"
         >
           {LINKS[section].map(({ href, label, testId }) => (
             <li key={href}>
@@ -105,7 +106,7 @@ export function AccountMenu({ section }: { section: MenuSection }) {
               </Link>
             </li>
           ))}
-          <li className="my-1 border-t border-line" role="separator" />
+          <li className="mx-3 my-1 border-t border-line" role="separator" />
           <li>
             <button type="button" data-testid="nav-menu-signout" onClick={onSignOut} className={ITEM}>
               Sign out
