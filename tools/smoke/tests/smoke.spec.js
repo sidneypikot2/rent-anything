@@ -158,17 +158,26 @@ test("sign-up and the partner guard", async ({ page }) => {
   const form = page.getByTestId("profile-form");
   await form.getByLabel("First name").fill("Jun");
   await form.getByLabel("Last name").fill("Dela Cruz");
-  await form.getByLabel("Phone").fill("+63 917 123 4567");
-  await form.getByLabel("Street").fill("Poblacion East");
-  await form.getByLabel("City").fill("Moalboal");
-  await form.getByLabel("Region / Province").fill("Cebu");
-  await form.getByLabel("ZIP code").fill("6032");
+  // The dial code starts at +63; the address goes from country down, each field
+  // suggesting places inside the one above it.
+  await expect(form.getByLabel("Country code")).toHaveValue("PH");
+  await form.getByLabel("Phone", { exact: true }).fill("917 123 4567");
   await expect(form.getByLabel("Country", { exact: true })).toHaveValue("PH");
+  await form.getByRole("combobox", { name: "Region" }).fill("central vis");
+  await form.getByRole("option", { name: "Central Visayas" }).click();
+  await form.getByRole("combobox", { name: "Province" }).fill("Cebu");
+  await form.getByRole("option", { name: "Cebu", exact: true }).click();
+  await form.getByRole("combobox", { name: "City / Municipality" }).fill("Moal");
+  await form.getByRole("option", { name: "Moalboal" }).click();
+  // Moalboal has one ZIP code, filled in for you.
+  await expect(form.getByRole("combobox", { name: "ZIP code" })).toHaveValue("6032");
+  await form.getByLabel("Street").fill("Poblacion East");
   await page.getByTestId("profile-save").click();
   await expect(page.getByTestId("profile-edit")).toBeVisible();
+  await expect(page.getByTestId("partner-profile")).toContainText("+63 917 123 4567");
   await expect(page.getByTestId("partner-profile")).toContainText("Moalboal");
   await page.getByTestId("profile-edit").click();
-  await expect(page.getByTestId("profile-form").getByLabel("City")).toHaveValue("Moalboal");
+  await expect(page.getByTestId("profile-form").getByRole("combobox", { name: "City / Municipality" })).toHaveValue("Moalboal");
   await page.getByTestId("profile-cancel").click();
   await page.getByTestId("partner-nav-home").click();
   await expect(page.getByTestId("partner-dashboard")).toBeVisible();

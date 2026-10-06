@@ -8,6 +8,7 @@ import { PasswordField } from "@/components/ui/password-field";
 import { SelectField } from "@/components/ui/select-field";
 import { Pill, PillLink } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, Price, SectionTitle } from "@/components/ui/typography";
+import { InteractiveFields } from "./interactive-fields";
 
 export const metadata: Metadata = {
   title: "UI kit",
@@ -128,6 +129,7 @@ export default function UiKit() {
               { value: "SG", label: "Singapore" },
             ]}
           />
+          <InteractiveFields />
           <Field label="Disabled" name="disabled" disabled />
         </div>
       </Showcase>
