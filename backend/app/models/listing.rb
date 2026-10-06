@@ -14,6 +14,8 @@ class Listing < ApplicationRecord
   enum :status, STATUSES.index_with(&:itself), validate: true
 
   validates :title, :location, presence: true
+  validates :title, length: { maximum: 120 }
+  validates :description, length: { maximum: 5000 }
   validate :partner_is_a_partner
   validate :category_is_a_leaf
   validate :attrs_match_category_schema

@@ -116,6 +116,65 @@ RSpec.configure do |config|
             },
             required: %w[id title category area_slug]
           },
+          # A listing as its own partner sees it, exact location included.
+          partner_listing: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              title: { type: :string },
+              description: { type: :string },
+              status: { type: :string, enum: %w[draft pending active] },
+              category: {
+                type: :object,
+                properties: {
+                  id: { type: :integer },
+                  slug: { type: :string },
+                  name: { type: :string },
+                  booking_type: { type: :string, enum: %w[rental stay activity transfer] }
+                },
+                required: %w[id slug name booking_type]
+              },
+              area: { "$ref" => "#/components/schemas/area_ref" },
+              location: {
+                type: :object,
+                properties: { lat: { type: :number }, lng: { type: :number } },
+                required: %w[lat lng]
+              },
+              attrs: { type: :object, additionalProperties: true, description: "Matches the category's attribute_schema" },
+              created_at: { type: :string, format: "date-time" },
+              updated_at: { type: :string, format: "date-time" }
+            },
+            required: %w[id title description status category area location attrs created_at updated_at]
+          },
+          listing_options: {
+            type: :object,
+            properties: {
+              categories: {
+                type: :array,
+                items: {
+                  type: :object,
+                  properties: {
+                    id: { type: :integer },
+                    slug: { type: :string },
+                    name: { type: :string },
+                    booking_type: { type: :string, enum: %w[rental stay activity transfer] },
+                    parent_name: { type: :string, nullable: true },
+                    attribute_schema: {
+                      type: :object, additionalProperties: true,
+                      description: "The JSON Schema a listing's attrs must match"
+                    }
+                  },
+                  required: %w[id slug name booking_type parent_name attribute_schema]
+                }
+              },
+              areas: {
+                type: :array,
+                description: "Cities, towns and islands, by name",
+                items: { "$ref" => "#/components/schemas/area" }
+              }
+            },
+            required: %w[categories areas]
+          },
           area: {
             type: :object,
             properties: {

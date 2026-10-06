@@ -408,6 +408,153 @@ paths:
               required:
               - token
               - role
+  "/api/v1/partner/listing_options":
+    get:
+      summary: 'What a new listing can be: bookable categories and areas'
+      tags:
+      - Partner
+      description: Partner-only. Bookable (leaf) categories with the JSON Schema their
+        `attrs` must match, and the cities, towns and islands a listing can be in.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: leaf categories and listable areas
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/listing_options"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/partner/listings":
+    get:
+      summary: The signed-in partner's listings
+      tags:
+      - Partner
+      description: 'Partner-only. Every listing the partner owns, in any status, ordered
+        by category name, then title. The exact location is included: the reader owns
+        the listing.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: only the partner's own listings, by category then title
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/partner_listing"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    post:
+      summary: Add a listing
+      tags:
+      - Partner
+      description: Partner-only. The listing is saved as a draft; any `status` sent
+        is ignored. `attrs` is checked against the category's `attribute_schema` (see
+        `GET /api/v1/partner/listing_options`).
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: saved as a draft
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_listing"
+        '422':
+          description: a title or description too long
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  maxLength: 120
+                description:
+                  type: string
+                  maxLength: 5000
+                category_id:
+                  type: integer
+                  description: A bookable (leaf) category
+                area_slug:
+                  type: string
+                location:
+                  type: object
+                  properties:
+                    lat:
+                      type: number
+                      minimum: -90
+                      maximum: 90
+                    lng:
+                      type: number
+                      minimum: -180
+                      maximum: 180
+                  required:
+                  - lat
+                  - lng
+                attrs:
+                  type: object
+                  additionalProperties: true
+              required:
+              - title
+              - category_id
+              - area_slug
+              - location
   "/api/v1/partner/profile":
     get:
       summary: The signed-in partner's profile
@@ -919,6 +1066,118 @@ components:
       - title
       - category
       - area_slug
+    partner_listing:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+          - draft
+          - pending
+          - active
+        category:
+          type: object
+          properties:
+            id:
+              type: integer
+            slug:
+              type: string
+            name:
+              type: string
+            booking_type:
+              type: string
+              enum:
+              - rental
+              - stay
+              - activity
+              - transfer
+          required:
+          - id
+          - slug
+          - name
+          - booking_type
+        area:
+          "$ref": "#/components/schemas/area_ref"
+        location:
+          type: object
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+          - lat
+          - lng
+        attrs:
+          type: object
+          additionalProperties: true
+          description: Matches the category's attribute_schema
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - title
+      - description
+      - status
+      - category
+      - area
+      - location
+      - attrs
+      - created_at
+      - updated_at
+    listing_options:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              slug:
+                type: string
+              name:
+                type: string
+              booking_type:
+                type: string
+                enum:
+                - rental
+                - stay
+                - activity
+                - transfer
+              parent_name:
+                type: string
+                nullable: true
+              attribute_schema:
+                type: object
+                additionalProperties: true
+                description: The JSON Schema a listing's attrs must match
+            required:
+            - id
+            - slug
+            - name
+            - booking_type
+            - parent_name
+            - attribute_schema
+        areas:
+          type: array
+          description: Cities, towns and islands, by name
+          items:
+            "$ref": "#/components/schemas/area"
+      required:
+      - categories
+      - areas
     area:
       type: object
       properties:

@@ -606,6 +606,193 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/partner/listing_options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a new listing can be: bookable categories and areas
+         * @description Partner-only. Bookable (leaf) categories with the JSON Schema their `attrs` must match, and the cities, towns and islands a listing can be in.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description leaf categories and listable areas */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["listing_options"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/listings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in partner's listings
+         * @description Partner-only. Every listing the partner owns, in any status, ordered by category name, then title. The exact location is included: the reader owns the listing.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description only the partner's own listings, by category then title */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_listing"][];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add a listing
+         * @description Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        title: string;
+                        description?: string;
+                        /** @description A bookable (leaf) category */
+                        category_id: number;
+                        area_slug: string;
+                        location: {
+                            lat: number;
+                            lng: number;
+                        };
+                        attrs?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description saved as a draft */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_listing"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a title or description too long */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/partner/profile": {
         parameters: {
             query?: never;
@@ -1098,6 +1285,49 @@ export interface components {
             title: string;
             category: string;
             area_slug: string;
+        };
+        partner_listing: {
+            id: number;
+            title: string;
+            description: string;
+            /** @enum {string} */
+            status: "draft" | "pending" | "active";
+            category: {
+                id: number;
+                slug: string;
+                name: string;
+                /** @enum {string} */
+                booking_type: "rental" | "stay" | "activity" | "transfer";
+            };
+            area: components["schemas"]["area_ref"];
+            location: {
+                lat: number;
+                lng: number;
+            };
+            /** @description Matches the category's attribute_schema */
+            attrs: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        listing_options: {
+            categories: {
+                id: number;
+                slug: string;
+                name: string;
+                /** @enum {string} */
+                booking_type: "rental" | "stay" | "activity" | "transfer";
+                parent_name: string | null;
+                /** @description The JSON Schema a listing's attrs must match */
+                attribute_schema: {
+                    [key: string]: unknown;
+                };
+            }[];
+            /** @description Cities, towns and islands, by name */
+            areas: components["schemas"]["area"][];
         };
         area: {
             slug: string;
