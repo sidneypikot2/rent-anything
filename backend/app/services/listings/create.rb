@@ -3,7 +3,8 @@ module Listings
   # going live needs an admin's approval (M5). It takes the address as the partner writes
   # it and the map pin; the area is the city, town or island nearest the pin. Values of the
   # wrong type are refused, not coerced; the model checks lengths, that the category is
-  # bookable and that attrs match the category's attribute_schema.
+  # bookable and that attrs match the category's attribute_schema. Only a partner who has
+  # passed the ID check (RAA-44) may add one.
   class Create < ApplicationService
     include RequestValues
 
@@ -17,6 +18,8 @@ module Listings
     end
 
     def call
+      raise NotAuthorizedError, "Verify your ID before adding a listing" unless @partner.id_verified?
+
       point = point_from_location
       listing = @partner.listings.build(
         title: required_string(@params, :title, "Title"),

@@ -56,7 +56,8 @@ RSpec.describe "Partner listings", type: :request do
       produces "application/json"
       description "Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked " \
         "against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area " \
-        "is the city, town or island nearest the pin, within 50 km."
+        "is the city, town or island nearest the pin, within 50 km. The partner must have passed the ID check " \
+        "first (`/api/v1/partner/verification`); until then it is a 403."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
       parameter name: :body, in: :body, schema: {
@@ -90,7 +91,7 @@ RSpec.describe "Partner listings", type: :request do
         required: %w[title category_id address location]
       }
 
-      let(:user) { create(:user, :partner) }
+      let(:user) { create(:user, :partner, :id_verified) }
       let(:Authorization) { bearer_for(user) }
       let!(:area) { create(:area, slug: "moalboal", name: "Moalboal", center: "POINT(123.396 9.945)") }
       let(:address) do
@@ -222,6 +223,16 @@ RSpec.describe "Partner listings", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body["errors"]).to include("Address must be an object")
+        end
+      end
+
+      response "403", "a partner who hasn't passed the ID check" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:user) { create(:user, :partner) }
+
+        run_test! do |response|
+          expect(response.parsed_body["error"]).to eq("Verify your ID before adding a listing")
+          expect(Listing.count).to eq(0)
         end
       end
 

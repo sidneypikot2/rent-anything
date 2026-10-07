@@ -101,8 +101,8 @@ snapshotted on the booking.
 
 ### Trust
 
-ID verification (government ID + selfie) before a partner can list; admin approval of
-partners and listings; reviews after completion; condition photos at pickup and return;
+ID verification (government ID + selfie, run by Didit) before a partner can add a listing,
+with 3 tries and then an hour's wait; admin approval of listings; reviews after completion; condition photos at pickup and return;
 deposits held in-app; a partner's exact location and contact details are revealed only
 after a booking is paid (keeps deals on the platform).
 
@@ -113,11 +113,15 @@ after a booking is paid (keeps deals on the platform).
   gateway's event id. E-wallets can't authorise-and-hold, so the deposit is charged and
   refunded after a clean return. PayMongo is the fallback if xenPlatform onboarding
   (business registration) blocks.
-- **Phone OTP**: an SMS provider behind `Sms::Sender` (Semaphore or Twilio Verify; chosen at M1).
+- **ID verification — Didit**: hosted KYC (ID document, passive liveness, face match), 500
+  free checks a month. Didit keeps the images; we keep only the outcome, read back after a
+  signed webhook. A sandbox application on staging. Built in RAA-44.
+- **Phone OTP** (deferred, no free SMS tier for PH): an SMS provider behind `Sms::Sender`,
+  likely Semaphore (about PHP 1 per OTP).
 - **Maps**: Google Maps Platform on the web (Maps JavaScript API, Advanced Markers); search is PostGIS on the API.
   Partners drop a pin rather than geocoding an address.
-- **Files**: Active Storage on S3-compatible storage (Cloudflare R2). ID documents in a
-  private bucket, reachable only through short-lived signed URLs for admins.
+- **Files**: Active Storage on S3-compatible storage (Cloudflare R2). ID documents are not
+  stored here: Didit holds them.
 - **Chat**: Action Cable over Redis, one conversation per listing + guest.
 
 ## Roadmap
@@ -125,11 +129,11 @@ after a booking is paid (keeps deals on the platform).
 | # | Milestone | Contents |
 |---|---|---|
 | M0 | Foundation | Monorepo, Docker stack, API contract, CI, Claude workflow |
-| M1 | Auth & accounts | Email/password, phone OTP, JWT access + refresh tokens, roles (guest, partner, admin), profile |
+| M1 | Auth & accounts | Email/password, phone OTP (deferred), JWT access + refresh tokens, roles (guest, partner, admin), profile |
 | M2 | Areas, categories, listings | Listing CRUD, photos, attrs schema, pricing tiers, PostGIS search, area home (map + list), listing page |
 | M3 | Availability & quotes | Units, blocks, activity slots, transfer routes, the exclusion constraint, quotes, partner calendar |
 | M4 | Cart, booking & payments | Per-area cart (server + signed-out cart merge), trip checkout, booking lifecycle, Xendit split payment + webhooks, commission, deposit, cancellation policies, payouts |
-| M5 | Trust | ID verification + admin review, listing approval, reviews, contact masking |
+| M5 | Trust | Listing approval (partner ID verification moved earlier: RAA-44, Didit), reviews, contact masking |
 | M6 | Chat | Conversations per listing/booking |
 | M7 | Operations | Pickup/return checklists with photos, disputes, admin console |
 | M8 | Launch | 30–50 Moalboal listings seeded, production host, monitoring, terms reviewed by a lawyer |
@@ -147,7 +151,7 @@ Planned shape; the route tables below are checked against `routes.rb`.
 |---|---|
 | `/api/v1/registrations` | sign up (email + password, phone) |
 | `/api/v1/sessions` | sign in; returns access + refresh tokens |
-| `/api/v1/otp_verifications` | verify the phone OTP |
+| `/api/v1/otp_verifications` | verify the phone OTP (deferred) |
 | `/api/v1/areas` | list areas; `/api/v1/areas/:slug` with its categories |
 | `/api/v1/listings` | search (area, category, bounding box, dates) and show |
 | `/api/v1/quotes` | price and availability for a listing and period |
@@ -155,6 +159,5 @@ Planned shape; the route tables below are checked against `routes.rb`.
 | `/api/v1/checkouts` | turn a cart into a trip, bookings and a payment |
 | `/api/v1/bookings` | a guest's bookings; partner accept/decline |
 | `/api/v1/partner/listings` | a partner's listings, units, calendar and routes |
-| `/api/v1/kyc_submissions` | ID + selfie upload |
 | `/api/v1/webhooks/xendit` | payment and payout events |
 | `/api/v1/admin/listings` | approval queue, commission per category, disputes |

@@ -484,7 +484,8 @@ paths:
       description: Partner-only. The listing is saved as a draft; any `status` sent
         is ignored. `attrs` is checked against the category's `attribute_schema` (see
         `GET /api/v1/partner/listing_options`). The listing's area is the city, town
-        or island nearest the pin, within 50 km.
+        or island nearest the pin, within 50 km. The partner must have passed the
+        ID check first (`/api/v1/partner/verification`); until then it is a 403.
       security:
       - bearer: []
       parameters:
@@ -693,6 +694,108 @@ paths:
               - legal_last_name
               - phone
               - address
+  "/api/v1/partner/verification":
+    get:
+      summary: The partner's ID check
+      tags:
+      - Partner
+      description: Partner-only. Where the partner's Didit ID check stands. While
+        it is pending, the API asks Didit for news first, so the status is current
+        when the partner comes back from Didit's page.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: 'declined three times: waiting out the cooldown'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_verification"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    post:
+      summary: Start or resume the partner's ID check
+      tags:
+      - Partner
+      description: Partner-only. Returns the URL of Didit's hosted page, where the
+        partner scans their ID and takes a selfie; Didit sends them back to the web
+        app's `/partner/verify` after. An unfinished check is resumed rather than
+        started again. After 3 declined checks the partner waits an hour from the
+        last one (429), then gets 3 more tries.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: three tries again once the cooldown has passed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_verification_start"
+        '429':
+          description: declined three times within the hour
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  retry_at:
+                    type: string
+                    format: date-time
+                required:
+                - error
+                - retry_at
+        '422':
+          description: a check Didit is still reviewing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '503':
+          description: Didit isn't configured
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '502':
+          description: Didit can't be reached
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/registrations":
     post:
       summary: Sign up with email and password
@@ -886,6 +989,47 @@ paths:
                   type: string
               required:
               - refresh_token
+  "/api/v1/webhooks/didit":
+    post:
+      summary: Didit reports a change to an ID check
+      tags:
+      - Webhooks
+      description: 'Called by Didit, not by the apps. Signed with HMAC-SHA256 of the
+        raw body (`X-Signature`, keyed with the destination''s secret) and timestamped
+        (`X-Timestamp`, Unix seconds, at most 5 minutes off). The status in the body
+        is not trusted: the API reads it back from Didit.'
+      parameters:
+      - name: X-Signature
+        in: header
+        schema:
+          type: string
+      - name: X-Timestamp
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: 'a check we don''t know (an older session): ignored'
+        '502':
+          description: 'Didit can''t be asked for the status: Didit retries the delivery'
+        '503':
+          description: no webhook secret configured
+        '401':
+          description: no signature
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                webhook_type:
+                  type: string
+                session_id:
+                  type: string
+                status:
+                  type: string
+              required:
+              - session_id
 servers:
 - url: http://localhost:3000
 components:
@@ -986,6 +1130,46 @@ components:
       - email
       - address
       - complete
+    partner_verification:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - not_started
+          - in_progress
+          - in_review
+          - approved
+          - declined
+          - expired
+        verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        attempts_left:
+          type: integer
+          description: Declined checks left before an hour's wait (3 at most)
+        retry_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set while the partner must wait before starting another check
+      required:
+      - status
+      - verified_at
+      - attempts_left
+      - retry_at
+    partner_verification_start:
+      type: object
+      properties:
+        url:
+          type: string
+          description: Didit's hosted page; send the partner there
+        verification:
+          "$ref": "#/components/schemas/partner_verification"
+      required:
+      - url
+      - verification
     guest_profile:
       type: object
       properties:
