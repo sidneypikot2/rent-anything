@@ -17,3 +17,4 @@ The palette is Tidal Grove (RAA-20). It is light-only and defined once, in `web/
   - `line` is for card borders only; form fields need `line-strong` (3:1 against white).
 - **Type**: headings and prices use `font-display` (Cormorant Garamond, italic for headings); everything else is `font-sans` (DM Sans).
 - **Classes don't merge**: `cn()` only joins class names, so a `className` passed to a primitive adds to its classes and can't reliably override one on the same property.
+- **Brand**: the product name and tagline come from `web/src/lib/brand.ts` (`BRAND`, `BRAND_PARTS` for the two-tone wordmark in `Logo`, `TAGLINE`) — never write them out in a component or in page metadata (RAA-35). The repo, API and docs keep Rent-Anything. The smoke test (`tools/smoke/tests/smoke.spec.js`) is the one place outside `brand.ts` that spells the name, so a rename updates it too.
