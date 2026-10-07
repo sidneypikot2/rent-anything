@@ -219,10 +219,18 @@ test("sign-up and the partner guard", async ({ page }) => {
   await page.getByTestId("partner-nav-listings").click();
   await expect(page).toHaveURL(/\/partner\/listings$/);
   await expect(page.getByTestId("partner-listings")).toBeVisible();
+  // A new partner hasn't verified their ID (RAA-45): with the profile done, the banner asks
+  // for it, and adding a listing leads to the verify page instead of the form. Didit
+  // itself isn't called from here.
+  await expect(page.getByTestId("verification-banner")).toBeVisible();
   await page.getByTestId("add-listing").click();
   await expect(page).toHaveURL(/\/partner\/listings\/new$/);
-  await expect(page.getByTestId("listing-form")).toBeVisible();
-  await expect(page.getByTestId("location-picker")).toBeVisible();
+  await expect(page.getByTestId("listing-gate")).toBeVisible();
+  await expect(page.getByTestId("listing-form")).toHaveCount(0);
+  await page.getByTestId("listing-gate-verify").click();
+  await expect(page).toHaveURL(/\/partner\/verify$/);
+  await expect(page.getByTestId("verify-start")).toBeEnabled();
+  await expect(page.getByTestId("verification-banner")).toHaveCount(0);
   await page.getByTestId("partner-nav-calendar").click();
   await expect(page).toHaveURL(/\/partner\/calendar$/);
   await expect(page.getByTestId("partner-calendar")).toBeVisible();
