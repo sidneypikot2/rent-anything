@@ -49,6 +49,7 @@
   --color-secondary-hover: #065f46;
   /* Status colours for form states. Not part of the brand palette. */
   --color-danger: #b91c1c;
+  --color-danger-hover: #991b1b;
   --color-warning: #b45309;
   --font-sans: var(--font-dm-sans);
   --font-display: var(--font-cormorant);

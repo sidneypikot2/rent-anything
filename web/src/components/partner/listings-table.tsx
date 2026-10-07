@@ -1,8 +1,9 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import type { PartnerListing } from "./use-partner-listings";
 
-const STATUS = {
+export const STATUS = {
   draft: { label: "Draft", tone: "mist" },
   pending: { label: "In review", tone: "aqua" },
   active: { label: "Live", tone: "emerald" },
@@ -21,7 +22,8 @@ function byCategory(listings: PartnerListing[]) {
   return [...groups.entries()];
 }
 
-// Every listing the partner has, one section and table per category.
+// Every listing the partner has, one section and table per category. A row opens the listing:
+// its title is the link, stretched over the whole row.
 export function ListingsByCategory({ listings }: { listings: PartnerListing[] }) {
   return (
     <div className="flex flex-col gap-8">
@@ -45,8 +47,20 @@ export function ListingsByCategory({ listings }: { listings: PartnerListing[] })
               </thead>
               <tbody>
                 {group.listings.map((listing) => (
-                  <tr key={listing.id} data-testid="listing-row" className="border-b border-line last:border-0">
-                    <td className="px-4 py-3 font-medium">{listing.title}</td>
+                  <tr
+                    key={listing.id}
+                    data-testid="listing-row"
+                    className="relative border-b border-line last:border-0 hover:bg-surface-2"
+                  >
+                    <td className="px-4 py-3 font-medium">
+                      <Link
+                        href={`/partner/listings/${listing.id}`}
+                        data-testid="listing-link"
+                        className="text-link after:absolute after:inset-0 hover:underline"
+                      >
+                        {listing.title}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 text-muted">{listing.area.name}</td>
                     <td className="px-4 py-3">
                       <Badge tone={STATUS[listing.status].tone}>{STATUS[listing.status].label}</Badge>

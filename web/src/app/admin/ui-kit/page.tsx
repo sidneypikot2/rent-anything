@@ -10,6 +10,7 @@ import { TextareaField } from "@/components/ui/textarea-field";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Pill, PillLink } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, Price, SectionTitle } from "@/components/ui/typography";
+import { DialogDemo } from "./dialog-demo";
 import { InteractiveFields } from "./interactive-fields";
 
 export const metadata: Metadata = {
@@ -82,6 +83,7 @@ export default function UiKit() {
           <Button>Primary</Button>
           <Button variant="secondary">Secondary</Button>
           <Button variant="soft">Soft</Button>
+          <Button variant="danger">Danger</Button>
           <Button size="sm">Small</Button>
           <Button disabled>Disabled</Button>
           <ButtonLink href="/admin" variant="soft" size="sm">
@@ -136,6 +138,10 @@ export default function UiKit() {
           <InteractiveFields />
           <Field label="Disabled" name="disabled" disabled />
         </div>
+      </Showcase>
+
+      <Showcase title="Dialog">
+        <DialogDemo />
       </Showcase>
 
       <Showcase title="Cards">
