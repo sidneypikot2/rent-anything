@@ -169,6 +169,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/landmarks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Published landmarks with their location
+         * @description Every published landmark, by name, with its exact location: landmarks are public places.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description published landmarks */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["landmark_pin"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Active listings with their approximate location
+         * @description Every active listing, by title, with its location rounded to two decimals (about 1 km). The exact point is revealed only after a paid booking.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description active listings, location rounded */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["listing_pin"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/complete_profile": {
         parameters: {
             query?: never;
@@ -1694,6 +1772,23 @@ export interface components {
             title: string;
             category: string;
             area_slug: string;
+        };
+        listing_pin: {
+            id: number;
+            title: string;
+            category: string;
+            area_slug: string;
+            location: components["schemas"]["lat_lng"];
+        };
+        landmark_pin: {
+            slug: string;
+            name: string;
+            area_slug: string;
+            location: components["schemas"]["lat_lng"];
+        };
+        lat_lng: {
+            lat: number;
+            lng: number;
         };
         partner_listing: {
             id: number;

@@ -84,6 +84,38 @@ paths:
                 required:
                 - status
                 - postgis
+  "/api/v1/landmarks":
+    get:
+      summary: Published landmarks with their location
+      tags:
+      - Discovery
+      description: 'Every published landmark, by name, with its exact location: landmarks
+        are public places.'
+      responses:
+        '200':
+          description: published landmarks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/landmark_pin"
+  "/api/v1/listings":
+    get:
+      summary: Active listings with their approximate location
+      tags:
+      - Discovery
+      description: Every active listing, by title, with its location rounded to two
+        decimals (about 1 km). The exact point is revealed only after a paid booking.
+      responses:
+        '200':
+          description: active listings, location rounded
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/listing_pin"
   "/api/v1/me/complete_profile":
     put:
       summary: Finish sign-up with a name and phone
@@ -1335,6 +1367,51 @@ components:
       - title
       - category
       - area_slug
+    listing_pin:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        area_slug:
+          type: string
+        location:
+          "$ref": "#/components/schemas/lat_lng"
+      required:
+      - id
+      - title
+      - category
+      - area_slug
+      - location
+    landmark_pin:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        area_slug:
+          type: string
+        location:
+          "$ref": "#/components/schemas/lat_lng"
+      required:
+      - slug
+      - name
+      - area_slug
+      - location
+    lat_lng:
+      type: object
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+      required:
+      - lat
+      - lng
     partner_listing:
       type: object
       properties:
