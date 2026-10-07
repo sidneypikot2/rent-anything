@@ -16,3 +16,10 @@ unless Rails.env.test? || Area.exists?
   require Rails.root.join("db/migrate/20261006000001_seed_discovery_sample_data").to_s
   SeedDiscoverySampleData.new.migrate(:up)
 end
+
+# Santa Fe sample partner (RAA-51), loaded the same way. It needs the areas and
+# categories above.
+unless Rails.env.test? || Area.exists?(slug: "santa-fe")
+  require Rails.root.join("db/migrate/20261008000000_seed_santa_fe_sample_partner").to_s
+  SeedSantaFeSamplePartner.new.migrate(:up)
+end
