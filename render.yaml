@@ -52,3 +52,11 @@ services:
         sync: false
       - key: FACEBOOK_APP_SECRET
         sync: false
+      # Didit sandbox application on staging (RAA-44); the webhook destination points at
+      # <this service>/api/v1/webhooks/didit.
+      - key: DIDIT_API_KEY
+        sync: false
+      - key: DIDIT_WORKFLOW_ID
+        sync: false
+      - key: DIDIT_WEBHOOK_SECRET
+        sync: false

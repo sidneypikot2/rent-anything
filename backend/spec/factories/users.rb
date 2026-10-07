@@ -9,6 +9,11 @@ FactoryBot.define do
       role { "partner" }
     end
 
+    # A partner who has passed the Didit ID check (RAA-44), so may add listings.
+    trait :id_verified do
+      after(:create) { |user| create(:partner_verification, :approved, user:) }
+    end
+
     trait :admin do
       role { "admin" }
     end

@@ -29,6 +29,12 @@ Rails.application.routes.draw do
         resource :profile, only: %i[show update]
         resources :listings, only: %i[index create]
         resource :listing_options, only: :show
+        resource :verification, only: %i[show create]
+      end
+
+      # Called by third parties, signed by them (RAA-44).
+      namespace :webhooks do
+        post "didit", to: "didit#create"
       end
     end
   end
