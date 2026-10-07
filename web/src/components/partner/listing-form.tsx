@@ -5,12 +5,21 @@ import { useState, type FormEvent } from "react";
 import { PhAddressFields, usePhAddress, type PhAddress } from "@/components/address/ph-address-fields";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox-field";
+import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
 import { TextareaField } from "@/components/ui/textarea-field";
 import type { LatLng } from "@/lib/map";
+import { attributeLabel, listingChanges, type ListingChange } from "./listing-changes";
 import { LocationPicker } from "./location-picker";
-import { useCreateListing, type ListingCategory, type ListingOptions } from "./use-partner-listings";
+import {
+  useCreateListing,
+  useUpdateListing,
+  type ListingBody,
+  type ListingCategory,
+  type ListingOptions,
+  type PartnerListing,
+} from "./use-partner-listings";
 
 // What a category's attribute_schema can say about one field (the shapes the API seeds).
 type AttributeSpec = { type?: string; items?: { type?: string } };
@@ -24,7 +33,7 @@ function attributeFields(category: ListingCategory | undefined) {
     key,
     type: spec.type ?? "string",
     required: required.has(key),
-    label: key.charAt(0).toUpperCase() + key.slice(1).replaceAll("_", " "),
+    label: attributeLabel(key),
   }));
 }
 
@@ -45,6 +54,17 @@ function toAttrs(fields: ReturnType<typeof attributeFields>, values: AttributeVa
   return attrs;
 }
 
+// A saved listing's attrs as the form holds them: lists back into comma-separated text.
+function toAttributeValues(attrs: PartnerListing["attrs"]) {
+  const values: AttributeValues = {};
+  for (const [key, value] of Object.entries(attrs)) {
+    if (typeof value === "boolean") values[key] = value;
+    else if (Array.isArray(value)) values[key] = value.join(", ");
+    else if (value !== null && value !== undefined) values[key] = String(value);
+  }
+  return values;
+}
+
 const NO_ADDRESS = { street: null, city: null, region: null, province: null, postal_code: null, country: null };
 
 // The address as one line for Google's geocoder, once every field it needs is filled in.
@@ -58,15 +78,21 @@ function geocodeQuery(address: PhAddress) {
 }
 
 // Adding a listing (RAA-41): what it is, where it is, and the details its category asks for.
-// It is saved as a draft.
-export function ListingForm({ options }: { options: ListingOptions }) {
+// It is saved as a draft. Given a listing, the form changes it instead (RAA-47): saving first
+// shows what changed and asks to confirm.
+export function ListingForm({ options, listing }: { options: ListingOptions; listing?: PartnerListing }) {
   const router = useRouter();
   const create = useCreateListing();
-  const [categoryId, setCategoryId] = useState("");
-  const [attrValues, setAttrValues] = useState<AttributeValues>({});
-  const address = usePhAddress(NO_ADDRESS);
-  const [location, setLocation] = useState<LatLng | null>(null);
+  const update = useUpdateListing(listing?.id ?? NaN);
+  const save = listing ? update : create;
+  const [categoryId, setCategoryId] = useState(listing ? String(listing.category.id) : "");
+  const [attrValues, setAttrValues] = useState<AttributeValues>(() => (listing ? toAttributeValues(listing.attrs) : {}));
+  const address = usePhAddress(listing?.address ?? NO_ADDRESS);
+  const [location, setLocation] = useState<LatLng | null>(listing?.location ?? null);
   const [locationError, setLocationError] = useState<string>();
+  // The edit waiting for the partner to confirm it, and what it changes.
+  const [pending, setPending] = useState<{ body: ListingBody; changes: ListingChange[] }>();
+  const listingPath = listing ? `/partner/listings/${listing.id}` : "/partner/listings";
 
   const category = options.categories.find((option) => String(option.id) === categoryId);
   const fields = attributeFields(category);
@@ -78,24 +104,31 @@ export function ListingForm({ options }: { options: ListingOptions }) {
       return;
     }
     const form = new FormData(event.currentTarget);
-    create.mutate(
-      {
-        title: String(form.get("title") ?? ""),
-        description: String(form.get("description") ?? ""),
-        category_id: Number(categoryId),
-        address: address.toBody(),
-        location,
-        attrs: toAttrs(fields, attrValues),
-      },
-      { onSuccess: () => router.push("/partner/listings") },
-    );
+    const body = {
+      title: String(form.get("title") ?? ""),
+      description: String(form.get("description") ?? ""),
+      category_id: Number(categoryId),
+      address: address.toBody(),
+      location,
+      attrs: toAttrs(fields, attrValues),
+    };
+    if (listing) setPending({ body, changes: listingChanges(listing, body, options) });
+    else create.mutate(body, { onSuccess: () => router.push(listingPath) });
+  }
+
+  function confirmEdit() {
+    if (!pending) return;
+    update.mutate(pending.body, {
+      onSuccess: () => router.push(listingPath),
+      onSettled: () => setPending(undefined),
+    });
   }
 
   return (
     <form data-testid="listing-form" onSubmit={onSubmit} className="flex max-w-2xl flex-col gap-6">
-      {create.error && (
+      {save.error && (
         <p role="alert" className="text-sm text-danger">
-          {create.error.message}
+          {save.error.message}
         </p>
       )}
 
@@ -117,11 +150,19 @@ export function ListingForm({ options }: { options: ListingOptions }) {
             })),
           ]}
         />
-        <Field label="Title" name="title" required maxLength={120} placeholder="e.g. Sardine run and turtle snorkel" />
+        <Field
+          label="Title"
+          name="title"
+          required
+          maxLength={120}
+          defaultValue={listing?.title}
+          placeholder="e.g. Sardine run and turtle snorkel"
+        />
         <TextareaField
           label="Description"
           name="description"
           maxLength={5000}
+          defaultValue={listing?.description}
           hint="What's included, what to bring, anything a traveller should know."
         />
       </div>
@@ -168,13 +209,57 @@ export function ListingForm({ options }: { options: ListingOptions }) {
       )}
 
       <div className="flex gap-3">
-        <Button type="submit" disabled={create.isPending} data-testid="listing-save">
-          {create.isPending ? "Saving…" : "Save as draft"}
+        <Button type="submit" disabled={save.isPending} data-testid="listing-save">
+          {save.isPending ? "Saving…" : listing ? "Save changes" : "Save as draft"}
         </Button>
-        <ButtonLink href="/partner/listings" variant="soft">
+        <ButtonLink href={listingPath} variant="soft">
           Cancel
         </ButtonLink>
       </div>
+
+      {listing && (
+        <Dialog
+          open={pending !== undefined}
+          onClose={() => setPending(undefined)}
+          title="Save these changes?"
+          data-testid="listing-save-confirm"
+          actions={
+            <>
+              <Button type="button" variant="soft" onClick={() => setPending(undefined)}>
+                Keep editing
+              </Button>
+              <Button
+                type="button"
+                onClick={confirmEdit}
+                disabled={!pending?.changes.length || update.isPending}
+                data-testid="listing-save-confirm-button"
+              >
+                {update.isPending ? "Saving…" : "Save changes"}
+              </Button>
+            </>
+          }
+        >
+          {pending?.changes.length ? (
+            <ul data-testid="listing-changes" className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto text-sm">
+              {pending.changes.map((change) => (
+                <li key={change.label} className="flex flex-col gap-1 border-b border-line pb-3 last:border-0 last:pb-0">
+                  <span className="font-semibold">{change.label}</span>
+                  <span className="line-clamp-3 text-muted line-through">
+                    <span className="sr-only">Was: </span>
+                    {change.before}
+                  </span>
+                  <span className="line-clamp-3">
+                    <span className="sr-only">Now: </span>
+                    {change.after}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted">Nothing has changed yet.</p>
+          )}
+        </Dialog>
+      )}
     </form>
   );
 }
