@@ -10,7 +10,7 @@ import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
 import { TextareaField } from "@/components/ui/textarea-field";
 import type { LatLng } from "@/lib/map";
-import { attributeLabel, listingChanges, type ListingChange } from "./listing-changes";
+import { attributeLabel, listingChanges } from "./listing-changes";
 import { LocationPicker } from "./location-picker";
 import {
   useCreateListing,
@@ -77,6 +77,18 @@ function geocodeQuery(address: PhAddress) {
   return `${parts.filter(Boolean).join(", ")} ${zip.trim()}, Philippines`;
 }
 
+function addressChanged(address: PhAddress, listing: PartnerListing) {
+  const { region, province, city, zip, street } = address.values;
+  const saved = listing.address;
+  return (
+    region.trim() !== (saved.region ?? "") ||
+    province.trim() !== (saved.province ?? "") ||
+    city.trim() !== (saved.city ?? "") ||
+    zip.trim() !== (saved.postal_code ?? "") ||
+    street.trim() !== (saved.street ?? "")
+  );
+}
+
 // Adding a listing (RAA-41): what it is, where it is, and the details its category asks for.
 // It is saved as a draft. Given a listing, the form changes it instead (RAA-47): saving first
 // shows what changed and asks to confirm.
@@ -91,10 +103,12 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
   const [location, setLocation] = useState<LatLng | null>(listing?.location ?? null);
   const [locationError, setLocationError] = useState<string>();
   // The edit waiting for the partner to confirm it, and what it changes.
-  const [pending, setPending] = useState<{ body: ListingBody; changes: ListingChange[] }>();
+  const [pending, setPending] = useState<{ body: ListingBody; changes: string[] }>();
   const listingPath = listing ? `/partner/listings/${listing.id}` : "/partner/listings";
 
   const category = options.categories.find((option) => String(option.id) === categoryId);
+  // A saved listing's pin stays where it is until the partner changes the address.
+  const addressQuery = listing && !addressChanged(address, listing) ? undefined : geocodeQuery(address);
   const fields = attributeFields(category);
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -112,7 +126,7 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
       location,
       attrs: toAttrs(fields, attrValues),
     };
-    if (listing) setPending({ body, changes: listingChanges(listing, body, options) });
+    if (listing) setPending({ body, changes: listingChanges(listing, body) });
     else create.mutate(body, { onSuccess: () => router.push(listingPath) });
   }
 
@@ -176,7 +190,7 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
             setLocation(point);
             setLocationError(undefined);
           }}
-          geocodeQuery={geocodeQuery(address)}
+          geocodeQuery={addressQuery}
           error={locationError}
         />
       </fieldset>
@@ -240,21 +254,14 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
           }
         >
           {pending?.changes.length ? (
-            <ul data-testid="listing-changes" className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto text-sm">
-              {pending.changes.map((change) => (
-                <li key={change.label} className="flex flex-col gap-1 border-b border-line pb-3 last:border-0 last:pb-0">
-                  <span className="font-semibold">{change.label}</span>
-                  <span className="line-clamp-3 text-muted line-through">
-                    <span className="sr-only">Was: </span>
-                    {change.before}
-                  </span>
-                  <span className="line-clamp-3">
-                    <span className="sr-only">Now: </span>
-                    {change.after}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <div className="flex flex-col gap-2 text-sm">
+              <p className="text-muted">You changed:</p>
+              <ul data-testid="listing-changes" className="flex list-disc flex-col gap-1 pl-5">
+                {pending.changes.map((label) => (
+                  <li key={label}>{label}</li>
+                ))}
+              </ul>
+            </div>
           ) : (
             <p className="text-sm text-muted">Nothing has changed yet.</p>
           )}

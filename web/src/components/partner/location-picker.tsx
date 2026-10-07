@@ -18,7 +18,8 @@ const GEOCODE_DELAY_MS = 600;
 let optionsSet = false;
 
 // A Google map the partner clicks to drop the listing's pin on, then drags to adjust it.
-// A complete address moves the pin there too.
+// A complete address moves the pin there too. A pin given when the map opens (a saved
+// listing, RAA-47) is shown there, and the map starts on it.
 export function LocationPicker({ value, onChange, geocodeQuery, error }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -31,6 +32,8 @@ export function LocationPicker({ value, onChange, geocodeQuery, error }: Props) 
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+  // The pin when the map opens; read once, when it has loaded.
+  const initialValueRef = useRef(value);
 
   useEffect(() => {
     if (!CONFIG) return;
@@ -46,9 +49,10 @@ export function LocationPicker({ value, onChange, geocodeQuery, error }: Props) 
     Promise.all([importLibrary("maps"), importLibrary("marker")])
       .then(([{ Map }, { AdvancedMarkerElement }]) => {
         if (cancelled || !containerRef.current) return;
+        const initial = initialValueRef.current;
         const map = new Map(containerRef.current, {
-          center: DEFAULT_MAP_CENTER,
-          zoom: 7,
+          center: initial ?? DEFAULT_MAP_CENTER,
+          zoom: initial ? 16 : 7,
           mapId: CONFIG.mapId,
           streetViewControl: false,
           mapTypeControl: false,
@@ -56,7 +60,8 @@ export function LocationPicker({ value, onChange, geocodeQuery, error }: Props) 
           clickableIcons: false,
         });
 
-        placePinRef.current = (point) => {
+        // Puts the pin at a point, creating it the first time, without reporting it.
+        const showPin = (point: LatLng) => {
           if (!marker) {
             marker = new AdvancedMarkerElement({ map, position: point, gmpDraggable: true, title: "Listing location" });
             const placed = marker;
@@ -69,6 +74,11 @@ export function LocationPicker({ value, onChange, geocodeQuery, error }: Props) 
           } else {
             marker.position = point;
           }
+        };
+        if (initial) showPin(initial);
+
+        placePinRef.current = (point) => {
+          showPin(point);
           setNotFound(false);
           onChangeRef.current(point);
         };

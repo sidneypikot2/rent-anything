@@ -1,6 +1,4 @@
-import type { ListingBody, ListingOptions, PartnerListing } from "./use-partner-listings";
-
-export type ListingChange = { label: string; before: string; after: string };
+import type { ListingBody, PartnerListing } from "./use-partner-listings";
 
 const ADDRESS_LABELS = {
   street: "Street",
@@ -27,27 +25,21 @@ function pin(point: { lat: number; lng: number }) {
   return `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
 }
 
-// What saving the edit form would change, field by field, for the confirmation modal.
-export function listingChanges(listing: PartnerListing, body: ListingBody, options: ListingOptions) {
-  const changes: ListingChange[] = [];
+// The fields saving the edit form would change, by label, for the confirmation modal.
+export function listingChanges(listing: PartnerListing, body: ListingBody) {
+  const changes: string[] = [];
   const compare = (label: string, before: unknown, after: unknown) => {
-    const [from, to] = [displayValue(before), displayValue(after)];
-    if (from !== to) changes.push({ label, before: from, after: to });
+    if (displayValue(before) !== displayValue(after)) changes.push(label);
   };
 
   compare("Title", listing.title, body.title);
   compare("Description", listing.description, body.description);
-  if (body.category_id !== listing.category.id) {
-    const category = options.categories.find((option) => option.id === body.category_id);
-    compare("Category", listing.category.name, category?.name ?? "—");
-  }
+  compare("Category", listing.category.id, body.category_id);
   for (const [key, label] of Object.entries(ADDRESS_LABELS)) {
     const field = key as keyof typeof ADDRESS_LABELS;
     compare(label, listing.address[field], body.address[field]);
   }
-  if (pin(listing.location) !== pin(body.location)) {
-    changes.push({ label: "Map pin", before: pin(listing.location), after: pin(body.location) });
-  }
+  compare("Map pin", pin(listing.location), pin(body.location));
 
   const attrs = body.attrs ?? {};
   for (const key of new Set([...Object.keys(listing.attrs), ...Object.keys(attrs)])) {
