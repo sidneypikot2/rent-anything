@@ -56,41 +56,13 @@ RSpec.describe "Partner listings", type: :request do
       produces "application/json"
       description "Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked " \
         "against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area " \
-        "is the city, town or island nearest the pin, within 50 km."
+        "is the city, town or island nearest the pin, within 50 km. The partner must have passed the ID check " \
+        "first (`/api/v1/partner/verification`); until then it is a 403."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
-      parameter name: :body, in: :body, schema: {
-        type: :object,
-        properties: {
-          title: { type: :string, maxLength: 120 },
-          description: { type: :string, maxLength: 5000 },
-          category_id: { type: :integer, description: "A bookable (leaf) category" },
-          address: {
-            type: :object,
-            properties: {
-              street: { type: :string },
-              city: { type: :string },
-              region: { type: :string },
-              province: { type: :string, nullable: true, description: "Optional: none in Metro Manila" },
-              postal_code: { type: :string },
-              country: { type: :string, description: "ISO 3166-1 alpha-2, e.g. PH" }
-            },
-            required: %w[street city region postal_code country]
-          },
-          location: {
-            type: :object,
-            properties: {
-              lat: { type: :number, minimum: -90, maximum: 90 },
-              lng: { type: :number, minimum: -180, maximum: 180 }
-            },
-            required: %w[lat lng]
-          },
-          attrs: { type: :object, additionalProperties: true }
-        },
-        required: %w[title category_id address location]
-      }
+      parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/listing_body" }
 
-      let(:user) { create(:user, :partner) }
+      let(:user) { create(:user, :partner, :id_verified) }
       let(:Authorization) { bearer_for(user) }
       let!(:area) { create(:area, slug: "moalboal", name: "Moalboal", center: "POINT(123.396 9.945)") }
       let(:address) do
@@ -225,11 +197,183 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
+      response "403", "a partner who hasn't passed the ID check" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:user) { create(:user, :partner) }
+
+        run_test! do |response|
+          expect(response.parsed_body["error"]).to eq("Verify your ID before adding a listing")
+          expect(Listing.count).to eq(0)
+        end
+      end
+
       response "403", "a guest" do
         schema "$ref" => "#/components/schemas/error"
         let(:user) { create(:user) }
 
         run_test! { expect(Listing.count).to eq(0) }
+      end
+
+      response "401", "signed out" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:Authorization) { nil }
+
+        run_test!
+      end
+    end
+  end
+
+  path "/api/v1/partner/listings/{id}" do
+    parameter name: :id, in: :path, schema: { type: :integer }
+    parameter name: :Authorization, in: :header, schema: { type: :string }
+
+    let(:user) { create(:user, :partner, :id_verified) }
+    let(:Authorization) { bearer_for(user) }
+    let(:listing) { create(:listing, partner: user, title: "GoPro Hero 12", status: "pending") }
+    let(:id) { listing.id }
+
+    get "One of the signed-in partner's listings" do
+      tags "Partner"
+      produces "application/json"
+      description "Partner-only. Any status. Another partner's listing is a 404."
+      security [ { bearer: [] } ]
+
+      response "200", "the partner's listing" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        run_test! do |response|
+          expect(response.parsed_body).to include("id" => listing.id, "title" => "GoPro Hero 12", "status" => "pending")
+        end
+      end
+
+      response "404", "another partner's listing" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:listing) { create(:listing) }
+
+        run_test!
+      end
+
+      response "403", "a guest" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:user) { create(:user) }
+        let(:listing) { create(:listing) }
+
+        run_test!
+      end
+
+      response "401", "signed out" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:Authorization) { nil }
+
+        run_test!
+      end
+    end
+
+    patch "Change a listing" do
+      tags "Partner"
+      consumes "application/json"
+      produces "application/json"
+      description "Partner-only. The whole listing is sent again, with the same rules as adding one; the area is " \
+        "recomputed from the pin. Any `status` sent is ignored: the listing keeps its status. Another partner's " \
+        "listing is a 404."
+      security [ { bearer: [] } ]
+      parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/listing_body" }
+
+      let!(:moalboal) { create(:area, slug: "moalboal", name: "Moalboal", center: "POINT(123.396 9.945)") }
+      let!(:oslob) { create(:area, slug: "oslob", name: "Oslob", center: "POINT(123.43 9.46)") }
+      let(:listing) do
+        create(:listing, partner: user, area: moalboal, title: "GoPro Hero 12", status: "pending",
+          location: "POINT(123.37 9.95)")
+      end
+      let(:category) do
+        create(:category, name: "Tour", booking_type: "activity", attribute_schema: {
+          type: "object", properties: { duration_hours: { type: "number" } }
+        })
+      end
+      let(:address) do
+        { street: "Poblacion", city: "Oslob", province: "Cebu", region: "Central Visayas",
+          postal_code: "6025", country: "PH" }
+      end
+      let(:body) do
+        { title: "Whale shark swim", description: "Early morning.", category_id: category.id, address: address,
+          location: { lat: 9.46, lng: 123.43 }, attrs: { duration_hours: 3 }, status: "active" }
+      end
+
+      response "200", "saved, in the area nearest the new pin, status unchanged" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        run_test! do |response|
+          expect(response.parsed_body).to include(
+            "title" => "Whale shark swim", "description" => "Early morning.", "status" => "pending",
+            "location" => { "lat" => 9.46, "lng" => 123.43 }, "attrs" => { "duration_hours" => 3 }
+          )
+          expect(response.parsed_body["area"]).to eq("slug" => "oslob", "name" => "Oslob")
+          expect(response.parsed_body["address"]).to eq(address.stringify_keys)
+          expect(listing.reload).to have_attributes(title: "Whale shark swim", category: category, area: oslob,
+            status: "pending")
+        end
+      end
+
+      response "422", "missing and wrong-typed values" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:body) { { title: "", category_id: "1", location: { lat: 9.46 }, attrs: "none", address: "Oslob" } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include(
+            "Title is required", "Category is required", "Longitude must be a number between -180 and 180",
+            "Details must be an object", "Address must be an object"
+          )
+          expect(listing.reload.title).to eq("GoPro Hero 12")
+        end
+      end
+
+      response "404", "another partner's listing" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:listing) { create(:listing, title: "Someone else's camera") }
+
+        run_test! { expect(listing.reload.title).to eq("Someone else's camera") }
+      end
+
+      response "403", "a guest" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:user) { create(:user) }
+        let(:listing) { create(:listing) }
+
+        run_test!
+      end
+
+      response "401", "signed out" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:Authorization) { nil }
+
+        run_test!
+      end
+    end
+
+    delete "Delete a listing" do
+      tags "Partner"
+      produces "application/json"
+      description "Partner-only. Deletes the listing for good. Another partner's listing is a 404."
+      security [ { bearer: [] } ]
+
+      response "204", "deleted" do
+        run_test! { expect(Listing.exists?(listing.id)).to be(false) }
+      end
+
+      response "404", "another partner's listing" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:listing) { create(:listing) }
+
+        run_test! { expect(Listing.exists?(listing.id)).to be(true) }
+      end
+
+      response "403", "a guest" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:user) { create(:user) }
+        let(:listing) { create(:listing) }
+
+        run_test! { expect(Listing.exists?(listing.id)).to be(true) }
       end
 
       response "401", "signed out" do

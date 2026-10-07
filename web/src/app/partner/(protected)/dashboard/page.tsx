@@ -8,7 +8,7 @@ import { useSession } from "@/lib/auth/session";
 const STATS = ["Bookings this month", "Pending requests", "Active listings", "Payouts due"];
 
 const PANELS = [
-  { title: "ID verification", note: "Government ID and a selfie, reviewed by our team (M5)" },
+  { title: "ID verification", note: "Government ID and a selfie, checked by Didit before you list" },
   { title: "Listings", note: "What you offer, with photos and prices (M2)" },
   { title: "Booking requests", note: "Accept or decline request-to-book items (M4)" },
   { title: "Calendar", note: "Block dates and see what's booked (M3)" },

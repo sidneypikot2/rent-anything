@@ -719,7 +719,7 @@ export interface paths {
         put?: never;
         /**
          * Add a listing
-         * @description Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area is the city, town or island nearest the pin, within 50 km.
+         * @description Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area is the city, town or island nearest the pin, within 50 km. The partner must have passed the ID check first (`/api/v1/partner/verification`); until then it is a 403.
          */
         post: {
             parameters: {
@@ -732,29 +732,7 @@ export interface paths {
             };
             requestBody?: {
                 content: {
-                    "application/json": {
-                        title: string;
-                        description?: string;
-                        /** @description A bookable (leaf) category */
-                        category_id: number;
-                        address: {
-                            street: string;
-                            city: string;
-                            region: string;
-                            /** @description Optional: none in Metro Manila */
-                            province?: string | null;
-                            postal_code: string;
-                            /** @description ISO 3166-1 alpha-2, e.g. PH */
-                            country: string;
-                        };
-                        location: {
-                            lat: number;
-                            lng: number;
-                        };
-                        attrs?: {
-                            [key: string]: unknown;
-                        };
-                    };
+                    "application/json": components["schemas"]["listing_body"];
                 };
             };
             responses: {
@@ -800,6 +778,199 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/listings/{id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * One of the signed-in partner's listings
+         * @description Partner-only. Any status. Another partner's listing is a 404.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the partner's listing */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_listing"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Delete a listing
+         * @description Partner-only. Deletes the listing for good. Another partner's listing is a 404.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Change a listing
+         * @description Partner-only. The whole listing is sent again, with the same rules as adding one; the area is recomputed from the pin. Any `status` sent is ignored: the listing keeps its status. Another partner's listing is a 404.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["listing_body"];
+                };
+            };
+            responses: {
+                /** @description saved, in the area nearest the new pin, status unchanged */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_listing"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description missing and wrong-typed values */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/partner/profile": {
@@ -926,6 +1097,148 @@ export interface paths {
             };
         };
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The partner's ID check
+         * @description Partner-only. Where the partner's Didit ID check stands. While it is pending, the API asks Didit for news first, so the status is current when the partner comes back from Didit's page.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description declined three times: waiting out the cooldown */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_verification"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Start or resume the partner's ID check
+         * @description Partner-only. Returns the URL of Didit's hosted page, where the partner scans their ID and takes a selfie; Didit sends them back to the web app's `/partner/verify` after. An unfinished check is resumed rather than started again. After 3 declined checks the partner waits an hour from the last one (429), then gets 3 more tries.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description three tries again once the cooldown has passed */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_verification_start"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a check Didit is still reviewing */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+                /** @description declined three times within the hour */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            /** Format: date-time */
+                            retry_at: string;
+                        };
+                    };
+                };
+                /** @description Didit can't be reached */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description Didit isn't configured */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -1220,6 +1533,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/webhooks/didit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Didit reports a change to an ID check
+         * @description Called by Didit, not by the apps. Signed with HMAC-SHA256 of the raw body (`X-Signature`, keyed with the destination's secret) and timestamped (`X-Timestamp`, Unix seconds, at most 5 minutes off). The status in the body is not trusted: the API reads it back from Didit.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    "X-Signature"?: string;
+                    "X-Timestamp"?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        webhook_type?: string;
+                        session_id: string;
+                        status?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description a check we don't know (an older session): ignored */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description no signature */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Didit can't be asked for the status: Didit retries the delivery */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description no webhook secret configured */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1255,6 +1637,24 @@ export interface components {
             address: components["schemas"]["profile_address"];
             /** @description True once the profile is saved and a phone is set */
             complete: boolean;
+        };
+        partner_verification: {
+            /** @enum {string} */
+            status: "not_started" | "in_progress" | "in_review" | "approved" | "declined" | "expired";
+            /** Format: date-time */
+            verified_at: string | null;
+            /** @description Declined checks left before an hour's wait (3 at most) */
+            attempts_left: number;
+            /**
+             * Format: date-time
+             * @description Set while the partner must wait before starting another check
+             */
+            retry_at: string | null;
+        };
+        partner_verification_start: {
+            /** @description Didit's hosted page; send the partner there */
+            url: string;
+            verification: components["schemas"]["partner_verification"];
         };
         guest_profile: {
             legal_first_name: string | null;
@@ -1322,6 +1722,29 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        listing_body: {
+            title: string;
+            description?: string;
+            /** @description A bookable (leaf) category */
+            category_id: number;
+            address: {
+                street: string;
+                city: string;
+                region: string;
+                /** @description Optional: none in Metro Manila */
+                province?: string | null;
+                postal_code: string;
+                /** @description ISO 3166-1 alpha-2, e.g. PH */
+                country: string;
+            };
+            location: {
+                lat: number;
+                lng: number;
+            };
+            attrs?: {
+                [key: string]: unknown;
+            };
         };
         listing_options: {
             categories: {

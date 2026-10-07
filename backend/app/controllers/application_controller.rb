@@ -7,6 +7,8 @@ class ApplicationController < ActionController::API
   rescue_from NotAuthenticatedError, with: :render_unauthorized
   rescue_from NotAuthorizedError, with: :render_forbidden
   rescue_from ActiveRecord::RecordInvalid, with: :render_unprocessable
+  rescue_from Didit::Error, with: :render_bad_gateway
+  rescue_from Didit::NotConfiguredError, with: :render_service_unavailable
 
   # Sign-in and sign-up attempts per IP, counted per endpoint in config.cache_store.
   AUTH_RATE_LIMIT = { to: 10, within: 3.minutes }.freeze
@@ -46,6 +48,14 @@ class ApplicationController < ActionController::API
 
   def render_unprocessable(exception)
     render json: { errors: exception.record.errors.full_messages }, status: :unprocessable_content
+  end
+
+  def render_bad_gateway
+    render json: { error: "ID verification is unavailable right now. Try again shortly." }, status: :bad_gateway
+  end
+
+  def render_service_unavailable(exception)
+    render json: { error: exception.message }, status: :service_unavailable
   end
 
   def render_too_many_requests

@@ -27,8 +27,14 @@ Rails.application.routes.draw do
       namespace :partner do
         resource :me, only: :show, controller: "me"
         resource :profile, only: %i[show update]
-        resources :listings, only: %i[index create]
+        resources :listings, only: %i[index show create update destroy]
         resource :listing_options, only: :show
+        resource :verification, only: %i[show create]
+      end
+
+      # Called by third parties, signed by them (RAA-44).
+      namespace :webhooks do
+        post "didit", to: "didit#create"
       end
     end
   end

@@ -9,6 +9,8 @@ const VARIANTS = {
   soft: "border-[1.5px] border-line bg-surface-2 text-primary hover:border-primary",
   // The loudest call to action, for dark bands. Navy text: white on aqua is 1.8:1.
   accent: "bg-aqua font-bold text-navy hover:bg-fern",
+  // Something that can't be undone, like deleting. White on danger is 6.5:1.
+  danger: "bg-danger text-white hover:bg-danger-hover",
 };
 
 const SIZES = {

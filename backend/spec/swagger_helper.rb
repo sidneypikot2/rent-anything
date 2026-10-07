@@ -59,6 +59,30 @@ RSpec.configure do |config|
             },
             required: %w[display_name legal_first_name legal_last_name phone email address complete]
           },
+          # A partner's Didit ID check (RAA-44).
+          partner_verification: {
+            type: :object,
+            properties: {
+              status: { type: :string, enum: PartnerVerification::STATUSES },
+              verified_at: { type: :string, format: "date-time", nullable: true },
+              attempts_left: {
+                type: :integer, description: "Declined checks left before an hour's wait (3 at most)"
+              },
+              retry_at: {
+                type: :string, format: "date-time", nullable: true,
+                description: "Set while the partner must wait before starting another check"
+              }
+            },
+            required: %w[status verified_at attempts_left retry_at]
+          },
+          partner_verification_start: {
+            type: :object,
+            properties: {
+              url: { type: :string, description: "Didit's hosted page; send the partner there" },
+              verification: { "$ref" => "#/components/schemas/partner_verification" }
+            },
+            required: %w[url verification]
+          },
           guest_profile: {
             type: :object,
             properties: {
@@ -146,6 +170,37 @@ RSpec.configure do |config|
               updated_at: { type: :string, format: "date-time" }
             },
             required: %w[id title description status category area address location attrs created_at updated_at]
+          },
+          # What a partner sends to add or change a listing; `status` is never taken from it.
+          listing_body: {
+            type: :object,
+            properties: {
+              title: { type: :string, maxLength: 120 },
+              description: { type: :string, maxLength: 5000 },
+              category_id: { type: :integer, description: "A bookable (leaf) category" },
+              address: {
+                type: :object,
+                properties: {
+                  street: { type: :string },
+                  city: { type: :string },
+                  region: { type: :string },
+                  province: { type: :string, nullable: true, description: "Optional: none in Metro Manila" },
+                  postal_code: { type: :string },
+                  country: { type: :string, description: "ISO 3166-1 alpha-2, e.g. PH" }
+                },
+                required: %w[street city region postal_code country]
+              },
+              location: {
+                type: :object,
+                properties: {
+                  lat: { type: :number, minimum: -90, maximum: 90 },
+                  lng: { type: :number, minimum: -180, maximum: 180 }
+                },
+                required: %w[lat lng]
+              },
+              attrs: { type: :object, additionalProperties: true }
+            },
+            required: %w[title category_id address location]
           },
           listing_options: {
             type: :object,

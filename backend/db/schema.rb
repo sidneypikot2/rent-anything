@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_07_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_07_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -163,6 +163,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_07_000000) do
     t.check_constraint "user_role::text = 'partner'::text", name: "partner_profiles_user_role_check"
   end
 
+  create_table "partner_verifications", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "user_role", default: "partner", null: false
+    t.string "didit_session_id"
+    t.string "status", default: "not_started", null: false
+    t.integer "declined_count", default: 0, null: false
+    t.datetime "last_declined_at"
+    t.datetime "verified_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["didit_session_id"], name: "index_partner_verifications_on_didit_session_id", unique: true
+    t.index ["user_id"], name: "index_partner_verifications_on_user_id", unique: true
+    t.check_constraint "declined_count >= 0", name: "partner_verifications_declined_count_check"
+    t.check_constraint "status::text = ANY (ARRAY['not_started'::character varying, 'in_progress'::character varying, 'in_review'::character varying, 'approved'::character varying, 'declined'::character varying, 'expired'::character varying]::text[])", name: "partner_verifications_status_check"
+    t.check_constraint "user_role::text = 'partner'::text", name: "partner_verifications_user_role_check"
+  end
+
   create_table "refresh_tokens", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "token_digest", null: false
@@ -220,5 +237,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_07_000000) do
   add_foreign_key "oauth_identities", "users", column: ["user_id", "role"], primary_key: ["id", "role"], name: "fk_oauth_identities_user_role"
   add_foreign_key "partner_profiles", "users"
   add_foreign_key "partner_profiles", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_partner_profiles_user_role"
+  add_foreign_key "partner_verifications", "users"
+  add_foreign_key "partner_verifications", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_partner_verifications_user_role"
   add_foreign_key "refresh_tokens", "users"
 end

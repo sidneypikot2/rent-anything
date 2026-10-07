@@ -39,7 +39,7 @@ Rent-Anything makes a trip to one area easy: a traveller picks an area (Moalboal
 
 Work is tracked in Jira, not in this repo: project `RAA` (Rent-Anything-Anywhere), site `https://sidneypikot2.atlassian.net`, cloudId `ca2c20d7-9b28-45c4-a475-81e449242242`. Statuses: To Do → In Progress → In Review → Done.
 
-**Hosting** (free tiers until M8): `main` deploys on every release — the API to Render (`render.yaml`), the web app to Vercel (`web/vercel.json`), Postgres on Neon, Redis on Upstash; `staging` deploys nowhere. Treat migrations, CORS / `FRONTEND_ORIGIN`, `web/src/lib/config.ts`, `render.yaml`, `web/vercel.json` and new environment variables as production changes and say so in the PR. Details in `.claude/rules/infra.md`.
+**Hosting** (free tiers until M8): the hosted environment is staging — every merge into `staging` deploys the API to Render (`render.yaml`) and the web app to Vercel (`web/vercel.json`), with Postgres on Neon and Redis on Upstash; `main` deploys nowhere until a production host exists. Treat migrations, CORS / `FRONTEND_ORIGIN`, `web/src/lib/config.ts`, `render.yaml`, `web/vercel.json` and new environment variables as deploy changes: they go live when the PR merges, so say so in the PR. Details in `.claude/rules/infra.md`.
 
 ## Running and checking
 
