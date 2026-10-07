@@ -522,63 +522,125 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                title:
-                  type: string
-                  maxLength: 120
-                description:
-                  type: string
-                  maxLength: 5000
-                category_id:
-                  type: integer
-                  description: A bookable (leaf) category
-                address:
-                  type: object
-                  properties:
-                    street:
-                      type: string
-                    city:
-                      type: string
-                    region:
-                      type: string
-                    province:
-                      type: string
-                      nullable: true
-                      description: 'Optional: none in Metro Manila'
-                    postal_code:
-                      type: string
-                    country:
-                      type: string
-                      description: ISO 3166-1 alpha-2, e.g. PH
-                  required:
-                  - street
-                  - city
-                  - region
-                  - postal_code
-                  - country
-                location:
-                  type: object
-                  properties:
-                    lat:
-                      type: number
-                      minimum: -90
-                      maximum: 90
-                    lng:
-                      type: number
-                      minimum: -180
-                      maximum: 180
-                  required:
-                  - lat
-                  - lng
-                attrs:
-                  type: object
-                  additionalProperties: true
-              required:
-              - title
-              - category_id
-              - address
-              - location
+              "$ref": "#/components/schemas/listing_body"
+  "/api/v1/partner/listings/{id}":
+    parameters:
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    get:
+      summary: One of the signed-in partner's listings
+      tags:
+      - Partner
+      description: Partner-only. Any status. Another partner's listing is a 404.
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: the partner's listing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_listing"
+        '404':
+          description: another partner's listing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    patch:
+      summary: Change a listing
+      tags:
+      - Partner
+      description: 'Partner-only. The whole listing is sent again, with the same rules
+        as adding one; the area is recomputed from the pin. Any `status` sent is ignored:
+        the listing keeps its status. Another partner''s listing is a 404.'
+      security:
+      - bearer: []
+      parameters: []
+      responses:
+        '200':
+          description: saved, in the area nearest the new pin, status unchanged
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_listing"
+        '422':
+          description: missing and wrong-typed values
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another partner's listing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/listing_body"
+    delete:
+      summary: Delete a listing
+      tags:
+      - Partner
+      description: Partner-only. Deletes the listing for good. Another partner's listing
+        is a 404.
+      security:
+      - bearer: []
+      responses:
+        '204':
+          description: deleted
+        '404':
+          description: another partner's listing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/partner/profile":
     get:
       summary: The signed-in partner's profile
@@ -1345,6 +1407,64 @@ components:
       - attrs
       - created_at
       - updated_at
+    listing_body:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 5000
+        category_id:
+          type: integer
+          description: A bookable (leaf) category
+        address:
+          type: object
+          properties:
+            street:
+              type: string
+            city:
+              type: string
+            region:
+              type: string
+            province:
+              type: string
+              nullable: true
+              description: 'Optional: none in Metro Manila'
+            postal_code:
+              type: string
+            country:
+              type: string
+              description: ISO 3166-1 alpha-2, e.g. PH
+          required:
+          - street
+          - city
+          - region
+          - postal_code
+          - country
+        location:
+          type: object
+          properties:
+            lat:
+              type: number
+              minimum: -90
+              maximum: 90
+            lng:
+              type: number
+              minimum: -180
+              maximum: 180
+          required:
+          - lat
+          - lng
+        attrs:
+          type: object
+          additionalProperties: true
+      required:
+      - title
+      - category_id
+      - address
+      - location
     listing_options:
       type: object
       properties:
