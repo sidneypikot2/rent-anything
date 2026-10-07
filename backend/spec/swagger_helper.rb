@@ -140,6 +140,34 @@ RSpec.configure do |config|
             },
             required: %w[id title category area_slug]
           },
+          # A listing summary on a guest's map: its location rounded to two decimals (~1 km).
+          listing_pin: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              title: { type: :string },
+              category: { type: :string },
+              area_slug: { type: :string },
+              location: { "$ref" => "#/components/schemas/lat_lng" }
+            },
+            required: %w[id title category area_slug location]
+          },
+          # A published landmark on a guest's map, exact location included: it's a public place.
+          landmark_pin: {
+            type: :object,
+            properties: {
+              slug: { type: :string },
+              name: { type: :string },
+              area_slug: { type: :string },
+              location: { "$ref" => "#/components/schemas/lat_lng" }
+            },
+            required: %w[slug name area_slug location]
+          },
+          lat_lng: {
+            type: :object,
+            properties: { lat: { type: :number }, lng: { type: :number } },
+            required: %w[lat lng]
+          },
           # A listing as its own partner sees it, exact location included.
           partner_listing: {
             type: :object,
