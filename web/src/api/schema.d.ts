@@ -732,29 +732,7 @@ export interface paths {
             };
             requestBody?: {
                 content: {
-                    "application/json": {
-                        title: string;
-                        description?: string;
-                        /** @description A bookable (leaf) category */
-                        category_id: number;
-                        address: {
-                            street: string;
-                            city: string;
-                            region: string;
-                            /** @description Optional: none in Metro Manila */
-                            province?: string | null;
-                            postal_code: string;
-                            /** @description ISO 3166-1 alpha-2, e.g. PH */
-                            country: string;
-                        };
-                        location: {
-                            lat: number;
-                            lng: number;
-                        };
-                        attrs?: {
-                            [key: string]: unknown;
-                        };
-                    };
+                    "application/json": components["schemas"]["listing_body"];
                 };
             };
             responses: {
@@ -800,6 +778,199 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/listings/{id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * One of the signed-in partner's listings
+         * @description Partner-only. Any status. Another partner's listing is a 404.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the partner's listing */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_listing"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /**
+         * Delete a listing
+         * @description Partner-only. Deletes the listing for good. Another partner's listing is a 404.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Change a listing
+         * @description Partner-only. The whole listing is sent again, with the same rules as adding one; the area is recomputed from the pin. Any `status` sent is ignored: the listing keeps its status. Another partner's listing is a 404.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["listing_body"];
+                };
+            };
+            responses: {
+                /** @description saved, in the area nearest the new pin, status unchanged */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_listing"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description missing and wrong-typed values */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/partner/profile": {
@@ -1551,6 +1722,29 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        listing_body: {
+            title: string;
+            description?: string;
+            /** @description A bookable (leaf) category */
+            category_id: number;
+            address: {
+                street: string;
+                city: string;
+                region: string;
+                /** @description Optional: none in Metro Manila */
+                province?: string | null;
+                postal_code: string;
+                /** @description ISO 3166-1 alpha-2, e.g. PH */
+                country: string;
+            };
+            location: {
+                lat: number;
+                lng: number;
+            };
+            attrs?: {
+                [key: string]: unknown;
+            };
         };
         listing_options: {
             categories: {

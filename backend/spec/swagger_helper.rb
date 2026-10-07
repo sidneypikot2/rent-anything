@@ -171,6 +171,37 @@ RSpec.configure do |config|
             },
             required: %w[id title description status category area address location attrs created_at updated_at]
           },
+          # What a partner sends to add or change a listing; `status` is never taken from it.
+          listing_body: {
+            type: :object,
+            properties: {
+              title: { type: :string, maxLength: 120 },
+              description: { type: :string, maxLength: 5000 },
+              category_id: { type: :integer, description: "A bookable (leaf) category" },
+              address: {
+                type: :object,
+                properties: {
+                  street: { type: :string },
+                  city: { type: :string },
+                  region: { type: :string },
+                  province: { type: :string, nullable: true, description: "Optional: none in Metro Manila" },
+                  postal_code: { type: :string },
+                  country: { type: :string, description: "ISO 3166-1 alpha-2, e.g. PH" }
+                },
+                required: %w[street city region postal_code country]
+              },
+              location: {
+                type: :object,
+                properties: {
+                  lat: { type: :number, minimum: -90, maximum: 90 },
+                  lng: { type: :number, minimum: -180, maximum: 180 }
+                },
+                required: %w[lat lng]
+              },
+              attrs: { type: :object, additionalProperties: true }
+            },
+            required: %w[title category_id address location]
+          },
           listing_options: {
             type: :object,
             properties: {
