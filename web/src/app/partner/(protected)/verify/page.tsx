@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import {
   type PartnerVerification,
   usePartnerVerification,
@@ -108,7 +108,14 @@ function StatusCard({ title, body, children }: { title: string; body: string; ch
 
 function StartButton({ label, disabled = false }: { label: string; disabled?: boolean }) {
   const start = useStartVerification();
-  // Success navigates away to Didit, so the button stays busy until the page unloads.
+  // Success navigates away to Didit, so the button stays busy until the page unloads. Back
+  // from Didit, the browser may restore this page as it was: free the button again.
+  const { reset } = start;
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => event.persisted && reset();
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, [reset]);
   const busy = start.isPending || start.isSuccess;
 
   return (

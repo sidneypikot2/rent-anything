@@ -21,8 +21,17 @@ export function isVerified(verification: PartnerVerification | undefined) {
   return verification?.status === "approved";
 }
 
-// Where the partner's Didit ID check stands (RAA-44). With `poll`, it keeps asking while
-// the check is unfinished, so the verify page moves on by itself once Didit decides.
+// With `poll`: every POLL_MS while the check is unfinished, and once more when a cooldown
+// ends, so "Try again" comes back without a reload.
+function pollInterval(verification: PartnerVerification | undefined) {
+  if (!verification) return false;
+  if (POLLED.includes(verification.status)) return POLL_MS;
+  if (verification.retry_at) return Math.max(new Date(verification.retry_at).getTime() - Date.now(), 1000);
+  return false;
+}
+
+// Where the partner's Didit ID check stands (RAA-44). With `poll`, the verify page moves on
+// by itself once Didit decides or a cooldown ends.
 export function usePartnerVerification({ poll = false }: { poll?: boolean } = {}) {
   const userId = useSession()?.user.id;
 
@@ -34,7 +43,9 @@ export function usePartnerVerification({ poll = false }: { poll?: boolean } = {}
       return data;
     },
     enabled: userId !== undefined,
-    refetchInterval: (query) => (poll && POLLED.includes(query.state.data?.status ?? "") ? POLL_MS : false),
+    // A pending check's GET calls Didit: the banner on every partner page needn't.
+    staleTime: poll ? 0 : 30_000,
+    refetchInterval: (query) => (poll ? pollInterval(query.state.data) : false),
   });
 }
 
