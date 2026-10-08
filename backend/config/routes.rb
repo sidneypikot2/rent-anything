@@ -26,6 +26,8 @@ Rails.application.routes.draw do
       # Map pins for the guest nearby map (RAA-52).
       resources :listings, only: :index
       resources :landmarks, only: :index
+      # One destination's listings, nearby destinations and recommendations (RAA-56).
+      get "explore", to: "explore#index"
 
       namespace :partner do
         resource :me, only: :show, controller: "me"

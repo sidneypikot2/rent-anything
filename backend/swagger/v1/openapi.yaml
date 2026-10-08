@@ -62,6 +62,69 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+  "/api/v1/explore":
+    get:
+      summary: Listings, nearby destinations and recommendations for a destination
+      tags:
+      - Discovery
+      description: 'One starting point (an area, a published landmark or a map pin)
+        and what makes sense for it. Listings are scoped by the kind of place: a province,
+        city or island returns what is inside it, a town, landmark or pin what is
+        within `km`. Anything on an island is isolated to that island, measured on
+        the listing''s exact point. Nearby destinations are areas and landmarks within
+        `km` (inside a province). Recommendations are curated destination links: they
+        may cross water, never add listings, and are not repeated as nearby destinations.
+        Listing locations are rounded to about 1 km.'
+      parameters:
+      - name: area
+        in: query
+        required: false
+        description: Area slug
+        schema:
+          type: string
+      - name: landmark
+        in: query
+        required: false
+        description: Published landmark slug
+        schema:
+          type: string
+      - name: lat
+        in: query
+        required: false
+        description: Map pin latitude, with lng
+        schema:
+          type: number
+      - name: lng
+        in: query
+        required: false
+        description: Map pin longitude, with lat
+        schema:
+          type: number
+      - name: km
+        in: query
+        required: false
+        description: Radius, 1 to 50 (default 15)
+        schema:
+          type: number
+      responses:
+        '200':
+          description: 'a pin outside every area: a plain radius'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/explore"
+        '404':
+          description: a draft landmark
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '422':
+          description: values out of range or not numbers
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
   "/api/v1/health":
     get:
       summary: Liveness and database check
@@ -1714,6 +1777,177 @@ components:
       - name
       - area_count
       - landmark_count
+    explore_place:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - area
+          - landmark
+        slug:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          nullable: true
+          enum:
+          - region
+          - province
+          - city
+          - town
+          - island
+          -
+          description: The area's kind; null for a landmark
+        area_slug:
+          type: string
+          description: 'The area page to open: the area itself, or the landmark''s
+            area'
+        distance_km:
+          type: number
+          description: From the starting point, one decimal
+      required:
+      - type
+      - slug
+      - name
+      - kind
+      - area_slug
+      - distance_km
+    explore_recommendation:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - area
+          - landmark
+        slug:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          nullable: true
+          enum:
+          - region
+          - province
+          - city
+          - town
+          - island
+          -
+          description: The area's kind; null for a landmark
+        area_slug:
+          type: string
+          description: 'The area page to open: the area itself, or the landmark''s
+            area'
+        distance_km:
+          type: number
+          description: From the starting point, one decimal
+        reason:
+          type: string
+          enum:
+          - bundled
+          - adjacent
+      required:
+      - type
+      - slug
+      - name
+      - kind
+      - area_slug
+      - distance_km
+      - reason
+    explore_listing:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        area_slug:
+          type: string
+        location:
+          "$ref": "#/components/schemas/lat_lng"
+        distance_km:
+          type: number
+          description: From the starting point's exact point, one decimal
+      required:
+      - id
+      - title
+      - category
+      - area_slug
+      - location
+      - distance_km
+    explore:
+      type: object
+      properties:
+        anchor:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+              - area
+              - landmark
+              - pin
+            slug:
+              type: string
+              nullable: true
+            name:
+              type: string
+              nullable: true
+            kind:
+              type: string
+              nullable: true
+              enum:
+              - region
+              - province
+              - city
+              - town
+              - island
+              -
+              description: An area's kind; null otherwise
+            isolated_to:
+              type: object
+              nullable: true
+              description: The island results are kept to, when the starting point
+                is on one
+              properties:
+                slug:
+                  type: string
+                name:
+                  type: string
+              required:
+              - slug
+              - name
+            location:
+              "$ref": "#/components/schemas/lat_lng"
+          required:
+          - type
+          - slug
+          - name
+          - kind
+          - isolated_to
+          - location
+        listings:
+          type: array
+          items:
+            "$ref": "#/components/schemas/explore_listing"
+        destinations:
+          type: array
+          items:
+            "$ref": "#/components/schemas/explore_place"
+        recommendations:
+          type: array
+          items:
+            "$ref": "#/components/schemas/explore_recommendation"
+      required:
+      - anchor
+      - listings
+      - destinations
+      - recommendations
     search_results:
       type: object
       properties:

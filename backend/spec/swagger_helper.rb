@@ -3,6 +3,17 @@ require "rails_helper"
 # The API contract. Request specs written with rswag's DSL (path/get/response) both test
 # an endpoint and describe it; `rake rswag:specs:swaggerize` writes swagger/v1/openapi.yaml
 # from them, and web/src/api/schema.d.ts is generated from that file (script/check-api).
+
+# What explore (RAA-56) says about a destination, nearby or recommended.
+EXPLORE_PLACE = {
+  type: { type: :string, enum: %w[area landmark] },
+  slug: { type: :string },
+  name: { type: :string },
+  kind: { type: :string, nullable: true, enum: [ *Area::KINDS, nil ], description: "The area's kind; null for a landmark" },
+  area_slug: { type: :string, description: "The area page to open: the area itself, or the landmark's area" },
+  distance_km: { type: :number, description: "From the starting point, one decimal" }
+}.freeze
+
 RSpec.configure do |config|
   # OPENAPI_ROOT lets script/check-api generate into a scratch directory to compare.
   config.openapi_root = ENV.fetch("OPENAPI_ROOT", Rails.root.join("swagger").to_s)
@@ -326,6 +337,57 @@ RSpec.configure do |config|
               landmark_count: { type: :integer }
             },
             required: %w[slug name area_count landmark_count]
+          },
+          # A destination explore offers: an area, or a landmark with the area whose page it is on.
+          explore_place: {
+            type: :object,
+            properties: EXPLORE_PLACE,
+            required: EXPLORE_PLACE.keys.map(&:to_s)
+          },
+          # A recommended destination: an explore place and the kind of link that brought it.
+          explore_recommendation: {
+            type: :object,
+            properties: EXPLORE_PLACE.merge(reason: { type: :string, enum: DestinationLink::KINDS }),
+            required: [ *EXPLORE_PLACE.keys.map(&:to_s), "reason" ]
+          },
+          # A listing pin and how far it is from the starting point.
+          explore_listing: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              title: { type: :string },
+              category: { type: :string },
+              area_slug: { type: :string },
+              location: { "$ref" => "#/components/schemas/lat_lng" },
+              distance_km: { type: :number, description: "From the starting point's exact point, one decimal" }
+            },
+            required: %w[id title category area_slug location distance_km]
+          },
+          explore: {
+            type: :object,
+            properties: {
+              anchor: {
+                type: :object,
+                properties: {
+                  type: { type: :string, enum: %w[area landmark pin] },
+                  slug: { type: :string, nullable: true },
+                  name: { type: :string, nullable: true },
+                  kind: { type: :string, nullable: true, enum: [ *Area::KINDS, nil ], description: "An area's kind; null otherwise" },
+                  isolated_to: {
+                    type: :object, nullable: true,
+                    description: "The island results are kept to, when the starting point is on one",
+                    properties: { slug: { type: :string }, name: { type: :string } },
+                    required: %w[slug name]
+                  },
+                  location: { "$ref" => "#/components/schemas/lat_lng" }
+                },
+                required: %w[type slug name kind isolated_to location]
+              },
+              listings: { type: :array, items: { "$ref" => "#/components/schemas/explore_listing" } },
+              destinations: { type: :array, items: { "$ref" => "#/components/schemas/explore_place" } },
+              recommendations: { type: :array, items: { "$ref" => "#/components/schemas/explore_recommendation" } }
+            },
+            required: %w[anchor listings destinations recommendations]
           },
           search_results: {
             type: :object,

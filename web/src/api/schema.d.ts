@@ -129,6 +129,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/explore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listings, nearby destinations and recommendations for a destination
+         * @description One starting point (an area, a published landmark or a map pin) and what makes sense for it. Listings are scoped by the kind of place: a province, city or island returns what is inside it, a town, landmark or pin what is within `km`. Anything on an island is isolated to that island, measured on the listing's exact point. Nearby destinations are areas and landmarks within `km` (inside a province). Recommendations are curated destination links: they may cross water, never add listings, and are not repeated as nearby destinations. Listing locations are rounded to about 1 km.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Area slug */
+                    area?: string;
+                    /** @description Published landmark slug */
+                    landmark?: string;
+                    /** @description Map pin latitude, with lng */
+                    lat?: number;
+                    /** @description Map pin longitude, with lat */
+                    lng?: number;
+                    /** @description Radius, 1 to 50 (default 15) */
+                    km?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description a pin outside every area: a plain radius */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["explore"];
+                    };
+                };
+                /** @description a draft landmark */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description values out of range or not numbers */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -1896,6 +1964,69 @@ export interface components {
             name: string;
             area_count: number;
             landmark_count: number;
+        };
+        explore_place: {
+            /** @enum {string} */
+            type: "area" | "landmark";
+            slug: string;
+            name: string;
+            /**
+             * @description The area's kind; null for a landmark
+             * @enum {string|null}
+             */
+            kind: "region" | "province" | "city" | "town" | "island" | null;
+            /** @description The area page to open: the area itself, or the landmark's area */
+            area_slug: string;
+            /** @description From the starting point, one decimal */
+            distance_km: number;
+        };
+        explore_recommendation: {
+            /** @enum {string} */
+            type: "area" | "landmark";
+            slug: string;
+            name: string;
+            /**
+             * @description The area's kind; null for a landmark
+             * @enum {string|null}
+             */
+            kind: "region" | "province" | "city" | "town" | "island" | null;
+            /** @description The area page to open: the area itself, or the landmark's area */
+            area_slug: string;
+            /** @description From the starting point, one decimal */
+            distance_km: number;
+            /** @enum {string} */
+            reason: "bundled" | "adjacent";
+        };
+        explore_listing: {
+            id: number;
+            title: string;
+            category: string;
+            area_slug: string;
+            location: components["schemas"]["lat_lng"];
+            /** @description From the starting point's exact point, one decimal */
+            distance_km: number;
+        };
+        explore: {
+            anchor: {
+                /** @enum {string} */
+                type: "area" | "landmark" | "pin";
+                slug: string | null;
+                name: string | null;
+                /**
+                 * @description An area's kind; null otherwise
+                 * @enum {string|null}
+                 */
+                kind: "region" | "province" | "city" | "town" | "island" | null;
+                /** @description The island results are kept to, when the starting point is on one */
+                isolated_to: {
+                    slug: string;
+                    name: string;
+                } | null;
+                location: components["schemas"]["lat_lng"];
+            };
+            listings: components["schemas"]["explore_listing"][];
+            destinations: components["schemas"]["explore_place"][];
+            recommendations: components["schemas"]["explore_recommendation"][];
         };
         search_results: {
             areas: {
