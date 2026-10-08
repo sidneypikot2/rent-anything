@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getArea, type AreaDetail } from "@/api/discovery";
+import { getArea, getExplore, type AreaDetail } from "@/api/discovery";
+import { ExploreSections } from "@/components/discovery/explore-sections";
 import { areaIcon, tagIcon } from "@/components/discovery/icons";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
@@ -21,9 +22,11 @@ export async function generateMetadata(props: PageProps<"/[area]">): Promise<Met
   return { title: detail ? detail.area.name : "Not found" };
 }
 
-// A destination: the places to see there and everything to book. Booking comes later (M3).
+// A destination: the places to see there, everything to book, and the destinations around
+// it and often visited with it (RAA-58). Booking comes later (M3).
 export default async function AreaPage(props: PageProps<"/[area]">) {
-  const detail = await getArea((await props.params).area);
+  const slug = (await props.params).area;
+  const [detail, explore] = await Promise.all([getArea(slug), getExplore({ area: slug })]);
   if (!detail) notFound();
   const { area, areas, landmarks, listings } = detail;
 
@@ -112,6 +115,8 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
             })}
           </section>
         )}
+
+        {explore && <ExploreSections explore={explore} name={area.name} />}
 
         {areas.length === 0 && landmarks.length === 0 && listings.length === 0 && (
           <p className="text-muted">Nothing here yet. Local partners are still being added.</p>
