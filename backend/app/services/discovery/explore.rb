@@ -24,6 +24,8 @@ module Discovery
     WIDE_KINDS = %w[region province].freeze
     # Places a guest goes to; regions and provinces are only ever anchors.
     DESTINATION_KINDS = %w[city town island].freeze
+    # The starting point, bound by #sanitize.
+    POINT = "ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography".freeze
 
     def initialize(params)
       @params = params
@@ -120,7 +122,7 @@ module Discovery
 
     # The smallest city, town or island whose boundary covers the pin, if any.
     def pin_area
-      Area.where(kind: DESTINATION_KINDS).where("ST_Covers(areas.boundary, #{point})")
+      Area.where(kind: DESTINATION_KINDS).where(sanitize("ST_Covers(areas.boundary, #{POINT})"))
         .order(Arel.sql("ST_Area(areas.boundary)")).first
     end
 
@@ -137,8 +139,13 @@ module Discovery
       @area_slug && WIDE_KINDS.include?(@area.kind)
     end
 
-    def point
-      @point ||= ActiveRecord::Base.sanitize_sql_array([ "ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography", @lng, @lat ])
+    # SQL with the starting point (:lat, :lng), the radius (:meters) and any extra values bound.
+    def sanitize(sql, **values)
+      ActiveRecord::Base.sanitize_sql_array([ sql, { lng: @lng, lat: @lat, meters: @km * 1000, **values } ])
+    end
+
+    def distance(column)
+      sanitize("ST_Distance(#{column}, #{POINT}) AS distance_m")
     end
 
     # Areas never offered as somewhere to go from here: the anchor area and those above it.
@@ -154,7 +161,7 @@ module Discovery
 
     def listings
       scope = Listing.active.includes(:category, :area)
-        .select("listings.*", "ST_Distance(listings.location, #{point}) AS distance_m")
+        .select("listings.*", distance("listings.location"))
       scope = inside_anchor? ? inside(scope, @area, "listings.location", :area_id) : within_km(scope, "listings.location")
       scope = inside(scope, @island, "listings.location", :area_id) if @island
       scope.order(Arel.sql("distance_m"), :id)
@@ -163,9 +170,9 @@ module Discovery
     # Areas and landmarks, nearest first, each as { record:, distance_m: }.
     def nearby_destinations
       areas = Area.browsable.where(kind: DESTINATION_KINDS).where.not(id: excluded_area_ids)
-        .select("areas.*", "ST_Distance(areas.center, #{point}) AS distance_m")
+        .select("areas.*", distance("areas.center"))
       landmarks = Landmark.published.includes(:area).where.not(id: @landmark&.id)
-        .select("landmarks.*", "ST_Distance(landmarks.location, #{point}) AS distance_m")
+        .select("landmarks.*", distance("landmarks.location"))
 
       areas = place_scope(areas, "areas.center", :id)
       landmarks = place_scope(landmarks, "landmarks.location", :area_id)
@@ -223,22 +230,22 @@ module Discovery
       landmark_ids = keys.filter_map { |type, id| id if type == "Landmark" }
 
       areas = Area.where(id: area_ids)
-        .where("areas.id IN (#{Area.browsable.select(:id).to_sql}) OR " \
-          "EXISTS (SELECT 1 FROM landmarks WHERE landmarks.area_id = areas.id AND landmarks.status = 'published')")
-        .select("areas.*", "ST_Distance(areas.center, #{point}) AS distance_m")
+        .merge(Area.browsable.or(Area.where(id: Landmark.published.select(:area_id))))
+        .select("areas.*", distance("areas.center"))
       landmarks = Landmark.published.includes(:area).where(id: landmark_ids)
-        .select("landmarks.*", "ST_Distance(landmarks.location, #{point}) AS distance_m")
+        .select("landmarks.*", distance("landmarks.location"))
       areas.to_a + landmarks.to_a
     end
 
     def within_km(scope, column)
-      scope.where("ST_DWithin(#{column}, #{point}, ?)", @km * 1000)
+      scope.where(sanitize("ST_DWithin(#{column}, #{POINT}, :meters)"))
     end
 
     # Inside the area's boundary, or under it in the tree when it has none.
     def inside(scope, area, column, tree_column)
       if area.boundary
-        scope.where("ST_Covers((SELECT bounds.boundary FROM areas bounds WHERE bounds.id = ?), #{column})", area.id)
+        scope.where(sanitize("ST_Covers((SELECT bounds.boundary FROM areas bounds WHERE bounds.id = :area_id), #{column})",
+          area_id: area.id))
       else
         scope.where(tree_column => Area.subtree_of(area).select(:id))
       end
