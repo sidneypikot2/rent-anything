@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { search, type SearchResults } from "@/api/discovery";
+import { getExplore, search, type SearchResults } from "@/api/discovery";
+import { ExploreSections } from "@/components/discovery/explore-sections";
 import { areaIcon, tagIcon } from "@/components/discovery/icons";
 import { SearchBox } from "@/components/discovery/search-box";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,8 @@ export default async function SearchPage(props: PageProps<"/search">) {
   const query = typeof q === "string" ? q.trim() : "";
   // Characters, not UTF-16 units, to match the API's minimum (an emoji is one).
   const results = [...query].length >= 2 ? await search(query) : null;
+  const top = results && topDestination(results);
+  const explore = top ? await getExplore(top.anchor) : null;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-10">
@@ -26,10 +29,23 @@ export default async function SearchPage(props: PageProps<"/search">) {
       {results === null ? (
         <p className="text-muted">Type at least two letters: a destination, a landmark or an activity.</p>
       ) : (
-        <Results results={results} />
+        <>
+          <Results results={results} />
+          {top && explore && <ExploreSections explore={explore} name={top.name} />}
+        </>
       )}
     </main>
   );
+}
+
+// The destination the search most likely means (RAA-58): the first area, else the first
+// landmark. What is around it shows under the results.
+function topDestination(results: SearchResults) {
+  const area = results.areas[0];
+  if (area) return { anchor: { area: area.slug }, name: area.name };
+  const landmark = results.landmarks[0];
+  if (landmark) return { anchor: { landmark: landmark.slug }, name: landmark.name };
+  return null;
 }
 
 function Results({ results }: { results: SearchResults }) {

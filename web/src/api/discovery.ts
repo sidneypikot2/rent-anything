@@ -40,6 +40,16 @@ export const getArea = cache(async (slug: string): Promise<AreaDetail | null> =>
   return data;
 });
 
+// What surrounds one destination (RAA-58): nearby destinations and the ones often visited
+// with it. null when there is no such area or published landmark. Cached per request.
+export const getExplore = cache(async (anchor: { area: string } | { landmark: string }): Promise<Explore | null> => {
+  await connection();
+  const { data, response } = await serverApiClient().GET("/api/v1/explore", { params: { query: anchor } });
+  if (response.status === 404) return null;
+  if (!data) throw new Error("Couldn't load what's around this destination");
+  return data;
+});
+
 export async function search(q: string): Promise<SearchResults> {
   await connection();
   const { data, error } = await serverApiClient().GET("/api/v1/search", { params: { query: { q } } });
