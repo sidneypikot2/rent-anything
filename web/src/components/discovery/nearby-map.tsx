@@ -1,28 +1,20 @@
 "use client";
 
 import { importLibrary } from "@googlemaps/js-api-loader";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { LandmarkPin, ListingPin } from "@/api/discovery";
+import { useEffect, useRef, useState } from "react";
+import type { ExplorePlace } from "@/api/discovery";
 import { Button } from "@/components/ui/button";
-import { Card, CardBody } from "@/components/ui/card";
+import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/typography";
-import { DEFAULT_MAP_CENTER, distanceKm, googleMapsConfig, setMapsOptions, type LatLng } from "@/lib/map";
-
-type Props = { listings: ListingPin[]; landmarks: LandmarkPin[] };
-type InRange<T> = T & { distance: number };
+import { DEFAULT_MAP_CENTER, googleMapsConfig, setMapsOptions, type LatLng } from "@/lib/map";
+import { useExplore } from "./use-explore";
 
 const CONFIG = googleMapsConfig();
 const MIN_KM = 1;
 const MAX_KM = 50;
 const DEFAULT_KM = 5;
-
-// The places within `km` of the pin, nearest first.
-function withinRange<T extends { location: LatLng }>(items: T[], pin: LatLng, km: number): InRange<T>[] {
-  return items
-    .map((item) => ({ ...item, distance: distanceKm(pin, item.location) }))
-    .filter((item) => item.distance <= km)
-    .sort((a, b) => a.distance - b.distance);
-}
+// Wait for the slider to settle before asking the API again.
+const KM_DEBOUNCE_MS = 300;
 
 // A theme colour for the map's own drawing (it takes colour strings, not classes).
 function themeColor(name: string): string | undefined {
@@ -37,9 +29,10 @@ function dot(className: string): HTMLElement {
 }
 
 // Testing page (RAA-53): the guest clicks the map to drop a pin and drags it to adjust.
-// Confirming locks the map and the pin; a range then draws a circle around the pin and
-// lists the listings and landmarks inside it, by straight-line distance computed here.
-export function NearbyMap({ listings, landmarks }: Props) {
+// Confirming locks the map and the pin; a range then draws a circle around the pin, and
+// the explore endpoint (RAA-57) returns what is within it: listings (kept to the island
+// when the pin is on one), nearby destinations, and destinations often visited with them.
+export function NearbyMap() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const pinRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
@@ -51,6 +44,15 @@ export function NearbyMap({ listings, landmarks }: Props) {
   const [pin, setPin] = useState<LatLng | null>(null);
   const [locked, setLocked] = useState(false);
   const [km, setKm] = useState(DEFAULT_KM);
+  const [queryKm, setQueryKm] = useState(DEFAULT_KM);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setQueryKm(km), KM_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [km]);
+
+  const { data: explore, isError, isFetching } = useExplore(locked ? pin : null, queryKm);
+  const results = locked && pin ? explore : undefined;
 
   useEffect(() => {
     if (!CONFIG) return;
@@ -140,27 +142,21 @@ export function NearbyMap({ listings, landmarks }: Props) {
     if (bounds) map.fitBounds(bounds);
   }, [ready, locked, pin, km]);
 
-  const nearbyListings = useMemo(() => (locked && pin ? withinRange(listings, pin, km) : []), [locked, pin, km, listings]);
-  const nearbyLandmarks = useMemo(
-    () => (locked && pin ? withinRange(landmarks, pin, km) : []),
-    [locked, pin, km, landmarks],
-  );
-
-  // A dot on the map for each place in range.
+  // A dot on the map for each listing and nearby destination in range.
   useEffect(() => {
     const map = mapRef.current;
     const Marker = markerClassRef.current;
-    if (!ready || !map || !Marker) return;
+    if (!ready || !map || !Marker || !results) return;
     const markers = [
-      ...nearbyListings.map(
+      ...results.listings.map(
         (listing) => new Marker({ map, position: listing.location, title: listing.title, content: dot("bg-primary") }),
       ),
-      ...nearbyLandmarks.map(
-        (landmark) => new Marker({ map, position: landmark.location, title: landmark.name, content: dot("bg-secondary") }),
+      ...results.destinations.map(
+        (place) => new Marker({ map, position: place.location, title: place.name, content: dot("bg-secondary") }),
       ),
     ];
     return () => markers.forEach((marker) => (marker.map = null));
-  }, [ready, nearbyListings, nearbyLandmarks]);
+  }, [ready, results]);
 
   const unavailable = !CONFIG || failed;
 
@@ -220,38 +216,67 @@ export function NearbyMap({ listings, landmarks }: Props) {
         </label>
       </div>
 
-      {locked && pin && (
-        <div data-testid="nearby-results" className="grid gap-6 md:grid-cols-2">
-          <ResultList
-            title="Listings"
-            empty="No listings within this distance."
-            note="Listing locations are approximate (about 1 km)."
-            items={nearbyListings.map((listing) => ({
-              key: `listing-${listing.id}`,
-              name: listing.title,
-              detail: listing.category,
-              distance: `~${listing.distance.toFixed(1)} km`,
-              dotClass: "bg-primary",
-            }))}
-          />
-          <ResultList
-            title="Landmarks"
-            empty="No landmarks within this distance."
-            items={nearbyLandmarks.map((landmark) => ({
-              key: `landmark-${landmark.slug}`,
-              name: landmark.name,
-              detail: landmark.area_slug,
-              distance: `${landmark.distance.toFixed(1)} km`,
-              dotClass: "bg-secondary",
-            }))}
-          />
+      {locked && pin && isError && !results && (
+        <p role="alert" className="text-danger">
+          Couldn&apos;t load what&apos;s nearby. Try again.
+        </p>
+      )}
+
+      {results && (
+        <div data-testid="nearby-results" className={`flex flex-col gap-6 ${isFetching ? "opacity-60" : ""}`}>
+          {results.anchor.isolated_to && (
+            <p data-testid="nearby-isolated" className="rounded-lg bg-surface-2 px-4 py-3 text-sm font-medium">
+              Showing {results.anchor.isolated_to.name} only: the pin is on the island.
+            </p>
+          )}
+          <div className="grid gap-6 md:grid-cols-2">
+            <ResultList
+              title="Listings"
+              empty="No listings within this distance."
+              note="Listing locations are approximate (about 1 km)."
+              items={results.listings.map((listing) => ({
+                key: `listing-${listing.id}`,
+                name: listing.title,
+                detail: listing.category,
+                distance: `~${listing.distance_km.toFixed(1)} km`,
+                dotClass: "bg-primary",
+              }))}
+            />
+            <ResultList
+              title="Nearby destinations"
+              empty="No destinations within this distance."
+              items={results.destinations.map((place) => placeResult(place, "bg-secondary"))}
+            />
+          </div>
+          {results.recommendations.length > 0 && (
+            <ResultList
+              title="Often visited with"
+              empty=""
+              items={results.recommendations.map((place) => ({
+                ...placeResult(place, "bg-aqua"),
+                detail: place.reason === "bundled" ? "Often done on the same trip" : "Next door",
+              }))}
+            />
+          )}
         </div>
       )}
     </div>
   );
 }
 
-type Result = { key: string; name: string; detail: string; distance: string; dotClass: string };
+// A destination in a result list, linking to its area page.
+function placeResult(place: ExplorePlace, dotClass: string): Result {
+  return {
+    key: `${place.type}-${place.slug}`,
+    name: place.name,
+    detail: place.type === "landmark" ? `Place to see · ${place.area_slug}` : (place.kind ?? "area"),
+    distance: `${place.distance_km.toFixed(1)} km`,
+    dotClass,
+    href: place.type === "landmark" ? `/${place.area_slug}#${place.slug}` : `/${place.slug}`,
+  };
+}
+
+type Result = { key: string; name: string; detail: string; distance: string; dotClass: string; href?: string };
 
 function ResultList({ title, empty, note, items }: { title: string; empty: string; note?: string; items: Result[] }) {
   return (
@@ -266,20 +291,34 @@ function ResultList({ title, empty, note, items }: { title: string; empty: strin
         <ul className="flex flex-col gap-2">
           {items.map((item) => (
             <li key={item.key}>
-              <Card>
-                <CardBody pad="sm" className="flex items-center gap-3">
-                  <span className={`size-3 shrink-0 rounded-full ${item.dotClass}`} aria-hidden />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate font-medium">{item.name}</span>
-                    <span className="truncate text-xs text-muted">{item.detail}</span>
-                  </div>
-                  <span className="shrink-0 text-sm font-semibold">{item.distance}</span>
-                </CardBody>
-              </Card>
+              {item.href ? (
+                <CardLink href={item.href} className="flex items-center gap-3 p-3">
+                  <ResultRow item={item} />
+                </CardLink>
+              ) : (
+                <Card>
+                  <CardBody pad="sm" className="flex items-center gap-3">
+                    <ResultRow item={item} />
+                  </CardBody>
+                </Card>
+              )}
             </li>
           ))}
         </ul>
       )}
     </section>
+  );
+}
+
+function ResultRow({ item }: { item: Result }) {
+  return (
+    <>
+      <span className={`size-3 shrink-0 rounded-full ${item.dotClass}`} aria-hidden />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate font-medium">{item.name}</span>
+        <span className="truncate text-xs text-muted">{item.detail}</span>
+      </span>
+      <span className="shrink-0 text-sm font-semibold">{item.distance}</span>
+    </>
   );
 }
