@@ -38,4 +38,36 @@ class Area < ApplicationRecord
       )
     SQL
   }
+
+  # The area and every area under it, at any depth.
+  scope :subtree_of, ->(area) {
+    where(<<~SQL.squish, area.id)
+      areas.id IN (
+        WITH RECURSIVE subtree(id) AS (
+          SELECT ?::bigint
+          UNION
+          SELECT children.id FROM areas children JOIN subtree ON children.parent_id = subtree.id
+        )
+        SELECT id FROM subtree
+      )
+    SQL
+  }
+
+  # The area and every area above it, nearest first: Santa Fe, Bantayan Island, Cebu, ...
+  def lineage
+    Area.find_by_sql([ <<~SQL.squish, id ])
+      WITH RECURSIVE lineage(id, parent_id, depth) AS (
+        SELECT id, parent_id, 0 FROM areas WHERE id = ?
+        UNION ALL
+        SELECT parents.id, parents.parent_id, lineage.depth + 1 FROM areas parents JOIN lineage ON parents.id = lineage.parent_id
+      )
+      SELECT areas.* FROM areas JOIN lineage USING (id) ORDER BY lineage.depth
+    SQL
+  end
+
+  # The island this area is, or the nearest one above it: Malapascua for Malapascua, though
+  # it sits under Daanbantayan on Cebu. Explore keeps everything on an island to that island.
+  def island
+    lineage.find(&:island?)
+  end
 end
