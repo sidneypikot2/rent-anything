@@ -120,6 +120,12 @@ after a booking is paid (keeps deals on the platform).
   likely Semaphore (about PHP 1 per OTP).
 - **Maps**: Google Maps Platform on the web (Maps JavaScript API, Advanced Markers); search is PostGIS on the API.
   Partners drop a pin rather than geocoding an address.
+- **Place data — our own gazetteer** (RAA-59): every region, province, city and town from the
+  PSA's PSGC (CC BY), with boundaries from OCHA's COD-AB (CC BY-IGO); islands are cut from
+  the same data. Imported by hand each quarter (`backend/db/gazetteer/README.md`), never
+  fetched while a guest searches; only free, openly licensed sources — no OpenStreetMap data
+  (share-alike), GADM (non-commercial) or paid geocoding. Imported areas are drafts until
+  published; a listing's area is the smallest published one whose boundary covers its pin.
 - **Files**: Active Storage on S3-compatible storage (Cloudflare R2). ID documents are not
   stored here: Didit holds them.
 - **Chat**: Action Cable over Redis, one conversation per listing + guest.

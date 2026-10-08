@@ -88,6 +88,14 @@ RSpec.describe "Areas", type: :request do
         end
       end
 
+      response "404", "a draft area" do
+        schema "$ref" => "#/components/schemas/error"
+        let!(:draft_area) { create(:area, :draft, slug: "olango-island", name: "Olango Island", kind: "island", parent: cebu) }
+        let(:slug) { "olango-island" }
+
+        run_test!
+      end
+
       response "404", "unknown area" do
         schema "$ref" => "#/components/schemas/error"
         let(:slug) { "atlantis" }

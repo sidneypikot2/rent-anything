@@ -56,8 +56,9 @@ RSpec.describe "Partner listings", type: :request do
       produces "application/json"
       description "Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked " \
         "against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area " \
-        "is the city, town or island nearest the pin, within 50 km. The partner must have passed the ID check " \
-        "first (`/api/v1/partner/verification`); until then it is a 403."
+        "is the smallest published city, town or island whose boundary covers the pin; failing that, the one " \
+        "whose center is nearest the pin, within 50 km. The partner must have passed the ID check first " \
+        "(`/api/v1/partner/verification`); until then it is a 403."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
       parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/listing_body" }
@@ -100,6 +101,23 @@ RSpec.describe "Partner listings", type: :request do
           expect(response.parsed_body["area"]).to eq("slug" => "moalboal", "name" => "Moalboal")
           expect(response.parsed_body["address"]).to eq(address.stringify_keys)
           expect(user.listings.sole).to have_attributes(status: "draft", category: category, area: area)
+        end
+      end
+
+      response "201", "in the smallest published area whose boundary covers the pin, before a nearer center" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        before do
+          create(:area, slug: "cebu", name: "Cebu", kind: "province", center: "POINT(123.85 10.45)",
+            boundary: "MULTIPOLYGON(((123.3 9.4, 124.2 9.4, 124.2 11.4, 123.3 11.4, 123.3 9.4)))")
+          create(:area, slug: "badian", name: "Badian", center: "POINT(123.39 9.87)",
+            boundary: "MULTIPOLYGON(((123.30 9.80, 123.45 9.80, 123.45 10.00, 123.30 10.00, 123.30 9.80)))")
+          create(:area, :draft, slug: "draft-town", name: "Draft Town", center: "POINT(123.37 9.95)",
+            boundary: "MULTIPOLYGON(((123.36 9.94, 123.38 9.94, 123.38 9.96, 123.36 9.96, 123.36 9.94)))")
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["area"]).to eq("slug" => "badian", "name" => "Badian")
         end
       end
 

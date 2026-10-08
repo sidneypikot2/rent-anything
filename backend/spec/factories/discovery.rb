@@ -4,6 +4,11 @@ FactoryBot.define do
     name { "Moalboal" }
     kind { "town" }
     center { "POINT(123.396 9.945)" }
+    status { "published" }
+
+    trait :draft do
+      status { "draft" }
+    end
   end
 
   factory :landmark do

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_09_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_09_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -28,11 +28,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000000) do
     t.geography "boundary", limit: {srid: 4326, type: "multi_polygon", geographic: true}
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "psgc_code", limit: 10
+    t.string "status", default: "draft", null: false
     t.index ["boundary"], name: "index_areas_on_boundary", using: :gist
     t.index ["center"], name: "index_areas_on_center", using: :gist
     t.index ["parent_id"], name: "index_areas_on_parent_id"
+    t.index ["psgc_code"], name: "index_areas_on_psgc_code", unique: true, where: "(psgc_code IS NOT NULL)"
     t.index ["slug"], name: "index_areas_on_slug", unique: true
+    t.index ["status"], name: "index_areas_on_status"
     t.check_constraint "kind::text = ANY (ARRAY['region'::character varying::text, 'province'::character varying::text, 'city'::character varying::text, 'town'::character varying::text, 'island'::character varying::text])", name: "areas_kind_check"
+    t.check_constraint "psgc_code::text ~ '^[0-9]{10}$'::text", name: "areas_psgc_code_check"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'published'::character varying]::text[])", name: "areas_status_check"
   end
 
   create_table "categories", force: :cascade do |t|
@@ -68,8 +74,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000000) do
     t.index ["source_type", "source_id", "target_type", "target_id"], name: "index_destination_links_on_pair", unique: true
     t.index ["target_type", "target_id"], name: "index_destination_links_on_target_type_and_target_id"
     t.check_constraint "(ROW(source_type::text, source_id) < ROW(target_type::text, target_id))", name: "destination_links_order_check"
-    t.check_constraint "(source_type::text = ANY (ARRAY['Area'::character varying, 'Landmark'::character varying]::text[])) AND (target_type::text = ANY (ARRAY['Area'::character varying, 'Landmark'::character varying]::text[]))", name: "destination_links_types_check"
-    t.check_constraint "kind::text = ANY (ARRAY['bundled'::character varying, 'adjacent'::character varying]::text[])", name: "destination_links_kind_check"
+    t.check_constraint "(source_type::text = ANY (ARRAY['Area'::character varying::text, 'Landmark'::character varying::text])) AND (target_type::text = ANY (ARRAY['Area'::character varying::text, 'Landmark'::character varying::text]))", name: "destination_links_types_check"
+    t.check_constraint "kind::text = ANY (ARRAY['bundled'::character varying::text, 'adjacent'::character varying::text])", name: "destination_links_kind_check"
     t.check_constraint "weight >= 1 AND weight <= 3", name: "destination_links_weight_check"
   end
 

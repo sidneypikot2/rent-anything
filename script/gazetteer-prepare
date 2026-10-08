@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# Builds the gazetteer data files (RAA-59) from the PSA's PSGC datafile and OCHA's COD-AB
+# boundaries, both downloaded by hand (backend/db/gazetteer/README.md says from where):
+#
+#   script/gazetteer-prepare ~/Downloads/PSGC-2Q-2026-Publication-Datafile.xlsx ~/Downloads/phl_admin_boundaries.gdb.zip
+#
+# Writes backend/db/gazetteer/areas.geojson.gz (every region, province, city and town:
+# PSGC code, name, kind, parent code and boundary) and landmasses.geojson.gz (the land
+# split into one polygon per island). Boundaries are simplified to about 20 m. GDAL runs in
+# its official container, so nothing is installed; `bin/rails gazetteer:import` loads the
+# result.
+#
+# COD-AB is keyed on the older 9-digit codes, which the PSGC keeps as each place's
+# "correspondence code" (Cebu City is 0730600000, formerly 072217000, COD-AB PH0702217).
+# COD-AB also gives each city the province it lies in, which the PSGC doesn't for highly
+# urbanized cities.
+set -euo pipefail
+
+gdal_image="ghcr.io/osgeo/gdal:ubuntu-small-3.13.3"
+
+if [[ $# -ne 2 || ! -f "$1" || ! -f "$2" ]]; then
+  echo "Usage: script/gazetteer-prepare <PSGC publication datafile.xlsx> <phl_admin_boundaries.gdb.zip>" >&2
+  exit 1
+fi
+
+root="$(git rev-parse --show-toplevel)"
+out="$root/backend/db/gazetteer"
+# Inside the checkout (gitignored): Docker Desktop doesn't share macOS's own temp folder.
+mkdir -p "$root/backend/tmp"
+work="$(mktemp -d "$root/backend/tmp/gazetteer.XXXXXX")"
+trap 'rm -rf "$work"' EXIT
+cp "$1" "$work/psgc.xlsx"
+cp "$2" "$work/codab.gdb.zip"
+
+docker run --rm -i -v "$work:/work" "$gdal_image" bash -euo pipefail -s <<'GDAL'
+cd /work
+codab=/vsizip//work/codab.gdb.zip
+simplify=(-simplify 0.0002 -makevalid -nlt PROMOTE_TO_MULTI -lco GEOMETRY_NAME=geom)
+
+# The PSGC sheet has no header GDAL recognises: Field1 is the 10-digit code, Field2 the
+# name, Field3 the correspondence code, Field4 the level (Reg, Prov, City, Mun, SubMun, Bgy).
+ogr2ogr -f GPKG gazetteer.gpkg psgc.xlsx PSGC -nln psgc
+ogr2ogr -update gazetteer.gpkg "$codab" -nln adm1 "${simplify[@]}" -sql "SELECT adm1_pcode AS pcode FROM phl_admin1"
+ogr2ogr -update gazetteer.gpkg "$codab" -nln adm2 "${simplify[@]}" -sql "SELECT adm2_pcode AS pcode FROM phl_admin2"
+ogr2ogr -update gazetteer.gpkg "$codab" -nln adm3 "${simplify[@]}" \
+  -sql "SELECT adm3_pcode AS pcode, adm2_pcode AS parent FROM phl_admin3"
+
+cat > areas.sql <<'SQL'
+WITH psgc_rows AS (
+  SELECT Field1 AS code, TRIM(Field2) AS name, Field4 AS level,
+    -- Correspondence codes still carry ARMM's region 15; COD-AB uses BARMM's 19.
+    CASE WHEN SUBSTR(Field3, 1, 2) = '15' THEN '19' || SUBSTR(Field3, 3) ELSE Field3 END AS corr
+  FROM psgc WHERE Field4 IN ('Reg', 'Prov', 'City', 'Mun')
+),
+-- The COD-AB code: PH, region, province padded to three digits, town. From the
+-- correspondence code where there is one, else from the code itself.
+keyed AS (
+  SELECT *,
+    CASE
+      WHEN corr IS NULL THEN 'PH' || SUBSTR(code, 1, CASE level WHEN 'Reg' THEN 2 WHEN 'Prov' THEN 5 ELSE 7 END)
+      WHEN level = 'Reg' THEN 'PH' || SUBSTR(corr, 1, 2)
+      WHEN level = 'Prov' THEN 'PH' || SUBSTR(corr, 1, 2) || '0' || SUBSTR(corr, 3, 2)
+      ELSE 'PH' || SUBSTR(corr, 1, 2) || '0' || SUBSTR(corr, 3, 2) || SUBSTR(corr, 5, 2)
+    END AS pcode
+  FROM psgc_rows
+)
+SELECT k.code AS psgc_code, k.name, 'region' AS kind, NULL AS parent_psgc_code, a.geom
+FROM keyed k LEFT JOIN adm1 a ON a.pcode = k.pcode WHERE k.level = 'Reg'
+UNION ALL
+SELECT k.code, k.name, 'province', SUBSTR(k.code, 1, 2) || '00000000', a.geom
+FROM keyed k LEFT JOIN adm2 a ON a.pcode = k.pcode WHERE k.level = 'Prov'
+UNION ALL
+-- A city or town sits in the province COD-AB puts it in; failing that, the province its
+-- code starts with; failing that (Metro Manila, highly urbanized cities), its region.
+SELECT k.code, k.name, CASE k.level WHEN 'City' THEN 'city' ELSE 'town' END,
+  COALESCE(
+    (SELECT p.code FROM keyed p WHERE p.level = 'Prov' AND p.pcode = a.parent),
+    (SELECT p.code FROM keyed p WHERE p.level = 'Prov' AND p.code = SUBSTR(k.code, 1, 5) || '00000'),
+    SUBSTR(k.code, 1, 2) || '00000000'),
+  -- The City of Manila is a whole district in COD-AB, split into sub-municipalities.
+  COALESCE(a.geom, (SELECT d.geom FROM adm2 d WHERE d.pcode = SUBSTR(k.pcode, 1, 7)))
+FROM keyed k LEFT JOIN adm3 a ON a.pcode = k.pcode WHERE k.level IN ('City', 'Mun')
+SQL
+
+geojson=(-f GeoJSON -lco COORDINATE_PRECISION=5 -lco RFC7946=YES)
+ogr2ogr "${geojson[@]}" areas.geojson gazetteer.gpkg -dialect SQLite -sql @areas.sql -nln areas
+ogr2ogr "${geojson[@]}" landmasses.geojson "$codab" phl_admin0 -nln landmasses -explodecollections \
+  -simplify 0.0002 -makevalid -nlt POLYGON -select ""
+GDAL
+
+gzip -9n < "$work/areas.geojson" > "$out/areas.geojson.gz"
+gzip -9n < "$work/landmasses.geojson" > "$out/landmasses.geojson.gz"
+ls -l "$out"/*.geojson.gz

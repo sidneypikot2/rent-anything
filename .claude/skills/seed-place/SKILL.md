@@ -1,6 +1,6 @@
 ---
 name: seed-place
-description: Build the destination data for one place (an area such as a town, city or island, with its parents, boundary, search terms, landmarks and destination links) from free open data, write it as a data migration and load it into the database. Run when the user asks to seed, add or populate a place.
+description: Make one place a destination (publish its gazetteer area and add its search terms, landmarks and destination links) from free open data, write it as a data migration and load it into the database. Run when the user asks to seed, add or populate a place.
 argument-hint: "<place, e.g. \"Moalboal\" or \"Malapascua Island\"> [RAA-<n>] [with sample listings]"
 disable-model-invocation: true
 ---
@@ -45,26 +45,28 @@ Start the worktree's database (`docker compose up -d db`, then
 Reuse existing rows, referring to them by slug. Only add what is missing. A town on an
 island goes under that island, not under the province (Santa Fe → Bantayan Island → Cebu).
 
+**Areas come from the gazetteer (RAA-59), not from this skill.** Run
+`docker compose run --rm backend bin/rails gazetteer:import` in the worktree first: every
+region, province, city and town is then there as a draft, with its PSGC code and boundary.
+Don't insert areas or fetch boundaries. An island that isn't there yet goes in
+`backend/db/gazetteer/curated.yml` (slug, name, a point on it, aliases) and the import
+builds it. The migration publishes the place and every area above it
+(`UPDATE areas SET status = 'published'` by slug, `down` sets the ones it published back to
+draft), and raises if the place is missing, so a database that hasn't been imported fails
+loudly; say in the PR that `gazetteer:import` runs before it.
+
 ## 3. Gather the data from free open sources
 
 Fetch once, cache the raw responses in the scratchpad, and keep a source note for each value.
 Send a `User-Agent: rent-anything-seed/1.0 (<user email>)` header, and stay within each
-service's usage policy: Nominatim allows at most 1 request per second and no bulk use.
+service's usage policy: a handful of Overpass queries, never bulk downloads.
 
 | Data | Source | How |
 |---|---|---|
-| Official name, the chain of parent areas, kind (province, city, municipality → town) | PSA PSGC datafile; Wikidata as a cross-check | Ask the user for the PSGC file if no copy is at hand. Otherwise use Wikidata's "located in the administrative territorial entity" chain |
-| Center and boundary | OpenStreetMap through Nominatim | `search?q=<place>, Philippines&format=jsonv2&polygon_geojson=1&limit=3`. Pick the boundary relation (or `place=island` for an island) and check it on the map |
-| Island outline (when the place is an island or on one) | OpenStreetMap `place=island` | Nominatim as above, or an Overpass `is_in` query on the town's center |
+| Official name, parents, kind, center and boundary | The gazetteer (step 2) | Already imported; only aliases are added here |
 | Candidate landmarks | Overpass API | `tourism=attraction|viewpoint|museum`, `natural=waterfall|beach|cave_entrance`, `historic=*`, `leisure=nature_reserve`, all inside the boundary. Keep about the top 5–15 by Wikidata or Wikipedia presence |
 | Search terms (aliases) and a popularity hint | Wikidata | The place's and each landmark's labels and aliases in `en`, `tl` and `ceb`, plus the sitelink count |
 | Destinations usually visited together | Your knowledge, checked against Wikivoyage's "Go next" section | Propose them; the user confirms |
-
-Then process the data before writing anything:
-- Simplify each boundary in PostGIS to about 20 m, e.g.
-  `ST_SimplifyPreserveTopology(geom, 0.0002)`.
-- Force it to a multipolygon.
-- Take `ST_PointOnSurface` as the center, so the center is always inside the boundary.
 
 Generate search terms from the official name:
 - drop "City of", "Municipality of" and "Island";
@@ -76,7 +78,7 @@ Lowercase duplicates and terms already used by another place are dropped.
 ## 4. Review with the user before writing
 
 Show one compact table per kind:
-- area rows: slug, kind, parent, center, boundary vertex count, aliases;
+- areas to publish: slug, kind, parent, aliases to add;
 - landmarks: slug, name, location, proposed tags, `published` or `draft`;
 - new tags, if any;
 - destination links: pair, `bundled` or `adjacent`, weight;
@@ -91,8 +93,8 @@ corrections and approval. They can't be made in the migration after it merges.
 - Name it `backend/db/migrate/<timestamp>_seed_<place_slug>_destination.rb`. Generate it with
   `docker compose run --rm backend bin/rails g migration Seed<Place>Destination` and replace
   the body.
-- The top comment says what the place is, the ticket, the sources and their licenses: "Boundary
-  and landmarks © OpenStreetMap contributors, ODbL; aliases from Wikidata, CC0; PSGC, PSA".
+- The top comment says what the place is, the ticket, the sources and their licenses:
+  "Landmarks © OpenStreetMap contributors, ODbL; aliases from Wikidata, CC0".
 - Use the same constants and helpers as the discovery seed: `AREAS`, `LANDMARKS`, `TAGS` (new
   only), `LINKS` (only if `destination_links` exists in `backend/db/schema.rb`), and `PARTNERS` /
   `LISTINGS` only when sample listings were asked for.
@@ -100,12 +102,7 @@ corrections and approval. They can't be made in the migration after it merges.
   `Landmark`, then the lower id; a CHECK enforces it). Insert each pair with a
   `SELECT ... CASE` that swaps the ends when needed, and skip pairs whose other end doesn't
   exist yet: the migration that adds that place adds the link.
-- Store a boundary bigger than a few kB as GeoJSON next to the migration:
-  `backend/db/migrate/<timestamp>_seed_<place_slug>_destination.geojson`. Read it with
-  `File.read(__dir__ + ...)` and insert it with
-  `ST_Multi(ST_GeomFromGeoJSON(...))::geography`.
-- `up` skips rows whose slug already exists (`ON CONFLICT (slug) DO NOTHING`). An area it
-  re-parents is listed separately, so `down` can restore the old parent.
+- `up` skips rows whose slug already exists (`ON CONFLICT (slug) DO NOTHING`).
 - `down` deletes only the slugs this migration owns: children before parents, join rows first.
 - Listings must satisfy the listing rules: `area_id` is the area whose boundary covers the
   point, the address fields are filled in, and `attrs` matches the category's
@@ -124,7 +121,7 @@ In the worktree:
    - the row counts per table;
    - every listing and landmark point is covered by its area's (or island's) boundary
      (`ST_Covers`);
-   - no area's center is outside its boundary.
+   - the place and every area above it are published.
 4. Start the stack (`docker compose up -d`) and check the API:
    - `curl` `/api/v1/search?q=<place>` and `/api/v1/search?q=<an alias>`, each on the
      backend port in `.env`;

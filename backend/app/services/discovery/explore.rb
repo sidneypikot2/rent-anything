@@ -108,7 +108,7 @@ module Discovery
 
     def resolve_anchor!
       if @area_slug
-        @area = Area.find_by!(slug: @area_slug)
+        @area = Area.published.find_by!(slug: @area_slug)
         @lng, @lat = @area.center.x, @area.center.y
       elsif @landmark_slug
         @landmark = Landmark.published.includes(:area).find_by!(slug: @landmark_slug)
@@ -120,9 +120,9 @@ module Discovery
       @island = @area&.island
     end
 
-    # The smallest city, town or island whose boundary covers the pin, if any.
+    # The smallest published city, town or island whose boundary covers the pin, if any.
     def pin_area
-      Area.where(kind: DESTINATION_KINDS).where(sanitize("ST_Covers(areas.boundary, #{POINT})"))
+      Area.published.where(kind: DESTINATION_KINDS).where(sanitize("ST_Covers(areas.boundary, #{POINT})"))
         .order(Arel.sql("ST_Area(areas.boundary)")).first
     end
 
@@ -230,7 +230,7 @@ module Discovery
       landmark_ids = keys.filter_map { |type, id| id if type == "Landmark" }
 
       areas = Area.where(id: area_ids)
-        .merge(Area.browsable.or(Area.where(id: Landmark.published.select(:area_id))))
+        .merge(Area.browsable.or(Area.published.where(id: Landmark.published.select(:area_id))))
         .select("areas.*", distance("areas.center"))
       landmarks = Landmark.published.includes(:area).where(id: landmark_ids)
         .select("landmarks.*", distance("landmarks.location"))

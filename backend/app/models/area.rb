@@ -1,8 +1,10 @@
 # A place a guest stays in or around: a tree from region down to a city, town or island
 # (Cebu City sits under Cebu, under Central Visayas). A single point a guest visits is a
-# Landmark instead.
+# Landmark instead. The gazetteer import (RAA-59) brings in every province, city and town
+# as a draft; only published areas reach guests.
 class Area < ApplicationRecord
   KINDS = %w[region province city town island].freeze
+  STATUSES = %w[draft published].freeze
   # Top-level web paths an area slug would collide with.
   RESERVED_SLUGS = %w[partner admin search login register dashboard profile settings nearby].freeze
 
@@ -16,23 +18,27 @@ class Area < ApplicationRecord
   has_many :destination_links_as_target, class_name: "DestinationLink", as: :target, dependent: :delete_all
 
   enum :kind, KINDS.index_with(&:itself), validate: true
+  enum :status, STATUSES.index_with(&:itself), validate: true
 
   validates :slug, presence: true, uniqueness: true, format: { with: /\A[a-z0-9]+(-[a-z0-9]+)*\z/ },
     exclusion: { in: RESERVED_SLUGS, message: "is reserved" }
   validates :name, :center, presence: true
 
-  # Areas with something to book: at least one active listing in the area itself.
-  scope :bookable, -> { where(id: Listing.active.select(:area_id)) }
+  # Published areas with something to book: at least one active listing in the area itself.
+  scope :bookable, -> { published.where(id: Listing.active.select(:area_id)) }
 
-  # The bookable areas and every area above them: Cebu shows when Cebu City has a listing.
+  # The bookable areas and every published area above them: Cebu shows when Cebu City has
+  # a listing.
   scope :browsable, -> {
     where(<<~SQL.squish)
       areas.id IN (
         WITH RECURSIVE browsable(id, parent_id) AS (
           SELECT bookable.id, bookable.parent_id FROM areas bookable
-          WHERE EXISTS (SELECT 1 FROM listings WHERE listings.area_id = bookable.id AND listings.status = 'active')
+          WHERE bookable.status = 'published'
+            AND EXISTS (SELECT 1 FROM listings WHERE listings.area_id = bookable.id AND listings.status = 'active')
           UNION
           SELECT parents.id, parents.parent_id FROM areas parents JOIN browsable ON browsable.parent_id = parents.id
+          WHERE parents.status = 'published'
         )
         SELECT id FROM browsable
       )
@@ -65,9 +71,16 @@ class Area < ApplicationRecord
     SQL
   end
 
-  # The island this area is, or the nearest one above it: Malapascua for Malapascua, though
-  # it sits under Daanbantayan on Cebu. Explore keeps everything on an island to that island.
+  # Guests see a published area only under published ones, so the whole lineage goes live.
+  def publish!
+    Area.where(id: lineage.map(&:id)).update_all(status: "published", updated_at: Time.current)
+    reload
+  end
+
+  # The published island this area is, or the nearest one above it: Malapascua for
+  # Malapascua, though it sits under Daanbantayan on Cebu. Explore keeps everything on an
+  # island to that island.
   def island
-    lineage.find(&:island?)
+    lineage.find { |area| area.island? && area.published? }
   end
 end
