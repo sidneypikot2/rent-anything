@@ -11,6 +11,8 @@ export type AreaCard = components["schemas"]["area_card"];
 export type AreaDetail = components["schemas"]["area_detail"];
 export type Activity = components["schemas"]["activity"];
 export type SearchResults = components["schemas"]["search_results"];
+export type ListingPin = components["schemas"]["listing_pin"];
+export type LandmarkPin = components["schemas"]["landmark_pin"];
 
 export async function getDestinations(): Promise<AreaCard[]> {
   await connection();
@@ -23,6 +25,22 @@ export async function getActivities(): Promise<Activity[]> {
   await connection();
   const { data, error } = await serverApiClient().GET("/api/v1/activities");
   if (error || !data) throw new Error("Couldn't load activities");
+  return data;
+}
+
+// Map pins (RAA-52): every active listing, its location rounded to ~1 km, and every
+// published landmark, exact.
+export async function getListingPins(): Promise<ListingPin[]> {
+  await connection();
+  const { data, error } = await serverApiClient().GET("/api/v1/listings");
+  if (error || !data) throw new Error("Couldn't load listings");
+  return data;
+}
+
+export async function getLandmarkPins(): Promise<LandmarkPin[]> {
+  await connection();
+  const { data, error } = await serverApiClient().GET("/api/v1/landmarks");
+  if (error || !data) throw new Error("Couldn't load landmarks");
   return data;
 }
 
