@@ -1,0 +1,46 @@
+# Gazetteer data (RAA-59)
+
+The areas guests search and browse: every region, province, city and town in the
+Philippines with its official code and boundary, plus the islands we curate. `bin/rails
+gazetteer:import` loads these files into `areas` (re-runnable; new areas are drafts) and
+`bin/rails gazetteer:publish SLUGS=...` puts areas live. Nothing here is fetched while a
+guest searches.
+
+| File | What | Made by |
+|---|---|---|
+| `areas.geojson.gz` | One feature per region, province, city and town: `psgc_code`, `name`, `kind`, `parent_psgc_code` and its boundary (simplified to about 20 m), or no geometry when COD-AB has none | `script/gazetteer-prepare` |
+| `landmasses.geojson.gz` | The country's land split into separate polygons, one per island; curated islands take their boundary from here | `script/gazetteer-prepare` |
+| `curated.yml` | Hand-made areas mapped to their PSGC code, and the islands we build | by hand |
+
+## Sources and licences
+
+Only free, openly licensed data. Checked 9 Oct 2026.
+
+- **Philippine Standard Geographic Code (PSGC)**, Philippine Statistics Authority:
+  names, 10-digit codes and levels. PSA open data, Creative Commons Attribution
+  (https://openstat.psa.gov.ph/Terms). Credit: "Source: Philippine Statistics Authority,
+  PSGC. Modified." We changed it: names tidied ("City of Talisay" → "Talisay City"),
+  barangays and sub-municipalities left out.
+- **Philippines subnational administrative boundaries (COD-AB) v03**, OCHA, from PSA and
+  NAMRIA data, on HDX (https://data.humdata.org/dataset/cod-ab-phl): boundaries and
+  the province each city sits in. CC BY-IGO. Credit: "Boundaries: OCHA, PSA and NAMRIA,
+  via HDX. Simplified." The boundaries are not an official endorsement of any border.
+
+Not used: OpenStreetMap (ODbL share-alike could reach our own listings if its island
+outlines filtered them), GADM (non-commercial only), the psgc.gitlab.io API (no licence,
+data stops at 2022).
+
+The credits must show wherever these boundaries or names are shown as data (a credits page
+in the web app).
+
+## Refreshing (quarterly, when the PSA publishes a new PSGC)
+
+1. Download the latest PSGC datafile (xlsx) from https://psa.gov.ph/classification/psgc
+   (the site refuses scripted downloads) and `phl_admin_boundaries.gdb.zip` from the HDX
+   page above. Keep both outside the repo.
+2. `script/gazetteer-prepare <psgc.xlsx> <phl_admin_boundaries.gdb.zip>` rewrites the two
+   `.geojson.gz` files. It runs GDAL in its official container; nothing to install.
+3. Update the versions below, commit, and after the merge run `bin/rails gazetteer:import`
+   against each database.
+
+Current: PSGC <filled in by the prepare run>; COD-AB v03 (valid on 2025-02-13).

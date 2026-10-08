@@ -1,0 +1,481 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "psgc_code": "0700000000",
+    "name": "Region VII (Central Visayas)",
+    "kind": "region",
+    "parent_psgc_code": null
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        123.3,
+        9.4
+       ],
+       [
+        124.2,
+        9.4
+       ],
+       [
+        124.2,
+        11.4
+       ],
+       [
+        123.3,
+        11.4
+       ],
+       [
+        123.3,
+        9.4
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "psgc_code": "0702200000",
+    "name": "Cebu",
+    "kind": "province",
+    "parent_psgc_code": "0700000000"
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        123.3,
+        9.4
+       ],
+       [
+        124.2,
+        9.4
+       ],
+       [
+        124.2,
+        11.4
+       ],
+       [
+        123.3,
+        11.4
+       ],
+       [
+        123.3,
+        9.4
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "psgc_code": "0730600000",
+    "name": "City of Cebu (Capital)",
+    "kind": "city",
+    "parent_psgc_code": "0702200000"
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        123.8,
+        10.25
+       ],
+       [
+        123.92,
+        10.25
+       ],
+       [
+        123.92,
+        10.45
+       ],
+       [
+        123.8,
+        10.45
+       ],
+       [
+        123.8,
+        10.25
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "psgc_code": "0702239000",
+    "name": "Santa Fe",
+    "kind": "town",
+    "parent_psgc_code": "0702200000"
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        123.77,
+        11.1
+       ],
+       [
+        123.85,
+        11.1
+       ],
+       [
+        123.85,
+        11.2
+       ],
+       [
+        123.77,
+        11.2
+       ],
+       [
+        123.77,
+        11.1
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "psgc_code": "0702210000",
+    "name": "Bantayan",
+    "kind": "town",
+    "parent_psgc_code": "0702200000"
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        123.7,
+        11.1
+       ],
+       [
+        123.77,
+        11.1
+       ],
+       [
+        123.77,
+        11.25
+       ],
+       [
+        123.7,
+        11.25
+       ],
+       [
+        123.7,
+        11.1
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "psgc_code": "0702235000",
+    "name": "Madridejos",
+    "kind": "town",
+    "parent_psgc_code": "0702200000"
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        123.7,
+        11.25
+       ],
+       [
+        123.85,
+        11.25
+       ],
+       [
+        123.85,
+        11.3
+       ],
+       [
+        123.7,
+        11.3
+       ],
+       [
+        123.7,
+        11.25
+       ]
+      ]
+     ],
+     [
+      [
+       [
+        123.77,
+        11.2
+       ],
+       [
+        123.85,
+        11.2
+       ],
+       [
+        123.85,
+        11.25
+       ],
+       [
+        123.77,
+        11.25
+       ],
+       [
+        123.77,
+        11.2
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "psgc_code": "0702221000",
+    "name": "Daanbantayan",
+    "kind": "town",
+    "parent_psgc_code": "0702200000"
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        123.95,
+        11.15
+       ],
+       [
+        124.1,
+        11.15
+       ],
+       [
+        124.1,
+        11.3
+       ],
+       [
+        123.95,
+        11.3
+       ],
+       [
+        123.95,
+        11.15
+       ]
+      ]
+     ],
+     [
+      [
+       [
+        124.1,
+        11.31
+       ],
+       [
+        124.13,
+        11.31
+       ],
+       [
+        124.13,
+        11.35
+       ],
+       [
+        124.1,
+        11.35
+       ],
+       [
+        124.1,
+        11.31
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "psgc_code": "0702250000",
+    "name": "City of Talisay",
+    "kind": "city",
+    "parent_psgc_code": "0702200000"
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        123.8,
+        10.2
+       ],
+       [
+        123.85,
+        10.2
+       ],
+       [
+        123.85,
+        10.25
+       ],
+       [
+        123.8,
+        10.25
+       ],
+       [
+        123.8,
+        10.2
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "psgc_code": "0702299000",
+    "name": "Pilar",
+    "kind": "town",
+    "parent_psgc_code": "0702200000"
+   },
+   "geometry": null
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "psgc_code": "0200000000",
+    "name": "Region II (Cagayan Valley)",
+    "kind": "region",
+    "parent_psgc_code": null
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        120.5,
+        15.9
+       ],
+       [
+        122.5,
+        15.9
+       ],
+       [
+        122.5,
+        18.6
+       ],
+       [
+        120.5,
+        18.6
+       ],
+       [
+        120.5,
+        15.9
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "psgc_code": "0205000000",
+    "name": "Nueva Vizcaya",
+    "kind": "province",
+    "parent_psgc_code": "0200000000"
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        120.7,
+        15.9
+       ],
+       [
+        121.5,
+        15.9
+       ],
+       [
+        121.5,
+        16.6
+       ],
+       [
+        120.7,
+        16.6
+       ],
+       [
+        120.7,
+        15.9
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "psgc_code": "0205012000",
+    "name": "Santa Fe",
+    "kind": "town",
+    "parent_psgc_code": "0205000000"
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        120.85,
+        16.1
+       ],
+       [
+        121.0,
+        16.1
+       ],
+       [
+        121.0,
+        16.25
+       ],
+       [
+        120.85,
+        16.25
+       ],
+       [
+        120.85,
+        16.1
+       ]
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

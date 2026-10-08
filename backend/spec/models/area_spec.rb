@@ -32,10 +32,34 @@ RSpec.describe Area do
       expect(described_class.browsable).to contain_exactly(region, province, city)
     end
 
+    it "leaves out draft areas, and the areas above only them" do
+      province = create(:area, kind: "province", status: "draft")
+      town = create(:area, kind: "town", parent: province)
+      draft_town = create(:area, :draft, kind: "town", parent: create(:area, kind: "province"))
+      create(:listing, area: town)
+      create(:listing, area: draft_town)
+
+      expect(described_class.browsable).to contain_exactly(town)
+    end
+
     it "ignores listings that are not active" do
       create(:listing, :pending)
 
       expect(described_class.browsable).to be_empty
+    end
+  end
+
+  describe "#publish!" do
+    it "publishes the area and every area above it" do
+      region = create(:area, :draft, kind: "region")
+      province = create(:area, :draft, kind: "province", parent: region)
+      town = create(:area, :draft, kind: "town", parent: province)
+      other = create(:area, :draft, kind: "town", parent: province)
+
+      town.publish!
+
+      expect([ region, province, town ].map { |area| area.reload.status }).to all(eq("published"))
+      expect(other.reload).to be_draft
     end
   end
 end
