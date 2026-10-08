@@ -865,7 +865,7 @@ export interface paths {
         put?: never;
         /**
          * Add a listing
-         * @description Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area is the city, town or island nearest the pin, within 50 km. The partner must have passed the ID check first (`/api/v1/partner/verification`); until then it is a 403.
+         * @description Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area is the smallest published city, town or island whose boundary covers the pin; failing that, the one whose center is nearest the pin, within 50 km. The partner must have passed the ID check first (`/api/v1/partner/verification`); until then it is a 403.
          */
         post: {
             parameters: {

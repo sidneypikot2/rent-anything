@@ -43,4 +43,16 @@ in the web app).
 3. Update the versions below, commit, and after the merge run `bin/rails gazetteer:import`
    against each database.
 
-Current: PSGC <filled in by the prepare run>; COD-AB v03 (valid on 2025-02-13).
+Current: PSGC 2Q 2026 (published 30 June 2026; 18 regions, 82 provinces, 149 cities, 1,493
+municipalities); COD-AB v03 (valid on 2025-02-13).
+
+Places without a boundary (they fall back to the area tree): the Negros Island Region,
+which is newer than COD-AB, and the 44 Maguindanao towns and Cotabato City, whose codes
+changed when the province split in 2022. COD-AB's own cities with no town-level polygon
+(the City of Manila) take their district's.
+
+## Publishing
+
+Imported areas are drafts. Publish a destination, with every area above it, once it has
+something to offer: `bin/rails gazetteer:publish SLUGS=moalboal,badian`. An island is
+added to `curated.yml` (a point anywhere on it) and built by the next import.

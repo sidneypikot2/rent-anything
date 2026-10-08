@@ -231,6 +231,24 @@ RSpec.describe "Explore", type: :request do
         end
       end
 
+      response "200", "a pin on a draft island: not isolated to it" do
+        schema "$ref" => "#/components/schemas/explore"
+        let!(:olango) do
+          place("olango-island", "island", "124.05 10.25", parent: cebu, boundary: box(124.00, 10.20, 124.10, 10.30))
+            .tap { |island| island.update!(status: "draft") }
+        end
+        let(:lat) { 10.25 }
+        let(:lng) { 124.05 }
+        let(:km) { 30 }
+
+        run_test! do |response|
+          json = response.parsed_body
+          expect(json["anchor"]["isolated_to"]).to be_nil
+          expect(slugs(json, "listings")).to include("Mandaue bike")
+          expect(slugs(json, "destinations")).not_to include("olango-island")
+        end
+      end
+
       response "200", "a pin outside every area: a plain radius" do
         schema "$ref" => "#/components/schemas/explore"
         let(:lat) { 9.95 }
@@ -251,24 +269,6 @@ RSpec.describe "Explore", type: :request do
         let(:area) { "atlantis" }
 
         run_test!
-      end
-
-      response "200", "a pin on a draft island: not isolated to it" do
-        schema "$ref" => "#/components/schemas/explore"
-        let!(:olango) do
-          place("olango-island", "island", "124.05 10.25", parent: cebu, boundary: box(124.00, 10.20, 124.10, 10.30))
-            .tap { |island| island.update!(status: "draft") }
-        end
-        let(:lat) { 10.25 }
-        let(:lng) { 124.05 }
-        let(:km) { 30 }
-
-        run_test! do |response|
-          json = response.parsed_body
-          expect(json["anchor"]["isolated_to"]).to be_nil
-          expect(slugs(json, "listings")).to include("Mandaue bike")
-          expect(slugs(json, "destinations")).not_to include("olango-island")
-        end
       end
 
       response "404", "a draft area" do

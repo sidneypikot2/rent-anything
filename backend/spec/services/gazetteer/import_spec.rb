@@ -44,6 +44,14 @@ RSpec.describe Gazetteer::Import do
     expect(covers?(cebu_city, 123.85, 10.30)).to be(true)
   end
 
+  it "creates a curated area that doesn't exist yet under its curated slug, though another took its name first" do
+    santa_fe.destroy!
+    import
+
+    expect(area("santa-fe")).to have_attributes(psgc_code: "0702239000", parent: bantayan)
+    expect(area("santa-fe-nueva-vizcaya")).to have_attributes(psgc_code: "0205012000")
+  end
+
   it "gives a name already taken the province's name too" do
     import
 
@@ -77,6 +85,14 @@ RSpec.describe Gazetteer::Import do
     expect([ pilar.center.x, pilar.center.y ]).to eq([ cebu.center.x, cebu.center.y ])
   end
 
+  it "centers a place with no boundary and no parent inside its first child" do
+    import
+
+    region = area("negros-island-region")
+    expect(region.aliases).to eq([ "Negros Island Region (NIR)" ])
+    expect(covers?(area("negros-occidental"), region.center.x, region.center.y)).to be(true)
+  end
+
   it "updates in place when run again" do
     import
     Area.find_by!(psgc_code: "0702250000").update!(name: "Old name")
@@ -88,6 +104,6 @@ RSpec.describe Gazetteer::Import do
   end
 
   it "reports what it did" do
-    expect(import).to eq(created: 9, updated: 3, islands: 2)
+    expect(import).to eq(created: 11, updated: 3, islands: 2)
   end
 end

@@ -1,0 +1,22 @@
+# Read by Gazetteer::Import (RAA-59).
+#
+# areas: hand-made areas (seeded before the import) and their PSGC code. The import gives
+# them their code, boundary and parent, and keeps their slug, name, center, aliases and status.
+areas:
+  central-visayas: "0700000000"
+  cebu: "0702200000"
+  cebu-city: "0730600000"
+  santa-fe: "0702244000"
+
+# islands: islands are not administrative units, so we list the ones guests look for. Each
+# takes its boundary from the landmass under `point` (lng, lat). The towns mostly on it move
+# under it; an island that is part of one town sits under that town. New islands are drafts.
+islands:
+  - slug: bantayan-island
+    name: Bantayan Island
+    point: [123.75, 11.20]
+    aliases: [Bantayan, Santa Fe, Madridejos]
+  - slug: malapascua
+    name: Malapascua
+    point: [124.115, 11.33]
+    aliases: [Malapascua Island]

@@ -4,6 +4,44 @@
   {
    "type": "Feature",
    "properties": {
+    "psgc_code": "0205012000",
+    "name": "Santa Fe",
+    "kind": "town",
+    "parent_psgc_code": "0205000000"
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        120.85,
+        16.1
+       ],
+       [
+        121.0,
+        16.1
+       ],
+       [
+        121.0,
+        16.25
+       ],
+       [
+        120.85,
+        16.25
+       ],
+       [
+        120.85,
+        16.1
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
     "psgc_code": "0700000000",
     "name": "Region VII (Central Visayas)",
     "kind": "region",
@@ -442,10 +480,20 @@
   {
    "type": "Feature",
    "properties": {
-    "psgc_code": "0205012000",
-    "name": "Santa Fe",
-    "kind": "town",
-    "parent_psgc_code": "0205000000"
+    "psgc_code": "1800000000",
+    "name": "Negros Island Region (NIR)",
+    "kind": "region",
+    "parent_psgc_code": null
+   },
+   "geometry": null
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "psgc_code": "1804500000",
+    "name": "Negros Occidental",
+    "kind": "province",
+    "parent_psgc_code": "1800000000"
    },
    "geometry": {
     "type": "MultiPolygon",
@@ -453,24 +501,24 @@
      [
       [
        [
-        120.85,
-        16.1
+        122.4,
+        9.2
        ],
        [
-        121.0,
-        16.1
+        123.5,
+        9.2
        ],
        [
-        121.0,
-        16.25
+        123.5,
+        11.0
        ],
        [
-        120.85,
-        16.25
+        122.4,
+        11.0
        ],
        [
-        120.85,
-        16.1
+        122.4,
+        9.2
        ]
       ]
      ]

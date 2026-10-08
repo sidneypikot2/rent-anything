@@ -9,8 +9,10 @@ module Gazetteer
   class Import < ApplicationService
     DIR = Rails.root.join("db/gazetteer")
     KIND_ORDER = %w[region province city town].freeze
-    # A town this much on an island moves under it (Santa Fe under Bantayan Island).
-    ON_ISLAND = 0.9
+    # A town mostly on an island moves under it (Santa Fe under Bantayan Island). Only half,
+    # because COD-AB's town and coastline outlines differ and towns own islets: 54 % of
+    # Santa Fe's polygon is on the Bantayan landmass, 0 % of Daanbantayan's.
+    ON_ISLAND = 0.5
 
     def initialize(areas: DIR.join("areas.geojson.gz"), landmasses: DIR.join("landmasses.geojson.gz"),
       curated: DIR.join("curated.yml"))
@@ -41,6 +43,10 @@ module Gazetteer
       @curated_slugs ||= @curated.fetch("areas").keys.to_set
     end
 
+    def curated_slug(code)
+      @curated.fetch("areas").key(code)
+    end
+
     def claim_curated_areas
       @curated.fetch("areas").each do |slug, code|
         Area.where(slug:, psgc_code: nil).update_all(psgc_code: code)
@@ -56,9 +62,9 @@ module Gazetteer
 
       if area.new_record?
         name = tidy(properties.fetch("name"))
-        area.assign_attributes(name:, slug: free_slug(name, area.parent), status: "draft",
+        area.assign_attributes(name:, slug: curated_slug(area.psgc_code) || free_slug(name, area.parent), status: "draft",
           aliases: name == properties["name"] ? [] : [ properties["name"] ],
-          center: geometry ? point_on_surface(geometry) : area.parent&.center)
+          center: center_for(geometry, area.parent, properties["psgc_code"]))
         @created += 1
       else
         area.name = tidy(properties.fetch("name")) unless curated_slugs.include?(area.slug)
@@ -71,11 +77,13 @@ module Gazetteer
     end
 
     # PSGC spells some names the official way round: "City of Talisay" is Talisay City to a
-    # guest, "Region VII (Central Visayas)" is Central Visayas, and the capital is just Cebu City.
+    # guest, "Region VII (Central Visayas)" is Central Visayas, the capital is just Cebu City,
+    # and "National Capital Region (NCR)" drops its acronym. The PSGC name stays an alias.
     def tidy(name)
       name = name.sub(/\s*\(Capital\)\z/i, "").strip
       return "#{$1} City" if name =~ /\ACity of (.+)\z/i
       return $1 if name =~ /\ARegion [IVX]+-?[AB]? \((.+)\)\z/
+      return $1 if name =~ /\A(.+) \([A-Z]+\)\z/
 
       name
     end
@@ -83,8 +91,19 @@ module Gazetteer
     def free_slug(name, parent)
       base = name.parameterize
       [ base, "#{base}-#{parent&.name&.parameterize}", "#{base}-#{SecureRandom.hex(3)}" ].find do |slug|
-        !slug.end_with?("-") && !Area::RESERVED_SLUGS.include?(slug) && !Area.exists?(slug:)
+        !slug.end_with?("-") && !Area::RESERVED_SLUGS.include?(slug) && !curated_slugs.include?(slug) &&
+          !Area.exists?(slug:)
       end
+    end
+
+    # Inside the place's own boundary; without one, its parent's center, or else a point
+    # inside its first child (the Negros Island Region is newer than COD-AB).
+    def center_for(geometry, parent, code)
+      return point_on_surface(geometry) if geometry
+      return parent.center if parent
+
+      child = @features.find { |feature| feature["properties"]["parent_psgc_code"] == code && feature["geometry"] }
+      point_on_surface(child["geometry"].to_json) if child
     end
 
     def point_on_surface(geometry)
@@ -130,7 +149,7 @@ module Gazetteer
       end
     end
 
-    # Checked in PostGIS, after a cheap bounding-box test here: there are a thousand landmasses.
+    # Checked in PostGIS, after a cheap bounding-box test here: there are 3,637 landmasses.
     def landmass_at(lng, lat, point)
       @landmasses.lazy.map { |feature| feature["geometry"] }.select { |geometry| in_bbox?(geometry, lng, lat) }
         .map(&:to_json).find do |geometry|
@@ -141,6 +160,8 @@ module Gazetteer
     end
 
     def in_bbox?(geometry, lng, lat)
+      return false unless geometry&.dig("coordinates")&.any?
+
       lngs, lats = geometry["coordinates"].flatten.each_slice(2).to_a.transpose
       lng.between?(lngs.min, lngs.max) && lat.between?(lats.min, lats.max)
     end
