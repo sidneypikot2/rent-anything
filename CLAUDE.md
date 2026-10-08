@@ -12,7 +12,7 @@ Use context7 directly for a single lookup; use the `docs-explorer` subagent only
 
 A repeated mistake or a recurring review comment is an edit to a `.claude/rules/` file (or a hook, if it must always hold), proposed as a PR — not a correction that stays in chat. `/raa-finish` asks for these at the end of every task.
 
-Claude Code config is checked in under `.claude/`: subagents in `agents/`, skills in `skills/` (`/raa-task`, `/raa-finish`, `/release`, `/verify-app` — user-invoked only), shared settings and hooks in `settings.json` / `hooks/`, MCP servers in `.mcp.json`, and conventions in `rules/`, which load automatically when matching files are read. Put new conventions in a rule file scoped by `paths:` to the files they concern — a new topic gets its own file — not in this file.
+Claude Code config is checked in under `.claude/`: subagents in `agents/`, skills in `skills/` (`/raa-task`, `/raa-finish`, `/release`, `/verify-app`, `/seed-place` — user-invoked only), shared settings and hooks in `settings.json` / `hooks/`, MCP servers in `.mcp.json`, and conventions in `rules/`, which load automatically when matching files are read. Put new conventions in a rule file scoped by `paths:` to the files they concern — a new topic gets its own file — not in this file.
 
 ## Conventions
 
