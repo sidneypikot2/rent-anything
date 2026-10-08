@@ -1,9 +1,9 @@
 "use client";
 
-import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
+import { importLibrary } from "@googlemaps/js-api-loader";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/components/ui/cn";
-import { DEFAULT_MAP_CENTER, googleMapsConfig, type LatLng } from "@/lib/map";
+import { DEFAULT_MAP_CENTER, googleMapsConfig, setMapsOptions, type LatLng } from "@/lib/map";
 
 type Props = {
   value: LatLng | null;
@@ -15,7 +15,6 @@ type Props = {
 
 const CONFIG = googleMapsConfig();
 const GEOCODE_DELAY_MS = 600;
-let optionsSet = false;
 
 // A Google map the partner clicks to drop the listing's pin on, then drags to adjust it.
 // A complete address moves the pin there too. A pin given when the map opens (a saved
@@ -41,10 +40,7 @@ export function LocationPicker({ value, onChange, geocodeQuery, error }: Props) 
     let clickListener: google.maps.MapsEventListener | undefined;
     let marker: google.maps.marker.AdvancedMarkerElement | undefined;
 
-    if (!optionsSet) {
-      setOptions({ key: CONFIG.key, v: "weekly" });
-      optionsSet = true;
-    }
+    setMapsOptions(CONFIG);
 
     Promise.all([importLibrary("maps"), importLibrary("marker")])
       .then(([{ Map }, { AdvancedMarkerElement }]) => {
