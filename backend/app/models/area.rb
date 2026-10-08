@@ -4,7 +4,7 @@
 class Area < ApplicationRecord
   KINDS = %w[region province city town island].freeze
   # Top-level web paths an area slug would collide with.
-  RESERVED_SLUGS = %w[partner admin search login register dashboard profile settings].freeze
+  RESERVED_SLUGS = %w[partner admin search login register dashboard profile settings nearby].freeze
 
   belongs_to :parent, class_name: "Area", optional: true
   has_many :children, class_name: "Area", foreign_key: :parent_id, inverse_of: :parent,
