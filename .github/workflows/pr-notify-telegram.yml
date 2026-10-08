@@ -1,0 +1,35 @@
+name: PR notify Telegram
+
+# Posts to the team's Telegram group when a pull request is opened or merged. The bot token
+# and chat id are repository secrets; the token reaches curl on stdin, not its command line.
+on:
+  pull_request:
+    types: [opened, closed]
+
+permissions: {}
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened' || github.event.pull_request.merged == true
+    steps:
+      - env:
+          TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ACTION: ${{ github.event.action }}
+          NUM: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          MERGER: ${{ github.event.pull_request.merged_by.login }}
+          URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          if [ "$ACTION" = "opened" ]; then
+            TEXT="🆕 New PR #$NUM: $TITLE by $AUTHOR"
+          else
+            TEXT="✅ PR #$NUM merged: $TITLE (merged by $MERGER)"
+          fi
+          printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "$TOKEN" |
+            curl -sS --fail-with-body --config - \
+            -d chat_id="$CHAT_ID" \
+            --data-urlencode text="$TEXT
+          $URL"
