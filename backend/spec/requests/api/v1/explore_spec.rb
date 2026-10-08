@@ -169,7 +169,8 @@ RSpec.describe "Explore", type: :request do
           expect(slugs(json, "listings")).to eq([ "Alegria room", "Badian canyoneering", "Moalboal GoPro" ])
           expect(slugs(json, "destinations")).to eq(%w[alegria pescador-island])
           expect(slugs(json, "recommendations")).to eq(%w[moalboal badian])
-          expect(json["recommendations"].last).to include("type" => "area", "kind" => "town", "area_slug" => "badian")
+          expect(json["recommendations"].last).to include("type" => "area", "kind" => "town", "area_slug" => "badian",
+            "location" => { "lat" => 9.87, "lng" => 123.39 })
         end
       end
 

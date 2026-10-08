@@ -1804,6 +1804,8 @@ components:
           type: string
           description: 'The area page to open: the area itself, or the landmark''s
             area'
+        location:
+          "$ref": "#/components/schemas/lat_lng"
         distance_km:
           type: number
           description: From the starting point, one decimal
@@ -1813,6 +1815,7 @@ components:
       - name
       - kind
       - area_slug
+      - location
       - distance_km
     explore_recommendation:
       type: object
@@ -1841,6 +1844,8 @@ components:
           type: string
           description: 'The area page to open: the area itself, or the landmark''s
             area'
+        location:
+          "$ref": "#/components/schemas/lat_lng"
         distance_km:
           type: number
           description: From the starting point, one decimal
@@ -1855,6 +1860,7 @@ components:
       - name
       - kind
       - area_slug
+      - location
       - distance_km
       - reason
     explore_listing:

@@ -11,6 +11,7 @@ EXPLORE_PLACE = {
   name: { type: :string },
   kind: { type: :string, nullable: true, enum: [ *Area::KINDS, nil ], description: "The area's kind; null for a landmark" },
   area_slug: { type: :string, description: "The area page to open: the area itself, or the landmark's area" },
+  location: { "$ref" => "#/components/schemas/lat_lng" },
   distance_km: { type: :number, description: "From the starting point, one decimal" }
 }.freeze
 

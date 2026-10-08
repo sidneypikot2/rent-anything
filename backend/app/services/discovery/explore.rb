@@ -267,8 +267,14 @@ module Discovery
         name: record.name,
         kind: area ? record.kind : nil,
         area_slug: area ? record.slug : record.area.slug,
+        location: lat_lng(area ? record.center : record.location),
         distance_km: (entry[:distance_m] / 1000.0).round(1)
       }
+    end
+
+    # An area's center or a landmark's point: public places, so exact.
+    def lat_lng(point)
+      { lat: point.y, lng: point.x }
     end
 
     def km_from(record)

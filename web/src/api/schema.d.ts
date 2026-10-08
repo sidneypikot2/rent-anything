@@ -1977,6 +1977,7 @@ export interface components {
             kind: "region" | "province" | "city" | "town" | "island" | null;
             /** @description The area page to open: the area itself, or the landmark's area */
             area_slug: string;
+            location: components["schemas"]["lat_lng"];
             /** @description From the starting point, one decimal */
             distance_km: number;
         };
@@ -1992,6 +1993,7 @@ export interface components {
             kind: "region" | "province" | "city" | "town" | "island" | null;
             /** @description The area page to open: the area itself, or the landmark's area */
             area_slug: string;
+            location: components["schemas"]["lat_lng"];
             /** @description From the starting point, one decimal */
             distance_km: number;
             /** @enum {string} */
