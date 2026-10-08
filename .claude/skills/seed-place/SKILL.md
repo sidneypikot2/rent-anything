@@ -96,6 +96,10 @@ corrections and approval. They can't be made in the migration after it merges.
 - Use the same constants and helpers as the discovery seed: `AREAS`, `LANDMARKS`, `TAGS` (new
   only), `LINKS` (only if `destination_links` exists in `backend/db/schema.rb`), and `PARTNERS` /
   `LISTINGS` only when sample listings were asked for.
+- A link is stored once, with the lower `(type, id)` end as the source (`Area` before
+  `Landmark`, then the lower id; a CHECK enforces it). Insert each pair with a
+  `SELECT ... CASE` that swaps the ends when needed, and skip pairs whose other end doesn't
+  exist yet: the migration that adds that place adds the link.
 - Store a boundary bigger than a few kB as GeoJSON next to the migration:
   `backend/db/migrate/<timestamp>_seed_<place_slug>_destination.geojson`. Read it with
   `File.read(__dir__ + ...)` and insert it with
