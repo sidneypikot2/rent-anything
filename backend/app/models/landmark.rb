@@ -9,6 +9,9 @@ class Landmark < ApplicationRecord
   has_many :tags, through: :landmark_tags
   has_many :listing_landmarks, dependent: :delete_all
   has_many :listings, through: :listing_landmarks
+  # Read both ends through DestinationLink.for; these only clean up.
+  has_many :destination_links_as_source, class_name: "DestinationLink", as: :source, dependent: :delete_all
+  has_many :destination_links_as_target, class_name: "DestinationLink", as: :target, dependent: :delete_all
 
   enum :status, STATUSES.index_with(&:itself), validate: true
 

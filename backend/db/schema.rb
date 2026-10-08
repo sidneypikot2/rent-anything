@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_08_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_09_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -54,6 +54,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_08_000000) do
     t.integer "weight", limit: 2, default: 1, null: false
     t.index ["tag_id"], name: "index_category_tags_on_tag_id"
     t.check_constraint "weight >= 1 AND weight <= 3", name: "category_tags_weight_check"
+  end
+
+  create_table "destination_links", force: :cascade do |t|
+    t.string "source_type", null: false
+    t.bigint "source_id", null: false
+    t.string "target_type", null: false
+    t.bigint "target_id", null: false
+    t.string "kind", null: false
+    t.integer "weight", limit: 2, default: 1, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["source_type", "source_id", "target_type", "target_id"], name: "index_destination_links_on_pair", unique: true
+    t.index ["target_type", "target_id"], name: "index_destination_links_on_target_type_and_target_id"
+    t.check_constraint "(ROW(source_type::text, source_id) < ROW(target_type::text, target_id))", name: "destination_links_order_check"
+    t.check_constraint "(source_type::text = ANY (ARRAY['Area'::character varying, 'Landmark'::character varying]::text[])) AND (target_type::text = ANY (ARRAY['Area'::character varying, 'Landmark'::character varying]::text[]))", name: "destination_links_types_check"
+    t.check_constraint "kind::text = ANY (ARRAY['bundled'::character varying, 'adjacent'::character varying]::text[])", name: "destination_links_kind_check"
+    t.check_constraint "weight >= 1 AND weight <= 3", name: "destination_links_weight_check"
   end
 
   create_table "guest_profiles", force: :cascade do |t|

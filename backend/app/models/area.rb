@@ -11,6 +11,9 @@ class Area < ApplicationRecord
     dependent: :restrict_with_error
   has_many :landmarks, dependent: :restrict_with_error
   has_many :listings, dependent: :restrict_with_error
+  # Read both ends through DestinationLink.for; these only clean up.
+  has_many :destination_links_as_source, class_name: "DestinationLink", as: :source, dependent: :delete_all
+  has_many :destination_links_as_target, class_name: "DestinationLink", as: :target, dependent: :delete_all
 
   enum :kind, KINDS.index_with(&:itself), validate: true
 
