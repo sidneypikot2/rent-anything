@@ -95,7 +95,7 @@ areas and a tour can visit several.
   An undated item goes to the most recently edited trip with the same destination. Items can
   be moved and trips merged.
 - Undated items can sit in a trip but can't be checked out until they have a date.
-- Cleanup (a later ticket): a daily job shows an in-app notice when a trip ends and deletes its
+- Cleanup (RAA-65): a daily job shows an in-app notice when a trip ends and deletes its
   unbooked items 7 days later. An undated trip gets the same notice after 60 days with no
   edits. Booked items are never deleted. No email in M4.
 - The cart holds nothing: availability and price are re-quoted at checkout, and changed
@@ -160,7 +160,7 @@ after a booking is paid (keeps deals on the platform).
 | M1 | Auth & accounts | Email/password, phone OTP (deferred), JWT access + refresh tokens, roles (guest, partner, admin), profile |
 | M2 | Areas, categories, listings | Listing CRUD, photos, attrs schema, pricing tiers, PostGIS search, area home (map + list), listing page |
 | M3 | Availability & quotes | Units, blocks, activity slots, transfer routes, the exclusion constraint, quotes, partner calendar |
-| M4 | Cart, booking & payments | Cart of trips (RAA-64 API; trip cleanup job; add-to-trip and cart UI; tour landmark picker), checkout of selected items, booking lifecycle, Xendit split payment + webhooks, commission, deposit, cancellation policies, payouts |
+| M4 | Cart, booking & payments | Cart of trips (RAA-64 API; RAA-65 trip cleanup job; add-to-trip and cart UI; tour landmark picker), checkout of selected items, booking lifecycle, Xendit split payment + webhooks, commission, deposit, cancellation policies, payouts |
 | M5 | Trust | Listing approval (partner ID verification moved earlier: RAA-44, Didit), reviews, contact masking |
 | M6 | Chat | Conversations per listing/booking |
 | M7 | Operations | Pickup/return checklists with photos, disputes, admin console |

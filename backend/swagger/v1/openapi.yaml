@@ -1565,9 +1565,10 @@ paths:
       summary: The signed-in guest's trips
       tags:
       - Trips
-      description: 'Guest-only. The cart: every trip that hasn''t ended or ended within
-        the last 7 days (its unbooked items are deleted then), undated ones included,
-        with its items. Dated trips come first, soonest first; then undated ones,
+      description: 'Guest-only. The cart: every trip whose `deletes_on` hasn''t come,
+        with its items. A trip that has ended, or an undated one with no edits for
+        60 days, shows a deletion notice for 7 days; then a daily job deletes its
+        unbooked items. Dated trips come first, soonest first; then undated ones,
         most recently edited first.'
       security:
       - bearer: []
@@ -2164,6 +2165,13 @@ components:
           type: string
           format: date-time
           description: Last edited, items included
+        deletes_on:
+          type: string
+          format: date
+          nullable: true
+          description: When its unbooked items are deleted; set for the 7 days before,
+            which start the day after the trip ends, or after 60 days without edits
+            for an undated trip
         items:
           type: array
           items:
@@ -2177,6 +2185,7 @@ components:
       - guests
       - destinations
       - updated_at
+      - deletes_on
       - items
     trip_item:
       type: object

@@ -12,8 +12,9 @@ RSpec.describe "Trips", type: :request do
     get "The signed-in guest's trips" do
       tags "Trips"
       produces "application/json"
-      description "Guest-only. The cart: every trip that hasn't ended or ended within the last 7 days (its " \
-        "unbooked items are deleted then), undated ones included, with its items. Dated trips come first, " \
+      description "Guest-only. The cart: every trip whose `deletes_on` hasn't come, with its items. A trip " \
+        "that has ended, or an undated one with no edits for 60 days, shows a deletion notice for 7 days; " \
+        "then a daily job deletes its unbooked items. Dated trips come first, " \
         "soonest first; then undated ones, most recently edited first."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
@@ -38,6 +39,7 @@ RSpec.describe "Trips", type: :request do
         run_test! do |response|
           body = response.parsed_body
           expect(body.pluck("name")).to eq([ "Oslob day trip", "Bantayan", "Siargao weekend", "Someday" ])
+          expect(body.pluck("deletes_on")).to eq([ 5.days.from_now.to_date.iso8601, nil, nil, nil ])
           body.shift
           expect(body.first).to include("destinations" => [ "Bantayan Island" ], "starts_on" => day.iso8601)
           expect(body.first["items"].pluck("starts_on")).to eq([ (day + 1).iso8601, nil ])
