@@ -25,6 +25,10 @@ Only free, openly licensed data. Checked 9 Oct 2026.
   NAMRIA data, on HDX (https://data.humdata.org/dataset/cod-ab-phl): boundaries and
   the province each city sits in. CC BY-IGO. Credit: "Boundaries: OCHA, PSA and NAMRIA,
   via HDX. Simplified." The boundaries are not an official endorsement of any border.
+- **Wikidata** (CC0) and **Wikimedia pageviews**: extra search terms (labels and aliases
+  in en, tl, ceb) and a starting popularity for published areas and landmarks. Read live
+  by `bin/rails gazetteer:wikidata`, not stored here. No credit required; credit
+  "Wikidata" anyway wherever these terms show.
 
 Not used: OpenStreetMap (ODbL share-alike could reach our own listings if its island
 outlines filtered them), GADM (non-commercial only), the psgc.gitlab.io API (no licence,
@@ -56,3 +60,16 @@ changed when the province split in 2022. COD-AB's own cities with no town-level 
 Imported areas are drafts. Publish a destination, with every area above it, once it has
 something to offer: `bin/rails gazetteer:publish SLUGS=moalboal,badian`. An island is
 added to `curated.yml` (a point anywhere on it) and built by the next import.
+
+## Wikidata enrichment
+
+After publishing, run `bin/rails gazetteer:wikidata`. It matches each published area and
+landmark to a Wikidata item once:
+- an area by its PSGC code (Wikidata keeps the old 9-digit form), otherwise by name within
+  10 km;
+- a landmark by name within 2 km.
+
+It then stores the item's terms in `wikidata_aliases` and a starting popularity in
+`wikidata_popularity`. The curated `aliases` are never touched. A place it reports as
+skipped (no match, several, or an item another place already has) needs its
+`wikidata_id` set by hand; a re-run then picks it up.
