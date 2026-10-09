@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_09_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_09_000003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -38,7 +38,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000001) do
     t.index ["status"], name: "index_areas_on_status"
     t.check_constraint "kind::text = ANY (ARRAY['region'::character varying::text, 'province'::character varying::text, 'city'::character varying::text, 'town'::character varying::text, 'island'::character varying::text])", name: "areas_kind_check"
     t.check_constraint "psgc_code::text ~ '^[0-9]{10}$'::text", name: "areas_psgc_code_check"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'published'::character varying]::text[])", name: "areas_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'published'::character varying::text])", name: "areas_status_check"
   end
 
   create_table "categories", force: :cascade do |t|
@@ -214,6 +214,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000001) do
     t.index ["user_id"], name: "index_refresh_tokens_on_user_id"
   end
 
+  create_table "search_events", force: :cascade do |t|
+    t.string "query_normalized", limit: 100, null: false
+    t.integer "result_count", null: false
+    t.string "target_type"
+    t.bigint "target_id"
+    t.string "session_hash", limit: 64, null: false
+    t.datetime "created_at", null: false
+    t.index ["created_at"], name: "index_search_events_on_created_at"
+    t.index ["session_hash"], name: "index_search_events_on_session_hash"
+    t.index ["target_type", "target_id"], name: "index_search_events_on_target_type_and_target_id"
+    t.check_constraint "(target_type IS NULL) = (target_id IS NULL)", name: "search_events_target_check"
+    t.check_constraint "result_count >= 0", name: "search_events_result_count_check"
+    t.check_constraint "session_hash::text ~ '^[0-9a-f]{64}$'::text", name: "search_events_session_hash_check"
+    t.check_constraint "target_type::text = ANY (ARRAY['Area'::character varying, 'Landmark'::character varying, 'Tag'::character varying, 'Listing'::character varying]::text[])", name: "search_events_target_type_check"
+  end
+
   create_table "tags", force: :cascade do |t|
     t.string "slug", null: false
     t.string "name", null: false
@@ -263,4 +279,94 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000001) do
   add_foreign_key "partner_verifications", "users"
   add_foreign_key "partner_verifications", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_partner_verifications_user_role"
   add_foreign_key "refresh_tokens", "users"
+
+  create_view "search_terms", materialized: true, sql_definition: <<-SQL
+      WITH RECURSIVE area_tree(ancestor_id, area_id) AS (
+           SELECT areas.id,
+              areas.id
+             FROM areas
+            WHERE ((areas.status)::text = 'published'::text)
+          UNION
+           SELECT area_tree.ancestor_id,
+              children.id
+             FROM (areas children
+               JOIN area_tree ON ((children.parent_id = area_tree.area_id)))
+            WHERE ((children.status)::text = 'published'::text)
+          ), picks AS (
+           SELECT search_events.target_type,
+              search_events.target_id,
+              count(*) AS picks
+             FROM search_events
+            WHERE ((search_events.target_id IS NOT NULL) AND (search_events.created_at > (now() - 'P90D'::interval)))
+            GROUP BY search_events.target_type, search_events.target_id
+          ), area_popularity AS (
+           SELECT area_tree.ancestor_id AS id,
+              (count(DISTINCT listings.id) + count(DISTINCT landmarks.id)) AS score
+             FROM ((area_tree
+               LEFT JOIN listings ON (((listings.area_id = area_tree.area_id) AND ((listings.status)::text = 'active'::text))))
+               LEFT JOIN landmarks ON (((landmarks.area_id = area_tree.area_id) AND ((landmarks.status)::text = 'published'::text))))
+            GROUP BY area_tree.ancestor_id
+          ), targets AS (
+           SELECT 'Area'::text AS target_type,
+              areas.id AS target_id,
+              areas.name,
+              areas.aliases,
+              area_popularity.score
+             FROM (areas
+               JOIN area_popularity ON ((area_popularity.id = areas.id)))
+            WHERE ((areas.status)::text = 'published'::text)
+          UNION ALL
+           SELECT 'Landmark'::text,
+              landmarks.id,
+              landmarks.name,
+              landmarks.aliases,
+              ( SELECT count(*) AS count
+                     FROM (listing_landmarks
+                       JOIN listings ON ((listings.id = listing_landmarks.listing_id)))
+                    WHERE ((listing_landmarks.landmark_id = landmarks.id) AND ((listings.status)::text = 'active'::text))) AS count
+             FROM landmarks
+            WHERE ((landmarks.status)::text = 'published'::text)
+          UNION ALL
+           SELECT 'Tag'::text,
+              tags.id,
+              tags.name,
+              tags.aliases,
+              ( SELECT count(*) AS count
+                     FROM (landmark_tags
+                       JOIN landmarks ON ((landmarks.id = landmark_tags.landmark_id)))
+                    WHERE ((landmark_tags.tag_id = tags.id) AND ((landmarks.status)::text = 'published'::text))) AS count
+             FROM tags
+          ), terms AS (
+           SELECT targets.target_type,
+              targets.target_id,
+              targets.name AS term,
+              'name'::text AS kind,
+              2 AS weight,
+              targets.score
+             FROM targets
+          UNION ALL
+           SELECT targets.target_type,
+              targets.target_id,
+              alias_name.alias_name,
+              'alias'::text,
+              1,
+              targets.score
+             FROM targets,
+              LATERAL unnest(targets.aliases) alias_name(alias_name)
+          )
+   SELECT unaccent(lower((terms.term)::text)) AS term_normalized,
+      min((terms.term)::text) AS term,
+      terms.target_type,
+      terms.target_id,
+      terms.kind,
+      max(terms.weight) AS weight,
+      ((max(terms.score) + COALESCE(max(picks.picks), (0)::bigint)))::integer AS popularity
+     FROM (terms
+       LEFT JOIN picks ON ((((picks.target_type)::text = terms.target_type) AND (picks.target_id = terms.target_id))))
+    WHERE (btrim((terms.term)::text) <> ''::text)
+    GROUP BY (unaccent(lower((terms.term)::text))), terms.target_type, terms.target_id, terms.kind;
+  SQL
+  add_index "search_terms", ["target_type", "target_id", "kind", "term_normalized"], name: "index_search_terms_on_target_and_term", unique: true
+  add_index "search_terms", ["term_normalized"], name: "index_search_terms_on_term_normalized", opclass: :gin_trgm_ops, using: :gin
+
 end

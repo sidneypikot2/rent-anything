@@ -3,6 +3,8 @@
 # Landmark instead. The gazetteer import (RAA-59) brings in every province, city and town
 # as a draft; only published areas reach guests.
 class Area < ApplicationRecord
+  include SearchTermSource
+
   KINDS = %w[region province city town island].freeze
   STATUSES = %w[draft published].freeze
   # Top-level web paths an area slug would collide with.

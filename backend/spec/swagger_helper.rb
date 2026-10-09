@@ -447,6 +447,64 @@ RSpec.configure do |config|
               listings: { type: :array, items: { "$ref" => "#/components/schemas/listing_summary" } }
             },
             required: %w[areas landmarks tags listings]
+          },
+          # Admin search and link queues (RAA-60).
+          place_key: {
+            type: :object,
+            description: "An area, landmark or tag, by slug",
+            properties: {
+              type: { type: :string, enum: %w[area landmark tag] },
+              slug: { type: :string }
+            },
+            required: %w[type slug]
+          },
+          place_ref: {
+            type: :object,
+            properties: {
+              type: { type: :string, enum: %w[area landmark tag] },
+              slug: { type: :string },
+              name: { type: :string }
+            },
+            required: %w[type slug name]
+          },
+          search_term_queue_entry: {
+            type: :object,
+            properties: {
+              query: { type: :string, description: "Normalized: lower case, no accents" },
+              searches: { type: :integer },
+              picks: { type: :integer, description: "Searches where a result was picked" },
+              zero_results: { type: :integer, description: "Searches that found nothing" }
+            },
+            required: %w[query searches picks zero_results]
+          },
+          search_term_target: {
+            type: :object,
+            properties: {
+              type: { type: :string, enum: %w[area landmark tag] },
+              slug: { type: :string },
+              name: { type: :string },
+              aliases: { type: :array, items: { type: :string } }
+            },
+            required: %w[type slug name aliases]
+          },
+          link_suggestion: {
+            type: :object,
+            properties: {
+              source: { "$ref" => "#/components/schemas/place_ref" },
+              target: { "$ref" => "#/components/schemas/place_ref" },
+              sessions: { type: :integer, description: "Visits in which guests picked both" }
+            },
+            required: %w[source target sessions]
+          },
+          destination_link: {
+            type: :object,
+            properties: {
+              source: { "$ref" => "#/components/schemas/place_ref" },
+              target: { "$ref" => "#/components/schemas/place_ref" },
+              kind: { type: :string, enum: DestinationLink::KINDS },
+              weight: { type: :integer }
+            },
+            required: %w[source target kind weight]
           }
         }
       }

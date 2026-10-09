@@ -28,6 +28,16 @@ Rails.application.routes.draw do
       resources :landmarks, only: :index
       # One destination's listings, nearby destinations and recommendations (RAA-56).
       get "explore", to: "explore#index"
+      # What guests search for and pick (RAA-60).
+      resources :search_events, only: :create
+
+      # Admin-only (RAA-60): the search-term and destination-link queues.
+      namespace :admin do
+        resource :search_term_queue, only: :show
+        resources :search_terms, only: :create
+        resources :link_suggestions, only: :index
+        resources :destination_links, only: :create
+      end
 
       namespace :partner do
         resource :me, only: :show, controller: "me"

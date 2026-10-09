@@ -30,4 +30,7 @@ end
 unless Rails.env.test?
   require Rails.root.join("db/migrate/20261006000001_seed_discovery_sample_data").to_s
   Area.where(slug: SeedDiscoverySampleData::AREAS.map(&:first) + [ "santa-fe" ]).update_all(status: "published")
+
+  # The search box reads the search_terms view (RAA-60); fill it from what was just loaded.
+  SearchTerm.refresh
 end

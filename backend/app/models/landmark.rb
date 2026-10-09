@@ -2,6 +2,8 @@
 # serves it. Content, not inventory: an admin writes it, no partner needed. Only published
 # landmarks reach guests.
 class Landmark < ApplicationRecord
+  include SearchTermSource
+
   STATUSES = %w[draft published].freeze
 
   belongs_to :area

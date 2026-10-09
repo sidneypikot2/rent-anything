@@ -2,9 +2,13 @@ module Discovery
   # The guest search box: one query over areas, published landmarks, tags and active
   # listings, grouped by kind. Matching ignores case and accents (unaccent), finds the query
   # anywhere in a name or alias, and tolerates small typos (pg_trgm word similarity). Within
-  # a group: exact name first, then names that start with the query, then the rest by
-  # similarity. Only places that lead somewhere bookable show: areas when they or an area
-  # under them have an active listing, landmarks and tags when they are in such an area.
+  # a group: exact name or alias first, then terms that start with the query, then the rest
+  # by similarity, and the more popular place on a tie. Only places that lead somewhere
+  # bookable show: areas when they or an area under them have an active listing, landmarks
+  # and tags when they are in such an area.
+  #
+  # Areas, landmarks and tags are matched against the search_terms view (RAA-60), one row
+  # per name and alias; listings against their title and category, live.
   class Search < ApplicationService
     MIN_LENGTH = 2
     LIMIT = 5
@@ -34,45 +38,57 @@ module Discovery
     end
 
     def areas
-      matching(Area.browsable.includes(:parent), "areas")
+      matching_terms(Area.browsable.includes(:parent))
     end
 
     def landmarks
-      matching(Landmark.published.where(area_id: Area.bookable.select(:id)).includes(:area), "landmarks")
+      matching_terms(Landmark.published.where(area_id: Area.bookable.select(:id)).includes(:area))
     end
 
     def tags
       bookable_tags = LandmarkTag.joins(:landmark).merge(Landmark.published)
         .where(landmarks: { area_id: Area.bookable.select(:id) }).select(:tag_id)
-      matching(Tag.where(id: bookable_tags), "tags")
+      matching_terms(Tag.where(id: bookable_tags))
+    end
+
+    # Filters and orders a relation of areas, landmarks or tags by its best-matching term in
+    # search_terms: rank, then similarity, then popularity.
+    def matching_terms(relation)
+      table = relation.klass.table_name
+      matches = sanitize(<<~SQL.squish, type: relation.klass.name)
+        SELECT target_id,
+          MIN(CASE WHEN term_normalized = :q THEN 0
+                   WHEN term_normalized LIKE :prefix THEN 1
+                   WHEN term_normalized LIKE :contains THEN 2
+                   ELSE 3 END) AS rank,
+          MAX(word_similarity(:q, term_normalized)) AS similarity,
+          MAX(popularity) AS popularity
+        FROM search_terms
+        WHERE target_type = :type
+          AND (term_normalized LIKE :contains OR word_similarity(:q, term_normalized) > :threshold)
+        GROUP BY target_id
+      SQL
+
+      relation
+        .joins("JOIN (#{matches}) matches ON matches.target_id = #{table}.id")
+        .order(Arel.sql("matches.rank, matches.similarity DESC, matches.popularity DESC, #{table}.name, #{table}.id"))
+        .limit(LIMIT)
     end
 
     def listings
-      matching(Listing.active.joins(:category).includes(:category, :area), "listings", name: "listings.title",
-        extra: "categories.name")
-    end
+      columns = %w[listings.title categories.name].map { |column| normalized(column) }
+      conditions = columns.map { |column| "#{column} LIKE :contains OR word_similarity(:q, #{column}) > :threshold" }
+      title = normalized("listings.title")
 
-    # Filters and orders a relation by the query against `name` (or the given column) and,
-    # when the table has them, its aliases.
-    def matching(relation, table, name: "#{table}.name", extra: nil)
-      columns = [ name, extra ].compact
-      aliases = relation.klass.column_names.include?("aliases") ? "#{table}.aliases" : nil
-
-      conditions = columns.map { |column| "#{normalized(column)} LIKE :contains OR word_similarity(:q, #{normalized(column)}) > :threshold" }
-      conditions << "EXISTS (SELECT 1 FROM unnest(#{aliases}) AS a(alias_name) WHERE #{normalized('a.alias_name')} LIKE :contains)" if aliases
-
-      exact = [ "#{normalized(name)} = :q" ]
-      exact << ":q = ANY (SELECT #{normalized('a.alias_name')} FROM unnest(#{aliases}) AS a(alias_name))" if aliases
-
-      relation
+      Listing.active.joins(:category).includes(:category, :area)
         .where(sanitize(conditions.join(" OR ")))
         .order(Arel.sql(sanitize(<<~SQL.squish)))
-          CASE WHEN #{exact.join(' OR ')} THEN 0
-               WHEN #{normalized(name)} LIKE :prefix THEN 1
-               WHEN #{normalized(name)} LIKE :contains THEN 2
+          CASE WHEN #{title} = :q THEN 0
+               WHEN #{title} LIKE :prefix THEN 1
+               WHEN #{title} LIKE :contains THEN 2
                ELSE 3 END,
-          word_similarity(:q, #{normalized(name)}) DESC,
-          #{name}
+          word_similarity(:q, #{title}) DESC,
+          listings.title
         SQL
         .limit(LIMIT)
     end
@@ -81,15 +97,13 @@ module Discovery
       "unaccent(lower(#{column}))"
     end
 
-    def sanitize(sql)
-      ActiveRecord::Base.sanitize_sql_array([ sql, binds ])
+    def sanitize(sql, extra = {})
+      ActiveRecord::Base.sanitize_sql_array([ sql, binds.merge(extra) ])
     end
 
     def binds
       @binds ||= begin
-        q = ActiveRecord::Base.connection.select_value(
-          ActiveRecord::Base.sanitize_sql_array([ "SELECT unaccent(lower(?))", @query.strip ])
-        )
+        q = SearchTerm.normalize(@query)
         like = ActiveRecord::Base.sanitize_sql_like(q)
         { q: q, contains: "%#{like}%", prefix: "#{like}%", threshold: TYPO_THRESHOLD }
       end
