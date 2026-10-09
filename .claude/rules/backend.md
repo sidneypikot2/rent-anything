@@ -15,7 +15,7 @@ Topic rules load on top of this one when their files are read: `backend-migratio
 
 **Authorization** is plain Ruby, no gem: scope lookups through the user (`current_user.listings.find(...)`) where possible; otherwise the service raises `NotAuthorizedError`, which `ApplicationController` renders as 403. `RecordNotFound` → 404, `RecordInvalid` → 422 with `errors`. Every new write action needs a spec for the wrong-user case.
 
-**Request values**: don't coerce a value from the request with `.to_s`, `.to_i` or the like in a service — `nil.to_s` turns a missing key into a deliberate empty value, and a hash or array gets stringified and saved. A missing or wrong-typed value is a 422 (add an error and raise `ActiveRecord::RecordInvalid`), with a spec for it.
+**Request values**: don't coerce a value from the request with `.to_s`, `.to_i` or the like in a service — `nil.to_s` turns a missing key into a deliberate empty value, and a hash or array gets stringified and saved. A missing or wrong-typed value is a 422 (add an error and raise `ActiveRecord::RecordInvalid`), with a spec for it. A write that only accepts published (or otherwise live) references must still accept the ones the record already has, so unpublishing something later doesn't block every edit of it (RAA-70).
 
 **Money** is integer centavos in `*_cents` columns, PHP only. Never floats. A booking snapshots its price breakdown and commission rate when it is created.
 
