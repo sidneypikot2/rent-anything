@@ -25,7 +25,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   // Pages set a short title ("Search"); the template adds the brand.
   title: { default: `${BRAND} · ${TAGLINE}`, template: `%s · ${BRAND}` },
-  description: `${TAGLINE}. Islands, mountains and cities of the Philippines: tours, rides, gear and stays, booked together in one checkout.`,
+  description: `${TAGLINE}. Islands, mountains and cities of the Philippines: tours, rides, gear and stays, planned together in one cart.`,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

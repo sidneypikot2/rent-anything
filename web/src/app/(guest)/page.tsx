@@ -9,9 +9,9 @@ import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography"
 import { BRAND, TAGLINE } from "@/lib/brand";
 
 const FEATURES = [
-  { icon: "🧺", title: "One cart per trip", body: "Tours, rides, gear and a room for the same place, paid in one checkout." },
-  { icon: "🤝", title: "Local, verified partners", body: "ID-checked shops, guides and guesthouses who know the island." },
-  { icon: "📱", title: "Pay with GCash or card", body: "Pay in the app; partners are paid after your trip goes well." },
+  { icon: "🧺", title: "One cart, every stop", body: "Tours, rides, gear and stays for every place you're visiting, grouped into trips by date." },
+  { icon: "🤝", title: "Local, verified partners", body: "ID-checked shops, guides and guesthouses who know the area." },
+  { icon: "🗓️", title: "Plan first, book later", body: "Save what you like to a trip and change dates as plans change. Booking and payment are coming soon." },
   { icon: "🧭", title: "Plan by what you love", body: "Search an activity or a landmark and we show where to go." },
 ];
 
@@ -39,7 +39,7 @@ export default async function Home() {
           </DisplayTitle>
           <p className="max-w-md text-lg text-muted">
             Beach or summit, city or village: search a place, a landmark or something you love doing.
-            We&apos;ll show you where to go and book the rest in one cart.
+            We&apos;ll show you where to go and plan the rest in one cart.
           </p>
           <SearchBox />
           {activities.length > 0 && (
@@ -82,7 +82,7 @@ export default async function Home() {
 
         <section id="destinations" className="flex scroll-mt-6 flex-col gap-4">
           <div>
-            <Eyebrow>Top picks this season</Eyebrow>
+            <Eyebrow>Where to go</Eyebrow>
             <SectionTitle>Destinations</SectionTitle>
           </div>
           {destinations.length === 0 ? (
@@ -115,9 +115,9 @@ export default async function Home() {
 
         <section className="flex flex-col items-start gap-4 rounded-3xl bg-navy p-8 text-white sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <SectionTitle>{TAGLINE}</SectionTitle>
+            <SectionTitle>Start planning your trip</SectionTitle>
             <p className="mt-1 text-on-dark">
-              Tours, rides, gear and stays from local partners, paid in one checkout. Create a free account to keep one cart per destination.
+              Save tours, rides, gear and stays from local partners to trips that span every place you visit. A free account keeps them all in one cart.
             </p>
           </div>
           <ButtonLink href="/register" variant="accent">

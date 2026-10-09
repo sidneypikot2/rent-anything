@@ -16,7 +16,7 @@ export function SiteFooter() {
           <Link href="/#activities">Activities</Link>
           <Link href="/partner/register">List with us</Link>
         </nav>
-        <p>Local partners, islands to mountains · One cart per trip</p>
+        <p>Local partners, islands to mountains · One cart, every trip</p>
       </div>
     </footer>
   );
