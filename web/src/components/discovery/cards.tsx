@@ -1,7 +1,9 @@
+import Link from "next/link";
 import type { Activity, AreaCard } from "@/api/discovery";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
+import { cn } from "@/components/ui/cn";
 import { areaIcon, tagIcon } from "./icons";
 
 const KIND_LABELS: Record<string, string> = {
@@ -12,11 +14,64 @@ const KIND_LABELS: Record<string, string> = {
   region: "Region",
 };
 
-// A destination on the home page: where it is, what to do there, how much there is.
-export function DestinationCard({ area }: { area: AreaCard }) {
+export type DestinationGroup = { area: AreaCard; subAreas: AreaCard[] };
+
+// Destinations as the home page shows them: an area inside another listed one (Santa Fe on
+// Bantayan Island) goes in its parent's card; one whose parent isn't listed stays a card of
+// its own. The API's order (most to book first) holds at both levels.
+export function groupDestinations(areas: AreaCard[]): DestinationGroup[] {
+  const listed = new Set(areas.map((area) => area.slug));
+  return areas
+    .filter((area) => !area.parent_slug || !listed.has(area.parent_slug))
+    .map((area) => ({ area, subAreas: areas.filter((sub) => sub.parent_slug === area.slug) }));
+}
+
+type Counts = Pick<AreaCard, "landmark_count" | "listing_count">;
+
+// "8 places to see · 9 to book", leaving out a count of nothing.
+function countLine({ landmark_count, listing_count }: Counts) {
+  return [
+    landmark_count > 0 && `${landmark_count} ${landmark_count === 1 ? "place" : "places"} to see`,
+    listing_count > 0 && `${listing_count} to book`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+// A destination's counts including the places listed inside it, so the island's card
+// doesn't show fewer things to book than one of its towns.
+function withSubAreas(area: AreaCard, subAreas: AreaCard[]): Counts {
+  return subAreas.reduce(
+    (sum, sub) => ({
+      landmark_count: sum.landmark_count + sub.landmark_count,
+      listing_count: sum.listing_count + sub.listing_count,
+    }),
+    { landmark_count: area.landmark_count, listing_count: area.listing_count },
+  );
+}
+
+// A destination on the home page: where it is, what to do there, how much there is, and the
+// places inside it that have their own things to book. `wide` lays it out side by side from
+// `sm` up, for a card that has a row to itself.
+export function DestinationCard({
+  area,
+  subAreas = [],
+  wide = false,
+  className,
+}: {
+  area: AreaCard;
+  subAreas?: AreaCard[];
+  wide?: boolean;
+  className?: string;
+}) {
   return (
-    <Card data-testid="destination-card" className="flex flex-col">
-      <div className="relative flex h-36 items-center justify-center border-b border-line bg-sage text-6xl">
+    <Card data-testid="destination-card" className={cn("flex flex-col", wide && "sm:flex-row", className)}>
+      <div
+        className={cn(
+          "relative flex h-36 items-center justify-center border-b border-line bg-sage text-6xl",
+          wide && "sm:h-auto sm:w-2/5 sm:shrink-0 sm:border-b-0 sm:border-r",
+        )}
+      >
         <span aria-hidden>{areaIcon(area.kind)}</span>
         <Badge className="absolute left-3 top-3">{KIND_LABELS[area.kind] ?? area.kind}</Badge>
       </div>
@@ -34,11 +89,27 @@ export function DestinationCard({ area }: { area: AreaCard }) {
             ))}
           </div>
         )}
-        <div className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-3">
-          <p className="text-sm text-muted">
-            {area.landmark_count} places to see · {area.listing_count} to book
-          </p>
-          <ButtonLink href={`/${area.slug}`} variant="soft" size="sm">
+        {subAreas.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted">Also in {area.name}</p>
+            <ul>
+              {subAreas.map((sub) => (
+                <li key={sub.slug}>
+                  <Link
+                    href={`/${sub.slug}`}
+                    className="-mx-2 flex min-h-11 items-center justify-between gap-3 rounded-lg px-2 hover:bg-surface-2"
+                  >
+                    <span className="font-semibold text-foreground">{sub.name}</span>
+                    <span className="text-sm text-muted">{countLine(sub)}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+          <p className="text-sm text-muted">{countLine(withSubAreas(area, subAreas))}</p>
+          <ButtonLink href={`/${area.slug}`} variant="soft" size="sm" className="shrink-0 whitespace-nowrap">
             View destination
           </ButtonLink>
         </div>

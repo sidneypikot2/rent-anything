@@ -1,5 +1,5 @@
 import { getActivities, getDestinations } from "@/api/discovery";
-import { ActivityCard, DestinationCard } from "@/components/discovery/cards";
+import { ActivityCard, DestinationCard, groupDestinations } from "@/components/discovery/cards";
 import { tagIcon } from "@/components/discovery/icons";
 import { SearchBox } from "@/components/discovery/search-box";
 import { ButtonLink } from "@/components/ui/button";
@@ -19,6 +19,7 @@ const FEATURES = [
 // hasn't chosen where to go starts here; picking a destination leads to its area page.
 export default async function Home() {
   const [destinations, activities] = await Promise.all([getDestinations(), getActivities()]);
+  const groups = groupDestinations(destinations);
 
   return (
     <main className="flex flex-1 flex-col">
@@ -48,6 +49,32 @@ export default async function Home() {
       </section>
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-14 px-4 py-12">
+        <section id="destinations" className="flex scroll-mt-6 flex-col gap-4">
+          <div>
+            <Eyebrow>Where to go</Eyebrow>
+            <SectionTitle>Destinations</SectionTitle>
+          </div>
+          {groups.length === 0 ? (
+            <p className="text-muted">No destinations yet.</p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {groups.map(({ area, subAreas }, index) => {
+                // A card left alone on the last row takes the whole row, laid out side by side.
+                const wide = index === groups.length - 1 && groups.length % 2 === 1;
+                return (
+                  <DestinationCard
+                    key={area.slug}
+                    area={area}
+                    subAreas={subAreas}
+                    wide={wide}
+                    className={wide ? "sm:col-span-2" : undefined}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </section>
+
         <section id="activities" className="flex scroll-mt-6 flex-col gap-4">
           <div>
             <Eyebrow>What do you want to do?</Eyebrow>
@@ -59,22 +86,6 @@ export default async function Home() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {activities.map((activity) => (
                 <ActivityCard key={activity.slug} activity={activity} />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section id="destinations" className="flex scroll-mt-6 flex-col gap-4">
-          <div>
-            <Eyebrow>Where to go</Eyebrow>
-            <SectionTitle>Destinations</SectionTitle>
-          </div>
-          {destinations.length === 0 ? (
-            <p className="text-muted">No destinations yet.</p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {destinations.map((area) => (
-                <DestinationCard key={area.slug} area={area} />
               ))}
             </div>
           )}
@@ -104,7 +115,7 @@ export default async function Home() {
               Save tours, rides, gear and stays from local partners to trips that span every place you visit. A free account keeps them all in one cart.
             </p>
           </div>
-          <ButtonLink href="/register" variant="accent">
+          <ButtonLink href="/register" variant="accent" className="shrink-0 whitespace-nowrap">
             Create an account
           </ButtonLink>
         </section>
