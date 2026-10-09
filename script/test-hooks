@@ -371,6 +371,49 @@ mkdir -p "$sandbox/elsewhere"
 git -C "$main" config core.hooksPath "$sandbox/elsewhere"
 expect_bash block "$main" "git commit -m x"
 
+# The ESLint hook (.claude/hooks/eslint.sh) lints a web file after each edit, in the running
+# web container. A stub `docker` stands in for the stack: the file's first line says what
+# ESLint finds, and it refuses `--format compact` as ESLint 9 does (RAA-67: the hook used
+# it and failed on every edit).
+eslint_hook="$repo_root/.claude/hooks/eslint.sh"
+stub_bin="$sandbox/bin"
+mkdir -p "$stub_bin"
+cat > "$stub_bin/docker" <<'STUB'
+#!/usr/bin/env bash
+case "$*" in
+  "compose ps -q --status running web") [[ -n "${STUB_STACK_UP:-}" ]] && echo abc123; exit 0 ;;
+  *"--format compact"*) echo "The compact formatter is no longer part of core ESLint."; exit 2 ;;
+  "compose exec -T web npx eslint "*)
+    file="web/${*: -1}"
+    if grep -q "lint-problem" "$file"; then echo "$file: 1 problem"; exit 1; fi
+    exit 0 ;;
+esac
+echo "stub docker: unexpected: $*" >&2
+exit 3
+STUB
+chmod +x "$stub_bin/docker"
+echo "// lint-problem" > "$main/web/src/bad.ts"
+echo "# notes" > "$main/notes.md"
+
+# expect_eslint <exit status> <stack up: 1 or empty> <absolute path>
+expect_eslint() {
+  local want="$1" up="$2" path="$3" status
+  total=$((total + 1))
+  jq -n --arg path "$path" --arg cwd "$main" '{tool_input: {file_path: $path}, cwd: $cwd}' \
+    | (cd "$main" && PATH="$stub_bin:$PATH" STUB_STACK_UP="$up" "$eslint_hook") >/dev/null 2>&1
+  status=$?
+  [[ "$status" == "$want" ]] || fail "eslint hook should exit $want (got $status) for ${path#"$main"/}${up:+ with the stack up}"
+}
+
+expect_eslint 0 1 "$main/web/src/app.ts"      # clean
+expect_eslint 2 1 "$main/web/src/bad.ts"      # a problem is fed back
+expect_eslint 0 1 "$main/notes.md"            # not a web file
+expect_eslint 0 "" "$main/web/src/bad.ts"     # stack down: script/check frontend lints anyway
+# Reached through a symlink, the path doesn't start with git's toplevel (macOS /var is
+# /private/var); the hook must still hand the container a path inside web/.
+ln -s "$main" "$sandbox/main-link"
+expect_eslint 2 1 "$sandbox/main-link/web/src/bad.ts"
+
 if (( failures > 0 )); then
   echo "test-hooks: $failures of $total failed" >&2
   exit 1

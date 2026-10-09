@@ -25,8 +25,13 @@ root="$(git -C "$(dirname "$path")" rev-parse --show-toplevel 2>/dev/null || tru
 cd "$root" || exit 0
 [[ -n "$(docker compose ps -q --status running web 2>/dev/null)" ]] || exit 0
 
-relative="${path#"$root"/web/}"
-output="$(docker compose exec -T web npx eslint --format compact "$relative" 2>&1)" || {
+# The path inside web/, from git rather than by trimming $root: the two can differ when the
+# path goes through a symlink (macOS /var is /private/var), and the container needs a path
+# relative to web/.
+prefix="$(git -C "$(dirname "$path")" rev-parse --show-prefix 2>/dev/null || true)"
+[[ "$prefix" == web/* ]] || exit 0
+relative="${prefix#web/}$(basename "$path")"
+output="$(docker compose exec -T web npx eslint "$relative" 2>&1)" || {
   echo "eslint: web/$relative" >&2
   echo "$output" >&2
   exit 2
