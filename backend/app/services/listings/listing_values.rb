@@ -4,20 +4,26 @@ module Listings
   # refused, not coerced; the model checks lengths, that the category is bookable and that
   # attrs match the category's attribute_schema. The area is the published city, town or
   # island the pin is in (RAA-59), or else the nearest. Status is never read from the request.
+  # An activity (a tour) also lists the published landmarks it visits (RAA-70): landmark_ids
+  # replaces them when sent and keeps them when left out; a listing that isn't an activity
+  # has none.
   module ListingValues
     include RequestValues
 
     AREA_KINDS = %w[city town island].freeze
     AREA_RADIUS_METERS = 50_000
+    MAX_LANDMARKS = 30
 
     private
 
     def listing_attributes
       point = point_from_location
+      category = find_category
+      @landmarks = landmarks_for(category)
       {
         title: required_string(@params, :title, "Title"),
         description: optional_text(:description, "Description"),
-        category: find_category,
+        category:,
         area: point && nearest_area(point),
         location: point,
         attrs: attrs,
@@ -31,8 +37,37 @@ module Listings
         raise ActiveRecord::RecordInvalid, listing
       end
 
-      listing.save!
+      Listing.transaction do
+        listing.save!
+        save_landmarks!(listing)
+      end
       listing
+    end
+
+    def save_landmarks!(listing)
+      return if @landmarks.nil?
+
+      listing.landmark_visits.delete_all(:delete_all)
+      @landmarks.each { |landmark| listing.landmark_visits.create!(landmark:) }
+    end
+
+    # nil keeps the listing's landmarks as they are; an array replaces them.
+    def landmarks_for(category)
+      ids = @params[:landmark_ids]
+      return (category&.activity? ? nil : []) if ids.nil?
+      unless ids.is_a?(Array) && ids.all?(Integer)
+        return error("Landmarks must be a list of landmark ids")
+      end
+
+      ids = ids.uniq
+      return [] if ids.empty?
+      return error("Only tours and activities visit landmarks") if category && !category.activity?
+      return error("A listing can visit at most #{MAX_LANDMARKS} landmarks") if ids.size > MAX_LANDMARKS
+
+      # A landmark unpublished since it was picked can stay, so it doesn't block every edit.
+      kept = @listing&.persisted? ? @listing.landmark_visits.select(:landmark_id) : []
+      landmarks = Landmark.where(id: ids).merge(Landmark.published.or(Landmark.where(id: kept))).to_a
+      landmarks.size == ids.size ? landmarks : error("Landmarks must be published landmarks")
     end
 
     # Unlike optional_string, an empty description is kept as "", the column's default.

@@ -51,6 +51,8 @@ Rails.application.routes.draw do
         resource :profile, only: %i[show update]
         resources :listings, only: %i[index show create update destroy]
         resource :listing_options, only: :show
+        # The tour landmark picker (RAA-70).
+        resources :landmarks, only: :index
         resource :verification, only: %i[show create]
       end
 

@@ -95,6 +95,18 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
             <Detail term="Map pin">
               {listing.location.lat.toFixed(5)}, {listing.location.lng.toFixed(5)}
             </Detail>
+            {listing.category.booking_type === "activity" && (
+              <Detail term="Landmarks">
+                {listing.landmarks.length > 0 ? (
+                  <span data-testid="listing-landmarks">
+                    {listing.landmarks.map((landmark) => `${landmark.name} — ${landmark.area.name}`).join(", ")}
+                    <span className="block text-muted">Covers: {listing.covers.map((place) => place.name).join(", ")}</span>
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </Detail>
+            )}
             {attrs.map(([key, value]) => (
               <Detail key={key} term={attributeLabel(key)}>
                 {displayValue(value)}

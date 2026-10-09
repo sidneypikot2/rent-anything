@@ -4,15 +4,16 @@ module Api
       # The signed-in partner's own listings (RAA-41, RAA-46): every status, adding, changing
       # and deleting one. Another partner's listing is a 404.
       class ListingsController < ApplicationController
-        LISTING_PARAMS = %i[title description category_id address location attrs].freeze
+        LISTING_PARAMS = %i[title description category_id address location attrs landmark_ids].freeze
 
         before_action :authenticate_user!
         before_action -> { require_role!("partner") }
         before_action :set_listing, only: %i[show update destroy]
 
         def index
-          listings = current_user.listings.includes(:category, :area).order("categories.name", :title)
-          render json: listings.map { |listing| PartnerListingSerializer.call(listing) }
+          listings = with_landmarks.order("categories.name", :title).to_a
+          destinations = PartnerLandmarkSerializer.destinations_for(listings.flat_map(&:visited_landmarks))
+          render json: listings.map { |listing| PartnerListingSerializer.call(listing, destinations:) }
         end
 
         def show
@@ -20,12 +21,13 @@ module Api
         end
 
         def create
-          render json: PartnerListingSerializer.call(Listings::Create.call(current_user, listing_params)),
-            status: :created
+          listing = Listings::Create.call(current_user, listing_params)
+          render json: PartnerListingSerializer.call(with_landmarks.find(listing.id)), status: :created
         end
 
         def update
-          render json: PartnerListingSerializer.call(Listings::Update.call(@listing, listing_params))
+          Listings::Update.call(@listing, listing_params)
+          render json: PartnerListingSerializer.call(with_landmarks.find(@listing.id))
         end
 
         def destroy
@@ -36,7 +38,11 @@ module Api
         private
 
         def set_listing
-          @listing = current_user.listings.find(params[:id])
+          @listing = (action_name == "show" ? with_landmarks : current_user.listings).find(params[:id])
+        end
+
+        def with_landmarks
+          current_user.listings.includes(:category, :area, visited_landmarks: :area)
         end
 
         def listing_params

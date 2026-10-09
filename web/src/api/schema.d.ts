@@ -1042,6 +1042,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/partner/landmarks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Landmarks a tour can visit
+         * @description Partner-only. Published landmarks for the tour landmark picker (RAA-70), at most 50: `q` matches the name or an alias, `area` keeps the landmarks whose destination is that area, and `lat`/`lng` (the listing's pin) ranks them nearest first; otherwise they're by name. Each landmark carries its destination: the published island it's on, otherwise its town or city. `destinations` lists every destination that has a published landmark, whatever the filters, for the picker's area chips.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    /** @description A destination's slug */
+                    area?: string;
+                    lat?: number;
+                    lng?: number;
+                };
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description nearest the listing's pin first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_landmarks"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a pin that isn't a coordinate */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/partner/listing_options": {
         parameters: {
             query?: never;
@@ -1360,7 +1434,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description saved, in the area nearest the new pin, status unchanged */
+                /** @description landmarks dropped when the listing stops being an activity */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -2866,10 +2940,32 @@ export interface components {
             attrs: {
                 [key: string]: unknown;
             };
+            /** @description The landmarks a tour or activity visits, by name; empty for other listings */
+            landmarks: components["schemas"]["partner_landmark"][];
+            /** @description The destinations those landmarks are in, by name */
+            covers: components["schemas"]["area_ref"][];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        partner_landmark: {
+            id: number;
+            slug: string;
+            name: string;
+            area: components["schemas"]["area_ref"];
+            /** @description The published island the landmark is on, otherwise its town or city */
+            destination: components["schemas"]["area_ref"] | null;
+            location: components["schemas"]["lat_lng"];
+        };
+        partner_landmarks: {
+            landmarks: components["schemas"]["partner_landmark"][];
+            /** @description Every destination with a published landmark, by name, whatever the filters */
+            destinations: {
+                slug: string;
+                name: string;
+                landmark_count: number;
+            }[];
         };
         listing_body: {
             title: string;
@@ -2893,6 +2989,8 @@ export interface components {
             attrs?: {
                 [key: string]: unknown;
             };
+            /** @description Tours and activities only: the published landmarks it visits. Replaces them when sent; left out on a change, they stay as they are. A listing that isn't an activity has none. */
+            landmark_ids?: number[];
         };
         listing_options: {
             categories: {
