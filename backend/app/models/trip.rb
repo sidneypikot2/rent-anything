@@ -13,6 +13,7 @@ class Trip < ApplicationRecord
   validates :guests, numericality: { only_integer: true, in: 1..50 }
   validate :user_is_a_guest
   validate :dates_cover_items, if: :dates_changed?
+  after_save { @covering = false }
 
   # Days an ended trip stays in the cart, with its deletion notice, before the cleanup job
   # deletes its unbooked items (decision 10).
@@ -31,8 +32,12 @@ class Trip < ApplicationRecord
   end
 
   # Widens the dates to take in the range; sets them on an undated trip.
+  # An item already under way may take the dates into the past; only dates a guest sets
+  # are checked against today.
   def cover(from, to)
     return if from.nil?
+
+    @covering = true
 
     self.starts_on = [ starts_on, from ].compact.min
     self.ends_on = [ ends_on, to ].compact.max
@@ -44,10 +49,16 @@ class Trip < ApplicationRecord
     errors.add(:user, "must be a guest") if user && !user.guest?
   end
 
+  def dates_are_not_past
+    super unless @covering
+  end
+
   def dates_cover_items
+    return if new_record?
+
     dated_items = items.where.not(starts_on: nil)
-    return if new_record? || !dated_items.exists?
-    return if dated? && dated_items.where("starts_on < ? OR ends_on > ?", starts_on, ends_on).none?
+    outside = dated? ? dated_items.where("starts_on < ? OR ends_on > ?", starts_on, ends_on) : dated_items
+    return unless outside.exists?
 
     errors.add(:base, "The trip's dates must cover the dates of its items")
   end

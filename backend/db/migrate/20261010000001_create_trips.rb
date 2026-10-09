@@ -25,8 +25,8 @@ class CreateTrips < ActiveRecord::Migration[8.1]
       t.date :starts_on
       t.date :ends_on
       t.integer :quantity, null: false, default: 1
-      # Did the guest add it to the trip we suggested (decision 13)? Null when not added
-      # through a suggestion, e.g. moved later.
+      # Did the guest add it to the trip we suggested (decision 13)? Set false when the item
+      # is later moved to another trip.
       t.boolean :followed_suggestion
       t.timestamps
 

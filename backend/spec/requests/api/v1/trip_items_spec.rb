@@ -159,9 +159,12 @@ RSpec.describe "Trip items", type: :request do
         let(:other) { create(:trip, :undated, user:) }
         let(:body) { { move_to_trip_id: other.id } }
 
+        before { item.update!(followed_suggestion: true) }
+
         run_test! do |response|
           expect(response.parsed_body).to include("id" => other.id, "starts_on" => day.iso8601)
           expect(trip.items.count).to eq(0)
+          expect(item.reload.followed_suggestion).to be(false)
         end
       end
 

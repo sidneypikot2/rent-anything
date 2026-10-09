@@ -2575,7 +2575,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description the trip merged into, now with every item */
+                /** @description a trip under way merged into a later one: its dates reach back */
                 200: {
                     headers: {
                         [name: string]: unknown;

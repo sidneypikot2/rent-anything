@@ -46,6 +46,13 @@ RSpec.describe Trips::Destination do
         .to eq("Cebu City · Nov 12")
     end
 
+    it "shortens a long place name to fit 80 characters" do
+      long = create(:area, kind: "town", name: "Very Long Barangay Name " * 5)
+      name = described_class.trip_name(long, Date.new(2026, 12, 30), Date.new(2027, 1, 2))
+      expect(name.length).to eq(80)
+      expect(name).to end_with("... · Dec 30, 2026 – Jan 2, 2027")
+    end
+
     it "is the destination alone without dates" do
       expect(described_class.trip_name(santa_fe, nil, nil)).to eq("Bantayan Island")
     end

@@ -1825,7 +1825,8 @@ paths:
         required: true
       responses:
         '200':
-          description: the trip merged into, now with every item
+          description: 'a trip under way merged into a later one: its dates reach
+            back'
           content:
             application/json:
               schema:

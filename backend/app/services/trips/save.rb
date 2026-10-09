@@ -24,11 +24,5 @@ module Trips
       end
       @trip
     end
-
-    private
-
-    def dates_sent?
-      @params.key?(:starts_on) || @params.key?(:ends_on)
-    end
   end
 end

@@ -16,6 +16,10 @@ module Trips
       [ from, to ]
     end
 
+    def dates_sent?
+      @params.key?(:starts_on) || @params.key?(:ends_on)
+    end
+
     def date_value(key, label)
       value = @params[key]
       return if value.nil?

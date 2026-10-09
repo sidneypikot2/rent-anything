@@ -319,6 +319,17 @@ RSpec.describe "Trips", type: :request do
         end
       end
 
+      response "200", "a trip under way merged into a later one: its dates reach back" do
+        schema "$ref" => "#/components/schemas/trip"
+
+        before do
+          trip.update_columns(starts_on: 1.day.ago.to_date)
+          trip.items.first.update_columns(starts_on: 1.day.ago.to_date)
+        end
+
+        run_test! { |response| expect(response.parsed_body["starts_on"]).to eq(1.day.ago.to_date.iso8601) }
+      end
+
       response "422", "merged into itself" do
         schema "$ref" => "#/components/schemas/validation_errors"
         let(:body) { { into_trip_id: trip.id } }
