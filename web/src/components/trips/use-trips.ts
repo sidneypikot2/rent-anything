@@ -7,6 +7,7 @@ import type { components } from "@/api/schema";
 import { useSession } from "@/lib/auth/session";
 
 export type Trip = components["schemas"]["trip"];
+export type TripItem = components["schemas"]["trip_item"];
 export type TripSuggestion = components["schemas"]["trip_suggestion"];
 
 // What the guest is adding: a listing with the dates and guests it was picked for.
@@ -130,6 +131,85 @@ export function useUpdateTrip() {
       });
       if (!data) throw tripError(error, "Couldn't save the trip. Try again.");
       return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+// Items in trips the guest is still planning: what the header's cart badge counts.
+export function cartItemCount(trips: Trip[] | undefined) {
+  return currentTrips(trips).reduce((count, trip) => count + trip.items.length, 0);
+}
+
+export type NewTrip = { name: string; guests: number; starts_on: string | null; ends_on: string | null };
+
+// POST /trips: a named trip planned before anything is in it ("Plan a new trip").
+export function useCreateTrip() {
+  const invalidate = useInvalidateTrips();
+  return useMutation({
+    mutationFn: async (trip: NewTrip) => {
+      const { data, error } = await apiClient().POST("/api/v1/trips", { body: trip });
+      if (!data) throw tripError(error, "Couldn't create the trip. Try again.");
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+// DELETE /trips/:id, with its items.
+export function useDeleteTrip() {
+  const invalidate = useInvalidateTrips();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { response, error } = await apiClient().DELETE("/api/v1/trips/{id}", { params: { path: { id } } });
+      if (!response.ok) throw tripError(error, "Couldn't delete the trip. Try again.");
+    },
+    onSuccess: invalidate,
+  });
+}
+
+// POST /trips/:id/merge: every item of `id` moves into `intoTripId`, and `id` is deleted.
+export function useMergeTrip() {
+  const invalidate = useInvalidateTrips();
+  return useMutation({
+    mutationFn: async ({ id, intoTripId }: { id: number; intoTripId: number }) => {
+      const { data, error } = await apiClient().POST("/api/v1/trips/{id}/merge", {
+        params: { path: { id } },
+        body: { into_trip_id: intoTripId },
+      });
+      if (!data) throw tripError(error, "Couldn't merge the trips. Try again.");
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export type ItemChanges = { starts_on?: string | null; ends_on?: string | null; move_to_trip_id?: number };
+
+// PATCH /trip_items/:id: re-date an item or move it to another trip. Answers with the trip
+// it ends up in.
+export function useUpdateTripItem() {
+  const invalidate = useInvalidateTrips();
+  return useMutation({
+    mutationFn: async ({ id, changes }: { id: number; changes: ItemChanges }) => {
+      const { data, error } = await apiClient().PATCH("/api/v1/trip_items/{id}", {
+        params: { path: { id } },
+        body: changes,
+      });
+      if (!data) throw tripError(error, "Couldn't change the item. Try again.");
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+// DELETE /trip_items/:id.
+export function useRemoveTripItem() {
+  const invalidate = useInvalidateTrips();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { response, error } = await apiClient().DELETE("/api/v1/trip_items/{id}", { params: { path: { id } } });
+      if (!response.ok) throw tripError(error, "Couldn't remove it. Try again.");
     },
     onSuccess: invalidate,
   });

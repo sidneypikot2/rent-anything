@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AccountNav } from "@/components/auth/account-nav";
 import { Logo } from "@/components/landing/logo";
 import { PartnerNav } from "@/components/partner/partner-nav";
+import { CartLink } from "@/components/trips/cart-link";
 import { BRAND } from "@/lib/brand";
 
 export type Section = "guest" | "partner" | "admin";
@@ -36,6 +37,7 @@ export function SectionHeader({ section }: { section: Section }) {
         {/* Full height, so the account menu's tab reaches the bar's bottom edge. */}
         <nav className="flex flex-wrap items-center self-stretch justify-end gap-x-6 gap-y-2 text-sm font-medium text-on-dark">
           {section === "partner" && <PartnerNav />}
+          {section === "guest" && <CartLink />}
           <AccountNav section={section} />
         </nav>
       </div>

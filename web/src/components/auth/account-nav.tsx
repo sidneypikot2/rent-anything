@@ -10,7 +10,7 @@ import { useSession } from "@/lib/auth/session";
 import type { Section } from "@/components/landing/section-header";
 
 // The header's account links. Signed in, guests and partners get their account menu
-// (Profile, Settings, Sign out) and admins their name and "Sign out". Signed out,
+// (guests also Trips; Profile, Settings, Sign out) and admins their name and "Sign out". Signed out,
 // "Sign in" and "Create an account" show in the guest section only (partner and admin
 // pages show their own form), and not on /login or /register, where the card already is
 // that form.

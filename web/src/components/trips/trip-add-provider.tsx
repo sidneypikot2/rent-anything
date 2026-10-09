@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Toast } from "@/components/ui/toast";
@@ -231,6 +232,9 @@ export function TripAddProvider({ children }: { children: ReactNode }) {
               <button type="button" onClick={() => edit(noticeTrip, "dates")} className="hover:underline">
                 Change dates
               </button>
+              <Link href={`/cart?trip=${noticeTrip.id}`} data-testid="trip-toast-view" className="hover:underline">
+                View trip
+              </Link>
             </>
           )
         }

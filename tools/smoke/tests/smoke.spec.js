@@ -260,7 +260,7 @@ test("sign-up and the partner guard", async ({ page }) => {
 
 // Add to trip (RAA-66): signed out, the add is kept through sign-up and finishes back on
 // the destination page with no second tap. With a trip, the next add asks which trip, and
-// the toast leads to editing it.
+// the toast leads to editing it and to the cart.
 test("add to trip through sign-up", async ({ page }) => {
   const errors = [];
   collectErrors(page, errors);
@@ -300,6 +300,20 @@ test("add to trip through sign-up", async ({ page }) => {
   await edit.getByLabel("Trip name").fill(`Smoke trip ${stamp}`);
   await edit.getByTestId("edit-trip-save").click();
   await expect(toast).toContainText(`Saved Smoke trip ${stamp}`);
+
+  // The cart (RAA-68): the header counts both items, View trip opens the trip, and an
+  // item can be removed.
+  await expect(page.getByTestId("nav-cart-count")).toHaveText("2");
+  await toast.getByTestId("trip-toast-view").click();
+  await expect(page).toHaveURL(/\/cart\?trip=\d+$/);
+  const trip = page.getByTestId("cart-trip").filter({ hasText: `Smoke trip ${stamp}` });
+  await expect(trip.getByTestId("cart-trip-toggle")).toHaveAttribute("aria-expanded", "true");
+  await expect(trip.getByTestId("cart-item")).toHaveCount(2);
+  await trip.getByTestId("cart-item-menu").first().click();
+  await trip.getByTestId("item-action-remove").click();
+  await page.getByTestId("remove-item-confirm").click();
+  await expect(trip.getByTestId("cart-item")).toHaveCount(1);
+  await expect(page.getByTestId("nav-cart-count")).toHaveText("1");
 
   expect(errors).toEqual([]);
 });

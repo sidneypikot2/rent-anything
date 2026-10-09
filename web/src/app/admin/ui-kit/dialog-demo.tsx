@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { Menu } from "@/components/ui/menu";
 import { Toast } from "@/components/ui/toast";
 
 // Dialog holds no state of its own, so the UI kit opens it from here.
@@ -71,5 +72,24 @@ export function ToastDemo() {
         }
       />
     </>
+  );
+}
+
+// Menu's actions are callbacks, so the UI kit renders it from here too.
+export function MenuDemo() {
+  const [picked, setPicked] = useState<string | null>(null);
+
+  return (
+    <div className="flex items-center gap-3">
+      <Menu
+        label="Actions for Island hopping"
+        items={[
+          { label: "Move to another trip", onSelect: () => setPicked("Move") },
+          { label: "Merge with another trip", detail: "Moves every item into it", onSelect: () => setPicked("Merge") },
+          { label: "Remove", danger: true, onSelect: () => setPicked("Remove") },
+        ]}
+      />
+      <span className="text-sm text-muted">{picked ? `Picked: ${picked}` : "Open the ⋯ menu"}</span>
+    </div>
   );
 }

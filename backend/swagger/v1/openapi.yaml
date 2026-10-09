@@ -2203,6 +2203,15 @@ components:
           description: 'Null with starts_on: not bookable until it has a date'
         quantity:
           type: integer
+        booking_type:
+          type: string
+          enum:
+          - rental
+          - stay
+          - activity
+          - transfer
+          description: 'Its listing''s: rentals and stays take a range of days, the
+            others one day'
         area:
           "$ref": "#/components/schemas/area_ref"
         listing:
@@ -2212,6 +2221,7 @@ components:
       - starts_on
       - ends_on
       - quantity
+      - booking_type
       - area
       - listing
     trip_suggestion:

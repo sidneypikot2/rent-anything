@@ -185,10 +185,14 @@ RSpec.configure do |config|
               starts_on: { type: :string, format: :date, nullable: true },
               ends_on: { type: :string, format: :date, nullable: true, description: "Null with starts_on: not bookable until it has a date" },
               quantity: { type: :integer },
+              booking_type: {
+                type: :string, enum: %w[rental stay activity transfer],
+                description: "Its listing's: rentals and stays take a range of days, the others one day"
+              },
               area: { "$ref" => "#/components/schemas/area_ref" },
               listing: { "$ref" => "#/components/schemas/listing_summary" }
             },
-            required: %w[id starts_on ends_on quantity area listing]
+            required: %w[id starts_on ends_on quantity booking_type area listing]
           },
           trip_suggestion: {
             type: :object,

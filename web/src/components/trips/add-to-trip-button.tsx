@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth/session";
+import { RANGE_TYPES } from "./format";
 import type { TripDates } from "./trip-dates";
 import { useTripAdd } from "./trip-add-provider";
 import { currentTrips, useTrips } from "./use-trips";
@@ -10,9 +11,6 @@ type Props = {
   listing: { id: number; title: string; booking_type: string };
   dates: TripDates;
 };
-
-// Rentals and stays are booked for a stretch of days; tours and transfers for one.
-const RANGE_TYPES = new Set(["rental", "stay"]);
 
 // "Add to trip" on a listing (screen 1). The page's dates and guests go with it; a tour or
 // transfer takes the first day. Trips are for guests: a partner or admin sees nothing.
