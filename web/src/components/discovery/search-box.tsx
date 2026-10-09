@@ -61,7 +61,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
           onKeyDown={(event) => {
             if (event.key === "Escape") setOpen(false);
           }}
-          placeholder="Try Bantayan, Kota Beach or snorkelling"
+          placeholder="Try Bantayan or snorkelling"
           aria-label="Search destinations, landmarks and activities"
           aria-controls={listId}
           autoComplete="off"

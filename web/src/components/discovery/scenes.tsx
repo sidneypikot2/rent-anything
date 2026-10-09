@@ -25,7 +25,7 @@ function IslandScene() {
       <rect y="112" width="400" height="48" className="fill-cerulean/20" />
       <path d="M150 104c30-18 110-20 150 0z" className="fill-fern/70" />
       <path d="M40 120c50-10 120-8 170 4-60 6-120 6-170-4z" className="fill-sage" />
-      <path d="M232 104c-2-20 2-34 12-48" fill="none" strokeWidth="4" strokeLinecap="round" className="stroke-navy/70" />
+      <path d="M232 94c-2-14 2-26 12-38" fill="none" strokeWidth="4" strokeLinecap="round" className="stroke-navy/70" />
       <path
         d="M244 56c-14-8-30-6-38 4M244 56c-4-12-18-18-30-16M244 56c10-10 28-12 38-4M244 56c14-2 26 8 28 20"
         fill="none"
@@ -43,6 +43,7 @@ function CityScene() {
   return (
     <>
       <circle cx="340" cy="52" r="16" className="fill-aqua/40" />
+      <g transform="translate(56 0)">
       <g className="fill-cerulean/30">
         <rect x="96" y="50" width="26" height="70" />
         <rect x="128" y="64" width="20" height="56" />
@@ -50,11 +51,11 @@ function CityScene() {
         <rect x="190" y="70" width="22" height="50" />
         <rect x="218" y="56" width="28" height="64" />
       </g>
-      <path
-        d="M60 120V86h12v-8h12v8h12v-8h12v8h12v-8h12v8h12v-8h12v8h12v34z"
-        className="fill-cerulean/60"
-      />
+      {/* The wall is painted over mist first so the towers don't show through it. */}
+      <path d="M60 120V86h12v-8h12v8h12v-8h12v8h12v-8h12v8h12v-8h12v8h12v34z" className="fill-mist" />
+      <path d="M60 120V86h12v-8h12v8h12v-8h12v8h12v-8h12v8h12v-8h12v8h12v34z" className="fill-cerulean/60" />
       <rect x="114" y="98" width="14" height="22" rx="7" className="fill-mist" />
+      </g>
       <rect y="120" width="400" height="40" className="fill-aqua/30" />
       <path d="M0 130c40-6 80 6 120 0s80-6 120 0 80 6 160-2" fill="none" strokeWidth="2" className="stroke-mist" />
     </>

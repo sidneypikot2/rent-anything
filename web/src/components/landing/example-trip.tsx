@@ -21,7 +21,7 @@ const EXAMPLE = {
 
 const NOTES = [
   { title: "Start from a place or a passion", body: "Search a destination, a landmark or something you love doing." },
-  { title: "Add what you need there", body: "Tours, rides, gear and stays from local, ID-checked partners." },
+  { title: "Add what you need there", body: "Tours, rides, gear and stays from local, ID‑checked partners." },
   {
     title: "One cart, every stop",
     body: "Each trip keeps its places and dates together. Booking and payment are coming soon.",

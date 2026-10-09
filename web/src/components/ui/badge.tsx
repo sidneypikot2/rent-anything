@@ -2,8 +2,8 @@ import type { ComponentProps } from "react";
 import { cn } from "./cn";
 
 const TONES = {
-  aqua: "bg-aqua text-navy",
-  emerald: "bg-secondary text-white",
+  aqua: "border border-aqua bg-aqua text-navy",
+  emerald: "border border-secondary bg-secondary text-white",
   mist: "border border-line bg-mist text-primary",
 };
 

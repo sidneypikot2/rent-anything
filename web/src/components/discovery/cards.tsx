@@ -97,7 +97,7 @@ export function DestinationCard({
         {subAreas.length > 0 && (
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-muted">Also in {area.name}</p>
-            <ul>
+            <ul className="mt-1">
               {subAreas.map((sub) => (
                 <li key={sub.slug}>
                   <Link
