@@ -3,6 +3,10 @@ import { notFound } from "next/navigation";
 import { getArea, getExplore, type AreaDetail } from "@/api/discovery";
 import { ExploreSections } from "@/components/discovery/explore-sections";
 import { areaIcon, tagIcon } from "@/components/discovery/icons";
+import { AddToTripButton } from "@/components/trips/add-to-trip-button";
+import { TripAddProvider } from "@/components/trips/trip-add-provider";
+import { readTripDates } from "@/components/trips/trip-dates";
+import { TripDatesBar } from "@/components/trips/trip-dates-bar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
@@ -23,9 +27,11 @@ export async function generateMetadata(props: PageProps<"/[area]">): Promise<Met
 }
 
 // A destination: the places to see there, everything to book, and the destinations around
-// it and often visited with it (RAA-58). Booking comes later (M3).
+// it and often visited with it (RAA-58). Listings go into the guest's trips (RAA-66), with
+// the trip dates and guests from the URL; booking comes later (M3).
 export default async function AreaPage(props: PageProps<"/[area]">) {
   const slug = (await props.params).area;
+  const dates = readTripDates(await props.searchParams);
   const [detail, explore] = await Promise.all([getArea(slug), getExplore({ area: slug })]);
   if (!detail) notFound();
   const { area, areas, landmarks, listings } = detail;
@@ -87,33 +93,36 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
         )}
 
         {listings.length > 0 && (
-          <section id="listings" className="flex scroll-mt-6 flex-col gap-6">
-            <SectionTitle>What to book</SectionTitle>
-            {TRIP_NEEDS.map((need) => {
-              const group = listings.filter((listing) => need.bookingTypes.includes(listing.booking_type));
-              if (group.length === 0) return null;
-              return (
-                <div key={need.title} className="flex flex-col gap-2">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted">{need.title}</h3>
-                  <ul className="grid gap-2 sm:grid-cols-2">
-                    {group.map((listing) => (
-                      <li key={listing.id}>
-                        <Card>
-                          <CardBody className="flex items-center justify-between gap-3">
-                            <span className="min-w-0">
-                              <span className="block font-semibold">{listing.title}</span>
-                              <span className="block text-sm text-muted">{listing.category}</span>
-                            </span>
-                            <Badge tone="mist">Soon</Badge>
-                          </CardBody>
-                        </Card>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
-          </section>
+          <TripAddProvider>
+            <section id="listings" className="flex scroll-mt-6 flex-col gap-6">
+              <SectionTitle>What to book</SectionTitle>
+              <TripDatesBar key={`${dates.from}-${dates.to}-${dates.guests}`} dates={dates} />
+              {TRIP_NEEDS.map((need) => {
+                const group = listings.filter((listing) => need.bookingTypes.includes(listing.booking_type));
+                if (group.length === 0) return null;
+                return (
+                  <div key={need.title} className="flex flex-col gap-2">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted">{need.title}</h3>
+                    <ul className="grid gap-2 sm:grid-cols-2">
+                      {group.map((listing) => (
+                        <li key={listing.id}>
+                          <Card>
+                            <CardBody className="flex items-center justify-between gap-3">
+                              <span className="min-w-0">
+                                <span className="block font-semibold">{listing.title}</span>
+                                <span className="block text-sm text-muted">{listing.category}</span>
+                              </span>
+                              <AddToTripButton listing={listing} dates={dates} />
+                            </CardBody>
+                          </Card>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </section>
+          </TripAddProvider>
         )}
 
         {explore && <ExploreSections explore={explore} name={area.name} />}

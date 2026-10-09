@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { PasswordField } from "@/components/ui/password-field";
 import { oauthSignIn, signIn, signUp, type OauthProvider, type Role } from "@/lib/auth/actions";
-import { DASHBOARD_PATHS, LOGIN_PATHS, REGISTER_PATHS } from "@/lib/auth/paths";
+import { DASHBOARD_PATHS, LOGIN_PATHS, REGISTER_PATHS, withNext } from "@/lib/auth/paths";
 import { useSession } from "@/lib/auth/session";
 import { OauthButtons, hasOauthProviders } from "./oauth-buttons";
 
@@ -28,11 +28,17 @@ type Props = {
   // Set by the route: /login and /partner/login sign in, /register and
   // /partner/register sign up. Admin is always "signin".
   mode: Mode;
+  // Where to land instead of the dashboard, already checked with safeNextPath. The link to
+  // the other form carries it too.
+  next?: string;
+  // Set when the card sits in a sheet over the page (add to trip): signing in calls it
+  // instead of navigating, and the page carries on where it was.
+  onSignedIn?: () => void;
 };
 
-export function AuthCard({ role, mode }: Props) {
+export function AuthCard({ role, mode, next, onSignedIn }: Props) {
   const router = useRouter();
-  const redirectTo = DASHBOARD_PATHS[role];
+  const redirectTo = next ?? DASHBOARD_PATHS[role];
   const selfServe = role !== "admin";
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
@@ -45,16 +51,17 @@ export function AuthCard({ role, mode }: Props) {
   const session = useSession();
   const signedInHere = session?.user.role === role;
   useEffect(() => {
-    if (signedInHere) router.replace(redirectTo);
-  }, [signedInHere, redirectTo, router]);
+    if (signedInHere && !onSignedIn) router.replace(redirectTo);
+  }, [signedInHere, onSignedIn, redirectTo, router]);
 
   async function run(action: () => ReturnType<typeof signIn>) {
     setPending(true);
     setError(undefined);
     const result = await action();
     setPending(false);
-    if (result.ok) router.replace(redirectTo);
-    else setError(result.error);
+    if (!result.ok) setError(result.error);
+    else if (onSignedIn) onSignedIn();
+    else router.replace(redirectTo);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -157,7 +164,7 @@ export function AuthCard({ role, mode }: Props) {
           <p className="text-center text-sm text-muted">
             {signup ? "Already have an account? " : "Don't have an account? "}
             <Link
-              href={signup ? LOGIN_PATHS[role] : REGISTER_PATHS[role]}
+              href={withNext(signup ? LOGIN_PATHS[role] : REGISTER_PATHS[role], next)}
               className="font-semibold text-link hover:underline"
             >
               {signup ? "Sign in" : "Create one"}
