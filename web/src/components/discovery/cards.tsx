@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
-import { areaIcon, tagIcon } from "./icons";
+import { tagIcon } from "./icons";
+import { AreaScene } from "./scenes";
 
 const KIND_LABELS: Record<string, string> = {
   island: "Island",
@@ -68,11 +69,11 @@ export function DestinationCard({
     <Card data-testid="destination-card" className={cn("flex flex-col", wide && "sm:flex-row", className)}>
       <div
         className={cn(
-          "relative flex h-36 items-center justify-center border-b border-line bg-sage text-6xl",
+          "relative h-36 border-b border-line",
           wide && "sm:h-auto sm:w-2/5 sm:shrink-0 sm:border-b-0 sm:border-r",
         )}
       >
-        <span aria-hidden>{areaIcon(area.kind)}</span>
+        <AreaScene kind={area.kind} />
         <Badge className="absolute left-3 top-3">{KIND_LABELS[area.kind] ?? area.kind}</Badge>
       </div>
       <CardBody pad="lg" className="flex flex-1 flex-col gap-3">

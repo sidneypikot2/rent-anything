@@ -2,18 +2,12 @@ import { getActivities, getDestinations } from "@/api/discovery";
 import { ActivityCard, DestinationCard, groupDestinations } from "@/components/discovery/cards";
 import { tagIcon } from "@/components/discovery/icons";
 import { SearchBox } from "@/components/discovery/search-box";
+import { ExampleTrip } from "@/components/landing/example-trip";
 import { ButtonLink } from "@/components/ui/button";
-import { Card, CardBody } from "@/components/ui/card";
 import { PillLink } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
-import { BRAND, TAGLINE } from "@/lib/brand";
+import { TAGLINE } from "@/lib/brand";
 
-const FEATURES = [
-  { icon: "🧺", title: "One cart, every stop", body: "Tours, rides, gear and stays for every place you're visiting, grouped into trips by date." },
-  { icon: "🤝", title: "Local, verified partners", body: "ID-checked shops, guides and guesthouses who know the area." },
-  { icon: "🗓️", title: "Plan first, book later", body: "Save what you like to a trip and change dates as plans change. Booking and payment are coming soon." },
-  { icon: "🧭", title: "Plan by what you love", body: "Search an activity or a landmark and we show where to go." },
-];
 
 // The guest home: search first, then destinations and activities to browse. A guest who
 // hasn't chosen where to go starts here; picking a destination leads to its area page.
@@ -91,22 +85,7 @@ export default async function Home() {
           )}
         </section>
 
-        <section className="flex flex-col gap-4">
-          <SectionTitle>Why {BRAND}</SectionTitle>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {FEATURES.map((feature) => (
-              <Card key={feature.title}>
-                <CardBody pad="lg" className="flex flex-col gap-2">
-                  <span aria-hidden className="flex size-11 items-center justify-center rounded-xl bg-sage text-2xl">
-                    {feature.icon}
-                  </span>
-                  <h3 className="font-semibold">{feature.title}</h3>
-                  <p className="text-sm text-muted">{feature.body}</p>
-                </CardBody>
-              </Card>
-            ))}
-          </div>
-        </section>
+        <ExampleTrip />
 
         <section className="flex flex-col items-start gap-4 rounded-3xl bg-navy p-8 text-white sm:flex-row sm:items-center sm:justify-between">
           <div>
