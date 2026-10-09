@@ -380,9 +380,10 @@ RSpec.configure do |config|
               slug: { type: :string },
               name: { type: :string },
               kind: { type: :string, enum: %w[region province city town island] },
-              parent_name: { type: :string, nullable: true }
+              parent_name: { type: :string, nullable: true },
+              parent_slug: { type: :string, nullable: true }
             },
-            required: %w[slug name kind parent_name]
+            required: %w[slug name kind parent_name parent_slug]
           },
           area_card: {
             type: :object,
@@ -391,11 +392,12 @@ RSpec.configure do |config|
               name: { type: :string },
               kind: { type: :string, enum: %w[region province city town island] },
               parent_name: { type: :string, nullable: true },
+              parent_slug: { type: :string, nullable: true },
               landmark_count: { type: :integer },
               listing_count: { type: :integer },
               activities: { type: :array, items: { "$ref" => "#/components/schemas/tag" } }
             },
-            required: %w[slug name kind parent_name landmark_count listing_count activities]
+            required: %w[slug name kind parent_name parent_slug landmark_count listing_count activities]
           },
           area_detail: {
             type: :object,
@@ -509,9 +511,10 @@ RSpec.configure do |config|
                     slug: { type: :string },
                     name: { type: :string },
                     kind: { type: :string, enum: %w[region province city town island] },
-                    parent_name: { type: :string, nullable: true }
+                    parent_name: { type: :string, nullable: true },
+                    parent_slug: { type: :string, nullable: true }
                   },
-                  required: %w[slug name kind parent_name]
+                  required: %w[slug name kind parent_name parent_slug]
                 }
               },
               landmarks: {

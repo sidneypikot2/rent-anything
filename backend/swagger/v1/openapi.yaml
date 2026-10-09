@@ -2623,11 +2623,15 @@ components:
         parent_name:
           type: string
           nullable: true
+        parent_slug:
+          type: string
+          nullable: true
       required:
       - slug
       - name
       - kind
       - parent_name
+      - parent_slug
     area_card:
       type: object
       properties:
@@ -2646,6 +2650,9 @@ components:
         parent_name:
           type: string
           nullable: true
+        parent_slug:
+          type: string
+          nullable: true
         landmark_count:
           type: integer
         listing_count:
@@ -2659,6 +2666,7 @@ components:
       - name
       - kind
       - parent_name
+      - parent_slug
       - landmark_count
       - listing_count
       - activities
@@ -2940,11 +2948,15 @@ components:
               parent_name:
                 type: string
                 nullable: true
+              parent_slug:
+                type: string
+                nullable: true
             required:
             - slug
             - name
             - kind
             - parent_name
+            - parent_slug
         landmarks:
           type: array
           items:
