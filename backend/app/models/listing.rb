@@ -10,6 +10,9 @@ class Listing < ApplicationRecord
   belongs_to :category
   has_many :listing_landmarks, dependent: :delete_all
   has_many :landmarks, through: :listing_landmarks
+  # The landmarks a tour or activity visits (RAA-70); a transfer will serve others.
+  has_many :landmark_visits, -> { visits }, class_name: "ListingLandmark", inverse_of: :listing
+  has_many :visited_landmarks, through: :landmark_visits, source: :landmark
   # Guests' unbooked trip items (RAA-64) go with the listing; the foreign key cascades too.
   has_many :trip_items, dependent: :delete_all
 

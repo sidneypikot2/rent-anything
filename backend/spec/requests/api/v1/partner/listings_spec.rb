@@ -121,6 +121,61 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
+      response "201", "a tour with the landmarks it visits, and the destinations they cover" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        let(:island) { create(:area, slug: "bantayan-island", name: "Bantayan Island", kind: "island") }
+        let(:kota) { create(:landmark, name: "Kota Beach", area: create(:area, name: "Santa Fe", parent: island)) }
+        let(:kawasan) { create(:landmark, name: "Kawasan Falls", area: area) }
+
+        before { body[:landmark_ids] = [ kota.id, kawasan.id, kota.id ] }
+
+        run_test! do |response|
+          expect(response.parsed_body["landmarks"].pluck("name")).to eq([ "Kawasan Falls", "Kota Beach" ])
+          expect(response.parsed_body["landmarks"].last).to include(
+            "id" => kota.id, "area" => { "slug" => kota.area.slug, "name" => "Santa Fe" },
+            "destination" => { "slug" => "bantayan-island", "name" => "Bantayan Island" }
+          )
+          expect(response.parsed_body["covers"]).to eq([
+            { "slug" => "bantayan-island", "name" => "Bantayan Island" }, { "slug" => "moalboal", "name" => "Moalboal" }
+          ])
+          expect(user.listings.sole.listing_landmarks.pluck(:relation)).to eq(%w[visits visits])
+        end
+      end
+
+      response "422", "landmarks that aren't published, or unknown" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:landmark_ids] = [ create(:landmark, :draft).id, 0 ] }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Landmarks must be published landmarks")
+          expect(Listing.count).to eq(0)
+        end
+      end
+
+      response "422", "more than 30 landmarks" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:landmark_ids] = (1..31).to_a }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("A listing can visit at most 30 landmarks")
+        end
+      end
+
+      response "422", "landmarks on a listing that isn't an activity" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before do
+          body.merge!(category_id: create(:category, name: "Camera").id, attrs: {}, landmark_ids: [ create(:landmark).id ])
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Only tours and activities visit landmarks")
+        end
+      end
+
       response "201", "an address without a province" do
         schema "$ref" => "#/components/schemas/partner_listing"
 
@@ -178,7 +233,7 @@ RSpec.describe "Partner listings", type: :request do
 
         let(:body) do
           { title: 42, description: [ "x" ], category_id: "1", location: { lat: "9.95", lng: 200 }, attrs: "none",
-            address: { street: "", city: 6032, province: 1, region: "Central Visayas" } }
+            address: { street: "", city: 6032, province: 1, region: "Central Visayas" }, landmark_ids: [ "1" ] }
         end
 
         run_test! do |response|
@@ -187,7 +242,7 @@ RSpec.describe "Partner listings", type: :request do
             "Street is required", "City is required", "Province must be text", "ZIP code is required",
             "Country is required",
             "Latitude must be a number between -90 and 90", "Longitude must be a number between -180 and 180",
-            "Details must be an object"
+            "Details must be an object", "Landmarks must be a list of landmark ids"
           )
           expect(Listing.count).to eq(0)
         end
@@ -329,6 +384,64 @@ RSpec.describe "Partner listings", type: :request do
           expect(response.parsed_body["address"]).to eq(address.stringify_keys)
           expect(listing.reload).to have_attributes(title: "Whale shark swim", category: category, area: oslob,
             status: "pending")
+        end
+      end
+
+      response "200", "landmarks replaced when sent, kept when left out" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        let(:kawasan) { create(:landmark, name: "Kawasan Falls", area: moalboal) }
+        let(:sumilon) { create(:landmark, name: "Sumilon Island", area: oslob) }
+
+        before do
+          listing.update!(category:)
+          listing.listing_landmarks.create!(landmark: kawasan)
+          body[:landmark_ids] = [ sumilon.id ]
+        end
+
+        run_test! do |saved|
+          expect(saved.parsed_body["landmarks"].pluck("name")).to eq([ "Sumilon Island" ])
+          body.delete(:landmark_ids)
+          patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["landmarks"].pluck("name")).to eq([ "Sumilon Island" ])
+          patch "/api/v1/partner/listings/#{id}", params: body.merge(landmark_ids: []), as: :json,
+            headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["landmarks"]).to eq([])
+        end
+      end
+
+      response "200", "a landmark unpublished since it was picked can stay; a transfer's served landmarks stay" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        let(:unpublished) { create(:landmark, :draft, name: "Kawasan Falls", area: moalboal) }
+        let(:served) { create(:landmark, name: "Mactan airport", area: oslob) }
+
+        before do
+          listing.update!(category:)
+          listing.listing_landmarks.create!(landmark: unpublished)
+          listing.listing_landmarks.create!(landmark: served, relation: "serves")
+          body[:landmark_ids] = [ unpublished.id ]
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["landmarks"].pluck("name")).to eq([ "Kawasan Falls" ])
+          expect(listing.listing_landmarks.pluck(:landmark_id, :relation))
+            .to contain_exactly([ unpublished.id, "visits" ], [ served.id, "serves" ])
+        end
+      end
+
+      response "200", "landmarks dropped when the listing stops being an activity" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        before do
+          listing.update!(category:)
+          listing.listing_landmarks.create!(landmark: create(:landmark, area: moalboal))
+          body.merge!(category_id: create(:category, name: "Camera").id, attrs: {})
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["landmarks"]).to eq([])
+          expect(listing.listing_landmarks.count).to eq(0)
         end
       end
 

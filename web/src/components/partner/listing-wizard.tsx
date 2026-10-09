@@ -18,22 +18,27 @@ import {
   toAttrs,
   type AttributeValues,
 } from "./listing-fields";
+import { LandmarkPicker } from "./landmark-picker";
 import { LocationPicker } from "./location-picker";
 import { useCreateListing, type ListingCategory } from "./use-partner-listings";
+import type { PartnerLandmark } from "./use-partner-landmarks";
 
-type StepKey = "basic" | "location" | "details" | "rate";
+type StepKey = "basic" | "location" | "route" | "details" | "rate";
 
 // Adding a listing of the chosen category (RAA-50), one step at a time: Basic, Location,
-// the category's own details (skipped when it has none) and Rate. Only the current step is
+// Route (the landmarks a tour or activity visits, RAA-70), the category's own details
+// (skipped when it has none) and Rate. Only the current step is
 // on the page, so the browser's required checks cover just that step; every value is kept
 // here, so going back loses nothing. The listing is saved as a draft.
 export function ListingWizard({ category }: { category: ListingCategory }) {
   const router = useRouter();
   const create = useCreateListing();
   const fields = attributeFields(category);
+  const visitsLandmarks = category.booking_type === "activity";
   const steps: { key: StepKey; label: string }[] = [
     { key: "basic", label: "Basic" },
     { key: "location", label: "Location" },
+    ...(visitsLandmarks ? [{ key: "route" as const, label: "Route" }] : []),
     ...(fields.length > 0 ? [{ key: "details" as const, label: `${category.name} details` }] : []),
     { key: "rate", label: "Rate" },
   ];
@@ -47,6 +52,7 @@ export function ListingWizard({ category }: { category: ListingCategory }) {
   const [location, setLocation] = useState<LatLng | null>(null);
   const [locationError, setLocationError] = useState<string>();
   const [attrValues, setAttrValues] = useState<AttributeValues>({});
+  const [landmarks, setLandmarks] = useState<PartnerLandmark[]>([]);
   // Shown and checked, not saved yet: the API has no pricing until its own ticket.
   const [dailyRate, setDailyRate] = useState("");
 
@@ -69,6 +75,7 @@ export function ListingWizard({ category }: { category: ListingCategory }) {
         address: address.toBody(),
         location,
         attrs: toAttrs(fields, attrValues),
+        ...(visitsLandmarks && { landmark_ids: landmarks.map((landmark) => landmark.id) }),
       },
       { onSuccess: () => router.push("/partner/listings") },
     );
@@ -149,6 +156,15 @@ export function ListingWizard({ category }: { category: ListingCategory }) {
               geocodeQuery={geocodeQuery(address)}
               error={locationError}
             />
+          </>
+        )}
+
+        {step.key === "route" && (
+          <>
+            <p className="text-sm text-muted">
+              The landmarks this {category.name.toLowerCase()} visits. Travellers find it from each one.
+            </p>
+            <LandmarkPicker value={landmarks} onChange={setLandmarks} near={location} />
           </>
         )}
 

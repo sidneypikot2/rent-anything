@@ -40,6 +40,10 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
     compare(label, listing.address[field], body.address[field]);
   }
   compare("Map pin", pin(listing.location), pin(body.location));
+  const landmarkIds = (ids: number[]) => [...ids].sort((a, b) => a - b).join(",");
+  if (body.landmark_ids && landmarkIds(listing.landmarks.map((landmark) => landmark.id)) !== landmarkIds(body.landmark_ids)) {
+    changes.push("Landmarks");
+  }
 
   const attrs = body.attrs ?? {};
   for (const key of new Set([...Object.keys(listing.attrs), ...Object.keys(attrs)])) {

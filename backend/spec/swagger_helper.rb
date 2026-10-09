@@ -268,10 +268,51 @@ RSpec.configure do |config|
                 required: %w[lat lng]
               },
               attrs: { type: :object, additionalProperties: true, description: "Matches the category's attribute_schema" },
+              landmarks: {
+                type: :array, items: { "$ref" => "#/components/schemas/partner_landmark" },
+                description: "The landmarks a tour or activity visits, by name; empty for other listings"
+              },
+              covers: {
+                type: :array, items: { "$ref" => "#/components/schemas/area_ref" },
+                description: "The destinations those landmarks are in, by name"
+              },
               created_at: { type: :string, format: "date-time" },
               updated_at: { type: :string, format: "date-time" }
             },
-            required: %w[id title description status category area address location attrs created_at updated_at]
+            required: %w[id title description status category area address location attrs landmarks covers created_at
+              updated_at]
+          },
+          # A published landmark in the partner's tour landmark picker, with its destination.
+          partner_landmark: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              slug: { type: :string },
+              name: { type: :string },
+              area: { "$ref" => "#/components/schemas/area_ref" },
+              destination: {
+                allOf: [ { "$ref" => "#/components/schemas/area_ref" } ], nullable: true,
+                description: "The published island the landmark is on, otherwise its town or city"
+              },
+              location: { "$ref" => "#/components/schemas/lat_lng" }
+            },
+            required: %w[id slug name area destination location]
+          },
+          partner_landmarks: {
+            type: :object,
+            properties: {
+              landmarks: { type: :array, items: { "$ref" => "#/components/schemas/partner_landmark" } },
+              destinations: {
+                type: :array,
+                description: "Every destination with a published landmark, by name, whatever the filters",
+                items: {
+                  type: :object,
+                  properties: { slug: { type: :string }, name: { type: :string }, landmark_count: { type: :integer } },
+                  required: %w[slug name landmark_count]
+                }
+              }
+            },
+            required: %w[landmarks destinations]
           },
           # What a partner sends to add or change a listing; `status` is never taken from it.
           listing_body: {
@@ -300,7 +341,12 @@ RSpec.configure do |config|
                 },
                 required: %w[lat lng]
               },
-              attrs: { type: :object, additionalProperties: true }
+              attrs: { type: :object, additionalProperties: true },
+              landmark_ids: {
+                type: :array, items: { type: :integer }, maxItems: 30,
+                description: "Tours and activities only: the published landmarks it visits. Replaces them when " \
+                  "sent; left out on a change, they stay as they are. A listing that isn't an activity has none."
+              }
             },
             required: %w[title category_id address location]
           },

@@ -708,6 +708,71 @@ paths:
               required:
               - token
               - role
+  "/api/v1/partner/landmarks":
+    get:
+      summary: Landmarks a tour can visit
+      tags:
+      - Partner
+      description: 'Partner-only. Published landmarks for the tour landmark picker
+        (RAA-70), at most 50: `q` matches the name or an alias, `area` keeps the landmarks
+        whose destination is that area, and `lat`/`lng` (the listing''s pin) ranks
+        them nearest first; otherwise they''re by name. Each landmark carries its
+        destination: the published island it''s on, otherwise its town or city. `destinations`
+        lists every destination that has a published landmark, whatever the filters,
+        for the picker''s area chips.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: area
+        in: query
+        required: false
+        schema:
+          type: string
+        description: A destination's slug
+      - name: lat
+        in: query
+        required: false
+        schema:
+          type: number
+      - name: lng
+        in: query
+        required: false
+        schema:
+          type: number
+      responses:
+        '200':
+          description: nearest the listing's pin first
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_landmarks"
+        '422':
+          description: a pin that isn't a coordinate
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/partner/listing_options":
     get:
       summary: 'What a new listing can be: its bookable categories'
@@ -880,7 +945,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: saved, in the area nearest the new pin, status unchanged
+          description: landmarks dropped when the listing stops being an activity
           content:
             application/json:
               schema:
@@ -2353,6 +2418,17 @@ components:
           type: object
           additionalProperties: true
           description: Matches the category's attribute_schema
+        landmarks:
+          type: array
+          items:
+            "$ref": "#/components/schemas/partner_landmark"
+          description: The landmarks a tour or activity visits, by name; empty for
+            other listings
+        covers:
+          type: array
+          items:
+            "$ref": "#/components/schemas/area_ref"
+          description: The destinations those landmarks are in, by name
         created_at:
           type: string
           format: date-time
@@ -2369,8 +2445,63 @@ components:
       - address
       - location
       - attrs
+      - landmarks
+      - covers
       - created_at
       - updated_at
+    partner_landmark:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        area:
+          "$ref": "#/components/schemas/area_ref"
+        destination:
+          allOf:
+          - "$ref": "#/components/schemas/area_ref"
+          nullable: true
+          description: The published island the landmark is on, otherwise its town
+            or city
+        location:
+          "$ref": "#/components/schemas/lat_lng"
+      required:
+      - id
+      - slug
+      - name
+      - area
+      - destination
+      - location
+    partner_landmarks:
+      type: object
+      properties:
+        landmarks:
+          type: array
+          items:
+            "$ref": "#/components/schemas/partner_landmark"
+        destinations:
+          type: array
+          description: Every destination with a published landmark, by name, whatever
+            the filters
+          items:
+            type: object
+            properties:
+              slug:
+                type: string
+              name:
+                type: string
+              landmark_count:
+                type: integer
+            required:
+            - slug
+            - name
+            - landmark_count
+      required:
+      - landmarks
+      - destinations
     listing_body:
       type: object
       properties:
@@ -2424,6 +2555,14 @@ components:
         attrs:
           type: object
           additionalProperties: true
+        landmark_ids:
+          type: array
+          items:
+            type: integer
+          maxItems: 30
+          description: 'Tours and activities only: the published landmarks it visits.
+            Replaces them when sent; left out on a change, they stay as they are.
+            A listing that isn''t an activity has none.'
       required:
       - title
       - category_id

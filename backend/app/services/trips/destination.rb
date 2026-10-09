@@ -13,6 +13,23 @@ module Trips
         lineage.find { |place| PLACE_KINDS.include?(place.kind) }
     end
 
+    # The same rule for many areas in one query (RAA-70): { area_id => destination }.
+    def self.for_areas(area_ids)
+      return {} if area_ids.empty?
+
+      Area.find_by_sql([ <<~SQL.squish, area_ids, PLACE_KINDS ]).to_h { |place| [ place.start_id, place ] }
+        WITH RECURSIVE up(start_id, id, parent_id, depth) AS (
+          SELECT id, id, parent_id, 0 FROM areas WHERE id IN (?)
+          UNION ALL
+          SELECT up.start_id, parents.id, parents.parent_id, up.depth + 1
+          FROM areas parents JOIN up ON parents.id = up.parent_id
+        )
+        SELECT DISTINCT ON (up.start_id) up.start_id, areas.* FROM up JOIN areas ON areas.id = up.id
+        WHERE (areas.kind = 'island' AND areas.status = 'published') OR areas.kind IN (?)
+        ORDER BY up.start_id, (areas.kind = 'island' AND areas.status = 'published') DESC, up.depth
+      SQL
+    end
+
     # "Bantayan Island · Nov 12–15"; the destination alone without dates. A long place name
     # is shortened so the name fits a trip's 80 characters.
     def self.trip_name(area, starts_on, ends_on)
