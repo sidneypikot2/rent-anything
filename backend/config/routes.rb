@@ -31,6 +31,13 @@ Rails.application.routes.draw do
       # What guests search for and pick (RAA-60).
       resources :search_events, only: :create
 
+      # A guest's trips, which the cart lists (RAA-64). Guest-only.
+      resources :trips, only: %i[index show create update destroy] do
+        get :suggestion, on: :collection
+        post :merge, on: :member
+      end
+      resources :trip_items, only: %i[create update destroy]
+
       # Admin-only (RAA-60): the search-term and destination-link queues.
       namespace :admin do
         resource :search_term_queue, only: :show

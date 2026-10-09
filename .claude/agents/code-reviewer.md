@@ -12,14 +12,14 @@ Start from the diff: `git diff origin/staging...HEAD` (and `git status --short` 
 isn't committed yet). Read the changed files as far as you need to judge them, and read
 the rule files that cover them in `.claude/rules/` — those are the source of the checks
 below, and they carry the reasons. `SPEC.md` holds the domain design (booking types,
-per-area cart, booking lifecycle) the code is meant to follow.
+cart of trips, booking lifecycle) the code is meant to follow.
 
 What to check, where the diff touches it:
 
 - **Service boundary.** Business logic and validation live in a service under
   `backend/app/services/`; a controller only turns a service's result into a response.
 - **Authorization.** A lookup goes through `current_user` (a partner's listings, a guest's
-  bookings and carts), or the service raises `NotAuthorizedError`. Every new write action
+  bookings and trips), or the service raises `NotAuthorizedError`. Every new write action
   has a spec for the wrong-user case (another guest, another partner, a non-admin).
 - **Money.** Amounts are integer centavos (`*_cents`), never floats or decimals parsed from
   strings. A booking stores its price breakdown and commission rate when it is created;
@@ -28,8 +28,8 @@ What to check, where the diff touches it:
   service, each recorded as a booking event. Overlap is prevented by the database
   constraint, not only by a Ruby check before insert. Activity seats are counted under a
   lock.
-- **Per-area cart.** A cart item's listing belongs to the cart's area; the API refuses
-  anything else with 422.
+- **Trips.** A trip item can be any area's listing; a trip's dates always cover its dated
+  items (`.claude/rules/trips.md`). A trip or item from another guest is a 404.
 - **Payments.** Webhook handlers are idempotent (keyed by the gateway's event id) and verify
   the gateway's token; no secret or full card or wallet detail is logged or stored.
 - **API contract.** A new or changed endpoint has an rswag request spec describing it, and

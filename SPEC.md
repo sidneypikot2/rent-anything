@@ -71,22 +71,41 @@ row lock on the slot. Partners block dates with `availability_blocks`.
 - `/admin` is for the team. Sign-in only; admin accounts are never self-made.
 - `partner` and `admin` are reserved: no area may use them as its slug.
 
-### Area-first, with a cart per area
+### Area-first browsing, a cart of trips
+
+Agreed by the team in October 2026 ("Trips instead of area carts", decisions 1–15). It
+replaces the earlier one-cart-per-area design, because a Bantayan – Malapascua trip spans two
+areas and a tour can visit several.
 
 - Every traveller page lives under an area (`/moalboal/...`); the area and optional trip
   dates are in the URL and pre-fill availability and quotes. The area home groups listings
   by trip need: Tours & activities; Getting there & around (transfers, motorbikes, trikes);
-  Gear; Stays.
-- **One cart per user per area** (`carts`, unique on user + area). A Moalboal cart never
-  shows when another area is selected; adding another area's listing is a 422.
-- Signed-out travellers keep a cart in `localStorage` per area slug; it merges into the
-  server cart on sign-in.
+  Gear; Stays. A listing keeps one area.
+- **The cart is a list of the guest's trips** (`trips`: name, dates, guests), each with its
+  items (`trip_items`: listing, dates, quantity) from any area, in date order. Built in
+  RAA-64. A trip's dates always cover its dated items; adding or re-dating an item extends
+  them.
+- **Sign-in comes before the first add.** That add then creates a trip named
+  `<destination> · <dates>`. The destination is the listing's published island, otherwise its
+  town or city, never a province (Santa Fe → Bantayan Island). Signed-out trips are a
+  follow-up feature on the same server model.
+- **Later adds suggest a trip**, by date first, then by distance. If the item is inside a
+  trip's dates, or up to 3 days outside them, it goes to that trip (outside the dates, the
+  trip is extended). If it is more than 3 days from every trip, the suggestion is "New trip".
+  An undated item goes to the most recently edited trip with the same destination. Items can
+  be moved and trips merged.
+- Undated items can sit in a trip but can't be checked out until they have a date.
+- Cleanup (a later ticket): a daily job shows an in-app notice when a trip ends and deletes its
+  unbooked items 7 days later. An undated trip gets the same notice after 60 days with no
+  edits. Booked items are never deleted. No email in M4.
 - The cart holds nothing: availability and price are re-quoted at checkout, and changed
   items are flagged.
-- **Checkout** creates a `trip` with one booking per item and one payment, split to each
-  partner. Instant-book items are held for 15 minutes while payment completes. Request-to-book
-  items go out as requests first ("Send requests"), and the traveller pays once partners
-  accept — a declined item is never charged.
+- **Checkout** (not designed yet; to be decided together with Xendit) takes the items the
+  guest selects from a trip and creates their bookings and one payment, split to each partner.
+  So a trip can have several checkouts, and its status (planning → partly booked → booked)
+  follows its items. Instant-book items are held for 15 minutes while payment completes.
+  Request-to-book items go out as requests first ("Send requests"), and the traveller pays once
+  partners accept, so a declined item is never charged.
 
 ### Booking lifecycle
 
@@ -141,7 +160,7 @@ after a booking is paid (keeps deals on the platform).
 | M1 | Auth & accounts | Email/password, phone OTP (deferred), JWT access + refresh tokens, roles (guest, partner, admin), profile |
 | M2 | Areas, categories, listings | Listing CRUD, photos, attrs schema, pricing tiers, PostGIS search, area home (map + list), listing page |
 | M3 | Availability & quotes | Units, blocks, activity slots, transfer routes, the exclusion constraint, quotes, partner calendar |
-| M4 | Cart, booking & payments | Per-area cart (server + signed-out cart merge), trip checkout, booking lifecycle, Xendit split payment + webhooks, commission, deposit, cancellation policies, payouts |
+| M4 | Cart, booking & payments | Cart of trips (RAA-64 API; trip cleanup job; add-to-trip and cart UI; tour landmark picker), checkout of selected items, booking lifecycle, Xendit split payment + webhooks, commission, deposit, cancellation policies, payouts |
 | M5 | Trust | Listing approval (partner ID verification moved earlier: RAA-44, Didit), reviews, contact masking |
 | M6 | Chat | Conversations per listing/booking |
 | M7 | Operations | Pickup/return checklists with photos, disputes, admin console |
@@ -164,8 +183,7 @@ Planned shape; the route tables below are checked against `routes.rb`.
 | `/api/v1/areas` | list areas; `/api/v1/areas/:slug` with its categories |
 | `/api/v1/listings` | search (area, category, bounding box, dates) and show |
 | `/api/v1/quotes` | price and availability for a listing and period |
-| `/api/v1/areas/:slug/cart` | the signed-in user's cart for that area, and its items |
-| `/api/v1/checkouts` | turn a cart into a trip, bookings and a payment |
+| `/api/v1/checkouts` | turn a trip's selected items into bookings and a payment |
 | `/api/v1/bookings` | a guest's bookings; partner accept/decline |
 | `/api/v1/partner/listings` | a partner's listings, units, calendar and routes |
 | `/api/v1/webhooks/xendit` | payment and payout events |

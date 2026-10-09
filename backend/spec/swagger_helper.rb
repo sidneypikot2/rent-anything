@@ -152,6 +152,59 @@ RSpec.configure do |config|
             },
             required: %w[id title category area_slug]
           },
+          # A guest's trip (RAA-64): what the cart lists. Dates are both set or both null.
+          trip: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              name: { type: :string },
+              starts_on: { type: :string, format: :date, nullable: true },
+              ends_on: { type: :string, format: :date, nullable: true },
+              guests: { type: :integer },
+              destinations: {
+                type: :array, items: { type: :string },
+                description: "Where the items are: each one's island, or else its town or city, in item order"
+              },
+              updated_at: { type: :string, format: "date-time", description: "Last edited, items included" },
+              items: {
+                type: :array, items: { "$ref" => "#/components/schemas/trip_item" },
+                description: "In date order, undated items last"
+              }
+            },
+            required: %w[id name starts_on ends_on guests destinations updated_at items]
+          },
+          trip_item: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              starts_on: { type: :string, format: :date, nullable: true },
+              ends_on: { type: :string, format: :date, nullable: true, description: "Null with starts_on: not bookable until it has a date" },
+              quantity: { type: :integer },
+              area: { "$ref" => "#/components/schemas/area_ref" },
+              listing: { "$ref" => "#/components/schemas/listing_summary" }
+            },
+            required: %w[id starts_on ends_on quantity area listing]
+          },
+          trip_suggestion: {
+            type: :object,
+            properties: {
+              trip: {
+                allOf: [ { "$ref" => "#/components/schemas/trip" } ], nullable: true,
+                description: "The trip to preselect; null means \"New trip\""
+              },
+              extends_to: {
+                type: :object, nullable: true,
+                description: "The suggested trip's dates once it takes the item, when they would grow",
+                properties: {
+                  starts_on: { type: :string, format: :date },
+                  ends_on: { type: :string, format: :date }
+                },
+                required: %w[starts_on ends_on]
+              },
+              new_trip_name: { type: :string, description: "The name a new trip for this item would get" }
+            },
+            required: %w[trip extends_to new_trip_name]
+          },
           # A listing summary on a guest's map: its location rounded to two decimals (~1 km).
           listing_pin: {
             type: :object,

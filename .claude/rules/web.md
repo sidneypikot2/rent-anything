@@ -15,6 +15,6 @@ Next.js 16 App Router, TypeScript (strict), Tailwind CSS 4, TanStack Query. **Th
 
 **Three sections**: guest pages are in the `src/app/(guest)/` route group, partner pages under `src/app/partner/`, admin pages under `src/app/admin/`, each with its own layout and `SectionHeader` (`src/components/landing/`). A sign-up on `/register` makes a guest and one on `/partner/register` a partner; `/admin` has no sign-up. Every other `/partner` page is partner-only (`auth.md`). Area pages are `/[area]` at the top level, so an area slug can never be a top-level route: `Area::RESERVED_SLUGS` (`partner`, `admin`, `search`, `login`, `register`, `dashboard`, `profile`, `settings`, `nearby`) — a new top-level guest route goes on that list too.
 
-**Area first**: every traveller-facing page lives under an area (`/moalboal/...`), and the selected area and trip dates travel in the URL. The cart is per area: never show or mix another area's cart items.
+**Area first**: every traveller-facing page lives under an area (`/moalboal/...`), and the selected area and trip dates travel in the URL. The cart is a list of the guest's trips, which can span areas (`.claude/rules/trips.md`).
 
 **Layout**: mobile-first — most travellers book from a phone. Check every page at phone width.

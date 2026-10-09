@@ -918,13 +918,14 @@ paths:
       summary: Delete a listing
       tags:
       - Partner
-      description: Partner-only. Deletes the listing for good. Another partner's listing
-        is a 404.
+      description: Partner-only. Deletes the listing for good, and takes it out of
+        any guest's trip. Another partner's listing is a 404.
       security:
       - bearer: []
       responses:
         '204':
-          description: deleted
+          description: 'deleted while in a guest''s trip: the item goes, the trip
+            stays'
         '404':
           description: another partner's listing
           content:
@@ -1411,6 +1412,447 @@ paths:
                   type: string
               required:
               - refresh_token
+  "/api/v1/trip_items":
+    post:
+      summary: Add a listing to a trip
+      tags:
+      - Trips
+      description: 'Guest-only. Adds the listing to `trip_id`, or, without one, to
+        a new trip named after the destination and dates ("Bantayan Island · Nov 12–15")
+        with `quantity` guests. The trip''s dates grow to cover the item''s. Dates
+        are optional, both or neither, `YYYY-MM-DD` and not in the past: an undated
+        item can''t be checked out until it has one. `quantity` is 1 to 99, default
+        1. Answers with the trip.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: an undated add
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/trip"
+        '422':
+          description: a listing that can't be booked, or a bad quantity
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: into another guest's trip
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                listing_id:
+                  type: integer
+                starts_on:
+                  type: string
+                  format: date
+                  nullable: true
+                ends_on:
+                  type: string
+                  format: date
+                  nullable: true
+                quantity:
+                  type: integer
+                trip_id:
+                  type: integer
+                  nullable: true
+                  description: Omit or null for a new trip
+              required:
+              - listing_id
+  "/api/v1/trip_items/{id}":
+    parameters:
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    patch:
+      summary: Change an item or move it to another trip
+      tags:
+      - Trips
+      description: Guest-only. Only the keys sent change; a date not sent keeps its
+        value. `move_to_trip_id` moves it to another of the guest's trips. The trip
+        it ends up in grows to cover its dates; the one it left keeps its dates. Answers
+        with the trip it ends up in.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: moved to another trip
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/trip"
+        '422':
+          description: one date cleared
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another guest's item, or a move into another guest's trip
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                starts_on:
+                  type: string
+                  format: date
+                  nullable: true
+                ends_on:
+                  type: string
+                  format: date
+                  nullable: true
+                quantity:
+                  type: integer
+                move_to_trip_id:
+                  type: integer
+    delete:
+      summary: Remove an item from its trip
+      tags:
+      - Trips
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '204':
+          description: removed; the trip stays
+        '404':
+          description: another guest's item
+  "/api/v1/trips":
+    get:
+      summary: The signed-in guest's trips
+      tags:
+      - Trips
+      description: 'Guest-only. The cart: every trip that hasn''t ended or ended within
+        the last 7 days (its unbooked items are deleted then), undated ones included,
+        with its items. Dated trips come first, soonest first; then undated ones,
+        most recently edited first.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the guest's trips, up to 7 days after they end
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/trip"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    post:
+      summary: Plan a named trip
+      tags:
+      - Trips
+      description: Guest-only. For guests who plan before adding anything; the first
+        add creates a trip by itself (`POST /api/v1/trip_items`). `name` is required
+        (at most 80 characters); dates are optional, both or neither, as `YYYY-MM-DD`,
+        and not in the past; `guests` is 1 to 50, default 1.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: the new trip
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/trip"
+        '422':
+          description: no name, one date only, or a date that isn't a date
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                starts_on:
+                  type: string
+                  format: date
+                  nullable: true
+                ends_on:
+                  type: string
+                  format: date
+                  nullable: true
+                guests:
+                  type: integer
+              required:
+              - name
+  "/api/v1/trips/suggestion":
+    get:
+      summary: Which trip an item should go to
+      tags:
+      - Trips
+      description: Guest-only. Preselects a trip in the add sheet. A dated item goes
+        to the trip whose dates are nearest its own, overlapping or up to 3 days away
+        (then `extends_to` gives the trip's new dates); a tie goes to the trip with
+        an item nearest the listing. An undated item goes to the most recently edited
+        trip with the same destination (island, otherwise town or city). Only trips
+        that haven't ended count. `trip` null means "New trip", which would be named
+        `new_trip_name`.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      - name: listing_id
+        in: query
+        schema:
+          type: integer
+        required: true
+      - name: starts_on
+        in: query
+        schema:
+          type: string
+          format: date
+        required: false
+      - name: ends_on
+        in: query
+        schema:
+          type: string
+          format: date
+        required: false
+      responses:
+        '200':
+          description: 'no trip near: a new one'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/trip_suggestion"
+        '422':
+          description: a listing that can't be booked
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/trips/{id}":
+    parameters:
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    get:
+      summary: One of the guest's trips
+      tags:
+      - Trips
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the trip
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/trip"
+        '404':
+          description: another guest's trip
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    patch:
+      summary: Rename a trip or change its dates or guests
+      tags:
+      - Trips
+      description: Guest-only. Only the keys sent change; a date not sent keeps its
+        value. Null dates make the trip undated. The dates must still cover every
+        dated item's dates.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the changed trip
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/trip"
+        '422':
+          description: dates that no longer cover an item
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another guest's trip
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                starts_on:
+                  type: string
+                  format: date
+                  nullable: true
+                ends_on:
+                  type: string
+                  format: date
+                  nullable: true
+                guests:
+                  type: integer
+    delete:
+      summary: Delete a trip and its items
+      tags:
+      - Trips
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '204':
+          description: deleted
+        '404':
+          description: another guest's trip
+  "/api/v1/trips/{id}/merge":
+    post:
+      summary: Merge a trip into another
+      tags:
+      - Trips
+      description: Guest-only. Moves every item into `into_trip_id`, whose dates grow
+        to cover them, and deletes this trip. Answers with the trip merged into.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      - name: id
+        in: path
+        schema:
+          type: integer
+        required: true
+      responses:
+        '200':
+          description: 'a trip under way merged into a later one: its dates reach
+            back'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/trip"
+        '422':
+          description: merged into itself
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: into another guest's trip
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                into_trip_id:
+                  type: integer
+              required:
+              - into_trip_id
   "/api/v1/webhooks/didit":
     post:
       summary: Didit reports a change to an ID check
@@ -1695,6 +2137,104 @@ components:
       - title
       - category
       - area_slug
+    trip:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        starts_on:
+          type: string
+          format: date
+          nullable: true
+        ends_on:
+          type: string
+          format: date
+          nullable: true
+        guests:
+          type: integer
+        destinations:
+          type: array
+          items:
+            type: string
+          description: 'Where the items are: each one''s island, or else its town
+            or city, in item order'
+        updated_at:
+          type: string
+          format: date-time
+          description: Last edited, items included
+        items:
+          type: array
+          items:
+            "$ref": "#/components/schemas/trip_item"
+          description: In date order, undated items last
+      required:
+      - id
+      - name
+      - starts_on
+      - ends_on
+      - guests
+      - destinations
+      - updated_at
+      - items
+    trip_item:
+      type: object
+      properties:
+        id:
+          type: integer
+        starts_on:
+          type: string
+          format: date
+          nullable: true
+        ends_on:
+          type: string
+          format: date
+          nullable: true
+          description: 'Null with starts_on: not bookable until it has a date'
+        quantity:
+          type: integer
+        area:
+          "$ref": "#/components/schemas/area_ref"
+        listing:
+          "$ref": "#/components/schemas/listing_summary"
+      required:
+      - id
+      - starts_on
+      - ends_on
+      - quantity
+      - area
+      - listing
+    trip_suggestion:
+      type: object
+      properties:
+        trip:
+          allOf:
+          - "$ref": "#/components/schemas/trip"
+          nullable: true
+          description: The trip to preselect; null means "New trip"
+        extends_to:
+          type: object
+          nullable: true
+          description: The suggested trip's dates once it takes the item, when they
+            would grow
+          properties:
+            starts_on:
+              type: string
+              format: date
+            ends_on:
+              type: string
+              format: date
+          required:
+          - starts_on
+          - ends_on
+        new_trip_name:
+          type: string
+          description: The name a new trip for this item would get
+      required:
+      - trip
+      - extends_to
+      - new_trip_name
     listing_pin:
       type: object
       properties:
