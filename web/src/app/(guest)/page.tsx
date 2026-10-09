@@ -20,13 +20,6 @@ const FEATURES = [
 export default async function Home() {
   const [destinations, activities] = await Promise.all([getDestinations(), getActivities()]);
 
-  const stats = [
-    { value: destinations.length, label: "Destinations" },
-    { value: destinations.reduce((sum, area) => sum + area.landmark_count, 0), label: "Places to see" },
-    { value: destinations.reduce((sum, area) => sum + area.listing_count, 0), label: "Things to book" },
-    { value: activities.length, label: "Activities" },
-  ];
-
   return (
     <main className="flex flex-1 flex-col">
       <section className="border-b border-line bg-linear-to-br from-mist via-surface to-sage px-4 pb-16 pt-14 text-center sm:pt-20">
@@ -44,7 +37,7 @@ export default async function Home() {
           <SearchBox />
           {activities.length > 0 && (
             <div className="flex flex-wrap justify-center gap-2">
-              {activities.slice(0, 6).map((activity) => (
+              {activities.slice(0, 3).map((activity) => (
                 <PillLink key={activity.slug} href={`/search?q=${encodeURIComponent(activity.name)}`}>
                   {tagIcon(activity.slug)} {activity.name}
                 </PillLink>
@@ -55,15 +48,6 @@ export default async function Home() {
       </section>
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-14 px-4 py-12">
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {stats.map((stat) => (
-            <div key={stat.label} className="flex flex-col rounded-2xl border-[1.5px] border-line bg-surface-2 p-4 text-center">
-              <dt className="order-2 text-xs font-semibold uppercase tracking-wider text-muted">{stat.label}</dt>
-              <dd className="font-display text-4xl font-bold text-primary">{stat.value}</dd>
-            </div>
-          ))}
-        </dl>
-
         <section id="activities" className="flex scroll-mt-6 flex-col gap-4">
           <div>
             <Eyebrow>What do you want to do?</Eyebrow>
