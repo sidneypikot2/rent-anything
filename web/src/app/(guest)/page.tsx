@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { getActivities, getDestinations } from "@/api/discovery";
 import { ActivityCard, DestinationCard, groupDestinations } from "@/components/discovery/cards";
 import { tagIcon } from "@/components/discovery/icons";
 import { SearchBox } from "@/components/discovery/search-box";
 import { ExampleTrip } from "@/components/landing/example-trip";
-import { ButtonLink } from "@/components/ui/button";
+import { PlanCta } from "@/components/landing/plan-cta";
 import { PillLink } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
 import { TAGLINE } from "@/lib/brand";
@@ -12,8 +13,12 @@ import { TAGLINE } from "@/lib/brand";
 // The guest home: search first, then destinations and activities to browse. A guest who
 // hasn't chosen where to go starts here; picking a destination leads to its area page.
 export default async function Home() {
-  const [destinations, activities] = await Promise.all([getDestinations(), getActivities()]);
-  const groups = groupDestinations(destinations);
+  // Each section loads on its own: if one fetch fails, the hero, the search and the other
+  // section still show, with a note where the failed one would be.
+  const [destinationsResult, activitiesResult] = await Promise.allSettled([getDestinations(), getActivities()]);
+  const destinations = destinationsResult.status === "fulfilled" ? destinationsResult.value : null;
+  const activities = activitiesResult.status === "fulfilled" ? activitiesResult.value : null;
+  const groups = destinations && groupDestinations(destinations);
 
   return (
     <main className="flex flex-1 flex-col">
@@ -30,11 +35,11 @@ export default async function Home() {
             We&apos;ll show you where to go and plan the rest in one cart.
           </p>
           <SearchBox />
-          {activities.length > 0 && (
+          {activities && activities.length > 0 && (
             <div className="flex flex-wrap justify-center gap-2">
               {activities.slice(0, 3).map((activity) => (
                 <PillLink key={activity.slug} href={`/search?q=${encodeURIComponent(activity.name)}`}>
-                  {tagIcon(activity.slug)} {activity.name}
+                  <span aria-hidden>{tagIcon(activity.slug)}</span> {activity.name}
                 </PillLink>
               ))}
             </div>
@@ -48,7 +53,9 @@ export default async function Home() {
             <Eyebrow>Where to go</Eyebrow>
             <SectionTitle>Destinations</SectionTitle>
           </div>
-          {groups.length === 0 ? (
+          {!groups ? (
+            <LoadFailed what="destinations" />
+          ) : groups.length === 0 ? (
             <p className="text-muted">No destinations yet.</p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
@@ -74,7 +81,9 @@ export default async function Home() {
             <Eyebrow>What do you want to do?</Eyebrow>
             <SectionTitle>Browse by activity</SectionTitle>
           </div>
-          {activities.length === 0 ? (
+          {!activities ? (
+            <LoadFailed what="activities" />
+          ) : activities.length === 0 ? (
             <p className="text-muted">Activities appear here once destinations have things to book.</p>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -87,18 +96,21 @@ export default async function Home() {
 
         <ExampleTrip />
 
-        <section className="flex flex-col items-start gap-4 rounded-3xl bg-navy p-8 text-white sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <SectionTitle>Start planning your trip</SectionTitle>
-            <p className="mt-1 text-on-dark">
-              Save tours, rides, gear and stays from local partners to trips that span every place you visit. A free account keeps them all in one cart.
-            </p>
-          </div>
-          <ButtonLink href="/register" variant="accent" className="shrink-0 whitespace-nowrap">
-            Create an account
-          </ButtonLink>
-        </section>
+        <PlanCta />
       </div>
     </main>
+  );
+}
+
+// Where a section would be when its fetch failed. Following a link to this page renders it
+// on the server again, which retries both fetches.
+function LoadFailed({ what }: { what: string }) {
+  return (
+    <p className="text-muted">
+      Couldn&apos;t load {what} right now.{" "}
+      <Link href="/" prefetch={false} className="font-semibold text-link underline underline-offset-2">
+        Try again
+      </Link>
+    </p>
   );
 }

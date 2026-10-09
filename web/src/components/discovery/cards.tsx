@@ -79,13 +79,17 @@ export function DestinationCard({
       <CardBody pad="lg" className="flex flex-1 flex-col gap-3">
         <div>
           <h3 className="font-display text-2xl font-bold">{area.name}</h3>
-          {area.parent_name && <p className="text-sm text-muted">📍 {area.parent_name}, Philippines</p>}
+          {area.parent_name && (
+            <p className="text-sm text-muted">
+              <span aria-hidden>📍</span> {area.parent_name}, Philippines
+            </p>
+          )}
         </div>
         {area.activities.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {area.activities.map((tag) => (
               <Badge key={tag.slug} tone="mist">
-                {tagIcon(tag.slug)} {tag.name}
+                <span aria-hidden>{tagIcon(tag.slug)}</span> {tag.name}
               </Badge>
             ))}
           </div>
