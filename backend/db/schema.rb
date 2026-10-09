@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_09_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_09_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -30,15 +30,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000003) do
     t.datetime "updated_at", null: false
     t.string "psgc_code", limit: 10
     t.string "status", default: "draft", null: false
+    t.string "wikidata_id"
+    t.string "wikidata_aliases", default: [], null: false, array: true
+    t.integer "wikidata_popularity", default: 0, null: false
     t.index ["boundary"], name: "index_areas_on_boundary", using: :gist
     t.index ["center"], name: "index_areas_on_center", using: :gist
     t.index ["parent_id"], name: "index_areas_on_parent_id"
     t.index ["psgc_code"], name: "index_areas_on_psgc_code", unique: true, where: "(psgc_code IS NOT NULL)"
     t.index ["slug"], name: "index_areas_on_slug", unique: true
     t.index ["status"], name: "index_areas_on_status"
+    t.index ["wikidata_id"], name: "index_areas_on_wikidata_id", unique: true, where: "(wikidata_id IS NOT NULL)"
     t.check_constraint "kind::text = ANY (ARRAY['region'::character varying::text, 'province'::character varying::text, 'city'::character varying::text, 'town'::character varying::text, 'island'::character varying::text])", name: "areas_kind_check"
     t.check_constraint "psgc_code::text ~ '^[0-9]{10}$'::text", name: "areas_psgc_code_check"
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'published'::character varying::text])", name: "areas_status_check"
+    t.check_constraint "wikidata_id::text ~ '^Q[0-9]+$'::text", name: "areas_wikidata_id_check"
+    t.check_constraint "wikidata_popularity >= 0", name: "areas_wikidata_popularity_check"
   end
 
   create_table "categories", force: :cascade do |t|
@@ -113,10 +119,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000003) do
     t.string "status", default: "draft", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "wikidata_id"
+    t.string "wikidata_aliases", default: [], null: false, array: true
+    t.integer "wikidata_popularity", default: 0, null: false
     t.index ["area_id"], name: "index_landmarks_on_area_id"
     t.index ["location"], name: "index_landmarks_on_location", using: :gist
     t.index ["slug"], name: "index_landmarks_on_slug", unique: true
+    t.index ["wikidata_id"], name: "index_landmarks_on_wikidata_id", unique: true, where: "(wikidata_id IS NOT NULL)"
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'published'::character varying::text])", name: "landmarks_status_check"
+    t.check_constraint "wikidata_id::text ~ '^Q[0-9]+$'::text", name: "landmarks_wikidata_id_check"
+    t.check_constraint "wikidata_popularity >= 0", name: "landmarks_wikidata_popularity_check"
   end
 
   create_table "listing_landmarks", primary_key: ["listing_id", "landmark_id"], force: :cascade do |t|
@@ -227,7 +239,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000003) do
     t.check_constraint "(target_type IS NULL) = (target_id IS NULL)", name: "search_events_target_check"
     t.check_constraint "result_count >= 0", name: "search_events_result_count_check"
     t.check_constraint "session_hash::text ~ '^[0-9a-f]{64}$'::text", name: "search_events_session_hash_check"
-    t.check_constraint "target_type::text = ANY (ARRAY['Area'::character varying, 'Landmark'::character varying, 'Tag'::character varying, 'Listing'::character varying]::text[])", name: "search_events_target_type_check"
+    t.check_constraint "target_type::text = ANY (ARRAY['Area'::character varying::text, 'Landmark'::character varying::text, 'Tag'::character varying::text, 'Listing'::character varying::text])", name: "search_events_target_type_check"
   end
 
   create_table "tags", force: :cascade do |t|
@@ -310,8 +322,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000003) do
            SELECT 'Area'::text AS target_type,
               areas.id AS target_id,
               areas.name,
-              areas.aliases,
-              area_popularity.score
+              (areas.aliases || areas.wikidata_aliases) AS aliases,
+              (area_popularity.score + areas.wikidata_popularity) AS score
              FROM (areas
                JOIN area_popularity ON ((area_popularity.id = areas.id)))
             WHERE ((areas.status)::text = 'published'::text)
@@ -319,11 +331,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000003) do
            SELECT 'Landmark'::text,
               landmarks.id,
               landmarks.name,
-              landmarks.aliases,
-              ( SELECT count(*) AS count
+              (landmarks.aliases || landmarks.wikidata_aliases),
+              (( SELECT count(*) AS count
                      FROM (listing_landmarks
                        JOIN listings ON ((listings.id = listing_landmarks.listing_id)))
-                    WHERE ((listing_landmarks.landmark_id = landmarks.id) AND ((listings.status)::text = 'active'::text))) AS count
+                    WHERE ((listing_landmarks.landmark_id = landmarks.id) AND ((listings.status)::text = 'active'::text))) + landmarks.wikidata_popularity)
              FROM landmarks
             WHERE ((landmarks.status)::text = 'published'::text)
           UNION ALL

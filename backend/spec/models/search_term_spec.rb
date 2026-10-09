@@ -47,6 +47,21 @@ RSpec.describe SearchTerm do
     expect(terms_for(cebu).pick(:popularity)).to eq(2 + 1)
   end
 
+  it "holds Wikidata's terms as aliases and adds its starting popularity" do
+    moalboal.update_columns(wikidata_aliases: [ "Munisipyo sa Moalboal", "panagsama" ], wikidata_popularity: 29)
+    landmark = create(:landmark, area: moalboal, name: "Kawasan Falls", wikidata_aliases: [ "Busay sa Kawasan" ],
+      wikidata_popularity: 4)
+    described_class.refresh
+
+    expect(terms_for(moalboal).pluck(:kind, :term_normalized)).to eq([
+      [ "alias", "munisipyo sa moalboal" ], [ "alias", "panagsama" ], [ "name", "moalboal" ]
+    ])
+    expect(terms_for(moalboal).pluck(:popularity).uniq).to eq([ 1 + 29 ])
+    expect(terms_for(landmark).pluck(:term_normalized, :popularity)).to eq([
+      [ "busay sa kawasan", 4 ], [ "kawasan falls", 4 ]
+    ])
+  end
+
   it "refreshes concurrently once populated" do
     moalboal
     described_class.refresh
@@ -62,6 +77,7 @@ RSpec.describe SearchTerm do
       clear_enqueued_jobs
 
       expect { area.update!(aliases: [ "Panagsama Beach" ]) }.to have_enqueued_job(SearchTerms::RefreshJob)
+      expect { area.update!(wikidata_aliases: [ "Munisipyo sa Moalboal" ]) }.to have_enqueued_job(SearchTerms::RefreshJob)
       expect { create(:tag, name: "Canyoneering") }.to have_enqueued_job(SearchTerms::RefreshJob)
       expect { create(:landmark, area:).update!(status: "draft") }.to have_enqueued_job(SearchTerms::RefreshJob).twice
     end

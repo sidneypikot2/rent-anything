@@ -5,7 +5,7 @@
 module SearchTermSource
   extend ActiveSupport::Concern
 
-  SEARCHED_ATTRIBUTES = %w[name aliases status].freeze
+  SEARCHED_ATTRIBUTES = %w[name aliases wikidata_aliases status].freeze
 
   included do
     after_commit :queue_search_terms_refresh, if: :search_terms_changed?

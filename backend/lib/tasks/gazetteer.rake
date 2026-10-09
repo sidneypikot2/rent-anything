@@ -9,6 +9,16 @@ namespace :gazetteer do
     puts "Gazetteer: #{summary[:created]} areas added, #{summary[:updated]} updated, #{summary[:islands]} islands built"
   end
 
+  desc "Add Wikidata's search terms and starting popularity to published areas and landmarks"
+  task wikidata: :environment do
+    summary = Gazetteer::WikidataEnrichment.call
+    # Written with update_columns, past the models' refresh callback (SearchTermSource).
+    SearchTerm.refresh(concurrently: true)
+    puts "Wikidata: #{summary[:enriched]} places enriched, #{summary[:resolved]} newly matched, #{summary[:skipped].size} skipped"
+    summary[:skipped].each { |reason| puts "  #{reason}" }
+    puts "Set wikidata_id by hand for a skipped place, then run this again." if summary[:skipped].any?
+  end
+
   desc "Publish areas and every area above them: SLUGS=moalboal,badian"
   task publish: :environment do
     slugs = ENV.fetch("SLUGS") { abort "Usage: bin/rails gazetteer:publish SLUGS=moalboal,badian" }.split(",").map(&:strip)
