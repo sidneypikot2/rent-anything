@@ -1,3 +1,5 @@
+import type { Trip } from "./use-trips";
+
 // Trip dates as the API sends them: "YYYY-MM-DD", a calendar day with no time zone.
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -45,4 +47,17 @@ export function itemCount(count: number) {
 
 export function guestCount(count: number) {
   return plural(count, "guest", "guests");
+}
+
+// Rentals and stays are booked for a stretch of days; tours and transfers for one.
+export const RANGE_TYPES = new Set(["rental", "stay"]);
+
+// One day: "Oct 17".
+export function formatDay(iso: string) {
+  return formatDateRange(iso, iso);
+}
+
+// A trip's dates and size, where trips are listed to pick from: "Nov 12–15 · 2 items".
+export function tripDetails(trip: Trip) {
+  return [formatDateRange(trip.starts_on, trip.ends_on) ?? "No dates yet", itemCount(trip.items.length)].join(" · ");
 }

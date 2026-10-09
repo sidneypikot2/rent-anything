@@ -2805,6 +2805,11 @@ export interface components {
              */
             ends_on: string | null;
             quantity: number;
+            /**
+             * @description Its listing's: rentals and stays take a range of days, the others one day
+             * @enum {string}
+             */
+            booking_type: "rental" | "stay" | "activity" | "transfer";
             area: components["schemas"]["area_ref"];
             listing: components["schemas"]["listing_summary"];
         };

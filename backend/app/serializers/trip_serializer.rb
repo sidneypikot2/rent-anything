@@ -32,6 +32,7 @@ module TripSerializer
       starts_on: item.starts_on&.iso8601,
       ends_on: item.ends_on&.iso8601,
       quantity: item.quantity,
+      booking_type: item.listing.category.booking_type,
       area: { slug: item.listing.area.slug, name: item.listing.area.name },
       listing: ListingSummarySerializer.call(item.listing)
     }

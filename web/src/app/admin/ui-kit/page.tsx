@@ -10,7 +10,7 @@ import { TextareaField } from "@/components/ui/textarea-field";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Pill, PillLink } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, Price, SectionTitle } from "@/components/ui/typography";
-import { DialogDemo, ToastDemo } from "./dialog-demo";
+import { DialogDemo, MenuDemo, ToastDemo } from "./dialog-demo";
 import { InteractiveFields } from "./interactive-fields";
 
 export const metadata: Metadata = {
@@ -144,6 +144,10 @@ export default function UiKit() {
 
       <Showcase title="Toast">
         <ToastDemo />
+      </Showcase>
+
+      <Showcase title="Menu">
+        <MenuDemo />
       </Showcase>
 
       <Showcase title="Cards">

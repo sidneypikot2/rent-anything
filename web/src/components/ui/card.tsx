@@ -3,11 +3,12 @@ import type { ComponentProps } from "react";
 import { cn } from "./cn";
 
 // A white panel with the palette's light-blue border. Pad it with CardBody, or put media
-// flush against its edges first.
-export function Card({ className, ...props }: ComponentProps<"div">) {
+// flush against its edges first. `clip={false}` lets a dropdown inside it hang over its
+// edge; media then needs its own rounded corners.
+export function Card({ clip = true, className, ...props }: { clip?: boolean } & ComponentProps<"div">) {
   return (
     <div
-      className={cn("overflow-hidden rounded-2xl border-[1.5px] border-line bg-surface", className)}
+      className={cn("rounded-2xl border-[1.5px] border-line bg-surface", clip && "overflow-hidden", className)}
       {...props}
     />
   );

@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
-import { formatDateRange, guestCount, itemCount, todayIso } from "./format";
+import { formatDateRange, guestCount, itemCount, todayIso, tripDetails } from "./format";
+import { TripOption } from "./trip-option";
 import { useAddTripItem, useTripSuggestion, type AddRequest, type Trip, type TripSuggestion } from "./use-trips";
 
 type Props = {
@@ -28,10 +27,6 @@ function suggestedReason(suggestion: TripSuggestion, startsOn: string | undefine
   }
   const dates = formatDateRange(startsOn, endsOn);
   return dates ? `${dates} is in this trip` : "Your latest trip here";
-}
-
-function tripDetails(trip: Trip) {
-  return [formatDateRange(trip.starts_on, trip.ends_on) ?? "No dates yet", itemCount(trip.items.length)].join(" · ");
 }
 
 // "Add to which trip?" (screen 4): shown only when the guest already has trips. The
@@ -175,37 +170,5 @@ export function WhichTripSheet({ request, trips, onClose, onAdded }: Props) {
         </div>
       </form>
     </Dialog>
-  );
-}
-
-function TripOption({
-  checked,
-  onSelect,
-  title,
-  detail,
-  suggested,
-}: {
-  checked: boolean;
-  onSelect: () => void;
-  title: string;
-  detail: string;
-  suggested: boolean;
-}) {
-  return (
-    <label
-      className={cn(
-        "flex cursor-pointer items-start gap-3 rounded-xl border-[1.5px] p-3",
-        checked ? "border-primary bg-mist" : "border-line-strong bg-surface",
-      )}
-    >
-      <input type="radio" name="trip" checked={checked} onChange={onSelect} className="mt-1 accent-primary" />
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2 font-semibold">
-          {title}
-          {suggested && <Badge tone="emerald">Suggested</Badge>}
-        </span>
-        <span className="block text-sm text-muted">{detail}</span>
-      </span>
-    </label>
   );
 }

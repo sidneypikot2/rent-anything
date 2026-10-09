@@ -44,7 +44,7 @@ RSpec.describe "Trips", type: :request do
           expect(body.first).to include("destinations" => [ "Bantayan Island" ], "starts_on" => day.iso8601)
           expect(body.first["items"].pluck("starts_on")).to eq([ (day + 1).iso8601, nil ])
           expect(body.first["items"].first).to include(
-            "quantity" => 2, "area" => { "slug" => "santa-fe", "name" => "Santa Fe" }
+            "quantity" => 2, "booking_type" => "rental", "area" => { "slug" => "santa-fe", "name" => "Santa Fe" }
           )
           expect(body.first["items"].first["listing"]).to include("title" => "Island hopping")
         end
