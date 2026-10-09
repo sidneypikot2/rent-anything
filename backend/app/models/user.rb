@@ -13,6 +13,7 @@ class User < ApplicationRecord
   has_one :guest_profile, dependent: :destroy
   has_one :partner_verification, dependent: :destroy
   has_many :listings, foreign_key: :partner_id, inverse_of: :partner, dependent: :restrict_with_error
+  has_many :trips, dependent: :destroy
 
   enum :role, ROLES.index_with(&:itself), validate: true
 

@@ -372,11 +372,21 @@ RSpec.describe "Partner listings", type: :request do
     delete "Delete a listing" do
       tags "Partner"
       produces "application/json"
-      description "Partner-only. Deletes the listing for good. Another partner's listing is a 404."
+      description "Partner-only. Deletes the listing for good, and takes it out of any guest's trip. Another " \
+        "partner's listing is a 404."
       security [ { bearer: [] } ]
 
       response "204", "deleted" do
         run_test! { expect(Listing.exists?(listing.id)).to be(false) }
+      end
+
+      response "204", "deleted while in a guest's trip: the item goes, the trip stays" do
+        let!(:item) { create(:trip_item, listing: listing.tap { |active| active.update!(status: "active") }) }
+
+        run_test! do
+          expect(TripItem.exists?(item.id)).to be(false)
+          expect(Trip.exists?(item.trip_id)).to be(true)
+        end
       end
 
       response "404", "another partner's listing" do

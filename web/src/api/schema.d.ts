@@ -1286,7 +1286,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a listing
-         * @description Partner-only. Deletes the listing for good. Another partner's listing is a 404.
+         * @description Partner-only. Deletes the listing for good, and takes it out of any guest's trip. Another partner's listing is a 404.
          */
         delete: {
             parameters: {
@@ -1301,7 +1301,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description deleted */
+                /** @description deleted while in a guest's trip: the item goes, the trip stays */
                 204: {
                     headers: {
                         [name: string]: unknown;
@@ -2038,6 +2038,578 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/trip_items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a listing to a trip
+         * @description Guest-only. Adds the listing to `trip_id`, or, without one, to a new trip named after the destination and dates ("Bantayan Island · Nov 12–15") with `quantity` guests. The trip's dates grow to cover the item's. Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an undated item can't be checked out until it has one. `quantity` is 1 to 99, default 1. Answers with the trip.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        listing_id: number;
+                        /** Format: date */
+                        starts_on?: string | null;
+                        /** Format: date */
+                        ends_on?: string | null;
+                        quantity?: number;
+                        /** @description Omit or null for a new trip */
+                        trip_id?: number | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description an undated add */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description into another guest's trip */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a listing that can't be booked, or a bad quantity */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trip_items/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove an item from its trip */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description removed; the trip stays */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description another guest's item */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Change an item or move it to another trip
+         * @description Guest-only. Only the keys sent change; a date not sent keeps its value. `move_to_trip_id` moves it to another of the guest's trips. The trip it ends up in grows to cover its dates; the one it left keeps its dates. Answers with the trip it ends up in.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** Format: date */
+                        starts_on?: string | null;
+                        /** Format: date */
+                        ends_on?: string | null;
+                        quantity?: number;
+                        move_to_trip_id?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description moved to another trip */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip"];
+                    };
+                };
+                /** @description another guest's item, or a move into another guest's trip */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description one date cleared */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/trips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in guest's trips
+         * @description Guest-only. The cart: every trip that hasn't ended or ended within the last 7 days (its unbooked items are deleted then), undated ones included, with its items. Dated trips come first, soonest first; then undated ones, most recently edited first.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the guest's trips, up to 7 days after they end */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip"][];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Plan a named trip
+         * @description Guest-only. For guests who plan before adding anything; the first add creates a trip by itself (`POST /api/v1/trip_items`). `name` is required (at most 80 characters); dates are optional, both or neither, as `YYYY-MM-DD`, and not in the past; `guests` is 1 to 50, default 1.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name: string;
+                        /** Format: date */
+                        starts_on?: string | null;
+                        /** Format: date */
+                        ends_on?: string | null;
+                        guests?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description the new trip */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description no name, one date only, or a date that isn't a date */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trips/suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which trip an item should go to
+         * @description Guest-only. Preselects a trip in the add sheet. A dated item goes to the trip whose dates are nearest its own, overlapping or up to 3 days away (then `extends_to` gives the trip's new dates); a tie goes to the trip with an item nearest the listing. An undated item goes to the most recently edited trip with the same destination (island, otherwise town or city). Only trips that haven't ended count. `trip` null means "New trip", which would be named `new_trip_name`.
+         */
+        get: {
+            parameters: {
+                query: {
+                    listing_id: number;
+                    starts_on?: string;
+                    ends_on?: string;
+                };
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description no trip near: a new one */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip_suggestion"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a listing that can't be booked */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trips/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /** One of the guest's trips */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the trip */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip"];
+                    };
+                };
+                /** @description another guest's trip */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Delete a trip and its items */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description another guest's trip */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Rename a trip or change its dates or guests
+         * @description Guest-only. Only the keys sent change; a date not sent keeps its value. Null dates make the trip undated. The dates must still cover every dated item's dates.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        /** Format: date */
+                        starts_on?: string | null;
+                        /** Format: date */
+                        ends_on?: string | null;
+                        guests?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description the changed trip */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip"];
+                    };
+                };
+                /** @description another guest's trip */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description dates that no longer cover an item */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/trips/{id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge a trip into another
+         * @description Guest-only. Moves every item into `into_trip_id`, whose dates grow to cover them, and deletes this trip. Answers with the trip merged into.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        into_trip_id: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description the trip merged into, now with every item */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip"];
+                    };
+                };
+                /** @description into another guest's trip */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description merged into itself */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks/didit": {
         parameters: {
             query?: never;
@@ -2199,6 +2771,50 @@ export interface components {
             title: string;
             category: string;
             area_slug: string;
+        };
+        trip: {
+            id: number;
+            name: string;
+            /** Format: date */
+            starts_on: string | null;
+            /** Format: date */
+            ends_on: string | null;
+            guests: number;
+            /** @description Where the items are: each one's island, or else its town or city, in item order */
+            destinations: string[];
+            /**
+             * Format: date-time
+             * @description Last edited, items included
+             */
+            updated_at: string;
+            /** @description In date order, undated items last */
+            items: components["schemas"]["trip_item"][];
+        };
+        trip_item: {
+            id: number;
+            /** Format: date */
+            starts_on: string | null;
+            /**
+             * Format: date
+             * @description Null with starts_on: not bookable until it has a date
+             */
+            ends_on: string | null;
+            quantity: number;
+            area: components["schemas"]["area_ref"];
+            listing: components["schemas"]["listing_summary"];
+        };
+        trip_suggestion: {
+            /** @description The trip to preselect; null means "New trip" */
+            trip: components["schemas"]["trip"] | null;
+            /** @description The suggested trip's dates once it takes the item, when they would grow */
+            extends_to: {
+                /** Format: date */
+                starts_on: string;
+                /** Format: date */
+                ends_on: string;
+            } | null;
+            /** @description The name a new trip for this item would get */
+            new_trip_name: string;
         };
         listing_pin: {
             id: number;

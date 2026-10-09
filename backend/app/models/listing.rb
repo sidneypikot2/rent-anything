@@ -10,6 +10,8 @@ class Listing < ApplicationRecord
   belongs_to :category
   has_many :listing_landmarks, dependent: :delete_all
   has_many :landmarks, through: :listing_landmarks
+  # Guests' unbooked trip items (RAA-64) go with the listing; the foreign key cascades too.
+  has_many :trip_items, dependent: :delete_all
 
   enum :status, STATUSES.index_with(&:itself), validate: true
 

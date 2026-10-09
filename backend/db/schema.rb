@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_09_000004) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_10_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -253,6 +253,37 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000004) do
     t.check_constraint "kind::text = ANY (ARRAY['activity'::character varying::text, 'feature'::character varying::text, 'theme'::character varying::text])", name: "tags_kind_check"
   end
 
+  create_table "trip_items", force: :cascade do |t|
+    t.bigint "trip_id", null: false
+    t.bigint "listing_id", null: false
+    t.date "starts_on"
+    t.date "ends_on"
+    t.integer "quantity", default: 1, null: false
+    t.boolean "followed_suggestion"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["listing_id"], name: "index_trip_items_on_listing_id"
+    t.index ["trip_id"], name: "index_trip_items_on_trip_id"
+    t.check_constraint "(starts_on IS NULL) = (ends_on IS NULL)", name: "trip_items_dates_both_or_neither_check"
+    t.check_constraint "ends_on >= starts_on", name: "trip_items_dates_order_check"
+    t.check_constraint "quantity >= 1 AND quantity <= 99", name: "trip_items_quantity_check"
+  end
+
+  create_table "trips", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "name", null: false
+    t.date "starts_on"
+    t.date "ends_on"
+    t.integer "guests", default: 1, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id", "updated_at"], name: "index_trips_on_user_id_and_updated_at"
+    t.check_constraint "(starts_on IS NULL) = (ends_on IS NULL)", name: "trips_dates_both_or_neither_check"
+    t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 80", name: "trips_name_length_check"
+    t.check_constraint "ends_on >= starts_on", name: "trips_dates_order_check"
+    t.check_constraint "guests >= 1 AND guests <= 50", name: "trips_guests_check"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "email", null: false
     t.string "name"
@@ -291,6 +322,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000004) do
   add_foreign_key "partner_verifications", "users"
   add_foreign_key "partner_verifications", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_partner_verifications_user_role"
   add_foreign_key "refresh_tokens", "users"
+  add_foreign_key "trip_items", "listings", on_delete: :cascade
+  add_foreign_key "trip_items", "trips", on_delete: :cascade
+  add_foreign_key "trips", "users"
 
   create_view "search_terms", materialized: true, sql_definition: <<-SQL
       WITH RECURSIVE area_tree(ancestor_id, area_id) AS (
@@ -328,7 +362,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000004) do
                JOIN area_popularity ON ((area_popularity.id = areas.id)))
             WHERE ((areas.status)::text = 'published'::text)
           UNION ALL
-           SELECT 'Landmark'::text,
+           SELECT 'Landmark'::text AS text,
               landmarks.id,
               landmarks.name,
               (landmarks.aliases || landmarks.wikidata_aliases),
@@ -339,7 +373,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000004) do
              FROM landmarks
             WHERE ((landmarks.status)::text = 'published'::text)
           UNION ALL
-           SELECT 'Tag'::text,
+           SELECT 'Tag'::text AS text,
               tags.id,
               tags.name,
               tags.aliases,
@@ -360,7 +394,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_09_000004) do
            SELECT targets.target_type,
               targets.target_id,
               alias_name.alias_name,
-              'alias'::text,
+              'alias'::text AS text,
               1,
               targets.score
              FROM targets,

@@ -11,7 +11,7 @@ paths:
 
 **Production will run these.** There is no production database yet, but once there is (M8) every migration on `main` runs there, so write them as if it existed: mention a migration in the PR, and keep it safe to run against existing rows — a new `null: false` column needs a default, and removing or renaming a column the running code still reads breaks requests during the deploy; split that across two PRs.
 
-**Style**, as in the existing files: one `change` method that Rails can reverse (use `up`/`down` only when it can't), a comment on top saying what the feature is and its ticket (`# Per-area cart (RAA-12): ...`), an index on every foreign key and on anything looked up by, and a unique index — not just a model validation — wherever uniqueness matters (`[user_id, area_id]` on carts).
+**Style**, as in the existing files: one `change` method that Rails can reverse (use `up`/`down` only when it can't), a comment on top saying what the feature is and its ticket (`# Trips (RAA-64): ...`), an index on every foreign key and on anything looked up by, and a unique index — not just a model validation — wherever uniqueness matters.
 
 **Constraints in the database**: rules that must hold under concurrency live in the schema, not only in Ruby — the bookings no-overlap rule is an `EXCLUDE USING gist` constraint (`btree_gist` is enabled), money columns are `bigint ... null: false` with a `CHECK (... >= 0)`, and enums are backed by a `CHECK` on the allowed values. Geography columns get a GiST index.
 
