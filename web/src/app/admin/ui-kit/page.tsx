@@ -10,7 +10,7 @@ import { TextareaField } from "@/components/ui/textarea-field";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Pill, PillLink } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, Price, SectionTitle } from "@/components/ui/typography";
-import { DialogDemo } from "./dialog-demo";
+import { DialogDemo, ToastDemo } from "./dialog-demo";
 import { InteractiveFields } from "./interactive-fields";
 
 export const metadata: Metadata = {
@@ -42,9 +42,7 @@ export default function UiKit() {
         <DisplayTitle>
           <span className="not-italic text-primary">Tidal</span> Grove
         </DisplayTitle>
-        <p className="max-w-prose text-muted">
-          Blue-green accents from open ocean and forest, on white. Light only.
-        </p>
+        <p className="max-w-prose text-muted">Blue-green accents from open ocean and forest, on white. Light only.</p>
       </header>
 
       <Showcase title="Palette">
@@ -144,10 +142,26 @@ export default function UiKit() {
         <DialogDemo />
       </Showcase>
 
+      <Showcase title="Toast">
+        <ToastDemo />
+      </Showcase>
+
       <Showcase title="Cards">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <ListingCard badge={<Badge>Best value</Badge>} tint="bg-sage" title="Sardine run snorkel" price="₱1,200" unit="/ person" />
-          <ListingCard badge={<Badge tone="emerald">Eco tour</Badge>} tint="bg-mist" title="Kawasan canyoneering" price="₱2,500" unit="/ person" />
+          <ListingCard
+            badge={<Badge>Best value</Badge>}
+            tint="bg-sage"
+            title="Sardine run snorkel"
+            price="₱1,200"
+            unit="/ person"
+          />
+          <ListingCard
+            badge={<Badge tone="emerald">Eco tour</Badge>}
+            tint="bg-mist"
+            title="Kawasan canyoneering"
+            price="₱2,500"
+            unit="/ person"
+          />
           <ListingCard tint="bg-sage" title="Honda Click 125" price="₱450" unit="/ day" />
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -191,9 +205,7 @@ function ListingCard({
 }) {
   return (
     <Card>
-      <div className={`relative h-32 ${tint}`}>
-        {badge && <div className="absolute left-3 top-3">{badge}</div>}
-      </div>
+      <div className={`relative h-32 ${tint}`}>{badge && <div className="absolute left-3 top-3">{badge}</div>}</div>
       <CardBody>
         <p className="font-display text-lg font-bold leading-tight">{title}</p>
         <p className="mt-0.5 text-xs text-muted">Moalboal, Cebu</p>

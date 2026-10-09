@@ -2,7 +2,7 @@
 // from the API, and the browser reaches the API through the same address and CORS setup a
 // person's browser uses. It is a smoke
 // test — one happy path through the parts everything else depends on, not feature
-// coverage. Extend it as the core path grows (area page, add to cart, checkout).
+// coverage. Extend it as the core path grows (checkout next).
 import { test, expect } from "@playwright/test";
 
 // Uncaught exceptions and console errors: a page that renders but logs errors is broken.
@@ -254,6 +254,52 @@ test("sign-up and the partner guard", async ({ page }) => {
   await page.getByTestId("nav-user").click();
   await page.getByTestId("nav-menu-signout").click();
   await expect(page).toHaveURL(/\/partner\/login$/);
+
+  expect(errors).toEqual([]);
+});
+
+// Add to trip (RAA-66): signed out, the add is kept through sign-up and finishes back on
+// the destination page with no second tap. With a trip, the next add asks which trip, and
+// the toast leads to editing it.
+test("add to trip through sign-up", async ({ page }) => {
+  const errors = [];
+  collectErrors(page, errors);
+  const stamp = Date.now();
+  const day = (offset) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+  const from = day(30);
+  const to = day(32);
+
+  await page.goto(`/bantayan-island?from=${from}&to=${to}&guests=2`);
+  await page.getByTestId("add-to-trip").first().click();
+  const signIn = page.getByTestId("trip-signin-sheet");
+  await expect(signIn).toBeVisible();
+  await signIn.getByRole("link", { name: "Create one" }).click();
+
+  await expect(page).toHaveURL(/\/register\?next=/);
+  await page.getByLabel("Email").fill(`trip-${stamp}@example.com`);
+  await page.getByLabel("Password", { exact: true }).fill("password123");
+  await page.getByLabel("Confirm password").fill("password123");
+  await page.getByRole("button", { name: "Create account" }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/bantayan-island\\?from=${from}&to=${to}&guests=2$`));
+  const toast = page.getByTestId("trip-toast");
+  await expect(toast).toContainText("Added to Bantayan Island");
+  await toast.getByRole("button", { name: "Dismiss" }).click();
+
+  // The guest has a trip now, so the next add asks which, with that trip suggested.
+  await page.getByTestId("add-to-trip").nth(1).click();
+  const whichTrip = page.getByTestId("which-trip-sheet");
+  await expect(whichTrip.getByText("Suggested")).toBeVisible();
+  await whichTrip.getByTestId("which-trip-add").click();
+  await expect(whichTrip).toHaveCount(0);
+  await expect(toast).toContainText("Added to Bantayan Island");
+
+  // Rename from the toast.
+  await toast.getByRole("button", { name: "Rename" }).click();
+  const edit = page.getByTestId("edit-trip-sheet");
+  await edit.getByLabel("Trip name").fill(`Smoke trip ${stamp}`);
+  await edit.getByTestId("edit-trip-save").click();
+  await expect(toast).toContainText(`Saved Smoke trip ${stamp}`);
 
   expect(errors).toEqual([]);
 });

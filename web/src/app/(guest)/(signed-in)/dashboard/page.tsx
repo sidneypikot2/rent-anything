@@ -7,7 +7,7 @@ import { useSession } from "@/lib/auth/session";
 
 const PANELS = [
   { title: "Upcoming trips", note: "Your next trip, with everything booked for it (M4)" },
-  { title: "Carts", note: "One cart per area, ready to check out (M4)" },
+  { title: "Carts", note: "Your trips and what's in them, ready to check out (M4)" },
   { title: "Bookings", note: "Past and upcoming bookings, and their status (M4)" },
   { title: "Messages", note: "Chat with partners about a listing or booking (M6)" },
   { title: "Profile", note: "Your name, phone and sign-in methods (M1)" },
