@@ -83,7 +83,7 @@ export function Menu({ label, items, "data-testid": testId }: Props) {
             return (
               <li key={item.label}>
                 {item.href ? (
-                  <Link href={item.href} data-testid={item["data-testid"]} className={ITEM}>
+                  <Link href={item.href} data-testid={item["data-testid"]} className={ITEM} onClick={() => setOpen(false)}>
                     {content}
                   </Link>
                 ) : (

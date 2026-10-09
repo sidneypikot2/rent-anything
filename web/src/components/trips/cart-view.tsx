@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
@@ -47,15 +47,27 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
   const show = useCallback((text: string) => setNotice({ id: Date.now(), text }), []);
   const dismissNotice = useCallback(() => setNotice(null), []);
 
+  const mutations = [moveItem, mergeTrip, deleteTrip, removeItem];
+  const pending = mutations.some((mutation) => mutation.isPending);
+
+  // Not while a request runs: resetting it would drop its onSuccess (the toast).
   function close() {
+    if (pending) return;
     setOpen(null);
-    for (const mutation of [moveItem, mergeTrip, deleteTrip, removeItem]) mutation.reset();
+    for (const mutation of mutations) mutation.reset();
   }
 
   function done(text: string) {
-    close();
+    setOpen(null);
+    for (const mutation of mutations) mutation.reset();
     show(text);
   }
+
+  // "View trip" lands here with the trip open; bring it into view once it has loaded.
+  const loaded = trips.isSuccess;
+  useEffect(() => {
+    if (loaded && expandTripId) document.getElementById(`trip-${expandTripId}`)?.scrollIntoView({ block: "start" });
+  }, [loaded, expandTripId]);
 
   const actions: TripActions = {
     edit: (trip, focus = "name") => setOpen({ kind: "edit", trip, focus }),
@@ -109,7 +121,9 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
               key={trip.id}
               trip={trip}
               open={toggled[trip.id] ?? trip.id === firstOpenId}
-              onToggle={() => setToggled({ ...toggled, [trip.id]: !(toggled[trip.id] ?? trip.id === firstOpenId) })}
+              onToggle={() =>
+                setToggled((before) => ({ ...before, [trip.id]: !(before[trip.id] ?? trip.id === firstOpenId) }))
+              }
               actions={actions}
             />
           ))}
@@ -171,7 +185,7 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
               { id: open.trip.id, intoTripId: into.id },
               {
                 onSuccess: (trip) => {
-                  setToggled({ ...toggled, [trip.id]: true });
+                  setToggled((before) => ({ ...before, [trip.id]: true }));
                   done(`Merged into ${trip.name}`);
                 },
               },

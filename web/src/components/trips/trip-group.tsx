@@ -35,7 +35,7 @@ export function TripGroup({ trip, open, onToggle, actions }: Props) {
   const details = [dates, guestCount(trip.guests), itemCount(trip.items.length)].join(" · ");
 
   return (
-    <Card data-testid="cart-trip" data-trip-id={trip.id}>
+    <Card clip={false} id={`trip-${trip.id}`} data-testid="cart-trip" className="scroll-mt-4">
       <div className="flex items-start gap-2 p-4">
         <button
           type="button"
@@ -128,7 +128,8 @@ function ItemRow({ trip, item, actions }: { trip: Trip; item: TripItem; actions:
         items={[
           { label: "Move to another trip", onSelect: () => actions.moveItem(trip, item), "data-testid": "item-action-move" },
           { label: "Change date", onSelect: () => actions.redateItem(trip, item), "data-testid": "item-action-date" },
-          { label: "View listing", href: listingHref },
+          // No listing page yet (M3): its destination page lists it.
+          { label: `View ${item.area.name}`, href: listingHref },
           { label: "Remove", danger: true, onSelect: () => actions.removeItem(trip, item), "data-testid": "item-action-remove" },
         ]}
       />

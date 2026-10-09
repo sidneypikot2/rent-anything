@@ -60,7 +60,7 @@ export function ItemDateSheet({ trip, item, onClose, onSaved }: Props) {
             <Field
               label="To"
               type="date"
-              min={startsOn || todayIso()}
+              min={[startsOn, minDate(item.ends_on, endsOn)].sort().at(-1)}
               value={endsOn}
               onChange={(event) => setEndsOn(event.target.value)}
             />
