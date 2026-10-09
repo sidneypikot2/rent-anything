@@ -12,6 +12,7 @@ module TripSerializer
       guests: trip.guests,
       destinations: trip.items.filter_map { |item| destinations[item.listing.area]&.name }.uniq,
       updated_at: trip.updated_at.iso8601,
+      deletes_on: trip.deletes_on&.iso8601,
       items: trip.items.map { |item| item(item) }
     }
   end

@@ -166,12 +166,17 @@ RSpec.configure do |config|
                 description: "Where the items are: each one's island, or else its town or city, in item order"
               },
               updated_at: { type: :string, format: "date-time", description: "Last edited, items included" },
+              deletes_on: {
+                type: :string, format: :date, nullable: true,
+                description: "When its unbooked items are deleted; set for the 7 days before, which start " \
+                  "the day after the trip ends, or after 60 days without edits for an undated trip"
+              },
               items: {
                 type: :array, items: { "$ref" => "#/components/schemas/trip_item" },
                 description: "In date order, undated items last"
               }
             },
-            required: %w[id name starts_on ends_on guests destinations updated_at items]
+            required: %w[id name starts_on ends_on guests destinations updated_at deletes_on items]
           },
           trip_item: {
             type: :object,

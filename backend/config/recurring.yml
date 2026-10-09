@@ -20,3 +20,9 @@ production:
   prune_search_events:
     class: SearchEvents::PruneJob
     schedule: every day at 3:30am Asia/Manila
+  # Ended and long-idle trips, after their 7-day deletion notice (RAA-65). Trip dates use
+  # the UTC date (no config.time_zone), so this runs just after midnight UTC, the moment
+  # the cart stops showing them.
+  clean_up_trips:
+    class: Trips::CleanupJob
+    schedule: every day at 12:30am UTC

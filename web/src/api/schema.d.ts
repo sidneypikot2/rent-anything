@@ -2240,7 +2240,7 @@ export interface paths {
         };
         /**
          * The signed-in guest's trips
-         * @description Guest-only. The cart: every trip that hasn't ended or ended within the last 7 days (its unbooked items are deleted then), undated ones included, with its items. Dated trips come first, soonest first; then undated ones, most recently edited first.
+         * @description Guest-only. The cart: every trip whose `deletes_on` hasn't come, with its items. A trip that has ended, or an undated one with no edits for 60 days, shows a deletion notice for 7 days; then a daily job deletes its unbooked items. Dated trips come first, soonest first; then undated ones, most recently edited first.
          */
         get: {
             parameters: {
@@ -2787,6 +2787,11 @@ export interface components {
              * @description Last edited, items included
              */
             updated_at: string;
+            /**
+             * Format: date
+             * @description When its unbooked items are deleted; set for the 7 days before, which start the day after the trip ends, or after 60 days without edits for an undated trip
+             */
+            deletes_on: string | null;
             /** @description In date order, undated items last */
             items: components["schemas"]["trip_item"][];
         };
