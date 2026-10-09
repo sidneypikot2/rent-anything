@@ -56,4 +56,17 @@ FactoryBot.define do
       status { "pending" }
     end
   end
+
+  factory :destination_link do
+    source factory: :area
+    target factory: :landmark
+    kind { "bundled" }
+  end
+
+  factory :search_event do
+    query_normalized { "moalboal" }
+    result_count { 1 }
+    sequence(:session_hash) { |n| format("%064x", n) }
+    target { nil }
+  end
 end

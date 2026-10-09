@@ -24,6 +24,9 @@ gem "googleauth"
 # PostGIS: geography columns for listing locations and area boundaries, geo search
 gem "activerecord-postgis-adapter", "~> 11.1"
 
+# Database views in migrations and schema.rb: the search_terms materialized view (RAA-60)
+gem "scenic", "~> 1.9"
+
 # Validates listings.attrs against each category's attribute_schema (JSON Schema)
 gem "json_schemer"
 

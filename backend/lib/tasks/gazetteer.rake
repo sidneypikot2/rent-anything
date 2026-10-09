@@ -4,6 +4,8 @@ namespace :gazetteer do
   desc "Import or update every region, province, city and town, then the curated islands (new ones as drafts)"
   task import: :environment do
     summary = Gazetteer::Import.call
+    # The import writes in bulk, past the models' refresh callback (SearchTermSource).
+    SearchTerm.refresh(concurrently: true)
     puts "Gazetteer: #{summary[:created]} areas added, #{summary[:updated]} updated, #{summary[:islands]} islands built"
   end
 
@@ -15,6 +17,7 @@ namespace :gazetteer do
     abort "No area with slug: #{missing.join(", ")}" if missing.any?
 
     areas.each(&:publish!)
+    SearchTerm.refresh(concurrently: true)
     puts "Published #{slugs.join(", ")} and the areas above them"
   end
 end

@@ -21,6 +21,211 @@ paths:
                 type: array
                 items:
                   "$ref": "#/components/schemas/activity"
+  "/api/v1/admin/destination_links":
+    post:
+      summary: Link two destinations
+      tags:
+      - Admin
+      description: Admin-only. Links two areas or landmarks, usually from `GET /api/v1/admin/link_suggestions`.
+        Explore then recommends each from the other. The order of the two ends doesn't
+        matter, and a pair can only be linked once. `weight` (1 to 3, default 1) orders
+        recommendations.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: the link is created
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/destination_link"
+        '422':
+          description: a wrong kind, weight and end type
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: no such place
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                source:
+                  "$ref": "#/components/schemas/place_key"
+                target:
+                  "$ref": "#/components/schemas/place_key"
+                kind:
+                  type: string
+                  enum:
+                  - bundled
+                  - adjacent
+                weight:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+              required:
+              - source
+              - target
+              - kind
+  "/api/v1/admin/link_suggestions":
+    get:
+      summary: Destination links suggested by search picks
+      tags:
+      - Admin
+      description: Admin-only. Pairs of published areas and landmarks that guests
+        picked in the same visit, in at least 3 visits over the last 90 days, most
+        visits first, at most 50. Pairs already linked are left out. Approve one with
+        `POST /api/v1/admin/destination_links`.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: pairs picked together often enough, not yet linked
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/link_suggestion"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/admin/search_term_queue":
+    get:
+      summary: Searches that need a search term
+      tags:
+      - Admin
+      description: Admin-only. Queries from the last 90 days that found nothing or
+        whose results guests rarely picked (under 1 in 5), most searched first, at
+        most 50. A query that now matches a name or alias exactly is left out. Add
+        one as a search term with `POST /api/v1/admin/search_terms`.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: unanswered and unpicked queries, most searched first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/search_term_queue_entry"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/admin/search_terms":
+    post:
+      summary: Add a search term to a place
+      tags:
+      - Admin
+      description: Admin-only. Adds the query as an alias of an area, landmark or
+        tag, so the search box finds the place by it once the search index refreshes
+        (queued right away). An alias the place already has, in any case or accents,
+        is not added twice.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: an alias the place already has is not repeated
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/search_term_target"
+        '422':
+          description: a missing target
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: no such place
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  description: The search term, 2 to 100 characters
+                target:
+                  "$ref": "#/components/schemas/place_key"
+              required:
+              - query
+              - target
   "/api/v1/areas":
     get:
       summary: Destinations with something to book
@@ -1008,6 +1213,63 @@ paths:
               - email
               - password
               - role
+  "/api/v1/search_events":
+    post:
+      summary: Record a search
+      tags:
+      - Discovery
+      description: Public. The web app sends one event when a guest picks a search
+        result, or leaves a search without picking. Stored for 90 days with the query
+        normalized and `session_id` only as a keyed hash; nothing identifies the guest.
+        Feeds search popularity and the admin queues. Rate-limited per IP.
+      parameters: []
+      responses:
+        '204':
+          description: a listing is picked by id
+        '422':
+          description: an unknown target type
+        '429':
+          description: too many events from one IP
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                q:
+                  type: string
+                  description: What the guest typed, 2 to 100 characters
+                result_count:
+                  type: integer
+                  minimum: 0
+                  description: How many results the search showed
+                session_id:
+                  type: string
+                  description: A random id the browser keeps for the visit, 8 to 128
+                    characters
+                target:
+                  type: object
+                  nullable: true
+                  description: The result picked; null when none was. An area, landmark
+                    or tag by slug, a listing by id.
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                      - area
+                      - landmark
+                      - tag
+                      - listing
+                    slug:
+                      type: string
+                    id:
+                      type: integer
+                  required:
+                  - type
+              required:
+              - q
+              - result_count
+              - session_id
   "/api/v1/search":
     get:
       summary: Search destinations, landmarks, tags and listings
@@ -1026,7 +1288,8 @@ paths:
           type: string
       responses:
         '200':
-          description: exact name ranks first
+          description: 'popularity breaks a tie: the place guests pick more often
+            comes first'
           content:
             application/json:
               schema:
@@ -2045,3 +2308,109 @@ components:
       - landmarks
       - tags
       - listings
+    place_key:
+      type: object
+      description: An area, landmark or tag, by slug
+      properties:
+        type:
+          type: string
+          enum:
+          - area
+          - landmark
+          - tag
+        slug:
+          type: string
+      required:
+      - type
+      - slug
+    place_ref:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - area
+          - landmark
+          - tag
+        slug:
+          type: string
+        name:
+          type: string
+      required:
+      - type
+      - slug
+      - name
+    search_term_queue_entry:
+      type: object
+      properties:
+        query:
+          type: string
+          description: 'Normalized: lower case, no accents'
+        searches:
+          type: integer
+        picks:
+          type: integer
+          description: Searches where a result was picked
+        zero_results:
+          type: integer
+          description: Searches that found nothing
+      required:
+      - query
+      - searches
+      - picks
+      - zero_results
+    search_term_target:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - area
+          - landmark
+          - tag
+        slug:
+          type: string
+        name:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+      required:
+      - type
+      - slug
+      - name
+      - aliases
+    link_suggestion:
+      type: object
+      properties:
+        source:
+          "$ref": "#/components/schemas/place_ref"
+        target:
+          "$ref": "#/components/schemas/place_ref"
+        sessions:
+          type: integer
+          description: Visits in which guests picked both
+      required:
+      - source
+      - target
+      - sessions
+    destination_link:
+      type: object
+      properties:
+        source:
+          "$ref": "#/components/schemas/place_ref"
+        target:
+          "$ref": "#/components/schemas/place_ref"
+        kind:
+          type: string
+          enum:
+          - bundled
+          - adjacent
+        weight:
+          type: integer
+      required:
+      - source
+      - target
+      - kind
+      - weight

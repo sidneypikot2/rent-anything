@@ -22,6 +22,9 @@ RSpec.describe "Search", type: :request do
   let!(:city_gopro) { create(:listing, area: cebu_city, category: camera, title: "Sony mirrorless camera") }
   let!(:pending_gopro) { create(:listing, :pending, area: cebu_city, category: camera, title: "GoPro Hero 11") }
 
+  # Areas, landmarks and tags are searched through the search_terms view (RAA-60).
+  before { SearchTerm.refresh }
+
   path "/api/v1/search" do
     get "Search destinations, landmarks, tags and listings" do
       tags "Discovery"
@@ -131,6 +134,8 @@ RSpec.describe "Search", type: :request do
         let!(:whale_watching) { create(:tag, slug: "whale-watching", name: "Whale watching", landmarks: [ oslob_reef ]) }
         let(:q) { "whale" }
 
+        before { SearchTerm.refresh }
+
         run_test! do |response|
           expect(response.parsed_body["tags"]).to be_empty
         end
@@ -142,6 +147,22 @@ RSpec.describe "Search", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body["landmarks"].first["slug"]).to eq("virgin-island")
+        end
+      end
+
+      response "200", "popularity breaks a tie: the place guests pick more often comes first" do
+        schema "$ref" => "#/components/schemas/search_results"
+        let!(:island_lagoon) { create(:landmark, area: bantayan, slug: "lagoon-bantayan", name: "Blue Lagoon") }
+        let!(:city_lagoon) { create(:landmark, area: cebu_city, slug: "lagoon-cebu-city", name: "Blue Lagoon") }
+        let(:q) { "blue lagoon" }
+
+        before do
+          3.times { |n| create(:search_event, query_normalized: "blue lagoon", target: city_lagoon, session_hash: format("%064x", n)) }
+          SearchTerm.refresh
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["landmarks"].pluck("slug")).to eq(%w[lagoon-cebu-city lagoon-bantayan])
         end
       end
 

@@ -2,6 +2,8 @@
 # what a place has (feature: white sand) and what it is about (theme: history).
 # Admin-managed; listings get tags only through their category (CategoryTag).
 class Tag < ApplicationRecord
+  include SearchTermSource
+
   KINDS = %w[activity feature theme].freeze
 
   has_many :landmark_tags, dependent: :delete_all

@@ -43,6 +43,296 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/destination_links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link two destinations
+         * @description Admin-only. Links two areas or landmarks, usually from `GET /api/v1/admin/link_suggestions`. Explore then recommends each from the other. The order of the two ends doesn't matter, and a pair can only be linked once. `weight` (1 to 3, default 1) orders recommendations.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        source: components["schemas"]["place_key"];
+                        target: components["schemas"]["place_key"];
+                        /** @enum {string} */
+                        kind: "bundled" | "adjacent";
+                        weight?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description the link is created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["destination_link"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description no such place */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a wrong kind, weight and end type */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/link_suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Destination links suggested by search picks
+         * @description Admin-only. Pairs of published areas and landmarks that guests picked in the same visit, in at least 3 visits over the last 90 days, most visits first, at most 50. Pairs already linked are left out. Approve one with `POST /api/v1/admin/destination_links`.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description pairs picked together often enough, not yet linked */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["link_suggestion"][];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/search_term_queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Searches that need a search term
+         * @description Admin-only. Queries from the last 90 days that found nothing or whose results guests rarely picked (under 1 in 5), most searched first, at most 50. A query that now matches a name or alias exactly is left out. Add one as a search term with `POST /api/v1/admin/search_terms`.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description unanswered and unpicked queries, most searched first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["search_term_queue_entry"][];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/search_terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a search term to a place
+         * @description Admin-only. Adds the query as an alias of an area, landmark or tag, so the search box finds the place by it once the search index refreshes (queued right away). An alias the place already has, in any case or accents, is not added twice.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @description The search term, 2 to 100 characters */
+                        query: string;
+                        target: components["schemas"]["place_key"];
+                    };
+                };
+            };
+            responses: {
+                /** @description an alias the place already has is not repeated */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["search_term_target"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description no such place */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a missing target */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/areas": {
         parameters: {
             query?: never;
@@ -1459,6 +1749,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search_events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a search
+         * @description Public. The web app sends one event when a guest picks a search result, or leaves a search without picking. Stored for 90 days with the query normalized and `session_id` only as a keyed hash; nothing identifies the guest. Feeds search popularity and the admin queues. Rate-limited per IP.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @description What the guest typed, 2 to 100 characters */
+                        q: string;
+                        /** @description How many results the search showed */
+                        result_count: number;
+                        /** @description A random id the browser keeps for the visit, 8 to 128 characters */
+                        session_id: string;
+                        /** @description The result picked; null when none was. An area, landmark or tag by slug, a listing by id. */
+                        target?: {
+                            /** @enum {string} */
+                            type: "area" | "landmark" | "tag" | "listing";
+                            slug?: string;
+                            id?: number;
+                        } | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description a listing is picked by id */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description an unknown target type */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description too many events from one IP */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search": {
         parameters: {
             query?: never;
@@ -1482,7 +1841,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description exact name ranks first */
+                /** @description popularity breaks a tie: the place guests pick more often comes first */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -2056,6 +2415,47 @@ export interface components {
                 }[];
             }[];
             listings: components["schemas"]["listing_summary"][];
+        };
+        /** @description An area, landmark or tag, by slug */
+        place_key: {
+            /** @enum {string} */
+            type: "area" | "landmark" | "tag";
+            slug: string;
+        };
+        place_ref: {
+            /** @enum {string} */
+            type: "area" | "landmark" | "tag";
+            slug: string;
+            name: string;
+        };
+        search_term_queue_entry: {
+            /** @description Normalized: lower case, no accents */
+            query: string;
+            searches: number;
+            /** @description Searches where a result was picked */
+            picks: number;
+            /** @description Searches that found nothing */
+            zero_results: number;
+        };
+        search_term_target: {
+            /** @enum {string} */
+            type: "area" | "landmark" | "tag";
+            slug: string;
+            name: string;
+            aliases: string[];
+        };
+        link_suggestion: {
+            source: components["schemas"]["place_ref"];
+            target: components["schemas"]["place_ref"];
+            /** @description Visits in which guests picked both */
+            sessions: number;
+        };
+        destination_link: {
+            source: components["schemas"]["place_ref"];
+            target: components["schemas"]["place_ref"];
+            /** @enum {string} */
+            kind: "bundled" | "adjacent";
+            weight: number;
         };
     };
     responses: never;
