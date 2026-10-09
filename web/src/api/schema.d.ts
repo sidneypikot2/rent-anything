@@ -3012,6 +3012,7 @@ export interface components {
             /** @enum {string} */
             kind: "region" | "province" | "city" | "town" | "island";
             parent_name: string | null;
+            parent_slug: string | null;
         };
         area_card: {
             slug: string;
@@ -3019,6 +3020,7 @@ export interface components {
             /** @enum {string} */
             kind: "region" | "province" | "city" | "town" | "island";
             parent_name: string | null;
+            parent_slug: string | null;
             landmark_count: number;
             listing_count: number;
             activities: components["schemas"]["tag"][];
@@ -3120,6 +3122,7 @@ export interface components {
                 /** @enum {string} */
                 kind: "region" | "province" | "city" | "town" | "island";
                 parent_name: string | null;
+                parent_slug: string | null;
             }[];
             landmarks: {
                 slug: string;

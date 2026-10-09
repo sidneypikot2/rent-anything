@@ -40,6 +40,7 @@ RSpec.describe "Areas", type: :request do
           expect(json.pluck("slug")).to eq(%w[bantayan-island cebu-city])
           expect(json.first).to eq(
             "slug" => "bantayan-island", "name" => "Bantayan Island", "kind" => "island", "parent_name" => "Cebu",
+            "parent_slug" => "cebu",
             "landmark_count" => 2, "listing_count" => 2,
             "activities" => [ { "slug" => "swimming", "name" => "Swimming", "kind" => "activity" },
                               { "slug" => "snorkelling", "name" => "Snorkelling", "kind" => "activity" } ]
@@ -61,7 +62,7 @@ RSpec.describe "Areas", type: :request do
 
         run_test! do |response|
           json = response.parsed_body
-          expect(json["area"]).to include("slug" => "bantayan-island", "parent_name" => "Cebu")
+          expect(json["area"]).to include("slug" => "bantayan-island", "parent_name" => "Cebu", "parent_slug" => "cebu")
           expect(json["areas"]).to be_empty
           expect(json["landmarks"].pluck("slug")).to eq(%w[kota-beach virgin-island])
           expect(json["landmarks"].first).to include("description" => "Sandbar beach")

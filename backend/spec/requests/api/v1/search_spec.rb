@@ -41,7 +41,7 @@ RSpec.describe "Search", type: :request do
         run_test! do |response|
           json = response.parsed_body
           expect(json["areas"].pluck("slug")).to eq([ "bantayan-island" ])
-          expect(json["areas"].first).to include("parent_name" => "Cebu", "kind" => "island")
+          expect(json["areas"].first).to include("parent_name" => "Cebu", "parent_slug" => "cebu", "kind" => "island")
           expect(json["landmarks"].pluck("slug")).to contain_exactly("virgin-island", "hilantagaan-island")
           expect(json["landmarks"].first["area"]).to eq("slug" => "bantayan-island", "name" => "Bantayan Island")
         end
