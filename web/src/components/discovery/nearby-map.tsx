@@ -1,15 +1,25 @@
 "use client";
 
-import { importLibrary } from "@googlemaps/js-api-loader";
+import { Map as MapLibreMap, Marker, type GeoJSONSource } from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import type { ExplorePlace } from "@/api/discovery";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/typography";
-import { DEFAULT_MAP_CENTER, googleMapsConfig, setMapsOptions, type LatLng } from "@/lib/map";
+import {
+  circlePolygon,
+  DEFAULT_MAP_CENTER,
+  fromLngLat,
+  MAP_STYLE_URL,
+  setMapWorker,
+  toLngLat,
+  type LatLng,
+} from "@/lib/map";
 import { useExplore } from "./use-explore";
 
-const CONFIG = googleMapsConfig();
+const RADIUS_SOURCE = "radius";
+const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 const MIN_KM = 1;
 const MAX_KM = 50;
 const DEFAULT_KM = 5;
@@ -34,10 +44,8 @@ function dot(className: string): HTMLElement {
 // when the pin is on one), nearby destinations, and destinations often visited with them.
 export function NearbyMap() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const pinRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
-  const circleRef = useRef<google.maps.Circle | null>(null);
-  const markerClassRef = useRef<typeof google.maps.marker.AdvancedMarkerElement | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const pinRef = useRef<Marker | null>(null);
   const lockedRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -55,64 +63,67 @@ export function NearbyMap() {
   const results = locked && pin ? explore : undefined;
 
   useEffect(() => {
-    if (!CONFIG) return;
-    let cancelled = false;
-    let clickListener: google.maps.MapsEventListener | undefined;
-    setMapsOptions(CONFIG);
-
-    Promise.all([importLibrary("maps"), importLibrary("marker")])
-      .then(([{ Map, Circle }, { AdvancedMarkerElement }]) => {
-        if (cancelled || !containerRef.current) return;
-        const map = new Map(containerRef.current, {
-          center: DEFAULT_MAP_CENTER,
-          zoom: 9,
-          mapId: CONFIG.mapId,
-          streetViewControl: false,
-          mapTypeControl: false,
-          fullscreenControl: false,
-          clickableIcons: false,
-        });
-        const primary = themeColor("--color-primary");
-        circleRef.current = new Circle({
-          strokeColor: primary,
-          strokeWeight: 2,
-          fillColor: primary,
-          fillOpacity: 0.12,
-          clickable: false,
-        });
-
-        clickListener = map.addListener("click", (event: google.maps.MapMouseEvent) => {
-          if (lockedRef.current || !event.latLng) return;
-          const point = { lat: event.latLng.lat(), lng: event.latLng.lng() };
-          if (!pinRef.current) {
-            const marker = new AdvancedMarkerElement({ map, position: point, gmpDraggable: true, title: "Your pin" });
-            marker.addEventListener("gmp-dragend", () => {
-              if (!marker.position) return;
-              const latLng = new google.maps.LatLng(marker.position);
-              setPin({ lat: latLng.lat(), lng: latLng.lng() });
-            });
-            pinRef.current = marker;
-          } else {
-            pinRef.current.position = point;
-          }
-          setPin(point);
-        });
-
-        mapRef.current = map;
-        markerClassRef.current = AdvancedMarkerElement;
-        setReady(true);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
+    if (!containerRef.current) return;
+    setMapWorker();
+    let map: MapLibreMap;
+    try {
+      map = new MapLibreMap({
+        container: containerRef.current,
+        style: MAP_STYLE_URL,
+        center: toLngLat(DEFAULT_MAP_CENTER),
+        zoom: 9,
+        attributionControl: { compact: true },
       });
+    } catch {
+      // No WebGL in this browser: the constructor throws, so report it after this effect.
+      queueMicrotask(() => setFailed(true));
+      return;
+    }
+    let loaded = false;
 
+    // A failure before the map has drawn (the style or worker didn't load) leaves no map;
+    // a tile failing later doesn't.
+    map.on("error", () => {
+      if (!loaded) setFailed(true);
+    });
+
+    map.on("load", () => {
+      loaded = true;
+      const primary = themeColor("--color-primary");
+      map.addSource(RADIUS_SOURCE, { type: "geojson", data: EMPTY });
+      map.addLayer({
+        id: "radius-fill",
+        type: "fill",
+        source: RADIUS_SOURCE,
+        paint: { ...(primary && { "fill-color": primary }), "fill-opacity": 0.12 },
+      });
+      map.addLayer({
+        id: "radius-line",
+        type: "line",
+        source: RADIUS_SOURCE,
+        paint: { ...(primary && { "line-color": primary }), "line-width": 2 },
+      });
+      setReady(true);
+    });
+
+    map.on("click", (event) => {
+      if (lockedRef.current) return;
+      const point = fromLngLat(event.lngLat);
+      if (!pinRef.current) {
+        const marker = new Marker({ draggable: true }).setLngLat(event.lngLat).addTo(map);
+        marker.getElement().title = "Your pin";
+        marker.on("dragend", () => setPin(fromLngLat(marker.getLngLat())));
+        pinRef.current = marker;
+      } else {
+        pinRef.current.setLngLat(event.lngLat);
+      }
+      setPin(point);
+    });
+
+    mapRef.current = map;
     return () => {
-      cancelled = true;
-      clickListener?.remove();
-      if (pinRef.current) pinRef.current.map = null;
-      circleRef.current?.setMap(null);
+      map.remove();
       pinRef.current = null;
-      circleRef.current = null;
       mapRef.current = null;
     };
   }, []);
@@ -120,45 +131,54 @@ export function NearbyMap() {
   // Locked: the pin can't be dragged, and the map ignores clicks and gestures.
   useEffect(() => {
     lockedRef.current = locked;
-    if (pinRef.current) pinRef.current.gmpDraggable = !locked;
-    mapRef.current?.setOptions({
-      gestureHandling: locked ? "none" : "auto",
-      disableDefaultUI: locked,
-      keyboardShortcuts: !locked,
-    });
+    pinRef.current?.setDraggable(!locked);
+    const map = mapRef.current;
+    if (!map) return;
+    for (const handler of [
+      map.dragPan,
+      map.dragRotate,
+      map.scrollZoom,
+      map.boxZoom,
+      map.doubleClickZoom,
+      map.keyboard,
+      map.touchZoomRotate,
+    ]) {
+      if (locked) handler.disable();
+      else handler.enable();
+    }
   }, [locked]);
 
   // The radius circle, shown once the pin is confirmed, with the map fitted to it.
   useEffect(() => {
-    const circle = circleRef.current;
     const map = mapRef.current;
-    if (!ready || !circle || !map) return;
+    if (!ready || !map) return;
+    const source = map.getSource<GeoJSONSource>(RADIUS_SOURCE);
     if (!locked || !pin) {
-      circle.setMap(null);
+      source?.setData(EMPTY);
       return;
     }
-    circle.setOptions({ map, center: pin, radius: km * 1000 });
-    const bounds = circle.getBounds();
-    if (bounds) map.fitBounds(bounds);
+    const { polygon, bounds } = circlePolygon(pin, km);
+    source?.setData(polygon);
+    map.fitBounds(bounds, { padding: 24 });
   }, [ready, locked, pin, km]);
 
   // A dot on the map for each listing and nearby destination in range.
   useEffect(() => {
     const map = mapRef.current;
-    const Marker = markerClassRef.current;
-    if (!ready || !map || !Marker || !results) return;
+    if (!ready || !map || !results) return;
+    const place = (point: LatLng, title: string, className: string) => {
+      const element = dot(className);
+      element.title = title;
+      return new Marker({ element }).setLngLat(toLngLat(point)).addTo(map);
+    };
     const markers = [
-      ...results.listings.map(
-        (listing) => new Marker({ map, position: listing.location, title: listing.title, content: dot("bg-primary") }),
-      ),
-      ...results.destinations.map(
-        (place) => new Marker({ map, position: place.location, title: place.name, content: dot("bg-secondary") }),
-      ),
+      ...results.listings.map((listing) => place(listing.location, listing.title, "bg-primary")),
+      ...results.destinations.map((destination) => place(destination.location, destination.name, "bg-secondary")),
     ];
-    return () => markers.forEach((marker) => (marker.map = null));
+    return () => markers.forEach((marker) => marker.remove());
   }, [ready, results]);
 
-  const unavailable = !CONFIG || failed;
+  const unavailable = failed;
 
   return (
     <div className="flex flex-col gap-6">
@@ -168,9 +188,7 @@ export function NearbyMap() {
             role="status"
             className="flex h-96 w-full items-center justify-center rounded-lg border-[1.5px] border-line-strong bg-surface-2 px-6 text-center text-muted"
           >
-            {CONFIG
-              ? "The map couldn't load. Check the Google Maps key and try again."
-              : "Map unavailable: the Google Maps key isn't set (NEXT_PUBLIC_GOOGLE_MAPS_API_KEY)."}
+            The map couldn&apos;t load. Reload the page to try again.
           </p>
         ) : (
           <div

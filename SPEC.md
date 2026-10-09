@@ -118,8 +118,11 @@ after a booking is paid (keeps deals on the platform).
   signed webhook. A sandbox application on staging. Built in RAA-44.
 - **Phone OTP** (deferred, no free SMS tier for PH): an SMS provider behind `Sms::Sender`,
   likely Semaphore (about PHP 1 per OTP).
-- **Maps**: Google Maps Platform on the web (Maps JavaScript API, Advanced Markers); search is PostGIS on the API.
-  Partners drop a pin rather than geocoding an address.
+- **Maps**: MapLibre GL JS on the web with OpenFreeMap's vector tiles (free, no key), credited
+  to OpenStreetMap on every map; search is PostGIS on the API (RAA-61, replacing Google Maps
+  Platform). A partner's address suggests where the pin goes through Photon's public instance
+  (OSM-based; self-hosted at M8), and the partner confirms or drags it. OSM is only drawn on the
+  map and used for that suggestion; none of its data is imported into the gazetteer.
 - **Place data — our own gazetteer** (RAA-59): every region, province, city and town from the
   PSA's PSGC (CC BY), with boundaries from OCHA's COD-AB (CC BY-IGO); islands are cut from
   the same data. Imported by hand each quarter (`backend/db/gazetteer/README.md`), never

@@ -38,6 +38,8 @@
 /web/.env*
 !/web/.env.example
 /web/*.tsbuildinfo
+# MapLibre's worker, copied out of node_modules by web/next.config.ts.
+/web/public/maplibre/
 
 # --- Tooling ---
 /tools/smoke/node_modules
