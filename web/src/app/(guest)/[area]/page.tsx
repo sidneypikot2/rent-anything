@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getArea, getExplore, type AreaDetail } from "@/api/discovery";
+import { getArea, getDestinations, getExplore, type AreaCard, type AreaDetail } from "@/api/discovery";
+import { countLine, groupDestinations, withSubAreas } from "@/components/discovery/cards";
 import { ExploreSections } from "@/components/discovery/explore-sections";
-import { areaIcon, tagIcon } from "@/components/discovery/icons";
+import { areaIcon, categoryIcon, tagIcon } from "@/components/discovery/icons";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { readTripDates } from "@/components/trips/trip-dates";
 import { TripDatesBar } from "@/components/trips/trip-dates-bar";
+import { TripStartedBanner } from "@/components/trips/trip-started-banner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
@@ -31,10 +33,22 @@ export async function generateMetadata(props: PageProps<"/[area]">): Promise<Met
 // the trip dates and guests from the URL; booking comes later (M3).
 export default async function AreaPage(props: PageProps<"/[area]">) {
   const slug = (await props.params).area;
-  const dates = readTripDates(await props.searchParams);
-  const [detail, explore] = await Promise.all([getArea(slug), getExplore({ area: slug })]);
+  const searchParams = await props.searchParams;
+  const dates = readTripDates(searchParams);
+  // Arrived from the home page's "Start your trip" (RAA-80).
+  const starting = searchParams.start === "trip";
+  const [detail, explore, destinations] = await Promise.all([
+    getArea(slug),
+    getExplore({ area: slug }),
+    // Only for the counts, so the page still renders without them.
+    getDestinations().catch((error: unknown) => {
+      console.error(error);
+      return null;
+    }),
+  ]);
   if (!detail) notFound();
   const { area, areas, landmarks, listings } = detail;
+  const counts = destinations ? areaCounts(destinations, slug) : null;
 
   return (
     <main className="flex flex-1 flex-col">
@@ -45,7 +59,10 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
             <span aria-hidden>{areaIcon(area.kind)}</span> {area.name}
           </DisplayTitle>
           <p className="text-muted">
-            {landmarks.length} places to see · {listings.length} things to book
+            {landmarks.length} places to see ·{" "}
+            {counts?.across
+              ? `${counts.across}${listings.length > 0 ? ` (${listings.length} here)` : ""}`
+              : `${listings.length} things to book`}
           </p>
         </div>
       </section>
@@ -55,16 +72,22 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           <section className="flex flex-col gap-3">
             <SectionTitle>Destinations in {area.name}</SectionTitle>
             <ul className="grid gap-2 sm:grid-cols-2">
-              {areas.map((child) => (
-                <li key={child.slug}>
-                  <CardLink href={`/${child.slug}`} className="flex items-center gap-3 p-4 font-semibold">
-                    <span aria-hidden className="text-2xl">
-                      {areaIcon(child.kind)}
-                    </span>
-                    {child.name}
-                  </CardLink>
-                </li>
-              ))}
+              {areas.map((child) => {
+                const childCount = counts?.children.get(child.slug);
+                return (
+                  <li key={child.slug}>
+                    <CardLink href={`/${child.slug}`} className="flex items-center gap-3 p-4">
+                      <span aria-hidden className="text-2xl">
+                        {areaIcon(child.kind)}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block font-semibold">{child.name}</span>
+                        {childCount && <span className="block text-sm text-muted">{childCount}</span>}
+                      </span>
+                    </CardLink>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         )}
@@ -95,6 +118,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
         {listings.length > 0 && (
           <TripAddProvider>
             <section id="listings" className="flex scroll-mt-6 flex-col gap-6">
+              <TripStartedBanner name={area.name} show={starting} />
               <SectionTitle>What to book</SectionTitle>
               <TripDatesBar key={`${dates.from}-${dates.to}-${dates.guests}`} dates={dates} />
               {TRIP_NEEDS.map((need) => {
@@ -108,8 +132,11 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                         // A search suggestion links straight to its row (#listing-<id>).
                         <li key={listing.id} id={`listing-${listing.id}`} className="scroll-mt-6">
                           <Card>
-                            <CardBody className="flex items-center justify-between gap-3">
-                              <span className="min-w-0">
+                            <CardBody className="flex items-center gap-3">
+                              <span aria-hidden className="text-2xl">
+                                {categoryIcon(listing.category)}
+                              </span>
+                              <span className="min-w-0 flex-1">
                                 <span className="block font-semibold">{listing.title}</span>
                                 <span className="block text-sm text-muted">{listing.category}</span>
                               </span>
@@ -134,4 +161,20 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
       </div>
     </main>
   );
+}
+
+// The page's counts as the home page's destination card has them (RAA-80): how much there is
+// to book here and in the places inside this one ("29 to book across Bantayan Island"), and
+// each of those places' own counts. `across` is null for an area with no places inside it.
+// Places to see stay the page's own, since those are the ones it lists.
+function areaCounts(destinations: AreaCard[], slug: string) {
+  const group = groupDestinations(destinations).find(({ area }) => area.slug === slug);
+  const children = new Map(
+    destinations.filter((child) => child.parent_slug === slug).map((child) => [child.slug, countLine(child)]),
+  );
+  const across =
+    group && group.subAreas.length > 0
+      ? `${withSubAreas(group.area, group.subAreas).listing_count} to book across ${group.area.name}`
+      : null;
+  return { across, children };
 }

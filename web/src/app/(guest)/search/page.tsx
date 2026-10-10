@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { getExplore, search, type SearchResults } from "@/api/discovery";
 import { ExploreSections } from "@/components/discovery/explore-sections";
-import { areaIcon, tagIcon } from "@/components/discovery/icons";
+import { listingNote } from "@/components/discovery/categories";
+import { areaIcon, categoryIcon, tagIcon } from "@/components/discovery/icons";
 import { SearchBox } from "@/components/discovery/search-box";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
@@ -111,9 +112,9 @@ function Results({ results }: { results: SearchResults }) {
         items={results.listings.map((listing) => ({
           key: String(listing.id),
           href: `/${listing.area_slug}#listing-${listing.id}`,
-          icon: "🎟️",
+          icon: categoryIcon(listing.category),
           title: listing.title,
-          note: listing.category,
+          note: listingNote(listing, results),
         }))}
       />
     </div>
