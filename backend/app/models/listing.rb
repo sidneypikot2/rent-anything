@@ -4,6 +4,16 @@
 # booking.
 class Listing < ApplicationRecord
   STATUSES = %w[draft pending active].freeze
+  # What a guest gets back on cancelling (RAA-88), chosen by the partner; refunds follow it in M4.
+  CANCELLATION_POLICIES = {
+    "free_cancellation" => { name: "Free cancellation",
+      description: "Guests can cancel for free any time before the booking starts." },
+    "non_refundable" => { name: "Non-refundable", description: "Guests get no refund if they cancel." },
+    "seven_days" => { name: "7-day cancellation",
+      description: "Free to cancel at least 7 days before the booking starts; non-refundable within 7 days." },
+    "fourteen_days" => { name: "14-day cancellation",
+      description: "Free to cancel at least 14 days before the booking starts; non-refundable within 14 days." }
+  }.freeze
 
   belongs_to :area
   belongs_to :partner, class_name: "User"
@@ -21,6 +31,7 @@ class Listing < ApplicationRecord
   validates :title, :location, presence: true
   validates :title, length: { maximum: 120 }
   validates :description, length: { maximum: 5000 }
+  validates :cancellation_policy, inclusion: { in: CANCELLATION_POLICIES.keys }
   # Every new listing has an address (RAA-41); ones made before it have none.
   validates :street, :city, :region, :postal_code, presence: true, on: :create
   validates :country, format: { with: /\A[A-Z]{2}\z/, message: "must be a two-letter country code" }

@@ -776,11 +776,13 @@ paths:
                 "$ref": "#/components/schemas/error"
   "/api/v1/partner/listing_options":
     get:
-      summary: 'What a new listing can be: its bookable categories'
+      summary: 'What a new listing can be: its bookable categories and cancellation
+        policies'
       tags:
       - Partner
       description: Partner-only. Bookable (leaf) categories, each with what it means
-        and the JSON Schema its `attrs` must match.
+        and the JSON Schema its `attrs` must match, and the cancellation policies
+        a listing can have.
       security:
       - bearer: []
       parameters:
@@ -863,7 +865,7 @@ paths:
           type: string
       responses:
         '201':
-          description: an address without a province
+          description: with the cancellation policy the partner chose
           content:
             application/json:
               schema:
@@ -2419,6 +2421,8 @@ components:
           type: object
           additionalProperties: true
           description: Matches the category's attribute_schema
+        cancellation_policy:
+          "$ref": "#/components/schemas/cancellation_policy"
         landmarks:
           type: array
           items:
@@ -2446,6 +2450,7 @@ components:
       - address
       - location
       - attrs
+      - cancellation_policy
       - landmarks
       - covers
       - created_at
@@ -2556,6 +2561,11 @@ components:
         attrs:
           type: object
           additionalProperties: true
+        cancellation_policy:
+          allOf:
+          - "$ref": "#/components/schemas/cancellation_policy"
+          description: Left out on adding a listing, it is free_cancellation; left
+            out on a change, it stays as it is
         landmark_ids:
           type: array
           items:
@@ -2569,9 +2579,36 @@ components:
       - category_id
       - address
       - location
+    cancellation_policy:
+      type: string
+      enum:
+      - free_cancellation
+      - non_refundable
+      - seven_days
+      - fourteen_days
+      description: 'free_cancellation: free any time before the booking starts; non_refundable:
+        no refund; seven_days / fourteen_days: free up to 7 / 14 days before it starts,
+        non-refundable after'
     listing_options:
       type: object
       properties:
+        cancellation_policies:
+          type: array
+          description: Every cancellation policy, in the order to offer them, with
+            its wording for a partner
+          items:
+            type: object
+            properties:
+              value:
+                "$ref": "#/components/schemas/cancellation_policy"
+              name:
+                type: string
+              description:
+                type: string
+            required:
+            - value
+            - name
+            - description
         categories:
           type: array
           items:
@@ -2610,6 +2647,7 @@ components:
             - attribute_schema
       required:
       - categories
+      - cancellation_policies
     area:
       type: object
       properties:

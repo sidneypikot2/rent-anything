@@ -268,6 +268,7 @@ RSpec.configure do |config|
                 required: %w[lat lng]
               },
               attrs: { type: :object, additionalProperties: true, description: "Matches the category's attribute_schema" },
+              cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" },
               landmarks: {
                 type: :array, items: { "$ref" => "#/components/schemas/partner_landmark" },
                 description: "The landmarks a tour or activity visits, by name; empty for other listings"
@@ -279,8 +280,8 @@ RSpec.configure do |config|
               created_at: { type: :string, format: "date-time" },
               updated_at: { type: :string, format: "date-time" }
             },
-            required: %w[id title description status category area address location attrs landmarks covers created_at
-              updated_at]
+            required: %w[id title description status category area address location attrs cancellation_policy landmarks
+              covers created_at updated_at]
           },
           # A published landmark in the partner's tour landmark picker, with its destination.
           partner_landmark: {
@@ -342,6 +343,10 @@ RSpec.configure do |config|
                 required: %w[lat lng]
               },
               attrs: { type: :object, additionalProperties: true },
+              cancellation_policy: {
+                allOf: [ { "$ref" => "#/components/schemas/cancellation_policy" } ],
+                description: "Left out on adding a listing, it is free_cancellation; left out on a change, it stays as it is"
+              },
               landmark_ids: {
                 type: :array, items: { type: :integer }, maxItems: 30,
                 description: "Tours and activities only: the published landmarks it visits. Replaces them when " \
@@ -350,9 +355,28 @@ RSpec.configure do |config|
             },
             required: %w[title category_id address location]
           },
+          # What a guest gets back on cancelling (RAA-88); refunds follow it from M4.
+          cancellation_policy: {
+            type: :string, enum: %w[free_cancellation non_refundable seven_days fourteen_days],
+            description: "free_cancellation: free any time before the booking starts; non_refundable: no refund; " \
+              "seven_days / fourteen_days: free up to 7 / 14 days before it starts, non-refundable after"
+          },
           listing_options: {
             type: :object,
             properties: {
+              cancellation_policies: {
+                type: :array,
+                description: "Every cancellation policy, in the order to offer them, with its wording for a partner",
+                items: {
+                  type: :object,
+                  properties: {
+                    value: { "$ref" => "#/components/schemas/cancellation_policy" },
+                    name: { type: :string },
+                    description: { type: :string }
+                  },
+                  required: %w[value name description]
+                }
+              },
               categories: {
                 type: :array,
                 items: {
@@ -373,7 +397,7 @@ RSpec.configure do |config|
                 }
               }
             },
-            required: %w[categories]
+            required: %w[categories cancellation_policies]
           },
           area: {
             type: :object,
