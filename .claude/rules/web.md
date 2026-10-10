@@ -22,3 +22,5 @@ Next.js 16 App Router, TypeScript (strict), Tailwind CSS 4, TanStack Query. **Th
 **Cart and Trips page** (RAA-68): `/cart` lists every trip from `GET /trips` with its items and the fix-ups (move, re-date, remove an item; rename, merge, delete a trip); `?trip=<id>` opens that trip (the toast's View trip). `/trips` is the same list split into upcoming and past. Both show `DeletionBanner` while `deletes_on` is set. The header badge counts items in current trips, not trips. An item's `booking_type` decides one day or a range (`RANGE_TYPES` in `format.ts`). No prices, selection, checkout or booked status yet: every trip is "Planning" until checkout exists.
 
 **Layout**: mobile-first — most travellers book from a phone. Check every page at phone width.
+
+**No `:target` styling**: client navigation (a Next `Link`, `router.push`) never updates `:target`, so a `target:` style only shows on a full page load (RAA-78). Highlight from `location.hash` in a client effect, or just let the anchor scroll.
