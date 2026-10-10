@@ -171,8 +171,8 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
 // Nothing found is not a dead end: the kinds of things to book are one tap away.
 function NoMatches({ query }: { query: string }) {
   return (
-    <div role="status" className="flex flex-col gap-1 p-3">
-      <p className="text-sm text-muted">Nothing matches “{query}” yet. Try one of these:</p>
+    <div className="flex flex-col gap-1 p-3">
+      <p role="status" className="text-sm text-muted">Nothing matches “{query}” yet. Try one of these:</p>
       <ul className="flex flex-wrap gap-x-4">
         {CATEGORIES.map((category) => (
           <li key={category.label}>
