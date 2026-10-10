@@ -2,11 +2,11 @@ require "swagger_helper"
 
 RSpec.describe "Partner listing options", type: :request do
   path "/api/v1/partner/listing_options" do
-    get "What a new listing can be: its bookable categories" do
+    get "What a new listing can be: its bookable categories and cancellation policies" do
       tags "Partner"
       produces "application/json"
       description "Partner-only. Bookable (leaf) categories, each with what it means and the JSON Schema " \
-        "its `attrs` must match."
+        "its `attrs` must match, and the cancellation policies a listing can have."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
 
@@ -30,6 +30,10 @@ RSpec.describe "Partner listing options", type: :request do
             "parent_name" => "Rentals", "booking_type" => "rental", "description" => "A camera for the water",
             "attribute_schema" => { "type" => "object", "properties" => { "waterproof_m" => { "type" => "number" } } }
           )
+          expect(response.parsed_body["cancellation_policies"].pluck("value")).to eq(
+            %w[free_cancellation non_refundable seven_days fourteen_days]
+          )
+          expect(response.parsed_body["cancellation_policies"].first).to include("name" => "Free cancellation")
         end
       end
 

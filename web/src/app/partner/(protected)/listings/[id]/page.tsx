@@ -2,11 +2,13 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import { cancellationPolicyName } from "@/components/partner/cancellation-policy";
 import { attributeLabel, displayValue } from "@/components/partner/listing-changes";
 import { ListingMissing } from "@/components/partner/listing-missing";
 import { STATUS } from "@/components/partner/listings-table";
 import {
   useDeleteListing,
+  useListingOptions,
   usePartnerListing,
   type PartnerListing,
 } from "@/components/partner/use-partner-listings";
@@ -51,6 +53,7 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
   const { street, city, province, region, postal_code } = listing.address;
   const address = [street, city, province, region].filter(Boolean).join(", ") + (postal_code ? ` ${postal_code}` : "");
   const attrs = Object.entries(listing.attrs);
+  const policies = useListingOptions().data?.cancellation_policies;
 
   return (
     <>
@@ -112,6 +115,11 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
                 {displayValue(value, key)}
               </Detail>
             ))}
+            <Detail term="Cancellation policy">
+              <span data-testid="listing-cancellation">
+                {cancellationPolicyName(policies, listing.cancellation_policy)}
+              </span>
+            </Detail>
           </dl>
         </CardBody>
       </Card>

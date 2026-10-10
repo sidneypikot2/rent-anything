@@ -9,6 +9,7 @@ import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
 import { TextareaField } from "@/components/ui/textarea-field";
 import type { LatLng } from "@/lib/map";
+import { CancellationPolicyChoice, type CancellationPolicy } from "./cancellation-policy";
 import { listingChanges } from "./listing-changes";
 import {
   AttributeFields,
@@ -32,6 +33,7 @@ import {
   type StayValues,
 } from "./stay-fields";
 import type { PartnerLandmark } from "./use-partner-landmarks";
+import { isVehicle, toVehicleAttrs, toVehicleValues, VehicleFields, type VehicleValues } from "./vehicle-fields";
 import { useUpdateListing, type ListingBody, type ListingOptions, type PartnerListing } from "./use-partner-listings";
 
 function addressChanged(address: PhAddress, listing: PartnerListing) {
@@ -47,7 +49,8 @@ function addressChanged(address: PhAddress, listing: PartnerListing) {
 }
 
 // Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
-// visits (RAA-70), and the details its category asks for (an accommodation's own, RAA-83). Saving first shows what changed and asks to confirm. Adding one is the stepped
+// visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
+// vehicle's, RAA-89) and the cancellation policy (RAA-89). Saving first shows what changed and asks to confirm. Adding one is the stepped
 // ListingWizard (RAA-50).
 export function ListingForm({ options, listing }: { options: ListingOptions; listing: PartnerListing }) {
   const router = useRouter();
@@ -57,6 +60,8 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
   // An accommodation's details have their own fields (RAA-83).
   const [stay, setStay] = useState<StayValues>(() => toStayValues(listing.attrs));
   const [bedsError, setBedsError] = useState<string>();
+  const [vehicleValues, setVehicleValues] = useState<VehicleValues>(() => toVehicleValues(listing.attrs));
+  const [policy, setPolicy] = useState<CancellationPolicy>(listing.cancellation_policy);
   const address = usePhAddress(listing.address);
   const [location, setLocation] = useState<LatLng | null>(listing.location);
   const [locationError, setLocationError] = useState<string>();
@@ -69,7 +74,10 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
   // A saved listing's pin stays where it is until the partner changes the address.
   const addressQuery = addressChanged(address, listing) ? geocodeQuery(address) : undefined;
   const stayCategory = isStay(category);
-  const fields = stayCategory ? [] : attributeFields(category);
+  const vehicleCategory = isVehicle(category);
+  const fields = stayCategory || vehicleCategory ? [] : attributeFields(category);
+  // A vehicle keeps the attrs the form doesn't show (a plate number) while it stays a vehicle.
+  const savedAsVehicle = isVehicle(options.categories.find((option) => option.id === listing.category.id));
   // Changing to a category that isn't an activity drops the landmarks when saved.
   const visitsLandmarks = category?.booking_type === "activity";
 
@@ -90,7 +98,12 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
       category_id: Number(categoryId),
       address: address.toBody(),
       location,
-      attrs: stayCategory ? toStayAttrs(stay) : toAttrs(fields, attrValues),
+      attrs: stayCategory
+        ? toStayAttrs(stay)
+        : vehicleCategory
+          ? toVehicleAttrs(vehicleValues, savedAsVehicle ? listing.attrs : {})
+          : toAttrs(fields, attrValues),
+      cancellation_policy: policy,
       landmark_ids: visitsLandmarks ? landmarks.map((landmark) => landmark.id) : [],
     };
     setPending({ body, changes: listingChanges(listing, body) });
@@ -122,6 +135,7 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
             setCategoryId(event.target.value);
             setAttrValues({});
             setStay(toStayValues({}));
+            setVehicleValues(toVehicleValues({}));
           }}
           options={[
             { value: "", label: "Choose what you're listing" },
@@ -193,12 +207,24 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
         </>
       )}
 
+      {vehicleCategory && (
+        <fieldset className="flex flex-col gap-4">
+          <legend className="mb-2 font-display text-2xl font-bold italic">Vehicle details</legend>
+          <VehicleFields values={vehicleValues} onChange={setVehicleValues} />
+        </fieldset>
+      )}
+
       {fields.length > 0 && (
         <fieldset data-testid="listing-details" className="flex flex-col gap-4">
           <legend className="mb-2 font-display text-2xl font-bold italic">Details</legend>
           <AttributeFields fields={fields} values={attrValues} onChange={setAttrValues} />
         </fieldset>
       )}
+
+      <fieldset className="flex flex-col gap-4">
+        <legend className="mb-2 font-display text-2xl font-bold italic">Cancellation policy</legend>
+        <CancellationPolicyChoice policies={options.cancellation_policies} value={policy} onChange={setPolicy} />
+      </fieldset>
 
       <div className="flex gap-3">
         <Button type="submit" disabled={update.isPending} data-testid="listing-save">
