@@ -110,7 +110,7 @@ function Results({ results }: { results: SearchResults }) {
         title="Things to book"
         items={results.listings.map((listing) => ({
           key: String(listing.id),
-          href: `/${listing.area_slug}#listings`,
+          href: `/${listing.area_slug}#listing-${listing.id}`,
           icon: "🎟️",
           title: listing.title,
           note: listing.category,
