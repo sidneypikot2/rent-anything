@@ -2,8 +2,8 @@ import type { ComponentProps } from "react";
 import { cn } from "./cn";
 
 const TONES = {
-  aqua: "bg-aqua text-navy",
-  emerald: "bg-secondary text-white",
+  aqua: "border border-aqua bg-aqua text-navy",
+  emerald: "border border-secondary bg-secondary text-white",
   mist: "border border-line bg-mist text-primary",
 };
 
@@ -16,7 +16,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wider",
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wider",
         TONES[tone],
         className,
       )}
