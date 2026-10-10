@@ -43,7 +43,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
     <form
       action="/search"
       role="search"
-      className="relative mx-auto w-full max-w-xl text-left"
+      className="relative w-full max-w-xl text-left"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
       }}

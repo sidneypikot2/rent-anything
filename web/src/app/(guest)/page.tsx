@@ -1,16 +1,23 @@
 import { getActivities, getDestinations } from "@/api/discovery";
 import { ActivityCard, DestinationCard, groupDestinations } from "@/components/discovery/cards";
-import { tagIcon } from "@/components/discovery/icons";
 import { LoadFailed } from "@/components/discovery/load-failed";
 import { SearchBox } from "@/components/discovery/search-box";
-import { ExampleTrip } from "@/components/landing/example-trip";
+import { ExampleTripCard, HowItWorks } from "@/components/landing/example-trip";
 import { PlanCta } from "@/components/landing/plan-cta";
 import { PillLink } from "@/components/ui/pill";
-import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
-import { TAGLINE } from "@/lib/brand";
+import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 
+// The kinds of things partners list, each searched by a category name the search matches.
+const CATEGORIES = [
+  { label: "Tours", query: "Tour" },
+  { label: "Scooters", query: "Scooter" },
+  { label: "Stays", query: "Hotel" },
+  { label: "Snorkel gear", query: "Snorkel gear" },
+  { label: "Transfers", query: "Van transfer" },
+];
 
-// The guest home: search first, then destinations and activities to browse. A guest who
+// The guest home: the trip builder first (RAA-75) — where we launch, a search, the kinds of
+// things to book and an example trip — then destinations and activities to browse. A guest who
 // hasn't chosen where to go starts here; picking a destination leads to its area page.
 export default async function Home() {
   // Each section loads on its own: if one fetch fails, the hero, the search and the other
@@ -29,37 +36,32 @@ export default async function Home() {
 
   return (
     <main className="flex flex-1 flex-col">
-      <section className="border-b border-line bg-linear-to-br from-mist via-surface to-sage px-4 pb-16 pt-14 text-center sm:pt-20">
-        <div className="mx-auto flex max-w-3xl flex-col items-center gap-5">
-          <span className="rounded-full border-[1.5px] border-line bg-surface px-4 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
-            ✦ {TAGLINE}
-          </span>
-          <DisplayTitle size="hero">
-            Find your next <span className="not-italic text-primary">escape</span>
-          </DisplayTitle>
-          <p className="max-w-md text-lg text-muted">
-            Beach or summit, city or village: search a place, a landmark or something you love doing.
-            We&apos;ll show you where to go and plan the rest in one cart.
-          </p>
-          <SearchBox />
-          {activities && activities.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-2">
-              {activities.slice(0, 3).map((activity) => (
-                <PillLink key={activity.slug} href={`/search?q=${encodeURIComponent(activity.name)}`}>
-                  <span aria-hidden>{tagIcon(activity.slug)}</span> {activity.name}
+      <section className="border-b border-line bg-linear-to-br from-mist via-surface to-sage px-4 pb-14 pt-10 sm:pt-16">
+        <div className="mx-auto grid max-w-5xl items-center gap-10 lg:grid-cols-[1.15fr_1fr]">
+          <div className="flex flex-col items-start gap-5">
+            <DisplayTitle size="hero" className="text-balance">
+              Plan your Bantayan Island trip
+            </DisplayTitle>
+            <p className="max-w-lg text-lg text-pretty text-muted">
+              Island hopping, a scooter for the week, a cottage in Santa Fe: pick them from local partners and
+              keep every stop together in one trip, from the Cebu City transfer to the last boat out.
+            </p>
+            <SearchBox />
+            <nav aria-label="Things to book" className="flex flex-wrap gap-2">
+              {CATEGORIES.map((category) => (
+                <PillLink key={category.label} href={`/search?q=${encodeURIComponent(category.query)}`}>
+                  {category.label}
                 </PillLink>
               ))}
-            </div>
-          )}
+            </nav>
+          </div>
+          <ExampleTripCard className="shadow-xl shadow-primary/10" />
         </div>
       </section>
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-14 px-4 py-12">
         <section id="destinations" className="flex scroll-mt-6 flex-col gap-4">
-          <div>
-            <Eyebrow>Where to go</Eyebrow>
-            <SectionTitle>Destinations</SectionTitle>
-          </div>
+          <SectionTitle>Destinations</SectionTitle>
           {!groups ? (
             <LoadFailed what="destinations" />
           ) : groups.length === 0 ? (
@@ -84,10 +86,7 @@ export default async function Home() {
         </section>
 
         <section id="activities" className="flex scroll-mt-6 flex-col gap-4">
-          <div>
-            <Eyebrow>What do you want to do?</Eyebrow>
-            <SectionTitle>Browse by activity</SectionTitle>
-          </div>
+          <SectionTitle>Browse by activity</SectionTitle>
           {!activities ? (
             <LoadFailed what="activities" />
           ) : activities.length === 0 ? (
@@ -101,7 +100,7 @@ export default async function Home() {
           )}
         </section>
 
-        <ExampleTrip />
+        <HowItWorks />
 
         <PlanCta />
       </div>
