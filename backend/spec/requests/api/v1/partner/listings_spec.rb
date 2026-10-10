@@ -58,12 +58,12 @@ RSpec.describe "Partner listings", type: :request do
         "against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area " \
         "is the smallest published city, town or island whose boundary covers the pin; failing that, the one " \
         "whose center is nearest the pin, within 50 km. The partner must have passed the ID check first " \
-        "(`/api/v1/partner/verification`); until then it is a 403."
+        "(`/api/v1/partner/verification`) and given a display name (`/api/v1/partner/profile`); until then it is a 403."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
       parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/listing_body" }
 
-      let(:user) { create(:user, :partner, :id_verified) }
+      let(:user) { create(:user, :partner, :id_verified, :display_name) }
       let(:Authorization) { bearer_for(user) }
       let!(:area) { create(:area, slug: "moalboal", name: "Moalboal", center: "POINT(123.396 9.945)") }
       let(:address) do
@@ -297,6 +297,18 @@ RSpec.describe "Partner listings", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body["error"]).to eq("Verify your ID before adding a listing")
+          expect(Listing.count).to eq(0)
+        end
+      end
+
+      response "403", "a partner without a display name" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:user) { create(:user, :partner, :id_verified) }
+
+        before { create(:partner_profile, user:, display_name: " ") }
+
+        run_test! do |response|
+          expect(response.parsed_body["error"]).to eq("Add a display name to your profile before adding a listing")
           expect(Listing.count).to eq(0)
         end
       end

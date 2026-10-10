@@ -27,7 +27,7 @@ export function ProfileDetails({ profile }: { profile: PartnerProfile }) {
     <div className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <ProfileSection title="Business">
-          <ProfileItem label="Display name" value={profile.display_name ?? "Not set: your legal name is shown"} />
+          <ProfileItem label="Display name" value={profile.display_name ?? "Not set: needed before you add a listing"} />
         </ProfileSection>
         <ProfileSection title="Legal name">
           <ProfileItem label="First name" value={profile.legal_first_name} />
@@ -122,7 +122,7 @@ function ProfileForm({
           name="display_name"
           value={displayName}
           onChange={(event) => setDisplayName(event.target.value)}
-          hint="Shown to travellers. Leave it blank to use your legal name."
+          hint="Shown to travellers on your listings. Needed before you add one."
         />
       </fieldset>
 
