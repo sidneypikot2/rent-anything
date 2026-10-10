@@ -39,7 +39,7 @@ test("search a landmark and open its destination", async ({ page }) => {
   const suggestions = page.getByTestId("search-suggestions");
   await expect(suggestions).toContainText("Kota Beach");
   // Listings near Kota Beach are suggested too; take the landmark, named with its destination.
-  await suggestions.getByRole("link", { name: "Kota Beach Bantayan Island" }).click();
+  await suggestions.getByRole("option", { name: "Kota Beach Bantayan Island" }).click();
 
   await expect(page).toHaveURL(/\/bantayan-island#kota-beach$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bantayan Island");
