@@ -1,31 +1,31 @@
 import { getActivities, getDestinations } from "@/api/discovery";
-import { ActivityCard, DestinationCard } from "@/components/discovery/cards";
+import { ActivityCard, DestinationCard, groupDestinations } from "@/components/discovery/cards";
 import { tagIcon } from "@/components/discovery/icons";
+import { LoadFailed } from "@/components/discovery/load-failed";
 import { SearchBox } from "@/components/discovery/search-box";
-import { ButtonLink } from "@/components/ui/button";
-import { Card, CardBody } from "@/components/ui/card";
+import { ExampleTrip } from "@/components/landing/example-trip";
+import { PlanCta } from "@/components/landing/plan-cta";
 import { PillLink } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
-import { BRAND, TAGLINE } from "@/lib/brand";
+import { TAGLINE } from "@/lib/brand";
 
-const FEATURES = [
-  { icon: "🧺", title: "One cart per trip", body: "Tours, rides, gear and a room for the same place, paid in one checkout." },
-  { icon: "🤝", title: "Local, verified partners", body: "ID-checked shops, guides and guesthouses who know the island." },
-  { icon: "📱", title: "Pay with GCash or card", body: "Pay in the app; partners are paid after your trip goes well." },
-  { icon: "🧭", title: "Plan by what you love", body: "Search an activity or a landmark and we show where to go." },
-];
 
 // The guest home: search first, then destinations and activities to browse. A guest who
 // hasn't chosen where to go starts here; picking a destination leads to its area page.
 export default async function Home() {
-  const [destinations, activities] = await Promise.all([getDestinations(), getActivities()]);
-
-  const stats = [
-    { value: destinations.length, label: "Destinations" },
-    { value: destinations.reduce((sum, area) => sum + area.landmark_count, 0), label: "Places to see" },
-    { value: destinations.reduce((sum, area) => sum + area.listing_count, 0), label: "Things to book" },
-    { value: activities.length, label: "Activities" },
-  ];
+  // Each section loads on its own: if one fetch fails, the hero, the search and the other
+  // section still show, with a note where the failed one would be.
+  const [destinationsResult, activitiesResult] = await Promise.allSettled([getDestinations(), getActivities()]);
+  // Both failing is the API being down or waking up: the guest error page says so and retries.
+  if (destinationsResult.status === "rejected" && activitiesResult.status === "rejected") {
+    throw destinationsResult.reason;
+  }
+  for (const result of [destinationsResult, activitiesResult]) {
+    if (result.status === "rejected") console.error(result.reason);
+  }
+  const destinations = destinationsResult.status === "fulfilled" ? destinationsResult.value : null;
+  const activities = activitiesResult.status === "fulfilled" ? activitiesResult.value : null;
+  const groups = destinations && groupDestinations(destinations);
 
   return (
     <main className="flex flex-1 flex-col">
@@ -39,14 +39,14 @@ export default async function Home() {
           </DisplayTitle>
           <p className="max-w-md text-lg text-muted">
             Beach or summit, city or village: search a place, a landmark or something you love doing.
-            We&apos;ll show you where to go and book the rest in one cart.
+            We&apos;ll show you where to go and plan the rest in one cart.
           </p>
           <SearchBox />
-          {activities.length > 0 && (
+          {activities && activities.length > 0 && (
             <div className="flex flex-wrap justify-center gap-2">
-              {activities.slice(0, 6).map((activity) => (
+              {activities.slice(0, 3).map((activity) => (
                 <PillLink key={activity.slug} href={`/search?q=${encodeURIComponent(activity.name)}`}>
-                  {tagIcon(activity.slug)} {activity.name}
+                  <span aria-hidden>{tagIcon(activity.slug)}</span> {activity.name}
                 </PillLink>
               ))}
             </div>
@@ -55,21 +55,42 @@ export default async function Home() {
       </section>
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-14 px-4 py-12">
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {stats.map((stat) => (
-            <div key={stat.label} className="flex flex-col rounded-2xl border-[1.5px] border-line bg-surface-2 p-4 text-center">
-              <dt className="order-2 text-xs font-semibold uppercase tracking-wider text-muted">{stat.label}</dt>
-              <dd className="font-display text-4xl font-bold text-primary">{stat.value}</dd>
+        <section id="destinations" className="flex scroll-mt-6 flex-col gap-4">
+          <div>
+            <Eyebrow>Where to go</Eyebrow>
+            <SectionTitle>Destinations</SectionTitle>
+          </div>
+          {!groups ? (
+            <LoadFailed what="destinations" />
+          ) : groups.length === 0 ? (
+            <p className="text-muted">No destinations yet.</p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {groups.map(({ area, subAreas }, index) => {
+                // A card left alone on the last row takes the whole row, laid out side by side.
+                const wide = index === groups.length - 1 && groups.length % 2 === 1;
+                return (
+                  <DestinationCard
+                    key={area.slug}
+                    area={area}
+                    subAreas={subAreas}
+                    wide={wide}
+                    className={wide ? "sm:col-span-2" : undefined}
+                  />
+                );
+              })}
             </div>
-          ))}
-        </dl>
+          )}
+        </section>
 
         <section id="activities" className="flex scroll-mt-6 flex-col gap-4">
           <div>
             <Eyebrow>What do you want to do?</Eyebrow>
             <SectionTitle>Browse by activity</SectionTitle>
           </div>
-          {activities.length === 0 ? (
+          {!activities ? (
+            <LoadFailed what="activities" />
+          ) : activities.length === 0 ? (
             <p className="text-muted">Activities appear here once destinations have things to book.</p>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -80,51 +101,11 @@ export default async function Home() {
           )}
         </section>
 
-        <section id="destinations" className="flex scroll-mt-6 flex-col gap-4">
-          <div>
-            <Eyebrow>Top picks this season</Eyebrow>
-            <SectionTitle>Destinations</SectionTitle>
-          </div>
-          {destinations.length === 0 ? (
-            <p className="text-muted">No destinations yet.</p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {destinations.map((area) => (
-                <DestinationCard key={area.slug} area={area} />
-              ))}
-            </div>
-          )}
-        </section>
+        <ExampleTrip />
 
-        <section className="flex flex-col gap-4">
-          <SectionTitle>Why {BRAND}</SectionTitle>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {FEATURES.map((feature) => (
-              <Card key={feature.title}>
-                <CardBody pad="lg" className="flex flex-col gap-2">
-                  <span aria-hidden className="flex size-11 items-center justify-center rounded-xl bg-sage text-2xl">
-                    {feature.icon}
-                  </span>
-                  <h3 className="font-semibold">{feature.title}</h3>
-                  <p className="text-sm text-muted">{feature.body}</p>
-                </CardBody>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        <section className="flex flex-col items-start gap-4 rounded-3xl bg-navy p-8 text-white sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <SectionTitle>{TAGLINE}</SectionTitle>
-            <p className="mt-1 text-on-dark">
-              Tours, rides, gear and stays from local partners, paid in one checkout. Create a free account to keep one cart per destination.
-            </p>
-          </div>
-          <ButtonLink href="/register" variant="accent">
-            Create an account
-          </ButtonLink>
-        </section>
+        <PlanCta />
       </div>
     </main>
   );
 }
+
