@@ -44,7 +44,7 @@ export function ListingCategoryPicker({ options, initialId }: { options: Listing
             ...groups.map((option) => ({ value: option.name, label: option.name })),
           ]}
         />
-        {stayGroup ? (
+        {stayGroup && (
           <ChoiceCards
             legend="Property type"
             name="category_id"
@@ -58,19 +58,19 @@ export function ListingCategoryPicker({ options, initialId }: { options: Listing
             }))}
             data-testid="listing-property-type"
           />
-        ) : (
-        <SelectField
-          label="Subcategory"
-          name="category_id"
-          required
-          disabled={!group}
-          value={categoryId}
-          onChange={(event) => setCategoryId(event.target.value)}
-          options={[
-            { value: "", label: group ? "Choose a subcategory" : "Choose a category first" },
-            ...(group?.categories ?? []).map((option) => ({ value: String(option.id), label: option.name })),
-          ]}
-        />
+        )}
+        {group && !stayGroup && (
+          <SelectField
+            label="Subcategory"
+            name="category_id"
+            required
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
+            options={[
+              { value: "", label: "Choose a subcategory" },
+              ...group.categories.map((option) => ({ value: String(option.id), label: option.name })),
+            ]}
+          />
         )}
       </div>
       <div className="flex gap-3">
