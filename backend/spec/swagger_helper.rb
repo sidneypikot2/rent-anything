@@ -445,9 +445,11 @@ RSpec.configure do |config|
               slug: { type: :string },
               name: { type: :string },
               area_count: { type: :integer },
-              landmark_count: { type: :integer }
+              landmark_count: { type: :integer },
+              # Active listings in bookable areas whose category carries the tag.
+              listing_count: { type: :integer }
             },
-            required: %w[slug name area_count landmark_count]
+            required: %w[slug name area_count landmark_count listing_count]
           },
           # A destination explore offers: an area, or a landmark with the area whose page it is on.
           explore_place: {
