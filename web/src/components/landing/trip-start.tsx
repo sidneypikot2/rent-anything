@@ -21,18 +21,15 @@ export function TripStart({ className }: { className?: string }) {
   const role = session?.user.role;
   const row = ROWS[role === "partner" || role === "admin" ? role : "traveller"];
 
+  // The session lives in localStorage, so the server and the first paint can't know the
+  // role: they show the traveller's row, the one nearly every visitor needs, and a partner's
+  // or admin's swaps in once the session has been read.
   return (
     <div className={cn("flex min-h-11 items-center justify-between gap-x-3", className)}>
-      {/* The session lives in localStorage: until it has been read, the row keeps its height
-          and shows nothing, so no one sees another role's button first. */}
-      {session !== undefined && (
-        <>
-          <p className="min-w-0 text-sm text-muted">{row.note}</p>
-          <ButtonLink href={row.href} variant="primary" size="sm" className="min-h-11 shrink-0 whitespace-nowrap">
-            {row.action}
-          </ButtonLink>
-        </>
-      )}
+      <p className="min-w-0 text-sm text-muted">{row.note}</p>
+      <ButtonLink href={row.href} variant="primary" size="sm" className="min-h-11 shrink-0 whitespace-nowrap">
+        {row.action}
+      </ButtonLink>
     </div>
   );
 }

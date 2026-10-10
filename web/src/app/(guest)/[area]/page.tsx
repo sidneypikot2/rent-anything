@@ -8,6 +8,7 @@ import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { readTripDates } from "@/components/trips/trip-dates";
 import { TripDatesBar } from "@/components/trips/trip-dates-bar";
+import { TripStartedBanner } from "@/components/trips/trip-started-banner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
@@ -58,9 +59,10 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
             <span aria-hidden>{areaIcon(area.kind)}</span> {area.name}
           </DisplayTitle>
           <p className="text-muted">
+            {landmarks.length} places to see ·{" "}
             {counts?.across
-              ? `${counts.across} (${listings.length} here)`
-              : `${landmarks.length} places to see · ${listings.length} things to book`}
+              ? `${counts.across}${listings.length > 0 ? ` (${listings.length} here)` : ""}`
+              : `${listings.length} things to book`}
           </p>
         </div>
       </section>
@@ -70,21 +72,22 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           <section className="flex flex-col gap-3">
             <SectionTitle>Destinations in {area.name}</SectionTitle>
             <ul className="grid gap-2 sm:grid-cols-2">
-              {areas.map((child) => (
-                <li key={child.slug}>
-                  <CardLink href={`/${child.slug}`} className="flex items-center gap-3 p-4">
-                    <span aria-hidden className="text-2xl">
-                      {areaIcon(child.kind)}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block font-semibold">{child.name}</span>
-                      {counts?.children.get(child.slug) && (
-                        <span className="block text-sm text-muted">{counts.children.get(child.slug)}</span>
-                      )}
-                    </span>
-                  </CardLink>
-                </li>
-              ))}
+              {areas.map((child) => {
+                const childCount = counts?.children.get(child.slug);
+                return (
+                  <li key={child.slug}>
+                    <CardLink href={`/${child.slug}`} className="flex items-center gap-3 p-4">
+                      <span aria-hidden className="text-2xl">
+                        {areaIcon(child.kind)}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block font-semibold">{child.name}</span>
+                        {childCount && <span className="block text-sm text-muted">{childCount}</span>}
+                      </span>
+                    </CardLink>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         )}
@@ -115,7 +118,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
         {listings.length > 0 && (
           <TripAddProvider>
             <section id="listings" className="flex scroll-mt-6 flex-col gap-6">
-              {starting && <TripStartedBanner name={area.name} />}
+              <TripStartedBanner name={area.name} show={starting} />
               <SectionTitle>What to book</SectionTitle>
               <TripDatesBar key={`${dates.from}-${dates.to}-${dates.guests}`} dates={dates} />
               {TRIP_NEEDS.map((need) => {
@@ -160,25 +163,18 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   );
 }
 
-// The page's counts as the home page's destination card has them (RAA-80): everything to
-// book here and in the places inside this one, and each of those places' own counts. `across`
-// is null for an area with no places inside it, whose own counts are the page's.
+// The page's counts as the home page's destination card has them (RAA-80): how much there is
+// to book here and in the places inside this one ("29 to book across Bantayan Island"), and
+// each of those places' own counts. `across` is null for an area with no places inside it.
+// Places to see stay the page's own, since those are the ones it lists.
 function areaCounts(destinations: AreaCard[], slug: string) {
   const group = groupDestinations(destinations).find(({ area }) => area.slug === slug);
-  const children = new Map(destinations.map((child) => [child.slug, countLine(child)]));
-  const across =
-    group && group.subAreas.length > 0 ? countLine(withSubAreas(group.area, group.subAreas), group.area.name) : null;
-  return { across, children };
-}
-
-// Where "Start your trip" lands: the trip begins with the first thing added to it.
-function TripStartedBanner({ name }: { name: string }) {
-  return (
-    <div data-testid="trip-started" className="rounded-2xl border border-line bg-mist p-4">
-      <p className="font-display text-2xl font-bold italic leading-tight">Your {name} trip — add your first thing</p>
-      <p className="mt-1 text-sm text-pretty text-muted">
-        Set your dates, then add a ride, a tour or a stay below. Saving is free, and there&apos;s nothing to pay yet.
-      </p>
-    </div>
+  const children = new Map(
+    destinations.filter((child) => child.parent_slug === slug).map((child) => [child.slug, countLine(child)]),
   );
+  const across =
+    group && group.subAreas.length > 0
+      ? `${withSubAreas(group.area, group.subAreas).listing_count} to book across ${group.area.name}`
+      : null;
+  return { across, children };
 }
