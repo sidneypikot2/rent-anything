@@ -6,6 +6,8 @@
 /.claude/settings.local.json
 /.claude/worktrees/
 /CLAUDE.local.md
+# Reports written by the /impeccable skill
+/.impeccable/
 
 # Per-worktree Compose ports, written by script/worktree-env
 /.env
