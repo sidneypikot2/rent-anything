@@ -55,7 +55,7 @@ change.
 
 Once sign-up exists (M1), test accounts come from the development seeds
 (`docker compose exec -T -e RAILS_ENV=development backend bin/rails db:seed`): a guest, a
-partner with a Moalboal listing, and an admin. The seed file is the source of truth for
+partner with a listing, and an admin. The seed file is the source of truth for
 their emails and password. Use these, never the user's real accounts. If the seeds don't
 cover what you need to verify, say so rather than creating data by hand.
 

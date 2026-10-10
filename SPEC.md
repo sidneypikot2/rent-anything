@@ -7,7 +7,7 @@ built" (`script/check-docs` flags a route listed there that `routes.rb` already 
 
 ## The product
 
-**Goal: make a trip to one area easy.** A traveller picks an area (Moalboal first), finds
+**Goal: make a trip to one area easy.** A traveller picks an area (Bantayan Island first), finds
 the tours and activities, and books whatever makes the stay better — an airport van, a
 motorbike or trike, freediving fins and mask, an action cam, a place to stay — in one cart
 and one checkout. A trip planner for one area, not a general rental site.
@@ -47,7 +47,7 @@ availability works.
 - **Units**: one row per physical item or vehicle (`listing_units`), so a shop with five
   pairs of fins is one listing with five units.
 - **Transfers** are services, not items. A listing belongs to the area it serves even when
-  the route starts outside it (Mactan–Cebu Airport → Moalboal). Routes (`transfer_routes`)
+  the route starts outside it (Mactan–Cebu Airport → Bantayan Island). Routes (`transfer_routes`)
   have an origin, a destination (or "any address in the area"), a price per vehicle or per
   seat, an estimated duration and passenger/luggage limits; the return leg is its own
   route. The booking records pickup time, addresses, passengers, luggage and flight number.
@@ -77,7 +77,7 @@ Agreed by the team in October 2026 ("Trips instead of area carts", decisions 1�
 replaces the earlier one-cart-per-area design, because a Bantayan – Malapascua trip spans two
 areas and a tour can visit several.
 
-- Every traveller page lives under an area (`/moalboal/...`); the area and optional trip
+- Every traveller page lives under an area (`/bantayan-island/...`); the area and optional trip
   dates are in the URL and pre-fill availability and quotes. The area home groups listings
   by trip need: Tours & activities; Getting there & around (transfers, motorbikes, trikes);
   Gear; Stays. A listing keeps one area.
@@ -164,7 +164,7 @@ after a booking is paid (keeps deals on the platform).
 | M5 | Trust | Listing approval (partner ID verification moved earlier: RAA-44, Didit), reviews, contact masking |
 | M6 | Chat | Conversations per listing/booking |
 | M7 | Operations | Pickup/return checklists with photos, disputes, admin console |
-| M8 | Launch | 30–50 Moalboal listings seeded, production host, monitoring, terms reviewed by a lawyer |
+| M8 | Launch | 30–50 Bantayan Island listings seeded, production host, monitoring, terms reviewed by a lawyer |
 
 Later, once the first area has steady bookings: curated bundles, delivery by riders, a
 damage-protection partner, more categories (cars, boats, camping, event gear), more areas
