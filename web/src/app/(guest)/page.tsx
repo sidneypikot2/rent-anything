@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { getActivities, getDestinations } from "@/api/discovery";
 import { ActivityCard, DestinationCard, groupDestinations } from "@/components/discovery/cards";
 import { tagIcon } from "@/components/discovery/icons";
+import { LoadFailed } from "@/components/discovery/load-failed";
 import { SearchBox } from "@/components/discovery/search-box";
 import { ExampleTrip } from "@/components/landing/example-trip";
 import { PlanCta } from "@/components/landing/plan-cta";
@@ -16,6 +16,13 @@ export default async function Home() {
   // Each section loads on its own: if one fetch fails, the hero, the search and the other
   // section still show, with a note where the failed one would be.
   const [destinationsResult, activitiesResult] = await Promise.allSettled([getDestinations(), getActivities()]);
+  // Both failing is the API being down or waking up: the guest error page says so and retries.
+  if (destinationsResult.status === "rejected" && activitiesResult.status === "rejected") {
+    throw destinationsResult.reason;
+  }
+  for (const result of [destinationsResult, activitiesResult]) {
+    if (result.status === "rejected") console.error(result.reason);
+  }
   const destinations = destinationsResult.status === "fulfilled" ? destinationsResult.value : null;
   const activities = activitiesResult.status === "fulfilled" ? activitiesResult.value : null;
   const groups = destinations && groupDestinations(destinations);
@@ -102,15 +109,3 @@ export default async function Home() {
   );
 }
 
-// Where a section would be when its fetch failed. Following a link to this page renders it
-// on the server again, which retries both fetches.
-function LoadFailed({ what }: { what: string }) {
-  return (
-    <p className="text-muted">
-      Couldn&apos;t load {what} right now.{" "}
-      <Link href="/" prefetch={false} className="font-semibold text-link underline underline-offset-2">
-        Try again
-      </Link>
-    </p>
-  );
-}

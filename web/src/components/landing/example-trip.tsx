@@ -11,11 +11,11 @@ const EXAMPLE = {
     {
       area: "Bantayan Island",
       items: [
-        { title: "Island hopping tour", when: "Thu 12 Mar" },
+        { title: "Island hopping tour", when: "12 Mar" },
         { title: "Scooter rental", when: "12–14 Mar" },
       ],
     },
-    { area: "Cebu City", items: [{ title: "Heritage walk", when: "Sun 15 Mar" }] },
+    { area: "Cebu City", items: [{ title: "Heritage walk", when: "15 Mar" }] },
   ],
 };
 

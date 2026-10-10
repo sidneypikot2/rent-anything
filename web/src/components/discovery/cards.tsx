@@ -18,13 +18,25 @@ const KIND_LABELS: Record<string, string> = {
 export type DestinationGroup = { area: AreaCard; subAreas: AreaCard[] };
 
 // Destinations as the home page shows them: an area inside another listed one (Santa Fe on
-// Bantayan Island) goes in its parent's card; one whose parent isn't listed stays a card of
-// its own. The API's order (most to book first) holds at both levels.
+// Bantayan Island) goes in the card of its top-most listed ancestor, however deep; one whose
+// parent isn't listed stays a card of its own. Cards are ordered by how much there is to book
+// in them, sub-areas included; sub-areas keep the API's order (most to book first).
 export function groupDestinations(areas: AreaCard[]): DestinationGroup[] {
-  const listed = new Set(areas.map((area) => area.slug));
-  return areas
-    .filter((area) => !area.parent_slug || !listed.has(area.parent_slug))
-    .map((area) => ({ area, subAreas: areas.filter((sub) => sub.parent_slug === area.slug) }));
+  const bySlug = new Map(areas.map((area) => [area.slug, area]));
+  const root = (area: AreaCard) => {
+    let top = area;
+    const seen = new Set([area.slug]);
+    while (top.parent_slug && bySlug.has(top.parent_slug) && !seen.has(top.parent_slug)) {
+      top = bySlug.get(top.parent_slug)!;
+      seen.add(top.slug);
+    }
+    return top;
+  };
+  const groups = areas
+    .filter((area) => root(area) === area)
+    .map((area) => ({ area, subAreas: areas.filter((sub) => sub !== area && root(sub) === area) }));
+  const toBook = ({ area, subAreas }: DestinationGroup) => withSubAreas(area, subAreas).listing_count;
+  return groups.sort((a, b) => toBook(b) - toBook(a));
 }
 
 type Counts = Pick<AreaCard, "landmark_count" | "listing_count">;

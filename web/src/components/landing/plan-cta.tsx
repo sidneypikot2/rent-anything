@@ -5,12 +5,13 @@ import { SectionTitle } from "@/components/ui/typography";
 import { REGISTER_PATHS } from "@/lib/auth/paths";
 import { useSession } from "@/lib/auth/session";
 
-// The home page's closing band (RAA-73). Signed out (and while the session is still being
-// read, so the band doesn't jump) it asks for an account; a guest already has one and is
-// sent to their trips; partners and admins have no cart, so they don't see it.
+// The home page's closing band (RAA-73). Signed out it asks for an account; a guest already
+// has one and is sent to their trips; partners and admins have no cart, so they don't see it.
+// Nothing renders until the session has been read (it lives in localStorage), so no one sees
+// the wrong band first; it is the last thing on the page, below the fold.
 export function PlanCta() {
   const session = useSession();
-  if (session && session.user.role !== "guest") return null;
+  if (session === undefined || (session && session.user.role !== "guest")) return null;
   const guest = Boolean(session);
 
   return (
