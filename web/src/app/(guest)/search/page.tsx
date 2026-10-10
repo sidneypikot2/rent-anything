@@ -74,7 +74,7 @@ function Results({ results }: { results: SearchResults }) {
                       <PillLink href={`/${area.slug}`}>
                         <span className="text-primary">{area.name}</span>
                         <span className="text-xs">
-                          {area.landmark_count} {area.landmark_count === 1 ? "spot" : "spots"}
+                          {area.landmark_count} to see
                         </span>
                       </PillLink>
                     </li>

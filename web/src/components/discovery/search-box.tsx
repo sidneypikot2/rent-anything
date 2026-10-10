@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
@@ -23,7 +23,9 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
   const [text, setText] = useState(initialQuery);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(-1);
+  // The highlighted suggestion, tied to the list it was picked in: new results start with
+  // nothing highlighted, so the highlight never points at another item or past the list.
+  const [highlight, setHighlight] = useState<{ items: Item[]; index: number } | null>(null);
   const listId = useId();
 
   useEffect(() => {
@@ -42,12 +44,15 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
     },
     enabled,
     staleTime: 60_000,
-    // The previous suggestions stay up while the next query loads, so the list doesn't flash.
-    placeholderData: keepPreviousData,
   });
 
+  const empty = data !== undefined && Object.values(data).every((group) => group.length === 0);
   const items = useMemo(() => (data ? suggestionItems(data, query) : []), [data, query]);
   const expanded = open && enabled;
+  // The keys only move through a list that is on screen.
+  const listed = expanded && !isError && data !== undefined && !empty;
+  const active = listed && highlight?.items === items ? highlight.index : -1;
+  const moveTo = (index: number) => setHighlight({ items, index });
   const optionId = (index: number) => `${listId}-${index}`;
 
   useEffect(() => {
@@ -57,20 +62,22 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
   }, [active]);
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "ArrowDown" && items.length > 0) {
+    if (event.key === "ArrowDown" && listed) {
       event.preventDefault();
-      setOpen(true);
-      setActive((index) => Math.min(index + 1, items.length - 1));
-    } else if (event.key === "ArrowUp" && items.length > 0) {
+      moveTo(Math.min(active + 1, items.length - 1));
+    } else if (event.key === "ArrowUp" && listed) {
       event.preventDefault();
-      setActive((index) => Math.max(index - 1, 0));
-    } else if (event.key === "Enter" && expanded && active >= 0 && items[active]) {
+      // From nothing highlighted, up starts at the bottom of the list.
+      moveTo(active < 0 ? items.length - 1 : Math.max(active - 1, 0));
+    } else if (event.key === "Enter" && active >= 0) {
       event.preventDefault();
       setOpen(false);
       router.push(items[active].href);
-    } else if (event.key === "Escape") {
+    } else if (event.key === "Escape" && expanded) {
+      // Close the list first; the browser's own clear of a search field waits for the next Escape.
+      event.preventDefault();
       setOpen(false);
-      setActive(-1);
+      setHighlight(null);
     }
   }
 
@@ -92,7 +99,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
           onChange={(event) => {
             setText(event.target.value);
             setOpen(true);
-            setActive(-1);
+            setHighlight(null);
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
@@ -135,7 +142,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
             <p role="status" className="p-3 text-sm text-muted">
               Searching…
             </p>
-          ) : items.length === 1 ? (
+          ) : empty ? (
             <p role="status" className="p-3 text-sm text-muted">
               Nothing matches “{query}” yet.
             </p>

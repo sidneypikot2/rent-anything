@@ -57,10 +57,11 @@ const STEPS = [
   { title: "Keep every stop together", body: "Each trip holds its places and dates, even when it spans islands." },
 ];
 
-// What a traveller can rely on before booking anything. Only what is true today: partners
-// pass an ID check before they can list (Listings::Create), and nothing can be paid yet.
+// What a traveller can rely on before booking anything. Only what is true today: a partner
+// passes an ID check before adding a listing (Listings::Create) — the sample partners seeded
+// before that check weren't, so it doesn't promise "every" — and nothing can be paid yet.
 const TRUST = [
-  { title: "Every partner is ID-checked", body: "Partners verify their ID before they can list anything." },
+  { title: "ID checks for partners", body: "A partner verifies their ID before adding a new listing." },
   { title: "Straight from the locals", body: "The people who run the boats, scooters and cottages list them here themselves." },
   { title: "Nothing to pay yet", body: "Saving to a trip is free. Booking and payment are coming soon." },
 ];
@@ -75,7 +76,7 @@ export function HowItWorks() {
           <li key={step.title} className="flex gap-3">
             <span
               aria-hidden
-              className="flex size-8 shrink-0 items-center justify-center rounded-full bg-mist font-display text-lg font-bold text-primary"
+              className="flex size-8 shrink-0 items-center justify-center rounded-full bg-mist text-sm font-bold tabular-nums text-primary"
             >
               {index + 1}
             </span>

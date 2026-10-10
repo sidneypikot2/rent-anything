@@ -8,10 +8,11 @@ import { PlanCta } from "@/components/landing/plan-cta";
 import { PillLink } from "@/components/ui/pill";
 import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 
-// The kinds of things partners list, each searched by a category name the search matches.
+// The kinds of things partners list, each searched by its category's name (search matches
+// listing categories as well as titles).
 const CATEGORIES = [
   { label: "Tours", query: "Tour" },
-  { label: "Scooters", query: "Scooter" },
+  { label: "Motorbikes", query: "Motorcycle" },
   { label: "Stays", query: "Hotel" },
   { label: "Snorkel gear", query: "Snorkel gear" },
   { label: "Transfers", query: "Van transfer" },
@@ -25,8 +26,8 @@ const CATEGORIES = [
 export default function Home() {
   return (
     <main className="flex flex-1 flex-col">
-      <section className="border-b border-line bg-linear-to-br from-mist via-surface to-sage px-4 pb-14 pt-10 sm:pt-16">
-        <div className="mx-auto grid max-w-5xl items-center gap-10 lg:grid-cols-[1.15fr_1fr]">
+      <section className="border-b border-line bg-linear-to-br from-mist via-surface to-sage pb-14 pt-10 sm:pt-16">
+        <div className="mx-auto grid max-w-5xl items-center px-4 gap-10 lg:grid-cols-[1.15fr_1fr]">
           <div className="flex flex-col items-start gap-5">
             <DisplayTitle size="hero" className="text-balance">
               Plan your Bantayan Island trip
