@@ -40,11 +40,12 @@ export function groupDestinations(areas: AreaCard[]): DestinationGroup[] {
 
 type Counts = Pick<AreaCard, "landmark_count" | "listing_count">;
 
-// "8 places to see · 9 to book", leaving out a count of nothing.
-function countLine({ landmark_count, listing_count }: Counts) {
+// "8 places to see · 9 to book", leaving out a count of nothing. `across` names the area
+// when the counts include the places inside it, so the card and the area page agree.
+export function countLine({ landmark_count, listing_count }: Counts, across?: string) {
   return [
     landmark_count > 0 && `${landmark_count} ${landmark_count === 1 ? "place" : "places"} to see`,
-    listing_count > 0 && `${listing_count} to book`,
+    listing_count > 0 && `${listing_count} to book${across ? ` across ${across}` : ""}`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -52,7 +53,7 @@ function countLine({ landmark_count, listing_count }: Counts) {
 
 // A destination's counts including the places listed inside it, so the island's card
 // doesn't show fewer things to book than one of its towns.
-function withSubAreas(area: AreaCard, subAreas: AreaCard[]): Counts {
+export function withSubAreas(area: AreaCard, subAreas: AreaCard[]): Counts {
   return subAreas.reduce(
     (sum, sub) => ({
       landmark_count: sum.landmark_count + sub.landmark_count,
@@ -132,8 +133,10 @@ export function DestinationCard({
             </ul>
           </div>
         )}
-        <div className="mt-auto flex min-h-11 flex-wrap items-center justify-between gap-x-3 border-t border-line pt-3">
-          <p className="text-sm text-muted">{countLine(withSubAreas(area, subAreas))}</p>
+        <div className="mt-auto flex min-h-11 items-center justify-between gap-x-3 border-t border-line pt-3">
+          <p className="min-w-0 text-sm text-muted">
+            {countLine(withSubAreas(area, subAreas), subAreas.length > 0 ? area.name : undefined)}
+          </p>
           {/* What tapping the card does; the heading is the link. */}
           <span aria-hidden className="shrink-0 whitespace-nowrap text-sm font-semibold text-link">
             View destination →

@@ -8,8 +8,8 @@ import { apiClient } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import type { SearchResults } from "@/api/discovery";
-import { CATEGORIES, categoryHref } from "./categories";
-import { areaIcon, tagIcon } from "./icons";
+import { CATEGORIES, categoryHref, listingNote } from "./categories";
+import { areaIcon, categoryIcon, tagIcon } from "./icons";
 
 const MIN_LENGTH = 2;
 const DEBOUNCE_MS = 250;
@@ -247,9 +247,9 @@ function suggestionItems(results: SearchResults, query: string): Item[] {
       group: "Things to book",
       // The listing's own row on its destination page.
       href: `/${listing.area_slug}#listing-${listing.id}`,
-      icon: "🎟️",
+      icon: categoryIcon(listing.category),
       title: listing.title,
-      note: listing.category,
+      note: listingNote(listing, results),
     })),
     { group: "", href: `/search?q=${encodeURIComponent(query)}`, icon: "", title: `See all results for “${query}” →` },
   ];

@@ -7,6 +7,7 @@ import { SearchBox } from "@/components/discovery/search-box";
 import { ShowMore } from "@/components/discovery/show-more";
 import { ExampleTripCard, HowItWorks } from "@/components/landing/example-trip";
 import { PlanCta } from "@/components/landing/plan-cta";
+import { TripStart } from "@/components/landing/trip-start";
 import { PillLink } from "@/components/ui/pill";
 import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 
@@ -24,18 +25,25 @@ export default function Home() {
             <DisplayTitle size="hero" className="text-balance">
               Plan your Bantayan Island trip
             </DisplayTitle>
-            <p className="max-w-lg text-lg text-pretty text-muted">
+            <p className="max-w-lg text-base text-pretty text-muted sm:text-lg">
               Island hopping, a scooter for the week, a cottage in Santa Fe: pick them from local partners and
               keep every stop together in one trip, from the Cebu City transfer to the last boat out.
             </p>
             <SearchBox />
-            <nav aria-label="Things to book" className="flex flex-wrap gap-2">
-              {CATEGORIES.map((category) => (
-                <PillLink key={category.label} href={categoryHref(category.query)}>
-                  {category.label}
-                </PillLink>
-              ))}
-            </nav>
+            {/* Below `lg` the example card, and its footer, sit under the fold; the way in
+                comes up here, on a phone's first screen (RAA-80). */}
+            <TripStart className="w-full max-w-xl lg:hidden" />
+            <div className="flex flex-col gap-3">
+              <nav aria-label="Things to book" className="flex flex-wrap gap-2">
+                {CATEGORIES.map((category) => (
+                  <PillLink key={category.label} href={categoryHref(category.query)}>
+                    {category.label}
+                  </PillLink>
+                ))}
+              </nav>
+              {/* The short form of HowItWorks' trust points (RAA-80). */}
+              <p className="text-sm text-muted">ID-checked local partners · nothing to pay yet</p>
+            </div>
           </div>
           <ExampleTripCard className="shadow-xl shadow-primary/10" />
         </div>

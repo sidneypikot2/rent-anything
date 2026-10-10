@@ -36,3 +36,22 @@ export function tagIcon(slug: string): string {
 export function areaIcon(kind: string): string {
   return AREA_ICONS[kind] ?? "📍";
 }
+
+// Listing categories, keyed by name (the API sends the name, not the slug), so a list of
+// things to book doesn't show one ticket icon on every row.
+const CATEGORY_ICONS: Record<string, string> = {
+  Tour: "⛵",
+  Photographer: "📸",
+  "Hotel or cottage": "🛖",
+  Motorcycle: "🏍️",
+  Bicycle: "🚲",
+  "E-trike": "🛺",
+  "Action camera": "🎥",
+  Camera: "📷",
+  "Snorkel gear": "🤿",
+  "Van transfer": "🚐",
+};
+
+export function categoryIcon(name: string): string {
+  return CATEGORY_ICONS[name] ?? "🎟️";
+}
