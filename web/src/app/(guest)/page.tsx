@@ -1,107 +1,70 @@
-import { getActivities, getDestinations } from "@/api/discovery";
+import { Suspense } from "react";
+import { getActivities, getDestinations, type Activity } from "@/api/discovery";
 import { ActivityCard, DestinationCard, groupDestinations } from "@/components/discovery/cards";
-import { tagIcon } from "@/components/discovery/icons";
 import { LoadFailed } from "@/components/discovery/load-failed";
 import { SearchBox } from "@/components/discovery/search-box";
-import { ExampleTrip } from "@/components/landing/example-trip";
+import { ExampleTripCard, HowItWorks } from "@/components/landing/example-trip";
 import { PlanCta } from "@/components/landing/plan-cta";
 import { PillLink } from "@/components/ui/pill";
-import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
-import { TAGLINE } from "@/lib/brand";
+import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 
+// The kinds of things partners list, each searched by its category's name (search matches
+// listing categories as well as titles).
+const CATEGORIES = [
+  { label: "Tours", query: "Tour" },
+  { label: "Motorbikes", query: "Motorcycle" },
+  { label: "Stays", query: "Hotel" },
+  { label: "Snorkel gear", query: "Snorkel gear" },
+  { label: "Transfers", query: "Van transfer" },
+];
 
-// The guest home: search first, then destinations and activities to browse. A guest who
+// The guest home: the trip builder first (RAA-75) — where we launch, a search, the kinds of
+// things to book and an example trip — then destinations and activities to browse. A guest who
 // hasn't chosen where to go starts here; picking a destination leads to its area page.
-export default async function Home() {
-  // Each section loads on its own: if one fetch fails, the hero, the search and the other
-  // section still show, with a note where the failed one would be.
-  const [destinationsResult, activitiesResult] = await Promise.allSettled([getDestinations(), getActivities()]);
-  // Both failing is the API being down or waking up: the guest error page says so and retries.
-  if (destinationsResult.status === "rejected" && activitiesResult.status === "rejected") {
-    throw destinationsResult.reason;
-  }
-  for (const result of [destinationsResult, activitiesResult]) {
-    if (result.status === "rejected") console.error(result.reason);
-  }
-  const destinations = destinationsResult.status === "fulfilled" ? destinationsResult.value : null;
-  const activities = activitiesResult.status === "fulfilled" ? activitiesResult.value : null;
-  const groups = destinations && groupDestinations(destinations);
-
+// The hero needs no data, so it renders at once; each browse section streams in behind its
+// own skeleton and fails on its own, so a sleeping API never blanks the page.
+export default function Home() {
   return (
     <main className="flex flex-1 flex-col">
-      <section className="border-b border-line bg-linear-to-br from-mist via-surface to-sage px-4 pb-16 pt-14 text-center sm:pt-20">
-        <div className="mx-auto flex max-w-3xl flex-col items-center gap-5">
-          <span className="rounded-full border-[1.5px] border-line bg-surface px-4 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
-            ✦ {TAGLINE}
-          </span>
-          <DisplayTitle size="hero">
-            Find your next <span className="not-italic text-primary">escape</span>
-          </DisplayTitle>
-          <p className="max-w-md text-lg text-muted">
-            Beach or summit, city or village: search a place, a landmark or something you love doing.
-            We&apos;ll show you where to go and plan the rest in one cart.
-          </p>
-          <SearchBox />
-          {activities && activities.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-2">
-              {activities.slice(0, 3).map((activity) => (
-                <PillLink key={activity.slug} href={`/search?q=${encodeURIComponent(activity.name)}`}>
-                  <span aria-hidden>{tagIcon(activity.slug)}</span> {activity.name}
+      <section className="border-b border-line bg-linear-to-br from-mist via-surface to-sage pb-14 pt-10 sm:pt-16">
+        <div className="mx-auto grid max-w-5xl items-center px-4 gap-10 lg:grid-cols-[1.15fr_1fr]">
+          <div className="flex flex-col items-start gap-5">
+            <DisplayTitle size="hero" className="text-balance">
+              Plan your Bantayan Island trip
+            </DisplayTitle>
+            <p className="max-w-lg text-lg text-pretty text-muted">
+              Island hopping, a scooter for the week, a cottage in Santa Fe: pick them from local partners and
+              keep every stop together in one trip, from the Cebu City transfer to the last boat out.
+            </p>
+            <SearchBox />
+            <nav aria-label="Things to book" className="flex flex-wrap gap-2">
+              {CATEGORIES.map((category) => (
+                <PillLink key={category.label} href={`/search?q=${encodeURIComponent(category.query)}`}>
+                  {category.label}
                 </PillLink>
               ))}
-            </div>
-          )}
+            </nav>
+          </div>
+          <ExampleTripCard className="shadow-xl shadow-primary/10" />
         </div>
       </section>
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-14 px-4 py-12">
         <section id="destinations" className="flex scroll-mt-6 flex-col gap-4">
-          <div>
-            <Eyebrow>Where to go</Eyebrow>
-            <SectionTitle>Destinations</SectionTitle>
-          </div>
-          {!groups ? (
-            <LoadFailed what="destinations" />
-          ) : groups.length === 0 ? (
-            <p className="text-muted">No destinations yet.</p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {groups.map(({ area, subAreas }, index) => {
-                // A card left alone on the last row takes the whole row, laid out side by side.
-                const wide = index === groups.length - 1 && groups.length % 2 === 1;
-                return (
-                  <DestinationCard
-                    key={area.slug}
-                    area={area}
-                    subAreas={subAreas}
-                    wide={wide}
-                    className={wide ? "sm:col-span-2" : undefined}
-                  />
-                );
-              })}
-            </div>
-          )}
+          <SectionTitle>Destinations</SectionTitle>
+          <Suspense fallback={<DestinationsSkeleton />}>
+            <Destinations />
+          </Suspense>
         </section>
 
         <section id="activities" className="flex scroll-mt-6 flex-col gap-4">
-          <div>
-            <Eyebrow>What do you want to do?</Eyebrow>
-            <SectionTitle>Browse by activity</SectionTitle>
-          </div>
-          {!activities ? (
-            <LoadFailed what="activities" />
-          ) : activities.length === 0 ? (
-            <p className="text-muted">Activities appear here once destinations have things to book.</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {activities.map((activity) => (
-                <ActivityCard key={activity.slug} activity={activity} />
-              ))}
-            </div>
-          )}
+          <SectionTitle>Browse by activity</SectionTitle>
+          <Suspense fallback={<ActivitiesSkeleton />}>
+            <Activities />
+          </Suspense>
         </section>
 
-        <ExampleTrip />
+        <HowItWorks />
 
         <PlanCta />
       </div>
@@ -109,3 +72,99 @@ export default async function Home() {
   );
 }
 
+
+async function Destinations() {
+  const destinations = await getDestinations().catch((error: unknown) => {
+    console.error(error);
+    return null;
+  });
+  if (!destinations) return <LoadFailed what="destinations" />;
+  const groups = groupDestinations(destinations);
+  if (groups.length === 0) {
+    return <p className="text-muted">Destinations appear here as partners list them. Try the search above.</p>;
+  }
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {groups.map(({ area, subAreas }, index) => {
+        // A card left alone on the last row takes the whole row, laid out side by side.
+        const wide = index === groups.length - 1 && groups.length % 2 === 1;
+        return (
+          <DestinationCard
+            key={area.slug}
+            area={area}
+            subAreas={subAreas}
+            wide={wide}
+            className={wide ? "sm:col-span-2" : undefined}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+async function Activities() {
+  const activities = await getActivities().catch((error: unknown) => {
+    console.error(error);
+    return null;
+  });
+  if (!activities) return <LoadFailed what="activities" />;
+  if (activities.length === 0) {
+    return <p className="text-muted">Activities appear here once destinations have things to book.</p>;
+  }
+  // The four with the most places first; the rest wait behind "More activities", so the
+  // section offers one row of choices rather than a wall of near-identical cards.
+  const ranked = [...activities].sort(
+    (a, b) => b.landmark_count - a.landmark_count || b.area_count - a.area_count,
+  );
+  const top = ranked.slice(0, ACTIVITIES_SHOWN);
+  const more = ranked.slice(ACTIVITIES_SHOWN);
+  return (
+    <div className="flex flex-col gap-3">
+      <ActivityGrid activities={top} />
+      {more.length > 0 && (
+        <details className="group">
+          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full px-1 font-semibold text-link [&::-webkit-details-marker]:hidden">
+            <span className="group-open:hidden">More activities ({more.length})</span>
+            <span className="hidden group-open:inline">Fewer activities</span>
+          </summary>
+          <ActivityGrid activities={more} />
+        </details>
+      )}
+    </div>
+  );
+}
+
+const ACTIVITIES_SHOWN = 4;
+
+function ActivityGrid({ activities }: { activities: Activity[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {activities.map((activity) => (
+        <ActivityCard key={activity.slug} activity={activity} />
+      ))}
+    </div>
+  );
+}
+
+const SKELETON = "rounded-2xl bg-surface-2 motion-safe:animate-pulse";
+
+function DestinationsSkeleton() {
+  return (
+    <div aria-busy className="grid gap-4 sm:grid-cols-2">
+      <span className="sr-only">Loading destinations…</span>
+      <div className={`${SKELETON} h-80`} />
+      <div className={`${SKELETON} h-80`} />
+    </div>
+  );
+}
+
+function ActivitiesSkeleton() {
+  return (
+    <div aria-busy className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <span className="sr-only">Loading activities…</span>
+      {[0, 1, 2, 3].map((index) => (
+        <div key={index} className={`${SKELETON} h-36`} />
+      ))}
+    </div>
+  );
+}
