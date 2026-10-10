@@ -15,7 +15,8 @@ const SECTION_LABELS: Record<Section, string> = {
 
 // The site header for one of the three entry points: guests at /, partners at
 // /partner, developers at /admin. Sections don't link to each other: partners and guests
-// have separate entry points.
+// have separate entry points. The one exception is SectionSwitch, a floating test aid
+// shown locally and on staging only.
 export function SectionHeader({ section }: { section: Section }) {
   const label = SECTION_LABELS[section];
 
