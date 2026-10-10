@@ -1,10 +1,14 @@
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/typography";
 
 // What the cart does, shown rather than listed (RAA-73): one example trip across two
 // destinations, drawn like a trip in /cart. Since RAA-75 it is the home hero's picture, set
 // on Bantayan Island, where the platform launches. Static — nothing here is a real booking.
+// Where the platform launches, and where "Start your trip" leads.
+const LAUNCH_AREA = "bantayan-island";
+
 const EXAMPLE = {
   name: "Bantayan in March",
   details: "12–15 Mar · 2 guests · 4 items",
@@ -46,7 +50,14 @@ export function ExampleTripCard({ className }: { className?: string }) {
           </li>
         ))}
       </ul>
-      <p className="border-t border-line bg-surface-2 px-4 py-3 text-sm text-muted">Planning · book when you&apos;re ready</p>
+      {/* The hero's way in (RAA-78): the example becomes the visitor's own trip on the
+          destination page, where things are added. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line bg-surface-2 px-4 py-3">
+        <p className="text-sm text-muted">Free to save · nothing to pay yet</p>
+        <ButtonLink href={`/${LAUNCH_AREA}`} variant="primary" size="sm" className="min-h-11 whitespace-nowrap">
+          Start your trip
+        </ButtonLink>
+      </div>
     </Card>
   );
 }

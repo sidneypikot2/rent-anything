@@ -105,8 +105,9 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                     <h3 className="text-sm font-bold uppercase tracking-wider text-muted">{need.title}</h3>
                     <ul className="grid gap-2 sm:grid-cols-2">
                       {group.map((listing) => (
-                        <li key={listing.id}>
-                          <Card>
+                        // A search suggestion links straight to its row (#listing-<id>).
+                        <li key={listing.id} id={`listing-${listing.id}`} className="group scroll-mt-6">
+                          <Card className="group-target:border-primary">
                             <CardBody className="flex items-center justify-between gap-3">
                               <span className="min-w-0">
                                 <span className="block font-semibold">{listing.title}</span>

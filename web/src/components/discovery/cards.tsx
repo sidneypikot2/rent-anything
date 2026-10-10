@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { Activity, AreaCard } from "@/api/discovery";
 import { Badge } from "@/components/ui/badge";
-import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { tagIcon } from "./icons";
@@ -64,8 +63,9 @@ function withSubAreas(area: AreaCard, subAreas: AreaCard[]): Counts {
 }
 
 // A destination on the home page: where it is, what to do there, how much there is, and the
-// places inside it that have their own things to book. `wide` lays it out side by side from
-// `sm` up, for a card that has a row to itself.
+// places inside it that have their own things to book. The whole card opens the destination
+// (the heading's link stretches over it); the places inside it are links of their own above
+// that. `wide` lays it out side by side from `sm` up, for a card that has a row to itself.
 export function DestinationCard({
   area,
   subAreas = [],
@@ -78,7 +78,14 @@ export function DestinationCard({
   className?: string;
 }) {
   return (
-    <Card data-testid="destination-card" className={cn("flex flex-col", wide && "sm:flex-row", className)}>
+    <Card
+      data-testid="destination-card"
+      className={cn(
+        "relative flex flex-col transition-colors hover:border-primary",
+        wide && "sm:flex-row",
+        className,
+      )}
+    >
       <div
         className={cn(
           "relative h-36 border-b border-line",
@@ -90,21 +97,22 @@ export function DestinationCard({
       </div>
       <CardBody pad="lg" className="flex flex-1 flex-col gap-3">
         <div>
-          <h3 className="font-display text-2xl font-bold">{area.name}</h3>
-          {area.parent_name && (
-            <p className="text-sm text-muted">
-              <span aria-hidden>📍</span> {area.parent_name}, Philippines
-            </p>
-          )}
+          <h3 className="font-display text-2xl font-bold">
+            <Link
+              href={`/${area.slug}`}
+              // The card clips its content, so the focus ring is drawn inside its edge.
+              className="outline-none after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-primary"
+            >
+              {area.name}
+            </Link>
+          </h3>
+          {area.parent_name && <p className="text-sm text-muted">{area.parent_name}, Philippines</p>}
         </div>
         {area.activities.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {area.activities.map((tag) => (
-              <Badge key={tag.slug} tone="mist">
-                <span aria-hidden>{tagIcon(tag.slug)}</span> {tag.name}
-              </Badge>
-            ))}
-          </div>
+          <p className="text-sm text-foreground">
+            <span className="sr-only">Things to do: </span>
+            {area.activities.map((tag) => tag.name).join(" · ")}
+          </p>
         )}
         {subAreas.length > 0 && (
           <div>
@@ -114,7 +122,7 @@ export function DestinationCard({
                 <li key={sub.slug}>
                   <Link
                     href={`/${sub.slug}`}
-                    className="-mx-2 flex min-h-11 items-center justify-between gap-3 rounded-lg px-2 hover:bg-surface-2"
+                    className="relative z-10 -mx-2 flex min-h-11 items-center justify-between gap-3 rounded-lg px-2 hover:bg-surface-2"
                   >
                     <span className="font-semibold text-foreground">{sub.name}</span>
                     <span className="text-sm text-muted">{countLine(sub)}</span>
@@ -124,19 +132,21 @@ export function DestinationCard({
             </ul>
           </div>
         )}
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+        <div className="mt-auto flex min-h-11 flex-wrap items-center justify-between gap-x-3 border-t border-line pt-3">
           <p className="text-sm text-muted">{countLine(withSubAreas(area, subAreas))}</p>
-          <ButtonLink href={`/${area.slug}`} variant="soft" size="sm" className="shrink-0 whitespace-nowrap">
-            View destination
-          </ButtonLink>
+          {/* What tapping the card does; the heading is the link. */}
+          <span aria-hidden className="shrink-0 whitespace-nowrap text-sm font-semibold text-link">
+            View destination →
+          </span>
         </div>
       </CardBody>
     </Card>
   );
 }
 
-// "Browse by activity": an activity, how many destinations offer it and how many places
-// there are to see for it — the same words as the destination cards.
+// "Browse by activity": an activity, how much there is to book for it (or, with nothing to
+// book yet, how many places there are to see) and in how many destinations — the same words
+// as the destination cards. The two counts stack, so a narrow card never wraps mid-phrase.
 export function ActivityCard({ activity }: { activity: Activity }) {
   return (
     <CardLink
@@ -149,13 +159,14 @@ export function ActivityCard({ activity }: { activity: Activity }) {
       </span>
       <span className="font-semibold text-foreground">{activity.name}</span>
       {/* Each half stays on one line, so a narrow card breaks at the dot, not mid-phrase. */}
-      <span className="text-xs text-muted">
-        <span className="whitespace-nowrap">
-          {activity.area_count} {activity.area_count === 1 ? "destination" : "destinations"}
-        </span>{" "}
-        ·{" "}
-        <span className="whitespace-nowrap">
-          {activity.landmark_count} {activity.landmark_count === 1 ? "place" : "places"} to see
+      <span className="flex flex-col text-sm text-muted">
+        <span>
+          {activity.listing_count > 0
+            ? `${activity.listing_count} to book`
+            : `${activity.landmark_count} ${activity.landmark_count === 1 ? "place" : "places"} to see`}
+        </span>
+        <span>
+          in {activity.area_count} {activity.area_count === 1 ? "destination" : "destinations"}
         </span>
       </span>
     </CardLink>

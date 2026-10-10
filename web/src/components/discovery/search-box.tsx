@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -8,10 +8,15 @@ import { apiClient } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import type { SearchResults } from "@/api/discovery";
+import { CATEGORIES, categoryHref } from "./categories";
 import { areaIcon, tagIcon } from "./icons";
 
 const MIN_LENGTH = 2;
 const DEBOUNCE_MS = 250;
+// Below `sm` the on-screen keyboard takes half the screen: the search moves to the top of
+// the screen on focus, and the suggestions get the height left above the keyboard.
+const PHONE = "(max-width: 639px)";
+const MIN_PANEL_PX = 160;
 
 // The hero search: destinations, landmarks, activities and things to book as you type.
 // It is a plain GET form, so Enter (or no JavaScript) opens the full results at /search,
@@ -27,6 +32,8 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
   // nothing highlighted, so the highlight never points at another item or past the list.
   const [highlight, setHighlight] = useState<{ items: Item[]; index: number } | null>(null);
   const listId = useId();
+  const formRef = useRef<HTMLFormElement>(null);
+  const room = useRoomAboveKeyboard(formRef, open);
 
   useEffect(() => {
     const timer = setTimeout(() => setQuery(text.trim()), DEBOUNCE_MS);
@@ -83,9 +90,10 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
 
   return (
     <form
+      ref={formRef}
       action="/search"
       role="search"
-      className="relative w-full max-w-xl text-left"
+      className="relative w-full max-w-xl scroll-mt-4 text-left"
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
       }}
@@ -101,7 +109,13 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
             setOpen(true);
             setHighlight(null);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true);
+            if (window.matchMedia(PHONE).matches) {
+              const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+              formRef.current?.scrollIntoView({ block: "start", behavior: smooth ? "smooth" : "auto" });
+            }
+          }}
           onKeyDown={onKeyDown}
           placeholder="Try Bantayan or snorkelling"
           aria-label="Search destinations, landmarks and activities"
@@ -124,8 +138,9 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
           // Keeps focus in the input while a suggestion is clicked: Safari doesn't focus a
           // clicked link, so the form's blur would close the panel before the click lands.
           onMouseDown={(event) => event.preventDefault()}
-          // Short enough on a phone to stay above the on-screen keyboard.
-          className="absolute inset-x-0 top-full z-20 mt-2 max-h-[45vh] overflow-y-auto rounded-2xl border-[1.5px] border-line bg-surface p-2 shadow-xl shadow-primary/10 sm:max-h-[70vh]"
+          // On a phone, only as tall as the room above the on-screen keyboard.
+          style={room === null ? undefined : { maxHeight: Math.max(room, MIN_PANEL_PX) }}
+          className="absolute inset-x-0 top-full z-20 mt-2 max-h-[45vh] overflow-y-auto overscroll-contain rounded-2xl border-[1.5px] border-line bg-surface p-2 shadow-xl shadow-primary/10 sm:max-h-[70vh]"
         >
           {isError ? (
             <p role="status" className="p-3 text-sm text-muted">
@@ -143,9 +158,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
               Searching…
             </p>
           ) : empty ? (
-            <p role="status" className="p-3 text-sm text-muted">
-              Nothing matches “{query}” yet.
-            </p>
+            <NoMatches query={query} />
           ) : (
             <Suggestions id={listId} items={items} active={active} optionId={optionId} />
           )}
@@ -153,6 +166,54 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
       )}
     </form>
   );
+}
+
+// Nothing found is not a dead end: the kinds of things to book are one tap away.
+function NoMatches({ query }: { query: string }) {
+  return (
+    <div role="status" className="flex flex-col gap-1 p-3">
+      <p className="text-sm text-muted">Nothing matches “{query}” yet. Try one of these:</p>
+      <ul className="flex flex-wrap gap-x-4">
+        {CATEGORIES.map((category) => (
+          <li key={category.label}>
+            <Link
+              href={categoryHref(category.query)}
+              className="inline-flex min-h-11 items-center text-sm font-semibold text-link underline-offset-2 hover:underline"
+            >
+              {category.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// The pixels between the form's bottom edge and the top of the on-screen keyboard while
+// `active` on a phone; null elsewhere, where the panel's CSS max-height applies. It follows
+// the visual viewport, which shrinks when the keyboard opens and moves as the page scrolls.
+function useRoomAboveKeyboard(ref: RefObject<HTMLFormElement | null>, active: boolean) {
+  const [room, setRoom] = useState<number | null>(null);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!active || !viewport || !window.matchMedia(PHONE).matches) return;
+    const measure = () => {
+      const form = ref.current;
+      // The panel's 8px top margin and 16px clear of the keyboard.
+      if (form) setRoom(Math.floor(viewport.offsetTop + viewport.height - form.getBoundingClientRect().bottom - 24));
+    };
+    measure();
+    viewport.addEventListener("resize", measure);
+    viewport.addEventListener("scroll", measure);
+    window.addEventListener("scroll", measure, { passive: true });
+    return () => {
+      viewport.removeEventListener("resize", measure);
+      viewport.removeEventListener("scroll", measure);
+      window.removeEventListener("scroll", measure);
+      setRoom(null);
+    };
+  }, [ref, active]);
+  return room;
 }
 
 type Item = { group: string; href: string; icon: string; title: string; note?: string };
@@ -184,7 +245,8 @@ function suggestionItems(results: SearchResults, query: string): Item[] {
     })),
     ...results.listings.map((listing) => ({
       group: "Things to book",
-      href: `/${listing.area_slug}#listings`,
+      // The listing's own row on its destination page.
+      href: `/${listing.area_slug}#listing-${listing.id}`,
       icon: "🎟️",
       title: listing.title,
       note: listing.category,

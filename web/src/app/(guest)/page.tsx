@@ -1,22 +1,14 @@
 import { Suspense } from "react";
 import { getActivities, getDestinations, type Activity } from "@/api/discovery";
 import { ActivityCard, DestinationCard, groupDestinations } from "@/components/discovery/cards";
+import { CATEGORIES, categoryHref } from "@/components/discovery/categories";
 import { LoadFailed } from "@/components/discovery/load-failed";
 import { SearchBox } from "@/components/discovery/search-box";
+import { ShowMore } from "@/components/discovery/show-more";
 import { ExampleTripCard, HowItWorks } from "@/components/landing/example-trip";
 import { PlanCta } from "@/components/landing/plan-cta";
 import { PillLink } from "@/components/ui/pill";
 import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
-
-// The kinds of things partners list, each searched by its category's name (search matches
-// listing categories as well as titles).
-const CATEGORIES = [
-  { label: "Tours", query: "Tour" },
-  { label: "Motorbikes", query: "Motorcycle" },
-  { label: "Stays", query: "Hotel" },
-  { label: "Snorkel gear", query: "Snorkel gear" },
-  { label: "Transfers", query: "Van transfer" },
-];
 
 // The guest home: the trip builder first (RAA-75) — where we launch, a search, the kinds of
 // things to book and an example trip — then destinations and activities to browse. A guest who
@@ -39,7 +31,7 @@ export default function Home() {
             <SearchBox />
             <nav aria-label="Things to book" className="flex flex-wrap gap-2">
               {CATEGORIES.map((category) => (
-                <PillLink key={category.label} href={`/search?q=${encodeURIComponent(category.query)}`}>
+                <PillLink key={category.label} href={categoryHref(category.query)}>
                   {category.label}
                 </PillLink>
               ))}
@@ -111,24 +103,18 @@ async function Activities() {
   if (activities.length === 0) {
     return <p className="text-muted">Activities appear here once destinations have things to book.</p>;
   }
-  // The four with the most places first; the rest wait behind "More activities", so the
-  // section offers one row of choices rather than a wall of near-identical cards.
-  const ranked = [...activities].sort(
-    (a, b) => b.landmark_count - a.landmark_count || b.area_count - a.area_count,
-  );
-  const top = ranked.slice(0, ACTIVITIES_SHOWN);
-  const more = ranked.slice(ACTIVITIES_SHOWN);
+  // The API lists the most to book first (RAA-77). The first four show; the rest wait
+  // behind "More activities", so the section offers one row of choices rather than a wall
+  // of near-identical cards.
+  const top = activities.slice(0, ACTIVITIES_SHOWN);
+  const more = activities.slice(ACTIVITIES_SHOWN);
   return (
     <div className="flex flex-col gap-3">
       <ActivityGrid activities={top} />
       {more.length > 0 && (
-        <details className="group">
-          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full px-1 font-semibold text-link [&::-webkit-details-marker]:hidden">
-            <span className="group-open:hidden">More activities ({more.length})</span>
-            <span className="hidden group-open:inline">Fewer activities</span>
-          </summary>
+        <ShowMore more={`More activities (${more.length})`} less="Fewer activities">
           <ActivityGrid activities={more} />
-        </details>
+        </ShowMore>
       )}
     </div>
   );
