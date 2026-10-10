@@ -9,8 +9,11 @@ const ADDRESS_LABELS = {
   postal_code: "ZIP code",
 } as const;
 
+const LABELS: Record<string, string> = { engine_cc: "Engine size (cc)" };
+
 // "duration_hours" → "Duration hours": how a category's attribute is labelled everywhere.
 export function attributeLabel(key: string) {
+  if (LABELS[key]) return LABELS[key];
   return key.charAt(0).toUpperCase() + key.slice(1).replaceAll("_", " ");
 }
 
@@ -43,6 +46,7 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
     compare(label, listing.address[field], body.address[field]);
   }
   compare("Map pin", pin(listing.location), pin(body.location));
+  if (body.cancellation_policy) compare("Cancellation policy", listing.cancellation_policy, body.cancellation_policy);
   const landmarkIds = (ids: number[]) => [...ids].sort((a, b) => a - b).join(",");
   if (body.landmark_ids && landmarkIds(listing.landmarks.map((landmark) => landmark.id)) !== landmarkIds(body.landmark_ids)) {
     changes.push("Landmarks");

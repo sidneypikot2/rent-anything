@@ -18,8 +18,13 @@ export function ListingCategoryPicker({ options, initialId }: { options: Listing
   const [groupName, setGroupName] = useState(initial ? (initial.parent_name ?? initial.name) : "");
   const [categoryId, setCategoryId] = useState(initial ? String(initial.id) : "");
   const group = groups.find((option) => option.name === groupName);
-  // Accommodation's property types are cards, each saying what it means (RAA-83).
-  const stayGroup = group?.categories.every(isStay) ? group : undefined;
+  // Accommodation's property types (RAA-83) and the kinds of rental (RAA-89) are cards, each
+  // saying what it means.
+  const cardGroup =
+    group?.categories.every(isStay) || group?.categories.every((option) => option.booking_type === "rental")
+      ? group
+      : undefined;
+  const cardLegend = cardGroup?.categories.every(isStay) ? "Property type" : "What you're renting";
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,22 +49,22 @@ export function ListingCategoryPicker({ options, initialId }: { options: Listing
             ...groups.map((option) => ({ value: option.name, label: option.name })),
           ]}
         />
-        {stayGroup && (
+        {cardGroup && (
           <ChoiceCards
-            legend="Property type"
+            legend={cardLegend}
             name="category_id"
             required
             value={categoryId}
             onChange={setCategoryId}
-            choices={stayGroup.categories.map((option) => ({
+            choices={cardGroup.categories.map((option) => ({
               value: String(option.id),
               label: option.name,
               description: option.description,
             }))}
-            data-testid="listing-property-type"
+            data-testid="listing-subcategory-cards"
           />
         )}
-        {group && !stayGroup && (
+        {group && !cardGroup && (
           <SelectField
             label="Subcategory"
             name="category_id"

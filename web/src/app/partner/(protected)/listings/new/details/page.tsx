@@ -24,9 +24,10 @@ function DetailSteps() {
     <NewListingStep>
       {(options) => {
         const category = options.categories.find((option) => option.id === categoryId);
-        if (category && isStay(category)) return <StayWizard key={category.id} category={category} />;
+        const policies = options.cancellation_policies;
+        if (category && isStay(category)) return <StayWizard key={category.id} category={category} policies={policies} />;
         return category ? (
-          <ListingWizard key={category.id} category={category} />
+          <ListingWizard key={category.id} category={category} policies={policies} />
         ) : (
           <div data-testid="listing-no-category" className="flex flex-col items-start gap-3">
             <p className="text-sm text-muted">Choose what you&apos;re listing first.</p>
