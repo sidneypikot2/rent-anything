@@ -226,6 +226,32 @@ RSpec.configure do |config|
             },
             required: %w[id title category area_slug location]
           },
+          # One active listing as a traveller sees it (RAA-86). Never its location or address.
+          listing_detail: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              title: { type: :string },
+              description: { type: :string },
+              summary: {
+                type: :string,
+                description: "The description's first non-blank line, cut to 160 characters; empty when there is none"
+              },
+              category: {
+                type: :object,
+                properties: { slug: { type: :string }, name: { type: :string } },
+                required: %w[slug name]
+              },
+              booking_type: { type: :string, enum: %w[rental stay activity transfer] },
+              area: { "$ref" => "#/components/schemas/area_ref" },
+              partner_name: {
+                type: :string,
+                description: "The partner's display name; their legal first name, or \"Local partner\", for ones " \
+                  "who listed before a display name was required"
+              }
+            },
+            required: %w[id title description summary category booking_type area partner_name]
+          },
           # A published landmark on a guest's map, exact location included: it's a public place.
           landmark_pin: {
             type: :object,
@@ -450,15 +476,17 @@ RSpec.configure do |config|
                 type: :array,
                 items: {
                   type: :object,
-                  description: "A listing summary plus its booking type; no location",
+                  description: "A listing summary plus its booking type, summary and partner; no location",
                   properties: {
                     id: { type: :integer },
                     title: { type: :string },
                     category: { type: :string },
                     area_slug: { type: :string },
-                    booking_type: { type: :string, enum: %w[rental stay activity transfer] }
+                    booking_type: { type: :string, enum: %w[rental stay activity transfer] },
+                    summary: { type: :string, description: "As in listing_detail" },
+                    partner_name: { type: :string, description: "As in listing_detail" }
                   },
-                  required: %w[id title category area_slug booking_type]
+                  required: %w[id title category area_slug booking_type summary partner_name]
                 }
               }
             },

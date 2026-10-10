@@ -16,3 +16,16 @@ export function readTripDates(params: Record<string, string | string[] | undefin
     guests: Number.isInteger(guests) && guests >= 1 && guests <= 50 ? guests : 1,
   };
 }
+
+// The same dates as a query string ("?from=…&to=…&guests=2", or "" when there's nothing to
+// carry), for links between pages that add to a trip.
+export function tripDatesQuery(dates: TripDates): string {
+  const params = new URLSearchParams();
+  if (dates.from && dates.to) {
+    params.set("from", dates.from);
+    params.set("to", dates.to);
+  }
+  if (dates.guests > 1) params.set("guests", String(dates.guests));
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}

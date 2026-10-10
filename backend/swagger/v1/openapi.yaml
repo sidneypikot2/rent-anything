@@ -385,6 +385,33 @@ paths:
                 type: array
                 items:
                   "$ref": "#/components/schemas/listing_pin"
+  "/api/v1/listings/{id}":
+    get:
+      summary: One active listing, as a traveller sees it
+      tags:
+      - Discovery
+      description: 'An active listing''s description, category, area and partner.
+        Never its location or address: the exact point is revealed only after a paid
+        booking. Draft and pending listings are a 404.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: a partner without a profile
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/listing_detail"
+        '404':
+          description: an unknown listing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/me/complete_profile":
     put:
       summary: Finish sign-up with a name and phone
@@ -854,8 +881,8 @@ paths:
         `GET /api/v1/partner/listing_options`). The listing's area is the smallest
         published city, town or island whose boundary covers the pin; failing that,
         the one whose center is nearest the pin, within 50 km. The partner must have
-        passed the ID check first (`/api/v1/partner/verification`); until then it
-        is a 403.
+        passed the ID check first (`/api/v1/partner/verification`) and given a display
+        name (`/api/v1/partner/profile`); until then it is a 403.
       security:
       - bearer: []
       parameters:
@@ -1050,7 +1077,8 @@ paths:
       tags:
       - Partner
       description: Partner-only. Every field but `display_name` is required; `phone`
-        is saved on the user. Email can't be changed here.
+        is saved on the user. `display_name` can't be cleared while the partner has
+        listings (RAA-86). Email can't be changed here.
       security:
       - bearer: []
       parameters:
@@ -2341,6 +2369,51 @@ components:
       - category
       - area_slug
       - location
+    listing_detail:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        summary:
+          type: string
+          description: The description's first non-blank line, cut to 160 characters;
+            empty when there is none
+        category:
+          type: object
+          properties:
+            slug:
+              type: string
+            name:
+              type: string
+          required:
+          - slug
+          - name
+        booking_type:
+          type: string
+          enum:
+          - rental
+          - stay
+          - activity
+          - transfer
+        area:
+          "$ref": "#/components/schemas/area_ref"
+        partner_name:
+          type: string
+          description: The partner's display name; their legal first name, or "Local
+            partner", for ones who listed before a display name was required
+      required:
+      - id
+      - title
+      - description
+      - summary
+      - category
+      - booking_type
+      - area
+      - partner_name
     landmark_pin:
       type: object
       properties:
@@ -2747,7 +2820,8 @@ components:
           type: array
           items:
             type: object
-            description: A listing summary plus its booking type; no location
+            description: A listing summary plus its booking type, summary and partner;
+              no location
             properties:
               id:
                 type: integer
@@ -2764,12 +2838,20 @@ components:
                 - stay
                 - activity
                 - transfer
+              summary:
+                type: string
+                description: As in listing_detail
+              partner_name:
+                type: string
+                description: As in listing_detail
             required:
             - id
             - title
             - category
             - area_slug
             - booking_type
+            - summary
+            - partner_name
       required:
       - area
       - areas
