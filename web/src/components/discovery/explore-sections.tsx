@@ -1,5 +1,4 @@
 import type { Explore, ExplorePlace } from "@/api/discovery";
-import { Badge } from "@/components/ui/badge";
 import { CardLink } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/typography";
 import { areaIcon } from "./icons";
@@ -49,13 +48,31 @@ function PlaceGroup({ testId, title, places }: { testId: string; title: string; 
                 <span className="block truncate font-semibold">{place.name}</span>
                 <span className="block truncate text-sm text-muted">{place.note}</span>
               </span>
-              <Badge tone="mist">View</Badge>
             </CardLink>
           </li>
         ))}
       </ul>
     </section>
   );
+}
+
+// The explore places minus what the destination's page already shows or holds (RAA-85): its
+// own landmarks, the places inside it and their landmarks, which would otherwise come back
+// as "nearby".
+export function withoutShown(
+  explore: Explore,
+  shown: { landmarks: { slug: string }[]; areas: Set<string> },
+): Explore {
+  const landmarks = new Set(shown.landmarks.map((landmark) => landmark.slug));
+  const keep = (place: ExplorePlace) =>
+    place.type === "landmark"
+      ? !landmarks.has(place.slug) && !shown.areas.has(place.area_slug)
+      : !shown.areas.has(place.slug);
+  return {
+    ...explore,
+    destinations: explore.destinations.filter(keep),
+    recommendations: explore.recommendations.filter(keep),
+  };
 }
 
 // An area's own page, or a landmark on its area's page.

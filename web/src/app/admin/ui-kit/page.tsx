@@ -83,6 +83,7 @@ export default function UiKit() {
           <Button variant="soft">Soft</Button>
           <Button variant="danger">Danger</Button>
           <Button size="sm">Small</Button>
+          <Button variant="soft" size="touch">Touch</Button>
           <Button disabled>Disabled</Button>
           <ButtonLink href="/admin" variant="soft" size="sm">
             Link as button

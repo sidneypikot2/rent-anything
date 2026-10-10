@@ -28,7 +28,8 @@ export function AddToTripButton({ listing, dates }: Props) {
   return (
     <Button
       variant="soft"
-      size="sm"
+      size="touch"
+      className="shrink-0"
       data-testid="add-to-trip"
       disabled={session === undefined || busy}
       onClick={() =>
