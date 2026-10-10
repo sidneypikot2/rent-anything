@@ -4,12 +4,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
+import { useSession } from "@/lib/auth/session";
 import { todayIso } from "./format";
 import type { TripDates } from "./trip-dates";
 
 // The trip dates and guests for this destination, kept in the URL so every add (and,
-// later, availability and quotes) uses them.
+// later, availability and quotes) uses them. Like "Add to trip", it is for guests: a partner
+// or admin has nothing to apply the dates to (RAA-85).
 export function TripDatesBar({ dates }: { dates: TripDates }) {
+  const session = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const [from, setFrom] = useState(dates.from ?? "");
@@ -35,6 +38,8 @@ export function TripDatesBar({ dates }: { dates: TripDates }) {
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }
+
+  if (session && session.user.role !== "guest") return null;
 
   return (
     <form
@@ -66,7 +71,7 @@ export function TripDatesBar({ dates }: { dates: TripDates }) {
         onChange={(event) => setGuests(event.target.value)}
         error={guestsError}
       />
-      <Button type="submit" variant="soft" size="sm" className="self-end sm:mb-0.5">
+      <Button type="submit" variant="soft" size="touch" className="self-end">
         Set dates
       </Button>
     </form>

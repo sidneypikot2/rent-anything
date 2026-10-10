@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getArea, getDestinations, getExplore, type AreaCard, type AreaDetail } from "@/api/discovery";
-import { countLine, groupDestinations, withSubAreas } from "@/components/discovery/cards";
-import { ExploreSections } from "@/components/discovery/explore-sections";
+import { countLine, withSubAreas } from "@/components/discovery/cards";
+import { ExploreSections, withoutShown } from "@/components/discovery/explore-sections";
 import { areaIcon, categoryIcon, tagIcon } from "@/components/discovery/icons";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
@@ -10,6 +11,7 @@ import { readTripDates } from "@/components/trips/trip-dates";
 import { TripDatesBar } from "@/components/trips/trip-dates-bar";
 import { TripStartedBanner } from "@/components/trips/trip-started-banner";
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
 
@@ -49,6 +51,14 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   if (!detail) notFound();
   const { area, areas, landmarks, listings } = detail;
   const counts = destinations ? areaCounts(destinations, slug) : null;
+  // Nearby places that aren't on this page or inside this place (its landmarks, the places
+  // inside it, however deep, and their landmarks).
+  const inside = new Set([
+    ...areas.map((child) => child.slug),
+    ...(destinations ? descendants(destinations, slug).map((child) => child.slug) : []),
+  ]);
+  const nearby = explore && withoutShown(explore, { landmarks, areas: inside });
+  const hasNearby = Boolean(nearby && (nearby.destinations.length > 0 || nearby.recommendations.length > 0));
 
   return (
     <main className="flex flex-1 flex-col">
@@ -58,12 +68,29 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           <DisplayTitle>
             <span aria-hidden>{areaIcon(area.kind)}</span> {area.name}
           </DisplayTitle>
-          <p className="text-muted">
-            {landmarks.length} places to see ·{" "}
-            {counts?.across
-              ? `${counts.across}${listings.length > 0 ? ` (${listings.length} here)` : ""}`
-              : `${listings.length} things to book`}
+          <p className="text-muted empty:hidden">
+            {[
+              landmarks.length > 0 && `${landmarks.length} ${landmarks.length === 1 ? "place" : "places"} to see`,
+              listings.length > 0 && `${listings.length} to book${counts && counts.more.length > 0 ? " here" : ""}`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+            {/* What the places inside this one add, linked, so the island's total isn't a promise
+                this page can't show (RAA-85). */}
+            {counts?.more.map((child, index) => (
+              <span key={child.area.slug}>
+                {index > 0 || landmarks.length > 0 || listings.length > 0 ? " · " : ""}
+                <Link href={`/${child.area.slug}`} className="font-semibold text-link underline-offset-4 hover:underline">
+                  {listings.length > 0 ? `${child.listingCount} more` : `${child.listingCount} to book`} in {child.area.name}
+                </Link>
+              </span>
+            ))}
           </p>
+          {listings.length > 0 && (
+            <ButtonLink href="#listings" className="mt-2 self-start">
+              See what to book <span aria-hidden>↓</span>
+            </ButtonLink>
+          )}
         </div>
       </section>
 
@@ -99,12 +126,15 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
               {landmarks.map((landmark) => (
                 <Card key={landmark.slug} id={landmark.slug} data-testid="landmark" className="scroll-mt-6">
                   <CardBody className="flex flex-col gap-2">
-                    <h3 className="font-semibold">📍 {landmark.name}</h3>
-                    <p className="text-sm text-muted">{landmark.description}</p>
-                    <div className="flex flex-wrap gap-1.5">
+                    <h3 className="font-semibold">
+                      <span aria-hidden>📍</span> {landmark.name}
+                    </h3>
+                    {/* Short on a phone, so what there is to book isn't screens away (RAA-85). */}
+                    <p className="line-clamp-3 text-sm text-muted sm:line-clamp-none">{landmark.description}</p>
+                    <div className="hidden flex-wrap gap-1.5 sm:flex">
                       {landmark.tags.map((tag) => (
                         <Badge key={tag.slug} tone="mist">
-                          {tagIcon(tag.slug)} {tag.name}
+                          <span aria-hidden>{tagIcon(tag.slug)}</span> {tag.name}
                         </Badge>
                       ))}
                     </div>
@@ -119,7 +149,10 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           <TripAddProvider>
             <section id="listings" className="flex scroll-mt-6 flex-col gap-6">
               <TripStartedBanner name={area.name} show={starting} />
-              <SectionTitle>What to book</SectionTitle>
+              <div className="flex flex-col gap-1">
+                <SectionTitle>What to book</SectionTitle>
+                <p className="text-sm text-muted">Saving to a trip is free, and there&apos;s nothing to pay yet.</p>
+              </div>
               <TripDatesBar key={`${dates.from}-${dates.to}-${dates.guests}`} dates={dates} />
               {TRIP_NEEDS.map((need) => {
                 const group = listings.filter((listing) => need.bookingTypes.includes(listing.booking_type));
@@ -137,7 +170,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                 {categoryIcon(listing.category)}
                               </span>
                               <span className="min-w-0 flex-1">
-                                <span className="block font-semibold">{listing.title}</span>
+                                <span className="block font-semibold break-words">{listing.title}</span>
                                 <span className="block text-sm text-muted">{listing.category}</span>
                               </span>
                               <AddToTripButton listing={listing} dates={dates} />
@@ -153,9 +186,9 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           </TripAddProvider>
         )}
 
-        {explore && <ExploreSections explore={explore} name={area.name} />}
+        {nearby && <ExploreSections explore={nearby} name={area.name} />}
 
-        {areas.length === 0 && landmarks.length === 0 && listings.length === 0 && (
+        {areas.length === 0 && landmarks.length === 0 && listings.length === 0 && !hasNearby && (
           <p className="text-muted">Nothing here yet. Local partners are still being added.</p>
         )}
       </div>
@@ -163,18 +196,25 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   );
 }
 
-// The page's counts as the home page's destination card has them (RAA-80): how much there is
-// to book here and in the places inside this one ("29 to book across Bantayan Island"), and
-// each of those places' own counts. `across` is null for an area with no places inside it.
-// Places to see stay the page's own, since those are the ones it lists.
+// The counts for the places inside this one (RAA-80): each card's own line, and the ones
+// with things to book, which the hero links to as "20 more in Santa Fe" (RAA-85). A place's
+// count includes the places inside it, as its home card's does.
 function areaCounts(destinations: AreaCard[], slug: string) {
-  const group = groupDestinations(destinations).find(({ area }) => area.slug === slug);
-  const children = new Map(
-    destinations.filter((child) => child.parent_slug === slug).map((child) => [child.slug, countLine(child)]),
-  );
-  const across =
-    group && group.subAreas.length > 0
-      ? `${withSubAreas(group.area, group.subAreas).listing_count} to book across ${group.area.name}`
-      : null;
-  return { across, children };
+  const inside = destinations.filter((child) => child.parent_slug === slug);
+  return {
+    children: new Map(inside.map((child) => [child.slug, countLine(child)])),
+    more: inside
+      .map((child) => ({ area: child, listingCount: withSubAreas(child, descendants(destinations, child.slug)).listing_count }))
+      .filter(({ listingCount }) => listingCount > 0),
+  };
+}
+
+// Every listed place inside this one, however deep.
+function descendants(destinations: AreaCard[], slug: string, seen = new Set([slug])): AreaCard[] {
+  return destinations
+    .filter((child) => child.parent_slug === slug && !seen.has(child.slug))
+    .flatMap((child) => {
+      seen.add(child.slug);
+      return [child, ...descendants(destinations, child.slug, seen)];
+    });
 }

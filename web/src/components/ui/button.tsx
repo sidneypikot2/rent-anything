@@ -15,6 +15,8 @@ const VARIANTS = {
 
 const SIZES = {
   sm: "rounded-lg px-4 py-2 text-sm",
+  // The small look with a 44px touch target, for an action a traveller taps on a phone (RAA-85).
+  touch: "min-h-11 rounded-lg px-4 py-2 text-sm",
   md: "rounded-xl px-6 py-3 text-sm",
 };
 
