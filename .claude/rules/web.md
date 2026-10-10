@@ -24,3 +24,7 @@ Next.js 16 App Router, TypeScript (strict), Tailwind CSS 4, TanStack Query. **Th
 **Layout**: mobile-first — most travellers book from a phone. Check every page at phone width.
 
 **No `:target` styling**: client navigation (a Next `Link`, `router.push`) never updates `:target`, so a `target:` style only shows on a full page load (RAA-78). Highlight from `location.hash` in a client effect, or just let the anchor scroll.
+
+**Session-dependent UI above the fold**: the session is read from localStorage after hydration, so server-render the signed-out/traveller version and swap it once `useSession()` resolves. Returning `null` until then (as `PlanCta` does) is only fine below the fold — above it, the main call to action is missing from the first paint (RAA-80).
+
+**One-shot URL flags** (like `?start=trip`): read them once into client state and drop them with `history.replaceState`. `TripAddProvider` returns to `pathname + search` after sign-in, and `TripDatesBar` rebuilds the query from scratch, so a flag left in the URL either comes back after sign-up or vanishes when dates are set (RAA-80).
