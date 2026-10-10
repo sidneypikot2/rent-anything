@@ -4,7 +4,7 @@ module Api
       # The signed-in partner's own listings (RAA-41, RAA-46): every status, adding, changing
       # and deleting one. Another partner's listing is a 404.
       class ListingsController < ApplicationController
-        LISTING_PARAMS = %i[title description category_id address location attrs landmark_ids].freeze
+        LISTING_PARAMS = %i[title description category_id address location attrs landmark_ids cancellation_policy].freeze
 
         before_action :authenticate_user!
         before_action -> { require_role!("partner") }

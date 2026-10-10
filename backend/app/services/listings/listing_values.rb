@@ -6,7 +6,8 @@ module Listings
   # island the pin is in (RAA-59), or else the nearest. Status is never read from the request.
   # An activity (a tour) also lists the published landmarks it visits (RAA-70): landmark_ids
   # replaces them when sent and keeps them when left out; a listing that isn't an activity
-  # has none.
+  # has none. The cancellation policy (RAA-88) is kept when left out, so a new listing is
+  # free to cancel unless the partner chose otherwise.
   module ListingValues
     include RequestValues
 
@@ -27,7 +28,8 @@ module Listings
         area: point && nearest_area(point),
         location: point,
         attrs: attrs,
-        **address_attributes(@params[:address])
+        **address_attributes(@params[:address]),
+        **cancellation_policy
       }
     end
 
@@ -111,6 +113,15 @@ module Listings
         areas.where("ST_DWithin(center, #{geography}, #{AREA_RADIUS_METERS})")
           .order(Arel.sql("ST_Distance(center, #{geography})")).first ||
         error("No destination near this pin yet")
+    end
+
+    def cancellation_policy
+      value = @params[:cancellation_policy]
+      return {} if value.nil?
+      return { cancellation_policy: value } if Listing::CANCELLATION_POLICIES.key?(value)
+
+      error("Cancellation policy must be one of #{Listing::CANCELLATION_POLICIES.keys.join(', ')}")
+      {}
     end
 
     def attrs

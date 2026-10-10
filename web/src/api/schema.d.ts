@@ -1174,8 +1174,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * What a new listing can be: its bookable categories
-         * @description Partner-only. Bookable (leaf) categories, each with what it means and the JSON Schema its `attrs` must match.
+         * What a new listing can be: its bookable categories and cancellation policies
+         * @description Partner-only. Bookable (leaf) categories, each with what it means and the JSON Schema its `attrs` must match, and the cancellation policies a listing can have.
          */
         get: {
             parameters: {
@@ -1296,7 +1296,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description an address without a province */
+                /** @description with the cancellation policy the partner chose */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -3006,6 +3006,7 @@ export interface components {
             attrs: {
                 [key: string]: unknown;
             };
+            cancellation_policy: components["schemas"]["cancellation_policy"];
             /** @description The landmarks a tour or activity visits, by name; empty for other listings */
             landmarks: components["schemas"]["partner_landmark"][];
             /** @description The destinations those landmarks are in, by name */
@@ -3055,10 +3056,23 @@ export interface components {
             attrs?: {
                 [key: string]: unknown;
             };
+            /** @description Left out on adding a listing, it is free_cancellation; left out on a change, it stays as it is */
+            cancellation_policy?: components["schemas"]["cancellation_policy"];
             /** @description Tours and activities only: the published landmarks it visits. Replaces them when sent; left out on a change, they stay as they are. A listing that isn't an activity has none. */
             landmark_ids?: number[];
         };
+        /**
+         * @description free_cancellation: free any time before the booking starts; non_refundable: no refund; seven_days / fourteen_days: free up to 7 / 14 days before it starts, non-refundable after
+         * @enum {string}
+         */
+        cancellation_policy: "free_cancellation" | "non_refundable" | "seven_days" | "fourteen_days";
         listing_options: {
+            /** @description Every cancellation policy, in the order to offer them, with its wording for a partner */
+            cancellation_policies: {
+                value: components["schemas"]["cancellation_policy"];
+                name: string;
+                description: string;
+            }[];
             categories: {
                 id: number;
                 slug: string;

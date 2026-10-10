@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_10_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_11_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -158,11 +158,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_10_000003) do
     t.string "province"
     t.string "postal_code"
     t.string "country", limit: 2, default: "PH", null: false
+    t.string "cancellation_policy", default: "free_cancellation", null: false
     t.index ["area_id"], name: "index_listings_on_area_id"
     t.index ["category_id"], name: "index_listings_on_category_id"
     t.index ["location"], name: "index_listings_on_location", using: :gist
     t.index ["partner_id"], name: "index_listings_on_partner_id"
     t.index ["status"], name: "index_listings_on_status"
+    t.check_constraint "cancellation_policy::text = ANY (ARRAY['free_cancellation'::character varying, 'non_refundable'::character varying, 'seven_days'::character varying, 'fourteen_days'::character varying]::text[])", name: "listings_cancellation_policy_check"
     t.check_constraint "country::text ~ '^[A-Z]{2}$'::text", name: "listings_country_check"
     t.check_constraint "partner_role::text = 'partner'::text", name: "listings_partner_role_check"
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'pending'::character varying::text, 'active'::character varying::text])", name: "listings_status_check"
