@@ -135,7 +135,8 @@ export function DestinationCard({
   );
 }
 
-// "Browse by activity": an activity and how many destinations offer it.
+// "Browse by activity": an activity, how many destinations offer it and how many places
+// there are to see for it — the same words as the destination cards.
 export function ActivityCard({ activity }: { activity: Activity }) {
   return (
     <CardLink
@@ -149,7 +150,7 @@ export function ActivityCard({ activity }: { activity: Activity }) {
       <span className="font-semibold text-foreground">{activity.name}</span>
       <span className="text-xs text-muted">
         {activity.area_count} {activity.area_count === 1 ? "destination" : "destinations"} · {activity.landmark_count}{" "}
-        {activity.landmark_count === 1 ? "spot" : "spots"}
+        {activity.landmark_count === 1 ? "place" : "places"} to see
       </span>
     </CardLink>
   );

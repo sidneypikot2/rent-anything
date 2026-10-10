@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getActivities, getDestinations } from "@/api/discovery";
+import { getActivities, getDestinations, type Activity } from "@/api/discovery";
 import { ActivityCard, DestinationCard, groupDestinations } from "@/components/discovery/cards";
 import { LoadFailed } from "@/components/discovery/load-failed";
 import { SearchBox } from "@/components/discovery/search-box";
@@ -110,6 +110,32 @@ async function Activities() {
   if (activities.length === 0) {
     return <p className="text-muted">Activities appear here once destinations have things to book.</p>;
   }
+  // The four with the most places first; the rest wait behind "More activities", so the
+  // section offers one row of choices rather than a wall of near-identical cards.
+  const ranked = [...activities].sort(
+    (a, b) => b.landmark_count - a.landmark_count || b.area_count - a.area_count,
+  );
+  const top = ranked.slice(0, ACTIVITIES_SHOWN);
+  const more = ranked.slice(ACTIVITIES_SHOWN);
+  return (
+    <div className="flex flex-col gap-3">
+      <ActivityGrid activities={top} />
+      {more.length > 0 && (
+        <details className="group">
+          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full px-1 font-semibold text-link [&::-webkit-details-marker]:hidden">
+            <span className="group-open:hidden">More activities ({more.length})</span>
+            <span className="hidden group-open:inline">Fewer activities</span>
+          </summary>
+          <ActivityGrid activities={more} />
+        </details>
+      )}
+    </div>
+  );
+}
+
+const ACTIVITIES_SHOWN = 4;
+
+function ActivityGrid({ activities }: { activities: Activity[] }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {activities.map((activity) => (
