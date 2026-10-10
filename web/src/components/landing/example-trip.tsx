@@ -57,6 +57,14 @@ const STEPS = [
   { title: "Keep every stop together", body: "Each trip holds its places and dates, even when it spans islands." },
 ];
 
+// What a traveller can rely on before booking anything. Only what is true today: partners
+// pass an ID check before they can list (Listings::Create), and nothing can be paid yet.
+const TRUST = [
+  { title: "Every partner is ID-checked", body: "Partners verify their ID before they can list anything." },
+  { title: "Straight from the locals", body: "The people who run the boats, scooters and cottages list them here themselves." },
+  { title: "Nothing to pay yet", body: "Saving to a trip is free. Booking and payment are coming soon." },
+];
+
 // How the cart works, in three steps, and why the partners can be trusted.
 export function HowItWorks() {
   return (
@@ -78,6 +86,14 @@ export function HowItWorks() {
           </li>
         ))}
       </ol>
+      <ul aria-label="Why book here" className="grid gap-4 rounded-2xl bg-surface-2 p-5 sm:grid-cols-3">
+        {TRUST.map((point) => (
+          <li key={point.title}>
+            <p className="font-semibold text-primary">{point.title}</p>
+            <p className="text-sm text-pretty text-muted">{point.body}</p>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
