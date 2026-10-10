@@ -4,9 +4,12 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ListingWizard } from "@/components/partner/listing-wizard";
 import { NewListingStep } from "@/components/partner/new-listing-step";
+import { isStay } from "@/components/partner/stay-fields";
+import { StayWizard } from "@/components/partner/stay-wizard";
 import { ButtonLink } from "@/components/ui/button";
 
 // The steps after the category (RAA-50): ?category= is the one chosen on /partner/listings/new.
+// Accommodation has its own steps (RAA-83).
 export default function NewPartnerListingDetails() {
   return (
     <Suspense>
@@ -21,6 +24,7 @@ function DetailSteps() {
     <NewListingStep>
       {(options) => {
         const category = options.categories.find((option) => option.id === categoryId);
+        if (category && isStay(category)) return <StayWizard key={category.id} category={category} />;
         return category ? (
           <ListingWizard key={category.id} category={category} />
         ) : (

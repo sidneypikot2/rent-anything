@@ -16,7 +16,7 @@ export function NewListingStep({ children }: { children: (options: ListingOption
   const failed = verification.error ?? options.error;
 
   return (
-    <main data-testid="partner-listing-new" className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-12">
+    <main data-testid="partner-listing-new" className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-12">
       <DisplayTitle>Add a listing</DisplayTitle>
       {verification.data && !isVerified(verification.data) ? (
         <ListingGate />

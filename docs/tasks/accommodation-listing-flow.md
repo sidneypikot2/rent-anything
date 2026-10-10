@@ -107,6 +107,8 @@ Runs in a worktree (`/raa-task` step 3). It is a deploy change — say so in the
   - Amenities: grouped checkboxes.
   - Photos: a skeleton container only, with **Skip for now**; not wired to anything.
   - Rate: nightly rate (₱), not saved yet — same as today.
+- Both add-listing wizards show their sections as a sidebar (a sideways-scrolling row on a
+  phone); a section already passed can be reopened from it.
 - Built from `src/components/ui/` primitives; any new primitive (radio card, number
   stepper) also goes on `/admin/ui-kit`. Mobile-first.
 - Edit page (`/partner/listings/[id]/edit`) must render the new attrs for stays.

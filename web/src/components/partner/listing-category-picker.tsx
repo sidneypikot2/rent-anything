@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/select-field";
+import { ChoiceCards } from "@/components/ui/choice-cards";
 import { groupCategories } from "./listing-fields";
+import { isStay } from "./stay-fields";
 import type { ListingOptions } from "./use-partner-listings";
 
 // The first step of adding a listing (RAA-50): what it is, as a category and a subcategory.
@@ -16,6 +18,8 @@ export function ListingCategoryPicker({ options, initialId }: { options: Listing
   const [groupName, setGroupName] = useState(initial ? (initial.parent_name ?? initial.name) : "");
   const [categoryId, setCategoryId] = useState(initial ? String(initial.id) : "");
   const group = groups.find((option) => option.name === groupName);
+  // Accommodation's property types are cards, each saying what it means (RAA-83).
+  const stayGroup = group?.categories.every(isStay) ? group : undefined;
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,6 +44,21 @@ export function ListingCategoryPicker({ options, initialId }: { options: Listing
             ...groups.map((option) => ({ value: option.name, label: option.name })),
           ]}
         />
+        {stayGroup ? (
+          <ChoiceCards
+            legend="Property type"
+            name="category_id"
+            required
+            value={categoryId}
+            onChange={setCategoryId}
+            choices={stayGroup.categories.map((option) => ({
+              value: String(option.id),
+              label: option.name,
+              description: option.description,
+            }))}
+            data-testid="listing-property-type"
+          />
+        ) : (
         <SelectField
           label="Subcategory"
           name="category_id"
@@ -52,6 +71,7 @@ export function ListingCategoryPicker({ options, initialId }: { options: Listing
             ...(group?.categories ?? []).map((option) => ({ value: String(option.id), label: option.name })),
           ]}
         />
+        )}
       </div>
       <div className="flex gap-3">
         <Button type="submit" disabled={!categoryId} data-testid="listing-category-next">

@@ -1,3 +1,4 @@
+import { stayDisplayValue } from "./stay-fields";
 import type { ListingBody, PartnerListing } from "./use-partner-listings";
 
 const ADDRESS_LABELS = {
@@ -13,8 +14,10 @@ export function attributeLabel(key: string) {
   return key.charAt(0).toUpperCase() + key.slice(1).replaceAll("_", " ");
 }
 
-// One value as a partner reads it.
-export function displayValue(value: unknown) {
+// One value as a partner reads it; `key` names the attr, for an accommodation's own ones.
+export function displayValue(value: unknown, key?: string) {
+  const stay = key === undefined ? undefined : stayDisplayValue(key, value);
+  if (stay !== undefined) return stay || "—";
   if (value === undefined || value === null || value === "") return "—";
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "—";
@@ -47,7 +50,7 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
 
   const attrs = body.attrs ?? {};
   for (const key of new Set([...Object.keys(listing.attrs), ...Object.keys(attrs)])) {
-    compare(attributeLabel(key), listing.attrs[key], attrs[key]);
+    if (displayValue(listing.attrs[key], key) !== displayValue(attrs[key], key)) changes.push(attributeLabel(key));
   }
   return changes;
 }

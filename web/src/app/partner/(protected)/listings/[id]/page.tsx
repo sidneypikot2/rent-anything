@@ -109,7 +109,7 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
             )}
             {attrs.map(([key, value]) => (
               <Detail key={key} term={attributeLabel(key)}>
-                {displayValue(value)}
+                {displayValue(value, key)}
               </Detail>
             ))}
           </dl>
