@@ -30,7 +30,7 @@ Branch in place from an up-to-date `staging`; a task that adds a migration or ch
 
 ## Project overview
 
-Rent-Anything makes a trip to one area easy: a traveller picks an area (Moalboal first) and books tours and activities, airport transfers, motorbikes and trikes, freediving and water gear, cameras and stays from local partners — in one cart, grouped into trips that can span areas. The platform takes a commission per booking. Built so far: the foundation (API health, OpenAPI contract, web shell); `SPEC.md` has the design and the roadmap (M1–M8).
+Rent-Anything makes a trip to one area easy: a traveller picks an area (Bantayan Island first) and books tours and activities, airport transfers, motorbikes and trikes, freediving and water gear, cameras and stays from local partners — in one cart, grouped into trips that can span areas. The platform takes a commission per booking. Built so far: the foundation (API health, OpenAPI contract, web shell); `SPEC.md` has the design and the roadmap (M1–M8).
 
 - **Backend**: Ruby on Rails 8.1 (API-only, `/api/v1`), Ruby 4.0.6, PostgreSQL 18 + PostGIS 3.6, RSpec + FactoryBot + rswag — `backend/`
 - **Web**: Next.js 16 (App Router), TypeScript, Tailwind CSS 4, TanStack Query, openapi-fetch; Node 24 — `web/`
