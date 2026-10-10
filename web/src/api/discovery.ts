@@ -9,6 +9,7 @@ import type { components } from "./schema";
 
 export type AreaCard = components["schemas"]["area_card"];
 export type AreaDetail = components["schemas"]["area_detail"];
+export type ListingDetail = components["schemas"]["listing_detail"];
 export type Activity = components["schemas"]["activity"];
 export type SearchResults = components["schemas"]["search_results"];
 export type Explore = components["schemas"]["explore"];
@@ -37,6 +38,16 @@ export const getArea = cache(async (slug: string): Promise<AreaDetail | null> =>
   const { data, response } = await serverApiClient().GET("/api/v1/areas/{slug}", { params: { path: { slug } } });
   if (response.status === 404) return null;
   if (!data) throw new Error("Couldn't load this destination");
+  return data;
+});
+
+// One active listing (RAA-86). null for a draft, pending or unknown one. Cached per request:
+// the page and its metadata share one call.
+export const getListing = cache(async (id: number): Promise<ListingDetail | null> => {
+  await connection();
+  const { data, response } = await serverApiClient().GET("/api/v1/listings/{id}", { params: { path: { id } } });
+  if (response.status === 404) return null;
+  if (!data) throw new Error("Couldn't load this listing");
   return data;
 });
 

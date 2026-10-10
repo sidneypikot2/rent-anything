@@ -13,6 +13,10 @@ RSpec.describe Area do
     expect(build(:area, slug: "settings")).not_to be_valid
   end
 
+  it "refuses the public listing pages' path as a slug" do
+    expect(build(:area, slug: "listings")).not_to be_valid
+  end
+
   it "keeps slugs URL-safe" do
     expect(build(:area, slug: "Bantayan Island")).not_to be_valid
   end

@@ -29,7 +29,7 @@ test("home page renders and reaches the API", async ({ page }) => {
 });
 
 // The search box asks the API from the browser (CORS and ports), then leads to a
-// destination page rendered on the server.
+// destination page rendered on the server, and on to one of its listings.
 test("search a landmark and open its destination", async ({ page }) => {
   const errors = [];
   collectErrors(page, errors);
@@ -44,6 +44,14 @@ test("search a landmark and open its destination", async ({ page }) => {
   await expect(page).toHaveURL(/\/bantayan-island#kota-beach$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bantayan Island");
   await expect(page.locator("#kota-beach")).toBeVisible();
+
+  // A listing's title opens its page, also rendered on the server, with its own Add to trip.
+  const listingLink = page.getByTestId("listing-link").first();
+  const listingTitle = (await listingLink.textContent()).trim();
+  await listingLink.click();
+  await expect(page).toHaveURL(/\/listings\/\d+$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(listingTitle);
+  await expect(page.getByTestId("add-to-trip")).toBeVisible();
 
   // Enter opens the full results page.
   await page.goto("/");
