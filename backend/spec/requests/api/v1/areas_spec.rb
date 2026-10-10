@@ -20,8 +20,15 @@ RSpec.describe "Areas", type: :request do
 
   let!(:tour) { create(:category, slug: "tour", name: "Tour", booking_type: "activity") }
   let!(:scooter) { create(:category, slug: "motorcycle", name: "Motorcycle") }
-  let!(:hopping) { create(:listing, area: bantayan, category: tour, title: "Island hopping") }
-  let!(:honda) { create(:listing, area: bantayan, category: scooter, title: "Honda Click 125") }
+  let!(:hopping) do
+    create(:listing, area: bantayan, category: tour, title: "Island hopping", partner: create(:user, :partner, :display_name),
+      description: "\n  Four islands and a sandbar in one day.  \nLunch included.")
+  end
+  # Listed before a display name was required (RAA-86): travellers see the legal first name.
+  let!(:honda) do
+    create(:listing, area: bantayan, category: scooter, title: "Honda Click 125",
+      partner: create(:partner_profile).user)
+  end
   let!(:pending) { create(:listing, :pending, area: bantayan, category: scooter, title: "Pending scooter") }
   let!(:walk) { create(:listing, area: cebu_city, category: tour, title: "Heritage walk") }
 
@@ -69,9 +76,10 @@ RSpec.describe "Areas", type: :request do
           expect(json["landmarks"].first["tags"].pluck("slug")).to eq(%w[swimming white-sand])
           expect(json["listings"]).to contain_exactly(
             { "id" => hopping.id, "title" => "Island hopping", "category" => "Tour", "area_slug" => "bantayan-island",
-              "booking_type" => "activity" },
+              "booking_type" => "activity", "summary" => "Four islands and a sandbar in one day.",
+              "partner_name" => "Moalboal Gear Rentals" },
             { "id" => honda.id, "title" => "Honda Click 125", "category" => "Motorcycle",
-              "area_slug" => "bantayan-island", "booking_type" => "rental" }
+              "area_slug" => "bantayan-island", "booking_type" => "rental", "summary" => "", "partner_name" => "Jun" }
           )
         end
       end

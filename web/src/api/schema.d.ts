@@ -605,6 +605,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/listings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One active listing, as a traveller sees it
+         * @description An active listing's description, category, area and partner. Never its location or address: the exact point is revealed only after a paid booking. Draft and pending listings are a 404.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description a partner without a profile */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["listing_detail"];
+                    };
+                };
+                /** @description an unknown listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/complete_profile": {
         parameters: {
             query?: never;
@@ -1229,7 +1279,7 @@ export interface paths {
         put?: never;
         /**
          * Add a listing
-         * @description Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area is the smallest published city, town or island whose boundary covers the pin; failing that, the one whose center is nearest the pin, within 50 km. The partner must have passed the ID check first (`/api/v1/partner/verification`); until then it is a 403.
+         * @description Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area is the smallest published city, town or island whose boundary covers the pin; failing that, the one whose center is nearest the pin, within 50 km. The partner must have passed the ID check first (`/api/v1/partner/verification`) and given a display name (`/api/v1/partner/profile`); until then it is a 403.
          */
         post: {
             parameters: {
@@ -1536,7 +1586,7 @@ export interface paths {
         };
         /**
          * Save the signed-in partner's profile
-         * @description Partner-only. Every field but `display_name` is required; `phone` is saved on the user. Email can't be changed here.
+         * @description Partner-only. Every field but `display_name` is required; `phone` is saved on the user. `display_name` can't be cleared while the partner has listings (RAA-86). Email can't be changed here.
          */
         put: {
             parameters: {
@@ -2907,6 +2957,22 @@ export interface components {
             area_slug: string;
             location: components["schemas"]["lat_lng"];
         };
+        listing_detail: {
+            id: number;
+            title: string;
+            description: string;
+            /** @description The description's first non-blank line, cut to 160 characters; empty when there is none */
+            summary: string;
+            category: {
+                slug: string;
+                name: string;
+            };
+            /** @enum {string} */
+            booking_type: "rental" | "stay" | "activity" | "transfer";
+            area: components["schemas"]["area_ref"];
+            /** @description The partner's display name; their legal first name, or "Local partner", for ones who listed before a display name was required */
+            partner_name: string;
+        };
         landmark_pin: {
             slug: string;
             name: string;
@@ -3044,6 +3110,10 @@ export interface components {
                 area_slug: string;
                 /** @enum {string} */
                 booking_type: "rental" | "stay" | "activity" | "transfer";
+                /** @description As in listing_detail */
+                summary: string;
+                /** @description As in listing_detail */
+                partner_name: string;
             }[];
         };
         activity: {
