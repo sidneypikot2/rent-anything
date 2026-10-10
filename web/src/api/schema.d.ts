@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * Activities guests can do in bookable areas
-         * @description Activity tags with the number of bookable areas and published landmarks that have them, most areas first. Activities with no bookable area are left out.
+         * @description Activity tags with the number of bookable areas and published landmarks that have them, and of active listings in bookable areas whose category carries the tag; most listings first. Activities with no published landmark in a bookable area are left out.
          */
         get: {
             parameters: {
@@ -3049,6 +3049,7 @@ export interface components {
             name: string;
             area_count: number;
             landmark_count: number;
+            listing_count: number;
         };
         explore_place: {
             /** @enum {string} */

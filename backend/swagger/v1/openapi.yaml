@@ -10,8 +10,9 @@ paths:
       tags:
       - Discovery
       description: Activity tags with the number of bookable areas and published landmarks
-        that have them, most areas first. Activities with no bookable area are left
-        out.
+        that have them, and of active listings in bookable areas whose category carries
+        the tag; most listings first. Activities with no published landmark in a bookable
+        area are left out.
       responses:
         '200':
           description: activities with counts
@@ -2743,11 +2744,14 @@ components:
           type: integer
         landmark_count:
           type: integer
+        listing_count:
+          type: integer
       required:
       - slug
       - name
       - area_count
       - landmark_count
+      - listing_count
     explore_place:
       type: object
       properties:
