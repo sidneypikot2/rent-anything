@@ -21,6 +21,16 @@ import {
 } from "./listing-fields";
 import { LandmarkPicker } from "./landmark-picker";
 import { LocationPicker } from "./location-picker";
+import {
+  AmenityChoice,
+  bedCount,
+  isStay,
+  PlaceTypeChoice,
+  PropertyInfoFields,
+  toStayAttrs,
+  toStayValues,
+  type StayValues,
+} from "./stay-fields";
 import type { PartnerLandmark } from "./use-partner-landmarks";
 import { useUpdateListing, type ListingBody, type ListingOptions, type PartnerListing } from "./use-partner-listings";
 
@@ -37,13 +47,16 @@ function addressChanged(address: PhAddress, listing: PartnerListing) {
 }
 
 // Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
-// visits (RAA-70), and the details its category asks for. Saving first shows what changed and asks to confirm. Adding one is the stepped
+// visits (RAA-70), and the details its category asks for (an accommodation's own, RAA-83). Saving first shows what changed and asks to confirm. Adding one is the stepped
 // ListingWizard (RAA-50).
 export function ListingForm({ options, listing }: { options: ListingOptions; listing: PartnerListing }) {
   const router = useRouter();
   const update = useUpdateListing(listing.id);
   const [categoryId, setCategoryId] = useState(String(listing.category.id));
   const [attrValues, setAttrValues] = useState<AttributeValues>(() => toAttributeValues(listing.attrs));
+  // An accommodation's details have their own fields (RAA-83).
+  const [stay, setStay] = useState<StayValues>(() => toStayValues(listing.attrs));
+  const [bedsError, setBedsError] = useState<string>();
   const address = usePhAddress(listing.address);
   const [location, setLocation] = useState<LatLng | null>(listing.location);
   const [locationError, setLocationError] = useState<string>();
@@ -55,7 +68,8 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
   const category = options.categories.find((option) => String(option.id) === categoryId);
   // A saved listing's pin stays where it is until the partner changes the address.
   const addressQuery = addressChanged(address, listing) ? geocodeQuery(address) : undefined;
-  const fields = attributeFields(category);
+  const stayCategory = isStay(category);
+  const fields = stayCategory ? [] : attributeFields(category);
   // Changing to a category that isn't an activity drops the landmarks when saved.
   const visitsLandmarks = category?.booking_type === "activity";
 
@@ -65,6 +79,10 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
       setLocationError("Drop a pin on the map");
       return;
     }
+    if (stayCategory && bedCount(stay) === 0) {
+      setBedsError("Add at least one bed");
+      return;
+    }
     const form = new FormData(event.currentTarget);
     const body = {
       title: String(form.get("title") ?? ""),
@@ -72,7 +90,7 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
       category_id: Number(categoryId),
       address: address.toBody(),
       location,
-      attrs: toAttrs(fields, attrValues),
+      attrs: stayCategory ? toStayAttrs(stay) : toAttrs(fields, attrValues),
       landmark_ids: visitsLandmarks ? landmarks.map((landmark) => landmark.id) : [],
     };
     setPending({ body, changes: listingChanges(listing, body) });
@@ -103,6 +121,7 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
           onChange={(event) => {
             setCategoryId(event.target.value);
             setAttrValues({});
+            setStay(toStayValues({}));
           }}
           options={[
             { value: "", label: "Choose what you're listing" },
@@ -148,6 +167,30 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
           <legend className="mb-2 font-display text-2xl font-bold italic">Landmarks it visits</legend>
           <LandmarkPicker value={landmarks} onChange={setLandmarks} near={location} />
         </fieldset>
+      )}
+
+      {stayCategory && (
+        <>
+          <fieldset data-testid="listing-stay-place" className="flex flex-col gap-4">
+            <legend className="mb-2 font-display text-2xl font-bold italic">What guests book</legend>
+            <PlaceTypeChoice values={stay} onChange={setStay} />
+          </fieldset>
+          <fieldset data-testid="listing-stay-info" className="flex flex-col gap-4">
+            <legend className="mb-2 font-display text-2xl font-bold italic">Property info</legend>
+            <PropertyInfoFields
+              values={stay}
+              onChange={(values) => {
+                setStay(values);
+                setBedsError(undefined);
+              }}
+              bedsError={bedsError}
+            />
+          </fieldset>
+          <fieldset className="flex flex-col gap-4">
+            <legend className="mb-2 font-display text-2xl font-bold italic">Amenities</legend>
+            <AmenityChoice values={stay} onChange={setStay} />
+          </fieldset>
+        </>
       )}
 
       {fields.length > 0 && (
