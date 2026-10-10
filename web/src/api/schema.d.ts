@@ -1125,7 +1125,7 @@ export interface paths {
         };
         /**
          * What a new listing can be: its bookable categories
-         * @description Partner-only. Bookable (leaf) categories with the JSON Schema their `attrs` must match.
+         * @description Partner-only. Bookable (leaf) categories, each with what it means and the JSON Schema its `attrs` must match.
          */
         get: {
             parameters: {
@@ -3000,6 +3000,8 @@ export interface components {
                 /** @enum {string} */
                 booking_type: "rental" | "stay" | "activity" | "transfer";
                 parent_name: string | null;
+                /** @description What the category means, for a partner choosing one */
+                description: string;
                 /** @description The JSON Schema a listing's attrs must match */
                 attribute_schema: {
                     [key: string]: unknown;
