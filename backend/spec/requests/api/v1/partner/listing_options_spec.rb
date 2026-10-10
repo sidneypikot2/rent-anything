@@ -5,7 +5,8 @@ RSpec.describe "Partner listing options", type: :request do
     get "What a new listing can be: its bookable categories" do
       tags "Partner"
       produces "application/json"
-      description "Partner-only. Bookable (leaf) categories with the JSON Schema their `attrs` must match."
+      description "Partner-only. Bookable (leaf) categories, each with what it means and the JSON Schema " \
+        "its `attrs` must match."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
 
@@ -17,7 +18,7 @@ RSpec.describe "Partner listing options", type: :request do
 
         before do
           rentals = create(:category, :parent, name: "Rentals")
-          create(:category, parent: rentals, name: "Action camera",
+          create(:category, parent: rentals, name: "Action camera", description: "A camera for the water",
             attribute_schema: { type: "object", properties: { waterproof_m: { type: "number" } } })
           create(:category, name: "Tour", booking_type: "activity")
         end
@@ -26,7 +27,7 @@ RSpec.describe "Partner listing options", type: :request do
           categories = response.parsed_body["categories"]
           expect(categories.pluck("name")).to eq([ "Action camera", "Tour" ])
           expect(categories.first).to include(
-            "parent_name" => "Rentals", "booking_type" => "rental",
+            "parent_name" => "Rentals", "booking_type" => "rental", "description" => "A camera for the water",
             "attribute_schema" => { "type" => "object", "properties" => { "waterproof_m" => { "type" => "number" } } }
           )
         end

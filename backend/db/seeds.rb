@@ -24,6 +24,12 @@ unless Rails.env.test? || Area.exists?(slug: "santa-fe")
   SeedSantaFeSamplePartner.new.migrate(:up)
 end
 
+# Accommodation property types (RAA-82), loaded the same way. They need the categories above.
+unless Rails.env.test? || Category.exists?(slug: "cottage")
+  require Rails.root.join("db/migrate/20261010000003_add_accommodation_property_types").to_s
+  AddAccommodationPropertyTypes.new.migrate(:up)
+end
+
 # The data migrations above insert areas without a status, which a database built from
 # schema.rb makes draft (RAA-59); a migrated one published them when the column was added.
 # They are the sample destinations, so they are live either way.

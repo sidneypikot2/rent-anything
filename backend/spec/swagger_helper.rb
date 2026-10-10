@@ -363,12 +363,13 @@ RSpec.configure do |config|
                     name: { type: :string },
                     booking_type: { type: :string, enum: %w[rental stay activity transfer] },
                     parent_name: { type: :string, nullable: true },
+                    description: { type: :string, description: "What the category means, for a partner choosing one" },
                     attribute_schema: {
                       type: :object, additionalProperties: true,
                       description: "The JSON Schema a listing's attrs must match"
                     }
                   },
-                  required: %w[id slug name booking_type parent_name attribute_schema]
+                  required: %w[id slug name booking_type parent_name description attribute_schema]
                 }
               }
             },

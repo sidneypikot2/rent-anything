@@ -779,8 +779,8 @@ paths:
       summary: 'What a new listing can be: its bookable categories'
       tags:
       - Partner
-      description: Partner-only. Bookable (leaf) categories with the JSON Schema their
-        `attrs` must match.
+      description: Partner-only. Bookable (leaf) categories, each with what it means
+        and the JSON Schema its `attrs` must match.
       security:
       - bearer: []
       parameters:
@@ -2593,6 +2593,9 @@ components:
               parent_name:
                 type: string
                 nullable: true
+              description:
+                type: string
+                description: What the category means, for a partner choosing one
               attribute_schema:
                 type: object
                 additionalProperties: true
@@ -2603,6 +2606,7 @@ components:
             - name
             - booking_type
             - parent_name
+            - description
             - attribute_schema
       required:
       - categories
