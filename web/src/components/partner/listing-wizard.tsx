@@ -15,6 +15,7 @@ import {
   geocodeQuery,
   NO_ADDRESS,
   toAttrs,
+  visitsLandmarks,
   type AttributeValues,
 } from "./listing-fields";
 import {
@@ -34,10 +35,10 @@ import type { PartnerLandmark } from "./use-partner-landmarks";
 type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "photos" | "cancellation" | "rate";
 
 // Adding a listing of the chosen category (RAA-50), one step at a time: Basic, Location,
-// Route (the landmarks a tour or activity visits, RAA-70), the category's own details
-// (skipped when it has none), the cancellation policy (RAA-89) and Rate. A vehicle (RAA-89)
-// asks for its make, model, engine and color instead, then photos (a placeholder until the
-// API stores them). Only the current step is
+// Route (the landmarks a tour visits, RAA-70; not a photographer, RAA-89), the category's
+// own details (skipped when it has none; a vehicle's make, model, engine and color, RAA-89),
+// photos (a placeholder until the API stores them), the cancellation policy (RAA-89) and
+// Rate. Only the current step is
 // on the page, so the browser's required checks cover just that step; every value is kept
 // here, so going back loses nothing. The listing is saved as a draft. Accommodation has its
 // own steps (StayWizard).
@@ -46,18 +47,14 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
   const create = useCreateListing();
   const vehicle = isVehicle(category);
   const fields = vehicle ? [] : attributeFields(category);
-  const visitsLandmarks = category.booking_type === "activity";
+  const withLandmarks = visitsLandmarks(category);
   const steps: { key: StepKey; label: string }[] = [
     { key: "basic", label: "Basic" },
     { key: "location", label: "Location" },
-    ...(visitsLandmarks ? [{ key: "route" as const, label: "Route" }] : []),
+    ...(withLandmarks ? [{ key: "route" as const, label: "Route" }] : []),
     ...(fields.length > 0 ? [{ key: "details" as const, label: `${category.name} details` }] : []),
-    ...(vehicle
-      ? [
-          { key: "vehicle" as const, label: "Vehicle details" },
-          { key: "photos" as const, label: "Photos" },
-        ]
-      : []),
+    ...(vehicle ? [{ key: "vehicle" as const, label: "Vehicle details" }] : []),
+    { key: "photos", label: "Photos" },
     { key: "cancellation", label: "Cancellation policy" },
     { key: "rate", label: "Rate" },
   ];
@@ -97,7 +94,7 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
         location,
         attrs: vehicle ? toVehicleAttrs(vehicleValues) : toAttrs(fields, attrValues),
         cancellation_policy: policy,
-        ...(visitsLandmarks && { landmark_ids: landmarks.map((landmark) => landmark.id) }),
+        ...(withLandmarks && { landmark_ids: landmarks.map((landmark) => landmark.id) }),
       },
       { onSuccess: () => router.push("/partner/listings") },
     );

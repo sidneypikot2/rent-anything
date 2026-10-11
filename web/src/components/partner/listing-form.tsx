@@ -18,6 +18,7 @@ import {
   geocodeQuery,
   toAttributeValues,
   toAttrs,
+  visitsLandmarks as picksLandmarks,
   type AttributeValues,
 } from "./listing-fields";
 import { LandmarkPicker } from "./landmark-picker";
@@ -78,8 +79,8 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
   const fields = stayCategory || vehicleCategory ? [] : attributeFields(category);
   // A vehicle keeps the attrs the form doesn't show (a plate number) while it stays a vehicle.
   const savedAsVehicle = isVehicle(options.categories.find((option) => option.id === listing.category.id));
-  // Changing to a category that isn't an activity drops the landmarks when saved.
-  const visitsLandmarks = category?.booking_type === "activity";
+  // Changing to a category that doesn't visit landmarks (not a tour) drops them when saved.
+  const visitsLandmarks = picksLandmarks(category);
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

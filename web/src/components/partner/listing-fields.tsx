@@ -63,6 +63,12 @@ export function geocodeQuery(address: PhAddress) {
   return `${parts.filter(Boolean).join(", ")} ${zip.trim()}, Philippines`;
 }
 
+// Whether a listing of this category picks the landmarks it visits (RAA-70): tours and other
+// activities do; a photographer works wherever the guest is, so doesn't (RAA-89).
+export function visitsLandmarks(category: { booking_type: string; slug: string } | undefined) {
+  return category?.booking_type === "activity" && category.slug !== "photographer";
+}
+
 // "Vehicle rental › Motorcycle": a bookable category with its parent, as a partner reads it.
 export function categoryLabel(category: ListingCategory) {
   return category.parent_name ? `${category.parent_name} › ${category.name}` : category.name;

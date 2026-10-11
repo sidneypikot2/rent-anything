@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { cancellationPolicyName } from "@/components/partner/cancellation-policy";
 import { attributeLabel, displayValue } from "@/components/partner/listing-changes";
+import { visitsLandmarks } from "@/components/partner/listing-fields";
 import { ListingMissing } from "@/components/partner/listing-missing";
 import { STATUS } from "@/components/partner/listings-table";
 import {
@@ -98,7 +99,7 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
             <Detail term="Map pin">
               {listing.location.lat.toFixed(5)}, {listing.location.lng.toFixed(5)}
             </Detail>
-            {listing.category.booking_type === "activity" && (
+            {visitsLandmarks(listing.category) && (
               <Detail term="Landmarks">
                 {listing.landmarks.length > 0 ? (
                   <span data-testid="listing-landmarks">
