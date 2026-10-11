@@ -19,11 +19,12 @@ import { LocationPicker } from "./location-picker";
 import { PhotoUploadSkeleton } from "./photo-upload-skeleton";
 import {
   AmenityChoice,
-  bedCount,
   NEW_STAY,
   PlaceTypeChoice,
   PropertyInfoFields,
+  stayErrors,
   toStayAttrs,
+  type StayErrors,
   type StayValues,
 } from "./stay-fields";
 import { useCreateListing, type ListingCategory } from "./use-partner-listings";
@@ -41,7 +42,7 @@ const STEPS = [
 ];
 
 // Adding an accommodation (RAA-83), once its property type is chosen: what guests book,
-// the address, beds, guests and bathrooms, amenities, photos (a placeholder until the API
+// the address, the property info for that place type (RAA-95), amenities, photos (a placeholder until the API
 // stores them), the title and description, the cancellation policy (RAA-89) and the nightly rate (shown, not saved yet).
 // Like ListingWizard, only the current step is on the page and every value is kept here.
 export function StayWizard({ category, policies }: { category: ListingCategory; policies: CancellationPolicies }) {
@@ -52,7 +53,7 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
   const isLast = stepIndex === STEPS.length - 1;
 
   const [stay, setStay] = useState<StayValues>(NEW_STAY);
-  const [bedsError, setBedsError] = useState<string>();
+  const [infoErrors, setInfoErrors] = useState<StayErrors>();
   const address = usePhAddress(NO_ADDRESS);
   const [location, setLocation] = useState<LatLng | null>(null);
   const [locationError, setLocationError] = useState<string>();
@@ -68,8 +69,8 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
       setLocationError("Drop a pin on the map");
       return;
     }
-    if (step.key === "info" && bedCount(stay) === 0) {
-      setBedsError("Add at least one bed");
+    if (step.key === "info" && stayErrors(stay)) {
+      setInfoErrors(stayErrors(stay));
       return;
     }
     if (!isLast) {
@@ -139,9 +140,9 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
               values={stay}
               onChange={(values) => {
                 setStay(values);
-                setBedsError(undefined);
+                setInfoErrors(undefined);
               }}
-              bedsError={bedsError}
+              errors={infoErrors}
             />
           )}
 
