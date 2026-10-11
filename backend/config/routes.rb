@@ -23,8 +23,8 @@ Rails.application.routes.draw do
       get "search", to: "search#index"
       resources :areas, only: %i[index show], param: :slug
       resources :activities, only: :index
-      # Map pins for the guest nearby map (RAA-52).
-      resources :listings, only: :index
+      # Map pins for the guest nearby map (RAA-52), and one listing's page (RAA-86).
+      resources :listings, only: %i[index show]
       resources :landmarks, only: :index
       # One destination's listings, nearby destinations and recommendations (RAA-56).
       get "explore", to: "explore#index"

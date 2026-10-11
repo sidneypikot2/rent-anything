@@ -7,7 +7,7 @@ import { ExploreSections, withoutShown } from "@/components/discovery/explore-se
 import { areaIcon, categoryIcon, tagIcon } from "@/components/discovery/icons";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
-import { readTripDates } from "@/components/trips/trip-dates";
+import { readTripDates, tripDatesQuery } from "@/components/trips/trip-dates";
 import { TripDatesBar } from "@/components/trips/trip-dates-bar";
 import { TripStartedBanner } from "@/components/trips/trip-started-banner";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   const slug = (await props.params).area;
   const searchParams = await props.searchParams;
   const dates = readTripDates(searchParams);
+  const datesQuery = tripDatesQuery(dates);
   // Arrived from the home page's "Start your trip" (RAA-80).
   const starting = searchParams.start === "trip";
   const [detail, explore, destinations] = await Promise.all([
@@ -170,8 +171,19 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                 {categoryIcon(listing.category)}
                               </span>
                               <span className="min-w-0 flex-1">
-                                <span className="block font-semibold break-words">{listing.title}</span>
-                                <span className="block text-sm text-muted">{listing.category}</span>
+                                <Link
+                                  href={`/listings/${listing.id}${datesQuery}`}
+                                  data-testid="listing-link"
+                                  className="block font-semibold break-words underline-offset-4 hover:underline"
+                                >
+                                  {listing.title}
+                                </Link>
+                                <span className="block text-sm text-muted">
+                                  {listing.category} · by {listing.partner_name}
+                                </span>
+                                {listing.summary && (
+                                  <span className="mt-1 line-clamp-2 block text-sm">{listing.summary}</span>
+                                )}
                               </span>
                               <AddToTripButton listing={listing} dates={dates} />
                             </CardBody>
