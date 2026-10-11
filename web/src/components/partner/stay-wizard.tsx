@@ -8,6 +8,12 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { TextareaField } from "@/components/ui/textarea-field";
 import type { LatLng } from "@/lib/map";
+import {
+  CancellationPolicyChoice,
+  DEFAULT_CANCELLATION_POLICY,
+  type CancellationPolicies,
+  type CancellationPolicy,
+} from "./cancellation-policy";
 import { categoryLabel, geocodeQuery, NO_ADDRESS } from "./listing-fields";
 import { LocationPicker } from "./location-picker";
 import { PhotoUploadSkeleton } from "./photo-upload-skeleton";
@@ -30,14 +36,15 @@ const STEPS = [
   { key: "amenities", label: "Amenities" },
   { key: "photos", label: "Photos" },
   { key: "basic", label: "Title and description" },
+  { key: "cancellation", label: "Cancellation policy" },
   { key: "rate", label: "Rate" },
 ];
 
 // Adding an accommodation (RAA-83), once its property type is chosen: what guests book,
 // the address, beds, guests and bathrooms, amenities, photos (a placeholder until the API
-// stores them), the title and description, and the nightly rate (shown, not saved yet).
+// stores them), the title and description, the cancellation policy (RAA-89) and the nightly rate (shown, not saved yet).
 // Like ListingWizard, only the current step is on the page and every value is kept here.
-export function StayWizard({ category }: { category: ListingCategory }) {
+export function StayWizard({ category, policies }: { category: ListingCategory; policies: CancellationPolicies }) {
   const router = useRouter();
   const create = useCreateListing();
   const [stepIndex, setStepIndex] = useState(0);
@@ -51,6 +58,7 @@ export function StayWizard({ category }: { category: ListingCategory }) {
   const [locationError, setLocationError] = useState<string>();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [policy, setPolicy] = useState<CancellationPolicy>(DEFAULT_CANCELLATION_POLICY);
   // Shown and checked, not saved yet: the API has no pricing until its own ticket.
   const [nightlyRate, setNightlyRate] = useState("");
 
@@ -77,6 +85,7 @@ export function StayWizard({ category }: { category: ListingCategory }) {
         address: address.toBody(),
         location,
         attrs: toStayAttrs(stay),
+        cancellation_policy: policy,
       },
       { onSuccess: () => router.push("/partner/listings") },
     );
@@ -166,6 +175,8 @@ export function StayWizard({ category }: { category: ListingCategory }) {
               />
             </>
           )}
+
+          {step.key === "cancellation" && <CancellationPolicyChoice policies={policies} value={policy} onChange={setPolicy} />}
 
           {step.key === "rate" && (
             <Field

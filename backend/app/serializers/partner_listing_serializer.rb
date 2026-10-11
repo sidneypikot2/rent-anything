@@ -16,6 +16,7 @@ module PartnerListingSerializer
       address: listing.slice(:street, :city, :region, :province, :postal_code, :country).symbolize_keys,
       location: { lat: listing.location.y, lng: listing.location.x },
       attrs: listing.attrs,
+      cancellation_policy: listing.cancellation_policy,
       landmarks:,
       covers: landmarks.filter_map { |landmark| landmark[:destination] }.uniq.sort_by { |place| place[:name] },
       created_at: listing.created_at,
