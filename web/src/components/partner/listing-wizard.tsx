@@ -15,32 +15,47 @@ import {
   geocodeQuery,
   NO_ADDRESS,
   toAttrs,
+  visitsLandmarks,
   type AttributeValues,
 } from "./listing-fields";
+import {
+  CancellationPolicyChoice,
+  DEFAULT_CANCELLATION_POLICY,
+  type CancellationPolicies,
+  type CancellationPolicy,
+} from "./cancellation-policy";
 import { LandmarkPicker } from "./landmark-picker";
 import { LocationPicker } from "./location-picker";
+import { PhotoUploadSkeleton } from "./photo-upload-skeleton";
 import { useCreateListing, type ListingCategory } from "./use-partner-listings";
+import { isVehicle, NEW_VEHICLE, toVehicleAttrs, VehicleFields, type VehicleValues } from "./vehicle-fields";
 import { WizardLayout } from "./wizard-steps";
 import type { PartnerLandmark } from "./use-partner-landmarks";
 
-type StepKey = "basic" | "location" | "route" | "details" | "rate";
+type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "photos" | "cancellation" | "rate";
 
 // Adding a listing of the chosen category (RAA-50), one step at a time: Basic, Location,
-// Route (the landmarks a tour or activity visits, RAA-70), the category's own details
-// (skipped when it has none) and Rate. Only the current step is
+// Route (the landmarks a tour visits, RAA-70; not a photographer, RAA-89), the category's
+// own details (skipped when it has none; a vehicle's make, model, engine and color, RAA-89),
+// photos (a placeholder until the API stores them), the cancellation policy (RAA-89) and
+// Rate. Only the current step is
 // on the page, so the browser's required checks cover just that step; every value is kept
 // here, so going back loses nothing. The listing is saved as a draft. Accommodation has its
 // own steps (StayWizard).
-export function ListingWizard({ category }: { category: ListingCategory }) {
+export function ListingWizard({ category, policies }: { category: ListingCategory; policies: CancellationPolicies }) {
   const router = useRouter();
   const create = useCreateListing();
-  const fields = attributeFields(category);
-  const visitsLandmarks = category.booking_type === "activity";
+  const vehicle = isVehicle(category);
+  const fields = vehicle ? [] : attributeFields(category);
+  const withLandmarks = visitsLandmarks(category);
   const steps: { key: StepKey; label: string }[] = [
     { key: "basic", label: "Basic" },
     { key: "location", label: "Location" },
-    ...(visitsLandmarks ? [{ key: "route" as const, label: "Route" }] : []),
+    ...(withLandmarks ? [{ key: "route" as const, label: "Route" }] : []),
     ...(fields.length > 0 ? [{ key: "details" as const, label: `${category.name} details` }] : []),
+    ...(vehicle ? [{ key: "vehicle" as const, label: "Vehicle details" }] : []),
+    { key: "photos", label: "Photos" },
+    { key: "cancellation", label: "Cancellation policy" },
     { key: "rate", label: "Rate" },
   ];
   const [stepIndex, setStepIndex] = useState(0);
@@ -54,6 +69,8 @@ export function ListingWizard({ category }: { category: ListingCategory }) {
   const [locationError, setLocationError] = useState<string>();
   const [attrValues, setAttrValues] = useState<AttributeValues>({});
   const [landmarks, setLandmarks] = useState<PartnerLandmark[]>([]);
+  const [vehicleValues, setVehicleValues] = useState<VehicleValues>(NEW_VEHICLE);
+  const [policy, setPolicy] = useState<CancellationPolicy>(DEFAULT_CANCELLATION_POLICY);
   // Shown and checked, not saved yet: the API has no pricing until its own ticket.
   const [dailyRate, setDailyRate] = useState("");
 
@@ -75,8 +92,9 @@ export function ListingWizard({ category }: { category: ListingCategory }) {
         category_id: category.id,
         address: address.toBody(),
         location,
-        attrs: toAttrs(fields, attrValues),
-        ...(visitsLandmarks && { landmark_ids: landmarks.map((landmark) => landmark.id) }),
+        attrs: vehicle ? toVehicleAttrs(vehicleValues) : toAttrs(fields, attrValues),
+        cancellation_policy: policy,
+        ...(withLandmarks && { landmark_ids: landmarks.map((landmark) => landmark.id) }),
       },
       { onSuccess: () => router.push("/partner/listings") },
     );
@@ -152,6 +170,12 @@ export function ListingWizard({ category }: { category: ListingCategory }) {
 
           {step.key === "details" && <AttributeFields fields={fields} values={attrValues} onChange={setAttrValues} />}
 
+          {step.key === "vehicle" && <VehicleFields values={vehicleValues} onChange={setVehicleValues} />}
+
+          {step.key === "photos" && <PhotoUploadSkeleton />}
+
+          {step.key === "cancellation" && <CancellationPolicyChoice policies={policies} value={policy} onChange={setPolicy} />}
+
           {step.key === "rate" && (
             <Field
               label="Daily rate (₱)"
@@ -166,7 +190,7 @@ export function ListingWizard({ category }: { category: ListingCategory }) {
           )}
         </fieldset>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {stepIndex > 0 && (
             <Button type="button" variant="soft" onClick={() => setStepIndex(stepIndex - 1)} data-testid="listing-back">
               Back
@@ -175,6 +199,10 @@ export function ListingWizard({ category }: { category: ListingCategory }) {
           {isLast ? (
             <Button type="submit" disabled={create.isPending} data-testid="listing-save">
               {create.isPending ? "Saving…" : "Save as draft"}
+            </Button>
+          ) : step.key === "photos" ? (
+            <Button type="submit" variant="soft" data-testid="listing-skip-photos">
+              Skip for now
             </Button>
           ) : (
             <Button type="submit" data-testid="listing-next">
