@@ -96,7 +96,7 @@ RSpec.describe "Partner listings", type: :request do
           expect(response.parsed_body).to include(
             "title" => "Sardine run and turtle snorkel", "status" => "draft",
             "location" => { "lat" => 9.95, "lng" => 123.37 },
-            "attrs" => { "guide_included" => true, "duration_hours" => 4 }
+            "attrs" => { "guide_included" => true, "duration_hours" => 4 }, "cancellation_policy" => "free_cancellation"
           )
           expect(response.parsed_body["area"]).to eq("slug" => "moalboal", "name" => "Moalboal")
           expect(response.parsed_body["address"]).to eq(address.stringify_keys)
@@ -205,6 +205,27 @@ RSpec.describe "Partner listings", type: :request do
         run_test! do |response|
           expect(response.parsed_body["errors"]).to be_present
           expect(Listing.count).to eq(0)
+        end
+      end
+
+      response "201", "with the cancellation policy the partner chose" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        before { body[:cancellation_policy] = "seven_days" }
+
+        run_test! do |response|
+          expect(response.parsed_body["cancellation_policy"]).to eq("seven_days")
+        end
+      end
+
+      response "422", "a cancellation policy we don't offer" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:cancellation_policy] = "thirty_days" }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Cancellation policy must be one of " \
+            "free_cancellation, non_refundable, seven_days, fourteen_days")
         end
       end
 
@@ -396,6 +417,19 @@ RSpec.describe "Partner listings", type: :request do
           expect(response.parsed_body["address"]).to eq(address.stringify_keys)
           expect(listing.reload).to have_attributes(title: "Whale shark swim", category: category, area: oslob,
             status: "pending")
+        end
+      end
+
+      response "200", "the cancellation policy changed when sent, kept when left out" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        before { body[:cancellation_policy] = "fourteen_days" }
+
+        run_test! do |saved|
+          expect(saved.parsed_body["cancellation_policy"]).to eq("fourteen_days")
+          body.delete(:cancellation_policy)
+          patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["cancellation_policy"]).to eq("fourteen_days")
         end
       end
 

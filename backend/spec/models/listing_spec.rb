@@ -40,4 +40,15 @@ RSpec.describe Listing do
   it "only allows known statuses" do
     expect(build(:listing, status: "archived")).not_to be_valid
   end
+
+  it "is free to cancel unless the partner chose otherwise" do
+    expect(build(:listing).cancellation_policy).to eq("free_cancellation")
+  end
+
+  it "only allows the cancellation policies we offer" do
+    listing = build(:listing, cancellation_policy: "thirty_days")
+
+    expect(listing).not_to be_valid
+    expect { listing.save!(validate: false) }.to raise_error(ActiveRecord::StatementInvalid, /cancellation_policy_check/)
+  end
 end
