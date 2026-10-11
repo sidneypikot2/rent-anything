@@ -92,8 +92,10 @@ class AddVehicleRentalTypes < ActiveRecord::Migration[8.1]
 
   private
 
+  # Rentals, or Vehicle rental once it has been split (20261012000001).
   def rentals_id
-    @rentals_id ||= select_value("SELECT id FROM categories WHERE slug = 'rentals' AND booking_type IS NULL")
+    @rentals_id ||= select_value("SELECT id FROM categories WHERE slug IN ('rentals', 'vehicle-rentals') " \
+      "AND booking_type IS NULL")
   end
 
   def motorcycles

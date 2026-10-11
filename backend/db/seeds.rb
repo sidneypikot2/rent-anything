@@ -36,6 +36,12 @@ unless Rails.env.test? || Category.exists?(slug: "multicab")
   AddVehicleRentalTypes.new.migrate(:up)
 end
 
+# Rentals split into Vehicle rental and Equipment rental (RAA-88), loaded the same way.
+unless Rails.env.test? || Category.exists?(slug: "equipment-rentals")
+  require Rails.root.join("db/migrate/20261012000001_split_rentals_category").to_s
+  SplitRentalsCategory.new.migrate(:up)
+end
+
 # The data migrations above insert areas without a status, which a database built from
 # schema.rb makes draft (RAA-59); a migrated one published them when the column was added.
 # They are the sample destinations, so they are live either way.
