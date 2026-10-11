@@ -63,7 +63,7 @@ export function geocodeQuery(address: PhAddress) {
   return `${parts.filter(Boolean).join(", ")} ${zip.trim()}, Philippines`;
 }
 
-// "Rentals › Motorcycle": a bookable category with its parent, as a partner reads it.
+// "Vehicle rental › Motorcycle": a bookable category with its parent, as a partner reads it.
 export function categoryLabel(category: ListingCategory) {
   return category.parent_name ? `${category.parent_name} › ${category.name}` : category.name;
 }
