@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { DateRangeField } from "@/components/ui/date-range-field";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { todayIso } from "./format";
@@ -16,18 +17,11 @@ type Props = {
 // add makes one by itself, so this is never in the way.
 export function NewTripSheet({ onClose, onCreated }: Props) {
   const [name, setName] = useState("");
-  const [startsOn, setStartsOn] = useState("");
-  const [endsOn, setEndsOn] = useState("");
+  const [{ from: startsOn, to: endsOn }, setDates] = useState({ from: "", to: "" });
   const [guests, setGuests] = useState("1");
   const create = useCreateTrip();
 
-  const halfDated = Boolean(startsOn) !== Boolean(endsOn);
-  const backwards = Boolean(startsOn && endsOn && endsOn < startsOn);
-  const dateError = halfDated
-    ? "Pick both dates, or neither"
-    : backwards
-      ? "The end can't be before the start"
-      : undefined;
+  const dateError = Boolean(startsOn) !== Boolean(endsOn) ? "Pick both dates, or neither" : undefined;
   const guestsNumber = Number(guests);
   const guestsValid = Number.isInteger(guestsNumber) && guestsNumber >= 1 && guestsNumber <= 50;
 
@@ -54,24 +48,17 @@ export function NewTripSheet({ onClose, onCreated }: Props) {
             placeholder="Bantayan – Malapascua escapade"
             onChange={(event) => setName(event.target.value)}
           />
-          <div className="grid grid-cols-2 gap-3">
-            <Field
-              label="From"
-              type="date"
-              min={todayIso()}
-              value={startsOn}
-              onChange={(event) => setStartsOn(event.target.value)}
-              error={dateError}
-              hint="Optional"
-            />
-            <Field
-              label="To"
-              type="date"
-              min={startsOn || todayIso()}
-              value={endsOn}
-              onChange={(event) => setEndsOn(event.target.value)}
-            />
-          </div>
+          <DateRangeField
+            label="Dates"
+            min={todayIso()}
+            from={startsOn}
+            to={endsOn}
+            onChange={setDates}
+            clearable
+            inline
+            error={dateError}
+            hint="Optional"
+          />
           <Field
             label="Guests"
             type="number"

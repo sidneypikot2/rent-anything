@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { DateRangeField } from "@/components/ui/date-range-field";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { todayIso } from "./format";
@@ -21,18 +22,11 @@ type Props = {
 // leave one of the trip's items outside them, and says so here.
 export function EditTripSheet({ trip, focus, onClose, onSaved }: Props) {
   const [name, setName] = useState(trip.name);
-  const [startsOn, setStartsOn] = useState(trip.starts_on ?? "");
-  const [endsOn, setEndsOn] = useState(trip.ends_on ?? "");
+  const [{ from: startsOn, to: endsOn }, setDates] = useState({ from: trip.starts_on ?? "", to: trip.ends_on ?? "" });
   const [guests, setGuests] = useState(String(trip.guests));
   const update = useUpdateTrip();
 
-  const halfDated = Boolean(startsOn) !== Boolean(endsOn);
-  const backwards = Boolean(startsOn && endsOn && endsOn < startsOn);
-  const dateError = halfDated
-    ? "Pick both dates, or neither"
-    : backwards
-      ? "The end can't be before the start"
-      : undefined;
+  const dateError = Boolean(startsOn) !== Boolean(endsOn) ? "Pick both dates, or neither" : undefined;
   const guestsNumber = Number(guests);
   const guestsValid = Number.isInteger(guestsNumber) && guestsNumber >= 1 && guestsNumber <= 50;
 
@@ -62,26 +56,19 @@ export function EditTripSheet({ trip, focus, onClose, onSaved }: Props) {
             autoFocus={focus === "name"}
             onChange={(event) => setName(event.target.value)}
           />
-          <div className="grid grid-cols-2 gap-3">
-            <Field
-              label="From"
-              type="date"
-              // Today at the earliest: the API refuses a past date being set. An under-way
-              // trip's start stays valid while it's left as it is.
-              min={trip.starts_on && startsOn === trip.starts_on && startsOn < todayIso() ? trip.starts_on : todayIso()}
-              value={startsOn}
-              autoFocus={focus === "dates"}
-              onChange={(event) => setStartsOn(event.target.value)}
-              error={dateError}
-            />
-            <Field
-              label="To"
-              type="date"
-              min={startsOn || todayIso()}
-              value={endsOn}
-              onChange={(event) => setEndsOn(event.target.value)}
-            />
-          </div>
+          <DateRangeField
+            label="Dates"
+            // Today at the earliest: the API refuses a past date being set. An under-way
+            // trip keeps its start, and a pick moves only its end.
+            min={todayIso()}
+            from={startsOn}
+            to={endsOn}
+            onChange={setDates}
+            clearable
+            inline
+            autoFocus={focus === "dates"}
+            error={dateError}
+          />
           <Field
             label="Guests"
             type="number"
