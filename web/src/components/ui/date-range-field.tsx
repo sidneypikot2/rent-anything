@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { formatDateRange, todayIso } from "@/lib/dates";
+import { DayPicker, type DayButtonProps } from "react-day-picker";
+import { formatDateRange } from "@/lib/dates";
 import { cn } from "./cn";
 
 export type DateRange = { from: string; to: string };
@@ -29,9 +30,8 @@ type Props = {
   "data-testid"?: string;
 };
 
-const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
-
-// Calendar maths on "YYYY-MM-DD" strings, in UTC like the rest of the app's dates.
+// The calendar runs in UTC, like the app's dates ("YYYY-MM-DD", a day with no time zone,
+// and today as the UTC day), so a day never shifts with the browser's time zone.
 function toDate(iso: string) {
   return new Date(`${iso}T00:00:00Z`);
 }
@@ -40,55 +40,56 @@ function toIso(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-function addDays(iso: string, days: number) {
-  const date = toDate(iso);
-  date.setUTCDate(date.getUTCDate() + days);
-  return toIso(date);
+// DayPicker marks the month buttons aria-disabled rather than disabled.
+const NAV_BUTTON =
+  "flex size-9 items-center justify-center rounded-lg text-foreground hover:bg-surface-2 aria-disabled:cursor-not-allowed aria-disabled:text-muted/40 aria-disabled:hover:bg-transparent";
+
+// react-day-picker's parts, styled with the palette instead of its stylesheet.
+const CLASS_NAMES = {
+  root: "w-full",
+  months: "relative flex flex-col",
+  month: "flex flex-col gap-2",
+  month_caption: "flex h-9 items-center justify-center font-medium",
+  nav: "absolute inset-x-0 top-0 flex justify-between",
+  button_previous: NAV_BUTTON,
+  button_next: NAV_BUTTON,
+  chevron: "size-4 fill-current",
+  month_grid: "w-full border-collapse",
+  weekday: "py-1 text-xs font-normal text-muted",
+  day: "p-0 text-center",
+  footer: "pt-1 text-xs text-muted",
+};
+
+// A day, styled from its state: the picked ends, the days between, unavailable days.
+function Day({ day, modifiers, className, ...props }: DayButtonProps) {
+  const ref = useRef<HTMLButtonElement>(null);
+  // DayPicker moves keyboard focus by marking a day focused (as its own DayButton does).
+  useEffect(() => {
+    if (modifiers.focused) ref.current?.focus();
+  }, [modifiers.focused]);
+  const end = modifiers.selected && !modifiers.range_middle;
+  return (
+    <button
+      ref={ref}
+      {...props}
+      data-day={toIso(day.date)}
+      className={cn(
+        className,
+        "h-10 w-full text-sm outline-none focus-visible:ring-2 focus-visible:ring-navy",
+        end ? "rounded-lg bg-primary font-semibold text-white" : modifiers.range_middle ? "bg-aqua text-navy" : "rounded-lg",
+        !modifiers.selected && !modifiers.disabled && "hover:bg-surface-2",
+        modifiers.disabled && "cursor-not-allowed text-muted/50",
+        modifiers.today && !end && "font-semibold underline underline-offset-4",
+      )}
+    />
+  );
 }
 
-// The same day of another month, or that month's last day when it is shorter.
-function addMonths(iso: string, months: number) {
-  const date = toDate(iso);
-  const day = date.getUTCDate();
-  date.setUTCDate(1);
-  date.setUTCMonth(date.getUTCMonth() + months);
-  const last = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
-  date.setUTCDate(Math.min(day, last));
-  return toIso(date);
-}
-
-// "YYYY-MM-01" of the month a day falls in.
-function monthOf(iso: string) {
-  return `${iso.slice(0, 7)}-01`;
-}
-
-// The month's days, padded with nulls so the first falls under its weekday (Monday first).
-function monthDays(month: string) {
-  const first = toDate(month);
-  const offset = (first.getUTCDay() + 6) % 7;
-  const count = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
-  return [...Array<null>(offset).fill(null), ...Array.from({ length: count }, (_, index) => addDays(month, index))];
-}
-
-function formatMonth(month: string) {
-  return toDate(month).toLocaleDateString("en-US", { timeZone: "UTC", month: "long", year: "numeric" });
-}
-
-function formatFullDay(iso: string) {
-  return toDate(iso).toLocaleDateString("en-US", {
-    timeZone: "UTC",
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-// One field for a stretch of days: it opens a month calendar where the first tap picks the
-// start and the second the end (RAA-92). A tap before the start starts again from there.
-// A start already before `min` (a trip under way) is kept, and taps move only the end.
-// A plain disclosure like Menu: it closes on Escape, on a click outside it and once the
-// range is complete.
+// One field for a stretch of days: it opens a month calendar (react-day-picker) where the
+// first tap picks the start and the second the end (RAA-92). A tap before the start starts
+// again from there. A start already before `min` (a trip under way) is kept, and taps move
+// only the end. A plain disclosure like Menu: it closes on Escape, on a click outside it
+// and once the range is complete.
 export function DateRangeField({
   label,
   hint,
@@ -106,14 +107,10 @@ export function DateRangeField({
   "data-testid": testId,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [month, setMonth] = useState(() => monthOf(from || min));
-  // The day keyboard focus is on, and the one under the pointer while an end is picked.
-  const [focusDay, setFocusDay] = useState(from || min);
+  // The day under the pointer, shown as the end while one is picked.
   const [hovered, setHovered] = useState<string>();
-  const moveFocus = useRef(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const grid = useRef<HTMLDivElement>(null);
   const labelId = useId();
   const valueId = useId();
   const noteId = useId();
@@ -130,28 +127,15 @@ export function DateRangeField({
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
 
-  // Keyboard moves (and opening) put focus on the day they land on, once it is rendered.
-  useEffect(() => {
-    if (!open || !moveFocus.current) return;
-    moveFocus.current = false;
-    grid.current?.querySelector<HTMLButtonElement>(`[data-day="${focusDay}"]`)?.focus();
-  }, [open, focusDay, month]);
-
-  function show() {
-    const start = from && from >= min ? from : min;
-    setMonth(monthOf(start));
-    setFocusDay(start);
-    setHovered(undefined);
-    moveFocus.current = true;
-    setOpen(true);
-  }
-
   function close() {
     setOpen(false);
     trigger.current?.focus();
   }
 
-  function pick(day: string) {
+  // DayPicker's own range rules differ (it stretches a complete range), so a pick is
+  // worked out here from the day tapped.
+  function pick(date: Date) {
+    const day = toIso(date);
     if (single) {
       onChange({ from: day, to: day });
       return close();
@@ -159,28 +143,6 @@ export function DateRangeField({
     if (!from || (to && !keepsStart) || day < from) return onChange({ from: day, to: "" });
     onChange({ from, to: day });
     close();
-  }
-
-  function focusOn(day: string) {
-    const target = day < min ? min : day;
-    setFocusDay(target);
-    setMonth(monthOf(target));
-    moveFocus.current = true;
-  }
-
-  function onDayKeyDown(event: KeyboardEvent<HTMLButtonElement>, day: string) {
-    const moves: Record<string, () => string> = {
-      ArrowLeft: () => addDays(day, -1),
-      ArrowRight: () => addDays(day, 1),
-      ArrowUp: () => addDays(day, -7),
-      ArrowDown: () => addDays(day, 7),
-      PageUp: () => addMonths(day, -1),
-      PageDown: () => addMonths(day, 1),
-    };
-    const move = moves[event.key];
-    if (!move) return;
-    event.preventDefault();
-    focusOn(move());
   }
 
   // Escape closes the calendar only, not a sheet the field is in.
@@ -198,14 +160,29 @@ export function DateRangeField({
       : from
         ? `${formatDateRange(from, from)} – pick an end`
         : null;
-  // The end shown while picking one: the day under the pointer, or the focused day.
   const pickingEnd = !single && Boolean(from) && (!to || keepsStart);
-  const shownEnd =
-    (pickingEnd && hovered && hovered >= from ? hovered : undefined) ||
-    to ||
-    (pickingEnd && focusDay >= from ? focusDay : undefined) ||
-    from;
-  const today = todayIso();
+  const shownEnd = (pickingEnd && hovered && hovered >= from ? hovered : undefined) || to;
+  const opensOn = toDate(from && from >= min ? from : min);
+  const instruction = keepsStart
+    ? "Under way: pick the new last day"
+    : pickingEnd
+      ? "Now pick the last day"
+      : single
+        ? undefined
+        : "Pick the first day";
+  const calendar = {
+    timeZone: "UTC",
+    weekStartsOn: 1,
+    autoFocus: true,
+    defaultMonth: opensOn,
+    startMonth: toDate(min),
+    disabled: { before: toDate(min) },
+    classNames: CLASS_NAMES,
+    components: { DayButton: Day },
+    footer: instruction,
+    onDayMouseEnter: (date: Date) => setHovered(toIso(date)),
+    onDayMouseLeave: () => setHovered(undefined),
+  } as const;
 
   return (
     <div ref={root} onKeyDown={onKeyDown} className={cn("relative flex flex-col gap-1 text-sm font-medium", className)}>
@@ -219,7 +196,10 @@ export function DateRangeField({
         aria-expanded={open}
         aria-controls={calendarId}
         data-testid={testId}
-        onClick={() => (open ? setOpen(false) : show())}
+        onClick={() => {
+          setHovered(undefined);
+          setOpen(!open);
+        }}
         className={cn(
           "flex items-center justify-between gap-2 rounded-lg border-[1.5px] bg-surface px-3 py-2 text-left font-normal outline-none",
           "focus:border-primary disabled:bg-surface-2",
@@ -248,107 +228,42 @@ export function DateRangeField({
             inline ? "mt-1" : "absolute left-0 top-full z-20 mt-1 shadow-xl shadow-navy/20 sm:w-80",
           )}
         >
-          <div className="flex items-center justify-between">
-            <MonthButton
-              label="Previous month"
-              disabled={month <= monthOf(min)}
-              onClick={() => setMonth(addMonths(month, -1))}
-            >
-              ‹
-            </MonthButton>
-            <p aria-live="polite" className="font-medium">
-              {formatMonth(month)}
-            </p>
-            <MonthButton label="Next month" onClick={() => setMonth(addMonths(month, 1))}>
-              ›
-            </MonthButton>
-          </div>
+          {single ? (
+            <DayPicker
+              {...calendar}
+              mode="single"
+              selected={from ? toDate(from) : undefined}
+              onSelect={(_, date) => pick(date)}
+            />
+          ) : (
+            <DayPicker
+              {...calendar}
+              mode="range"
+              selected={from ? { from: toDate(from), to: shownEnd ? toDate(shownEnd) : undefined } : undefined}
+              onSelect={(_, date) => pick(date)}
+            />
+          )}
 
-          <div ref={grid} className="grid grid-cols-7 gap-y-1 text-center" onPointerLeave={() => setHovered(undefined)}>
-            {WEEKDAYS.map((weekday) => (
-              <span key={weekday} aria-hidden className="py-1 text-xs text-muted">
-                {weekday}
-              </span>
-            ))}
-            {monthDays(month).map((day, index) => {
-              if (!day) return <span key={`blank-${index}`} />;
-              const disabled = day < min;
-              const end = day === from || day === shownEnd;
-              const between = Boolean(from) && day > from && day < shownEnd;
-              const picked = Boolean(from) && day >= from && day <= (to || from);
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  data-day={day}
-                  disabled={disabled}
-                  tabIndex={day === focusDay ? 0 : -1}
-                  aria-label={formatFullDay(day)}
-                  aria-pressed={picked}
-                  onClick={() => pick(day)}
-                  onPointerEnter={() => setHovered(day)}
-                  onKeyDown={(event) => onDayKeyDown(event, day)}
-                  className={cn(
-                    "h-10 text-sm outline-none focus-visible:ring-2 focus-visible:ring-navy",
-                    end ? "rounded-lg bg-primary font-semibold text-white" : between ? "bg-aqua text-navy" : "rounded-lg",
-                    !end && !between && !disabled && "hover:bg-surface-2",
-                    disabled && "cursor-not-allowed text-muted/50",
-                    day === today && !end && "font-semibold underline underline-offset-4",
-                  )}
-                >
-                  {Number(day.slice(8))}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <p className="text-xs text-muted">{keepsStart ? "Under way: pick the new last day" : pickingEnd ? "Now pick the last day" : single ? "" : "Pick the first day"}</p>
-            <div className="flex gap-1">
-              {clearable && from && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onChange({ from: "", to: "" });
-                    close();
-                  }}
-                  className="rounded-lg px-2 py-1 font-medium text-link hover:bg-surface-2"
-                >
-                  Clear
-                </button>
-              )}
-              <button type="button" onClick={close} className="rounded-lg px-2 py-1 font-medium text-link hover:bg-surface-2">
-                Done
+          <div className="flex justify-end gap-1 text-sm">
+            {clearable && from && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange({ from: "", to: "" });
+                  close();
+                }}
+                className="rounded-lg px-2 py-1 font-medium text-link hover:bg-surface-2"
+              >
+                Clear
               </button>
-            </div>
+            )}
+            <button type="button" onClick={close} className="rounded-lg px-2 py-1 font-medium text-link hover:bg-surface-2">
+              Done
+            </button>
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-function MonthButton({
-  label,
-  disabled,
-  onClick,
-  children,
-}: {
-  label: string;
-  disabled?: boolean;
-  onClick: () => void;
-  children: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="flex size-9 items-center justify-center rounded-lg text-xl leading-none text-foreground hover:bg-surface-2 disabled:text-muted/40 disabled:hover:bg-transparent"
-    >
-      {children}
-    </button>
   );
 }
 
