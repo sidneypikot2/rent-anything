@@ -7,9 +7,10 @@ in_linked_worktree() {
   [[ "$(git rev-parse --path-format=absolute --git-dir)" != "$(git rev-parse --path-format=absolute --git-common-dir)" ]]
 }
 
-# A worktree's stack needs its own ports and project name before the first compose call.
+# A worktree's stack needs its own ports and project name before the first compose call,
+# and the main checkout's env files (RAA-96) — also in a worktree made before they were copied.
 ensure_worktree_env() {
-  if in_linked_worktree && [[ ! -f .env ]]; then
+  if in_linked_worktree && { [[ ! -f .env ]] || [[ ! -e backend/.env ]] || [[ ! -e web/.env.local ]]; }; then
     script/worktree-env >/dev/null
   fi
 }
