@@ -50,7 +50,8 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
       </header>
 
       <TripAddProvider>
-        <Card>
+        {/* Unclipped: the dates calendar opens below the card's edge. */}
+        <Card clip={false}>
           <CardBody pad="lg" className="flex flex-col gap-4">
             <TripDatesBar key={`${dates.from}-${dates.to}-${dates.guests}`} dates={dates} />
             <div className="flex flex-wrap items-center justify-between gap-3">
