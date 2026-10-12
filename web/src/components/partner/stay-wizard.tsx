@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -44,11 +44,14 @@ const STEPS = [
 // Adding an accommodation (RAA-83), once its property type is chosen: what guests book,
 // the address, the property info for that place type (RAA-95), amenities, photos (a placeholder until the API
 // stores them), the title and description, the cancellation policy (RAA-89) and the nightly rate (shown, not saved yet).
-// Like ListingWizard, only the current step is on the page and every value is kept here.
+// Like ListingWizard, only the current step is on the page, every value is kept here and any
+// step already reached opens again (RAA-93).
 export function StayWizard({ category, policies }: { category: ListingCategory; policies: CancellationPolicies }) {
   const router = useRouter();
   const create = useCreateListing();
   const [stepIndex, setStepIndex] = useState(0);
+  const [reached, setReached] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
   const step = STEPS[stepIndex];
   const isLast = stepIndex === STEPS.length - 1;
 
@@ -63,20 +66,34 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
   // Shown and checked, not saved yet: the API has no pricing until its own ticket.
   const [nightlyRate, setNightlyRate] = useState("");
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  // The current step's checks: the browser's required fields, the map pin and the beds.
+  function stepIsValid() {
+    if (!formRef.current?.reportValidity()) return false;
     if (step.key === "address" && !location) {
       setLocationError("Drop a pin on the map");
-      return;
+      return false;
     }
     if (step.key === "info" && stayErrors(stay)) {
       setInfoErrors(stayErrors(stay));
-      return;
+      return false;
     }
+    return true;
+  }
+
+  // Back is always open; forward (Next, or a step already reached) checks this step first.
+  function goTo(index: number) {
+    if (index > stepIndex && !stepIsValid()) return;
+    setStepIndex(index);
+    setReached((furthest) => Math.max(furthest, index));
+  }
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     if (!isLast) {
-      setStepIndex(stepIndex + 1);
+      goTo(stepIndex + 1);
       return;
     }
+    if (!stepIsValid()) return;
     if (!location) return;
     create.mutate(
       {
@@ -93,8 +110,8 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
   }
 
   return (
-    <WizardLayout steps={STEPS} current={stepIndex} onSelect={setStepIndex}>
-      <form data-testid="stay-wizard" onSubmit={onSubmit} className="flex w-full flex-col gap-6">
+    <WizardLayout steps={STEPS} current={stepIndex} reached={reached} onSelect={goTo}>
+      <form ref={formRef} data-testid="stay-wizard" onSubmit={onSubmit} className="flex w-full flex-col gap-6">
         {create.error && (
           <p role="alert" className="text-sm text-danger">
             {create.error.message}
@@ -195,7 +212,7 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
 
         <div className="flex flex-wrap gap-3">
           {stepIndex > 0 && (
-            <Button type="button" variant="soft" onClick={() => setStepIndex(stepIndex - 1)} data-testid="listing-back">
+            <Button type="button" variant="soft" onClick={() => goTo(stepIndex - 1)} data-testid="listing-back">
               Back
             </Button>
           )}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -40,8 +40,8 @@ type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "photos"
 // photos (a placeholder until the API stores them), the cancellation policy (RAA-89) and
 // Rate. Only the current step is
 // on the page, so the browser's required checks cover just that step; every value is kept
-// here, so going back loses nothing. The listing is saved as a draft. Accommodation has its
-// own steps (StayWizard).
+// here, so going back loses nothing, and any step already reached opens again (RAA-93).
+// The listing is saved as a draft. Accommodation has its own steps (StayWizard).
 export function ListingWizard({ category, policies }: { category: ListingCategory; policies: CancellationPolicies }) {
   const router = useRouter();
   const create = useCreateListing();
@@ -59,6 +59,8 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
     { key: "rate", label: "Rate" },
   ];
   const [stepIndex, setStepIndex] = useState(0);
+  const [reached, setReached] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
   const step = steps[stepIndex];
   const isLast = stepIndex === steps.length - 1;
 
@@ -74,16 +76,30 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
   // Shown and checked, not saved yet: the API has no pricing until its own ticket.
   const [dailyRate, setDailyRate] = useState("");
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  // The current step's checks: the browser's required fields, then the map pin.
+  function stepIsValid() {
+    if (!formRef.current?.reportValidity()) return false;
     if (step.key === "location" && !location) {
       setLocationError("Drop a pin on the map");
-      return;
+      return false;
     }
+    return true;
+  }
+
+  // Back is always open; forward (Next, or a step already reached) checks this step first.
+  function goTo(index: number) {
+    if (index > stepIndex && !stepIsValid()) return;
+    setStepIndex(index);
+    setReached((furthest) => Math.max(furthest, index));
+  }
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     if (!isLast) {
-      setStepIndex(stepIndex + 1);
+      goTo(stepIndex + 1);
       return;
     }
+    if (!stepIsValid()) return;
     if (!location) return;
     create.mutate(
       {
@@ -101,8 +117,8 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
   }
 
   return (
-    <WizardLayout steps={steps} current={stepIndex} onSelect={setStepIndex}>
-      <form data-testid="listing-wizard" onSubmit={onSubmit} className="flex w-full flex-col gap-6">
+    <WizardLayout steps={steps} current={stepIndex} reached={reached} onSelect={goTo}>
+      <form ref={formRef} data-testid="listing-wizard" onSubmit={onSubmit} className="flex w-full flex-col gap-6">
         {create.error && (
           <p role="alert" className="text-sm text-danger">
             {create.error.message}
@@ -192,7 +208,7 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
 
         <div className="flex flex-wrap gap-3">
           {stepIndex > 0 && (
-            <Button type="button" variant="soft" onClick={() => setStepIndex(stepIndex - 1)} data-testid="listing-back">
+            <Button type="button" variant="soft" onClick={() => goTo(stepIndex - 1)} data-testid="listing-back">
               Back
             </Button>
           )}
