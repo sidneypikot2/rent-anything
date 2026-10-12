@@ -5,6 +5,10 @@
 # and the project name is unique, so containers and volumes don't mix with the main
 # checkout's. Idempotent: an existing .env is kept and its ports printed again.
 #
+# It also copies the main checkout's gitignored env files (backend/.env, web/.env.local:
+# OAuth ids, API keys) into a worktree that has none, so its stack boots with the same
+# keys (RAA-96). A worktree's own copy is never overwritten, and only file names are printed.
+#
 #   script/worktree-env          # then: docker compose up -d
 #
 # Refuses to run in the main checkout, which always uses the default ports.
@@ -46,9 +50,28 @@ REDIS_PORT=$((6479 + offset))
 EOF
 fi
 
+# The main checkout is the first entry `git worktree list` prints. A copy, not a symlink, so
+# nothing done in a worktree can change the main checkout's keys.
+main_root="$(git worktree list --porcelain | sed -n 's/^worktree //p' | head -n1)"
+copied=""
+for file in backend/.env web/.env.local; do
+  if [[ -f "$main_root/$file" && ! -e "$root/$file" ]]; then
+    cp -p "$main_root/$file" "$root/$file"
+    copied="$copied $file"
+  fi
+done
+
 # Print without sourcing, so nothing else in the file is evaluated.
 get() { sed -n "s/^$1=//p" "$env_file" | head -n1; }
 echo "project:  $(get COMPOSE_PROJECT_NAME)"
 echo "web:      http://localhost:$(get FRONTEND_PORT)"
 echo "backend:  http://localhost:$(get BACKEND_PORT)"
 echo "db:       localhost:$(get DB_PORT)   redis: localhost:$(get REDIS_PORT)"
+
+if [[ -n "$copied" ]]; then
+  # On stderr, so it still shows when a script runs this quietly (ensure_worktree_env).
+  echo "env:     $copied (copied from the main checkout)" >&2
+  if [[ -n "$(docker compose --project-directory "$root" ps -q --status running 2>/dev/null)" ]]; then
+    echo "env:      the stack is already up — load them with: docker compose up -d --force-recreate backend web" >&2
+  fi
+fi
