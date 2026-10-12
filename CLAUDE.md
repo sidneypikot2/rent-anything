@@ -52,7 +52,7 @@ script/check [frontend|backend|tooling]   # everything CI runs for that area (no
 script/check-api [--write]    # the API contract: request specs -> openapi.yaml -> web types
 script/smoke                  # browser smoke test (Playwright container) against this checkout's stack
 script/check-docs             # these instruction files vs the repo: dead paths, rules that never load
-script/worktree-env           # in a worktree, once: own ports (8100+N / 3100+N) and project name
+script/worktree-env           # in a worktree, once: own ports (8100+N / 3100+N), project name, main checkout's env files
 script/docker-sweep           # Docker stacks left behind by removed worktrees (--apply deletes them)
 docker compose run --rm backend bin/rails db:migrate
 docker compose run --rm backend bundle install && docker compose build backend   # after a Gemfile change
