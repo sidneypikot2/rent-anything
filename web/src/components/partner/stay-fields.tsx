@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { ChoiceCards } from "@/components/ui/choice-cards";
+import { SelectField } from "@/components/ui/select-field";
 import { StepperField } from "@/components/ui/stepper-field";
 import type { ListingCategory, PartnerListing } from "./use-partner-listings";
 
@@ -265,19 +266,37 @@ export function PlaceTypeChoice({ values, onChange }: { values: StayValues; onCh
   );
 }
 
+// A room's beds: a counter per bed type the partner has added, and a dropdown to add
+// another type, so a room lists only the beds it has. Counting a bed down to 0 removes it.
 function RoomBeds({ beds, onChange, testId }: { beds: BedCounts; onChange: (beds: BedCounts) => void; testId: string }) {
+  const added = BED_TYPES.filter((bed) => (beds[bed.value] ?? 0) > 0);
+  const remaining = BED_TYPES.filter((bed) => !((beds[bed.value] ?? 0) > 0));
+
   return (
-    <div className="flex flex-col divide-y divide-line">
-      {BED_TYPES.map((bed) => (
-        <StepperField
-          key={bed.value}
-          label={bed.label}
-          value={beds[bed.value] ?? 0}
-          max={20}
-          onChange={(count) => onChange({ ...beds, [bed.value]: count })}
-          data-testid={`${testId}-bed-${bed.value}`}
+    <div className="flex flex-col gap-3">
+      {added.length > 0 && (
+        <div className="flex flex-col divide-y divide-line">
+          {added.map((bed) => (
+            <StepperField
+              key={bed.value}
+              label={bed.label}
+              value={beds[bed.value]}
+              max={20}
+              onChange={(count) => onChange({ ...beds, [bed.value]: count })}
+              data-testid={`${testId}-bed-${bed.value}`}
+            />
+          ))}
+        </div>
+      )}
+      {remaining.length > 0 && (
+        <SelectField
+          label={added.length > 0 ? "Add another bed" : "Add a bed"}
+          options={[{ value: "", label: "Choose a bed type" }, ...remaining]}
+          value=""
+          onChange={(event) => event.target.value && onChange({ ...beds, [event.target.value]: 1 })}
+          data-testid={`${testId}-add-bed`}
         />
-      ))}
+      )}
     </div>
   );
 }
