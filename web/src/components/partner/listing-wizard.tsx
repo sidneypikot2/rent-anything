@@ -28,6 +28,7 @@ import { LandmarkPicker } from "./landmark-picker";
 import { LocationPicker } from "./location-picker";
 import { PhotoUploadSkeleton } from "./photo-upload-skeleton";
 import { useCreateListing, type ListingCategory } from "./use-partner-listings";
+import { UnitsField } from "./units-field";
 import { isVehicle, NEW_VEHICLE, toVehicleAttrs, VehicleFields, type VehicleValues } from "./vehicle-fields";
 import { WizardCancel } from "./wizard-cancel";
 import { WizardActions, WizardLayout } from "./wizard-steps";
@@ -39,7 +40,7 @@ type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "photos"
 // Route (the landmarks a tour visits, RAA-70; not a photographer, RAA-89), the category's
 // own details (skipped when it has none; a vehicle's make, model, engine and color, RAA-89),
 // photos (a placeholder until the API stores them), the cancellation policy (RAA-89) and
-// Rate. Only the current step is
+// Rate. Basic also asks how many identical units it has (RAA-99). Only the current step is
 // on the page, so the browser's required checks cover just that step; every value is kept
 // here, so going back loses nothing, and any step already reached opens again (RAA-93).
 // The listing is saved as a draft. Accommodation has its own steps (StayWizard).
@@ -67,6 +68,7 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [units, setUnits] = useState(1);
   const address = usePhAddress(NO_ADDRESS);
   const [location, setLocation] = useState<LatLng | null>(null);
   const [locationError, setLocationError] = useState<string>();
@@ -111,6 +113,7 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
         location,
         attrs: vehicle ? toVehicleAttrs(vehicleValues) : toAttrs(fields, attrValues),
         cancellation_policy: policy,
+        units_count: units,
         ...(withLandmarks && { landmark_ids: landmarks.map((landmark) => landmark.id) }),
       },
       { onSuccess: () => router.push("/partner/listings") },
@@ -159,6 +162,7 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
                 onChange={(event) => setDescription(event.target.value)}
                 hint="What's included, what to bring, anything a traveller should know."
               />
+              <UnitsField bookingType={category.booking_type} value={units} onChange={setUnits} />
             </>
           )}
 

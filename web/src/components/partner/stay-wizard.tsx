@@ -28,6 +28,7 @@ import {
   type StayValues,
 } from "./stay-fields";
 import { useCreateListing, type ListingCategory } from "./use-partner-listings";
+import { UnitsField } from "./units-field";
 import { WizardCancel } from "./wizard-cancel";
 import { WizardActions, WizardLayout } from "./wizard-steps";
 
@@ -43,7 +44,7 @@ const STEPS = [
 ];
 
 // Adding an accommodation (RAA-83), once its property type is chosen: what guests book,
-// the address, the property info for that place type (RAA-95), amenities, photos (a placeholder until the API
+// the address, the property info for that place type (RAA-95) with how many identical rooms or units (RAA-99), amenities, photos (a placeholder until the API
 // stores them), the title and description, the cancellation policy (RAA-89) and the nightly rate (shown, not saved yet).
 // Like ListingWizard, only the current step is on the page, every value is kept here and any
 // step already reached opens again (RAA-93).
@@ -58,6 +59,7 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
 
   const [stay, setStay] = useState<StayValues>(NEW_STAY);
   const [infoErrors, setInfoErrors] = useState<StayErrors>();
+  const [units, setUnits] = useState(1);
   const address = usePhAddress(NO_ADDRESS);
   const [location, setLocation] = useState<LatLng | null>(null);
   const [locationError, setLocationError] = useState<string>();
@@ -105,6 +107,7 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
         location,
         attrs: toStayAttrs(stay),
         cancellation_policy: policy,
+        units_count: units,
       },
       { onSuccess: () => router.push("/partner/listings") },
     );
@@ -155,14 +158,17 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
           )}
 
           {step.key === "info" && (
-            <PropertyInfoFields
-              values={stay}
-              onChange={(values) => {
-                setStay(values);
-                setInfoErrors(undefined);
-              }}
-              errors={infoErrors}
-            />
+            <>
+              <PropertyInfoFields
+                values={stay}
+                onChange={(values) => {
+                  setStay(values);
+                  setInfoErrors(undefined);
+                }}
+                errors={infoErrors}
+              />
+              <UnitsField bookingType={category.booking_type} value={units} onChange={setUnits} />
+            </>
           )}
 
           {step.key === "amenities" && (
