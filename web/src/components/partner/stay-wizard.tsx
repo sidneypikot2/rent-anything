@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { TextareaField } from "@/components/ui/textarea-field";
 import type { LatLng } from "@/lib/map";
@@ -27,7 +27,8 @@ import {
   type StayValues,
 } from "./stay-fields";
 import { useCreateListing, type ListingCategory } from "./use-partner-listings";
-import { WizardLayout } from "./wizard-steps";
+import { WizardCancel } from "./wizard-cancel";
+import { WizardActions, WizardLayout } from "./wizard-steps";
 
 const STEPS = [
   { key: "place", label: "What guests book" },
@@ -110,7 +111,8 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
 
   return (
     <WizardLayout steps={STEPS} current={stepIndex} reached={reached} onSelect={goTo}>
-      <form ref={formRef} data-testid="stay-wizard" onSubmit={onSubmit} className="flex w-full flex-col gap-6">
+      <form ref={formRef} data-testid="stay-wizard" onSubmit={onSubmit} className="relative flex w-full flex-col gap-6">
+        <WizardCancel href="/partner/listings" className="absolute right-0 top-0" />
         {create.error && (
           <p role="alert" className="text-sm text-danger">
             {create.error.message}
@@ -118,7 +120,7 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
         )}
 
         <fieldset data-testid={`listing-step-${step.key}`} className="flex flex-col gap-4">
-          <legend className="mb-2 font-display text-2xl font-bold italic">{step.label}</legend>
+          <legend className="mb-2 pr-20 font-display text-2xl font-bold italic">{step.label}</legend>
 
           {step.key === "place" && (
             <>
@@ -209,29 +211,24 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
           )}
         </fieldset>
 
-        <div className="flex flex-wrap gap-3">
-          {stepIndex > 0 && (
-            <Button type="button" variant="soft" onClick={() => goTo(stepIndex - 1)} data-testid="listing-back">
-              Back
-            </Button>
-          )}
-          {isLast ? (
-            <Button type="submit" disabled={create.isPending} data-testid="listing-save">
-              {create.isPending ? "Saving…" : "Save as draft"}
-            </Button>
-          ) : step.key === "photos" ? (
-            <Button type="submit" variant="soft" data-testid="listing-skip-photos">
-              Skip for now
-            </Button>
-          ) : (
-            <Button type="submit" data-testid="listing-next">
-              Next
-            </Button>
-          )}
-          <ButtonLink href="/partner/listings" variant="soft">
-            Cancel
-          </ButtonLink>
-        </div>
+        <WizardActions
+          onBack={stepIndex > 0 ? () => goTo(stepIndex - 1) : undefined}
+          next={
+            isLast ? (
+              <Button type="submit" disabled={create.isPending} data-testid="listing-save">
+                {create.isPending ? "Saving…" : "Save as draft"}
+              </Button>
+            ) : step.key === "photos" ? (
+              <Button type="submit" variant="soft" data-testid="listing-skip-photos">
+                Skip for now
+              </Button>
+            ) : (
+              <Button type="submit" data-testid="listing-next">
+                Next
+              </Button>
+            )
+          }
+        />
       </form>
     </WizardLayout>
   );
