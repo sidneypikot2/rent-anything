@@ -42,6 +42,12 @@ unless Rails.env.test? || Category.exists?(slug: "equipment-rentals")
   SplitRentalsCategory.new.migrate(:up)
 end
 
+# Stay rooms by place type (RAA-94), loaded the same way. It needs the property types above.
+unless Rails.env.test? || Category.where(slug: "hotel").where("attribute_schema -> 'properties' ? 'rooms'").exists?
+  require Rails.root.join("db/migrate/20261012230000_add_stay_rooms").to_s
+  AddStayRooms.new.migrate(:up)
+end
+
 # The data migrations above insert areas without a status, which a database built from
 # schema.rb makes draft (RAA-59); a migrated one published them when the column was added.
 # They are the sample destinations, so they are live either way.
