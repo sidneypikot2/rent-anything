@@ -1,7 +1,7 @@
 # A listing as its own partner sees it (the `partner_listing` schema in
 # spec/swagger_helper.rb). The exact location is fine here: the reader owns the listing.
 # A tour's landmarks come by name, and `covers` is the destinations they're in (RAA-70).
-# Preload visited_landmarks: :area (Listing.for_partner) and pass destinations for a list.
+# Preload units and visited_landmarks: :area and pass destinations for a list.
 module PartnerListingSerializer
   def self.call(listing, destinations: PartnerLandmarkSerializer.destinations_for(listing.visited_landmarks))
     category = listing.category
@@ -17,6 +17,7 @@ module PartnerListingSerializer
       location: { lat: listing.location.y, lng: listing.location.x },
       attrs: listing.attrs,
       cancellation_policy: listing.cancellation_policy,
+      units_count: listing.units.size,
       landmarks:,
       covers: landmarks.filter_map { |landmark| landmark[:destination] }.uniq.sort_by { |place| place[:name] },
       created_at: listing.created_at,

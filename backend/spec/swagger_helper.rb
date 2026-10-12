@@ -295,6 +295,7 @@ RSpec.configure do |config|
               },
               attrs: { type: :object, additionalProperties: true, description: "Matches the category's attribute_schema" },
               cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" },
+              units_count: { type: :integer, minimum: 1, description: "How many identical items, rooms or vehicles it has" },
               landmarks: {
                 type: :array, items: { "$ref" => "#/components/schemas/partner_landmark" },
                 description: "The landmarks a tour or activity visits, by name; empty for other listings"
@@ -306,8 +307,8 @@ RSpec.configure do |config|
               created_at: { type: :string, format: "date-time" },
               updated_at: { type: :string, format: "date-time" }
             },
-            required: %w[id title description status category area address location attrs cancellation_policy landmarks
-              covers created_at updated_at]
+            required: %w[id title description status category area address location attrs cancellation_policy units_count
+              landmarks covers created_at updated_at]
           },
           # A published landmark in the partner's tour landmark picker, with its destination.
           partner_landmark: {
@@ -372,6 +373,11 @@ RSpec.configure do |config|
               cancellation_policy: {
                 allOf: [ { "$ref" => "#/components/schemas/cancellation_policy" } ],
                 description: "Left out on adding a listing, it is free_cancellation; left out on a change, it stays as it is"
+              },
+              units_count: {
+                type: :integer, minimum: 1, maximum: 100,
+                description: "How many identical items, rooms or vehicles it has. Left out on adding a listing, it " \
+                  "is 1; left out on a change, it stays as it is"
               },
               landmark_ids: {
                 type: :array, items: { type: :integer }, maxItems: 30,

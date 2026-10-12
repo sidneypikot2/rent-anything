@@ -48,6 +48,13 @@ unless Rails.env.test? || Category.where(slug: "hotel").where("attribute_schema 
   AddStayRooms.new.migrate(:up)
 end
 
+# Every listing has at least one unit (RAA-98): the migration gave the existing ones theirs,
+# and the sample listings above are loaded after it on a database built from schema.rb.
+unless Rails.env.test?
+  ids = Listing.where.missing(:units).pluck(:id)
+  ListingUnit.insert_all(ids.map { |listing_id| { listing_id:, position: 1 } }) if ids.any?
+end
+
 # The data migrations above insert areas without a status, which a database built from
 # schema.rb makes draft (RAA-59); a migrated one published them when the column was added.
 # They are the sample destinations, so they are live either way.

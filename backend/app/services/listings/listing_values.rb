@@ -7,13 +7,16 @@ module Listings
   # An activity (a tour) also lists the published landmarks it visits (RAA-70): landmark_ids
   # replaces them when sent and keeps them when left out; a listing that isn't an activity
   # has none. The cancellation policy (RAA-88) is kept when left out, so a new listing is
-  # free to cancel unless the partner chose otherwise.
+  # free to cancel unless the partner chose otherwise. units_count is how many identical
+  # items, rooms or vehicles it has (RAA-98), one listing_units row each: a new listing has
+  # one unless told otherwise, and a change keeps the count when it is left out.
   module ListingValues
     include RequestValues
 
     AREA_KINDS = %w[city town island].freeze
     AREA_RADIUS_METERS = 50_000
     MAX_LANDMARKS = 30
+    MAX_UNITS = 100
 
     private
 
@@ -21,6 +24,7 @@ module Listings
       point = point_from_location
       category = find_category
       @landmarks = landmarks_for(category)
+      @units_count = units_count
       {
         title: required_string(@params, :title, "Title"),
         description: optional_text(:description, "Description"),
@@ -42,6 +46,7 @@ module Listings
       Listing.transaction do
         listing.save!
         save_landmarks!(listing)
+        save_units!(listing)
       end
       listing
     end
@@ -51,6 +56,25 @@ module Listings
 
       listing.landmark_visits.delete_all(:delete_all)
       @landmarks.each { |landmark| listing.landmark_visits.create!(landmark:) }
+    end
+
+    # Adds or removes units from the end to reach the count. From M3, removing a unit that
+    # has active bookings must be refused.
+    def save_units!(listing)
+      count = @units_count || (listing.units.none? ? 1 : nil)
+      return if count.nil?
+
+      listing.units.where("position > ?", count).delete_all
+      (listing.units.maximum(:position).to_i + 1..count).each { |position| listing.units.create!(position:) }
+      listing.units.reset
+    end
+
+    def units_count
+      value = @params[:units_count]
+      return nil if value.nil?
+      return value if value.is_a?(Integer) && value.between?(1, MAX_UNITS)
+
+      error("Units must be a whole number from 1 to #{MAX_UNITS}")
     end
 
     # nil keeps the listing's landmarks as they are; an array replaces them.

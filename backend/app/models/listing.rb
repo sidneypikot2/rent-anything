@@ -25,6 +25,8 @@ class Listing < ApplicationRecord
   has_many :visited_landmarks, through: :landmark_visits, source: :landmark
   # Guests' unbooked trip items (RAA-64) go with the listing; the foreign key cascades too.
   has_many :trip_items, dependent: :delete_all
+  # Its identical items, rooms or vehicles (RAA-98); the foreign key cascades too.
+  has_many :units, -> { order(:position) }, class_name: "ListingUnit", dependent: :delete_all, inverse_of: :listing
 
   enum :status, STATUSES.index_with(&:itself), validate: true
 
