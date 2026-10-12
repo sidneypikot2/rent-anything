@@ -9,7 +9,8 @@ const ADDRESS_LABELS = {
   postal_code: "ZIP code",
 } as const;
 
-const LABELS: Record<string, string> = { engine_cc: "Engine size (cc)" };
+// A stay's rooms are its beds, by bedroom (RAA-95).
+const LABELS: Record<string, string> = { engine_cc: "Engine size (cc)", rooms: "Beds" };
 
 // "duration_hours" → "Duration hours": how a category's attribute is labelled everywhere.
 export function attributeLabel(key: string) {

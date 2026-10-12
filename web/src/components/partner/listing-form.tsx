@@ -25,12 +25,13 @@ import { LandmarkPicker } from "./landmark-picker";
 import { LocationPicker } from "./location-picker";
 import {
   AmenityChoice,
-  bedCount,
   isStay,
   PlaceTypeChoice,
   PropertyInfoFields,
+  stayErrors,
   toStayAttrs,
   toStayValues,
+  type StayErrors,
   type StayValues,
 } from "./stay-fields";
 import type { PartnerLandmark } from "./use-partner-landmarks";
@@ -60,7 +61,7 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
   const [attrValues, setAttrValues] = useState<AttributeValues>(() => toAttributeValues(listing.attrs));
   // An accommodation's details have their own fields (RAA-83).
   const [stay, setStay] = useState<StayValues>(() => toStayValues(listing.attrs));
-  const [bedsError, setBedsError] = useState<string>();
+  const [infoErrors, setInfoErrors] = useState<StayErrors>();
   const [vehicleValues, setVehicleValues] = useState<VehicleValues>(() => toVehicleValues(listing.attrs));
   const [policy, setPolicy] = useState<CancellationPolicy>(listing.cancellation_policy);
   const address = usePhAddress(listing.address);
@@ -88,8 +89,8 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
       setLocationError("Drop a pin on the map");
       return;
     }
-    if (stayCategory && bedCount(stay) === 0) {
-      setBedsError("Add at least one bed");
+    if (stayCategory && stayErrors(stay)) {
+      setInfoErrors(stayErrors(stay));
       return;
     }
     const form = new FormData(event.currentTarget);
@@ -196,9 +197,9 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
               values={stay}
               onChange={(values) => {
                 setStay(values);
-                setBedsError(undefined);
+                setInfoErrors(undefined);
               }}
-              bedsError={bedsError}
+              errors={infoErrors}
             />
           </fieldset>
           <fieldset className="flex flex-col gap-4">
