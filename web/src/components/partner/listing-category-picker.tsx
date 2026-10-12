@@ -5,11 +5,20 @@ import { useState, type FormEvent } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/select-field";
 import { ChoiceCards } from "@/components/ui/choice-cards";
-import { groupCategories } from "./listing-fields";
+import { groupCategories, type CategoryGroup } from "./listing-fields";
 import { isStay } from "./stay-fields";
 import type { ListingOptions } from "./use-partner-listings";
 
-// The first step of adding a listing (RAA-50): what it is, as a category and a subcategory.
+// What a group's subcategory cards are headed with.
+function subcategoryLegend(group: CategoryGroup) {
+  if (group.categories.every(isStay)) return "Property type";
+  if (group.name === "Vehicle rental") return "Type of vehicle";
+  if (group.name === "Equipment rental") return "Type of equipment";
+  return "Type";
+}
+
+// The first step of adding a listing (RAA-50): what it is, as a category and then a
+// subcategory, the subcategory as cards each saying what it means (RAA-83, RAA-89).
 // Next opens the rest of the steps for that category.
 export function ListingCategoryPicker({ options, initialId }: { options: ListingOptions; initialId?: number }) {
   const router = useRouter();
@@ -18,8 +27,6 @@ export function ListingCategoryPicker({ options, initialId }: { options: Listing
   const [groupName, setGroupName] = useState(initial ? (initial.parent_name ?? initial.name) : "");
   const [categoryId, setCategoryId] = useState(initial ? String(initial.id) : "");
   const group = groups.find((option) => option.name === groupName);
-  // Accommodation's property types are cards, each saying what it means (RAA-83).
-  const stayGroup = group?.categories.every(isStay) ? group : undefined;
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,32 +51,19 @@ export function ListingCategoryPicker({ options, initialId }: { options: Listing
             ...groups.map((option) => ({ value: option.name, label: option.name })),
           ]}
         />
-        {stayGroup && (
+        {group && (
           <ChoiceCards
-            legend="Property type"
+            legend={subcategoryLegend(group)}
             name="category_id"
             required
             value={categoryId}
             onChange={setCategoryId}
-            choices={stayGroup.categories.map((option) => ({
+            choices={group.categories.map((option) => ({
               value: String(option.id),
               label: option.name,
               description: option.description,
             }))}
-            data-testid="listing-property-type"
-          />
-        )}
-        {group && !stayGroup && (
-          <SelectField
-            label="Subcategory"
-            name="category_id"
-            required
-            value={categoryId}
-            onChange={(event) => setCategoryId(event.target.value)}
-            options={[
-              { value: "", label: "Choose a subcategory" },
-              ...group.categories.map((option) => ({ value: String(option.id), label: option.name })),
-            ]}
+            data-testid="listing-subcategory-cards"
           />
         )}
       </div>

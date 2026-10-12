@@ -30,6 +30,24 @@ unless Rails.env.test? || Category.exists?(slug: "cottage")
   AddAccommodationPropertyTypes.new.migrate(:up)
 end
 
+# Vehicle rental types (RAA-88), loaded the same way. They need the categories above.
+unless Rails.env.test? || Category.exists?(slug: "multicab")
+  require Rails.root.join("db/migrate/20261011000002_add_vehicle_rental_types").to_s
+  AddVehicleRentalTypes.new.migrate(:up)
+end
+
+# Rentals split into Vehicle rental and Equipment rental (RAA-88), loaded the same way.
+unless Rails.env.test? || Category.exists?(slug: "equipment-rentals")
+  require Rails.root.join("db/migrate/20261012000001_split_rentals_category").to_s
+  SplitRentalsCategory.new.migrate(:up)
+end
+
+# Stay rooms by place type (RAA-94), loaded the same way. It needs the property types above.
+unless Rails.env.test? || Category.where(slug: "hotel").where("attribute_schema -> 'properties' ? 'rooms'").exists?
+  require Rails.root.join("db/migrate/20261012230000_add_stay_rooms").to_s
+  AddStayRooms.new.migrate(:up)
+end
+
 # The data migrations above insert areas without a status, which a database built from
 # schema.rb makes draft (RAA-59); a migrated one published them when the column was added.
 # They are the sample destinations, so they are live either way.

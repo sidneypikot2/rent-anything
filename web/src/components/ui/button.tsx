@@ -11,6 +11,8 @@ const VARIANTS = {
   accent: "bg-aqua font-bold text-navy hover:bg-fern",
   // Something that can't be undone, like deleting. White on danger is 6.5:1.
   danger: "bg-danger text-white hover:bg-danger-hover",
+  // Text only, for a secondary way out (a wizard's Cancel) that shouldn't draw the eye.
+  ghost: "text-muted underline-offset-4 hover:text-foreground hover:underline",
 };
 
 const SIZES = {

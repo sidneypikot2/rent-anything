@@ -2,26 +2,34 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { TextareaField } from "@/components/ui/textarea-field";
 import type { LatLng } from "@/lib/map";
+import {
+  CancellationPolicyChoice,
+  DEFAULT_CANCELLATION_POLICY,
+  type CancellationPolicies,
+  type CancellationPolicy,
+} from "./cancellation-policy";
 import { categoryLabel, geocodeQuery, NO_ADDRESS } from "./listing-fields";
 import { LocationPicker } from "./location-picker";
 import { PhotoUploadSkeleton } from "./photo-upload-skeleton";
 import {
   AmenityChoice,
-  bedCount,
   NEW_STAY,
   PlaceTypeChoice,
   PropertyInfoFields,
+  stayErrors,
   toStayAttrs,
+  type StayErrors,
   type StayValues,
 } from "./stay-fields";
 import { useCreateListing, type ListingCategory } from "./use-partner-listings";
-import { WizardLayout } from "./wizard-steps";
+import { WizardCancel } from "./wizard-cancel";
+import { WizardActions, WizardLayout } from "./wizard-steps";
 
 const STEPS = [
   { key: "place", label: "What guests book" },
@@ -30,44 +38,63 @@ const STEPS = [
   { key: "amenities", label: "Amenities" },
   { key: "photos", label: "Photos" },
   { key: "basic", label: "Title and description" },
+  { key: "cancellation", label: "Cancellation policy" },
   { key: "rate", label: "Rate" },
 ];
 
 // Adding an accommodation (RAA-83), once its property type is chosen: what guests book,
-// the address, beds, guests and bathrooms, amenities, photos (a placeholder until the API
-// stores them), the title and description, and the nightly rate (shown, not saved yet).
-// Like ListingWizard, only the current step is on the page and every value is kept here.
-export function StayWizard({ category }: { category: ListingCategory }) {
+// the address, the property info for that place type (RAA-95), amenities, photos (a placeholder until the API
+// stores them), the title and description, the cancellation policy (RAA-89) and the nightly rate (shown, not saved yet).
+// Like ListingWizard, only the current step is on the page, every value is kept here and any
+// step already reached opens again (RAA-93).
+export function StayWizard({ category, policies }: { category: ListingCategory; policies: CancellationPolicies }) {
   const router = useRouter();
   const create = useCreateListing();
   const [stepIndex, setStepIndex] = useState(0);
+  const [reached, setReached] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
   const step = STEPS[stepIndex];
   const isLast = stepIndex === STEPS.length - 1;
 
   const [stay, setStay] = useState<StayValues>(NEW_STAY);
-  const [bedsError, setBedsError] = useState<string>();
+  const [infoErrors, setInfoErrors] = useState<StayErrors>();
   const address = usePhAddress(NO_ADDRESS);
   const [location, setLocation] = useState<LatLng | null>(null);
   const [locationError, setLocationError] = useState<string>();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [policy, setPolicy] = useState<CancellationPolicy>(DEFAULT_CANCELLATION_POLICY);
   // Shown and checked, not saved yet: the API has no pricing until its own ticket.
   const [nightlyRate, setNightlyRate] = useState("");
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  // The current step's checks: the browser's required fields, the map pin and the beds.
+  function stepIsValid() {
+    if (!formRef.current?.reportValidity()) return false;
     if (step.key === "address" && !location) {
       setLocationError("Drop a pin on the map");
-      return;
+      return false;
     }
-    if (step.key === "info" && bedCount(stay) === 0) {
-      setBedsError("Add at least one bed");
-      return;
+    if (step.key === "info" && stayErrors(stay)) {
+      setInfoErrors(stayErrors(stay));
+      return false;
     }
+    return true;
+  }
+
+  // Back is always open; forward (Next, or a step already reached) checks this step first.
+  function goTo(index: number) {
+    if (index > stepIndex && !stepIsValid()) return;
+    setStepIndex(index);
+    setReached((furthest) => Math.max(furthest, index));
+  }
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     if (!isLast) {
-      setStepIndex(stepIndex + 1);
+      goTo(stepIndex + 1);
       return;
     }
+    if (!stepIsValid()) return;
     if (!location) return;
     create.mutate(
       {
@@ -77,14 +104,16 @@ export function StayWizard({ category }: { category: ListingCategory }) {
         address: address.toBody(),
         location,
         attrs: toStayAttrs(stay),
+        cancellation_policy: policy,
       },
       { onSuccess: () => router.push("/partner/listings") },
     );
   }
 
   return (
-    <WizardLayout steps={STEPS} current={stepIndex} onSelect={setStepIndex}>
-      <form data-testid="stay-wizard" onSubmit={onSubmit} className="flex w-full flex-col gap-6">
+    <WizardLayout steps={STEPS} current={stepIndex} reached={reached} onSelect={goTo}>
+      <form ref={formRef} data-testid="stay-wizard" onSubmit={onSubmit} className="relative flex w-full flex-col gap-6">
+        <WizardCancel href="/partner/listings" className="absolute right-0 top-0" />
         {create.error && (
           <p role="alert" className="text-sm text-danger">
             {create.error.message}
@@ -92,7 +121,7 @@ export function StayWizard({ category }: { category: ListingCategory }) {
         )}
 
         <fieldset data-testid={`listing-step-${step.key}`} className="flex flex-col gap-4">
-          <legend className="mb-2 font-display text-2xl font-bold italic">{step.label}</legend>
+          <legend className="mb-2 pr-20 font-display text-2xl font-bold italic">{step.label}</legend>
 
           {step.key === "place" && (
             <>
@@ -130,9 +159,9 @@ export function StayWizard({ category }: { category: ListingCategory }) {
               values={stay}
               onChange={(values) => {
                 setStay(values);
-                setBedsError(undefined);
+                setInfoErrors(undefined);
               }}
-              bedsError={bedsError}
+              errors={infoErrors}
             />
           )}
 
@@ -167,6 +196,8 @@ export function StayWizard({ category }: { category: ListingCategory }) {
             </>
           )}
 
+          {step.key === "cancellation" && <CancellationPolicyChoice policies={policies} value={policy} onChange={setPolicy} />}
+
           {step.key === "rate" && (
             <Field
               label="Nightly rate (₱)"
@@ -181,29 +212,24 @@ export function StayWizard({ category }: { category: ListingCategory }) {
           )}
         </fieldset>
 
-        <div className="flex flex-wrap gap-3">
-          {stepIndex > 0 && (
-            <Button type="button" variant="soft" onClick={() => setStepIndex(stepIndex - 1)} data-testid="listing-back">
-              Back
-            </Button>
-          )}
-          {isLast ? (
-            <Button type="submit" disabled={create.isPending} data-testid="listing-save">
-              {create.isPending ? "Saving…" : "Save as draft"}
-            </Button>
-          ) : step.key === "photos" ? (
-            <Button type="submit" variant="soft" data-testid="listing-skip-photos">
-              Skip for now
-            </Button>
-          ) : (
-            <Button type="submit" data-testid="listing-next">
-              Next
-            </Button>
-          )}
-          <ButtonLink href="/partner/listings" variant="soft">
-            Cancel
-          </ButtonLink>
-        </div>
+        <WizardActions
+          onBack={stepIndex > 0 ? () => goTo(stepIndex - 1) : undefined}
+          next={
+            isLast ? (
+              <Button type="submit" disabled={create.isPending} data-testid="listing-save">
+                {create.isPending ? "Saving…" : "Save as draft"}
+              </Button>
+            ) : step.key === "photos" ? (
+              <Button type="submit" variant="soft" data-testid="listing-skip-photos">
+                Skip for now
+              </Button>
+            ) : (
+              <Button type="submit" data-testid="listing-next">
+                Next
+              </Button>
+            )
+          }
+        />
       </form>
     </WizardLayout>
   );
