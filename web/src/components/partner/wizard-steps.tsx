@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 
 type Step = { key: string; label: string };
@@ -59,6 +60,23 @@ export function WizardLayout({
         </ol>
       </nav>
       <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+// The wizard's footer (RAA-97): Back at one end and the forward button (Next, Skip for now
+// or Save as draft) at the other, so neither is tapped for the other. Cancel lives elsewhere.
+export function WizardActions({ onBack, next }: { onBack?: () => void; next: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-line pt-5">
+      {onBack ? (
+        <Button type="button" variant="soft" onClick={onBack} data-testid="listing-back">
+          Back
+        </Button>
+      ) : (
+        <span />
+      )}
+      {next}
     </div>
   );
 }
