@@ -96,7 +96,8 @@ RSpec.describe "Partner listings", type: :request do
           expect(response.parsed_body).to include(
             "title" => "Sardine run and turtle snorkel", "status" => "draft",
             "location" => { "lat" => 9.95, "lng" => 123.37 },
-            "attrs" => { "guide_included" => true, "duration_hours" => 4 }, "cancellation_policy" => "free_cancellation"
+            "attrs" => { "guide_included" => true, "duration_hours" => 4 }, "cancellation_policy" => "free_cancellation",
+            "units_count" => 1
           )
           expect(response.parsed_body["area"]).to eq("slug" => "moalboal", "name" => "Moalboal")
           expect(response.parsed_body["address"]).to eq(address.stringify_keys)
@@ -218,6 +219,28 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
+      response "201", "with the number of identical units the partner has, one row each" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        before { body[:units_count] = 3 }
+
+        run_test! do |response|
+          expect(response.parsed_body["units_count"]).to eq(3)
+          expect(user.listings.sole.units.pluck(:position)).to eq([ 1, 2, 3 ])
+        end
+      end
+
+      response "422", "a number of units that isn't a whole number from 1 to 100" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:units_count] = 101 }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Units must be a whole number from 1 to 100")
+          expect(Listing.count).to eq(0)
+        end
+      end
+
       response "422", "a cancellation policy we don't offer" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
@@ -254,7 +277,8 @@ RSpec.describe "Partner listings", type: :request do
 
         let(:body) do
           { title: 42, description: [ "x" ], category_id: "1", location: { lat: "9.95", lng: 200 }, attrs: "none",
-            address: { street: "", city: 6032, province: 1, region: "Central Visayas" }, landmark_ids: [ "1" ] }
+            address: { street: "", city: 6032, province: 1, region: "Central Visayas" }, landmark_ids: [ "1" ],
+            units_count: "3" }
         end
 
         run_test! do |response|
@@ -263,7 +287,8 @@ RSpec.describe "Partner listings", type: :request do
             "Street is required", "City is required", "Province must be text", "ZIP code is required",
             "Country is required",
             "Latitude must be a number between -90 and 90", "Longitude must be a number between -180 and 180",
-            "Details must be an object", "Landmarks must be a list of landmark ids"
+            "Details must be an object", "Landmarks must be a list of landmark ids",
+            "Units must be a whole number from 1 to 100"
           )
           expect(Listing.count).to eq(0)
         end
@@ -430,6 +455,34 @@ RSpec.describe "Partner listings", type: :request do
           body.delete(:cancellation_policy)
           patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
           expect(response.parsed_body["cancellation_policy"]).to eq("fourteen_days")
+        end
+      end
+
+      response "200", "units added or removed to the number sent, kept when left out" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        before { body[:units_count] = 4 }
+
+        run_test! do |saved|
+          expect(saved.parsed_body["units_count"]).to eq(4)
+          body.delete(:units_count)
+          patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["units_count"]).to eq(4)
+          patch "/api/v1/partner/listings/#{id}", params: body.merge(units_count: 2), as: :json,
+            headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["units_count"]).to eq(2)
+          expect(listing.units.pluck(:position)).to eq([ 1, 2 ])
+        end
+      end
+
+      response "422", "zero units" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:units_count] = 0 }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Units must be a whole number from 1 to 100")
+          expect(listing.units.count).to eq(1)
         end
       end
 

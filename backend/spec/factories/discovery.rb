@@ -52,6 +52,9 @@ FactoryBot.define do
     postal_code { "6032" }
     status { "active" }
 
+    # Every listing has at least one unit (RAA-98); Listings::Create makes them in the app.
+    after(:create) { |listing| listing.units.create!(position: 1) if listing.units.none? }
+
     trait :pending do
       status { "pending" }
     end

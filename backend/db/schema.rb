@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_12_230000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_13_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -138,6 +138,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_230000) do
     t.string "relation", default: "visits", null: false
     t.index ["landmark_id"], name: "index_listing_landmarks_on_landmark_id"
     t.check_constraint "relation::text = ANY (ARRAY['visits'::character varying::text, 'serves'::character varying::text])", name: "listing_landmarks_relation_check"
+  end
+
+  create_table "listing_units", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.integer "position", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["listing_id", "position"], name: "index_listing_units_on_listing_id_and_position", unique: true
+    t.check_constraint "\"position\" >= 1", name: "listing_units_position_check"
   end
 
   create_table "listings", force: :cascade do |t|
@@ -314,6 +323,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_230000) do
   add_foreign_key "landmarks", "areas"
   add_foreign_key "listing_landmarks", "landmarks"
   add_foreign_key "listing_landmarks", "listings"
+  add_foreign_key "listing_units", "listings", on_delete: :cascade
   add_foreign_key "listings", "areas"
   add_foreign_key "listings", "categories"
   add_foreign_key "listings", "users", column: "partner_id"

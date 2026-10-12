@@ -1296,7 +1296,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description with the cancellation policy the partner chose */
+                /** @description with the number of identical units the partner has, one row each */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -3007,6 +3007,8 @@ export interface components {
                 [key: string]: unknown;
             };
             cancellation_policy: components["schemas"]["cancellation_policy"];
+            /** @description How many identical items, rooms or vehicles it has */
+            units_count: number;
             /** @description The landmarks a tour or activity visits, by name; empty for other listings */
             landmarks: components["schemas"]["partner_landmark"][];
             /** @description The destinations those landmarks are in, by name */
@@ -3058,6 +3060,8 @@ export interface components {
             };
             /** @description Left out on adding a listing, it is free_cancellation; left out on a change, it stays as it is */
             cancellation_policy?: components["schemas"]["cancellation_policy"];
+            /** @description How many identical items, rooms or vehicles it has. Left out on adding a listing, it is 1; left out on a change, it stays as it is */
+            units_count?: number;
             /** @description Tours and activities only: the published landmarks it visits. Replaces them when sent; left out on a change, they stay as they are. A listing that isn't an activity has none. */
             landmark_ids?: number[];
         };
