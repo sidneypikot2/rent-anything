@@ -116,6 +116,9 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
                 {displayValue(value, key)}
               </Detail>
             ))}
+            <Detail term="Units">
+              <span data-testid="listing-detail-units">{listing.units_count}</span>
+            </Detail>
             <Detail term="Cancellation policy">
               <span data-testid="listing-cancellation">
                 {cancellationPolicyName(policies, listing.cancellation_policy)}

@@ -47,6 +47,9 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
     compare(label, listing.address[field], body.address[field]);
   }
   compare("Map pin", pin(listing.location), pin(body.location));
+  if (body.units_count !== undefined && body.units_count !== listing.units_count) {
+    changes.push(`Units: ${listing.units_count} → ${body.units_count}`);
+  }
   if (body.cancellation_policy) compare("Cancellation policy", listing.cancellation_policy, body.cancellation_policy);
   const landmarkIds = (ids: number[]) => [...ids].sort((a, b) => a - b).join(",");
   if (body.landmark_ids && landmarkIds(listing.landmarks.map((landmark) => landmark.id)) !== landmarkIds(body.landmark_ids)) {

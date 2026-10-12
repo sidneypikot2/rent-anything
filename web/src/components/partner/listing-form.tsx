@@ -37,6 +37,7 @@ import {
 import type { PartnerLandmark } from "./use-partner-landmarks";
 import { isVehicle, toVehicleAttrs, toVehicleValues, VehicleFields, type VehicleValues } from "./vehicle-fields";
 import { useUpdateListing, type ListingBody, type ListingOptions, type PartnerListing } from "./use-partner-listings";
+import { UnitsField } from "./units-field";
 
 function addressChanged(address: PhAddress, listing: PartnerListing) {
   const { region, province, city, zip, street } = address.values;
@@ -52,7 +53,7 @@ function addressChanged(address: PhAddress, listing: PartnerListing) {
 
 // Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
 // visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
-// vehicle's, RAA-89) and the cancellation policy (RAA-89). Saving first shows what changed and asks to confirm. Adding one is the stepped
+// vehicle's, RAA-89), the cancellation policy (RAA-89) and how many identical units it has (RAA-99). Saving first shows what changed and asks to confirm. Adding one is the stepped
 // ListingWizard (RAA-50).
 export function ListingForm({ options, listing }: { options: ListingOptions; listing: PartnerListing }) {
   const router = useRouter();
@@ -64,6 +65,7 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
   const [infoErrors, setInfoErrors] = useState<StayErrors>();
   const [vehicleValues, setVehicleValues] = useState<VehicleValues>(() => toVehicleValues(listing.attrs));
   const [policy, setPolicy] = useState<CancellationPolicy>(listing.cancellation_policy);
+  const [units, setUnits] = useState(listing.units_count);
   const address = usePhAddress(listing.address);
   const [location, setLocation] = useState<LatLng | null>(listing.location);
   const [locationError, setLocationError] = useState<string>();
@@ -106,6 +108,7 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
           ? toVehicleAttrs(vehicleValues, savedAsVehicle ? listing.attrs : {})
           : toAttrs(fields, attrValues),
       cancellation_policy: policy,
+      units_count: units,
       landmark_ids: visitsLandmarks ? landmarks.map((landmark) => landmark.id) : [],
     };
     setPending({ body, changes: listingChanges(listing, body) });
@@ -162,6 +165,7 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
           defaultValue={listing.description}
           hint="What's included, what to bring, anything a traveller should know."
         />
+        <UnitsField bookingType={category?.booking_type} value={units} onChange={setUnits} />
       </div>
 
       <fieldset className="flex flex-col gap-4">
