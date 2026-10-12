@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { DateRangeField } from "@/components/ui/date-range-field";
 import { Field } from "@/components/ui/field";
 import { useSession } from "@/lib/auth/session";
 import { todayIso } from "./format";
@@ -15,16 +16,15 @@ export function TripDatesBar({ dates }: { dates: TripDates }) {
   const session = useSession();
   const router = useRouter();
   const pathname = usePathname();
-  const [from, setFrom] = useState(dates.from ?? "");
-  const [to, setTo] = useState(dates.to ?? "");
+  const [range, setRange] = useState({ from: dates.from ?? "", to: dates.to ?? "" });
   const [guests, setGuests] = useState(String(dates.guests));
   const [error, setError] = useState<string>();
   const [guestsError, setGuestsError] = useState<string>();
 
   function apply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const { from, to } = range;
     if (Boolean(from) !== Boolean(to)) return setError("Pick both dates, or neither");
-    if (from && to < from) return setError("The end can't be before the start");
     const guestsNumber = Number(guests);
     if (!Number.isInteger(guestsNumber) || guestsNumber < 1 || guestsNumber > 50) return setGuestsError("1 to 50");
     setError(undefined);
@@ -45,22 +45,18 @@ export function TripDatesBar({ dates }: { dates: TripDates }) {
     <form
       onSubmit={apply}
       data-testid="trip-dates"
-      className="grid grid-cols-2 items-start gap-3 sm:grid-cols-[1fr_1fr_7rem_auto]"
+      className="grid grid-cols-2 items-start gap-3 sm:grid-cols-[1fr_7rem_auto]"
     >
-      <Field
-        label="From"
-        type="date"
+      <DateRangeField
+        label="Dates"
         min={todayIso()}
-        value={from}
-        onChange={(event) => setFrom(event.target.value)}
+        from={range.from}
+        to={range.to}
+        onChange={setRange}
+        clearable
         error={error}
-      />
-      <Field
-        label="To"
-        type="date"
-        min={from || todayIso()}
-        value={to}
-        onChange={(event) => setTo(event.target.value)}
+        className="col-span-2 sm:col-span-1"
+        data-testid="trip-dates-range"
       />
       <Field
         label="Guests"

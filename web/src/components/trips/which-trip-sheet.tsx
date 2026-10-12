@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { DateRangeField } from "@/components/ui/date-range-field";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { formatDateRange, guestCount, itemCount, todayIso, tripDetails } from "./format";
@@ -32,8 +33,7 @@ function suggestedReason(suggestion: TripSuggestion, startsOn: string | undefine
 // "Add to which trip?" (screen 4): shown only when the guest already has trips. The
 // server's suggestion comes first and is preselected; "New trip" is always there.
 export function WhichTripSheet({ request, trips, onClose, onAdded }: Props) {
-  const [startsOn, setStartsOn] = useState(request.startsOn ?? "");
-  const [endsOn, setEndsOn] = useState(request.endsOn ?? "");
+  const [{ from: startsOn, to: endsOn }, setDates] = useState({ from: request.startsOn ?? "", to: request.endsOn ?? "" });
   const [quantity, setQuantity] = useState(String(request.quantity));
   // What the guest picked; until they pick, the suggestion is the choice.
   const [picked, setPicked] = useState<Choice | null>(null);
@@ -41,9 +41,7 @@ export function WhichTripSheet({ request, trips, onClose, onAdded }: Props) {
 
   // A single-day booking has one date; the API takes it as from–to of that day.
   const itemEnds = request.range ? endsOn : startsOn;
-  const halfDated = Boolean(startsOn) !== Boolean(itemEnds);
-  const backwards = Boolean(startsOn && itemEnds && itemEnds < startsOn);
-  const datesValid = !halfDated && !backwards;
+  const datesValid = Boolean(startsOn) === Boolean(itemEnds);
   const dated = datesValid && startsOn ? { startsOn, endsOn: itemEnds } : { startsOn: undefined, endsOn: undefined };
 
   const suggestion = useTripSuggestion(request.listingId, dated.startsOn, dated.endsOn, datesValid);
@@ -57,11 +55,7 @@ export function WhichTripSheet({ request, trips, onClose, onAdded }: Props) {
 
   const quantityNumber = Number(quantity);
   const quantityValid = Number.isInteger(quantityNumber) && quantityNumber >= 1 && quantityNumber <= 99;
-  const dateError = halfDated
-    ? "Pick both dates, or neither"
-    : backwards
-      ? "The end can't be before the start"
-      : undefined;
+  const dateError = datesValid ? undefined : "Pick both dates, or neither";
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -90,30 +84,22 @@ export function WhichTripSheet({ request, trips, onClose, onAdded }: Props) {
       <form onSubmit={submit} className="flex flex-col gap-4">
         <p className="text-sm text-muted">{summary}</p>
 
-        <fieldset disabled={addItem.isPending} className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Field
-            label={request.range ? "From" : "Date"}
-            type="date"
+        <fieldset disabled={addItem.isPending} className="grid grid-cols-[1fr_7rem] items-start gap-3">
+          <DateRangeField
+            label={request.range ? "Dates" : "Date"}
+            single={!request.range}
             min={todayIso()}
-            value={startsOn}
-            onChange={(event) => {
-              setStartsOn(event.target.value);
+            from={startsOn}
+            to={endsOn}
+            onChange={(dates) => {
+              setDates(dates);
               setPicked(null);
             }}
+            clearable
+            inline
             error={dateError}
+            className="col-span-2 sm:col-span-1"
           />
-          {request.range && (
-            <Field
-              label="To"
-              type="date"
-              min={startsOn || todayIso()}
-              value={endsOn}
-              onChange={(event) => {
-                setEndsOn(event.target.value);
-                setPicked(null);
-              }}
-            />
-          )}
           <Field
             label="Guests"
             type="number"

@@ -1,0 +1,36 @@
+// Dates as the API sends them: "YYYY-MM-DD", a calendar day with no time zone.
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parse(iso: string) {
+  return new Date(`${iso}T00:00:00Z`);
+}
+
+function format(date: Date, options: Intl.DateTimeFormatOptions) {
+  return date.toLocaleDateString("en-US", { timeZone: "UTC", ...options });
+}
+
+// "Nov 15", "Nov 12–15", "Nov 30 – Dec 2", with years only when the two differ.
+export function formatDateRange(startsOn: string | null | undefined, endsOn: string | null | undefined) {
+  if (!startsOn || !endsOn) return null;
+  const start = parse(startsOn);
+  const end = parse(endsOn);
+  if (start.getUTCFullYear() !== end.getUTCFullYear()) {
+    const withYear = { month: "short", day: "numeric", year: "numeric" } as const;
+    return `${format(start, withYear)} – ${format(end, withYear)}`;
+  }
+  const first = format(start, { month: "short", day: "numeric" });
+  if (startsOn === endsOn) return first;
+  if (start.getUTCMonth() === end.getUTCMonth()) return `${first}–${end.getUTCDate()}`;
+  return `${first} – ${format(end, { month: "short", day: "numeric" })}`;
+}
+
+// Today as the API counts it, the UTC day (trips.md: no app time zone yet), for the date
+// pickers' `min` and the URL check, so a date the picker offers is one the API takes.
+export function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export function isIsoDate(value: unknown): value is string {
+  return typeof value === "string" && ISO_DATE.test(value) && !Number.isNaN(parse(value).getTime());
+}
