@@ -45,11 +45,29 @@ export function Eyebrow({ className, ...props }: ComponentProps<"p">) {
 }
 
 // A price in the display face, with its unit after it: <Price amount="₱1,200" unit="/ day" />.
-export function Price({ amount, unit }: { amount: string; unit?: string }) {
+// `prefix` goes before it in small type ("from"); `onDark` is for dark glass over a photo.
+export function Price({
+  amount,
+  unit,
+  prefix,
+  onDark = false,
+}: {
+  amount: string;
+  unit?: string;
+  prefix?: string;
+  onDark?: boolean;
+}) {
+  const small = cn("font-sans text-xs font-normal", onDark ? "text-sky-mist" : "text-muted");
   return (
-    <span className="font-display text-xl font-extrabold tracking-tight tabular-nums text-foreground">
+    <span
+      className={cn(
+        "font-display text-xl font-extrabold tracking-tight tabular-nums",
+        onDark ? "text-white" : "text-foreground",
+      )}
+    >
+      {prefix && <small className={cn(small, "mr-1")}>{prefix}</small>}
       {amount}
-      {unit && <small className="ml-1 font-sans text-xs font-normal text-muted">{unit}</small>}
+      {unit && <small className={cn(small, "ml-1")}>{unit}</small>}
     </span>
   );
 }

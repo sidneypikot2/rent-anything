@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 import type { Activity, AreaCard } from "@/api/discovery";
 import { Badge } from "@/components/ui/badge";
+import { Price } from "@/components/ui/typography";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { GlassPanel } from "@/components/ui/glass";
@@ -99,16 +100,20 @@ const ON_GLASS = {
 // that. `wide` lays it out side by side from `sm` up, for a card that has a row to itself.
 // With a `photo` the photo fills the card and the text sits on frosted glass over its foot
 // (Sky & Forest, RAA-102); the API has no destination photos yet, so only the preview passes one.
+// `feature` is the lead destination's card (RAA-108): from `sm` up the glass stands as a panel
+// down the card's right side, leaving most of the photo clear; on a phone it is the usual card.
 export function DestinationCard({
   area,
   subAreas = [],
   wide = false,
+  feature = false,
   photo,
   className,
 }: {
   area: AreaCard;
   subAreas?: AreaCard[];
   wide?: boolean;
+  feature?: boolean;
   photo?: { src: string; alt: string };
   className?: string;
 }) {
@@ -171,14 +176,27 @@ export function DestinationCard({
       <Card
         data-testid="destination-card"
         bordered={false}
-        className={cn(PHOTO_CARD, "flex min-h-[26rem] flex-col justify-end p-3", className)}
+        className={cn(
+          PHOTO_CARD,
+          "flex flex-col justify-end p-3",
+          feature ? "min-h-[26rem] sm:min-h-[28rem] sm:flex-row sm:items-stretch" : "min-h-80",
+          className,
+        )}
       >
-        <Image src={photo.src} alt={photo.alt} fill sizes="(min-width: 640px) 50vw, 100vw" className={PHOTO_CARD_IMAGE} />
-        <div aria-hidden className={PHOTO_SCRIM} />
+        <Image
+          src={photo.src}
+          alt={photo.alt}
+          fill
+          sizes={feature ? "(min-width: 72rem) 72rem, 100vw" : "(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"}
+          className={PHOTO_CARD_IMAGE}
+        />
+        <div aria-hidden className={cn(PHOTO_SCRIM, feature && "sm:bg-linear-to-r sm:via-transparent sm:to-scrim/45")} />
         <Badge tone="mist" className="absolute left-3 top-3">
           {KIND_LABELS[area.kind] ?? area.kind}
         </Badge>
-        <GlassPanel className="flex flex-col gap-3 rounded-control p-5">{body}</GlassPanel>
+        <GlassPanel className={cn("flex flex-col gap-3 rounded-control p-5", feature && "sm:w-2/5 sm:p-6 lg:w-[38%]")}>
+          {body}
+        </GlassPanel>
       </Card>
     );
   }
@@ -323,7 +341,7 @@ export function LandmarkCard({
 }
 
 // A thing to book: its category's icon, the title linking to the listing, a note line and
-// a short summary, with an action (Add to trip) in the panel.
+// a short summary, with its price and an action (Add to trip) on the panel's last row.
 export function ListingCard({
   href,
   title,
@@ -331,6 +349,7 @@ export function ListingCard({
   note,
   summary,
   photo,
+  price,
   action,
 }: {
   href: string;
@@ -339,6 +358,7 @@ export function ListingCard({
   note: string;
   summary?: string | null;
   photo: Photo;
+  price?: ComponentProps<typeof Price>;
   action?: ReactNode;
 }) {
   return (
@@ -362,7 +382,12 @@ export function ListingCard({
         </span>
       </div>
       {summary && <p className="line-clamp-2 text-sm text-white/90">{summary}</p>}
-      {action && <div className="flex justify-end">{action}</div>}
+      {(price || action) && (
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          {price ? <Price onDark {...price} /> : <span />}
+          {action}
+        </div>
+      )}
     </PhotoCard>
   );
 }
