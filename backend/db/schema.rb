@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_13_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_13_100001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -47,6 +47,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_000001) do
     t.check_constraint "wikidata_popularity >= 0", name: "areas_wikidata_popularity_check"
   end
 
+  create_table "businesses", force: :cascade do |t|
+    t.bigint "partner_id", null: false
+    t.string "name", null: false
+    t.text "description", default: "", null: false
+    t.string "street"
+    t.string "city"
+    t.string "region"
+    t.string "province"
+    t.string "postal_code"
+    t.string "country", limit: 2, default: "PH", null: false
+    t.geography "location", limit: {srid: 4326, type: "st_point", geographic: true}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index "partner_id, lower((name)::text)", name: "index_businesses_on_partner_id_and_lower_name", unique: true
+    t.index ["id", "partner_id"], name: "index_businesses_on_id_and_partner_id", unique: true
+    t.index ["location"], name: "index_businesses_on_location", using: :gist
+    t.index ["partner_id"], name: "index_businesses_on_partner_id"
+    t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 80", name: "businesses_name_length_check"
+    t.check_constraint "country::text ~ '^[A-Z]{2}$'::text", name: "businesses_country_check"
+  end
+
   create_table "categories", force: :cascade do |t|
     t.bigint "parent_id"
     t.string "slug", null: false
@@ -56,6 +77,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_000001) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.text "description", default: "", null: false
+    t.string "unit_name"
+    t.string "unit_name_plural"
     t.index ["parent_id"], name: "index_categories_on_parent_id"
     t.index ["slug"], name: "index_categories_on_slug", unique: true
     t.check_constraint "booking_type::text = ANY (ARRAY['rental'::character varying::text, 'stay'::character varying::text, 'activity'::character varying::text, 'transfer'::character varying::text])", name: "categories_booking_type_check"
@@ -168,7 +191,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_000001) do
     t.string "postal_code"
     t.string "country", limit: 2, default: "PH", null: false
     t.string "cancellation_policy", default: "free_cancellation", null: false
+    t.bigint "business_id", null: false
     t.index ["area_id"], name: "index_listings_on_area_id"
+    t.index ["business_id"], name: "index_listings_on_business_id"
     t.index ["category_id"], name: "index_listings_on_category_id"
     t.index ["location"], name: "index_listings_on_location", using: :gist
     t.index ["partner_id"], name: "index_listings_on_partner_id"
@@ -313,6 +338,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_000001) do
   end
 
   add_foreign_key "areas", "areas", column: "parent_id"
+  add_foreign_key "businesses", "users", column: "partner_id"
   add_foreign_key "categories", "categories", column: "parent_id"
   add_foreign_key "category_tags", "categories"
   add_foreign_key "category_tags", "tags"
@@ -325,6 +351,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_000001) do
   add_foreign_key "listing_landmarks", "listings"
   add_foreign_key "listing_units", "listings", on_delete: :cascade
   add_foreign_key "listings", "areas"
+  add_foreign_key "listings", "businesses"
+  add_foreign_key "listings", "businesses", column: ["business_id", "partner_id"], primary_key: ["id", "partner_id"], name: "fk_listings_business_partner"
   add_foreign_key "listings", "categories"
   add_foreign_key "listings", "users", column: "partner_id"
   add_foreign_key "listings", "users", column: ["partner_id", "partner_role"], primary_key: ["id", "role"], name: "fk_listings_partner_role"

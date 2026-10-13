@@ -19,16 +19,19 @@ RSpec.describe "Areas", type: :request do
   let!(:fort) { create(:landmark, area: cebu_city, slug: "fort-san-pedro", name: "Fort San Pedro") }
 
   let!(:tour) { create(:category, slug: "tour", name: "Tour", booking_type: "activity") }
-  let!(:scooter) { create(:category, slug: "motorcycle", name: "Motorcycle") }
+  let!(:scooter) do
+    create(:category, slug: "motorcycle", name: "Motorcycle", unit_name: "motorcycle", unit_name_plural: "motorcycles")
+  end
   let!(:hopping) do
-    create(:listing, area: bantayan, category: tour, title: "Island hopping", partner: create(:user, :partner, :display_name),
+    create(:listing, area: bantayan, category: tour, title: "Island hopping", partner: create(:user, :partner, :business),
       description: "\n  Four islands and a sandbar in one day.  \nLunch included.")
   end
-  # Listed before a display name was required (RAA-86): travellers see the legal first name.
+  let(:basilia) { create(:business, name: "Basilia Motor Rentals") }
   let!(:honda) do
-    create(:listing, area: bantayan, category: scooter, title: "Honda Click 125",
-      partner: create(:partner_profile).user)
+    create(:listing, area: bantayan, category: scooter, title: "Honda Click 125", partner: basilia.partner, business: basilia)
   end
+
+  before { honda.units.create!((2..50).map { |position| { position: } }) }
   let!(:pending) { create(:listing, :pending, area: bantayan, category: scooter, title: "Pending scooter") }
   let!(:walk) { create(:listing, area: cebu_city, category: tour, title: "Heritage walk") }
 
@@ -77,9 +80,12 @@ RSpec.describe "Areas", type: :request do
           expect(json["listings"]).to contain_exactly(
             { "id" => hopping.id, "title" => "Island hopping", "category" => "Tour", "area_slug" => "bantayan-island",
               "booking_type" => "activity", "summary" => "Four islands and a sandbar in one day.",
+              "business" => { "name" => "Moalboal Gear Rentals" }, "units_count" => 1, "units_label" => "1 unit",
               "partner_name" => "Moalboal Gear Rentals" },
             { "id" => honda.id, "title" => "Honda Click 125", "category" => "Motorcycle",
-              "area_slug" => "bantayan-island", "booking_type" => "rental", "summary" => "", "partner_name" => "Jun" }
+              "area_slug" => "bantayan-island", "booking_type" => "rental", "summary" => "",
+              "business" => { "name" => "Basilia Motor Rentals" }, "units_count" => 50, "units_label" => "50 motorcycles",
+              "partner_name" => "Basilia Motor Rentals" }
           )
         end
       end

@@ -5,31 +5,35 @@ RSpec.describe "Partner listings", type: :request do
     get "The signed-in partner's listings" do
       tags "Partner"
       produces "application/json"
-      description "Partner-only. Every listing the partner owns, in any status, ordered by category name, then " \
-        "title. The exact location is included: the reader owns the listing."
+      description "Partner-only. Every listing the partner owns, in any status, ordered by business name, then " \
+        "category name, then title. The exact location is included: the reader owns the listing."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
 
       let(:user) { create(:user, :partner) }
       let(:Authorization) { bearer_for(user) }
 
-      response "200", "only the partner's own listings, by category then title" do
+      response "200", "only the partner's own listings, by business, then category, then title" do
         schema type: :array, items: { "$ref" => "#/components/schemas/partner_listing" }
 
         let(:camera) { create(:category, name: "Action camera") }
         let(:tour) { create(:category, name: "Tour", booking_type: "activity") }
+        let(:tours) { create(:business, partner: user, name: "Basilia Tours") }
+        let(:gear) { create(:business, partner: user, name: "Basilia Gear") }
 
         before do
-          create(:listing, partner: user, category: tour, title: "Island hopping", status: "draft",
+          create(:listing, partner: user, business: gear, category: tour, title: "Island hopping", status: "draft",
             location: "POINT(123.80 11.17)")
-          create(:listing, partner: user, category: camera, title: "Insta360 X4")
-          create(:listing, partner: user, category: camera, title: "GoPro Hero 12", status: "pending")
+          create(:listing, partner: user, business: tours, category: camera, title: "Boat camera")
+          create(:listing, partner: user, business: gear, category: camera, title: "Insta360 X4")
+          create(:listing, partner: user, business: gear, category: camera, title: "GoPro Hero 12", status: "pending")
           create(:listing, category: camera, title: "Someone else's camera")
         end
 
         run_test! do |response|
-          expect(response.parsed_body.pluck("title")).to eq([ "GoPro Hero 12", "Insta360 X4", "Island hopping" ])
-          tour_row = response.parsed_body.last
+          expect(response.parsed_body.pluck("title")).to eq([ "GoPro Hero 12", "Insta360 X4", "Island hopping", "Boat camera" ])
+          expect(response.parsed_body.map { |row| row["business"]["name"] }.uniq).to eq([ "Basilia Gear", "Basilia Tours" ])
+          tour_row = response.parsed_body[2]
           expect(tour_row).to include("status" => "draft", "location" => { "lat" => 11.17, "lng" => 123.80 })
           expect(tour_row["category"]).to include("name" => "Tour", "booking_type" => "activity")
         end
@@ -58,12 +62,12 @@ RSpec.describe "Partner listings", type: :request do
         "against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area " \
         "is the smallest published city, town or island whose boundary covers the pin; failing that, the one " \
         "whose center is nearest the pin, within 50 km. The partner must have passed the ID check first " \
-        "(`/api/v1/partner/verification`) and given a display name (`/api/v1/partner/profile`); until then it is a 403."
+        "(`/api/v1/partner/verification`) and added a business (`/api/v1/partner/businesses`); until then it is a 403."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
       parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/listing_body" }
 
-      let(:user) { create(:user, :partner, :id_verified, :display_name) }
+      let(:user) { create(:user, :partner, :id_verified, :business) }
       let(:Authorization) { bearer_for(user) }
       let!(:area) { create(:area, slug: "moalboal", name: "Moalboal", center: "POINT(123.396 9.945)") }
       let(:address) do
@@ -241,6 +245,49 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
+      response "201", "under the partner's only business when business_id is left out" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        run_test! do |response|
+          expect(response.parsed_body["business"]).to eq("id" => user.businesses.sole.id, "name" => "Moalboal Gear Rentals")
+        end
+      end
+
+      response "201", "under the business the partner picked" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        let(:motors) { create(:business, partner: user, name: "Basilia Motor Rentals") }
+
+        before { body[:business_id] = motors.id }
+
+        run_test! { expect(user.listings.sole.business).to eq(motors) }
+      end
+
+      response "422", "business_id left out by a partner with several businesses" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { create(:business, partner: user, name: "Basilia Motor Rentals") }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Business is required")
+          expect(Listing.count).to eq(0)
+        end
+      end
+
+      response "422", "another partner's business, or a business_id that isn't an id" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:business_id] = create(:business).id }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Business must be one of your businesses")
+          body[:business_id] = "1"
+          post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["errors"]).to include("Business must be one of your businesses")
+          expect(Listing.count).to eq(0)
+        end
+      end
+
       response "422", "a cancellation policy we don't offer" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
@@ -326,14 +373,14 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
-      response "403", "a partner without a display name" do
+      response "403", "a partner without a business" do
         schema "$ref" => "#/components/schemas/error"
         let(:user) { create(:user, :partner, :id_verified) }
 
-        before { create(:partner_profile, user:, display_name: " ") }
+        before { create(:partner_profile, user:, display_name: "Basilia") }
 
         run_test! do |response|
-          expect(response.parsed_body["error"]).to eq("Add a display name to your profile before adding a listing")
+          expect(response.parsed_body["error"]).to eq("Add a business before adding a listing")
           expect(Listing.count).to eq(0)
         end
       end
@@ -472,6 +519,35 @@ RSpec.describe "Partner listings", type: :request do
             headers: { "Authorization" => Authorization() }
           expect(response.parsed_body["units_count"]).to eq(2)
           expect(listing.units.pluck(:position)).to eq([ 1, 2 ])
+        end
+      end
+
+      response "200", "moved to another of the partner's businesses when sent, kept when left out" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        let(:motors) { create(:business, partner: user, name: "Basilia Motor Rentals") }
+
+        before do
+          listing
+          body[:business_id] = motors.id
+        end
+
+        run_test! do |saved|
+          expect(saved.parsed_body["business"]).to eq("id" => motors.id, "name" => "Basilia Motor Rentals")
+          body.delete(:business_id)
+          patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["business"]["id"]).to eq(motors.id)
+        end
+      end
+
+      response "422", "another partner's business" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:business_id] = create(:business).id }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Business must be one of your businesses")
+          expect(listing.reload.title).to eq("GoPro Hero 12")
         end
       end
 

@@ -49,6 +49,8 @@ Rails.application.routes.draw do
       namespace :partner do
         resource :me, only: :show, controller: "me"
         resource :profile, only: %i[show update]
+        # The businesses a partner runs; each listing belongs to one (RAA-100).
+        resources :businesses, only: %i[index show create update]
         resources :listings, only: %i[index show create update destroy]
         resource :listing_options, only: :show
         # The tour landmark picker (RAA-70).

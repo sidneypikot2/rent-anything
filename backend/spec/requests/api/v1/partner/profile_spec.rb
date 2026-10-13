@@ -68,7 +68,7 @@ RSpec.describe "Partner profile", type: :request do
       consumes "application/json"
       produces "application/json"
       description "Partner-only. Every field but `display_name` is required; `phone` is saved on the user. " \
-        "`display_name` can't be cleared while the partner has listings (RAA-86). " \
+        "Guests see a listing's business name (`/api/v1/partner/businesses`), not `display_name` (RAA-100). " \
         "Email can't be changed here."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
@@ -116,9 +116,12 @@ RSpec.describe "Partner profile", type: :request do
         end
       end
 
-      response "200", "saving again updates the same profile; a blank display name is cleared" do
+      response "200", "saving again updates the same profile; a blank display name is cleared, listings or not" do
         schema "$ref" => "#/components/schemas/partner_profile"
-        before { create(:partner_profile, user: user, display_name: "Old name") }
+        before do
+          create(:partner_profile, user: user, display_name: "Old name")
+          create(:listing, partner: user)
+        end
         let(:body) do
           { display_name: " ", legal_first_name: "Jun", legal_last_name: "Dela Cruz",
             phone: "+639171234567", address: address.merge(city: "Badian") }
@@ -127,23 +130,6 @@ RSpec.describe "Partner profile", type: :request do
         run_test! do
           expect(PartnerProfile.where(user: user).count).to eq(1)
           expect(user.reload.partner_profile).to have_attributes(display_name: nil, city: "Badian")
-        end
-      end
-
-      response "422", "a partner with listings can't clear their display name" do
-        schema "$ref" => "#/components/schemas/validation_errors"
-        before do
-          create(:partner_profile, user: user, display_name: "Old name")
-          create(:listing, partner: user)
-        end
-        let(:body) do
-          { display_name: " ", legal_first_name: "Jun", legal_last_name: "Dela Cruz",
-            phone: "+639171234567", address: address }
-        end
-
-        run_test! do |response|
-          expect(response.parsed_body["errors"]).to eq([ "Display name is required while you have listings" ])
-          expect(user.reload.partner_profile.display_name).to eq("Old name")
         end
       end
 

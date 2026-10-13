@@ -9,7 +9,9 @@ module Listings
   # has none. The cancellation policy (RAA-88) is kept when left out, so a new listing is
   # free to cancel unless the partner chose otherwise. units_count is how many identical
   # items, rooms or vehicles it has (RAA-98), one listing_units row each: a new listing has
-  # one unless told otherwise, and a change keeps the count when it is left out.
+  # one unless told otherwise, and a change keeps the count when it is left out. business_id
+  # is one of the partner's businesses (RAA-100): left out, a new listing goes under the
+  # partner's only business (several make it required) and a change keeps the listing's.
   module ListingValues
     include RequestValues
 
@@ -21,7 +23,7 @@ module Listings
     private
 
     def listing_attributes
-      point = point_from_location
+      point = point_from(@params[:location])
       category = find_category
       @landmarks = landmarks_for(category)
       @units_count = units_count
@@ -33,7 +35,8 @@ module Listings
         location: point,
         attrs: attrs,
         **address_attributes(@params[:address]),
-        **cancellation_policy
+        **cancellation_policy,
+        **business_attribute
       }
     end
 
@@ -67,6 +70,24 @@ module Listings
       listing.units.where("position > ?", count).delete_all
       (listing.units.maximum(:position).to_i + 1..count).each { |position| listing.units.create!(position:) }
       listing.units.reset
+    end
+
+    # Each service says whose listing it is: Create's partner, Update's listing's.
+    def listing_partner
+      raise NotImplementedError
+    end
+
+    def business_attribute
+      id = @params[:business_id]
+      if id.nil?
+        return {} if @listing&.persisted?
+
+        only = listing_partner.businesses.limit(2).to_a
+        return only.one? ? { business: only.first } : (error("Business is required") || {})
+      end
+
+      found = listing_partner.businesses.find_by(id:) if id.is_a?(Integer)
+      found ? { business: found } : (error("Business must be one of your businesses") || {})
     end
 
     def units_count
@@ -110,21 +131,6 @@ module Listings
       return error("Category is required") unless id.is_a?(Integer)
 
       Category.find_by(id:) || error("Category is not one we know")
-    end
-
-    def point_from_location
-      location = @params[:location]
-      return error("Location is required") unless location.respond_to?(:key?)
-
-      lat = coordinate(location[:lat], 90, "Latitude")
-      lng = coordinate(location[:lng], 180, "Longitude")
-      "POINT(#{lng} #{lat})" if lat && lng
-    end
-
-    def coordinate(value, limit, label)
-      return value if value.is_a?(Numeric) && value.between?(-limit, limit)
-
-      error("#{label} must be a number between -#{limit} and #{limit}")
     end
 
     # The destination guests will find the listing under: the smallest published area whose

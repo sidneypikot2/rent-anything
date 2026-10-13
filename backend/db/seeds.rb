@@ -8,44 +8,62 @@
 #     MovieGenre.find_or_create_by!(name: genre_name)
 #   end
 
-# Discovery sample data (RAA-33): Bantayan Island and Cebu City. It lives in a data
-# migration so existing databases get it from db:migrate, but a new database is loaded
-# from schema.rb, which skips data migrations, so it is loaded here when there is none.
-# Not in test: specs build their own areas.
-unless Rails.env.test? || Area.exists?
-  require Rails.root.join("db/migrate/20261006000001_seed_discovery_sample_data").to_s
-  SeedDiscoverySampleData.new.migrate(:up)
-end
+# Listings belong to a business (RAA-100), but the sample-data loaders below insert listings
+# without one. On a database loaded from schema.rb they run with business_id's NOT NULL
+# lifted, then the RAA-100 backfill gives their partners a business and the constraint is
+# restored, all in one transaction. The unit names (RAA-100) are filled the same way.
+unless Rails.env.test?
+  require Rails.root.join("db/migrate/20261013100000_add_unit_names_to_categories").to_s
+  require Rails.root.join("db/migrate/20261013100001_create_businesses").to_s
+  connection = ActiveRecord::Base.connection
 
-# Santa Fe sample partner (RAA-51), loaded the same way. It needs the areas and
-# categories above.
-unless Rails.env.test? || Area.exists?(slug: "santa-fe")
-  require Rails.root.join("db/migrate/20261008000000_seed_santa_fe_sample_partner").to_s
-  SeedSantaFeSamplePartner.new.migrate(:up)
-end
+  ActiveRecord::Base.transaction do
+    connection.change_column_null :listings, :business_id, true
 
-# Accommodation property types (RAA-82), loaded the same way. They need the categories above.
-unless Rails.env.test? || Category.exists?(slug: "cottage")
-  require Rails.root.join("db/migrate/20261010000003_add_accommodation_property_types").to_s
-  AddAccommodationPropertyTypes.new.migrate(:up)
-end
+    # Discovery sample data (RAA-33): Bantayan Island and Cebu City. It lives in a data
+    # migration so existing databases get it from db:migrate, but a new database is loaded
+    # from schema.rb, which skips data migrations, so it is loaded here when there is none.
+    # Not in test: specs build their own areas.
+    unless Area.exists?
+      require Rails.root.join("db/migrate/20261006000001_seed_discovery_sample_data").to_s
+      SeedDiscoverySampleData.new.migrate(:up)
+    end
 
-# Vehicle rental types (RAA-88), loaded the same way. They need the categories above.
-unless Rails.env.test? || Category.exists?(slug: "multicab")
-  require Rails.root.join("db/migrate/20261011000002_add_vehicle_rental_types").to_s
-  AddVehicleRentalTypes.new.migrate(:up)
-end
+    # Santa Fe sample partner (RAA-51), loaded the same way. It needs the areas and
+    # categories above.
+    unless Area.exists?(slug: "santa-fe")
+      require Rails.root.join("db/migrate/20261008000000_seed_santa_fe_sample_partner").to_s
+      SeedSantaFeSamplePartner.new.migrate(:up)
+    end
 
-# Rentals split into Vehicle rental and Equipment rental (RAA-88), loaded the same way.
-unless Rails.env.test? || Category.exists?(slug: "equipment-rentals")
-  require Rails.root.join("db/migrate/20261012000001_split_rentals_category").to_s
-  SplitRentalsCategory.new.migrate(:up)
-end
+    # Accommodation property types (RAA-82), loaded the same way. They need the categories above.
+    unless Category.exists?(slug: "cottage")
+      require Rails.root.join("db/migrate/20261010000003_add_accommodation_property_types").to_s
+      AddAccommodationPropertyTypes.new.migrate(:up)
+    end
 
-# Stay rooms by place type (RAA-94), loaded the same way. It needs the property types above.
-unless Rails.env.test? || Category.where(slug: "hotel").where("attribute_schema -> 'properties' ? 'rooms'").exists?
-  require Rails.root.join("db/migrate/20261012230000_add_stay_rooms").to_s
-  AddStayRooms.new.migrate(:up)
+    # Vehicle rental types (RAA-88), loaded the same way. They need the categories above.
+    unless Category.exists?(slug: "multicab")
+      require Rails.root.join("db/migrate/20261011000002_add_vehicle_rental_types").to_s
+      AddVehicleRentalTypes.new.migrate(:up)
+    end
+
+    # Rentals split into Vehicle rental and Equipment rental (RAA-88), loaded the same way.
+    unless Category.exists?(slug: "equipment-rentals")
+      require Rails.root.join("db/migrate/20261012000001_split_rentals_category").to_s
+      SplitRentalsCategory.new.migrate(:up)
+    end
+
+    # Stay rooms by place type (RAA-94), loaded the same way. It needs the property types above.
+    unless Category.where(slug: "hotel").where("attribute_schema -> 'properties' ? 'rooms'").exists?
+      require Rails.root.join("db/migrate/20261012230000_add_stay_rooms").to_s
+      AddStayRooms.new.migrate(:up)
+    end
+
+    CreateBusinesses.backfill(connection)
+    AddUnitNamesToCategories.fill(connection)
+    connection.change_column_null :listings, :business_id, false
+  end
 end
 
 # Every listing has at least one unit (RAA-98): the migration gave the existing ones theirs,

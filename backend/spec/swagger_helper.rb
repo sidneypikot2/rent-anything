@@ -15,6 +15,29 @@ EXPLORE_PLACE = {
   distance_km: { type: :number, description: "From the starting point, one decimal" }
 }.freeze
 
+# The address and map pin a partner sends for a listing (RAA-41) or a business (RAA-100).
+ADDRESS_BODY = {
+  type: :object,
+  properties: {
+    street: { type: :string },
+    city: { type: :string },
+    region: { type: :string },
+    province: { type: :string, nullable: true, description: "Optional: none in Metro Manila" },
+    postal_code: { type: :string },
+    country: { type: :string, description: "ISO 3166-1 alpha-2, e.g. PH" }
+  },
+  required: %w[street city region postal_code country]
+}.freeze
+
+LOCATION_BODY = {
+  type: :object,
+  properties: {
+    lat: { type: :number, minimum: -90, maximum: 90 },
+    lng: { type: :number, minimum: -180, maximum: 180 }
+  },
+  required: %w[lat lng]
+}.freeze
+
 RSpec.configure do |config|
   # OPENAPI_ROOT lets script/check-api generate into a scratch directory to compare.
   config.openapi_root = ENV.fetch("OPENAPI_ROOT", Rails.root.join("swagger").to_s)
@@ -244,13 +267,22 @@ RSpec.configure do |config|
               },
               booking_type: { type: :string, enum: %w[rental stay activity transfer] },
               area: { "$ref" => "#/components/schemas/area_ref" },
+              business: { "$ref" => "#/components/schemas/business_ref" },
+              units_count: { type: :integer, minimum: 1, description: "How many identical items, rooms or vehicles it has" },
+              units_label: { type: :string, description: "units_count in the category's words, e.g. \"5 rooms\"" },
               partner_name: {
-                type: :string,
-                description: "The partner's display name; their legal first name, or \"Local partner\", for ones " \
-                  "who listed before a display name was required"
+                type: :string, deprecated: true,
+                description: "The business's name, as in business.name; will be removed (RAA-101)"
               }
             },
-            required: %w[id title description summary category booking_type area partner_name]
+            required: %w[id title description summary category booking_type area business units_count units_label
+              partner_name]
+          },
+          # The business offering a listing, as a guest sees it (RAA-100).
+          business_ref: {
+            type: :object,
+            properties: { name: { type: :string } },
+            required: %w[name]
           },
           # A published landmark on a guest's map, exact location included: it's a public place.
           landmark_pin: {
@@ -296,6 +328,11 @@ RSpec.configure do |config|
               attrs: { type: :object, additionalProperties: true, description: "Matches the category's attribute_schema" },
               cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" },
               units_count: { type: :integer, minimum: 1, description: "How many identical items, rooms or vehicles it has" },
+              business: {
+                type: :object,
+                properties: { id: { type: :integer }, name: { type: :string } },
+                required: %w[id name]
+              },
               landmarks: {
                 type: :array, items: { "$ref" => "#/components/schemas/partner_landmark" },
                 description: "The landmarks a tour or activity visits, by name; empty for other listings"
@@ -308,7 +345,35 @@ RSpec.configure do |config|
               updated_at: { type: :string, format: "date-time" }
             },
             required: %w[id title description status category area address location attrs cancellation_policy units_count
-              landmarks covers created_at updated_at]
+              business landmarks covers created_at updated_at]
+          },
+          # A business a partner runs (RAA-100); its listings are shown under its name.
+          partner_business: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              name: { type: :string },
+              description: { type: :string },
+              address: { "$ref" => "#/components/schemas/profile_address" },
+              location: {
+                allOf: [ { "$ref" => "#/components/schemas/lat_lng" } ], nullable: true,
+                description: "The map pin; null on a business made before pins, until the partner sets it"
+              },
+              listings_count: { type: :integer },
+              created_at: { type: :string, format: "date-time" },
+              updated_at: { type: :string, format: "date-time" }
+            },
+            required: %w[id name description address location listings_count created_at updated_at]
+          },
+          business_body: {
+            type: :object,
+            properties: {
+              name: { type: :string, maxLength: 80, description: "Unique among the partner's businesses, ignoring case" },
+              description: { type: :string, maxLength: 2000, description: "Optional; left out on a change, it stays" },
+              address: ADDRESS_BODY.merge(description: "Required on a new business; left out on a change, it stays"),
+              location: LOCATION_BODY.merge(description: "Required on a new business; left out on a change, it stays")
+            },
+            required: %w[name]
           },
           # A published landmark in the partner's tour landmark picker, with its destination.
           partner_landmark: {
@@ -349,30 +414,17 @@ RSpec.configure do |config|
               title: { type: :string, maxLength: 120 },
               description: { type: :string, maxLength: 5000 },
               category_id: { type: :integer, description: "A bookable (leaf) category" },
-              address: {
-                type: :object,
-                properties: {
-                  street: { type: :string },
-                  city: { type: :string },
-                  region: { type: :string },
-                  province: { type: :string, nullable: true, description: "Optional: none in Metro Manila" },
-                  postal_code: { type: :string },
-                  country: { type: :string, description: "ISO 3166-1 alpha-2, e.g. PH" }
-                },
-                required: %w[street city region postal_code country]
-              },
-              location: {
-                type: :object,
-                properties: {
-                  lat: { type: :number, minimum: -90, maximum: 90 },
-                  lng: { type: :number, minimum: -180, maximum: 180 }
-                },
-                required: %w[lat lng]
-              },
+              address: ADDRESS_BODY,
+              location: LOCATION_BODY,
               attrs: { type: :object, additionalProperties: true },
               cancellation_policy: {
                 allOf: [ { "$ref" => "#/components/schemas/cancellation_policy" } ],
                 description: "Left out on adding a listing, it is free_cancellation; left out on a change, it stays as it is"
+              },
+              business_id: {
+                type: :integer,
+                description: "One of the partner's businesses (RAA-100). Left out on adding a listing, it is the " \
+                  "partner's only business, and required when they have several; left out on a change, it stays"
               },
               units_count: {
                 type: :integer, minimum: 1, maximum: 100,
@@ -490,9 +542,13 @@ RSpec.configure do |config|
                     area_slug: { type: :string },
                     booking_type: { type: :string, enum: %w[rental stay activity transfer] },
                     summary: { type: :string, description: "As in listing_detail" },
-                    partner_name: { type: :string, description: "As in listing_detail" }
+                    business: { "$ref" => "#/components/schemas/business_ref" },
+                    units_count: { type: :integer, minimum: 1 },
+                    units_label: { type: :string, description: "As in listing_detail" },
+                    partner_name: { type: :string, deprecated: true, description: "As in listing_detail" }
                   },
-                  required: %w[id title category area_slug booking_type summary partner_name]
+                  required: %w[id title category area_slug booking_type summary business units_count units_label
+                    partner_name]
                 }
               }
             },

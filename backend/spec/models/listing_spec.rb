@@ -32,8 +32,17 @@ RSpec.describe Listing do
   end
 
   it "can't be owned by a guest even bypassing validations" do
-    listing = build(:listing, partner: create(:user))
+    listing = build(:listing, partner: create(:user), business: create(:business))
 
+    expect { listing.save!(validate: false) }.to raise_error(ActiveRecord::InvalidForeignKey)
+  end
+
+  it "belongs to one of its partner's businesses, even bypassing validations" do
+    partner = create(:user, :partner)
+    listing = build(:listing, partner:, business: create(:business))
+
+    expect(listing).not_to be_valid
+    expect(listing.errors[:business]).to include("must be one of the partner's businesses")
     expect { listing.save!(validate: false) }.to raise_error(ActiveRecord::InvalidForeignKey)
   end
 

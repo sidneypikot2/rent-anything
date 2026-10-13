@@ -17,6 +17,8 @@ class Listing < ApplicationRecord
 
   belongs_to :area
   belongs_to :partner, class_name: "User"
+  # One of the partner's businesses (RAA-100); a foreign key also keeps it the partner's own.
+  belongs_to :business
   belongs_to :category
   has_many :listing_landmarks, dependent: :delete_all
   has_many :landmarks, through: :listing_landmarks
@@ -38,6 +40,7 @@ class Listing < ApplicationRecord
   validates :street, :city, :region, :postal_code, presence: true, on: :create
   validates :country, format: { with: /\A[A-Z]{2}\z/, message: "must be a two-letter country code" }
   validate :partner_is_a_partner
+  validate :business_is_the_partners
   validate :category_is_a_leaf
   validate :attrs_match_category_schema
 
@@ -45,6 +48,10 @@ class Listing < ApplicationRecord
 
   def partner_is_a_partner
     errors.add(:partner, "must be a partner") if partner && !partner.partner?
+  end
+
+  def business_is_the_partners
+    errors.add(:business, "must be one of the partner's businesses") if business && business.partner_id != partner_id
   end
 
   def category_is_a_leaf

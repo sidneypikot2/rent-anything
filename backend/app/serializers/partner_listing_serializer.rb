@@ -18,6 +18,7 @@ module PartnerListingSerializer
       attrs: listing.attrs,
       cancellation_policy: listing.cancellation_policy,
       units_count: listing.units.size,
+      business: { id: listing.business.id, name: listing.business.name },
       landmarks:,
       covers: landmarks.filter_map { |landmark| landmark[:destination] }.uniq.sort_by { |place| place[:name] },
       created_at: listing.created_at,

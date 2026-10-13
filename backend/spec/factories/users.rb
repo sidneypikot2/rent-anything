@@ -14,9 +14,9 @@ FactoryBot.define do
       after(:create) { |user| create(:partner_verification, :approved, user:) }
     end
 
-    # A partner whose profile has the display name travellers see (RAA-86), so may add listings.
-    trait :display_name do
-      after(:create) { |user| create(:partner_profile, user:, display_name: "Moalboal Gear Rentals") }
+    # A partner with a business (RAA-100), whose name travellers see, so may add listings.
+    trait :business do
+      after(:create) { |user| create(:business, partner: user, name: "Moalboal Gear Rentals") }
     end
 
     trait :admin do

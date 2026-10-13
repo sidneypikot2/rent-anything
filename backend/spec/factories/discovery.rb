@@ -43,6 +43,8 @@ FactoryBot.define do
     area
     category
     partner factory: %i[user partner]
+    # The partner's first business (RAA-100), or a new one.
+    business { partner.businesses.first || association(:business, partner:) }
     title { "GoPro Hero 12" }
     location { "POINT(123.368 9.933)" }
     street { "Panagsama Beach" }

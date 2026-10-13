@@ -41,7 +41,8 @@ RSpec.describe "Listings", type: :request do
     get "One active listing, as a traveller sees it" do
       tags "Discovery"
       produces "application/json"
-      description "An active listing's description, category, area and partner. Never its location or address: " \
+      description "An active listing's description, category, area, business and number of units. Never its " \
+        "location or address: " \
         "the exact point is revealed only after a paid booking. Draft and pending listings are a 404."
       parameter name: :id, in: :path, type: :integer
 
@@ -50,7 +51,7 @@ RSpec.describe "Listings", type: :request do
         let(:tour) { create(:category, slug: "tour", name: "Tour", booking_type: "activity") }
         let(:id) do
           create(:listing, area: moalboal, category: tour, title: "Sardine run snorkel",
-            partner: create(:user, :partner, :display_name), description: "#{"Swim with the sardines. " * 10}\nFins included.").id
+            partner: create(:user, :partner, :business), description: "#{"Swim with the sardines. " * 10}\nFins included.").id
         end
 
         run_test! do |response|
@@ -58,6 +59,7 @@ RSpec.describe "Listings", type: :request do
           expect(json).to include(
             "id" => id, "title" => "Sardine run snorkel", "booking_type" => "activity",
             "category" => { "slug" => "tour", "name" => "Tour" }, "area" => { "slug" => "moalboal", "name" => "Moalboal" },
+            "business" => { "name" => "Moalboal Gear Rentals" }, "units_count" => 1, "units_label" => "1 unit",
             "partner_name" => "Moalboal Gear Rentals"
           )
           expect(json["description"]).to end_with("\nFins included.")
@@ -67,12 +69,17 @@ RSpec.describe "Listings", type: :request do
         end
       end
 
-      response "200", "a partner without a profile" do
+      response "200", "units in the category's words" do
         schema "$ref" => "#/components/schemas/listing_detail"
         let(:id) { gopro.id }
 
+        before do
+          camera.update!(unit_name: "camera", unit_name_plural: "cameras")
+          gopro.units.create!([ { position: 2 }, { position: 3 } ])
+        end
+
         run_test! do |response|
-          expect(response.parsed_body).to include("partner_name" => "Local partner", "summary" => "")
+          expect(response.parsed_body).to include("units_count" => 3, "units_label" => "3 cameras", "summary" => "")
         end
       end
 
