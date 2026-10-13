@@ -12,9 +12,10 @@ import { AreaScene } from "./scenes";
 
 // Every photo card shares this frame (Sky & Forest, RAA-102): the photo fills a card-radius
 // box with the soft shadow; on hover the card rises and the photo slowly zooms. The content
-// sits on glass 12px in, at the control radius (the card's 24px less the inset).
+// sits on glass 12px in, at the control radius (the card's 24px less the inset). The card edge's
+// frosted rim shows the backdrop around the photo.
 export const PHOTO_CARD =
-  "group relative isolate overflow-hidden rounded-card shadow-soft transition-[transform,box-shadow] duration-500 ease-calm hover:-translate-y-1 hover:shadow-lift";
+  "card-edge group relative isolate overflow-hidden rounded-card shadow-soft transition-[transform,box-shadow] duration-500 ease-calm hover:-translate-y-1 hover:shadow-lift";
 export const PHOTO_CARD_IMAGE =
   "-z-20 object-cover object-[50%_70%] transition-transform duration-[1200ms] ease-calm group-hover:scale-105";
 const PHOTO_SCRIM = "absolute inset-0 -z-10 bg-linear-to-b from-transparent via-transparent to-scrim/55";
@@ -169,6 +170,7 @@ export function DestinationCard({
     return (
       <Card
         data-testid="destination-card"
+        bordered={false}
         className={cn(PHOTO_CARD, "flex min-h-[26rem] flex-col justify-end p-3", className)}
       >
         <Image src={photo.src} alt={photo.alt} fill sizes="(min-width: 640px) 50vw, 100vw" className={PHOTO_CARD_IMAGE} />
@@ -277,7 +279,7 @@ function PhotoCard({
   ...props
 }: { photo: Photo; className?: string; children: ReactNode } & Omit<ComponentProps<"div">, "children">) {
   return (
-    <Card className={cn(PHOTO_CARD, "flex min-h-80 flex-col justify-end p-3", className)} {...props}>
+    <Card bordered={false} className={cn(PHOTO_CARD, "flex min-h-80 flex-col justify-end p-3", className)} {...props}>
       <Image src={photo.src} alt={photo.alt} fill sizes="(min-width: 640px) 50vw, 100vw" className={PHOTO_CARD_IMAGE} />
       <div aria-hidden className={PHOTO_SCRIM} />
       <GlassPanel className="flex flex-col gap-3 rounded-control p-5">{children}</GlassPanel>

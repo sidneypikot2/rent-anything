@@ -102,7 +102,7 @@ export function ComboboxField({ label, value, onChange, options, hint, error, cl
           id={listId}
           role="listbox"
           aria-label={label}
-          className="absolute top-full z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-control border border-line bg-surface py-1 font-normal shadow-lift"
+          className="absolute top-full z-20 mt-1 max-h-60 w-full overflow-y-auto card-edge rounded-control bg-surface py-1 font-normal shadow-lift"
         >
           {shown.map((option, index) => (
             <li

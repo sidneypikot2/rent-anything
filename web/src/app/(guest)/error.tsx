@@ -1,5 +1,6 @@
 "use client";
 
+import { PageSheet } from "@/components/landing/page-sheet";
 import { Button } from "@/components/ui/button";
 import { DisplayTitle } from "@/components/ui/typography";
 
@@ -7,12 +8,16 @@ import { DisplayTitle } from "@/components/ui/typography";
 // up. The header and footer stay; "Try again" re-fetches the page.
 export default function GuestError({ retry }: { error: Error & { digest?: string }; retry: () => void }) {
   return (
-    <main className="mx-auto flex w-full max-w-page flex-1 flex-col items-start gap-4 px-gutter py-page-pad">
-      <DisplayTitle>We couldn&apos;t load this page</DisplayTitle>
-      <p className="max-w-prose text-muted">
-        Our server may be waking up. Give it a few seconds and try again.
-      </p>
-      <Button onClick={() => retry()}>Try again</Button>
+    <main className="flex flex-1 flex-col pt-3 sm:pt-6">
+      <PageSheet>
+        <div className="mx-auto flex w-full max-w-page flex-1 flex-col items-start gap-4 px-gutter py-page-pad">
+          <DisplayTitle>We couldn&apos;t load this page</DisplayTitle>
+          <p className="max-w-prose text-muted">
+            Our server may be waking up. Give it a few seconds and try again.
+          </p>
+          <Button onClick={() => retry()}>Try again</Button>
+        </div>
+      </PageSheet>
     </main>
   );
 }

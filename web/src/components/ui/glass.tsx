@@ -10,6 +10,9 @@ const TONES = {
   light: "border-white/60 bg-white/70 text-foreground backdrop-blur-md",
   // The faint frame inset into a full-bleed hero, holding the other panels.
   frame: "border-glass-edge bg-white/5 text-white inset-shadow-xs inset-shadow-white/25 backdrop-blur-[2px]",
+  // A guest page's content over the fixed backdrop (RAA-107): the same glass as the hero frame. It
+  // carries on-glass (globals.css): the text inside turns light, white cards keep theirs dark.
+  sheet: "on-glass border-glass-edge bg-white/5 inset-shadow-xs inset-shadow-white/25 backdrop-blur-[2px]",
 };
 
 export type GlassTone = keyof typeof TONES;

@@ -1,9 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import { GlassPanel } from "@/components/ui/glass";
 import { TAGLINE } from "@/lib/brand";
 import { Logo } from "./logo";
-import { BAND_PHOTO } from "./sample-photos";
 
 const LINKS = [
   { href: "/#destinations", label: "Destinations" },
@@ -11,14 +9,12 @@ const LINKS = [
   { href: "/partner/register", label: "List with us" },
 ];
 
-// The guest footer: a few links and the line about what we are, on glass over a
-// forest-tinted photo (Sky & Forest, RAA-102). The photo is decorative.
+// The guest footer: a few links and the line about what we are, on glass over the guest
+// pages' fixed backdrop (Sky & Forest, RAA-102; RAA-107).
 export function SiteFooter() {
   return (
-    <footer className="relative isolate mt-auto overflow-hidden text-white">
-      <Image src={BAND_PHOTO} alt="" fill sizes="100vw" className="-z-20 object-cover" />
-      <div aria-hidden className="absolute inset-0 -z-10 bg-linear-to-r from-forest/95 via-forest/85 to-forest/65" />
-      <div className="mx-auto flex w-full max-w-page flex-col gap-gutter px-gutter py-block sm:flex-row sm:items-stretch sm:py-16">
+    <footer className="mt-auto text-white">
+      <div className="mx-auto flex w-full max-w-page flex-col gap-gutter px-gutter py-8 sm:flex-row sm:items-stretch sm:py-10">
         <div className="flex flex-1 flex-col justify-center gap-1">
           <Logo className="text-2xl" />
           <p className="font-display font-semibold text-sky-mist">{TAGLINE}</p>

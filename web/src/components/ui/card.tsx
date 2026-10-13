@@ -2,13 +2,24 @@ import Link from "next/link";
 import type { ComponentProps } from "react";
 import { cn } from "./cn";
 
-// A white panel: a hairline border and the soft shadow. Pad it with CardBody, or put media
-// flush against its edges first. `clip={false}` lets a dropdown inside it hang over its
-// edge; media then needs its own rounded corners.
-export function Card({ clip = true, className, ...props }: { clip?: boolean } & ComponentProps<"div">) {
+// A white panel: the frosted card edge (globals.css) and the soft shadow. Pad it with CardBody,
+// or put media flush against its edges first. `clip={false}` lets a dropdown inside it hang over
+// its edge; media then needs its own rounded corners. `bordered={false}` drops the edge, for a
+// card that brings its own (a photo card).
+export function Card({
+  clip = true,
+  bordered = true,
+  className,
+  ...props
+}: { clip?: boolean; bordered?: boolean } & ComponentProps<"div">) {
   return (
     <div
-      className={cn("rounded-card border border-line bg-surface shadow-soft", clip && "overflow-hidden", className)}
+      className={cn(
+        "rounded-card bg-surface shadow-soft",
+        bordered && "card-edge",
+        clip && "overflow-hidden",
+        className,
+      )}
       {...props}
     />
   );
@@ -19,7 +30,7 @@ export function CardLink({ className, ...props }: ComponentProps<typeof Link>) {
   return (
     <Link
       className={cn(
-        "block rounded-card border border-line bg-surface shadow-soft",
+        "card-edge block rounded-card bg-surface shadow-soft",
         // It rises a little on hover, slowly, and settles back.
         "transition-[transform,box-shadow,border-color] duration-500 ease-calm hover:-translate-y-1 hover:border-fern hover:shadow-lift",
         className,
