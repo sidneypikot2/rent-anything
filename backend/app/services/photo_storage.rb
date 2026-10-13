@@ -3,6 +3,8 @@
 # (root), so development never writes over staging's, nor one local stack over another's.
 # The R2_* values are an R2 API token's keys, the bucket and its public address
 # (backend/.env.example). Guests load photos from R2_PUBLIC_URL, never through this API.
+# A local stack whose backend/.env leaves R2_BUCKET blank keeps its photos on disk instead
+# (PhotoStorage::Disk), behind the same methods.
 # Specs stub the client (spec/support).
 module PhotoStorage
   UPLOAD_EXPIRES_IN = 10.minutes
@@ -12,6 +14,8 @@ module PhotoStorage
   # Where the browser PUTs a photo: a URL signed for exactly this type, size and MD5, and the
   # headers it must send with the bytes.
   def upload_url(key, content_type:, byte_size:, checksum:)
+    return Disk.upload_url(key, content_type:, byte_size:, checksum:) if disk?
+
     url = Aws::S3::Presigner.new(client:).presigned_url(
       :put_object, bucket:, key:, expires_in: UPLOAD_EXPIRES_IN.to_i,
       content_type:, content_length: byte_size, content_md5: checksum, whitelist_headers: [ "content-length" ]
@@ -20,6 +24,8 @@ module PhotoStorage
   end
 
   def exist?(key)
+    return Disk.exist?(key) if disk?
+
     client.head_object(bucket:, key:)
     true
   rescue Aws::S3::Errors::NotFound, Aws::S3::Errors::NoSuchKey
@@ -28,6 +34,8 @@ module PhotoStorage
 
   # The object's bytes, in a binary Tempfile the caller closes.
   def download(key)
+    return Disk.download(key) if disk?
+
     file = Tempfile.new([ "photo", File.extname(key) ], binmode: true)
     client.get_object(bucket:, key:, response_target: file)
     file.rewind
@@ -35,12 +43,15 @@ module PhotoStorage
   end
 
   def upload(key, io, content_type:)
+    return Disk.upload(key, io, content_type:) if disk?
+
     client.put_object(bucket:, key:, body: io, content_type:)
   end
 
   # Keys that aren't there are skipped: S3 reports them deleted.
   def delete(keys)
     return if keys.empty?
+    return Disk.delete(keys) if disk?
 
     client.delete_objects(bucket:, delete: { objects: keys.map { |key| { key: } }, quiet: true })
   end
@@ -57,7 +68,14 @@ module PhotoStorage
   end
 
   def public_url(key)
+    return Disk.public_url(key) if disk?
+
     "#{ENV.fetch('R2_PUBLIC_URL', '').chomp('/')}/#{key}"
+  end
+
+  # The local stack without R2 keys in backend/.env.
+  def disk?
+    Rails.env.development? && ENV["R2_BUCKET"].blank?
   end
 
   def bucket

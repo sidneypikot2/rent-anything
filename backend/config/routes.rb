@@ -5,6 +5,9 @@ Rails.application.routes.draw do
   # The OpenAPI document generated from the request specs (swagger/v1/openapi.yaml).
   mount Rswag::Api::Engine => "/api-docs"
 
+  # The local stack's stand-in for R2's signed photo uploads (PhotoStorage::Disk, RAA-106).
+  put "dev/photo_uploads/:token", to: "dev/photo_uploads#update" if Rails.env.local?
+
   namespace :api do
     namespace :v1 do
       resource :health, only: :show, controller: "health"
