@@ -12,5 +12,8 @@ class CreateListingPhotos < ActiveRecord::Migration[8.1]
     add_unique_constraint :listing_photos, %i[listing_id position], deferrable: :deferred,
       name: "listing_photos_listing_id_position_key"
     add_check_constraint :listing_photos, "position >= 1", name: "listing_photos_position_check"
+    # An uploaded image belongs to one photo: deleting a photo purges its image.
+    add_index :active_storage_attachments, :blob_id, unique: true, where: "record_type = 'ListingPhoto'",
+      name: "index_active_storage_attachments_on_listing_photo_blob"
   end
 end

@@ -79,10 +79,12 @@ module Listings
 
     # Keeps the photos still listed, at their new places, adds the new ones and deletes the
     # rest (their images are purged from storage after the commit). Positions are unique only
-    # at commit, so two photos can swap places.
+    # at commit, so two photos can swap places; the listing's row is locked first, so two saves
+    # of one listing don't both pass that and fail at commit.
     def save_photos!(listing)
       return if @photo_blobs.nil?
 
+      Listing.where(id: listing.id).lock.pluck(:id)
       existing = listing.photos.includes(image_attachment: :blob).index_by { |photo| photo.image.blob_id }
       (existing.keys - @photo_blobs.map(&:id)).each { |blob_id| existing[blob_id].destroy! }
       @photo_blobs.each.with_index(1) do |blob, position|
@@ -137,13 +139,27 @@ module Listings
       end
       error("Photos must be at most 10 MB each") if found.any? { |blob| blob.byte_size > ListingPhoto::MAX_BYTES }
       error("Photos must not be on another listing") if attached_elsewhere?(found)
+      # A reserved photo whose bytes never reached storage: the browser's PUT failed or is
+      # still going. Only new photos are checked, one request to storage each.
+      new_blobs = found.reject { |blob| own_blob_ids.include?(blob.id) }
+      if new_blobs.any? { |blob| !blob.service.exist?(blob.key) }
+        error("Photos must finish uploading before the listing is saved")
+      end
       found
     end
 
     def attached_elsewhere?(blobs)
-      own = @listing&.persisted? ? ListingPhoto.where(listing_id: @listing.id).select(:id) : ListingPhoto.none
-      ActiveStorage::Attachment.where(blob_id: blobs.map(&:id))
-        .where.not(record_type: "ListingPhoto", record_id: own).exists?
+      ActiveStorage::Attachment.where(blob_id: blobs.map(&:id)).where.not(blob_id: own_blob_ids).exists?
+    end
+
+    # The blobs of the photos this listing already has.
+    def own_blob_ids
+      @own_blob_ids ||= if @listing&.persisted?
+        ActiveStorage::Attachment.where(record_type: "ListingPhoto", record_id: @listing.photos.select(:id))
+          .pluck(:blob_id)
+      else
+        []
+      end
     end
 
     # nil keeps the listing's landmarks as they are; an array replaces them.

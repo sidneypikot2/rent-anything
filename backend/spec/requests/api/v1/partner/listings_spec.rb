@@ -291,6 +291,21 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
+      response "422", "a photo reserved but never uploaded" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:reserved) do
+          ActiveStorage::Blob.create_before_direct_upload!(filename: "beach.jpg", byte_size: 505,
+            checksum: "1B2M2Y8AsgTpgAmY7PhCfg==", content_type: "image/jpeg")
+        end
+
+        before { body[:photos] = [ reserved.signed_id ] }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "Photos must finish uploading before the listing is saved" ])
+        end
+      end
+
       response "422", "a photo already on another listing" do
         schema "$ref" => "#/components/schemas/validation_errors"
 

@@ -32,6 +32,8 @@ class Listing < ApplicationRecord
   # Its photos in the partner's order, the first the cover (RAA-106). Destroyed one by one so
   # each image is deleted from storage too.
   has_many :photos, -> { order(:position) }, class_name: "ListingPhoto", dependent: :destroy, inverse_of: :listing
+  # The first, alone, for lists of listings, which show only the cover.
+  has_one :cover_photo, -> { where(position: 1) }, class_name: "ListingPhoto", inverse_of: false
 
   enum :status, STATUSES.index_with(&:itself), validate: true
 

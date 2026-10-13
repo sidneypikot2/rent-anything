@@ -25,6 +25,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_145200) do
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
     t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
+    t.index ["blob_id"], name: "index_active_storage_attachments_on_listing_photo_blob", unique: true, where: "((record_type)::text = 'ListingPhoto'::text)"
     t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
   end
 

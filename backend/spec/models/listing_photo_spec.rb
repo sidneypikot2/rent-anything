@@ -42,6 +42,12 @@ RSpec.describe ListingPhoto do
     expect { listing.photos.create!(position: 1, image: uploaded_photo) }.to raise_error(ActiveRecord::RecordNotUnique)
   end
 
+  it "keeps an image to one photo, so deleting one never purges another's" do
+    blob = listing.photos.create!(position: 1, image: uploaded_photo).image.blob
+
+    expect { create(:listing).photos.create!(position: 1, image: blob) }.to raise_error(ActiveRecord::RecordNotUnique)
+  end
+
   it "goes with its listing, and its image is deleted from storage" do
     photo = listing.photos.create!(position: 1, image: uploaded_photo)
 

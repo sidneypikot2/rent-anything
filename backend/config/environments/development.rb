@@ -32,7 +32,7 @@ Rails.application.configure do
 
   # Uploaded files stay on this disk (backend/storage) unless ACTIVE_STORAGE_SERVICE=cloudflare
   # and the R2_* values in backend/.env point at a bucket (RAA-106).
-  config.active_storage.service = ENV.fetch("ACTIVE_STORAGE_SERVICE", "local").to_sym
+  config.active_storage.service = (ENV["ACTIVE_STORAGE_SERVICE"].presence || "local").to_sym
 
   # Don't care if the mailer can't send.
   config.action_mailer.raise_delivery_errors = false

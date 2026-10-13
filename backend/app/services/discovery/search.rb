@@ -80,7 +80,7 @@ module Discovery
       conditions = columns.map { |column| "#{column} LIKE :contains OR word_similarity(:q, #{column}) > :threshold" }
       title = normalized("listings.title")
 
-      Listing.active.joins(:category).includes(:category, :area, photos: ListingPhoto::WITH_IMAGE)
+      Listing.active.joins(:category).includes(:category, :area, cover_photo: ListingPhoto::WITH_IMAGE)
         .where(sanitize(conditions.join(" OR ")))
         .order(Arel.sql(sanitize(<<~SQL.squish)))
           CASE WHEN #{title} = :q THEN 0

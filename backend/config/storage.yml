@@ -8,7 +8,7 @@ local:
 
 # Listing photos on Cloudflare R2 (RAA-106), through its S3 API. The R2_* values are an R2
 # API token's keys and the bucket (backend/.env.example). The bucket is served publicly at
-# R2_PUBLIC_URL, which is how guests load photos (ListingPhotos::Urls), not through this API.
+# R2_PUBLIC_URL, which is how guests load photos (ListingPhotoSerializer), not through this API.
 cloudflare:
   service: S3
   endpoint: https://<%= ENV["R2_ACCOUNT_ID"] %>.r2.cloudflarestorage.com

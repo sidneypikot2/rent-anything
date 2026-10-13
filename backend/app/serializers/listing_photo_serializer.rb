@@ -15,8 +15,9 @@ module ListingPhotoSerializer
     { id: photo.image.blob.signed_id, **call(photo) }
   end
 
+  # Preload cover_photo: ListingPhoto::WITH_IMAGE.
   def self.cover_url(listing)
-    photo = listing.photos.first
+    photo = listing.cover_photo
     photo && url(photo, :card)
   end
 
