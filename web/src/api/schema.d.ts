@@ -1146,7 +1146,7 @@ export interface paths {
         put?: never;
         /**
          * Add a business
-         * @description Partner-only. `name` is required, up to 80 characters, and unique among the partner's businesses ignoring case; `description` is optional.
+         * @description Partner-only. `name` is required, up to 80 characters, and unique among the partner's businesses ignoring case; `description` is optional. `address` and `location` (the map pin) are required: a new listing can copy them ("Same as Business Address").
          */
         post: {
             parameters: {
@@ -1280,7 +1280,7 @@ export interface paths {
         head?: never;
         /**
          * Rename a business or change its description
-         * @description Partner-only. The same body and rules as adding one. Another partner's business is a 404.
+         * @description Partner-only. The same body and rules as adding one, except that `description`, `address` and `location` are kept when left out. Another partner's business is a 404.
          */
         patch: {
             parameters: {
@@ -1299,7 +1299,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description saved; a description left out is kept */
+                /** @description an address and pin given to a business that had none */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -3293,6 +3293,9 @@ export interface components {
             id: number;
             name: string;
             description: string;
+            address: components["schemas"]["profile_address"];
+            /** @description The map pin; null on a business made before pins, until the partner sets it */
+            location: components["schemas"]["lat_lng"] | null;
             listings_count: number;
             /** Format: date-time */
             created_at: string;
@@ -3304,6 +3307,22 @@ export interface components {
             name: string;
             /** @description Optional; left out on a change, it stays */
             description?: string;
+            /** @description Required on a new business; left out on a change, it stays */
+            address?: {
+                street: string;
+                city: string;
+                region: string;
+                /** @description Optional: none in Metro Manila */
+                province?: string | null;
+                postal_code: string;
+                /** @description ISO 3166-1 alpha-2, e.g. PH */
+                country: string;
+            };
+            /** @description Required on a new business; left out on a change, it stays */
+            location?: {
+                lat: number;
+                lng: number;
+            };
         };
         partner_landmark: {
             id: number;

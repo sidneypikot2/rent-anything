@@ -1,6 +1,12 @@
 require "swagger_helper"
 
 RSpec.describe "Partner businesses", type: :request do
+  let(:address) do
+    { street: "Sitio Maricaban", city: "Santa Fe", province: "Cebu", region: "Central Visayas",
+      postal_code: "6047", country: "PH" }
+  end
+  let(:location) { { lat: 11.155, lng: 123.805 } }
+
   path "/api/v1/partner/businesses" do
     get "The signed-in partner's businesses" do
       tags "Partner"
@@ -49,21 +55,25 @@ RSpec.describe "Partner businesses", type: :request do
       consumes "application/json"
       produces "application/json"
       description "Partner-only. `name` is required, up to 80 characters, and unique among the partner's " \
-        "businesses ignoring case; `description` is optional."
+        "businesses ignoring case; `description` is optional. `address` and `location` (the map pin) are " \
+        "required: a new listing can copy them (\"Same as Business Address\")."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
       parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/business_body" }
 
       let(:user) { create(:user, :partner) }
       let(:Authorization) { bearer_for(user) }
-      let(:body) { { name: "  Basilia Guest House ", description: "Five rooms by the beach." } }
+      let(:body) do
+        { name: "  Basilia Guest House ", description: "Five rooms by the beach.", address:, location: }
+      end
 
-      response "201", "added" do
+      response "201", "added, with its address and map pin" do
         schema "$ref" => "#/components/schemas/partner_business"
 
         run_test! do |response|
           expect(response.parsed_body).to include(
-            "name" => "Basilia Guest House", "description" => "Five rooms by the beach.", "listings_count" => 0
+            "name" => "Basilia Guest House", "description" => "Five rooms by the beach.", "listings_count" => 0,
+            "address" => address.stringify_keys, "location" => { "lat" => 11.155, "lng" => 123.805 }
           )
           expect(user.businesses.sole.name).to eq("Basilia Guest House")
         end
@@ -71,7 +81,7 @@ RSpec.describe "Partner businesses", type: :request do
 
       response "201", "without a description" do
         schema "$ref" => "#/components/schemas/partner_business"
-        let(:body) { { name: "Basilia Motor Rentals" } }
+        let(:body) { { name: "Basilia Motor Rentals", address:, location: } }
 
         run_test! { |response| expect(response.parsed_body["description"]).to eq("") }
       end
@@ -97,7 +107,7 @@ RSpec.describe "Partner businesses", type: :request do
       response "422", "a missing name, and a description that isn't text" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
-        let(:body) { { description: 5 } }
+        let(:body) { { description: 5, address:, location: } }
 
         run_test! do |response|
           expect(response.parsed_body["errors"]).to include("Name is required", "Description must be text")
@@ -105,10 +115,34 @@ RSpec.describe "Partner businesses", type: :request do
         end
       end
 
+      response "422", "no address or map pin" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:body) { { name: "Basilia Guest House" } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Address must be an object", "Location is required")
+          expect(Business.count).to eq(0)
+        end
+      end
+
+      response "422", "an incomplete address and a pin off the map" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:body) { { name: "Basilia Guest House", address: address.merge(city: " ", region: 5), location: { lat: 91, lng: "123" } } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include(
+            "City is required", "Region is required",
+            "Latitude must be a number between -90 and 90", "Longitude must be a number between -180 and 180"
+          )
+        end
+      end
+
       response "422", "a name too long" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
-        let(:body) { { name: "x" * 81 } }
+        let(:body) { { name: "x" * 81, address:, location: } }
 
         run_test! do |response|
           expect(response.parsed_body["errors"]).to include("Name is too long (maximum is 80 characters)")
@@ -118,7 +152,7 @@ RSpec.describe "Partner businesses", type: :request do
       response "422", "a blank name" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
-        let(:body) { { name: "  " } }
+        let(:body) { { name: "  ", address:, location: } }
 
         run_test! { |response| expect(response.parsed_body["errors"]).to include("Name is required") }
       end
@@ -186,19 +220,47 @@ RSpec.describe "Partner businesses", type: :request do
       tags "Partner"
       consumes "application/json"
       produces "application/json"
-      description "Partner-only. The same body and rules as adding one. Another partner's business is a 404."
+      description "Partner-only. The same body and rules as adding one, except that `description`, `address` and " \
+        "`location` are kept when left out. Another partner's business is a 404."
       security [ { bearer: [] } ]
       parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/business_body" }
 
       let(:body) { { name: "Basilia Beach Rooms" } }
 
-      response "200", "saved; a description left out is kept" do
+      response "200", "saved; a description, address and pin left out are kept" do
         schema "$ref" => "#/components/schemas/partner_business"
 
         before { business.update!(description: "By the beach.") }
 
         run_test! do |response|
           expect(response.parsed_body).to include("name" => "Basilia Beach Rooms", "description" => "By the beach.")
+          expect(response.parsed_body["address"]).to include("city" => "Moalboal")
+          expect(response.parsed_body["location"]).to eq("lat" => 9.933, "lng" => 123.368)
+        end
+      end
+
+      response "200", "an address and pin given to a business that had none" do
+        schema "$ref" => "#/components/schemas/partner_business"
+
+        let(:business) do
+          create(:business, partner: user, street: nil, city: nil, province: nil, region: nil, postal_code: nil,
+            location: nil)
+        end
+        let(:body) { { name: "Basilia Beach Rooms", address:, location: } }
+
+        run_test! do |response|
+          expect(response.parsed_body["address"]).to eq(address.stringify_keys)
+          expect(response.parsed_body["location"]).to eq("lat" => 11.155, "lng" => 123.805)
+        end
+      end
+
+      response "422", "an address sent incomplete" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { { name: "Basilia Beach Rooms", address: address.except(:street) } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Street is required")
+          expect(business.reload.street).to eq("Panagsama Beach")
         end
       end
 

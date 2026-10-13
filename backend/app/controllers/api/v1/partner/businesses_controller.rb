@@ -34,7 +34,7 @@ module Api
         end
 
         def business_params
-          params.slice(:name, :description)
+          params.slice(:name, :description, :address, :location)
         end
       end
     end
