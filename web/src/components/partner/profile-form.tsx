@@ -14,7 +14,8 @@ import { PHONE_ERROR, editablePhone, formatPhone, toE164 } from "@/lib/ph-phone"
 import { partnerProfileKey, type PartnerProfile } from "./use-partner-profile";
 
 // The partner's profile (RAA-40): read-only once complete, with Edit to change it; an
-// incomplete profile opens straight in the form. The guest's is its own page
+// incomplete profile opens straight in the form. Travellers see the business a listing
+// belongs to, not anything here (RAA-101). The guest's is its own page
 // (components/guest/): the two will grow different fields.
 export function ProfileDetails({ profile }: { profile: PartnerProfile }) {
   const [editing, setEditing] = useState(!profile.complete);
@@ -26,9 +27,6 @@ export function ProfileDetails({ profile }: { profile: PartnerProfile }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <ProfileSection title="Business">
-          <ProfileItem label="Display name" value={profile.display_name ?? "Not set: needed before you add a listing"} />
-        </ProfileSection>
         <ProfileSection title="Legal name">
           <ProfileItem label="First name" value={profile.legal_first_name} />
           <ProfileItem label="Last name" value={profile.legal_last_name} />
@@ -49,7 +47,6 @@ export function ProfileDetails({ profile }: { profile: PartnerProfile }) {
 }
 
 type Body = {
-  display_name: string | null;
   legal_first_name: string;
   legal_last_name: string;
   phone: string;
@@ -68,7 +65,6 @@ function ProfileForm({
   const queryClient = useQueryClient();
   const session = useSession();
 
-  const [displayName, setDisplayName] = useState(profile.display_name ?? "");
   const firstName = useNameField("First name", profile.legal_first_name);
   const lastName = useNameField("Last name", profile.legal_last_name);
   const [phoneNumber, setPhoneNumber] = useState(editablePhone(profile.phone));
@@ -99,7 +95,6 @@ function ProfileForm({
     if (!lastOk) return lastName.focus();
     if (!phone) return;
     save.mutate({
-      display_name: displayName.trim() || null,
       legal_first_name: firstName.value,
       legal_last_name: lastName.value,
       phone,
@@ -114,17 +109,6 @@ function ProfileForm({
           {save.error.message}
         </p>
       )}
-
-      <fieldset className="grid gap-3 sm:grid-cols-2">
-        <legend className="mb-3 font-semibold">Business</legend>
-        <Field
-          label="Display name"
-          name="display_name"
-          value={displayName}
-          onChange={(event) => setDisplayName(event.target.value)}
-          hint="Shown to travellers on your listings. Needed before you add one."
-        />
-      </fieldset>
 
       <fieldset className="grid gap-3 sm:grid-cols-2">
         <legend className="mb-3 font-semibold">Legal name</legend>

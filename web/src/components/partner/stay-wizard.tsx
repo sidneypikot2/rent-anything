@@ -14,9 +14,10 @@ import {
   type CancellationPolicies,
   type CancellationPolicy,
 } from "./cancellation-policy";
-import { categoryLabel, geocodeQuery, NO_ADDRESS } from "./listing-fields";
+import { categoryLabel, NO_ADDRESS } from "./listing-fields";
 import { LocationPicker } from "./location-picker";
 import { PhotoUploadSkeleton } from "./photo-upload-skeleton";
+import { SameAsBusinessAddress, useSameAsBusinessAddress } from "./same-as-business-address";
 import {
   AmenityChoice,
   NEW_STAY,
@@ -27,6 +28,7 @@ import {
   type StayErrors,
   type StayValues,
 } from "./stay-fields";
+import type { PartnerBusiness } from "./use-partner-businesses";
 import { useCreateListing, type ListingCategory } from "./use-partner-listings";
 import { UnitsField } from "./units-field";
 import { WizardCancel } from "./wizard-cancel";
@@ -50,7 +52,15 @@ const STEPS = [
 // and how many identical rooms or units it has (RAA-99).
 // Like ListingWizard, only the current step is on the page, every value is kept here and any
 // step already reached opens again (RAA-93).
-export function StayWizard({ category, policies }: { category: ListingCategory; policies: CancellationPolicies }) {
+export function StayWizard({
+  business,
+  category,
+  policies,
+}: {
+  business: PartnerBusiness;
+  category: ListingCategory;
+  policies: CancellationPolicies;
+}) {
   const router = useRouter();
   const create = useCreateListing();
   const [stepIndex, setStepIndex] = useState(0);
@@ -65,6 +75,10 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
   const address = usePhAddress(NO_ADDRESS);
   const [location, setLocation] = useState<LatLng | null>(null);
   const [locationError, setLocationError] = useState<string>();
+  const sameAddress = useSameAsBusinessAddress(business, address, (point) => {
+    setLocation(point);
+    setLocationError(undefined);
+  });
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [policy, setPolicy] = useState<CancellationPolicy>(DEFAULT_CANCELLATION_POLICY);
@@ -104,6 +118,7 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
       {
         title: title.trim(),
         description: description.trim(),
+        business_id: business.id,
         category_id: category.id,
         address: address.toBody(),
         location,
@@ -131,9 +146,10 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
           {step.key === "place" && (
             <>
               <p className="text-sm text-muted">
-                Listing a <span className="font-medium text-foreground">{categoryLabel(category)}</span>.{" "}
+                Listing a <span className="font-medium text-foreground">{categoryLabel(category)}</span> for{" "}
+                <span className="font-medium text-foreground">{business.name}</span>.{" "}
                 <Link
-                  href={`/partner/listings/new?category=${category.id}`}
+                  href={`/partner/listings/new?business=${business.id}&category=${category.id}`}
                   className="text-link underline"
                   data-testid="listing-change-category"
                 >
@@ -146,14 +162,16 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
 
           {step.key === "address" && (
             <>
-              <PhAddressFields address={address} />
+              <SameAsBusinessAddress business={business} checked={sameAddress.same} onChange={sameAddress.change} />
+              <PhAddressFields address={address} disabled={sameAddress.same} />
               <LocationPicker
                 value={location}
+                readOnly={sameAddress.same}
                 onChange={(point) => {
                   setLocation(point);
                   setLocationError(undefined);
                 }}
-                geocodeQuery={geocodeQuery(address)}
+                geocodeQuery={sameAddress.geocodeQuery}
                 error={locationError}
               />
             </>

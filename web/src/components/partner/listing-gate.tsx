@@ -21,20 +21,21 @@ export function ListingGate() {
   );
 }
 
-// Then until the partner has a display name (RAA-86): travellers see it on every listing.
-export function DisplayNameGate() {
+// Then until the partner has a business (RAA-101): each listing belongs to one, and
+// travellers see its name. Adding one comes back to adding the listing.
+export function BusinessGate() {
   return (
-    <Card data-testid="display-name-gate">
+    <Card data-testid="business-gate">
       <CardBody pad="lg" className="flex flex-col items-start gap-4">
         <div>
-          <h2 className="font-semibold">Add a display name first</h2>
+          <h2 className="font-semibold">Add your business first</h2>
           <p className="mt-1 text-sm text-muted">
-            Travellers see it on your listings: your business name, or the name you go by. Your legal name stays
-            private.
+            Each listing belongs to one of your businesses, and travellers see its name: your guest house, your
+            motorbike rental. Your legal name stays private.
           </p>
         </div>
-        <ButtonLink href="/partner/profile" data-testid="display-name-gate-profile">
-          Add a display name
+        <ButtonLink href="/partner/businesses/new?next=/partner/listings/new" data-testid="business-gate-add">
+          Add your business
         </ButtonLink>
       </CardBody>
     </Card>

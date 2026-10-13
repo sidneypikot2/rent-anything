@@ -41,6 +41,7 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
 
   compare("Title", listing.title, body.title);
   compare("Description", listing.description, body.description);
+  if (body.business_id !== undefined) compare("Business", listing.business.id, body.business_id);
   compare("Category", listing.category.id, body.category_id);
   for (const [key, label] of Object.entries(ADDRESS_LABELS)) {
     const field = key as keyof typeof ADDRESS_LABELS;

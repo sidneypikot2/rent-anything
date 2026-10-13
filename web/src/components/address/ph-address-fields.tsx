@@ -106,6 +106,15 @@ export function usePhAddress(saved: SavedAddress) {
     changeCity,
     setZip,
     setStreet,
+    // Every field at once, as saved elsewhere (a listing copying its business's address,
+    // RAA-101), without the cascade above clearing the fields below.
+    setAll: (next: SavedAddress) => {
+      setRegion(next.region ?? "");
+      setProvince(next.province ?? "");
+      setCity(next.city ?? "");
+      setZip(next.postal_code ?? "");
+      setStreet(next.street ?? "");
+    },
     toBody: () => ({
       country: COUNTRY,
       region: region.trim(),
@@ -117,12 +126,13 @@ export function usePhAddress(saved: SavedAddress) {
   };
 }
 
-export function PhAddressFields({ address }: { address: PhAddress }) {
+// `disabled` shows the address without letting it change (a listing using its business's).
+export function PhAddressFields({ address, disabled }: { address: PhAddress; disabled?: boolean }) {
   const { values, ph, regionPlace, provinces, provincePlace, hasProvinces, cities, zips } = address;
 
   return (
     // Six columns so each field is about as wide as what goes in it; one column on phones.
-    <fieldset className="grid gap-3 sm:grid-cols-6">
+    <fieldset disabled={disabled} className="grid gap-3 sm:grid-cols-6">
       <legend className="mb-3 font-semibold">Address</legend>
       <div className="sm:col-span-2">
         <Field label="Country" name="country" value={`🇵🇭 ${countryName(COUNTRY)}`} disabled readOnly />

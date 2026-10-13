@@ -63,6 +63,18 @@ export function geocodeQuery(address: PhAddress) {
   return `${parts.filter(Boolean).join(", ")} ${zip.trim()}, Philippines`;
 }
 
+// Whether the address differs from a saved one: a saved pin stays where it is until then.
+export function addressChanged(address: PhAddress, saved: PartnerListing["address"]) {
+  const { region, province, city, zip, street } = address.values;
+  return (
+    region.trim() !== (saved.region ?? "") ||
+    province.trim() !== (saved.province ?? "") ||
+    city.trim() !== (saved.city ?? "") ||
+    zip.trim() !== (saved.postal_code ?? "") ||
+    street.trim() !== (saved.street ?? "")
+  );
+}
+
 // Whether a listing of this category picks the landmarks it visits (RAA-70): tours and other
 // activities do; a photographer works wherever the guest is, so doesn't (RAA-89).
 export function visitsLandmarks(category: { booking_type: string; slug: string } | undefined) {
