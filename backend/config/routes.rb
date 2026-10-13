@@ -29,6 +29,8 @@ Rails.application.routes.draw do
       # Map pins for the guest nearby map (RAA-52), and one listing's page (RAA-86).
       resources :listings, only: %i[index show]
       resources :landmarks, only: :index
+      # What a stay at an accommodation listing costs (RAA-104).
+      get "quotes", to: "quotes#show"
       # One destination's listings, nearby destinations and recommendations (RAA-56).
       get "explore", to: "explore#index"
       # What guests search for and pick (RAA-60).

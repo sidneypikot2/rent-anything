@@ -47,7 +47,12 @@ const ICON_CATEGORIES = ["Tour", "Hotel or cottage", "Motorcycle", "Bicycle", "E
 // pages from these rather than from raw colours.
 export default function UiKit() {
   return (
-    <main data-testid="ui-kit" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-12 px-gutter py-page-pad">
+    // The kit shows each primitive as it looks on white, so it sits on a white panel inside the
+    // admin section's glass sheet.
+    <main
+      data-testid="ui-kit"
+      className="mx-auto my-3 flex w-full max-w-page flex-1 flex-col gap-12 rounded-card bg-surface px-gutter py-page-pad sm:my-6"
+    >
       <header className="flex flex-col gap-2">
         <Eyebrow>Colour system · 10 colours</Eyebrow>
         <DisplayTitle>

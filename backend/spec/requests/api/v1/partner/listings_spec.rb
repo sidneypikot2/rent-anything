@@ -379,6 +379,148 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
+      context "accommodation, priced by the night (RAA-104)" do
+        let(:category) { create(:category, :accommodation) }
+        let(:stay_rate) do
+          { nightly_price_cents: 250_000, weekend_price_cents: 300_000, base_guests: 2, extra_guest_fee_cents: 50_000,
+            weekly_discount_percent: 10, monthly_discount_percent: 20, min_nights: 2, max_nights: 30 }
+        end
+
+        before do
+          body.merge!(title: "Kota Beach house", attrs: { place_type: "entire_place", guests: 4 }, stay_rate:)
+        end
+
+        response "201", "with its stay rate and fees" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before do
+            body[:fees] = [
+              { name: " Cleaning fee ", amount_cents: 80_000, charged_per: "booking" },
+              { name: "Breakfast", amount_cents: 25_000, charged_per: "guest_night", required: false }
+            ]
+          end
+
+          run_test! do |response|
+            expect(response.parsed_body["stay_rate"]).to eq(stay_rate.stringify_keys)
+            expect(response.parsed_body["fees"].map { _1.except("id") }).to eq([
+              { "name" => "Cleaning fee", "amount_cents" => 80_000, "charged_per" => "booking", "required" => true },
+              { "name" => "Breakfast", "amount_cents" => 25_000, "charged_per" => "guest_night", "required" => false }
+            ])
+          end
+        end
+
+        response "201", "a stay rate's optional fields left out take their defaults" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          let(:stay_rate) { { nightly_price_cents: 150_000 } }
+
+          run_test! do |response|
+            expect(response.parsed_body["stay_rate"]).to eq(
+              "nightly_price_cents" => 150_000, "weekend_price_cents" => nil, "base_guests" => 1,
+              "extra_guest_fee_cents" => 0, "weekly_discount_percent" => 0, "monthly_discount_percent" => 0,
+              "min_nights" => 1, "max_nights" => nil
+            )
+            expect(response.parsed_body["fees"]).to eq([])
+          end
+        end
+
+        response "422", "no stay rate" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          before { body.delete(:stay_rate) }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to include("Stay rate is required for accommodation")
+            expect(Listing.count).to eq(0)
+          end
+        end
+
+        response "422", "no nightly price, or one that isn't a whole number above 0, and wrong-typed fields" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          let(:stay_rate) { { nightly_price_cents: 0, base_guests: "2", max_nights: 1.5 } }
+
+          run_test! do |refused|
+            expect(refused.parsed_body["errors"]).to include(
+              "Nightly price must be a whole number of centavos above 0",
+              "Guests included in the price must be a whole number",
+              "Maximum nights must be a whole number"
+            )
+            stay_rate.delete(:nightly_price_cents)
+            post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["errors"]).to include("Nightly price must be a whole number of centavos above 0")
+            expect(Listing.count).to eq(0)
+          end
+        end
+
+        response "422", "a stay rate the place can't take" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          let(:stay_rate) { { nightly_price_cents: 150_000, base_guests: 5, min_nights: 3, max_nights: 2 } }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to include(
+              "Guests included in the price can't be more than the 4 guests the place sleeps",
+              "Maximum nights can't be fewer than the minimum nights"
+            )
+            expect(StayRate.count).to eq(0)
+            expect(Listing.count).to eq(0)
+          end
+        end
+      end
+
+      response "422", "a stay rate on a listing that isn't accommodation" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:stay_rate] = { nightly_price_cents: 100_000 } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Only accommodation has a stay rate")
+          expect(Listing.count).to eq(0)
+        end
+      end
+
+      response "201", "fees on any category" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        before { body[:fees] = [ { name: "Environmental fee", amount_cents: 5_000, charged_per: "guest" } ] }
+
+        run_test! do |response|
+          expect(response.parsed_body["stay_rate"]).to be_nil
+          expect(response.parsed_body["fees"].sole).to include("name" => "Environmental fee", "charged_per" => "guest")
+        end
+      end
+
+      response "422", "fees that aren't a list of named amounts charged per something we know" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before do
+          body[:fees] = [
+            { name: "Cleaning fee", amount_cents: 80_000, charged_per: "booking" },
+            { name: "cleaning fee", amount_cents: 1, charged_per: "booking" },
+            { name: "Kayak", amount_cents: -1, charged_per: "week", required: "no" },
+            { amount_cents: 1.5, charged_per: "night" }
+          ]
+        end
+
+        run_test! do |refused|
+          expect(refused.parsed_body["errors"]).to include(
+            "Each fee needs a different name",
+            "Fee amount must be a whole number of centavos, 0 or more",
+            "Fees are charged per booking, night, guest, guest_night or unit",
+            "Whether a fee is required must be true or false",
+            "Each fee needs a name"
+          )
+          body[:fees] = Array.new(21) { |n| { name: "Fee #{n}", amount_cents: 1, charged_per: "booking" } }
+          post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["errors"]).to include("A listing can have at most 20 fees")
+          body[:fees] = { name: "Cleaning fee" }
+          post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["errors"]).to include("Fees must be a list")
+          expect(Listing.count).to eq(0)
+        end
+      end
+
       response "403", "a partner who hasn't passed the ID check" do
         schema "$ref" => "#/components/schemas/error"
         let(:user) { create(:user, :partner) }
@@ -670,6 +812,80 @@ RSpec.describe "Partner listings", type: :request do
         run_test! do |response|
           expect(response.parsed_body["landmarks"]).to eq([])
           expect(listing.listing_landmarks.count).to eq(0)
+        end
+      end
+
+      context "accommodation (RAA-104)" do
+        let(:category) { create(:category, :accommodation) }
+        let(:listing) { create(:listing, :stay, partner: user, category:, area: moalboal) }
+
+        before { body.merge!(attrs: { place_type: "entire_place", guests: 4 }) }
+
+        response "200", "the stay rate and fees replaced when sent, kept when left out" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before do
+            create(:listing_fee, listing:, name: "Old fee", position: 1)
+            body.merge!(stay_rate: { nightly_price_cents: 180_000, base_guests: 3 },
+              fees: [ { name: "Cleaning fee", amount_cents: 80_000, charged_per: "booking" } ])
+          end
+
+          run_test! do |saved|
+            expect(saved.parsed_body["stay_rate"]).to include("nightly_price_cents" => 180_000, "base_guests" => 3)
+            expect(saved.parsed_body["fees"].pluck("name")).to eq([ "Cleaning fee" ])
+            body.except!(:stay_rate, :fees)
+            patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["stay_rate"]).to include("nightly_price_cents" => 180_000)
+            expect(response.parsed_body["fees"].pluck("name")).to eq([ "Cleaning fee" ])
+            body[:fees] = []
+            patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["fees"]).to eq([])
+            expect(StayRate.count).to eq(1)
+          end
+        end
+
+        response "200", "a back-filled listing with no price yet can still be changed without one" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before { listing.stay_rate.update_columns(nightly_price_cents: 0, base_guests: 1) }
+
+          run_test! do |response|
+            expect(response.parsed_body["stay_rate"]).to include("nightly_price_cents" => 0)
+          end
+        end
+
+        response "422", "the place made to sleep fewer than the guests its price includes" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          before { body[:attrs][:guests] = 1 }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to include(
+              "Guests included in the price can't be more than the 1 guest the place sleeps"
+            )
+            expect(listing.reload.attrs["guests"]).to eq(4)
+          end
+        end
+
+        response "200", "the stay rate dropped when the listing stops being accommodation" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before { body.merge!(category_id: create(:category, booking_type: "activity").id, attrs: {}) }
+
+          run_test! do |response|
+            expect(response.parsed_body["stay_rate"]).to be_nil
+            expect(StayRate.count).to eq(0)
+          end
+        end
+      end
+
+      response "422", "a listing made accommodation without a stay rate" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body.merge!(category_id: create(:category, :accommodation).id, attrs: {}) }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Stay rate is required for accommodation")
         end
       end
 

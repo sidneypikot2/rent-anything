@@ -81,12 +81,29 @@ RSpec.describe "Areas", type: :request do
             { "id" => hopping.id, "title" => "Island hopping", "category" => "Tour", "area_slug" => "bantayan-island",
               "cover_photo_url" => nil, "booking_type" => "activity", "summary" => "Four islands and a sandbar in one day.",
               "business" => { "name" => "Moalboal Gear Rentals" }, "units_count" => 1, "units_label" => "1 unit",
-              "partner_name" => "Moalboal Gear Rentals" },
+              "partner_name" => "Moalboal Gear Rentals", "price_from_cents" => nil },
             { "id" => honda.id, "title" => "Honda Click 125", "category" => "Motorcycle",
               "area_slug" => "bantayan-island", "cover_photo_url" => nil, "booking_type" => "rental", "summary" => "",
               "business" => { "name" => "Basilia Motor Rentals" }, "units_count" => 50, "units_label" => "50 motorcycles",
-              "partner_name" => "Basilia Motor Rentals" }
+              "partner_name" => "Basilia Motor Rentals", "price_from_cents" => nil }
           )
+        end
+      end
+
+      response "200", "a stay's row says its nightly price once it has one (RAA-104)" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "bantayan-island" }
+
+        before do
+          island = Area.find_by!(slug: "bantayan-island")
+          create(:listing, :stay, area: island, title: "Kota Beach house")
+          create(:listing, :stay, area: island, title: "Unpriced house").stay_rate.update_columns(nightly_price_cents: 0)
+        end
+
+        run_test! do |response|
+          rows = response.parsed_body["listings"].index_by { _1["title"] }
+          expect(rows["Kota Beach house"]["price_from_cents"]).to eq(200_000)
+          expect(rows["Unpriced house"]["price_from_cents"]).to be_nil
         end
       end
 

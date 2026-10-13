@@ -12,6 +12,10 @@ module Listings
   # one unless told otherwise, and a change keeps the count when it is left out. business_id
   # is one of the partner's businesses (RAA-100): left out, a new listing goes under the
   # partner's only business (several make it required) and a change keeps the listing's.
+  # An accommodation listing has a stay_rate (RAA-104): required on a new one, replaced when
+  # sent and kept when left out, and dropped when the listing stops being accommodation; the
+  # rate is checked again on every save, as the guests the place sleeps may change. fees, for
+  # any category, replace the listing's fees when sent and keep them when left out.
   # photos (RAA-106) are the ids of the listing's own photos (added through
   # /api/v1/partner/listings/:id/photos) in the partner's order: sent, the order is theirs
   # and a photo left out is deleted; left out, the photos stay as they are.
@@ -22,6 +26,11 @@ module Listings
     AREA_RADIUS_METERS = 50_000
     MAX_LANDMARKS = 30
     MAX_UNITS = 100
+    MAX_FEES = 20
+    STAY_RATE_FIELDS = %i[
+      weekend_price_cents base_guests extra_guest_fee_cents weekly_discount_percent monthly_discount_percent min_nights
+      max_nights
+    ].freeze
 
     private
 
@@ -30,6 +39,8 @@ module Listings
       category = find_category
       @landmarks = landmarks_for(category)
       @units_count = units_count
+      @stay_rate = stay_rate_for(category)
+      @fees = fees
       @photo_ids = photo_ids
       {
         title: required_string(@params, :title, "Title"),
@@ -54,9 +65,27 @@ module Listings
         listing.save!
         save_landmarks!(listing)
         save_units!(listing)
+        save_stay_rate!(listing)
+        save_fees!(listing)
         save_photos!(listing)
       end
       listing
+    end
+
+    def save_stay_rate!(listing)
+      return listing.stay_rate&.destroy! unless listing.category.accommodation?
+
+      rate = listing.stay_rate || listing.build_stay_rate
+      rate.assign_attributes(@stay_rate) if @stay_rate
+      rate.save!
+    end
+
+    def save_fees!(listing)
+      return if @fees.nil?
+
+      listing.fees.delete_all
+      @fees.each { |fee| listing.fees.create!(fee) }
+      listing.fees.reset
     end
 
     def save_landmarks!(listing)
@@ -196,8 +225,63 @@ module Listings
       error("Details must be an object")
     end
 
+    # nil keeps the listing's rate as it is. A rate sent replaces it whole: the optional
+    # fields left out take their defaults.
+    def stay_rate_for(category)
+      value = @params[:stay_rate]
+      accommodation = category&.accommodation?
+      if value.nil?
+        return error("Stay rate is required for accommodation") if accommodation && !@listing&.stay_rate
+
+        return nil
+      end
+      return error("Only accommodation has a stay rate") if category && !accommodation
+      return error("Stay rate must be an object") unless value.respond_to?(:key?)
+
+      price = value[:nightly_price_cents]
+      error("Nightly price must be a whole number of centavos above 0") unless price.is_a?(Integer) && price.positive?
+      STAY_RATE_FIELDS.index_with do |key|
+        field = value[key]
+        next StayRate.column_defaults[key.to_s] if field.nil?
+        next field if field.is_a?(Integer)
+
+        error("#{StayRate.human_attribute_name(key)} must be a whole number")
+      end.merge(nightly_price_cents: price)
+    end
+
+    # nil keeps the listing's fees as they are; an array replaces them, in its order.
+    def fees
+      value = @params[:fees]
+      return nil if value.nil?
+      return error("Fees must be a list") unless value.is_a?(Array)
+      return error("A listing can have at most #{MAX_FEES} fees") if value.size > MAX_FEES
+
+      fees = value.each_with_index.map { |fee, index| fee_values(fee, index + 1) }
+      names = fees.filter_map { _1[:name]&.downcase }
+      error("Each fee needs a different name") if names.uniq.size < names.size
+      fees
+    end
+
+    def fee_values(fee, position)
+      return error("Each fee must be an object") || {} unless fee.respond_to?(:key?)
+
+      name = fee[:name].is_a?(String) ? fee[:name].strip.presence : nil
+      error("Each fee needs a name") unless name
+      error("A fee's name can be at most 60 characters") if name && name.length > 60
+      amount = fee[:amount_cents]
+      error("Fee amount must be a whole number of centavos, 0 or more") unless amount.is_a?(Integer) && amount >= 0
+      charged_per = fee[:charged_per]
+      unless ListingFee::CHARGED_PER.key?(charged_per)
+        error("Fees are charged per #{ListingFee::CHARGED_PER.keys.to_sentence(two_words_connector: ' or ', last_word_connector: ' or ')}")
+      end
+      required = fee[:required].nil? ? true : fee[:required]
+      error("Whether a fee is required must be true or false") unless [ true, false ].include?(required)
+      { name:, amount_cents: amount, charged_per:, required:, position: }
+    end
+
+    # Each message once: several fees can have the same problem.
     def error(message)
-      @errors << message
+      @errors << message unless @errors.include?(message)
       nil
     end
   end

@@ -65,6 +65,3 @@ export function landmarkPhoto(tags: { slug: string }[], index: number): Photo {
 
 // The photo behind the How-it-works band.
 export const BAND_PHOTO = "/images/samples/cottages.jpg";
-
-// Behind the cart and trips pages' banners.
-export const TRIPS_PHOTO = "/images/samples/wooden-boat.jpg";

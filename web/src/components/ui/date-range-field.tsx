@@ -224,7 +224,7 @@ export function DateRangeField({
           role="group"
           aria-label={label}
           className={cn(
-            "flex w-full flex-col gap-2 rounded-control border border-line bg-surface p-3 font-normal",
+            "flex w-full flex-col gap-2 card-edge rounded-control bg-surface p-3 font-normal",
             inline ? "mt-1" : "absolute left-0 top-full z-20 mt-1 shadow-lift sm:w-80",
           )}
         >

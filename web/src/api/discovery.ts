@@ -16,6 +16,7 @@ export type Explore = components["schemas"]["explore"];
 export type ExploreListing = components["schemas"]["explore_listing"];
 export type ExplorePlace = components["schemas"]["explore_place"];
 export type ExploreRecommendation = components["schemas"]["explore_recommendation"];
+export type StayQuote = components["schemas"]["stay_quote"];
 
 export async function getDestinations(): Promise<AreaCard[]> {
   await connection();
@@ -60,6 +61,22 @@ export const getExplore = cache(async (anchor: { area: string } | { landmark: st
   if (!data) throw new Error("Couldn't load what's around this destination");
   return data;
 });
+
+// What a stay costs (RAA-105): the quote, or the API's reasons it can't be quoted for these
+// dates and guests ("This place needs a stay of at least 2 nights").
+export async function getQuote(query: {
+  listing_id: number;
+  starts_on: string;
+  ends_on: string;
+  guests: number;
+}): Promise<{ quote: StayQuote } | { errors: string[] }> {
+  await connection();
+  const { data, error, response } = await serverApiClient().GET("/api/v1/quotes", { params: { query } });
+  if (data) return { quote: data };
+  if (response.status === 422 && error && "errors" in error) return { errors: error.errors };
+  // The page still shows without a total.
+  return { errors: ["Couldn't work out the price just now. Try again in a moment."] };
+}
 
 export async function search(q: string): Promise<SearchResults> {
   await connection();

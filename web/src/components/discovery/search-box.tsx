@@ -140,7 +140,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
           onMouseDown={(event) => event.preventDefault()}
           // On a phone, only as tall as the room above the on-screen keyboard.
           style={room === null ? undefined : { maxHeight: Math.max(room, MIN_PANEL_PX) }}
-          className="absolute inset-x-0 top-full z-20 mt-2 max-h-[45vh] overflow-y-auto overscroll-contain rounded-card border border-line bg-surface p-2 shadow-lift sm:max-h-[70vh]"
+          className="absolute inset-x-0 top-full z-20 mt-2 max-h-[45vh] overflow-y-auto overscroll-contain card-edge rounded-card bg-surface p-2 shadow-lift sm:max-h-[70vh]"
         >
           {isError ? (
             <p role="status" className="p-3 text-sm text-muted">

@@ -9,6 +9,7 @@ import { CategoryGlyph } from "@/components/discovery/tag-glyphs";
 import { ShowMore } from "@/components/discovery/show-more";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { PageBanner } from "@/components/landing/page-banner";
+import { PageSheet } from "@/components/landing/page-sheet";
 import { activityPhoto, destinationPhoto } from "@/components/landing/sample-photos";
 import { PlanCta } from "@/components/landing/plan-cta";
 import { TripStart } from "@/components/landing/trip-start";
@@ -27,8 +28,6 @@ export default function Home() {
   return (
     <main className="flex flex-1 flex-col">
       <PageBanner
-        photo="/images/hero.jpg"
-        preload
         hero
         eyebrow="Now on Bantayan Island"
         title={
@@ -73,33 +72,35 @@ export default function Home() {
         <p className="text-sm text-sky-mist">ID-checked local partners · nothing to pay yet</p>
       </PageBanner>
 
-      <div className="mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-section">
-        <Section
-          id="destinations"
-          eyebrow="Where to"
-          title="Destinations"
-          intro="Islands, towns and cities with local partners, the most to book first."
-        >
-          <Suspense fallback={<DestinationsSkeleton />}>
-            <Destinations />
-          </Suspense>
-        </Section>
+      <PageSheet tone="clear">
+        <div className="page-sections mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-page-pad">
+          <Section
+            id="destinations"
+            eyebrow="Where to"
+            title="Destinations"
+            intro="Islands, towns and cities with local partners, the most to book first."
+          >
+            <Suspense fallback={<DestinationsSkeleton />}>
+              <Destinations />
+            </Suspense>
+          </Section>
 
-        <Section
-          id="activities"
-          eyebrow="What to do"
-          title="Browse by activity"
-          intro="Start from something you love doing, and see where you can do it."
-        >
-          <Suspense fallback={<ActivitiesSkeleton />}>
-            <Activities />
-          </Suspense>
-        </Section>
+          <Section
+            id="activities"
+            eyebrow="What to do"
+            title="Browse by activity"
+            intro="Start from something you love doing, and see where you can do it."
+          >
+            <Suspense fallback={<ActivitiesSkeleton />}>
+              <Activities />
+            </Suspense>
+          </Section>
 
-        <HowItWorks />
+          <HowItWorks />
 
-        <PlanCta />
-      </div>
+          <PlanCta />
+        </div>
+      </PageSheet>
     </main>
   );
 }

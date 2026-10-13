@@ -105,6 +105,39 @@ RSpec.describe "Listings", type: :request do
         end
       end
 
+      response "200", "a stay with its nightly pricing and fees (RAA-104)" do
+        schema "$ref" => "#/components/schemas/listing_detail"
+        let(:listing) { create(:listing, :stay, area: moalboal) }
+        let(:id) { listing.id }
+
+        before do
+          listing.stay_rate.update!(weekend_price_cents: 250_000, extra_guest_fee_cents: 50_000, min_nights: 2)
+          create(:listing_fee, listing:, name: "Cleaning fee", amount_cents: 80_000, position: 1)
+        end
+
+        run_test! do |response|
+          json = response.parsed_body
+          expect(json).to include("booking_type" => "stay", "price_from_cents" => 200_000, "guests" => 4)
+          expect(json["stay_rate"]).to include("nightly_price_cents" => 200_000, "weekend_price_cents" => 250_000,
+            "base_guests" => 2, "extra_guest_fee_cents" => 50_000, "min_nights" => 2)
+          expect(json["fees"].sole).to include("name" => "Cleaning fee", "amount_cents" => 80_000, "required" => true)
+        end
+      end
+
+      response "200", "a stay with no price yet, and a listing that isn't priced by the night" do
+        schema "$ref" => "#/components/schemas/listing_detail"
+        let(:listing) { create(:listing, :stay, area: moalboal) }
+        let(:id) { listing.id }
+
+        before { listing.stay_rate.update_columns(nightly_price_cents: 0) }
+
+        run_test! do |unpriced|
+          expect(unpriced.parsed_body).to include("price_from_cents" => nil, "stay_rate" => nil, "fees" => [])
+          get "/api/v1/listings/#{gopro.id}"
+          expect(response.parsed_body).to include("price_from_cents" => nil, "stay_rate" => nil, "guests" => nil)
+        end
+      end
+
       response "404", "a pending listing" do
         schema "$ref" => "#/components/schemas/error"
         let(:id) { Listing.find_by!(title: "Pending camera").id }

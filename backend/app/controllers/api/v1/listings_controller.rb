@@ -7,7 +7,7 @@ module Api
 
       def show
         render json: ListingDetailSerializer.call(
-          Listing.active.includes(:category, :area, :business, :units, :ready_photos).find(params[:id])
+          Listing.active.includes(:category, :area, :business, :units, :stay_rate, :fees, :ready_photos).find(params[:id])
         )
       end
     end

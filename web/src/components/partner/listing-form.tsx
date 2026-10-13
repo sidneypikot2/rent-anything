@@ -35,6 +35,15 @@ import {
   type StayErrors,
   type StayValues,
 } from "./stay-fields";
+import {
+  pricingErrors,
+  StayPricingFields,
+  toFeesBody,
+  toPricingValues,
+  toStayRateBody,
+  type PricingErrors,
+  type PricingValues,
+} from "./stay-pricing-fields";
 import type { PartnerBusiness } from "./use-partner-businesses";
 import type { PartnerLandmark } from "./use-partner-landmarks";
 import { isVehicle, toVehicleAttrs, toVehicleValues, VehicleFields, type VehicleValues } from "./vehicle-fields";
@@ -43,8 +52,8 @@ import { UnitsField } from "./units-field";
 
 // Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
 // visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
-// vehicle's, RAA-89), the cancellation policy (RAA-89) and, last, how many identical units it
-// has (RAA-99). Saving first shows what changed and asks to confirm. Adding one is the stepped
+// vehicle's, RAA-89), an accommodation's pricing and fees (RAA-105), the cancellation policy
+// (RAA-89) and, last, how many identical units it has (RAA-99). Saving first shows what changed and asks to confirm. Adding one is the stepped
 // ListingWizard (RAA-50). A partner with several businesses can move it to another (RAA-101).
 export function ListingForm({
   options,
@@ -63,6 +72,8 @@ export function ListingForm({
   // An accommodation's details have their own fields (RAA-83).
   const [stay, setStay] = useState<StayValues>(() => toStayValues(listing.attrs));
   const [infoErrors, setInfoErrors] = useState<StayErrors>();
+  const [pricing, setPricing] = useState<PricingValues>(() => toPricingValues(listing.stay_rate, listing.fees));
+  const [priceErrors, setPriceErrors] = useState<PricingErrors>();
   const [vehicleValues, setVehicleValues] = useState<VehicleValues>(() => toVehicleValues(listing.attrs));
   const [policy, setPolicy] = useState<CancellationPolicy>(listing.cancellation_policy);
   const [units, setUnits] = useState(listing.units_count);
@@ -95,6 +106,10 @@ export function ListingForm({
       setInfoErrors(stayErrors(stay));
       return;
     }
+    if (stayCategory && pricingErrors(pricing)) {
+      setPriceErrors(pricingErrors(pricing));
+      return;
+    }
     const form = new FormData(event.currentTarget);
     const body = {
       title: String(form.get("title") ?? ""),
@@ -111,6 +126,10 @@ export function ListingForm({
       cancellation_policy: policy,
       units_count: units,
       landmark_ids: visitsLandmarks ? landmarks.map((landmark) => landmark.id) : [],
+      // Only accommodation is priced by the night; other categories' fees aren't edited here yet.
+      ...(stayCategory
+        ? { stay_rate: toStayRateBody(pricing, stay.placeType, stay.guests), fees: toFeesBody(pricing) }
+        : {}),
     };
     setPending({ body, changes: listingChanges(listing, body) });
   }
@@ -219,6 +238,24 @@ export function ListingForm({
           <fieldset className="flex flex-col gap-4">
             <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Amenities</legend>
             <AmenityChoice values={stay} onChange={setStay} />
+          </fieldset>
+          <fieldset data-testid="listing-stay-pricing" className="flex flex-col gap-4">
+            <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Pricing</legend>
+            {!listing.stay_rate?.nightly_price_cents && (
+              <p role="status" className="text-sm font-medium text-warning">
+                Set a nightly price: guests don&apos;t see a price for this place until you do.
+              </p>
+            )}
+            <StayPricingFields
+              values={pricing}
+              onChange={(values) => {
+                setPricing(values);
+                setPriceErrors(undefined);
+              }}
+              placeType={stay.placeType}
+              sleeps={stay.guests}
+              errors={priceErrors}
+            />
           </fieldset>
         </>
       )}

@@ -6,6 +6,7 @@ import { listingNote } from "@/components/discovery/categories";
 import { ListingCard } from "@/components/discovery/cards";
 import { areaIcon, placeIcon, tagIcon } from "@/components/discovery/icons";
 import { PageBanner } from "@/components/landing/page-banner";
+import { PageSheet } from "@/components/landing/page-sheet";
 import { listingPhoto } from "@/components/landing/sample-photos";
 import { SearchBox } from "@/components/discovery/search-box";
 import { Badge } from "@/components/ui/badge";
@@ -29,21 +30,23 @@ export default async function SearchPage(props: PageProps<"/search">) {
 
   return (
     <main className="flex flex-1 flex-col">
-      <PageBanner photo="/images/hero.jpg" preload title={<DisplayTitle>{query ? <>Results for “{query}”</> : "Search"}</DisplayTitle>}>
+      <PageBanner title={<DisplayTitle>{query ? <>Results for “{query}”</> : "Search"}</DisplayTitle>}>
         <GlassPanel className="relative z-10 w-full max-w-2xl rounded-card p-2 shadow-float">
           <SearchBox key={query} initialQuery={query} />
         </GlassPanel>
       </PageBanner>
-      <div className="mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-page-pad">
-      {results === null ? (
-        <p className="text-muted">Type at least two letters: a destination, a landmark or an activity.</p>
-      ) : (
-        <>
-          <Results results={results} />
-          {top && explore && <ExploreSections explore={explore} name={top.name} />}
-        </>
-      )}
-      </div>
+      <PageSheet tone="clear">
+        <div className="page-sections mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-page-pad">
+        {results === null ? (
+          <p className="text-muted">Type at least two letters: a destination, a landmark or an activity.</p>
+        ) : (
+          <>
+            <Results results={results} />
+            {top && explore && <ExploreSections explore={explore} name={top.name} />}
+          </>
+        )}
+        </div>
+      </PageSheet>
     </main>
   );
 }
@@ -68,7 +71,7 @@ function Results({ results }: { results: SearchResults }) {
   }
 
   return (
-    <div data-testid="search-results" className="flex flex-col gap-section">
+    <div data-testid="search-results" className="page-sections flex flex-col gap-section">
       {results.tags.length > 0 && (
         <Section title="Activities & interests">
           {results.tags.map((tag) => (
