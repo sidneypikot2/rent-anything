@@ -6,6 +6,7 @@ module Api
       class ListingsController < ApplicationController
         LISTING_PARAMS = %i[
           title description category_id address location attrs landmark_ids cancellation_policy units_count business_id
+          stay_rate fees
         ].freeze
 
         before_action :authenticate_user!
@@ -44,7 +45,7 @@ module Api
         end
 
         def with_landmarks
-          current_user.listings.includes(:business, :category, :area, :units, visited_landmarks: :area)
+          current_user.listings.includes(:business, :category, :area, :units, :stay_rate, :fees, visited_landmarks: :area)
         end
 
         def listing_params

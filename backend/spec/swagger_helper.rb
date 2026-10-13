@@ -273,10 +273,20 @@ RSpec.configure do |config|
               partner_name: {
                 type: :string, deprecated: true,
                 description: "The business's name, as in business.name; will be removed (RAA-101)"
-              }
+              },
+              price_from_cents: {
+                type: :integer, nullable: true,
+                description: "Accommodation: the nightly price, in centavos; null with no price yet or for any other category"
+              },
+              guests: { type: :integer, nullable: true, description: "Accommodation: the most guests it sleeps; null otherwise" },
+              stay_rate: {
+                allOf: [ { "$ref" => "#/components/schemas/stay_rate" } ], nullable: true,
+                description: "Accommodation's nightly pricing once it has a price; null otherwise"
+              },
+              fees: { type: :array, items: { "$ref" => "#/components/schemas/listing_fee" } }
             },
             required: %w[id title description summary category booking_type area business units_count units_label
-              partner_name]
+              partner_name price_from_cents guests stay_rate fees]
           },
           # The business offering a listing, as a guest sees it (RAA-100).
           business_ref: {
@@ -328,6 +338,11 @@ RSpec.configure do |config|
               attrs: { type: :object, additionalProperties: true, description: "Matches the category's attribute_schema" },
               cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" },
               units_count: { type: :integer, minimum: 1, description: "How many identical items, rooms or vehicles it has" },
+              stay_rate: {
+                allOf: [ { "$ref" => "#/components/schemas/stay_rate" } ], nullable: true,
+                description: "Accommodation's nightly pricing; null for any other category"
+              },
+              fees: { type: :array, items: { "$ref" => "#/components/schemas/listing_fee" }, description: "In the partner's order" },
               business: {
                 type: :object,
                 properties: { id: { type: :integer }, name: { type: :string } },
@@ -345,7 +360,7 @@ RSpec.configure do |config|
               updated_at: { type: :string, format: "date-time" }
             },
             required: %w[id title description status category area address location attrs cancellation_policy units_count
-              business landmarks covers created_at updated_at]
+              stay_rate fees business landmarks covers created_at updated_at]
           },
           # A business a partner runs (RAA-100); its listings are shown under its name.
           partner_business: {
@@ -435,9 +450,144 @@ RSpec.configure do |config|
                 type: :array, items: { type: :integer }, maxItems: 30,
                 description: "Tours and activities only: the published landmarks it visits. Replaces them when " \
                   "sent; left out on a change, they stay as they are. A listing that isn't an activity has none."
+              },
+              stay_rate: {
+                allOf: [ { "$ref" => "#/components/schemas/stay_rate_body" } ],
+                description: "Accommodation only, and required on a new one or one moved into it: replaces the rate " \
+                  "when sent; left out on a change, it stays. Refused for any other category."
+              },
+              fees: {
+                type: :array, items: { "$ref" => "#/components/schemas/listing_fee_body" }, maxItems: 20,
+                description: "Any category. Replaces the listing's fees, in this order, when sent; left out on a " \
+                  "change, they stay. Names are unique per listing, ignoring case."
               }
             },
             required: %w[title category_id address location]
+          },
+          # Accommodation's nightly pricing (RAA-104). Money is in centavos.
+          stay_rate: {
+            type: :object,
+            properties: {
+              nightly_price_cents: {
+                type: :integer, minimum: 0,
+                description: "For each night, covering up to base_guests; per guest for a shared room. 0 means no " \
+                  "price yet (listings made before pricing), and the listing can't be quoted"
+              },
+              weekend_price_cents: {
+                type: :integer, minimum: 1, nullable: true, description: "For Friday and Saturday nights; null: the nightly price"
+              },
+              base_guests: { type: :integer, minimum: 1, maximum: 50, description: "Guests the nightly price includes" },
+              extra_guest_fee_cents: {
+                type: :integer, minimum: 0, description: "Per guest above base_guests, per night, up to attrs.guests"
+              },
+              weekly_discount_percent: { type: :integer, minimum: 0, maximum: 90, description: "Off stays of 7+ nights" },
+              monthly_discount_percent: {
+                type: :integer, minimum: 0, maximum: 90, description: "Off stays of 28+ nights; at least the weekly one"
+              },
+              min_nights: { type: :integer, minimum: 1, maximum: 365 },
+              max_nights: { type: :integer, minimum: 1, maximum: 365, nullable: true, description: "Null: no maximum" }
+            },
+            required: %w[nightly_price_cents weekend_price_cents base_guests extra_guest_fee_cents weekly_discount_percent
+              monthly_discount_percent min_nights max_nights]
+          },
+          stay_rate_body: {
+            type: :object,
+            description: "A shared room is priced per guest: base_guests 1, no extra-guest fee. base_guests is at most " \
+              "attrs.guests. Optional fields left out take their defaults.",
+            properties: {
+              nightly_price_cents: { type: :integer, minimum: 1 },
+              weekend_price_cents: { type: :integer, minimum: 1, nullable: true, description: "Default null" },
+              base_guests: { type: :integer, minimum: 1, maximum: 50, description: "Default 1" },
+              extra_guest_fee_cents: { type: :integer, minimum: 0, description: "Default 0" },
+              weekly_discount_percent: { type: :integer, minimum: 0, maximum: 90, description: "Default 0" },
+              monthly_discount_percent: { type: :integer, minimum: 0, maximum: 90, description: "Default 0" },
+              min_nights: { type: :integer, minimum: 1, maximum: 365, description: "Default 1" },
+              max_nights: { type: :integer, minimum: 1, maximum: 365, nullable: true, description: "Default null" }
+            },
+            required: %w[nightly_price_cents]
+          },
+          listing_fee_charged_per: {
+            type: :string, enum: %w[booking night guest guest_night unit],
+            description: "What the amount is multiplied by in a quote"
+          },
+          # An extra charge on a listing, any category (RAA-104).
+          listing_fee: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              name: { type: :string },
+              amount_cents: { type: :integer, minimum: 0 },
+              charged_per: { "$ref" => "#/components/schemas/listing_fee_charged_per" },
+              required: { type: :boolean, description: "false: an add-on the guest picks" }
+            },
+            required: %w[id name amount_cents charged_per required]
+          },
+          # What a stay costs (RAA-104), in centavos.
+          stay_quote: {
+            type: :object,
+            properties: {
+              starts_on: { type: :string, format: :date },
+              ends_on: { type: :string, format: :date },
+              guests: { type: :integer },
+              nights: {
+                type: :array,
+                items: {
+                  type: :object,
+                  properties: {
+                    date: { type: :string, format: :date },
+                    price_cents: { type: :integer, description: "Per guest for a shared room" },
+                    weekend: { type: :boolean, description: "A Friday or Saturday night" }
+                  },
+                  required: %w[date price_cents weekend]
+                }
+              },
+              nights_count: { type: :integer },
+              per_guest: { type: :boolean, description: "A shared room: the nights are charged per guest" },
+              nightly_subtotal_cents: { type: :integer, description: "The nights, times the guests for a shared room" },
+              extra_guests: { type: :integer, description: "Guests above base_guests" },
+              extra_guest_fee_cents: { type: :integer, description: "Per extra guest, per night" },
+              extra_guests_total_cents: { type: :integer },
+              discount: {
+                type: :object, nullable: true,
+                description: "Off the nights and extra guests, never the fees; null under 7 nights or with none set",
+                properties: {
+                  kind: { type: :string, enum: %w[weekly monthly] },
+                  percent: { type: :integer },
+                  amount_cents: { type: :integer }
+                },
+                required: %w[kind percent amount_cents]
+              },
+              fees: {
+                type: :array,
+                description: "The required fees and the add-ons picked, in the partner's order",
+                items: {
+                  type: :object,
+                  properties: {
+                    id: { type: :integer },
+                    name: { type: :string },
+                    charged_per: { "$ref" => "#/components/schemas/listing_fee_charged_per" },
+                    required: { type: :boolean },
+                    quantity: { type: :integer, description: "What amount_cents is multiplied by" },
+                    amount_cents: { type: :integer },
+                    total_cents: { type: :integer }
+                  },
+                  required: %w[id name charged_per required quantity amount_cents total_cents]
+                }
+              },
+              total_cents: { type: :integer }
+            },
+            required: %w[starts_on ends_on guests nights nights_count per_guest nightly_subtotal_cents extra_guests
+              extra_guest_fee_cents extra_guests_total_cents discount fees total_cents]
+          },
+          listing_fee_body: {
+            type: :object,
+            properties: {
+              name: { type: :string, maxLength: 60 },
+              amount_cents: { type: :integer, minimum: 0 },
+              charged_per: { "$ref" => "#/components/schemas/listing_fee_charged_per" },
+              required: { type: :boolean, description: "Default true" }
+            },
+            required: %w[name amount_cents charged_per]
           },
           # What a guest gets back on cancelling (RAA-88); refunds follow it from M4.
           cancellation_policy: {
@@ -545,10 +695,11 @@ RSpec.configure do |config|
                     business: { "$ref" => "#/components/schemas/business_ref" },
                     units_count: { type: :integer, minimum: 1 },
                     units_label: { type: :string, description: "As in listing_detail" },
-                    partner_name: { type: :string, deprecated: true, description: "As in listing_detail" }
+                    partner_name: { type: :string, deprecated: true, description: "As in listing_detail" },
+                    price_from_cents: { type: :integer, nullable: true, description: "As in listing_detail" }
                   },
                   required: %w[id title category area_slug booking_type summary business units_count units_label
-                    partner_name]
+                    partner_name price_from_cents]
                 }
               }
             },

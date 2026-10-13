@@ -44,6 +44,16 @@ availability works.
 - **Duration tiers** (`pricing_tiers`: `duration_minutes`, `price_cents`) cover everything
   from a jetski's ₱2,500/10 min and ₱5,000/30 min to a motorbike's day rate and a stay's
   night (1440 min). A quote picks the cheapest combination of tiers that covers the period.
+- **Stays are priced by the night** instead (`stay_rates`, RAA-104), as on Airbnb and
+  Booking.com: a nightly price (and an optional Friday/Saturday one) covers up to
+  `base_guests`; each guest above that pays an extra-guest fee per night, up to the place's
+  `attrs.guests`; 7+ / 28+ night stays get a weekly / monthly discount; min/max nights bound
+  the stay. A shared room (dorm bed) is priced per guest. Only categories under
+  Accommodation have one, and each such listing does (0 = no price yet).
+- **Fees** (`listing_fees`, any category): named extra charges — cleaning, environmental,
+  extra bed, helmet — charged per booking, night, guest, guest-night or unit; an optional
+  one is an add-on the guest picks. Fees are never discounted. Pricing models are typed
+  tables per booking type, not `attrs`, so the database checks the money.
 - **Units**: one row per physical item or vehicle (`listing_units`), so a shop with five
   pairs of fins is one listing with five units.
 - **Transfers** are services, not items. A listing belongs to the area it serves even when
@@ -182,7 +192,7 @@ Planned shape; the route tables below are checked against `routes.rb`.
 | `/api/v1/otp_verifications` | verify the phone OTP (deferred) |
 | `/api/v1/areas` | list areas; `/api/v1/areas/:slug` with its categories |
 | `/api/v1/listings` | search (area, category, bounding box, dates) and show |
-| `/api/v1/quotes` | price and availability for a listing and period |
+| `/api/v1/quotes` | price (and later availability) for a listing and period; stays only so far (RAA-104) |
 | `/api/v1/checkouts` | turn a trip's selected items into bookings and a payment |
 | `/api/v1/bookings` | a guest's bookings; partner accept/decline |
 | `/api/v1/partner/listings` | a partner's listings, units, calendar and routes |
