@@ -5,7 +5,7 @@ import { ActivityCard, DestinationCard, groupDestinations } from "@/components/d
 import { CATEGORIES, categoryHref } from "@/components/discovery/categories";
 import { LoadFailed } from "@/components/discovery/load-failed";
 import { SearchBox } from "@/components/discovery/search-box";
-import { CategoryGlyph } from "@/components/discovery/tag-glyphs";
+import { CategoryGlyph, CheckGlyph } from "@/components/discovery/tag-glyphs";
 import { ShowMore } from "@/components/discovery/show-more";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { PageBanner } from "@/components/landing/page-banner";
@@ -24,6 +24,8 @@ import { DisplayTitle } from "@/components/ui/typography";
 // A guest who hasn't chosen where to go starts here; picking a destination leads to its area
 // page. The hero needs no data, so it renders at once; each browse section streams in behind
 // its own skeleton and fails on its own, so a sleeping API never blanks the page.
+// Since RAA-108 the way in is a line under the search rather than a second panel, and the
+// kinds of things to book are one row of pills.
 export default function Home() {
   return (
     <main className="flex flex-1 flex-col">
@@ -35,7 +37,7 @@ export default function Home() {
             <DisplayTitle size="hero" className="text-balance">
               Your whole Bantayan Island trip, <span className="font-semibold text-sky-pale italic">in one cart.</span>
             </DisplayTitle>
-            <p className="max-w-xl text-base text-pretty text-sky-mist sm:text-lg">
+            <p className="max-w-prose text-base text-pretty text-sky-mist sm:text-lg">
               Island hopping, a scooter for the week, a cottage in Santa Fe: pick them from local partners and
               keep every stop together in one trip, from the Cebu City transfer to the last boat out.
             </p>
@@ -49,27 +51,37 @@ export default function Home() {
             <SearchBox />
           </GlassPanel>
           {/* The way in, on a phone's first screen too (RAA-80). */}
-          <GlassPanel tone="light" className="rounded-card px-4 py-1.5">
-            <TripStart />
-          </GlassPanel>
+          <TripStart />
         </div>
-        <nav aria-label="Things to book" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+        {/* One row: it wraps from sm up and scrolls sideways on a phone, so the row stays one
+            line on the first screen. The negative margin lets the pills scroll to the frame's edge. */}
+        <nav
+          aria-label="Things to book"
+          className="-mx-5 flex snap-x gap-2 overflow-x-auto px-5 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+        >
           {CATEGORIES.map((category) => (
             <Link
               key={category.label}
               href={categoryHref(category.query)}
               className={cn(
                 glassClasses("dark"),
-                "flex min-h-14 items-center gap-3 rounded-card px-4 py-3 font-bold hover:bg-glass-hover",
+                "flex min-h-11 shrink-0 snap-start items-center gap-2 rounded-full px-4 text-sm font-bold whitespace-nowrap hover:bg-glass-hover",
               )}
             >
-              <CategoryGlyph name={category.icon} className="size-5 shrink-0 text-sky-pale" />
+              <CategoryGlyph name={category.icon} className="size-4.5 shrink-0 text-sky-pale" />
               {category.label}
             </Link>
           ))}
         </nav>
         {/* The short form of HowItWorks' trust points (RAA-80). */}
-        <p className="text-sm text-sky-mist">ID-checked local partners · nothing to pay yet</p>
+        <ul aria-label="Why book here" className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-sky-mist">
+          {TRUST.map((point) => (
+            <li key={point} className="flex items-center gap-1.5">
+              <CheckGlyph className="size-4 shrink-0 text-sky-pale" />
+              {point}
+            </li>
+          ))}
+        </ul>
       </PageBanner>
 
       <PageSheet tone="clear">
@@ -105,6 +117,8 @@ export default function Home() {
   );
 }
 
+const TRUST = ["ID-checked local partners", "Free to save", "Nothing to pay yet"];
+
 async function Destinations() {
   const destinations = await getDestinations().catch((error: unknown) => {
     console.error(error);
@@ -115,18 +129,19 @@ async function Destinations() {
   if (groups.length === 0) {
     return <p className="text-muted">Destinations appear here as partners list them. Try the search above.</p>;
   }
-  // A card left alone on the last row takes the whole row.
+  // The one with the most to book leads, on a card of its own (RAA-108); the rest follow in rows.
+  const [lead, ...rest] = groups;
   return (
-    <div className="grid gap-gutter sm:grid-cols-2">
-      {groups.map(({ area, subAreas }, index) => (
-        <DestinationCard
-          key={area.slug}
-          area={area}
-          subAreas={subAreas}
-          photo={destinationPhoto(index)}
-          className={index === groups.length - 1 && groups.length % 2 === 1 ? "sm:col-span-2" : undefined}
-        />
-      ))}
+    <div className="flex flex-col gap-gutter">
+      <DestinationCard feature area={lead.area} subAreas={lead.subAreas} photo={destinationPhoto(0)} />
+      {rest.length > 0 && (
+        // As many columns as there are cards, up to three, so one or two never leave a gap.
+        <div className={cn("grid gap-gutter", rest.length > 1 && "sm:grid-cols-2", rest.length > 2 && "lg:grid-cols-3")}>
+          {rest.map(({ area, subAreas }, index) => (
+            <DestinationCard key={area.slug} area={area} subAreas={subAreas} photo={destinationPhoto(index + 1)} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -174,10 +189,13 @@ const SKELETON = "rounded-card bg-surface-2 motion-safe:animate-pulse";
 
 function DestinationsSkeleton() {
   return (
-    <div aria-busy className="grid gap-gutter sm:grid-cols-2">
+    <div aria-busy className="flex flex-col gap-gutter">
       <span className="sr-only">Loading destinations…</span>
-      <div className={`${SKELETON} h-[26rem]`} />
-      <div className={`${SKELETON} h-[26rem]`} />
+      <div className={`${SKELETON} h-[26rem] sm:h-[28rem]`} />
+      <div className="grid gap-gutter sm:grid-cols-2 lg:grid-cols-3">
+        <div className={`${SKELETON} h-80`} />
+        <div className={`${SKELETON} hidden h-80 sm:block`} />
+      </div>
     </div>
   );
 }
