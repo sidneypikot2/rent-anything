@@ -614,7 +614,7 @@ export interface paths {
         };
         /**
          * One active listing, as a traveller sees it
-         * @description An active listing's description, category, area and partner. Never its location or address: the exact point is revealed only after a paid booking. Draft and pending listings are a 404.
+         * @description An active listing's description, category, area, business and number of units. Never its location or address: the exact point is revealed only after a paid booking. Draft and pending listings are a 404.
          */
         get: {
             parameters: {
@@ -627,7 +627,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description a partner without a profile */
+                /** @description units in the category's words */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1092,6 +1092,262 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/partner/businesses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in partner's businesses
+         * @description Partner-only. The businesses the partner runs (RAA-100), by name. Each listing belongs to one of them, and guests see its name.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description only the partner's own businesses, by name, with their listing counts */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_business"][];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add a business
+         * @description Partner-only. `name` is required, up to 80 characters, and unique among the partner's businesses ignoring case; `description` is optional.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["business_body"];
+                };
+            };
+            responses: {
+                /** @description a name another partner already uses */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_business"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a blank name */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/businesses/{id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * One of the signed-in partner's businesses
+         * @description Partner-only. Another partner's business is a 404.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the partner's business */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_business"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's business */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename a business or change its description
+         * @description Partner-only. The same body and rules as adding one. Another partner's business is a 404.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["business_body"];
+                };
+            };
+            responses: {
+                /** @description saved; a description left out is kept */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_business"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's business */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a blank name */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/v1/partner/landmarks": {
         parameters: {
             query?: never;
@@ -1234,7 +1490,7 @@ export interface paths {
         };
         /**
          * The signed-in partner's listings
-         * @description Partner-only. Every listing the partner owns, in any status, ordered by category name, then title. The exact location is included: the reader owns the listing.
+         * @description Partner-only. Every listing the partner owns, in any status, ordered by business name, then category name, then title. The exact location is included: the reader owns the listing.
          */
         get: {
             parameters: {
@@ -1247,7 +1503,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description only the partner's own listings, by category then title */
+                /** @description only the partner's own listings, by business, then category, then title */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1279,7 +1535,7 @@ export interface paths {
         put?: never;
         /**
          * Add a listing
-         * @description Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area is the smallest published city, town or island whose boundary covers the pin; failing that, the one whose center is nearest the pin, within 50 km. The partner must have passed the ID check first (`/api/v1/partner/verification`) and given a display name (`/api/v1/partner/profile`); until then it is a 403.
+         * @description Partner-only. The listing is saved as a draft; any `status` sent is ignored. `attrs` is checked against the category's `attribute_schema` (see `GET /api/v1/partner/listing_options`). The listing's area is the smallest published city, town or island whose boundary covers the pin; failing that, the one whose center is nearest the pin, within 50 km. The partner must have passed the ID check first (`/api/v1/partner/verification`) and added a business (`/api/v1/partner/businesses`); until then it is a 403.
          */
         post: {
             parameters: {
@@ -1296,7 +1552,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description with the number of identical units the partner has, one row each */
+                /** @description under the business the partner picked */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -1586,7 +1842,7 @@ export interface paths {
         };
         /**
          * Save the signed-in partner's profile
-         * @description Partner-only. Every field but `display_name` is required; `phone` is saved on the user. `display_name` can't be cleared while the partner has listings (RAA-86). Email can't be changed here.
+         * @description Partner-only. Every field but `display_name` is required; `phone` is saved on the user. Guests see a listing's business name (`/api/v1/partner/businesses`), not `display_name` (RAA-100). Email can't be changed here.
          */
         put: {
             parameters: {
@@ -2970,8 +3226,19 @@ export interface components {
             /** @enum {string} */
             booking_type: "rental" | "stay" | "activity" | "transfer";
             area: components["schemas"]["area_ref"];
-            /** @description The partner's display name; their legal first name, or "Local partner", for ones who listed before a display name was required */
+            business: components["schemas"]["business_ref"];
+            /** @description How many identical items, rooms or vehicles it has */
+            units_count: number;
+            /** @description units_count in the category's words, e.g. "5 rooms" */
+            units_label: string;
+            /**
+             * @deprecated
+             * @description The business's name, as in business.name; will be removed (RAA-101)
+             */
             partner_name: string;
+        };
+        business_ref: {
+            name: string;
         };
         landmark_pin: {
             slug: string;
@@ -3009,6 +3276,10 @@ export interface components {
             cancellation_policy: components["schemas"]["cancellation_policy"];
             /** @description How many identical items, rooms or vehicles it has */
             units_count: number;
+            business: {
+                id: number;
+                name: string;
+            };
             /** @description The landmarks a tour or activity visits, by name; empty for other listings */
             landmarks: components["schemas"]["partner_landmark"][];
             /** @description The destinations those landmarks are in, by name */
@@ -3017,6 +3288,22 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        partner_business: {
+            id: number;
+            name: string;
+            description: string;
+            listings_count: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        business_body: {
+            /** @description Unique among the partner's businesses, ignoring case */
+            name: string;
+            /** @description Optional; left out on a change, it stays */
+            description?: string;
         };
         partner_landmark: {
             id: number;
@@ -3060,6 +3347,8 @@ export interface components {
             };
             /** @description Left out on adding a listing, it is free_cancellation; left out on a change, it stays as it is */
             cancellation_policy?: components["schemas"]["cancellation_policy"];
+            /** @description One of the partner's businesses (RAA-100). Left out on adding a listing, it is the partner's only business, and required when they have several; left out on a change, it stays */
+            business_id?: number;
             /** @description How many identical items, rooms or vehicles it has. Left out on adding a listing, it is 1; left out on a change, it stays as it is */
             units_count?: number;
             /** @description Tours and activities only: the published landmarks it visits. Replaces them when sent; left out on a change, they stay as they are. A listing that isn't an activity has none. */
@@ -3130,7 +3419,14 @@ export interface components {
                 booking_type: "rental" | "stay" | "activity" | "transfer";
                 /** @description As in listing_detail */
                 summary: string;
+                business: components["schemas"]["business_ref"];
+                units_count: number;
                 /** @description As in listing_detail */
+                units_label: string;
+                /**
+                 * @deprecated
+                 * @description As in listing_detail
+                 */
                 partner_name: string;
             }[];
         };

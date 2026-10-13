@@ -2,10 +2,10 @@ module Api
   module V1
     module Partner
       # The signed-in partner's own listings (RAA-41, RAA-46): every status, adding, changing
-      # and deleting one. Another partner's listing is a 404.
+      # and deleting one, listed by business (RAA-100). Another partner's listing is a 404.
       class ListingsController < ApplicationController
         LISTING_PARAMS = %i[
-          title description category_id address location attrs landmark_ids cancellation_policy units_count
+          title description category_id address location attrs landmark_ids cancellation_policy units_count business_id
         ].freeze
 
         before_action :authenticate_user!
@@ -13,7 +13,7 @@ module Api
         before_action :set_listing, only: %i[show update destroy]
 
         def index
-          listings = with_landmarks.order("categories.name", :title).to_a
+          listings = with_landmarks.order("businesses.name", "categories.name", :title).to_a
           destinations = PartnerLandmarkSerializer.destinations_for(listings.flat_map(&:visited_landmarks))
           render json: listings.map { |listing| PartnerListingSerializer.call(listing, destinations:) }
         end
@@ -44,7 +44,7 @@ module Api
         end
 
         def with_landmarks
-          current_user.listings.includes(:category, :area, :units, visited_landmarks: :area)
+          current_user.listings.includes(:business, :category, :area, :units, visited_landmarks: :area)
         end
 
         def listing_params

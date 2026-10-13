@@ -9,7 +9,9 @@ module Listings
   # has none. The cancellation policy (RAA-88) is kept when left out, so a new listing is
   # free to cancel unless the partner chose otherwise. units_count is how many identical
   # items, rooms or vehicles it has (RAA-98), one listing_units row each: a new listing has
-  # one unless told otherwise, and a change keeps the count when it is left out.
+  # one unless told otherwise, and a change keeps the count when it is left out. business_id
+  # is one of the partner's businesses (RAA-100): left out, a new listing goes under the
+  # partner's only business (several make it required) and a change keeps the listing's.
   module ListingValues
     include RequestValues
 
@@ -33,7 +35,8 @@ module Listings
         location: point,
         attrs: attrs,
         **address_attributes(@params[:address]),
-        **cancellation_policy
+        **cancellation_policy,
+        **business_attribute
       }
     end
 
@@ -67,6 +70,24 @@ module Listings
       listing.units.where("position > ?", count).delete_all
       (listing.units.maximum(:position).to_i + 1..count).each { |position| listing.units.create!(position:) }
       listing.units.reset
+    end
+
+    # Each service says whose listing it is: Create's partner, Update's listing's.
+    def listing_partner
+      raise NotImplementedError
+    end
+
+    def business_attribute
+      id = @params[:business_id]
+      if id.nil?
+        return {} if @listing&.persisted?
+
+        only = listing_partner.businesses.limit(2).to_a
+        return only.one? ? { business: only.first } : (error("Business is required") || {})
+      end
+
+      found = listing_partner.businesses.find_by(id:) if id.is_a?(Integer)
+      found ? { business: found } : (error("Business must be one of your businesses") || {})
     end
 
     def units_count

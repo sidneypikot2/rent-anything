@@ -1,6 +1,7 @@
 # What a listing is (tour, action camera, van). A tree: only leaves carry a booking_type,
 # which decides pricing and availability, and listings belong to leaves only. The
-# attribute_schema (JSON Schema) checks a listing's attrs.
+# attribute_schema (JSON Schema) checks a listing's attrs. unit_name and unit_name_plural say
+# what one of a listing's units is called (RAA-100); blank means "unit".
 class Category < ApplicationRecord
   BOOKING_TYPES = %w[rental stay activity transfer].freeze
 
@@ -19,6 +20,12 @@ class Category < ApplicationRecord
 
   def leaf?
     booking_type.present?
+  end
+
+  # How many units a listing has, in this category's words (RAA-100): "5 rooms", "1 motorcycle".
+  def units_label(count)
+    noun = count == 1 ? unit_name.presence || "unit" : unit_name_plural.presence || "units"
+    "#{count} #{noun}"
   end
 
   private

@@ -15,5 +15,11 @@ module Listings
       @listing.assign_attributes(listing_attributes)
       save_listing!(@listing)
     end
+
+    private
+
+    def listing_partner
+      @listing.partner
+    end
   end
 end
