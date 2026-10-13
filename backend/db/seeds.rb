@@ -71,6 +71,10 @@ end
 unless Rails.env.test?
   ids = Listing.where.missing(:units).pluck(:id)
   ListingUnit.insert_all(ids.map { |listing_id| { listing_id:, position: 1 } }) if ids.any?
+
+  # Every accommodation listing has a stay rate (RAA-104), zero until its partner sets one.
+  require Rails.root.join("db/migrate/20261014000001_create_stay_rates").to_s
+  CreateStayRates.backfill(ActiveRecord::Base.connection)
 end
 
 # The data migrations above insert areas without a status, which a database built from

@@ -627,7 +627,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description units in the category's words */
+                /** @description a stay with no price yet, and a listing that isn't priced by the night */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1552,7 +1552,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description under the business the partner picked */
+                /** @description fees on any category */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -1579,7 +1579,7 @@ export interface paths {
                         "application/json": components["schemas"]["error"];
                     };
                 };
-                /** @description an address that isn't an object */
+                /** @description fees that aren't a list of named amounts charged per something we know */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -1740,7 +1740,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description landmarks dropped when the listing stops being an activity */
+                /** @description the stay rate dropped when the listing stops being accommodation */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -2055,6 +2055,69 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a stay costs
+         * @description Public. The price of a stay at an active accommodation listing for the dates and guests, worked out from its stay rate (RAA-104): each night at the nightly price, or the weekend price on Friday and Saturday nights (a shared room's per guest); each guest above base_guests at the extra-guest fee per night; the monthly discount from 28 nights, otherwise the weekly one from 7, off the nights and extra guests; then the required fees and the add-ons picked in fee_ids, never discounted. Money is in centavos. One unit is quoted, and availability isn't checked yet.
+         */
+        get: {
+            parameters: {
+                query: {
+                    listing_id: number;
+                    /**
+                     * Format: date
+                     * @description Check-in
+                     */
+                    starts_on: string;
+                    /**
+                     * Format: date
+                     * @description Check-out
+                     */
+                    ends_on: string;
+                    guests: number;
+                    /** @description Optional fees (add-ons) to include */
+                    "fee_ids[]"?: number[];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the nights, extra guests, discount and fees */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["stay_quote"];
+                    };
+                };
+                /** @description a listing that isn't active */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3236,6 +3299,13 @@ export interface components {
              * @description The business's name, as in business.name; will be removed (RAA-101)
              */
             partner_name: string;
+            /** @description Accommodation: the nightly price, in centavos; null with no price yet or for any other category */
+            price_from_cents: number | null;
+            /** @description Accommodation: the most guests it sleeps; null otherwise */
+            guests: number | null;
+            /** @description Accommodation's nightly pricing once it has a price; null otherwise */
+            stay_rate: components["schemas"]["stay_rate"] | null;
+            fees: components["schemas"]["listing_fee"][];
         };
         business_ref: {
             name: string;
@@ -3276,6 +3346,10 @@ export interface components {
             cancellation_policy: components["schemas"]["cancellation_policy"];
             /** @description How many identical items, rooms or vehicles it has */
             units_count: number;
+            /** @description Accommodation's nightly pricing; null for any other category */
+            stay_rate: components["schemas"]["stay_rate"] | null;
+            /** @description In the partner's order */
+            fees: components["schemas"]["listing_fee"][];
             business: {
                 id: number;
                 name: string;
@@ -3372,6 +3446,109 @@ export interface components {
             units_count?: number;
             /** @description Tours and activities only: the published landmarks it visits. Replaces them when sent; left out on a change, they stay as they are. A listing that isn't an activity has none. */
             landmark_ids?: number[];
+            /** @description Accommodation only, and required on a new one or one moved into it: replaces the rate when sent; left out on a change, it stays. Refused for any other category. */
+            stay_rate?: components["schemas"]["stay_rate_body"];
+            /** @description Any category. Replaces the listing's fees, in this order, when sent; left out on a change, they stay. Names are unique per listing, ignoring case. */
+            fees?: components["schemas"]["listing_fee_body"][];
+        };
+        stay_rate: {
+            /** @description For each night, covering up to base_guests; per guest for a shared room. 0 means no price yet (listings made before pricing), and the listing can't be quoted */
+            nightly_price_cents: number;
+            /** @description For Friday and Saturday nights; null: the nightly price */
+            weekend_price_cents: number | null;
+            /** @description Guests the nightly price includes */
+            base_guests: number;
+            /** @description Per guest above base_guests, per night, up to attrs.guests */
+            extra_guest_fee_cents: number;
+            /** @description Off stays of 7+ nights */
+            weekly_discount_percent: number;
+            /** @description Off stays of 28+ nights; at least the weekly one */
+            monthly_discount_percent: number;
+            min_nights: number;
+            /** @description Null: no maximum */
+            max_nights: number | null;
+        };
+        /** @description A shared room is priced per guest: base_guests 1, no extra-guest fee. base_guests is at most attrs.guests. Optional fields left out take their defaults. */
+        stay_rate_body: {
+            nightly_price_cents: number;
+            /** @description Default null */
+            weekend_price_cents?: number | null;
+            /** @description Default 1 */
+            base_guests?: number;
+            /** @description Default 0 */
+            extra_guest_fee_cents?: number;
+            /** @description Default 0 */
+            weekly_discount_percent?: number;
+            /** @description Default 0 */
+            monthly_discount_percent?: number;
+            /** @description Default 1 */
+            min_nights?: number;
+            /** @description Default null */
+            max_nights?: number | null;
+        };
+        /**
+         * @description What the amount is multiplied by in a quote
+         * @enum {string}
+         */
+        listing_fee_charged_per: "booking" | "night" | "guest" | "guest_night" | "unit";
+        listing_fee: {
+            id: number;
+            name: string;
+            amount_cents: number;
+            charged_per: components["schemas"]["listing_fee_charged_per"];
+            /** @description false: an add-on the guest picks */
+            required: boolean;
+        };
+        stay_quote: {
+            /** Format: date */
+            starts_on: string;
+            /** Format: date */
+            ends_on: string;
+            guests: number;
+            nights: {
+                /** Format: date */
+                date: string;
+                /** @description Per guest for a shared room */
+                price_cents: number;
+                /** @description A Friday or Saturday night */
+                weekend: boolean;
+            }[];
+            nights_count: number;
+            /** @description A shared room: the nights are charged per guest */
+            per_guest: boolean;
+            /** @description The nights, times the guests for a shared room */
+            nightly_subtotal_cents: number;
+            /** @description Guests above base_guests */
+            extra_guests: number;
+            /** @description Per extra guest, per night */
+            extra_guest_fee_cents: number;
+            extra_guests_total_cents: number;
+            /** @description Off the nights and extra guests, never the fees; null under 7 nights or with none set */
+            discount: {
+                /** @enum {string} */
+                kind: "weekly" | "monthly";
+                percent: number;
+                amount_cents: number;
+            } | null;
+            /** @description The required fees and the add-ons picked, in the partner's order */
+            fees: {
+                id: number;
+                name: string;
+                charged_per: components["schemas"]["listing_fee_charged_per"];
+                required: boolean;
+                /** @description What amount_cents is multiplied by */
+                quantity: number;
+                amount_cents: number;
+                total_cents: number;
+            }[];
+            total_cents: number;
+        };
+        listing_fee_body: {
+            name: string;
+            amount_cents: number;
+            charged_per: components["schemas"]["listing_fee_charged_per"];
+            /** @description Default true */
+            required?: boolean;
         };
         /**
          * @description free_cancellation: free any time before the booking starts; non_refundable: no refund; seven_days / fourteen_days: free up to 7 / 14 days before it starts, non-refundable after
@@ -3447,6 +3624,8 @@ export interface components {
                  * @description As in listing_detail
                  */
                 partner_name: string;
+                /** @description As in listing_detail */
+                price_from_cents: number | null;
             }[];
         };
         activity: {

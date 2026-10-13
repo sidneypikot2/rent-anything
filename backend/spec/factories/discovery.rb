@@ -37,6 +37,16 @@ FactoryBot.define do
     trait :parent do
       booking_type { nil }
     end
+
+    # A property type under Accommodation (RAA-82), priced by a stay rate (RAA-104).
+    trait :accommodation do
+      name { "Guesthouse" }
+      booking_type { "stay" }
+      parent do
+        Category.find_by(slug: "accommodation") ||
+          association(:category, :parent, slug: "accommodation", name: "Accommodation")
+      end
+    end
   end
 
   factory :listing do
@@ -60,6 +70,29 @@ FactoryBot.define do
     trait :pending do
       status { "pending" }
     end
+
+    # An entire place sleeping 4, at ₱2,000 a night for up to 2 guests (RAA-104).
+    trait :stay do
+      category factory: %i[category accommodation]
+      title { "Kota Beach house" }
+      attrs { { "place_type" => "entire_place", "guests" => 4 } }
+      transient { with_rate { true } }
+      after(:create) { |listing, context| create(:stay_rate, listing:) if context.with_rate && !listing.stay_rate }
+    end
+  end
+
+  factory :stay_rate do
+    listing { association(:listing, :stay, with_rate: false) }
+    nightly_price_cents { 200_000 }
+    base_guests { 2 }
+  end
+
+  factory :listing_fee do
+    listing
+    sequence(:name) { |n| "Fee #{n}" }
+    amount_cents { 50_000 }
+    charged_per { "booking" }
+    sequence(:position)
   end
 
   factory :destination_link do

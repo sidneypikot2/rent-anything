@@ -2,7 +2,8 @@
 # spec/swagger_helper.rb, RAA-86). Never the location or address: the exact point is
 # revealed only after a paid booking. The business offering it and how many units it has
 # (RAA-100): "by Basilia Guest House · 5 rooms". An area page's rows reuse its summary and
-# offered_by. Preload business, category and units.
+# offered_by. Its pricing (RAA-104): a stay's nightly rate once it has a price, the guests it
+# sleeps, and its fees. Preload business, category, units, stay_rate and fees.
 module ListingDetailSerializer
   SUMMARY_LENGTH = 160
 
@@ -16,7 +17,11 @@ module ListingDetailSerializer
       category: { slug: category.slug, name: category.name },
       booking_type: category.booking_type,
       area: { slug: listing.area.slug, name: listing.area.name },
-      **offered_by(listing)
+      **offered_by(listing),
+      price_from_cents: PricingSerializer.price_from_cents(listing),
+      guests: listing.stay_rate && listing.attrs["guests"],
+      stay_rate: listing.stay_rate&.priced? ? PricingSerializer.stay_rate(listing.stay_rate) : nil,
+      fees: PricingSerializer.fees(listing)
     }
   end
 

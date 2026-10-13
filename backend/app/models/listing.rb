@@ -29,6 +29,10 @@ class Listing < ApplicationRecord
   has_many :trip_items, dependent: :delete_all
   # Its identical items, rooms or vehicles (RAA-98); the foreign key cascades too.
   has_many :units, -> { order(:position) }, class_name: "ListingUnit", dependent: :delete_all, inverse_of: :listing
+  # Accommodation's nightly pricing (RAA-104); every accommodation listing has one.
+  has_one :stay_rate, dependent: :delete, inverse_of: :listing
+  # Extra charges, for any category (RAA-104); the foreign keys cascade too.
+  has_many :fees, -> { order(:position) }, class_name: "ListingFee", dependent: :delete_all, inverse_of: :listing
 
   enum :status, STATUSES.index_with(&:itself), validate: true
 

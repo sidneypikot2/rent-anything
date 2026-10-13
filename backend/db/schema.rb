@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_13_100001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_14_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -155,6 +155,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_100001) do
     t.check_constraint "wikidata_popularity >= 0", name: "landmarks_wikidata_popularity_check"
   end
 
+  create_table "listing_fees", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.string "name", null: false
+    t.bigint "amount_cents", null: false
+    t.string "charged_per", null: false
+    t.boolean "required", default: true, null: false
+    t.integer "position", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["listing_id", "name"], name: "index_listing_fees_on_listing_id_and_name", unique: true
+    t.check_constraint "\"position\" >= 1", name: "listing_fees_position_check"
+    t.check_constraint "amount_cents >= 0", name: "listing_fees_amount_check"
+    t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 60", name: "listing_fees_name_length_check"
+    t.check_constraint "charged_per::text = ANY (ARRAY['booking'::character varying, 'night'::character varying, 'guest'::character varying, 'guest_night'::character varying, 'unit'::character varying]::text[])", name: "listing_fees_charged_per_check"
+  end
+
   create_table "listing_landmarks", primary_key: ["listing_id", "landmark_id"], force: :cascade do |t|
     t.bigint "listing_id", null: false
     t.bigint "landmark_id", null: false
@@ -279,6 +295,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_100001) do
     t.check_constraint "target_type::text = ANY (ARRAY['Area'::character varying::text, 'Landmark'::character varying::text, 'Tag'::character varying::text, 'Listing'::character varying::text])", name: "search_events_target_type_check"
   end
 
+  create_table "stay_rates", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.bigint "nightly_price_cents", default: 0, null: false
+    t.bigint "weekend_price_cents"
+    t.integer "base_guests", default: 1, null: false
+    t.bigint "extra_guest_fee_cents", default: 0, null: false
+    t.integer "weekly_discount_percent", default: 0, null: false
+    t.integer "monthly_discount_percent", default: 0, null: false
+    t.integer "min_nights", default: 1, null: false
+    t.integer "max_nights"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["listing_id"], name: "index_stay_rates_on_listing_id", unique: true
+    t.check_constraint "base_guests >= 1 AND base_guests <= 50", name: "stay_rates_base_guests_check"
+    t.check_constraint "extra_guest_fee_cents >= 0", name: "stay_rates_extra_guest_fee_check"
+    t.check_constraint "max_nights >= min_nights AND max_nights <= 365", name: "stay_rates_max_nights_check"
+    t.check_constraint "min_nights >= 1 AND min_nights <= 365", name: "stay_rates_min_nights_check"
+    t.check_constraint "monthly_discount_percent >= 0 AND monthly_discount_percent <= 90", name: "stay_rates_monthly_discount_check"
+    t.check_constraint "nightly_price_cents >= 0", name: "stay_rates_nightly_price_check"
+    t.check_constraint "weekend_price_cents >= 0", name: "stay_rates_weekend_price_check"
+    t.check_constraint "weekly_discount_percent >= 0 AND weekly_discount_percent <= 90", name: "stay_rates_weekly_discount_check"
+  end
+
   create_table "tags", force: :cascade do |t|
     t.string "slug", null: false
     t.string "name", null: false
@@ -347,6 +386,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_100001) do
   add_foreign_key "landmark_tags", "landmarks"
   add_foreign_key "landmark_tags", "tags"
   add_foreign_key "landmarks", "areas"
+  add_foreign_key "listing_fees", "listings", on_delete: :cascade
   add_foreign_key "listing_landmarks", "landmarks"
   add_foreign_key "listing_landmarks", "listings"
   add_foreign_key "listing_units", "listings", on_delete: :cascade
@@ -363,6 +403,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_100001) do
   add_foreign_key "partner_verifications", "users"
   add_foreign_key "partner_verifications", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_partner_verifications_user_role"
   add_foreign_key "refresh_tokens", "users"
+  add_foreign_key "stay_rates", "listings", on_delete: :cascade
   add_foreign_key "trip_items", "listings", on_delete: :cascade
   add_foreign_key "trip_items", "trips", on_delete: :cascade
   add_foreign_key "trips", "users"

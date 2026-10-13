@@ -29,3 +29,18 @@
 
 en:
   hello: "Hello world"
+  activerecord:
+    attributes:
+      # How a partner reads stay pricing errors (RAA-104), not the column names.
+      stay_rate:
+        nightly_price_cents: "Nightly price"
+        weekend_price_cents: "Weekend price"
+        base_guests: "Guests included in the price"
+        extra_guest_fee_cents: "Extra-guest fee"
+        weekly_discount_percent: "Weekly discount"
+        monthly_discount_percent: "Monthly discount"
+        min_nights: "Minimum nights"
+        max_nights: "Maximum nights"
+      listing_fee:
+        amount_cents: "Fee amount"
+        charged_per: "Charged per"

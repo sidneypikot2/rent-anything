@@ -22,6 +22,11 @@ class Category < ApplicationRecord
     booking_type.present?
   end
 
+  # A property type under Accommodation (RAA-82): only these are priced by StayRate (RAA-104).
+  def accommodation?
+    parent&.slug == "accommodation"
+  end
+
   # How many units a listing has, in this category's words (RAA-100): "5 rooms", "1 motorcycle".
   def units_label(count)
     noun = count == 1 ? unit_name.presence || "unit" : unit_name_plural.presence || "units"
