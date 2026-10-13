@@ -7,6 +7,10 @@ import { BRAND } from "@/lib/brand";
 
 export type Section = "guest" | "partner" | "admin";
 
+// How far a PageBanner pulls up under the floating header: its top inset (pt-3) plus the
+// bar's height (min-h-14), so the photo starts at the top of the window.
+export const HEADER_PULL = "-mt-17";
+
 const SECTION_LABELS: Record<Section, string> = {
   guest: "",
   partner: "Partners",
@@ -17,17 +21,18 @@ const SECTION_LABELS: Record<Section, string> = {
 // /partner, developers at /admin. Sections don't link to each other: partners and guests
 // have separate entry points. The one exception is SectionSwitch, a floating test aid
 // shown locally and on staging only.
-// Sky & Forest (RAA-102): a sticky frosted bar, so the page shows through it as it scrolls
-// beneath, with the links on a glass pill. Partner links take their own row on a phone.
+// Sky & Forest (RAA-102): a floating glass bar, inset from the edges and sticky, so the page
+// shows through it as it scrolls beneath. A PageBanner slides up under it (HEADER_PULL), so
+// on those pages it floats over the photo. Partner links take their own row on a phone.
 export function SectionHeader({ section }: { section: Section }) {
   const label = SECTION_LABELS[section];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-navy/75 text-white backdrop-blur-xl">
-      <div className="mx-auto flex min-h-16 w-full max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2.5">
+    <header className="pointer-events-none sticky top-0 z-40 px-3 pt-3 sm:px-6">
+      <div className="pointer-events-auto mx-auto flex min-h-14 w-full max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-[1.75rem] border border-white/15 bg-navy/70 px-3 py-1.5 text-white shadow-xl shadow-navy/25 backdrop-blur-xl backdrop-saturate-150 sm:px-5">
         <Link
           href={section === "guest" ? "/" : `/${section}`}
-          className="text-2xl"
+          className="pl-1 text-xl sm:text-2xl"
           aria-label={label ? `${BRAND} ${label}` : `${BRAND} home`}
         >
           <Logo />

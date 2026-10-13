@@ -26,16 +26,18 @@ export function AccountNav({ section }: { section: Section }) {
         <Link
           href={LOGIN_PATHS.guest}
           data-testid="nav-signin"
-          className="flex min-h-9 items-center rounded-full px-4 hover:bg-white/15 hover:text-white"
+          className="flex min-h-9 items-center rounded-full px-3 whitespace-nowrap hover:bg-white/15 hover:text-white sm:px-4"
         >
           Sign in
         </Link>
         <Link
           href={REGISTER_PATHS.guest}
           data-testid="nav-register"
-          className="flex min-h-9 items-center rounded-full bg-white px-4 font-bold text-navy hover:bg-sky-mist"
+          className="flex min-h-9 items-center rounded-full bg-white px-3 font-bold whitespace-nowrap text-navy hover:bg-sky-mist sm:px-4"
         >
-          Create an account
+          {/* Short on a phone, so the bar stays one row. */}
+          <span className="sm:hidden">Sign up</span>
+          <span className="hidden sm:inline">Create an account</span>
         </Link>
       </span>
     ) : null;

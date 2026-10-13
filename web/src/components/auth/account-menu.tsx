@@ -85,7 +85,7 @@ export function AccountMenu({ section }: { section: MenuSection }) {
           open ? "bg-white text-navy" : "bg-white/10 text-white hover:bg-white/15",
         )}
       >
-        {session.user.name ?? session.user.email}
+        <span className="max-w-36 truncate sm:max-w-56">{session.user.name ?? session.user.email}</span>
         <svg
           aria-hidden="true"
           viewBox="0 0 20 20"

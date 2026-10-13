@@ -2,6 +2,7 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { cn } from "@/components/ui/cn";
 import { GlassPanel } from "@/components/ui/glass";
+import { HEADER_PULL } from "./section-header";
 
 // The top of a main page (Sky & Forest, RAA-102): a full-width photo with a scrim, and the
 // page's eyebrow, title, intro and actions in white on a glass frame. The photo is
@@ -25,7 +26,8 @@ export function PageBanner({
   frameClass?: string;
 }) {
   return (
-    <section className="relative isolate flex overflow-hidden p-3 sm:p-6">
+    // Pulled up under the floating header, with room at the top so the frame clears it.
+    <section className={cn("relative isolate flex overflow-hidden px-3 pb-3 pt-20 sm:px-6 sm:pb-6 sm:pt-22", HEADER_PULL)}>
       <Image src={photo} alt="" fill preload={preload} sizes="100vw" className="-z-20 object-cover" />
       <div aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-scrim/45 via-scrim/35 via-40% to-scrim/80" />
       <GlassPanel
