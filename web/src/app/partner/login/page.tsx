@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 // public partner pages: every other one needs a partner account (RoleGuard).
 export default function PartnerLogin() {
   return (
-    <main className="mx-auto grid w-full max-w-5xl flex-1 gap-10 px-4 py-12 md:grid-cols-[1fr_20rem]">
+    <main className="mx-auto grid w-full max-w-page flex-1 gap-block px-gutter py-page-pad md:grid-cols-[1fr_20rem]">
       <PartnerPitch />
       <AuthCard role="partner" mode="signin" />
     </main>

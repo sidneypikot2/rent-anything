@@ -1,13 +1,19 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { getExplore, search, type SearchResults } from "@/api/discovery";
 import { ExploreSections } from "@/components/discovery/explore-sections";
 import { listingNote } from "@/components/discovery/categories";
-import { areaIcon, categoryIcon, tagIcon } from "@/components/discovery/icons";
+import { ListingCard } from "@/components/discovery/cards";
+import { areaIcon, placeIcon, tagIcon } from "@/components/discovery/icons";
+import { PageBanner } from "@/components/landing/page-banner";
+import { listingPhoto } from "@/components/landing/sample-photos";
 import { SearchBox } from "@/components/discovery/search-box";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
+import { GlassPanel } from "@/components/ui/glass";
 import { PillLink } from "@/components/ui/pill";
-import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
+import { Section } from "@/components/ui/section";
+import { DisplayTitle } from "@/components/ui/typography";
 
 export const metadata: Metadata = { title: "Search" };
 
@@ -22,11 +28,13 @@ export default async function SearchPage(props: PageProps<"/search">) {
   const explore = top ? await getExplore(top.anchor) : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-10">
-      <div className="flex flex-col gap-4">
-        <DisplayTitle>{query ? <>Results for “{query}”</> : "Search"}</DisplayTitle>
-        <SearchBox key={query} initialQuery={query} />
-      </div>
+    <main className="flex flex-1 flex-col">
+      <PageBanner photo="/images/hero.jpg" preload title={<DisplayTitle>{query ? <>Results for “{query}”</> : "Search"}</DisplayTitle>}>
+        <GlassPanel className="relative z-10 w-full max-w-2xl rounded-card p-2 shadow-float">
+          <SearchBox key={query} initialQuery={query} />
+        </GlassPanel>
+      </PageBanner>
+      <div className="mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-page-pad">
       {results === null ? (
         <p className="text-muted">Type at least two letters: a destination, a landmark or an activity.</p>
       ) : (
@@ -35,6 +43,7 @@ export default async function SearchPage(props: PageProps<"/search">) {
           {top && explore && <ExploreSections explore={explore} name={top.name} />}
         </>
       )}
+      </div>
     </main>
   );
 }
@@ -59,10 +68,9 @@ function Results({ results }: { results: SearchResults }) {
   }
 
   return (
-    <div data-testid="search-results" className="flex flex-col gap-8">
+    <div data-testid="search-results" className="flex flex-col gap-section">
       {results.tags.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <SectionTitle>Activities & interests</SectionTitle>
+        <Section title="Activities & interests">
           {results.tags.map((tag) => (
             <Card key={tag.slug}>
               <CardBody className="flex flex-col gap-3">
@@ -84,7 +92,7 @@ function Results({ results }: { results: SearchResults }) {
               </CardBody>
             </Card>
           ))}
-        </section>
+        </Section>
       )}
 
       <LinkGroup
@@ -102,37 +110,43 @@ function Results({ results }: { results: SearchResults }) {
         items={results.landmarks.map((landmark) => ({
           key: landmark.slug,
           href: `/${landmark.area.slug}#${landmark.slug}`,
-          icon: "📍",
+          icon: placeIcon(),
           title: landmark.name,
           note: landmark.area.name,
         }))}
       />
-      <LinkGroup
-        title="Things to book"
-        items={results.listings.map((listing) => ({
-          key: String(listing.id),
-          href: `/${listing.area_slug}#listing-${listing.id}`,
-          icon: categoryIcon(listing.category),
-          title: listing.title,
-          note: listingNote(listing, results),
-        }))}
-      />
+      {results.listings.length > 0 && (
+        <Section title="Things to book">
+          <ul className="grid gap-gutter sm:grid-cols-2">
+            {results.listings.map((listing, index) => (
+              <li key={listing.id}>
+                <ListingCard
+                  href={`/${listing.area_slug}#listing-${listing.id}`}
+                  title={listing.title}
+                  category={listing.category}
+                  note={listingNote(listing, results)}
+                  photo={listingPhoto(listing.category, index)}
+                />
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
     </div>
   );
 }
 
-type Item = { key: string; href: string; icon: string; title: string; note: string };
+type Item = { key: string; href: string; icon: ReactNode; title: string; note: string };
 
 function LinkGroup({ title, items }: { title: string; items: Item[] }) {
   if (items.length === 0) return null;
   return (
-    <section className="flex flex-col gap-3">
-      <SectionTitle>{title}</SectionTitle>
-      <ul className="grid gap-2 sm:grid-cols-2">
+    <Section title={title}>
+      <ul className="grid gap-gutter sm:grid-cols-2">
         {items.map((item) => (
           <li key={item.key}>
             <CardLink href={item.href} className="flex items-center gap-3 p-3">
-              <span aria-hidden className="text-2xl">
+              <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-control bg-mist text-xl text-primary">
                 {item.icon}
               </span>
               <span className="min-w-0 flex-1">
@@ -144,6 +158,6 @@ function LinkGroup({ title, items }: { title: string; items: Item[] }) {
           </li>
         ))}
       </ul>
-    </section>
+    </Section>
   );
 }

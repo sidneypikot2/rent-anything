@@ -14,7 +14,7 @@ export default function PartnerListings() {
   const failed = listings.error ?? businesses.error;
 
   return (
-    <main data-testid="partner-listings" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-12">
+    <main data-testid="partner-listings" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-block px-gutter py-page-pad">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <DisplayTitle>Listings</DisplayTitle>
         <ButtonLink href="/partner/listings/new" size="sm" data-testid="add-listing">

@@ -72,7 +72,7 @@ for (const [path, heading, testId] of [
   ["/partner/login", "List with TripKoNext", "partner-signin"],
   ["/partner/register", "List with TripKoNext", "partner-signup"],
   ["/admin", "Admin console", "admin-signin"],
-  ["/admin/ui-kit", "Tidal Grove", "ui-kit"],
+  ["/admin/ui-kit", "Sky & Forest", "ui-kit"],
 ]) {
   test(`${path} renders`, async ({ page }) => {
     const errors = [];

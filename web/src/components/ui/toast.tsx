@@ -53,7 +53,7 @@ function ToastCard({
       onMouseLeave={() => setHeld(false)}
       onFocus={() => setHeld(true)}
       onBlur={() => setHeld(false)}
-      className="pointer-events-auto flex w-full max-w-lg flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-navy px-4 py-3 text-sm text-white shadow-lg"
+      className="pointer-events-auto flex w-full max-w-lg animate-rise flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-glass-edge bg-navy/90 px-4 py-3 text-sm text-white shadow-lift backdrop-blur-lg"
     >
       <div className="min-w-0 flex-1">{children}</div>
       <div className="flex items-center gap-3 font-semibold text-aqua">

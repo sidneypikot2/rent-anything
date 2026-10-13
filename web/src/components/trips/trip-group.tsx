@@ -53,7 +53,7 @@ export function TripGroup({ trip, open, onToggle, actions }: Props) {
             <path d="M5.5 7.5 10 12l4.5-4.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
           </svg>
           <span className="min-w-0">
-            <span className="block font-display text-2xl font-bold italic leading-tight">{trip.name}</span>
+            <span className="block font-display text-2xl font-extrabold tracking-tight leading-tight">{trip.name}</span>
             <span className="block text-sm text-muted">{details}</span>
             {trip.destinations.length > 0 && (
               <span className="block text-sm text-muted">{trip.destinations.join(", ")}</span>

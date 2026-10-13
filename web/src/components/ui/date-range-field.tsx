@@ -42,7 +42,7 @@ function toIso(date: Date) {
 
 // DayPicker marks the month buttons aria-disabled rather than disabled.
 const NAV_BUTTON =
-  "flex size-9 items-center justify-center rounded-lg text-foreground hover:bg-surface-2 aria-disabled:cursor-not-allowed aria-disabled:text-muted/40 aria-disabled:hover:bg-transparent";
+  "flex size-9 items-center justify-center rounded-control text-foreground hover:bg-surface-2 aria-disabled:cursor-not-allowed aria-disabled:text-muted/40 aria-disabled:hover:bg-transparent";
 
 // react-day-picker's parts, styled with the palette instead of its stylesheet.
 const CLASS_NAMES = {
@@ -76,7 +76,7 @@ function Day({ day, modifiers, className, ...props }: DayButtonProps) {
       className={cn(
         className,
         "h-10 w-full text-sm outline-none focus-visible:ring-2 focus-visible:ring-navy",
-        end ? "rounded-lg bg-primary font-semibold text-white" : modifiers.range_middle ? "bg-aqua text-navy" : "rounded-lg",
+        end ? "rounded-control bg-primary font-semibold text-white" : modifiers.range_middle ? "bg-aqua text-navy" : "rounded-control",
         !modifiers.selected && !modifiers.disabled && "hover:bg-surface-2",
         modifiers.disabled && "cursor-not-allowed text-muted/50",
         modifiers.today && !end && "font-semibold underline underline-offset-4",
@@ -185,7 +185,7 @@ export function DateRangeField({
   } as const;
 
   return (
-    <div ref={root} onKeyDown={onKeyDown} className={cn("relative flex flex-col gap-1 text-sm font-medium", className)}>
+    <div ref={root} onKeyDown={onKeyDown} className={cn("relative flex flex-col gap-1.5 text-sm font-semibold", className)}>
       <span id={labelId}>{label}</span>
       <button
         ref={trigger}
@@ -201,8 +201,8 @@ export function DateRangeField({
           setOpen(!open);
         }}
         className={cn(
-          "flex items-center justify-between gap-2 rounded-lg border-[1.5px] bg-surface px-3 py-2 text-left font-normal outline-none",
-          "focus:border-primary disabled:bg-surface-2",
+          "flex items-center justify-between gap-2 min-h-12 rounded-control border bg-surface px-4 py-2.5 text-left font-normal outline-none",
+          "focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
           error ? "border-danger" : "border-line-strong",
           open && "border-primary",
         )}
@@ -224,8 +224,8 @@ export function DateRangeField({
           role="group"
           aria-label={label}
           className={cn(
-            "flex w-full flex-col gap-2 rounded-xl border-[1.5px] border-line bg-surface p-3 font-normal",
-            inline ? "mt-1" : "absolute left-0 top-full z-20 mt-1 shadow-xl shadow-navy/20 sm:w-80",
+            "flex w-full flex-col gap-2 rounded-control border border-line bg-surface p-3 font-normal",
+            inline ? "mt-1" : "absolute left-0 top-full z-20 mt-1 shadow-lift sm:w-80",
           )}
         >
           {single ? (
@@ -252,12 +252,12 @@ export function DateRangeField({
                   onChange({ from: "", to: "" });
                   close();
                 }}
-                className="rounded-lg px-2 py-1 font-medium text-link hover:bg-surface-2"
+                className="rounded-control px-2 py-1 font-medium text-link hover:bg-surface-2"
               >
                 Clear
               </button>
             )}
-            <button type="button" onClick={close} className="rounded-lg px-2 py-1 font-medium text-link hover:bg-surface-2">
+            <button type="button" onClick={close} className="rounded-control px-2 py-1 font-medium text-link hover:bg-surface-2">
               Done
             </button>
           </div>

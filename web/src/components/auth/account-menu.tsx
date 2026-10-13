@@ -71,9 +71,8 @@ export function AccountMenu({ section }: { section: MenuSection }) {
   }
 
   return (
-    // Full header height: open, the name becomes a tab in the panel's colour and the panel
-    // hangs from the bar's bottom edge beneath it, so the two read as one shape.
-    <div ref={root} className="relative flex self-stretch">
+    // A glass pill in the header; the menu opens as a card beneath it.
+    <div ref={root} className="relative flex">
       <button
         ref={trigger}
         type="button"
@@ -82,11 +81,11 @@ export function AccountMenu({ section }: { section: MenuSection }) {
         aria-controls="account-menu"
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex items-center gap-1 px-3 transition-colors",
-          open ? "bg-surface text-foreground" : "text-white hover:bg-white/10",
+          "flex min-h-11 items-center gap-1 rounded-full border border-glass-edge px-4 transition-colors",
+          open ? "bg-white text-navy" : "bg-glass-fill text-white hover:bg-glass-hover",
         )}
       >
-        {session.user.name ?? session.user.email}
+        <span className="max-w-36 truncate sm:max-w-56">{session.user.name ?? session.user.email}</span>
         <svg
           aria-hidden="true"
           viewBox="0 0 20 20"
@@ -99,7 +98,7 @@ export function AccountMenu({ section }: { section: MenuSection }) {
         <ul
           id="account-menu"
           data-testid="nav-user-menu"
-          className="absolute inset-x-0 top-full z-20 min-w-40 overflow-hidden rounded-b-2xl bg-surface py-2 shadow-xl shadow-navy/20"
+          className="absolute right-0 top-full z-20 mt-2 min-w-48 overflow-hidden rounded-card border border-line bg-surface py-2 shadow-lift"
         >
           {LINKS[section].map(({ href, label, testId }) => (
             <li key={href}>

@@ -13,14 +13,14 @@ export function Field({ label, hint, error, className, ...props }: Props) {
   const note = error ?? hint;
 
   return (
-    <label className="flex flex-col gap-1 text-sm font-medium">
+    <label className="flex flex-col gap-1.5 text-sm font-semibold">
       {label}
       <input
         aria-invalid={error ? true : undefined}
         aria-describedby={note ? noteId : undefined}
         className={cn(
-          "rounded-lg border-[1.5px] bg-surface px-3 py-2 font-normal text-foreground outline-none",
-          "placeholder:text-muted/80 focus:border-primary disabled:bg-surface-2",
+          "min-h-12 rounded-control border bg-surface px-4 py-2.5 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm",
+          "placeholder:text-muted/80 focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
           error ? "border-danger" : "border-line-strong",
           className,
         )}

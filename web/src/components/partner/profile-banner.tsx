@@ -13,7 +13,7 @@ export function ProfileBanner() {
 
   return (
     <div data-testid="profile-banner" role="status" className="border-b border-warning/30 bg-warning/10">
-      <p className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 text-sm">
+      <p className="mx-auto flex w-full max-w-page flex-wrap items-center gap-x-2 gap-y-1 px-gutter py-3 text-sm">
         <span>Your profile isn&apos;t complete. Add your legal name, phone and business address before you list.</span>
         <Link
           href="/partner/profile"

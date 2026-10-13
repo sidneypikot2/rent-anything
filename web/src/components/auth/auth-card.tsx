@@ -110,7 +110,7 @@ export function AuthCard({ role, mode, next, onSignedIn }: Props) {
   return (
     <Card data-testid={`${role}-${signup ? "signup" : "signin"}`} className="w-full self-start">
       <CardBody pad="lg" className="flex flex-col gap-5">
-        <h2 className="font-display text-2xl font-bold italic">{TITLES[role][signup ? "signup" : "signin"]}</h2>
+        <h2 className="font-display text-2xl font-extrabold tracking-tight">{TITLES[role][signup ? "signup" : "signin"]}</h2>
 
         <form onSubmit={submit}>
           <fieldset disabled={pending} className="flex flex-col gap-3">

@@ -18,7 +18,7 @@ export default function EditPartnerListing() {
   const failed = listing.error ?? options.error ?? businesses.error;
 
   return (
-    <main data-testid="partner-listing-edit" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-12">
+    <main data-testid="partner-listing-edit" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-block px-gutter py-page-pad">
       <DisplayTitle>Edit listing</DisplayTitle>
       {listing.data === null ? (
         <ListingMissing />

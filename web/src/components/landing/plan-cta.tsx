@@ -43,7 +43,7 @@ export function PlanCta() {
   const band = BANDS[session ? session.user.role : "signedOut"];
 
   return (
-    <section className="flex flex-col items-start gap-4 rounded-3xl bg-navy p-8 text-white sm:flex-row sm:items-center sm:justify-between">
+    <section className="reveal flex flex-col items-start gap-6 rounded-frame bg-navy p-card text-white sm:flex-row sm:items-center sm:justify-between sm:p-12">
       <div>
         <SectionTitle>{band.title}</SectionTitle>
         <p className="mt-1 text-on-dark">{band.body}</p>

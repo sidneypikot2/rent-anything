@@ -15,7 +15,7 @@ export function VerificationBanner() {
 
   return (
     <div data-testid="verification-banner" role="status" className="border-b border-warning/30 bg-warning/10">
-      <p className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 text-sm">
+      <p className="mx-auto flex w-full max-w-page flex-wrap items-center gap-x-2 gap-y-1 px-gutter py-3 text-sm">
         <span>
           {data.status === "in_review"
             ? "Your ID is being reviewed. You can add listings once it's approved."

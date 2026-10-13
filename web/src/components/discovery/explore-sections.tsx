@@ -1,7 +1,7 @@
 import type { Explore, ExplorePlace } from "@/api/discovery";
 import { CardLink } from "@/components/ui/card";
-import { SectionTitle } from "@/components/ui/typography";
-import { areaIcon } from "./icons";
+import { Section } from "@/components/ui/section";
+import { areaIcon, placeIcon } from "./icons";
 
 // "Nearby destinations" and "Often visited with" for one destination (RAA-58), from the
 // explore endpoint. Recommendations are curated links: they lead to another destination's
@@ -35,14 +35,13 @@ export function ExploreSections({ explore, name }: { explore: Explore; name: str
 
 function PlaceGroup({ testId, title, places }: { testId: string; title: string; places: (ExplorePlace & { note: string })[] }) {
   return (
-    <section data-testid={testId} className="flex flex-col gap-3">
-      <SectionTitle>{title}</SectionTitle>
-      <ul className="grid gap-2 sm:grid-cols-2">
+    <Section testId={testId} title={title}>
+      <ul className="grid gap-gutter sm:grid-cols-2">
         {places.map((place) => (
           <li key={`${place.type}-${place.slug}`}>
             <CardLink href={placeHref(place)} className="flex items-center gap-3 p-3">
-              <span aria-hidden className="text-2xl">
-                {place.kind ? areaIcon(place.kind) : "📍"}
+              <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-control bg-mist text-xl text-primary">
+                {place.kind ? areaIcon(place.kind) : placeIcon()}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">{place.name}</span>
@@ -52,7 +51,7 @@ function PlaceGroup({ testId, title, places }: { testId: string; title: string; 
           </li>
         ))}
       </ul>
-    </section>
+    </Section>
   );
 }
 

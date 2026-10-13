@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default async function GuestLogin(props: PageProps<"/login">) {
   const next = safeNextPath((await props.searchParams).next);
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 py-12">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-gutter py-page-pad">
       <AuthCard role="guest" mode="signin" next={next} />
     </main>
   );

@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
+import { LandmarkCard, ListingCard as PhotoListingCard } from "@/components/discovery/cards";
+import { AreaGlyph, CategoryGlyph, TagGlyph } from "@/components/discovery/tag-glyphs";
+import { landmarkPhoto, listingPhoto } from "@/components/landing/sample-photos";
+import { GlassPanel } from "@/components/ui/glass";
 import { PasswordField } from "@/components/ui/password-field";
 import { SelectField } from "@/components/ui/select-field";
 import { TextareaField } from "@/components/ui/textarea-field";
@@ -17,36 +23,43 @@ export const metadata: Metadata = {
   title: "UI kit",
 };
 
-// The Tidal Grove palette as Tailwind classes (defined in globals.css), with what each
+// The Sky & Forest palette as Tailwind classes (defined in globals.css), with what each
 // colour is for.
 const SWATCHES = [
-  { name: "Cerulean", hex: "#0369A1", className: "bg-cerulean", use: "Primary buttons, links, prices" },
-  { name: "Emerald", hex: "#059669", className: "bg-emerald", use: "Eco labels, success, secondary" },
-  { name: "Aqua", hex: "#22D3EE", className: "bg-aqua", use: "Highlight badges, accents on navy" },
-  { name: "Fern", hex: "#6EE7B7", className: "bg-fern", use: "Icon fills, hover tints" },
-  { name: "Mist", hex: "#F0F9FF", className: "bg-mist", use: "surface-2, soft buttons" },
-  { name: "Sage", hex: "#ECFDF5", className: "bg-sage", use: "Alternate surfaces" },
+  { name: "Cerulean", hex: "#2563EB", className: "bg-cerulean", use: "Primary buttons, links, prices" },
+  { name: "Forest", hex: "#14532D", className: "bg-forest", use: "Bands, trip headers, glass tint" },
+  { name: "Emerald", hex: "#166534", className: "bg-emerald", use: "Trust badges, cart count, icons" },
+  { name: "Aqua", hex: "#DBEAFE", className: "bg-aqua", use: "Accent button, highlight badges" },
+  { name: "Fern", hex: "#BFDBFE", className: "bg-fern", use: "Accent hover, soft fills" },
+  { name: "Sky pale", hex: "#BAE6FD", className: "bg-sky-pale", use: "Accent text on photos and glass" },
+  { name: "Mist", hex: "#F0F9FF", className: "bg-mist", use: "Icon wells, soft buttons" },
+  { name: "Sage", hex: "#ECFDF3", className: "bg-sage", use: "Trust notices" },
   { name: "White", hex: "#FFFFFF", className: "bg-white", use: "Page, cards, inputs" },
-  { name: "Navy", hex: "#0C1B2E", className: "bg-navy", use: "Text, header, footer" },
+  { name: "Navy", hex: "#0F172A", className: "bg-navy", use: "Text, header, footer, dark glass" },
 ];
 
 const CATEGORIES = ["Tours", "Transfers", "Motorbikes", "Freediving", "Stays"];
+
+const ICON_TAGS = ["sightseeing", "snorkelling", "island-hopping", "freediving", "swimming", "sunset-viewing", "hiking", "photography"];
+const ICON_CATEGORIES = ["Tour", "Hotel or cottage", "Motorcycle", "Bicycle", "E-trike", "Van transfer", "Snorkel gear", "Camera"];
 
 // A reference page for the palette and every component in src/components/ui/. Build new
 // pages from these rather than from raw colours.
 export default function UiKit() {
   return (
-    <main data-testid="ui-kit" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-12 px-4 py-12">
+    <main data-testid="ui-kit" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-12 px-gutter py-page-pad">
       <header className="flex flex-col gap-2">
-        <Eyebrow>Colour system · 8 colours</Eyebrow>
+        <Eyebrow>Colour system · 10 colours</Eyebrow>
         <DisplayTitle>
-          <span className="not-italic text-primary">Tidal</span> Grove
+          <span className="text-primary">Sky</span> &amp; Forest
         </DisplayTitle>
-        <p className="max-w-prose text-muted">Blue-green accents from open ocean and forest, on white. Light only.</p>
+        <p className="max-w-prose text-muted">
+          Blue to sky for actions, deep forest green for trust and trips, glass over photos. Light only.
+        </p>
       </header>
 
       <Showcase title="Palette">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {SWATCHES.map((swatch) => (
             <Card key={swatch.name}>
               <div className={`h-16 border-b border-line ${swatch.className}`} />
@@ -68,7 +81,7 @@ export default function UiKit() {
           </DisplayTitle>
           <DisplayTitle as="p">Display title</DisplayTitle>
           <SectionTitle>Section title</SectionTitle>
-          <p>Body text in DM Sans, the face for everything that isn&apos;t a heading.</p>
+          <p>Body text in Plus Jakarta Sans, the one family for headings and text.</p>
           <p className="text-sm text-muted">Muted text for notes and secondary detail.</p>
           <a href="#" className="text-sm font-semibold text-link">
             A link →
@@ -92,8 +105,8 @@ export default function UiKit() {
             Link as button
           </ButtonLink>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl bg-navy p-6">
-          <p className="font-display text-2xl font-bold italic text-white">On navy</p>
+        <div className="mt-4 flex flex-wrap items-center gap-4 rounded-card bg-navy p-6">
+          <p className="font-display text-2xl font-extrabold tracking-tight text-white">On navy</p>
           <span className="text-sm text-on-dark">Accent is for dark bands.</span>
           <Button variant="accent">Get started</Button>
         </div>
@@ -111,7 +124,7 @@ export default function UiKit() {
               {category}
             </Pill>
           ))}
-          <PillLink href="/admin/ui-kit">🤿 Pill as link</PillLink>
+          <PillLink href="/admin/ui-kit">Pill as link</PillLink>
         </div>
       </Showcase>
 
@@ -154,6 +167,67 @@ export default function UiKit() {
         <MenuDemo />
       </Showcase>
 
+      <Showcase title="Glass">
+        <div className="relative isolate overflow-hidden rounded-card p-6">
+          <Image src="/images/hero.jpg" alt="" fill sizes="(min-width: 1024px) 64rem, 100vw" className="-z-20 object-cover" />
+          <div aria-hidden className="absolute inset-0 -z-10 bg-scrim/30" />
+          <div className="flex flex-wrap gap-3">
+            <GlassPanel className="rounded-card px-4 py-3 font-semibold">Dark</GlassPanel>
+            <GlassPanel tone="forest" className="rounded-card px-4 py-3 font-semibold">Forest</GlassPanel>
+            <GlassPanel tone="light" className="rounded-card px-4 py-3 font-semibold">Light</GlassPanel>
+          </div>
+        </div>
+        <p className="mt-2 text-sm text-muted">
+          For controls on a photo. See it in place on{" "}
+          <Link href="/" className="font-semibold text-link">
+            the home page
+          </Link>
+          .
+        </p>
+      </Showcase>
+
+      <Showcase title="Icons">
+        <div className="flex flex-wrap gap-2">
+          {ICON_TAGS.map((slug) => (
+            <span key={slug} title={slug} className="flex size-11 items-center justify-center rounded-control bg-mist text-primary">
+              <TagGlyph slug={slug} className="size-6" />
+            </span>
+          ))}
+          {ICON_CATEGORIES.map((name) => (
+            <span key={name} title={name} className="flex size-11 items-center justify-center rounded-control bg-sage text-forest">
+              <CategoryGlyph name={name} className="size-6" />
+            </span>
+          ))}
+        </div>
+        <p className="mt-2 text-sm text-muted">Line icons for activity tags (blue) and listing categories (green), in place of emoji.</p>
+      </Showcase>
+
+      <Showcase title="Photo cards">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <LandmarkCard
+            landmark={{
+              slug: "ui-kit-landmark",
+              name: "Kota Beach",
+              description: "A white-sand beach with a sandbar at low tide.",
+              tags: [
+                { slug: "white-sand", name: "White sand" },
+                { slug: "swimming", name: "Swimming" },
+              ],
+            }}
+            photo={landmarkPhoto([{ slug: "swimming" }], 0)}
+          />
+          <PhotoListingCard
+            href="/admin/ui-kit"
+            title="Virgin Island hopping"
+            category="Tour"
+            note="Tour · by Santa Fe Boats · per guest"
+            summary="Half a day on the water, with snorkelling stops."
+            photo={listingPhoto("Tour", 0)}
+            action={<Button size="sm">Add to trip</Button>}
+          />
+        </div>
+      </Showcase>
+
       <Showcase title="Cards">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <ListingCard
@@ -174,8 +248,8 @@ export default function UiKit() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <CardLink href="/admin/ui-kit" className="flex items-center gap-3 p-4">
-            <span aria-hidden className="text-2xl">
-              🏝️
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-control bg-mist text-primary">
+              <AreaGlyph kind="island" className="size-6" />
             </span>
             <span>
               <span className="block font-semibold">Card as link</span>

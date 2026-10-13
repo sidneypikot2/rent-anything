@@ -14,7 +14,7 @@ export default function EditPartnerBusiness() {
   const update = useUpdateBusiness(id);
 
   return (
-    <main data-testid="partner-business-edit" className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-12">
+    <main data-testid="partner-business-edit" className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-block px-gutter py-page-pad">
       <DisplayTitle>Edit business</DisplayTitle>
       {business.data === null ? (
         <div data-testid="business-missing" className="flex flex-col items-start gap-3">

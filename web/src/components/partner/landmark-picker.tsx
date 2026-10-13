@@ -140,7 +140,7 @@ export function LandmarkPicker({
         ) : (
           <ul
             data-testid="landmark-results"
-            className="flex max-h-72 flex-col gap-2 overflow-y-auto rounded-lg border-[1.5px] border-line-strong p-3"
+            className="flex max-h-72 flex-col gap-2 overflow-y-auto rounded-control border border-line-strong p-3"
           >
             {results.map((landmark) => (
               <li key={landmark.id}>

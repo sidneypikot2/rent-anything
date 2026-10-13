@@ -7,6 +7,10 @@ import { BRAND } from "@/lib/brand";
 
 export type Section = "guest" | "partner" | "admin";
 
+// How far a PageBanner pulls up under the floating header: its top inset (pt-3) plus the
+// bar's height (min-h-14), so the photo starts at the top of the window.
+export const HEADER_PULL = "-mt-17";
+
 const SECTION_LABELS: Record<Section, string> = {
   guest: "",
   partner: "Partners",
@@ -17,29 +21,33 @@ const SECTION_LABELS: Record<Section, string> = {
 // /partner, developers at /admin. Sections don't link to each other: partners and guests
 // have separate entry points. The one exception is SectionSwitch, a floating test aid
 // shown locally and on staging only.
+// Sky & Forest (RAA-102): a floating glass bar, inset from the edges and sticky, so the page
+// shows through it as it scrolls beneath. A PageBanner slides up under it (HEADER_PULL), so
+// on those pages it floats over the photo. Partner links take their own row on a phone.
 export function SectionHeader({ section }: { section: Section }) {
   const label = SECTION_LABELS[section];
 
   return (
-    <header className="bg-navy text-white">
-      <div className="mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-4 px-4">
+    <header className="pointer-events-none sticky top-0 z-40 px-3 pt-3 sm:px-6">
+      <div className="pointer-events-auto mx-auto flex min-h-14 w-full max-w-page animate-float-in flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-frame border border-glass-edge bg-navy/70 px-3 py-1.5 text-white shadow-lift backdrop-blur-xl backdrop-saturate-150 sm:px-5">
         <Link
           href={section === "guest" ? "/" : `/${section}`}
-          className="py-3 text-2xl"
+          className="pl-1 text-xl sm:text-2xl"
           aria-label={label ? `${BRAND} ${label}` : `${BRAND} home`}
         >
           <Logo />
           {label && (
-            <span className="ml-2 font-sans text-sm font-medium not-italic text-on-dark">
+            <span className="ml-2 font-sans text-sm font-medium text-on-dark">
               {label}
             </span>
           )}
         </Link>
-        {/* Full height, so the account menu's tab reaches the bar's bottom edge. */}
-        <nav className="flex flex-wrap items-center self-stretch justify-end gap-x-6 gap-y-2 text-sm font-medium text-on-dark">
+        <nav className="contents text-sm font-medium text-on-dark">
           {section === "partner" && <PartnerNav />}
-          {section === "guest" && <CartLink />}
-          <AccountNav section={section} />
+          <div className="flex items-center gap-2">
+            {section === "guest" && <CartLink />}
+            <AccountNav section={section} />
+          </div>
         </nav>
       </div>
     </header>

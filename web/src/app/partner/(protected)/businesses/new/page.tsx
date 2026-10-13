@@ -28,7 +28,7 @@ function NewBusiness() {
   const create = useCreateBusiness();
 
   return (
-    <main data-testid="partner-business-new" className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-12">
+    <main data-testid="partner-business-new" className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-block px-gutter py-page-pad">
       <div className="flex flex-col gap-2">
         <DisplayTitle>Add a business</DisplayTitle>
         <p className="max-w-prose text-sm text-muted">

@@ -20,7 +20,8 @@ export function PartnerNav() {
   if (session?.user.role !== "partner") return null;
 
   return (
-    <ul className="flex items-center gap-4">
+    // A glass pill of links; on a phone it takes the header's second row and scrolls sideways.
+    <ul className="order-last flex w-full items-center gap-1 overflow-x-auto rounded-full border border-glass-edge bg-glass-fill p-1 sm:order-none sm:w-auto">
       {LINKS.map(({ href, label, testId }) => {
         const current = pathname === href || pathname.startsWith(`${href}/`);
         return (
@@ -29,7 +30,10 @@ export function PartnerNav() {
               href={href}
               data-testid={testId}
               aria-current={current ? "page" : undefined}
-              className={cn("hover:text-white", current && "text-white underline decoration-aqua decoration-2 underline-offset-8")}
+              className={cn(
+                "flex min-h-9 items-center whitespace-nowrap rounded-full px-4 hover:bg-glass-hover hover:text-white",
+                current && "bg-glass-hover font-semibold text-white",
+              )}
             >
               {label}
             </Link>

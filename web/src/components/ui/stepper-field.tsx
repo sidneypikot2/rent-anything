@@ -25,14 +25,14 @@ export function StepperField({
   const labelId = useId();
   const set = (next: number) => onChange(Math.min(max, Math.max(min, Math.round(next / step) * step)));
   const buttonClass = cn(
-    "flex size-9 items-center justify-center rounded-full border-[1.5px] border-line-strong text-lg text-primary",
+    "flex size-9 items-center justify-center rounded-full border border-line-strong text-lg text-primary",
     "hover:border-primary disabled:cursor-not-allowed disabled:opacity-40",
   );
 
   return (
     <div data-testid={testId} className="flex items-center justify-between gap-4 py-1">
       <div className="flex flex-col">
-        <span id={labelId} className="text-sm font-medium">
+        <span id={labelId} className="text-sm font-semibold">
           {label}
         </span>
         {hint && <span className="text-xs text-muted">{hint}</span>}

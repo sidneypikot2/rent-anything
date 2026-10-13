@@ -25,7 +25,7 @@ export default function PartnerListingPage() {
   const { data, error, refetch } = usePartnerListing(id);
 
   return (
-    <main data-testid="partner-listing" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-12">
+    <main data-testid="partner-listing" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-block px-gutter py-page-pad">
       {data ? (
         <ListingDetail listing={data} />
       ) : data === null ? (

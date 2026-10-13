@@ -5,7 +5,7 @@ import { cn } from "./cn";
 // py-2 plus the 4px stretch above and below (the ::after) makes a 44px tap target; rows of
 // pills 8px apart (gap-2) still don't overlap.
 const BASE =
-  "relative rounded-full border-[1.5px] px-4 py-2 text-sm transition-colors after:absolute after:inset-x-0 after:-inset-y-1";
+  "relative rounded-full border px-4 py-2 text-sm transition-[background-color,border-color,color] duration-300 ease-calm after:absolute after:inset-x-0 after:-inset-y-1";
 const OFF = "border-line bg-surface font-medium text-muted hover:border-primary hover:text-primary";
 
 // A rounded filter chip; `on` marks the selected one.

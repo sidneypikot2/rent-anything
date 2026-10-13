@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import type { SearchResults } from "@/api/discovery";
 import { CATEGORIES, categoryHref, listingNote } from "./categories";
-import { areaIcon, categoryIcon, tagIcon } from "./icons";
+import { areaIcon, categoryIcon, placeIcon, tagIcon } from "./icons";
 
 const MIN_LENGTH = 2;
 const DEBOUNCE_MS = 250;
@@ -98,7 +98,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
         if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
       }}
     >
-      <div className="flex items-center gap-2 rounded-2xl border-[1.5px] border-line-strong bg-surface p-1.5 pl-4 shadow-lg shadow-primary/10 focus-within:border-primary">
+      <div className="flex items-center gap-2 rounded-card border border-line-strong bg-surface p-1.5 pl-4 shadow-soft focus-within:border-primary">
         <input
           name="q"
           type="search"
@@ -140,7 +140,7 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
           onMouseDown={(event) => event.preventDefault()}
           // On a phone, only as tall as the room above the on-screen keyboard.
           style={room === null ? undefined : { maxHeight: Math.max(room, MIN_PANEL_PX) }}
-          className="absolute inset-x-0 top-full z-20 mt-2 max-h-[45vh] overflow-y-auto overscroll-contain rounded-2xl border-[1.5px] border-line bg-surface p-2 shadow-xl shadow-primary/10 sm:max-h-[70vh]"
+          className="absolute inset-x-0 top-full z-20 mt-2 max-h-[45vh] overflow-y-auto overscroll-contain rounded-card border border-line bg-surface p-2 shadow-lift sm:max-h-[70vh]"
         >
           {isError ? (
             <p role="status" className="p-3 text-sm text-muted">
@@ -216,7 +216,7 @@ function useRoomAboveKeyboard(ref: RefObject<HTMLFormElement | null>, active: bo
   return room;
 }
 
-type Item = { group: string; href: string; icon: string; title: string; note?: string };
+type Item = { group: string; href: string; icon: ReactNode; title: string; note?: string };
 
 // Every suggestion in display order, ending with "See all results", so the arrow keys and
 // the list agree on one index.
@@ -232,7 +232,7 @@ function suggestionItems(results: SearchResults, query: string): Item[] {
     ...results.landmarks.map((landmark) => ({
       group: "Landmarks",
       href: `/${landmark.area.slug}#${landmark.slug}`,
-      icon: "📍",
+      icon: placeIcon(),
       title: landmark.name,
       note: landmark.area.name,
     })),
@@ -251,7 +251,7 @@ function suggestionItems(results: SearchResults, query: string): Item[] {
       title: listing.title,
       note: listingNote(listing, results),
     })),
-    { group: "", href: `/search?q=${encodeURIComponent(query)}`, icon: "", title: `See all results for “${query}” →` },
+    { group: "", href: `/search?q=${encodeURIComponent(query)}`, icon: null, title: `See all results for “${query}” →` },
   ];
 }
 
@@ -286,7 +286,7 @@ function Suggestions({
                   tabIndex={-1}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-surface-2",
+                    "flex items-center gap-3 rounded-control px-3 py-2 hover:bg-surface-2",
                     index === active && "bg-surface-2",
                     !item.group && "text-sm font-semibold text-link",
                   )}

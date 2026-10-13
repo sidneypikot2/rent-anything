@@ -179,7 +179,7 @@ export function ListingForm({
       </div>
 
       <fieldset className="flex flex-col gap-4">
-        <legend className="mb-2 font-display text-2xl font-bold italic">Where it is</legend>
+        <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Where it is</legend>
         <PhAddressFields address={address} />
         <LocationPicker
           value={location}
@@ -194,7 +194,7 @@ export function ListingForm({
 
       {visitsLandmarks && (
         <fieldset data-testid="listing-landmarks" className="flex flex-col gap-4">
-          <legend className="mb-2 font-display text-2xl font-bold italic">Landmarks it visits</legend>
+          <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Landmarks it visits</legend>
           <LandmarkPicker value={landmarks} onChange={setLandmarks} near={location} />
         </fieldset>
       )}
@@ -202,11 +202,11 @@ export function ListingForm({
       {stayCategory && (
         <>
           <fieldset data-testid="listing-stay-place" className="flex flex-col gap-4">
-            <legend className="mb-2 font-display text-2xl font-bold italic">What guests book</legend>
+            <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">What guests book</legend>
             <PlaceTypeChoice values={stay} onChange={setStay} />
           </fieldset>
           <fieldset data-testid="listing-stay-info" className="flex flex-col gap-4">
-            <legend className="mb-2 font-display text-2xl font-bold italic">Property info</legend>
+            <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Property info</legend>
             <PropertyInfoFields
               values={stay}
               onChange={(values) => {
@@ -217,7 +217,7 @@ export function ListingForm({
             />
           </fieldset>
           <fieldset className="flex flex-col gap-4">
-            <legend className="mb-2 font-display text-2xl font-bold italic">Amenities</legend>
+            <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Amenities</legend>
             <AmenityChoice values={stay} onChange={setStay} />
           </fieldset>
         </>
@@ -225,25 +225,25 @@ export function ListingForm({
 
       {vehicleCategory && (
         <fieldset className="flex flex-col gap-4">
-          <legend className="mb-2 font-display text-2xl font-bold italic">Vehicle details</legend>
+          <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Vehicle details</legend>
           <VehicleFields values={vehicleValues} onChange={setVehicleValues} />
         </fieldset>
       )}
 
       {fields.length > 0 && (
         <fieldset data-testid="listing-details" className="flex flex-col gap-4">
-          <legend className="mb-2 font-display text-2xl font-bold italic">Details</legend>
+          <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Details</legend>
           <AttributeFields fields={fields} values={attrValues} onChange={setAttrValues} />
         </fieldset>
       )}
 
       <fieldset className="flex flex-col gap-4">
-        <legend className="mb-2 font-display text-2xl font-bold italic">Cancellation policy</legend>
+        <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Cancellation policy</legend>
         <CancellationPolicyChoice policies={options.cancellation_policies} value={policy} onChange={setPolicy} />
       </fieldset>
 
       <fieldset className="flex flex-col gap-4">
-        <legend className="mb-2 font-display text-2xl font-bold italic">Units</legend>
+        <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Units</legend>
         <UnitsField bookingType={category?.booking_type} value={units} onChange={setUnits} />
       </fieldset>
 

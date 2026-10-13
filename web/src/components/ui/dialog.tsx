@@ -4,10 +4,10 @@ import { useEffect, useId, useRef, type ReactNode } from "react";
 import { cn } from "./cn";
 
 const PLACEMENTS = {
-  center: "m-auto w-[calc(100%-2rem)] max-w-lg rounded-2xl",
+  center: "m-auto w-[calc(100%-2rem)] max-w-lg rounded-card",
   // Docked to the bottom on a phone, centred from sm: up.
   sheet:
-    "mx-0 mb-0 mt-auto max-h-[90dvh] w-full max-w-none rounded-t-2xl sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-lg sm:rounded-2xl",
+    "mx-0 mb-0 mt-auto max-h-[90dvh] w-full max-w-none rounded-t-card sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-lg sm:rounded-card",
 };
 
 type Props = {
@@ -54,10 +54,10 @@ export function Dialog({
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
-      className={cn("border-[1.5px] border-line bg-surface text-foreground backdrop:bg-navy/60", PLACEMENTS[placement])}
+      className={cn("border border-line bg-surface text-foreground shadow-float open:animate-rise backdrop:bg-navy/50 backdrop:backdrop-blur-sm", PLACEMENTS[placement])}
     >
       <div className="flex flex-col gap-4 p-5">
-        <h2 id={titleId} className="font-display text-2xl font-bold italic">
+        <h2 id={titleId} className="font-display text-2xl font-extrabold tracking-tight">
           {title}
         </h2>
         {children}

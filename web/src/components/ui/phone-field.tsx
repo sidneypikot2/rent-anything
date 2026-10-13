@@ -18,11 +18,11 @@ export function PhoneField({ label, number, onNumberChange, required, hint, erro
   const note = error ?? hint;
 
   return (
-    <div className="flex flex-col gap-1 text-sm font-medium">
+    <div className="flex flex-col gap-1.5 text-sm font-semibold">
       <label htmlFor={inputId}>{label}</label>
       <div
         className={cn(
-          "flex overflow-hidden rounded-lg border-[1.5px] bg-surface focus-within:border-primary",
+          "flex min-h-12 overflow-hidden rounded-control border bg-surface transition-[border-color,box-shadow] duration-300 ease-calm focus-within:border-primary focus-within:ring-4 focus-within:ring-sky-mist",
           error ? "border-danger" : "border-line-strong",
         )}
       >
@@ -39,7 +39,7 @@ export function PhoneField({ label, number, onNumberChange, required, hint, erro
           onChange={(event) => onNumberChange(event.target.value)}
           aria-invalid={error ? true : undefined}
           aria-describedby={note ? noteId : undefined}
-          className="min-w-0 flex-1 bg-transparent px-3 py-2 font-normal text-foreground outline-none placeholder:text-muted/80"
+          className="min-w-0 flex-1 bg-transparent px-4 py-2.5 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm placeholder:text-muted/80"
         />
       </div>
       {note && (

@@ -5,7 +5,6 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Toast } from "@/components/ui/toast";
-import { DisplayTitle } from "@/components/ui/typography";
 import { EditTripSheet, type EditFocus } from "./edit-trip-sheet";
 import { formatDateRange, itemCount } from "./format";
 import { ItemDateSheet } from "./item-date-sheet";
@@ -95,12 +94,6 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
 
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <DisplayTitle>Your trips</DisplayTitle>
-        <ButtonLink href="/trips" variant="soft" size="sm">
-          All trips
-        </ButtonLink>
-      </div>
 
       {list.length === 0 ? (
         <Card data-testid="cart-empty">

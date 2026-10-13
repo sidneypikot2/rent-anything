@@ -39,7 +39,7 @@ export function PasswordField({
   };
 
   return (
-    <div className="flex flex-col gap-1 text-sm font-medium">
+    <div className="flex flex-col gap-1.5 text-sm font-semibold">
       <div className="flex items-baseline justify-between gap-2">
         <label htmlFor={inputId}>{label}</label>
         {action}
@@ -51,8 +51,8 @@ export function PasswordField({
           aria-invalid={error ? true : undefined}
           aria-describedby={note ? noteId : undefined}
           className={cn(
-            "w-full rounded-lg border-[1.5px] bg-surface py-2 pl-3 pr-16 font-normal text-foreground outline-none",
-            "placeholder:text-muted/80 focus:border-primary disabled:bg-surface-2",
+            "min-h-12 w-full rounded-control border bg-surface py-2.5 pl-4 pr-16 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm",
+            "placeholder:text-muted/80 focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
             error ? "border-danger" : "border-line-strong",
             className,
           )}
