@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getListing } from "@/api/discovery";
+import { getListing, getQuote } from "@/api/discovery";
 import { categoryIcon } from "@/components/discovery/icons";
+import { StayPrice, stayPriceLine } from "@/components/discovery/stay-price";
 import { PageBanner } from "@/components/landing/page-banner";
 import { listingPhoto } from "@/components/landing/sample-photos";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
@@ -25,7 +26,8 @@ export async function generateMetadata(props: PageProps<"/listings/[id]">): Prom
 }
 
 // One listing, for a traveller deciding whether to add it to a trip (RAA-90). Active listings
-// only; it never shows the location. No price yet: pricing waits on checkout.
+// only; it never shows the location. A priced stay shows its nightly price and, with the trip's
+// dates, what the stay costs from /quotes (RAA-105); other categories have no price yet.
 export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   const id = listingId((await props.params).id);
   if (!id) notFound();
@@ -33,6 +35,12 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   const listing = await getListing(id);
   if (!listing) notFound();
   const { area, category } = listing;
+  const rate = listing.stay_rate;
+  const nightsSet = Boolean(dates.from && dates.to && dates.from < dates.to);
+  const quote =
+    rate && nightsSet && dates.from && dates.to
+      ? await getQuote({ listing_id: listing.id, starts_on: dates.from, ends_on: dates.to, guests: dates.guests })
+      : undefined;
 
   return (
     <main className="flex flex-1 flex-col">
@@ -53,6 +61,11 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
             <p className="text-sky-mist">
               by {listing.business.name} · {listing.units_label}
             </p>
+            {rate && (
+              <p data-testid="listing-price" className="font-semibold text-white">
+                {stayPriceLine(rate, listing.guests)}
+              </p>
+            )}
           </>
         }
       >
@@ -77,6 +90,8 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
           </CardBody>
         </Card>
       </TripAddProvider>
+
+      {rate && <StayPrice listing={listing} rate={rate} quote={quote} datesSet={Boolean(dates.from && dates.to)} />}
 
       {listing.description.trim() && (
         <section className="flex flex-col gap-2">

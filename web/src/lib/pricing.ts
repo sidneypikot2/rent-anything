@@ -1,0 +1,55 @@
+import type { components } from "@/api/schema";
+import { formatPeso } from "./money";
+
+// How listing prices read (RAA-105), for partners and guests alike; plain functions so server
+// pages can use them.
+
+export type ChargedPer = components["schemas"]["listing_fee_charged_per"];
+type StayRate = components["schemas"]["stay_rate"];
+type Fee = { name: string; amount_cents: number; charged_per: ChargedPer };
+
+// What a fee is multiplied by, in the API's words (ListingFee::CHARGED_PER).
+export const CHARGED_PER: { value: ChargedPer; label: string }[] = [
+  { value: "booking", label: "per booking" },
+  { value: "night", label: "per night" },
+  { value: "guest", label: "per guest" },
+  { value: "guest_night", label: "per guest per night" },
+  { value: "unit", label: "per unit" },
+];
+
+export function chargedPerLabel(chargedPer: ChargedPer) {
+  return CHARGED_PER.find((option) => option.value === chargedPer)?.label ?? chargedPer;
+}
+
+// "Cleaning fee ₱500 per booking".
+export function feeText(fee: Fee) {
+  return `${fee.name} ${formatPeso(fee.amount_cents)} ${chargedPerLabel(fee.charged_per)}`;
+}
+
+// The unit after a stay's nightly price: a shared room is priced per guest.
+export function nightUnit(perGuest: boolean) {
+  return perGuest ? "/ guest / night" : "/ night";
+}
+
+function plural(count: number, noun: string) {
+  return `${count} ${count === 1 ? noun : `${noun}s`}`;
+}
+
+// A stay rate's terms beyond the nightly price, one line each: "Weekends ₱1,500 / night",
+// "Up to 2 guests included, then ₱300 per extra guest per night", "10% off 7+ nights",
+// "Minimum 2 nights".
+export function stayRateTerms(rate: StayRate, perGuest: boolean) {
+  const terms: string[] = [];
+  if (rate.weekend_price_cents) terms.push(`Fridays and Saturdays ${formatPeso(rate.weekend_price_cents)} ${nightUnit(perGuest)}`);
+  if (!perGuest) {
+    terms.push(
+      `Up to ${plural(rate.base_guests, "guest")} included` +
+        (rate.extra_guest_fee_cents ? `, then ${formatPeso(rate.extra_guest_fee_cents)} per extra guest per night` : ""),
+    );
+  }
+  if (rate.weekly_discount_percent) terms.push(`${rate.weekly_discount_percent}% off stays of 7 nights or more`);
+  if (rate.monthly_discount_percent) terms.push(`${rate.monthly_discount_percent}% off stays of 28 nights or more`);
+  if (rate.min_nights > 1) terms.push(`Minimum ${plural(rate.min_nights, "night")}`);
+  if (rate.max_nights) terms.push(`Maximum ${plural(rate.max_nights, "night")}`);
+  return terms;
+}
