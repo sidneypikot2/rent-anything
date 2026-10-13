@@ -57,7 +57,7 @@ export function Dialog({
       className={cn("border-[1.5px] border-line bg-surface text-foreground backdrop:bg-navy/60", PLACEMENTS[placement])}
     >
       <div className="flex flex-col gap-4 p-5">
-        <h2 id={titleId} className="font-display text-2xl font-bold italic">
+        <h2 id={titleId} className="font-display text-2xl font-extrabold tracking-tight">
           {title}
         </h2>
         {children}

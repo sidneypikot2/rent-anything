@@ -3,7 +3,8 @@ import { cn } from "./cn";
 
 const TONES = {
   aqua: "border border-aqua bg-aqua text-navy",
-  emerald: "border border-secondary bg-secondary text-white",
+  // Forest green, for trust: "Verified partner", "Eco tour". White on it is 7.1:1.
+  emerald: "border border-emerald bg-emerald text-white",
   mist: "border border-line bg-mist text-primary",
 };
 

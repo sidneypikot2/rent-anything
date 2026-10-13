@@ -141,7 +141,7 @@ export function StayWizard({
         )}
 
         <fieldset data-testid={`listing-step-${step.key}`} className="flex flex-col gap-4">
-          <legend className="mb-2 pr-20 font-display text-2xl font-bold italic">{step.label}</legend>
+          <legend className="mb-2 pr-20 font-display text-2xl font-extrabold tracking-tight">{step.label}</legend>
 
           {step.key === "place" && (
             <>

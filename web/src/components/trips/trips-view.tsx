@@ -76,7 +76,7 @@ export function TripsView() {
                   <div className="flex flex-wrap items-center gap-2">
                     <Link
                       href={`/cart?trip=${trip.id}`}
-                      className="font-display text-2xl font-bold italic leading-tight hover:text-primary hover:underline"
+                      className="font-display text-2xl font-extrabold tracking-tight leading-tight hover:text-primary hover:underline"
                     >
                       {trip.name}
                     </Link>

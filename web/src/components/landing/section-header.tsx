@@ -30,7 +30,7 @@ export function SectionHeader({ section }: { section: Section }) {
         >
           <Logo />
           {label && (
-            <span className="ml-2 font-sans text-sm font-medium not-italic text-on-dark">
+            <span className="ml-2 font-sans text-sm font-medium text-on-dark">
               {label}
             </span>
           )}

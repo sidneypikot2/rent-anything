@@ -7,7 +7,7 @@ const TITLE_SIZES = {
   hero: "text-5xl leading-[1.05] sm:text-6xl",
 };
 
-// Page and section headings use the display face in italic, as the brand sheet does.
+// Page and section headings: the one family at extra-bold, tightly tracked (Sky & Forest).
 // A page has one h1; render the look elsewhere with as="p".
 export function DisplayTitle({
   as: Tag = "h1",
@@ -17,7 +17,7 @@ export function DisplayTitle({
 }: { as?: "h1" | "p"; size?: keyof typeof TITLE_SIZES } & ComponentProps<"h1">) {
   return (
     <Tag
-      className={cn("font-display font-bold italic tracking-tight", TITLE_SIZES[size], className)}
+      className={cn("font-display font-extrabold tracking-tight", TITLE_SIZES[size], className)}
       {...props}
     />
   );
@@ -26,7 +26,7 @@ export function DisplayTitle({
 export function SectionTitle({ className, ...props }: ComponentProps<"h2">) {
   return (
     <h2
-      className={cn("font-display text-3xl font-bold italic tracking-tight", className)}
+      className={cn("font-display text-3xl font-extrabold tracking-tight", className)}
       {...props}
     />
   );

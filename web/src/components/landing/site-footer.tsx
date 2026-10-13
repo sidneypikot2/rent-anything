@@ -9,7 +9,7 @@ export function SiteFooter() {
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-8 text-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Logo className="text-xl" />
-          <p className="font-display italic text-white">{TAGLINE}</p>
+          <p className="font-display font-semibold text-white">{TAGLINE}</p>
         </div>
         <nav className="flex flex-wrap gap-x-5 gap-y-2 [&_a]:hover:text-white">
           <Link href="/#destinations">Destinations</Link>

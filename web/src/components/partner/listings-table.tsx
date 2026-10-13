@@ -51,10 +51,10 @@ export function ListingsByBusiness({
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-line-strong pb-2">
               <h2
                 id={`business-${business.id}`}
-                className="flex items-baseline gap-2 font-display text-3xl font-bold italic"
+                className="flex items-baseline gap-2 font-display text-3xl font-extrabold tracking-tight"
               >
                 {business.name}
-                <span className="font-sans text-sm font-normal not-italic text-muted">{countLabel(own.length)}</span>
+                <span className="font-sans text-sm font-normal text-muted">{countLabel(own.length)}</span>
               </h2>
               <Link
                 href={`/partner/businesses/${business.id}/edit`}
@@ -95,10 +95,10 @@ function ListingsByCategory({ listings, idPrefix }: { listings: PartnerListing[]
         >
           <h3
             id={`${idPrefix}category-${id}`}
-            className="flex items-baseline gap-2 font-display text-2xl font-bold italic"
+            className="flex items-baseline gap-2 font-display text-2xl font-extrabold tracking-tight"
           >
             {group.name}
-            <span className="font-sans text-sm font-normal not-italic text-muted">
+            <span className="font-sans text-sm font-normal text-muted">
               {countLabel(group.listings.length)}
             </span>
           </h3>
