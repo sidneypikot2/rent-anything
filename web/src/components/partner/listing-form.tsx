@@ -34,6 +34,7 @@ import {
   type StayErrors,
   type StayValues,
 } from "./stay-fields";
+import type { PartnerBusiness } from "./use-partner-businesses";
 import type { PartnerLandmark } from "./use-partner-landmarks";
 import { isVehicle, toVehicleAttrs, toVehicleValues, VehicleFields, type VehicleValues } from "./vehicle-fields";
 import { useUpdateListing, type ListingBody, type ListingOptions, type PartnerListing } from "./use-partner-listings";
@@ -54,10 +55,19 @@ function addressChanged(address: PhAddress, listing: PartnerListing) {
 // Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
 // visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
 // vehicle's, RAA-89), the cancellation policy (RAA-89) and how many identical units it has (RAA-99). Saving first shows what changed and asks to confirm. Adding one is the stepped
-// ListingWizard (RAA-50).
-export function ListingForm({ options, listing }: { options: ListingOptions; listing: PartnerListing }) {
+// ListingWizard (RAA-50). A partner with several businesses can move it to another (RAA-101).
+export function ListingForm({
+  options,
+  businesses,
+  listing,
+}: {
+  options: ListingOptions;
+  businesses: PartnerBusiness[];
+  listing: PartnerListing;
+}) {
   const router = useRouter();
   const update = useUpdateListing(listing.id);
+  const [businessId, setBusinessId] = useState(String(listing.business.id));
   const [categoryId, setCategoryId] = useState(String(listing.category.id));
   const [attrValues, setAttrValues] = useState<AttributeValues>(() => toAttributeValues(listing.attrs));
   // An accommodation's details have their own fields (RAA-83).
@@ -99,6 +109,7 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
     const body = {
       title: String(form.get("title") ?? ""),
       description: String(form.get("description") ?? ""),
+      business_id: Number(businessId),
       category_id: Number(categoryId),
       address: address.toBody(),
       location,
@@ -131,6 +142,16 @@ export function ListingForm({ options, listing }: { options: ListingOptions; lis
       )}
 
       <div className="flex flex-col gap-4">
+        {businesses.length > 1 && (
+          <SelectField
+            label="Business"
+            name="business_id"
+            required
+            value={businessId}
+            onChange={(event) => setBusinessId(event.target.value)}
+            options={businesses.map((business) => ({ value: String(business.id), label: business.name }))}
+          />
+        )}
         <SelectField
           label="Category"
           name="category_id"

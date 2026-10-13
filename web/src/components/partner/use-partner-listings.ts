@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
 import { useSession } from "@/lib/auth/session";
+import { partnerBusinessesKey } from "./use-partner-businesses";
 
 export type PartnerListing = components["schemas"]["partner_listing"];
 export type ListingOptions = components["schemas"]["listing_options"];
@@ -65,7 +66,11 @@ export function useCreateListing() {
       if (!data) throw saveError(error, "Couldn't save the listing.");
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: partnerListingsKey(userId) }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: partnerListingsKey(userId) }),
+        queryClient.invalidateQueries({ queryKey: partnerBusinessesKey(userId) }),
+      ]),
   });
 }
 
@@ -102,7 +107,10 @@ export function useUpdateListing(id: number) {
     },
     onSuccess: (listing) => {
       queryClient.setQueryData(partnerListingKey(userId, id), listing);
-      return queryClient.invalidateQueries({ queryKey: partnerListingsKey(userId) });
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: partnerListingsKey(userId) }),
+        queryClient.invalidateQueries({ queryKey: partnerBusinessesKey(userId) }),
+      ]);
     },
   });
 }
@@ -118,7 +126,10 @@ export function useDeleteListing(id: number) {
     },
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: partnerListingKey(userId, id) });
-      return queryClient.invalidateQueries({ queryKey: partnerListingsKey(userId) });
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: partnerListingsKey(userId) }),
+        queryClient.invalidateQueries({ queryKey: partnerBusinessesKey(userId) }),
+      ]);
     },
   });
 }

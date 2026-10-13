@@ -46,7 +46,9 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
           <span aria-hidden>{categoryIcon(category.name)}</span> {category.name} · {area.name}
         </Eyebrow>
         <DisplayTitle className="break-words">{listing.title}</DisplayTitle>
-        <p className="text-muted">by {listing.partner_name}</p>
+        <p className="text-muted">
+          by {listing.business.name} · {listing.units_label}
+        </p>
       </header>
 
       <TripAddProvider>

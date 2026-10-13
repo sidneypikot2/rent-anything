@@ -179,7 +179,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                   {listing.title}
                                 </Link>
                                 <span className="block text-sm text-muted">
-                                  {listing.category} · by {listing.partner_name}
+                                  {listing.category} · by {listing.business.name} · {listing.units_label}
                                 </span>
                                 {listing.summary && (
                                   <span className="mt-1 line-clamp-2 block text-sm">{listing.summary}</span>

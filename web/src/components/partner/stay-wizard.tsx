@@ -27,6 +27,7 @@ import {
   type StayErrors,
   type StayValues,
 } from "./stay-fields";
+import type { PartnerBusiness } from "./use-partner-businesses";
 import { useCreateListing, type ListingCategory } from "./use-partner-listings";
 import { UnitsField } from "./units-field";
 import { WizardCancel } from "./wizard-cancel";
@@ -48,7 +49,15 @@ const STEPS = [
 // stores them), the title and description, the cancellation policy (RAA-89) and the nightly rate (shown, not saved yet).
 // Like ListingWizard, only the current step is on the page, every value is kept here and any
 // step already reached opens again (RAA-93).
-export function StayWizard({ category, policies }: { category: ListingCategory; policies: CancellationPolicies }) {
+export function StayWizard({
+  business,
+  category,
+  policies,
+}: {
+  business: PartnerBusiness;
+  category: ListingCategory;
+  policies: CancellationPolicies;
+}) {
   const router = useRouter();
   const create = useCreateListing();
   const [stepIndex, setStepIndex] = useState(0);
@@ -102,6 +111,7 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
       {
         title: title.trim(),
         description: description.trim(),
+        business_id: business.id,
         category_id: category.id,
         address: address.toBody(),
         location,
@@ -129,9 +139,10 @@ export function StayWizard({ category, policies }: { category: ListingCategory; 
           {step.key === "place" && (
             <>
               <p className="text-sm text-muted">
-                Listing a <span className="font-medium text-foreground">{categoryLabel(category)}</span>.{" "}
+                Listing a <span className="font-medium text-foreground">{categoryLabel(category)}</span> for{" "}
+                <span className="font-medium text-foreground">{business.name}</span>.{" "}
                 <Link
-                  href={`/partner/listings/new?category=${category.id}`}
+                  href={`/partner/listings/new?business=${business.id}&category=${category.id}`}
                   className="text-link underline"
                   data-testid="listing-change-category"
                 >

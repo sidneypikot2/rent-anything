@@ -27,6 +27,7 @@ import {
 import { LandmarkPicker } from "./landmark-picker";
 import { LocationPicker } from "./location-picker";
 import { PhotoUploadSkeleton } from "./photo-upload-skeleton";
+import type { PartnerBusiness } from "./use-partner-businesses";
 import { useCreateListing, type ListingCategory } from "./use-partner-listings";
 import { UnitsField } from "./units-field";
 import { isVehicle, NEW_VEHICLE, toVehicleAttrs, VehicleFields, type VehicleValues } from "./vehicle-fields";
@@ -44,7 +45,15 @@ type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "photos"
 // on the page, so the browser's required checks cover just that step; every value is kept
 // here, so going back loses nothing, and any step already reached opens again (RAA-93).
 // The listing is saved as a draft. Accommodation has its own steps (StayWizard).
-export function ListingWizard({ category, policies }: { category: ListingCategory; policies: CancellationPolicies }) {
+export function ListingWizard({
+  business,
+  category,
+  policies,
+}: {
+  business: PartnerBusiness;
+  category: ListingCategory;
+  policies: CancellationPolicies;
+}) {
   const router = useRouter();
   const create = useCreateListing();
   const vehicle = isVehicle(category);
@@ -108,6 +117,7 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
       {
         title: title.trim(),
         description: description.trim(),
+        business_id: business.id,
         category_id: category.id,
         address: address.toBody(),
         location,
@@ -136,9 +146,10 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
           {step.key === "basic" && (
             <>
               <p className="text-sm text-muted">
-                Listing a <span className="font-medium text-foreground">{categoryLabel(category)}</span>.{" "}
+                Listing a <span className="font-medium text-foreground">{categoryLabel(category)}</span> for{" "}
+                <span className="font-medium text-foreground">{business.name}</span>.{" "}
                 <Link
-                  href={`/partner/listings/new?category=${category.id}`}
+                  href={`/partner/listings/new?business=${business.id}&category=${category.id}`}
                   className="text-link underline"
                   data-testid="listing-change-category"
                 >

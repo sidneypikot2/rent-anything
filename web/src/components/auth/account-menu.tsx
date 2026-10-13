@@ -18,6 +18,7 @@ const LINKS: Record<MenuSection, { href: string; label: string; testId: string }
   ],
   partner: [
     { href: "/partner/profile", label: "Profile", testId: "nav-menu-profile" },
+    { href: "/partner/businesses/new", label: "Add business", testId: "nav-menu-add-business" },
     { href: "/partner/settings", label: "Settings", testId: "nav-menu-settings" },
   ],
 };
