@@ -201,8 +201,9 @@ body {
 /* Guest content over the fixed backdrop (RAA-107). .on-glass (the "sheet" glass tone) turns
    the text light: white, sky-mist for muted text, sky-pale for links and eyebrows. White
    surfaces inside (cards, fields, dialogs) keep their dark text. On pages made of Sections
-   (.page-sections, which is on-glass too), sections take turns: the odd ones on the
-   hero frame's glass (as the sheet glass tone), the even ones on the bare photo. A .band brings its own background (How it works,
+   (.page-sections, which is on-glass too), sections take turns with the page's banner: the
+   banner above them takes the first turn (RAA-108), so the odd sections show the bare photo
+   and the even ones sit on the hero frame's glass (as the sheet glass tone). A .band brings its own background (How it works,
    the closing call) and is left as it is, though it still counts in the turns. In the
    components layer, so a utility on an element still wins. */
 @layer components {
@@ -217,7 +218,7 @@ body {
     --muted: var(--muted-ink);
     --link: var(--link-ink);
   }
-  .page-sections > section:nth-of-type(odd):not(.band) {
+  .page-sections > section:nth-of-type(even):not(.band) {
     padding: 1.25rem;
     border: 1px solid var(--color-glass-edge);
     border-radius: var(--radius-frame);

@@ -5,7 +5,8 @@ import { glassClasses } from "@/components/ui/glass";
 // What a guest page's content sits on over the dark backdrop (RAA-107). The default sheet is
 // the hero frame's glass (light text; white cards inside keep dark text) for pages that are one
 // thing (a listing, a form, the cart). "clear" leaves the photo showing, for pages made of
-// Sections that take turns on frosted glass and on the bare photo (.page-sections, globals.css). Inset like
+// Sections that take turns on the bare photo and on frosted glass, after the banner's own turn
+// (.page-sections, globals.css). Inset like
 // the banner's frame so the two line up; it fills the rest of the page, so the footer stays at
 // the bottom.
 export function PageSheet({
