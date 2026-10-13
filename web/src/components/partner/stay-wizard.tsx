@@ -41,13 +41,15 @@ const STEPS = [
   { key: "amenities", label: "Amenities" },
   { key: "photos", label: "Photos" },
   { key: "basic", label: "Title and description" },
-  { key: "cancellation", label: "Cancellation policy" },
   { key: "rate", label: "Rate" },
+  { key: "cancellation", label: "Cancellation policy" },
+  { key: "units", label: "Units" },
 ];
 
 // Adding an accommodation (RAA-83), once its property type is chosen: what guests book,
-// the address, the property info for that place type (RAA-95) with how many identical rooms or units (RAA-99), amenities, photos (a placeholder until the API
-// stores them), the title and description, the cancellation policy (RAA-89) and the nightly rate (shown, not saved yet).
+// the address, the property info for that place type (RAA-95), amenities, photos (a placeholder until the API
+// stores them), the title and description, the nightly rate (shown, not saved yet), the cancellation policy (RAA-89)
+// and how many identical rooms or units it has (RAA-99).
 // Like ListingWizard, only the current step is on the page, every value is kept here and any
 // step already reached opens again (RAA-93).
 export function StayWizard({
@@ -185,7 +187,6 @@ export function StayWizard({
                 }}
                 errors={infoErrors}
               />
-              <UnitsField bookingType={category.booking_type} value={units} onChange={setUnits} />
             </>
           )}
 
@@ -220,8 +221,6 @@ export function StayWizard({
             </>
           )}
 
-          {step.key === "cancellation" && <CancellationPolicyChoice policies={policies} value={policy} onChange={setPolicy} />}
-
           {step.key === "rate" && (
             <Field
               label="Nightly rate (₱)"
@@ -234,6 +233,10 @@ export function StayWizard({
               hint="Rates aren't saved yet — you'll set them on the listing once pricing is available."
             />
           )}
+
+          {step.key === "cancellation" && <CancellationPolicyChoice policies={policies} value={policy} onChange={setPolicy} />}
+
+          {step.key === "units" && <UnitsField bookingType={category.booking_type} value={units} onChange={setUnits} />}
         </fieldset>
 
         <WizardActions

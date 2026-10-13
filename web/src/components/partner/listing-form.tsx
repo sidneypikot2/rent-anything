@@ -43,7 +43,8 @@ import { UnitsField } from "./units-field";
 
 // Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
 // visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
-// vehicle's, RAA-89), the cancellation policy (RAA-89) and how many identical units it has (RAA-99). Saving first shows what changed and asks to confirm. Adding one is the stepped
+// vehicle's, RAA-89), the cancellation policy (RAA-89) and, last, how many identical units it
+// has (RAA-99). Saving first shows what changed and asks to confirm. Adding one is the stepped
 // ListingWizard (RAA-50). A partner with several businesses can move it to another (RAA-101).
 export function ListingForm({
   options,
@@ -175,7 +176,6 @@ export function ListingForm({
           defaultValue={listing.description}
           hint="What's included, what to bring, anything a traveller should know."
         />
-        <UnitsField bookingType={category?.booking_type} value={units} onChange={setUnits} />
       </div>
 
       <fieldset className="flex flex-col gap-4">
@@ -240,6 +240,11 @@ export function ListingForm({
       <fieldset className="flex flex-col gap-4">
         <legend className="mb-2 font-display text-2xl font-bold italic">Cancellation policy</legend>
         <CancellationPolicyChoice policies={options.cancellation_policies} value={policy} onChange={setPolicy} />
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-4">
+        <legend className="mb-2 font-display text-2xl font-bold italic">Units</legend>
+        <UnitsField bookingType={category?.booking_type} value={units} onChange={setUnits} />
       </fieldset>
 
       <div className="flex gap-3">
