@@ -401,8 +401,8 @@ paths:
           type: integer
       responses:
         '200':
-          description: its photos in the partner's order, and the first as the cover
-            in lists
+          description: its ready photos in the partner's order, and the first as the
+            cover in lists
           content:
             application/json:
               schema:
@@ -907,54 +907,6 @@ paths:
           application/json:
             schema:
               "$ref": "#/components/schemas/business_body"
-  "/api/v1/partner/direct_uploads":
-    post:
-      summary: Start a photo upload
-      tags:
-      - Partner
-      description: 'Partner-only, after the ID check (RAA-106). Reserves a listing
-        photo and returns where the browser sends the file: a `PUT` of the file''s
-        bytes to `upload.url` with exactly `upload.headers`, straight to storage (Cloudflare
-        R2), not to this API. Then pass `signed_id` in a listing''s `photos`. JPEG,
-        PNG or WebP, at most 10 MB; `checksum` is the file''s MD5, base64-encoded.
-        A photo no listing takes within two days is deleted.'
-      security:
-      - bearer: []
-      parameters:
-      - name: Authorization
-        in: header
-        schema:
-          type: string
-      responses:
-        '201':
-          description: a reserved photo and where to put it
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/direct_upload"
-        '422':
-          description: values of the wrong type
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/validation_errors"
-        '403':
-          description: a guest
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/error"
-        '401':
-          description: signed out
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/error"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              "$ref": "#/components/schemas/direct_upload_body"
   "/api/v1/partner/landmarks":
     get:
       summary: Landmarks a tour can visit
@@ -1055,6 +1007,141 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+  "/api/v1/partner/listings/{listing_id}/photos":
+    post:
+      summary: Add a photo to a listing
+      tags:
+      - Partner
+      description: 'Partner-only, after the ID check (RAA-106). Adds a photo after
+        the listing''s others and returns where the browser sends the file: a `PUT`
+        of the file''s bytes to `upload.url` with exactly `upload.headers`, straight
+        to storage (Cloudflare R2), not to this API. Then confirm it with `PATCH .../photos/{id}`;
+        guests don''t see it until then, and one not confirmed within two days is
+        deleted. JPEG, PNG or WebP, at most 10 MB, 12 per listing; `checksum` is the
+        file''s MD5, base64-encoded.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      - name: listing_id
+        in: path
+        schema:
+          type: integer
+        required: true
+      responses:
+        '201':
+          description: a photo still uploading, and where its file goes
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/photo_upload"
+        '422':
+          description: a listing that already has 12
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another partner's listing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/photo_upload_body"
+  "/api/v1/partner/listings/{listing_id}/photos/{id}":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    - name: listing_id
+      in: path
+      schema:
+        type: integer
+      required: true
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    patch:
+      summary: Confirm a photo's upload
+      tags:
+      - Partner
+      description: 'Partner-only (RAA-106). Once the browser''s `PUT` has finished:
+        checks the file is in storage, then guests see the photo and its card and
+        large sizes are made (until then both URLs are the original''s). Sending it
+        again is harmless.'
+      security:
+      - bearer: []
+      parameters: []
+      responses:
+        '200':
+          description: uploaded, and its sizes on the way once, however often it is
+            sent
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_photo"
+        '422':
+          description: 'anything but uploaded: true'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another partner's photo
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/photo_update_body"
+    delete:
+      summary: Delete a photo
+      tags:
+      - Partner
+      description: Partner-only (RAA-106). Deletes the photo and its files; the listing's
+        other photos keep their order.
+      security:
+      - bearer: []
+      responses:
+        '204':
+          description: deleted, with its files
+        '404':
+          description: a photo of another partner's listing
+        '403':
+          description: a guest
+        '401':
+          description: signed out
   "/api/v1/partner/listings":
     get:
       summary: The signed-in partner's listings
@@ -2650,7 +2737,8 @@ components:
           type: array
           items:
             "$ref": "#/components/schemas/photo_urls"
-          description: In the partner's order; the first is the cover
+          description: Its photos ready for guests (see partner_photo.ready), in the
+            partner's order; the first is the cover
       required:
       - id
       - title
@@ -2680,14 +2768,25 @@ components:
       type: object
       properties:
         id:
-          type: string
-          description: The photo's signed id, as sent in a listing's photos
+          type: integer
+          description: As sent in a listing's photos
+        uploaded:
+          type: boolean
+          description: False until its upload is confirmed; until then the URLs may
+            have nothing behind them
+        ready:
+          type: boolean
+          description: True once its metadata is stripped and its sizes are made,
+            a few seconds after the upload is confirmed; guests see only ready photos,
+            and until then both URLs are the original's
         card_url:
           type: string
         large_url:
           type: string
       required:
       - id
+      - uploaded
+      - ready
       - card_url
       - large_url
     business_ref:
@@ -3053,18 +3152,17 @@ components:
         photos:
           type: array
           items:
-            type: string
+            type: integer
           maxItems: 12
-          description: 'The listing''s photos in order, the first the cover: each
-            a signed_id from POST /api/v1/partner/direct_uploads or the id of one
-            of its photos. Replaces them when sent (a photo left out is deleted);
-            left out on a change, they stay as they are'
+          description: The ids of the listing's photos (POST /api/v1/partner/listings/{listing_id}/photos)
+            in order, the first uploaded one the cover. A photo left out is deleted;
+            left out on a change, they stay as they are. A new listing has none yet.
       required:
       - title
       - category_id
       - address
       - location
-    direct_upload_body:
+    photo_upload_body:
       type: object
       properties:
         filename:
@@ -3088,12 +3186,12 @@ components:
       - byte_size
       - checksum
       - content_type
-    direct_upload:
+    photo_upload:
       type: object
       properties:
-        signed_id:
-          type: string
-          description: The photo's id, to send in a listing's photos
+        id:
+          type: integer
+          description: The photo's id, to confirm the upload and in a listing's photos
         upload:
           type: object
           properties:
@@ -3109,8 +3207,17 @@ components:
           - url
           - headers
       required:
-      - signed_id
+      - id
       - upload
+    photo_update_body:
+      type: object
+      properties:
+        uploaded:
+          type: boolean
+          enum:
+          - true
+      required:
+      - uploaded
     cancellation_policy:
       type: string
       enum:

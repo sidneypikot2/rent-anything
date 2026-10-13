@@ -2,8 +2,8 @@
 # spec/swagger_helper.rb, RAA-86). Never the location or address: the exact point is
 # revealed only after a paid booking. The business offering it and how many units it has
 # (RAA-100): "by Basilia Guest House · 5 rooms". An area page's rows reuse its summary and
-# offered_by. Its photos in the partner's order (RAA-106). Preload business, category, units
-# and photos: ListingPhoto::WITH_IMAGE.
+# offered_by. Its ready photos in the partner's order (RAA-106). Preload business,
+# category, units and ready_photos.
 module ListingDetailSerializer
   SUMMARY_LENGTH = 160
 
@@ -18,7 +18,7 @@ module ListingDetailSerializer
       booking_type: category.booking_type,
       area: { slug: listing.area.slug, name: listing.area.name },
       **offered_by(listing),
-      photos: listing.photos.map { |photo| ListingPhotoSerializer.call(photo) }
+      photos: listing.ready_photos.map { |photo| ListingPhotoSerializer.call(photo) }
     }
   end
 

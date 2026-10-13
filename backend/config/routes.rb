@@ -2,11 +2,6 @@ Rails.application.routes.draw do
   # 200 when the app boots, for load balancers and uptime monitors.
   get "up" => "rails/health#show", as: :rails_health_check
 
-  # Active Storage's own upload endpoint takes anyone's file, of any type and size; photos
-  # are uploaded through /api/v1/partner/direct_uploads (RAA-106). Its other routes stay:
-  # photo URLs off R2 and the local disk service use them.
-  post "rails/active_storage/direct_uploads", to: proc { [ 404, { "content-type" => "application/json" }, [ '{"error":"Not found"}' ] ] }
-
   # The OpenAPI document generated from the request specs (swagger/v1/openapi.yaml).
   mount Rswag::Api::Engine => "/api-docs"
 
@@ -56,10 +51,11 @@ Rails.application.routes.draw do
         resource :profile, only: %i[show update]
         # The businesses a partner runs; each listing belongs to one (RAA-100).
         resources :businesses, only: %i[index show create update]
-        resources :listings, only: %i[index show create update destroy]
+        resources :listings, only: %i[index show create update destroy] do
+          # Its photos (RAA-106); the files go straight to storage.
+          resources :photos, only: %i[create update destroy], controller: "listing_photos"
+        end
         resource :listing_options, only: :show
-        # A listing photo's upload, straight to storage (RAA-106).
-        resources :direct_uploads, only: :create
         # The tour landmark picker (RAA-70).
         resources :landmarks, only: :index
         resource :verification, only: %i[show create]

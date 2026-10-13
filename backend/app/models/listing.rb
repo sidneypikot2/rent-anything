@@ -29,11 +29,13 @@ class Listing < ApplicationRecord
   has_many :trip_items, dependent: :delete_all
   # Its identical items, rooms or vehicles (RAA-98); the foreign key cascades too.
   has_many :units, -> { order(:position) }, class_name: "ListingUnit", dependent: :delete_all, inverse_of: :listing
-  # Its photos in the partner's order, the first the cover (RAA-106). Destroyed one by one so
-  # each image is deleted from storage too.
+  # Its photos in the partner's order (RAA-106), with those still uploading. Destroyed one by
+  # one so each one's files are deleted from storage too.
   has_many :photos, -> { order(:position) }, class_name: "ListingPhoto", dependent: :destroy, inverse_of: :listing
-  # The first, alone, for lists of listings, which show only the cover.
-  has_one :cover_photo, -> { where(position: 1) }, class_name: "ListingPhoto", inverse_of: false
+  # What guests see: the ready ones (ListingPhotos::ResizeJob), the first the cover. Lists of
+  # listings show only that.
+  has_many :ready_photos, -> { ready.order(:position) }, class_name: "ListingPhoto", inverse_of: false
+  has_one :cover_photo, -> { ready.order(:position) }, class_name: "ListingPhoto", inverse_of: false
 
   enum :status, STATUSES.index_with(&:itself), validate: true
 

@@ -627,7 +627,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description its photos in the partner's order, and the first as the cover in lists */
+                /** @description its ready photos in the partner's order, and the first as the cover in lists */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1348,78 +1348,6 @@ export interface paths {
         };
         trace?: never;
     };
-    "/api/v1/partner/direct_uploads": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start a photo upload
-         * @description Partner-only, after the ID check (RAA-106). Reserves a listing photo and returns where the browser sends the file: a `PUT` of the file's bytes to `upload.url` with exactly `upload.headers`, straight to storage (Cloudflare R2), not to this API. Then pass `signed_id` in a listing's `photos`. JPEG, PNG or WebP, at most 10 MB; `checksum` is the file's MD5, base64-encoded. A photo no listing takes within two days is deleted.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    Authorization?: string;
-                };
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["direct_upload_body"];
-                };
-            };
-            responses: {
-                /** @description a reserved photo and where to put it */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["direct_upload"];
-                    };
-                };
-                /** @description signed out */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["error"];
-                    };
-                };
-                /** @description a guest */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["error"];
-                    };
-                };
-                /** @description values of the wrong type */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["validation_errors"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/partner/landmarks": {
         parameters: {
             query?: never;
@@ -1551,6 +1479,216 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/listings/{listing_id}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a photo to a listing
+         * @description Partner-only, after the ID check (RAA-106). Adds a photo after the listing's others and returns where the browser sends the file: a `PUT` of the file's bytes to `upload.url` with exactly `upload.headers`, straight to storage (Cloudflare R2), not to this API. Then confirm it with `PATCH .../photos/{id}`; guests don't see it until then, and one not confirmed within two days is deleted. JPEG, PNG or WebP, at most 10 MB, 12 per listing; `checksum` is the file's MD5, base64-encoded.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["photo_upload_body"];
+                };
+            };
+            responses: {
+                /** @description a photo still uploading, and where its file goes */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["photo_upload"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a listing that already has 12 */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/listings/{listing_id}/photos/{id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                listing_id: number;
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a photo
+         * @description Partner-only (RAA-106). Deletes the photo and its files; the listing's other photos keep their order.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description deleted, with its files */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a photo of another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Confirm a photo's upload
+         * @description Partner-only (RAA-106). Once the browser's `PUT` has finished: checks the file is in storage, then guests see the photo and its card and large sizes are made (until then both URLs are the original's). Sending it again is harmless.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["photo_update_body"];
+                };
+            };
+            responses: {
+                /** @description uploaded, and its sizes on the way once, however often it is sent */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_photo"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's photo */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description anything but uploaded: true */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/partner/listings": {
@@ -3312,7 +3450,7 @@ export interface components {
              * @description The business's name, as in business.name; will be removed (RAA-101)
              */
             partner_name: string;
-            /** @description In the partner's order; the first is the cover */
+            /** @description Its photos ready for guests (see partner_photo.ready), in the partner's order; the first is the cover */
             photos: components["schemas"]["photo_urls"][];
         };
         photo_urls: {
@@ -3322,8 +3460,12 @@ export interface components {
             large_url: string;
         };
         partner_photo: {
-            /** @description The photo's signed id, as sent in a listing's photos */
-            id: string;
+            /** @description As sent in a listing's photos */
+            id: number;
+            /** @description False until its upload is confirmed; until then the URLs may have nothing behind them */
+            uploaded: boolean;
+            /** @description True once its metadata is stripped and its sizes are made, a few seconds after the upload is confirmed; guests see only ready photos, and until then both URLs are the original's */
+            ready: boolean;
             card_url: string;
             large_url: string;
         };
@@ -3464,10 +3606,10 @@ export interface components {
             units_count?: number;
             /** @description Tours and activities only: the published landmarks it visits. Replaces them when sent; left out on a change, they stay as they are. A listing that isn't an activity has none. */
             landmark_ids?: number[];
-            /** @description The listing's photos in order, the first the cover: each a signed_id from POST /api/v1/partner/direct_uploads or the id of one of its photos. Replaces them when sent (a photo left out is deleted); left out on a change, they stay as they are */
-            photos?: string[];
+            /** @description The ids of the listing's photos (POST /api/v1/partner/listings/{listing_id}/photos) in order, the first uploaded one the cover. A photo left out is deleted; left out on a change, they stay as they are. A new listing has none yet. */
+            photos?: number[];
         };
-        direct_upload_body: {
+        photo_upload_body: {
             filename: string;
             byte_size: number;
             /** @description The file's MD5 digest, base64-encoded */
@@ -3475,9 +3617,9 @@ export interface components {
             /** @enum {string} */
             content_type: "image/jpeg" | "image/png" | "image/webp";
         };
-        direct_upload: {
-            /** @description The photo's id, to send in a listing's photos */
-            signed_id: string;
+        photo_upload: {
+            /** @description The photo's id, to confirm the upload and in a listing's photos */
+            id: number;
             upload: {
                 /** @description PUT the file's bytes here */
                 url: string;
@@ -3486,6 +3628,10 @@ export interface components {
                     [key: string]: string;
                 };
             };
+        };
+        photo_update_body: {
+            /** @enum {boolean} */
+            uploaded: true;
         };
         /**
          * @description free_cancellation: free any time before the booking starts; non_refundable: no refund; seven_days / fourteen_days: free up to 7 / 14 days before it starts, non-refundable after

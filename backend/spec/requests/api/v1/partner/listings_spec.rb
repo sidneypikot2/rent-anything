@@ -245,76 +245,19 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
-      response "201", "with the uploaded photos in the order sent, the first the cover" do
-        schema "$ref" => "#/components/schemas/partner_listing"
-
-        let(:beach) { uploaded_photo(filename: "beach.jpg") }
-        let(:boat) { uploaded_photo(filename: "boat.jpg") }
-
-        before { body[:photos] = [ boat.signed_id, beach.signed_id ] }
-
-        run_test! do |response|
-          expect(response.parsed_body["photos"].pluck("id")).to eq([ boat.signed_id, beach.signed_id ])
-          expect(response.parsed_body["photos"].first).to include("card_url", "large_url")
-          expect(user.listings.sole.photos.map { |photo| photo.image.blob }).to eq([ boat, beach ])
-        end
-      end
-
-      response "422", "photos that aren't uploads, or not photos we take" do
+      response "422", "photos on a new listing, which has none yet, or photos that aren't a list of ids" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
-        let(:menu) { uploaded_photo(filename: "menu.pdf", content_type: "application/pdf") }
+        let(:taken) { create_photo(create(:listing)) }
 
-        before { body[:photos] = [ "not-a-signed-id", menu.signed_id ] }
-
-        run_test! do |response|
-          expect(response.parsed_body["errors"]).to contain_exactly(
-            "Photos must be photos uploaded through /api/v1/partner/direct_uploads",
-            "Photos must be JPEG, PNG or WebP images"
-          )
-          expect(Listing.count).to eq(0)
-        end
-      end
-
-      response "422", "more than 12 photos, or photos that aren't a list" do
-        schema "$ref" => "#/components/schemas/validation_errors"
-
-        let(:photo) { uploaded_photo }
-
-        before { body[:photos] = Array.new(13) { uploaded_photo.signed_id } }
+        before { body[:photos] = [ taken.id ] }
 
         run_test! do |refused|
-          expect(refused.parsed_body["errors"]).to eq([ "A listing can have at most 12 photos" ])
-          body[:photos] = photo.signed_id
+          expect(refused.parsed_body["errors"]).to eq([ "Photos must be this listing's photos" ])
+          expect(user.listings).to be_empty
+          body[:photos] = [ "beach.jpg" ]
           post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
-          expect(response.parsed_body["errors"]).to eq([ "Photos must be a list of uploaded photo ids" ])
-        end
-      end
-
-      response "422", "a photo reserved but never uploaded" do
-        schema "$ref" => "#/components/schemas/validation_errors"
-
-        let(:reserved) do
-          ActiveStorage::Blob.create_before_direct_upload!(filename: "beach.jpg", byte_size: 505,
-            checksum: "1B2M2Y8AsgTpgAmY7PhCfg==", content_type: "image/jpeg")
-        end
-
-        before { body[:photos] = [ reserved.signed_id ] }
-
-        run_test! do |response|
-          expect(response.parsed_body["errors"]).to eq([ "Photos must finish uploading before the listing is saved" ])
-        end
-      end
-
-      response "422", "a photo already on another listing" do
-        schema "$ref" => "#/components/schemas/validation_errors"
-
-        let(:taken) { create(:listing).photos.create!(position: 1, image: uploaded_photo).image.blob }
-
-        before { body[:photos] = [ taken.signed_id ] }
-
-        run_test! do |response|
-          expect(response.parsed_body["errors"]).to eq([ "Photos must not be on another listing" ])
+          expect(response.parsed_body["errors"]).to eq([ "Photos must be a list of photo ids" ])
         end
       end
 
@@ -595,30 +538,40 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
-      response "200", "photos reordered, added and removed to match the list sent, kept when left out" do
+      response "200", "photos put in the order sent, those left out deleted, kept when left out" do
         schema "$ref" => "#/components/schemas/partner_listing"
 
-        let(:beach) { uploaded_photo(filename: "beach.jpg") }
-        let(:boat) { uploaded_photo(filename: "boat.jpg") }
-        let(:reef) { uploaded_photo(filename: "reef.jpg") }
+        let!(:beach) { create_photo(listing) }
+        let!(:boat) { create_photo(listing) }
+        let!(:reef) { create_photo(listing, uploaded: false) }
 
-        before do
-          listing.photos.create!(position: 1, image: beach)
-          listing.photos.create!(position: 2, image: boat)
-          body[:photos] = [ reef.signed_id, boat.signed_id ]
-        end
+        before { body[:photos] = [ reef.id, boat.id ] }
 
         run_test! do |saved|
-          expect(saved.parsed_body["photos"].pluck("id")).to eq([ reef.signed_id, boat.signed_id ])
-          expect(listing.photos.reload.map { |photo| [ photo.position, photo.image.blob ] }).to eq([ [ 1, reef ], [ 2, boat ] ])
-          expect(ActiveStorage::PurgeJob).to have_been_enqueued.with(beach)
+          expect(saved.parsed_body["photos"].map { |photo| photo.slice("id", "uploaded") })
+            .to eq([ { "id" => reef.id, "uploaded" => false }, { "id" => boat.id, "uploaded" => true } ])
+          expect(listing.photos.reload.map { |photo| [ photo.position, photo ] }).to eq([ [ 1, reef ], [ 2, boat ] ])
+          expect(ListingPhoto.exists?(beach.id)).to be(false)
 
           body.delete(:photos)
           patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
-          expect(response.parsed_body["photos"].pluck("id")).to eq([ reef.signed_id, boat.signed_id ])
-          patch "/api/v1/partner/listings/#{id}", params: body.merge(photos: [ boat.signed_id, reef.signed_id ]),
+          expect(response.parsed_body["photos"].pluck("id")).to eq([ reef.id, boat.id ])
+          patch "/api/v1/partner/listings/#{id}", params: body.merge(photos: [ boat.id, reef.id ]),
             as: :json, headers: { "Authorization" => Authorization() }
-          expect(response.parsed_body["photos"].pluck("id")).to eq([ boat.signed_id, reef.signed_id ])
+          expect(response.parsed_body["photos"].pluck("id")).to eq([ boat.id, reef.id ])
+        end
+      end
+
+      response "422", "another listing's photo" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:other) { create_photo(create(:listing)) }
+
+        before { body[:photos] = [ other.id ] }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "Photos must be this listing's photos" ])
+          expect(other.reload.listing).not_to eq(listing)
         end
       end
 

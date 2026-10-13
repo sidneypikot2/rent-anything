@@ -284,14 +284,14 @@ RSpec.configure do |config|
               },
               photos: {
                 type: :array, items: { "$ref" => "#/components/schemas/photo_urls" },
-                description: "In the partner's order; the first is the cover"
+                description: "Its photos ready for guests (see partner_photo.ready), in the partner's order; the first is the cover"
               }
             },
             required: %w[id title description summary category booking_type area business units_count units_label
               partner_name photos]
           },
-          # A listing photo's sizes (RAA-106), served straight from storage. Until a size is
-          # made, just after upload, its URL is the original's.
+          # A listing photo's sizes (RAA-106), served straight from storage. A partner's photo not
+          # ready yet (partner_photo) gives the original for both.
           photo_urls: {
             type: :object,
             properties: {
@@ -304,11 +304,20 @@ RSpec.configure do |config|
           partner_photo: {
             type: :object,
             properties: {
-              id: { type: :string, description: "The photo's signed id, as sent in a listing's photos" },
+              id: { type: :integer, description: "As sent in a listing's photos" },
+              uploaded: {
+                type: :boolean,
+                description: "False until its upload is confirmed; until then the URLs may have nothing behind them"
+              },
+              ready: {
+                type: :boolean,
+                description: "True once its metadata is stripped and its sizes are made, a few seconds after the " \
+                  "upload is confirmed; guests see only ready photos, and until then both URLs are the original's"
+              },
               card_url: { type: :string },
               large_url: { type: :string }
             },
-            required: %w[id card_url large_url]
+            required: %w[id uploaded ready card_url large_url]
           },
           # The business offering a listing, as a guest sees it (RAA-100).
           business_ref: {
@@ -473,15 +482,15 @@ RSpec.configure do |config|
                   "sent; left out on a change, they stay as they are. A listing that isn't an activity has none."
               },
               photos: {
-                type: :array, items: { type: :string }, maxItems: 12,
-                description: "The listing's photos in order, the first the cover: each a signed_id from " \
-                  "POST /api/v1/partner/direct_uploads or the id of one of its photos. Replaces them when sent " \
-                  "(a photo left out is deleted); left out on a change, they stay as they are"
+                type: :array, items: { type: :integer }, maxItems: 12,
+                description: "The ids of the listing's photos (POST /api/v1/partner/listings/{listing_id}/photos) in " \
+                  "order, the first uploaded one the cover. A photo left out is deleted; left out on a change, they " \
+                  "stay as they are. A new listing has none yet."
               }
             },
             required: %w[title category_id address location]
           },
-          direct_upload_body: {
+          photo_upload_body: {
             type: :object,
             properties: {
               filename: { type: :string, maxLength: 255 },
@@ -492,10 +501,10 @@ RSpec.configure do |config|
             required: %w[filename byte_size checksum content_type]
           },
           # Where the browser sends a photo's bytes (RAA-106): storage, not this API.
-          direct_upload: {
+          photo_upload: {
             type: :object,
             properties: {
-              signed_id: { type: :string, description: "The photo's id, to send in a listing's photos" },
+              id: { type: :integer, description: "The photo's id, to confirm the upload and in a listing's photos" },
               upload: {
                 type: :object,
                 properties: {
@@ -508,7 +517,12 @@ RSpec.configure do |config|
                 required: %w[url headers]
               }
             },
-            required: %w[signed_id upload]
+            required: %w[id upload]
+          },
+          photo_update_body: {
+            type: :object,
+            properties: { uploaded: { type: :boolean, enum: [ true ] } },
+            required: %w[uploaded]
           },
           # What a guest gets back on cancelling (RAA-88); refunds follow it from M4.
           cancellation_policy: {

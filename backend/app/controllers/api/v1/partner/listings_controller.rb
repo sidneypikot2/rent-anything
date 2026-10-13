@@ -45,8 +45,7 @@ module Api
         end
 
         def with_landmarks
-          current_user.listings.includes(:business, :category, :area, :units, visited_landmarks: :area,
-            photos: ListingPhoto::WITH_IMAGE)
+          current_user.listings.includes(:business, :category, :area, :units, :photos, visited_landmarks: :area)
         end
 
         def listing_params

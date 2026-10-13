@@ -26,7 +26,7 @@ production:
   clean_up_trips:
     class: Trips::CleanupJob
     schedule: every day at 12:30am UTC
-  # Photo uploads no listing took within two days (RAA-106).
-  purge_unattached_photos:
-    class: ListingPhotos::PurgeUnattachedJob
+  # Photos whose upload was never confirmed within two days (RAA-106).
+  purge_unfinished_photos:
+    class: ListingPhotos::PurgeUnfinishedJob
     schedule: every day at 4am Asia/Manila

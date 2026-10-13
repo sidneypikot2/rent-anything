@@ -1,31 +1,40 @@
-# One of a listing's photos (RAA-106), numbered from 1 in the partner's order; the first is
-# the cover. The image is uploaded by the browser straight to storage (Cloudflare R2) before
-# the listing is saved (ListingPhotos::DirectUpload), then attached by Listings::Create or
-# Update. Both sizes are made once, in a job, right after it is attached; guests load them
-# from the bucket's public URL (ListingPhotoSerializer), never through this API.
+# One of a listing's photos (RAA-106), numbered from 1 in the partner's order; the first
+# ready one is the cover. The row is made before the file exists (ListingPhotos::Create),
+# so the file goes straight to its key: <env>/listing_photos/<id>/image.jpg. Once the upload
+# is confirmed (uploaded_at), ListingPhotos::ResizeJob strips the original's metadata and
+# makes image_card and image_large next to it (sized_at). Only then do guests see it, from
+# the bucket's public URL (ListingPhotoSerializer), never through this API.
 class ListingPhoto < ApplicationRecord
   CONTENT_TYPES = %w[image/jpeg image/png image/webp].freeze
+  EXTENSIONS = { "image/jpeg" => "jpg", "image/png" => "png", "image/webp" => "webp" }.freeze
+  FIELDS = %i[image image_card image_large].freeze
   MAX_BYTES = 10.megabytes
   MAX_PER_LISTING = 12
-  # What a list of photos needs to build its URLs without a query per photo.
-  WITH_IMAGE = { image_attachment: { blob: { variant_records: { image_attachment: :blob } } } }.freeze
 
   belongs_to :listing
 
-  has_one_attached :image do |image|
-    image.variant :card, resize_to_fill: [ 800, 600 ], preprocessed: true
-    image.variant :large, resize_to_limit: [ 1600, 1600 ], preprocessed: true
-  end
+  scope :ready, -> { where.not(sized_at: nil) }
 
   validates :position, numericality: { only_integer: true, greater_than_or_equal_to: 1 }
-  validate :image_is_a_photo
+  validates :filename, presence: true, length: { maximum: 255 }
+  validates :content_type, inclusion: { in: CONTENT_TYPES }
+  validates :byte_size, numericality: { only_integer: true, greater_than: 0, less_than_or_equal_to: MAX_BYTES }
+  validates :checksum, presence: true
 
-  private
+  # Its files go once the row is gone. Deleting a listing deletes its photos one by one
+  # (Listing#photos) so this runs; the foreign key's cascade alone would leave the files.
+  after_destroy_commit { ListingPhotos::DeleteFilesJob.perform_later(FIELDS.map { |field| key(field) }) }
 
-  def image_is_a_photo
-    return errors.add(:image, "is required") unless image.attached?
+  # Where a file of this photo is in the bucket: <env>/<table>/<id>/<field>.<extension>.
+  def key(field = :image)
+    "#{Rails.env}/#{self.class.table_name}/#{id}/#{field}.#{EXTENSIONS.fetch(content_type)}"
+  end
 
-    errors.add(:image, "must be a JPEG, PNG or WebP image") unless CONTENT_TYPES.include?(image.blob.content_type)
-    errors.add(:image, "must be at most 10 MB") if image.blob.byte_size > MAX_BYTES
+  def uploaded?
+    uploaded_at.present?
+  end
+
+  def ready?
+    sized_at.present?
   end
 end

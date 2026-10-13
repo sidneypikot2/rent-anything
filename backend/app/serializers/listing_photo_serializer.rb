@@ -1,42 +1,26 @@
 # A listing photo's URLs (the `photo_urls` and `partner_photo` schemas in
-# spec/swagger_helper.rb, RAA-106). On R2 they are the bucket's public URL (R2_PUBLIC_URL)
-# plus the object's key, so a guest's browser loads them from Cloudflare without waking this
-# API; until a size has been made, just after upload, it is the original's key. Elsewhere
-# (the local disk, specs) they are Active Storage's redirect URLs, which make the size on
-# first use, on BACKEND_PUBLIC_URL when set: server-rendered pages fetch from inside Docker,
-# so the request's own host isn't one the browser can reach. Preload ListingPhoto::WITH_IMAGE.
+# spec/swagger_helper.rb, RAA-106): the bucket's public URL (R2_PUBLIC_URL) plus the file's
+# key, so a guest's browser loads them from Cloudflare without waking this API. Guests only
+# get ready photos; a partner's photo that ListingPhotos::ResizeJob hasn't readied yet points
+# both at the original.
 module ListingPhotoSerializer
   def self.call(photo)
-    { card_url: url(photo, :card), large_url: url(photo, :large) }
+    ready = photo.ready?
+    {
+      card_url: PhotoStorage.public_url(photo.key(ready ? :image_card : :image)),
+      large_url: PhotoStorage.public_url(photo.key(ready ? :image_large : :image))
+    }
   end
 
-  # The signed id is what a listing's photos take, so a partner can keep or reorder it.
+  # The id is what a listing's photos take, so a partner can keep or reorder it. A photo
+  # still uploading has no file to show yet, and one not ready isn't shown to guests yet.
   def self.partner(photo)
-    { id: photo.image.blob.signed_id, **call(photo) }
+    { id: photo.id, uploaded: photo.uploaded?, ready: photo.ready?, **call(photo) }
   end
 
-  # Preload cover_photo: ListingPhoto::WITH_IMAGE.
+  # Preload cover_photo.
   def self.cover_url(listing)
     photo = listing.cover_photo
-    photo && url(photo, :card)
-  end
-
-  def self.url(photo, size)
-    variant = photo.image.variant(size)
-    base = public_base
-    return "#{base}/#{variant.key || photo.image.key}" if base
-
-    Rails.application.routes.url_helpers.rails_representation_url(variant, **url_options)
-  end
-
-  def self.public_base
-    return unless Rails.configuration.active_storage.service == :cloudflare
-
-    ENV["R2_PUBLIC_URL"].presence&.chomp("/")
-  end
-
-  def self.url_options
-    base = ENV["BACKEND_PUBLIC_URL"].presence
-    base ? { host: base } : ActiveStorage::Current.url_options
+    photo && call(photo)[:card_url]
   end
 end

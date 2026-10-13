@@ -18,9 +18,6 @@ Rails.application.configure do
   # Enable serving of images, stylesheets, and JavaScripts from an asset server.
   # config.asset_host = "http://assets.example.com"
 
-  # Uploaded files (listing photos) go to Cloudflare R2 (config/storage.yml, RAA-106).
-  config.active_storage.service = :cloudflare
-
   # Assume all access to the app is happening through a SSL-terminating reverse proxy.
   config.assume_ssl = true
 

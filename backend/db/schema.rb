@@ -18,35 +18,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_145200) do
   enable_extension "postgis"
   enable_extension "unaccent"
 
-  create_table "active_storage_attachments", force: :cascade do |t|
-    t.string "name", null: false
-    t.string "record_type", null: false
-    t.bigint "record_id", null: false
-    t.bigint "blob_id", null: false
-    t.datetime "created_at", null: false
-    t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
-    t.index ["blob_id"], name: "index_active_storage_attachments_on_listing_photo_blob", unique: true, where: "((record_type)::text = 'ListingPhoto'::text)"
-    t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
-  end
-
-  create_table "active_storage_blobs", force: :cascade do |t|
-    t.string "key", null: false
-    t.string "filename", null: false
-    t.string "content_type"
-    t.text "metadata"
-    t.string "service_name", null: false
-    t.bigint "byte_size", null: false
-    t.string "checksum"
-    t.datetime "created_at", null: false
-    t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
-  end
-
-  create_table "active_storage_variant_records", force: :cascade do |t|
-    t.bigint "blob_id", null: false
-    t.string "variation_digest", null: false
-    t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
-  end
-
   create_table "areas", force: :cascade do |t|
     t.bigint "parent_id"
     t.string "kind", null: false
@@ -195,10 +166,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_145200) do
   create_table "listing_photos", force: :cascade do |t|
     t.bigint "listing_id", null: false
     t.integer "position", null: false
+    t.string "filename", null: false
+    t.string "content_type", null: false
+    t.bigint "byte_size", null: false
+    t.string "checksum", null: false
+    t.datetime "uploaded_at"
+    t.datetime "sized_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-
+    t.index ["created_at"], name: "index_listing_photos_unfinished", where: "(uploaded_at IS NULL)"
     t.check_constraint "\"position\" >= 1", name: "listing_photos_position_check"
+    t.check_constraint "byte_size > 0", name: "listing_photos_byte_size_check"
+    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "listing_photos_content_type_check"
     t.unique_constraint ["listing_id", "position"], deferrable: :deferred, name: "listing_photos_listing_id_position_key"
   end
 
@@ -376,8 +355,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_13_145200) do
     t.check_constraint "role::text = ANY (ARRAY['guest'::character varying::text, 'partner'::character varying::text, 'admin'::character varying::text])", name: "users_role_check"
   end
 
-  add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
-  add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "areas", "areas", column: "parent_id"
   add_foreign_key "businesses", "users", column: "partner_id"
   add_foreign_key "categories", "categories", column: "parent_id"

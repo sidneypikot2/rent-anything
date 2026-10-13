@@ -2,43 +2,24 @@ require "rails_helper"
 
 RSpec.describe ListingPhotoSerializer do
   let(:listing) { create(:listing) }
-  let!(:photo) { listing.photos.create!(position: 1, image: uploaded_photo(filename: "front.jpg")) }
+  let!(:photo) { create_photo(listing, position: 1, ready: false) }
+  let(:folder) { "https://photos.example.com/test/listing_photos/#{photo.id}" }
 
-  # Outside a request there is no request host: Compose sets BACKEND_PUBLIC_URL, CI doesn't.
-  before { stub_const("ENV", ENV.to_h.merge("BACKEND_PUBLIC_URL" => "http://localhost:3100")) }
+  before { stub_const("ENV", ENV.to_h.merge("R2_PUBLIC_URL" => "https://photos.example.com/")) }
 
-  context "on R2" do
-    before do
-      allow(Rails.configuration.active_storage).to receive(:service).and_return(:cloudflare)
-      stub_const("ENV", ENV.to_h.merge("R2_PUBLIC_URL" => "https://photos.example.com/"))
-    end
+  it "points at the bucket's public URL: the original until the photo is ready, then the sizes" do
+    expect(described_class.partner(photo)).to eq(
+      id: photo.id, uploaded: true, ready: false, card_url: "#{folder}/image.jpg", large_url: "#{folder}/image.jpg"
+    )
 
-    it "points at the bucket's public URL: the original until a size is made, then the size" do
-      expect(described_class.call(photo)).to eq(
-        card_url: "https://photos.example.com/#{photo.image.key}", large_url: "https://photos.example.com/#{photo.image.key}"
-      )
-
-      photo.image.variant(:card).processed
-      card_key = photo.image.variant(:card).key
-      expect(card_key).not_to eq(photo.image.key)
-      expect(described_class.call(ListingPhoto.includes(ListingPhoto::WITH_IMAGE).find(photo.id)))
-        .to include(card_url: "https://photos.example.com/#{card_key}")
-    end
+    photo.update!(sized_at: Time.current)
+    expect(described_class.call(photo)).to eq(card_url: "#{folder}/image_card.jpg", large_url: "#{folder}/image_large.jpg")
   end
 
-  context "on the local disk" do
-    it "uses Active Storage's redirect URLs, on BACKEND_PUBLIC_URL when set" do
-      stub_const("ENV", ENV.to_h.merge("BACKEND_PUBLIC_URL" => "http://localhost:3101"))
+  it "makes the first ready photo the cover, and a listing without one has none" do
+    second = create_photo(listing, position: 2)
 
-      expect(described_class.call(photo)[:card_url])
-        .to start_with("http://localhost:3101/rails/active_storage/representations/redirect/")
-    end
-  end
-
-  it "makes the first photo the cover, and a listing without photos has none" do
-    listing.photos.create!(position: 2, image: uploaded_photo(filename: "back.jpg"))
-
-    expect(described_class.cover_url(listing.reload)).to include("front")
+    expect(described_class.cover_url(listing.reload)).to eq(described_class.call(second)[:card_url])
     expect(described_class.cover_url(create(:listing))).to be_nil
   end
 end

@@ -12,9 +12,9 @@ module Listings
   # one unless told otherwise, and a change keeps the count when it is left out. business_id
   # is one of the partner's businesses (RAA-100): left out, a new listing goes under the
   # partner's only business (several make it required) and a change keeps the listing's.
-  # photos (RAA-106) are uploaded blobs' signed ids in the partner's order: sent, they replace
-  # the listing's photos (keeping those still listed, so a reorder doesn't upload again);
-  # left out, the photos stay.
+  # photos (RAA-106) are the ids of the listing's own photos (added through
+  # /api/v1/partner/listings/:id/photos) in the partner's order: sent, the order is theirs
+  # and a photo left out is deleted; left out, the photos stay as they are.
   module ListingValues
     include RequestValues
 
@@ -30,7 +30,7 @@ module Listings
       category = find_category
       @landmarks = landmarks_for(category)
       @units_count = units_count
-      @photo_blobs = photo_blobs
+      @photo_ids = photo_ids
       {
         title: required_string(@params, :title, "Title"),
         description: optional_text(:description, "Description"),
@@ -77,20 +77,21 @@ module Listings
       listing.units.reset
     end
 
-    # Keeps the photos still listed, at their new places, adds the new ones and deletes the
-    # rest (their images are purged from storage after the commit). Positions are unique only
-    # at commit, so two photos can swap places; the listing's row is locked first, so two saves
-    # of one listing don't both pass that and fail at commit.
+    # Puts the photos listed in that order and deletes the rest (their files go from storage
+    # after the commit). Positions are unique only at commit, so two photos can swap places;
+    # the listing's row is locked first, as adding a photo does, so a photo added meanwhile
+    # isn't numbered over.
     def save_photos!(listing)
-      return if @photo_blobs.nil?
+      return if @photo_ids.nil?
 
       Listing.where(id: listing.id).lock.pluck(:id)
-      existing = listing.photos.includes(image_attachment: :blob).index_by { |photo| photo.image.blob_id }
-      (existing.keys - @photo_blobs.map(&:id)).each { |blob_id| existing[blob_id].destroy! }
-      @photo_blobs.each.with_index(1) do |blob, position|
-        photo = existing[blob.id]
-        photo ? photo.update!(position:) : listing.photos.create!(position:, image: blob)
+      photos = listing.photos.reload.index_by(&:id)
+      unless (@photo_ids - photos.keys).empty?
+        listing.errors.add(:base, "Photos must be this listing's photos")
+        raise ActiveRecord::RecordInvalid, listing
       end
+      photos.except(*@photo_ids).each_value(&:destroy!)
+      @photo_ids.each.with_index(1) { |id, position| photos[id].update!(position:) }
       listing.photos.reset
     end
 
@@ -120,46 +121,14 @@ module Listings
       error("Units must be a whole number from 1 to #{MAX_UNITS}")
     end
 
-    # nil keeps the listing's photos as they are; an array of signed blob ids replaces them.
-    def photo_blobs
+    # nil keeps the listing's photos as they are; an array of its photo ids orders them. That
+    # they are this listing's is checked under the lock (save_photos!).
+    def photo_ids
       ids = @params[:photos]
       return nil if ids.nil?
-      return error("Photos must be a list of uploaded photo ids") unless ids.is_a?(Array) && ids.all?(String)
+      return error("Photos must be a list of photo ids") unless ids.is_a?(Array) && ids.all?(Integer)
 
-      ids = ids.uniq
-      if ids.size > ListingPhoto::MAX_PER_LISTING
-        return error("A listing can have at most #{ListingPhoto::MAX_PER_LISTING} photos")
-      end
-
-      blobs = ids.map { |id| ActiveStorage::Blob.find_signed(id) }
-      found = blobs.compact
-      error("Photos must be photos uploaded through /api/v1/partner/direct_uploads") if found.size < blobs.size
-      if found.any? { |blob| ListingPhoto::CONTENT_TYPES.exclude?(blob.content_type) }
-        error("Photos must be JPEG, PNG or WebP images")
-      end
-      error("Photos must be at most 10 MB each") if found.any? { |blob| blob.byte_size > ListingPhoto::MAX_BYTES }
-      error("Photos must not be on another listing") if attached_elsewhere?(found)
-      # A reserved photo whose bytes never reached storage: the browser's PUT failed or is
-      # still going. Only new photos are checked, one request to storage each.
-      new_blobs = found.reject { |blob| own_blob_ids.include?(blob.id) }
-      if new_blobs.any? { |blob| !blob.service.exist?(blob.key) }
-        error("Photos must finish uploading before the listing is saved")
-      end
-      found
-    end
-
-    def attached_elsewhere?(blobs)
-      ActiveStorage::Attachment.where(blob_id: blobs.map(&:id)).where.not(blob_id: own_blob_ids).exists?
-    end
-
-    # The blobs of the photos this listing already has.
-    def own_blob_ids
-      @own_blob_ids ||= if @listing&.persisted?
-        ActiveStorage::Attachment.where(record_type: "ListingPhoto", record_id: @listing.photos.select(:id))
-          .pluck(:blob_id)
-      else
-        []
-      end
+      ids.uniq
     end
 
     # nil keeps the listing's landmarks as they are; an array replaces them.

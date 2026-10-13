@@ -83,24 +83,24 @@ RSpec.describe "Listings", type: :request do
         end
       end
 
-      response "200", "its photos in the partner's order, and the first as the cover in lists" do
+      response "200", "its ready photos in the partner's order, and the first as the cover in lists" do
         schema "$ref" => "#/components/schemas/listing_detail"
         let(:id) { gopro.id }
 
-        before do
-          gopro.photos.create!(position: 2, image: uploaded_photo(filename: "side.jpg"))
-          gopro.photos.create!(position: 1, image: uploaded_photo(filename: "front.jpg"))
-        end
+        let!(:uploading) { create_photo(gopro, position: 1, uploaded: false) }
+        let!(:resizing) { create_photo(gopro, position: 2, ready: false) }
+        let!(:side) { create_photo(gopro, position: 4) }
+        let!(:front) { create_photo(gopro, position: 3) }
 
         run_test! do |detail|
           photos = detail.parsed_body["photos"]
           expect(photos.size).to eq(2)
           expect(photos.first.keys).to contain_exactly("card_url", "large_url")
-          expect(photos.first["large_url"]).to include("front")
+          expect(photos.first["large_url"]).to end_with("/listing_photos/#{front.id}/image_large.jpg")
 
           get "/api/v1/listings"
           pin = response.parsed_body.find { |row| row["id"] == gopro.id }
-          expect(pin["cover_photo_url"]).to include("front")
+          expect(pin["cover_photo_url"]).to end_with("/listing_photos/#{front.id}/image_card.jpg")
           expect(response.parsed_body.find { |row| row["id"] == osmo.id }["cover_photo_url"]).to be_nil
         end
       end
