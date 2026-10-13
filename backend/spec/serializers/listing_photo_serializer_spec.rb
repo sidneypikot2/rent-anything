@@ -4,6 +4,9 @@ RSpec.describe ListingPhotoSerializer do
   let(:listing) { create(:listing) }
   let!(:photo) { listing.photos.create!(position: 1, image: uploaded_photo(filename: "front.jpg")) }
 
+  # Outside a request there is no request host: Compose sets BACKEND_PUBLIC_URL, CI doesn't.
+  before { stub_const("ENV", ENV.to_h.merge("BACKEND_PUBLIC_URL" => "http://localhost:3100")) }
+
   context "on R2" do
     before do
       allow(Rails.configuration.active_storage).to receive(:service).and_return(:cloudflare)
