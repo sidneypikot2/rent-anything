@@ -1,8 +1,9 @@
 # Photos in Cloudflare R2, through its S3 API (RAA-106): the only place that talks to the
-# bucket. Every environment uses the same bucket; keys start with the environment's name
-# (ListingPhoto#key), so development never writes over staging's. The R2_* values are an
-# R2 API token's keys, the bucket and its public address (backend/.env.example). Guests load
-# photos from R2_PUBLIC_URL, never through this API. Specs stub the client (spec/support).
+# bucket. Every environment uses the same bucket; keys start with the environment's folder
+# (root), so development never writes over staging's, nor one local stack over another's.
+# The R2_* values are an R2 API token's keys, the bucket and its public address
+# (backend/.env.example). Guests load photos from R2_PUBLIC_URL, never through this API.
+# Specs stub the client (spec/support).
 module PhotoStorage
   UPLOAD_EXPIRES_IN = 10.minutes
 
@@ -42,6 +43,17 @@ module PhotoStorage
     return if keys.empty?
 
     client.delete_objects(bucket:, delete: { objects: keys.map { |key| { key: } }, quiet: true })
+  end
+
+  # The folder every key starts with: the environment's name, and in development also the
+  # local stack's (DEV_STORAGE_FOLDER, set by docker-compose.yml to the developer and the
+  # Compose project). Every local database numbers its rows from 1, so without it two stacks
+  # would write over, and delete, each other's files.
+  def root
+    return Rails.env.to_s unless Rails.env.development?
+
+    folder = ENV["DEV_STORAGE_FOLDER"].to_s.downcase.gsub(/[^a-z0-9_-]+/, "-").delete_prefix("-").delete_suffix("-")
+    "development/#{folder.presence || 'unnamed'}"
   end
 
   def public_url(key)

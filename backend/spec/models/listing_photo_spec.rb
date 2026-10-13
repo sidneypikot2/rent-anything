@@ -10,6 +10,17 @@ RSpec.describe ListingPhoto do
     expect(photo.key(:image_card)).to eq("test/listing_photos/#{photo.id}/image_card.png")
   end
 
+  it "keeps each local stack's files apart in development, where every stack numbers photos from 1" do
+    photo = create_photo(listing)
+    allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new("development"))
+
+    stub_const("ENV", ENV.to_h.merge("DEV_STORAGE_FOLDER" => "Sidney-raa-106 Photos"))
+    expect(photo.key).to eq("development/sidney-raa-106-photos/listing_photos/#{photo.id}/image.jpg")
+
+    stub_const("ENV", ENV.to_h.except("DEV_STORAGE_FOLDER"))
+    expect(photo.key).to eq("development/unnamed/listing_photos/#{photo.id}/image.jpg")
+  end
+
   it "takes a JPEG, PNG or WebP image of at most 10 MB" do
     expect { create_photo(listing, content_type: "application/pdf") }
       .to raise_error(ActiveRecord::RecordInvalid, /Content type is not included/)

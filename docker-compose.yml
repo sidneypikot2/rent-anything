@@ -55,6 +55,9 @@ services:
       DATABASE_PASSWORD: postgres
       FRONTEND_ORIGIN: http://localhost:${FRONTEND_PORT:-8100}
       REDIS_URL: redis://redis:6379/1
+      # Development shares the R2 bucket, and each local database numbers its photos from 1:
+      # this stack's own folder in it, by developer and Compose project (RAA-106).
+      DEV_STORAGE_FOLDER: ${USER:-dev}-${COMPOSE_PROJECT_NAME:-rent-anything}
     depends_on:
       db:
         condition: service_healthy
