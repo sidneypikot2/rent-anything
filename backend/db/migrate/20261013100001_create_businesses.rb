@@ -4,15 +4,20 @@
 # keeps a listing on a business of its own partner. Existing partners with listings or a
 # display name get one business holding all their listings, named after the display name,
 # else the legal first name (never the surname), else the account name (the sample partners
-# have no profile), else "Local partner". db/seeds.rb runs the same backfill for a database
-# loaded from schema.rb.
+# have no profile), else "Local partner". A business has an address and a map pin that a new
+# listing can copy ("Same as Business Address"); a backfilled one takes its partner's profile
+# address and has no pin until the partner sets it. db/seeds.rb runs the same backfill for a
+# database loaded from schema.rb.
 class CreateBusinesses < ActiveRecord::Migration[8.1]
   def self.backfill(connection)
     connection.execute <<~SQL
-      INSERT INTO businesses (partner_id, name, created_at, updated_at)
+      INSERT INTO businesses (partner_id, name, street, city, region, province, postal_code, country,
+                              created_at, updated_at)
       SELECT users.id,
              left(coalesce(nullif(trim(partner_profiles.display_name), ''), partner_profiles.legal_first_name,
                nullif(trim(users.name), ''), 'Local partner'), 80),
+             partner_profiles.street, partner_profiles.city, partner_profiles.region, partner_profiles.province,
+             partner_profiles.postal_code, coalesce(partner_profiles.country, 'PH'),
              now(), now()
       FROM users
       LEFT JOIN partner_profiles ON partner_profiles.user_id = users.id
@@ -34,11 +39,20 @@ class CreateBusinesses < ActiveRecord::Migration[8.1]
       t.references :partner, null: false, foreign_key: { to_table: :users }
       t.string :name, null: false
       t.text :description, default: "", null: false
+      t.string :street
+      t.string :city
+      t.string :region
+      t.string :province
+      t.string :postal_code
+      t.string :country, limit: 2, default: "PH", null: false
+      t.st_point :location, geographic: true
       t.timestamps
     end
     add_index :businesses, "partner_id, lower(name)", unique: true, name: "index_businesses_on_partner_id_and_lower_name"
     add_index :businesses, %i[id partner_id], unique: true
+    add_index :businesses, :location, using: :gist
     add_check_constraint :businesses, "char_length(name) BETWEEN 1 AND 80", name: "businesses_name_length_check"
+    add_check_constraint :businesses, "country ~ '^[A-Z]{2}$'", name: "businesses_country_check"
 
     add_reference :listings, :business, foreign_key: true
     add_foreign_key :listings, :businesses, column: %i[business_id partner_id], primary_key: %i[id partner_id],

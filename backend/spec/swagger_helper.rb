@@ -15,6 +15,29 @@ EXPLORE_PLACE = {
   distance_km: { type: :number, description: "From the starting point, one decimal" }
 }.freeze
 
+# The address and map pin a partner sends for a listing (RAA-41) or a business (RAA-100).
+ADDRESS_BODY = {
+  type: :object,
+  properties: {
+    street: { type: :string },
+    city: { type: :string },
+    region: { type: :string },
+    province: { type: :string, nullable: true, description: "Optional: none in Metro Manila" },
+    postal_code: { type: :string },
+    country: { type: :string, description: "ISO 3166-1 alpha-2, e.g. PH" }
+  },
+  required: %w[street city region postal_code country]
+}.freeze
+
+LOCATION_BODY = {
+  type: :object,
+  properties: {
+    lat: { type: :number, minimum: -90, maximum: 90 },
+    lng: { type: :number, minimum: -180, maximum: 180 }
+  },
+  required: %w[lat lng]
+}.freeze
+
 RSpec.configure do |config|
   # OPENAPI_ROOT lets script/check-api generate into a scratch directory to compare.
   config.openapi_root = ENV.fetch("OPENAPI_ROOT", Rails.root.join("swagger").to_s)
@@ -331,17 +354,24 @@ RSpec.configure do |config|
               id: { type: :integer },
               name: { type: :string },
               description: { type: :string },
+              address: { "$ref" => "#/components/schemas/profile_address" },
+              location: {
+                allOf: [ { "$ref" => "#/components/schemas/lat_lng" } ], nullable: true,
+                description: "The map pin; null on a business made before pins, until the partner sets it"
+              },
               listings_count: { type: :integer },
               created_at: { type: :string, format: "date-time" },
               updated_at: { type: :string, format: "date-time" }
             },
-            required: %w[id name description listings_count created_at updated_at]
+            required: %w[id name description address location listings_count created_at updated_at]
           },
           business_body: {
             type: :object,
             properties: {
               name: { type: :string, maxLength: 80, description: "Unique among the partner's businesses, ignoring case" },
-              description: { type: :string, maxLength: 2000, description: "Optional; left out on a change, it stays" }
+              description: { type: :string, maxLength: 2000, description: "Optional; left out on a change, it stays" },
+              address: ADDRESS_BODY.merge(description: "Required on a new business; left out on a change, it stays"),
+              location: LOCATION_BODY.merge(description: "Required on a new business; left out on a change, it stays")
             },
             required: %w[name]
           },
@@ -384,26 +414,8 @@ RSpec.configure do |config|
               title: { type: :string, maxLength: 120 },
               description: { type: :string, maxLength: 5000 },
               category_id: { type: :integer, description: "A bookable (leaf) category" },
-              address: {
-                type: :object,
-                properties: {
-                  street: { type: :string },
-                  city: { type: :string },
-                  region: { type: :string },
-                  province: { type: :string, nullable: true, description: "Optional: none in Metro Manila" },
-                  postal_code: { type: :string },
-                  country: { type: :string, description: "ISO 3166-1 alpha-2, e.g. PH" }
-                },
-                required: %w[street city region postal_code country]
-              },
-              location: {
-                type: :object,
-                properties: {
-                  lat: { type: :number, minimum: -90, maximum: 90 },
-                  lng: { type: :number, minimum: -180, maximum: 180 }
-                },
-                required: %w[lat lng]
-              },
+              address: ADDRESS_BODY,
+              location: LOCATION_BODY,
               attrs: { type: :object, additionalProperties: true },
               cancellation_policy: {
                 allOf: [ { "$ref" => "#/components/schemas/cancellation_policy" } ],

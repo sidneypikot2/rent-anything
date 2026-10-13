@@ -23,7 +23,7 @@ module Listings
     private
 
     def listing_attributes
-      point = point_from_location
+      point = point_from(@params[:location])
       category = find_category
       @landmarks = landmarks_for(category)
       @units_count = units_count
@@ -131,21 +131,6 @@ module Listings
       return error("Category is required") unless id.is_a?(Integer)
 
       Category.find_by(id:) || error("Category is not one we know")
-    end
-
-    def point_from_location
-      location = @params[:location]
-      return error("Location is required") unless location.respond_to?(:key?)
-
-      lat = coordinate(location[:lat], 90, "Latitude")
-      lng = coordinate(location[:lng], 180, "Longitude")
-      "POINT(#{lng} #{lat})" if lat && lng
-    end
-
-    def coordinate(value, limit, label)
-      return value if value.is_a?(Numeric) && value.between?(-limit, limit)
-
-      error("#{label} must be a number between -#{limit} and #{limit}")
     end
 
     # The destination guests will find the listing under: the smallest published area whose
