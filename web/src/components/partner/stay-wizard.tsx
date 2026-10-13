@@ -14,9 +14,10 @@ import {
   type CancellationPolicies,
   type CancellationPolicy,
 } from "./cancellation-policy";
-import { categoryLabel, geocodeQuery, NO_ADDRESS } from "./listing-fields";
+import { categoryLabel, NO_ADDRESS } from "./listing-fields";
 import { LocationPicker } from "./location-picker";
 import { PhotoUploadSkeleton } from "./photo-upload-skeleton";
+import { SameAsBusinessAddress, useSameAsBusinessAddress } from "./same-as-business-address";
 import {
   AmenityChoice,
   NEW_STAY,
@@ -72,6 +73,10 @@ export function StayWizard({
   const address = usePhAddress(NO_ADDRESS);
   const [location, setLocation] = useState<LatLng | null>(null);
   const [locationError, setLocationError] = useState<string>();
+  const sameAddress = useSameAsBusinessAddress(business, address, (point) => {
+    setLocation(point);
+    setLocationError(undefined);
+  });
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [policy, setPolicy] = useState<CancellationPolicy>(DEFAULT_CANCELLATION_POLICY);
@@ -155,14 +160,16 @@ export function StayWizard({
 
           {step.key === "address" && (
             <>
-              <PhAddressFields address={address} />
+              <SameAsBusinessAddress business={business} checked={sameAddress.same} onChange={sameAddress.change} />
+              <PhAddressFields address={address} disabled={sameAddress.same} />
               <LocationPicker
                 value={location}
+                readOnly={sameAddress.same}
                 onChange={(point) => {
                   setLocation(point);
                   setLocationError(undefined);
                 }}
-                geocodeQuery={geocodeQuery(address)}
+                geocodeQuery={sameAddress.geocodeQuery}
                 error={locationError}
               />
             </>

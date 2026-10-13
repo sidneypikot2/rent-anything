@@ -12,7 +12,6 @@ import {
   AttributeFields,
   attributeFields,
   categoryLabel,
-  geocodeQuery,
   NO_ADDRESS,
   toAttrs,
   visitsLandmarks,
@@ -27,6 +26,7 @@ import {
 import { LandmarkPicker } from "./landmark-picker";
 import { LocationPicker } from "./location-picker";
 import { PhotoUploadSkeleton } from "./photo-upload-skeleton";
+import { SameAsBusinessAddress, useSameAsBusinessAddress } from "./same-as-business-address";
 import type { PartnerBusiness } from "./use-partner-businesses";
 import { useCreateListing, type ListingCategory } from "./use-partner-listings";
 import { UnitsField } from "./units-field";
@@ -81,6 +81,10 @@ export function ListingWizard({
   const address = usePhAddress(NO_ADDRESS);
   const [location, setLocation] = useState<LatLng | null>(null);
   const [locationError, setLocationError] = useState<string>();
+  const sameAddress = useSameAsBusinessAddress(business, address, (point) => {
+    setLocation(point);
+    setLocationError(undefined);
+  });
   const [attrValues, setAttrValues] = useState<AttributeValues>({});
   const [landmarks, setLandmarks] = useState<PartnerLandmark[]>([]);
   const [vehicleValues, setVehicleValues] = useState<VehicleValues>(NEW_VEHICLE);
@@ -179,14 +183,16 @@ export function ListingWizard({
 
           {step.key === "location" && (
             <>
-              <PhAddressFields address={address} />
+              <SameAsBusinessAddress business={business} checked={sameAddress.same} onChange={sameAddress.change} />
+              <PhAddressFields address={address} disabled={sameAddress.same} />
               <LocationPicker
                 value={location}
+                readOnly={sameAddress.same}
                 onChange={(point) => {
                   setLocation(point);
                   setLocationError(undefined);
                 }}
-                geocodeQuery={geocodeQuery(address)}
+                geocodeQuery={sameAddress.geocodeQuery}
                 error={locationError}
               />
             </>

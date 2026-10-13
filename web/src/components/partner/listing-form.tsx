@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { PhAddressFields, usePhAddress, type PhAddress } from "@/components/address/ph-address-fields";
+import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
@@ -12,6 +12,7 @@ import type { LatLng } from "@/lib/map";
 import { CancellationPolicyChoice, type CancellationPolicy } from "./cancellation-policy";
 import { listingChanges } from "./listing-changes";
 import {
+  addressChanged,
   AttributeFields,
   attributeFields,
   categoryLabel,
@@ -39,18 +40,6 @@ import type { PartnerLandmark } from "./use-partner-landmarks";
 import { isVehicle, toVehicleAttrs, toVehicleValues, VehicleFields, type VehicleValues } from "./vehicle-fields";
 import { useUpdateListing, type ListingBody, type ListingOptions, type PartnerListing } from "./use-partner-listings";
 import { UnitsField } from "./units-field";
-
-function addressChanged(address: PhAddress, listing: PartnerListing) {
-  const { region, province, city, zip, street } = address.values;
-  const saved = listing.address;
-  return (
-    region.trim() !== (saved.region ?? "") ||
-    province.trim() !== (saved.province ?? "") ||
-    city.trim() !== (saved.city ?? "") ||
-    zip.trim() !== (saved.postal_code ?? "") ||
-    street.trim() !== (saved.street ?? "")
-  );
-}
 
 // Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
 // visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
@@ -86,7 +75,7 @@ export function ListingForm({
 
   const category = options.categories.find((option) => String(option.id) === categoryId);
   // A saved listing's pin stays where it is until the partner changes the address.
-  const addressQuery = addressChanged(address, listing) ? geocodeQuery(address) : undefined;
+  const addressQuery = addressChanged(address, listing.address) ? geocodeQuery(address) : undefined;
   const stayCategory = isStay(category);
   const vehicleCategory = isVehicle(category);
   const fields = stayCategory || vehicleCategory ? [] : attributeFields(category);

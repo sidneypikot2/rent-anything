@@ -20,18 +20,26 @@ type Props = {
   // An address to put the pin on once it settles (RAA-41); the partner can still drag it.
   geocodeQuery?: string;
   error?: string;
+  // Shows the pin without letting it move: a listing using its business's pin (RAA-101).
+  readOnly?: boolean;
+  label?: string;
 };
 
 const GEOCODE_DELAY_MS = 600;
 
 // A map the partner clicks to drop the listing's pin on, then drags to adjust it.
 // A complete address moves the pin there too. A pin given when the map opens (a saved
-// listing, RAA-47) is shown there, and the map starts on it.
-export function LocationPicker({ value, onChange, geocodeQuery, error }: Props) {
+// listing, RAA-47) is shown there, and the map starts on it; a pin given later (copied from
+// the business, RAA-101) moves the map to it.
+export function LocationPicker({ value, onChange, geocodeQuery, error, readOnly = false, label = "Pin the spot" }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   // Puts the pin at a point (creating it the first time) and reports it; set once the map loads.
   const placePinRef = useRef<((point: LatLng) => void) | null>(null);
+  // Puts the pin at a point and centres the map on it, without reporting it.
+  const showPinRef = useRef<((point: LatLng) => void) | null>(null);
+  const markerRef = useRef<Marker | undefined>(undefined);
+  const readOnlyRef = useRef(readOnly);
   const [failed, setFailed] = useState(false);
   const [notFound, setNotFound] = useState(false);
   // The latest callback, so the map's listeners, bound once, never call a stale one.
@@ -61,7 +69,6 @@ export function LocationPicker({ value, onChange, geocodeQuery, error }: Props) 
       return;
     }
     let loaded = false;
-    let marker: Marker | undefined;
 
     // A failure before the map has drawn leaves no map; a tile failing later doesn't.
     map.on("error", () => {
@@ -73,16 +80,20 @@ export function LocationPicker({ value, onChange, geocodeQuery, error }: Props) 
 
     // Puts the pin at a point, creating it the first time, without reporting it.
     const showPin = (point: LatLng) => {
-      if (!marker) {
-        const placed = new Marker({ draggable: true }).setLngLat(toLngLat(point)).addTo(map);
-        placed.getElement().title = "Listing location";
+      if (!markerRef.current) {
+        const placed = new Marker({ draggable: !readOnlyRef.current }).setLngLat(toLngLat(point)).addTo(map);
+        placed.getElement().title = "Location";
         placed.on("dragend", () => onChangeRef.current(fromLngLat(placed.getLngLat())));
-        marker = placed;
+        markerRef.current = placed;
       } else {
-        marker.setLngLat(toLngLat(point));
+        markerRef.current.setLngLat(toLngLat(point));
       }
     };
     if (initial) showPin(initial);
+    showPinRef.current = (point) => {
+      showPin(point);
+      map.jumpTo({ center: toLngLat(point), zoom: 16 });
+    };
 
     placePinRef.current = (point) => {
       showPin(point);
@@ -90,15 +101,35 @@ export function LocationPicker({ value, onChange, geocodeQuery, error }: Props) 
       onChangeRef.current(point);
     };
 
-    map.on("click", (event) => placePinRef.current?.(fromLngLat(event.lngLat)));
+    map.on("click", (event) => {
+      if (!readOnlyRef.current) placePinRef.current?.(fromLngLat(event.lngLat));
+    });
     mapRef.current = map;
 
     return () => {
       map.remove();
       mapRef.current = null;
       placePinRef.current = null;
+      showPinRef.current = null;
+      markerRef.current = undefined;
     };
   }, []);
+
+  useEffect(() => {
+    readOnlyRef.current = readOnly;
+    markerRef.current?.setDraggable(!readOnly);
+  }, [readOnly]);
+
+  // A pin set from outside the map: show it, unless the pin is already there (a drag or a
+  // geocoded address reports the point the pin is on).
+  const lat = value?.lat;
+  const lng = value?.lng;
+  useEffect(() => {
+    if (lat === undefined || lng === undefined) return;
+    const current = markerRef.current?.getLngLat();
+    if (current && current.lat === lat && current.lng === lng) return;
+    showPinRef.current?.({ lat, lng });
+  }, [lat, lng]);
 
   // Once the address stops changing, look it up and move the pin there.
   useEffect(() => {
@@ -131,7 +162,7 @@ export function LocationPicker({ value, onChange, geocodeQuery, error }: Props) 
 
   return (
     <div data-testid="location-picker" className="flex flex-col gap-1 text-sm font-medium">
-      <span>Pin the spot</span>
+      <span>{label}</span>
       {unavailable ? (
         <p
           role="status"
@@ -142,7 +173,7 @@ export function LocationPicker({ value, onChange, geocodeQuery, error }: Props) 
       ) : (
         <div
           ref={containerRef}
-          aria-label="Map: click to drop the listing's pin"
+          aria-label={readOnly ? "Map showing the pin" : "Map: click to drop the pin"}
           className={cn(
             "h-80 w-full overflow-hidden rounded-lg border-[1.5px]",
             error ? "border-danger" : "border-line-strong",
@@ -154,7 +185,7 @@ export function LocationPicker({ value, onChange, geocodeQuery, error }: Props) 
           (notFound
             ? "Couldn't find that address on the map; drop the pin yourself."
             : value
-              ? `Pinned at ${value.lat.toFixed(5)}, ${value.lng.toFixed(5)}. Drag the pin to adjust.`
+              ? `Pinned at ${value.lat.toFixed(5)}, ${value.lng.toFixed(5)}.${readOnly ? "" : " Drag the pin to adjust."}`
               : "Fill in the address to place the pin, or click the map where travellers meet you.")}
       </span>
     </div>
