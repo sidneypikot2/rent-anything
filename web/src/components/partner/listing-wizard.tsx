@@ -34,13 +34,13 @@ import { WizardCancel } from "./wizard-cancel";
 import { WizardActions, WizardLayout } from "./wizard-steps";
 import type { PartnerLandmark } from "./use-partner-landmarks";
 
-type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "photos" | "cancellation" | "rate";
+type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "photos" | "rate" | "cancellation" | "units";
 
 // Adding a listing of the chosen category (RAA-50), one step at a time: Basic, Location,
 // Route (the landmarks a tour visits, RAA-70; not a photographer, RAA-89), the category's
 // own details (skipped when it has none; a vehicle's make, model, engine and color, RAA-89),
-// photos (a placeholder until the API stores them), the cancellation policy (RAA-89) and
-// Rate. Basic also asks how many identical units it has (RAA-99). Only the current step is
+// photos (a placeholder until the API stores them), Rate, the cancellation policy (RAA-89)
+// and how many identical units it has (RAA-99). Only the current step is
 // on the page, so the browser's required checks cover just that step; every value is kept
 // here, so going back loses nothing, and any step already reached opens again (RAA-93).
 // The listing is saved as a draft. Accommodation has its own steps (StayWizard).
@@ -57,8 +57,9 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
     ...(fields.length > 0 ? [{ key: "details" as const, label: `${category.name} details` }] : []),
     ...(vehicle ? [{ key: "vehicle" as const, label: "Vehicle details" }] : []),
     { key: "photos", label: "Photos" },
-    { key: "cancellation", label: "Cancellation policy" },
     { key: "rate", label: "Rate" },
+    { key: "cancellation", label: "Cancellation policy" },
+    { key: "units", label: "Units" },
   ];
   const [stepIndex, setStepIndex] = useState(0);
   const [reached, setReached] = useState(0);
@@ -162,7 +163,6 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
                 onChange={(event) => setDescription(event.target.value)}
                 hint="What's included, what to bring, anything a traveller should know."
               />
-              <UnitsField bookingType={category.booking_type} value={units} onChange={setUnits} />
             </>
           )}
 
@@ -196,8 +196,6 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
 
           {step.key === "photos" && <PhotoUploadSkeleton />}
 
-          {step.key === "cancellation" && <CancellationPolicyChoice policies={policies} value={policy} onChange={setPolicy} />}
-
           {step.key === "rate" && (
             <Field
               label="Daily rate (₱)"
@@ -210,6 +208,10 @@ export function ListingWizard({ category, policies }: { category: ListingCategor
               hint="Rates aren't saved yet — you'll set them on the listing once pricing is available."
             />
           )}
+
+          {step.key === "cancellation" && <CancellationPolicyChoice policies={policies} value={policy} onChange={setPolicy} />}
+
+          {step.key === "units" && <UnitsField bookingType={category.booking_type} value={units} onChange={setUnits} />}
         </fieldset>
 
         <WizardActions
