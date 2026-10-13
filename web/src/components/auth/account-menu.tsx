@@ -98,7 +98,7 @@ export function AccountMenu({ section }: { section: MenuSection }) {
         <ul
           id="account-menu"
           data-testid="nav-user-menu"
-          className="absolute right-0 top-full z-20 mt-2 min-w-48 overflow-hidden rounded-card border border-line bg-surface py-2 shadow-lift"
+          className="absolute right-0 top-full z-20 mt-2 min-w-48 overflow-hidden card-edge rounded-card bg-surface py-2 shadow-lift"
         >
           {LINKS[section].map(({ href, label, testId }) => (
             <li key={href}>

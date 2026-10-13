@@ -43,7 +43,7 @@ const TRUST = [
 // photo band with the steps on glass (Sky & Forest, RAA-102).
 export function HowItWorks() {
   return (
-    <section className="reveal relative isolate flex flex-col gap-block overflow-hidden rounded-frame p-card text-white sm:p-12">
+    <section className="band reveal relative isolate flex flex-col gap-block overflow-hidden rounded-frame p-card text-white sm:p-12">
       <Image src={BAND_PHOTO} alt="" fill sizes="(min-width: 1024px) 64rem, 100vw" className="-z-20 object-cover" />
       <div aria-hidden className="absolute inset-0 -z-10 bg-linear-to-r from-forest/95 via-forest/80 to-forest/55" />
       <div className="grid gap-gutter lg:grid-cols-4">

@@ -5,6 +5,7 @@ import { getListing, getQuote } from "@/api/discovery";
 import { categoryIcon } from "@/components/discovery/icons";
 import { StayPrice, stayPriceLine } from "@/components/discovery/stay-price";
 import { PageBanner } from "@/components/landing/page-banner";
+import { PageSheet } from "@/components/landing/page-sheet";
 import { listingPhoto } from "@/components/landing/sample-photos";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
@@ -45,8 +46,6 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   return (
     <main className="flex flex-1 flex-col">
       <PageBanner
-        photo={listingPhoto(category.name, listing.id).src}
-        preload
         eyebrow={
           <span className="flex items-center gap-2">
             <span aria-hidden className="text-sky-pale">
@@ -77,29 +76,31 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
         </Link>
       </PageBanner>
 
-      <div className="mx-auto flex w-full max-w-narrow flex-col gap-block px-gutter py-page-pad">
-      <TripAddProvider>
-        {/* Unclipped: the dates calendar opens below the card's edge. */}
-        <Card clip={false}>
-          <CardBody pad="lg" className="flex flex-col gap-4">
-            <TripDatesBar key={`${dates.from}-${dates.to}-${dates.guests}`} dates={dates} />
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted">Saving to a trip is free, and there&apos;s nothing to pay yet.</p>
-              <AddToTripButton listing={listing} dates={dates} />
-            </div>
-          </CardBody>
-        </Card>
-      </TripAddProvider>
+      <PageSheet>
+        <div className="mx-auto flex w-full max-w-narrow flex-col gap-block px-gutter py-page-pad">
+        <TripAddProvider>
+          {/* Unclipped: the dates calendar opens below the card's edge. */}
+          <Card clip={false}>
+            <CardBody pad="lg" className="flex flex-col gap-4">
+              <TripDatesBar key={`${dates.from}-${dates.to}-${dates.guests}`} dates={dates} />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-muted">Saving to a trip is free, and there&apos;s nothing to pay yet.</p>
+                <AddToTripButton listing={listing} dates={dates} />
+              </div>
+            </CardBody>
+          </Card>
+        </TripAddProvider>
 
-      {rate && <StayPrice listing={listing} rate={rate} quote={quote} datesSet={Boolean(dates.from && dates.to)} />}
+        {rate && <StayPrice listing={listing} rate={rate} quote={quote} datesSet={Boolean(dates.from && dates.to)} />}
 
-      {listing.description.trim() && (
-        <section className="flex flex-col gap-2">
-          <SectionTitle>About this</SectionTitle>
-          <p className="max-w-prose break-words whitespace-pre-line">{listing.description}</p>
-        </section>
-      )}
-      </div>
+        {listing.description.trim() && (
+          <section className="flex flex-col gap-2">
+            <SectionTitle>About this</SectionTitle>
+            <p className="max-w-prose break-words whitespace-pre-line">{listing.description}</p>
+          </section>
+        )}
+        </div>
+      </PageSheet>
     </main>
   );
 }
