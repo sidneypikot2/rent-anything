@@ -62,7 +62,7 @@ export function Menu({ label, items, "data-testid": testId }: Props) {
         data-testid={testId}
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex size-9 items-center justify-center rounded-lg text-xl leading-none text-muted transition-colors hover:bg-surface-2 hover:text-primary",
+          "flex size-9 items-center justify-center rounded-control text-xl leading-none text-muted transition-colors hover:bg-surface-2 hover:text-primary",
           open && "bg-surface-2 text-primary",
         )}
       >
@@ -71,7 +71,7 @@ export function Menu({ label, items, "data-testid": testId }: Props) {
       {open && (
         <ul
           id={listId}
-          className="absolute right-0 top-full z-20 mt-1 w-60 overflow-hidden rounded-2xl border border-line bg-surface py-1 text-sm shadow-xl shadow-navy/10"
+          className="absolute right-0 top-full z-20 mt-1 w-60 overflow-hidden rounded-card border border-line bg-surface py-1 text-sm shadow-lift"
         >
           {items.map((item) => {
             const content = (

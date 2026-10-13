@@ -33,7 +33,7 @@ export function ChoiceCards({
             key={choice.value}
             data-testid={testId && `${testId}-${choice.value}`}
             className={cn(
-              "flex cursor-pointer items-start gap-3 rounded-xl border bg-surface p-4",
+              "flex cursor-pointer items-start gap-3 rounded-control border bg-surface p-4",
               "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary",
               value === choice.value ? "border-primary bg-surface-2" : "border-line-strong hover:border-primary",
             )}

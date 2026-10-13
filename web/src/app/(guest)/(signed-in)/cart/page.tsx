@@ -20,7 +20,7 @@ export default async function Cart(props: PageProps<"/cart">) {
           All trips
         </ButtonLink>
       </PageBanner>
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-10">
+      <div className="mx-auto flex w-full max-w-narrow flex-col gap-6 px-gutter py-page-pad">
         <CartView expandTripId={Number.isInteger(trip) && trip > 0 ? trip : undefined} />
       </div>
     </main>

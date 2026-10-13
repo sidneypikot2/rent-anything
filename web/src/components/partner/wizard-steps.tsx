@@ -38,7 +38,7 @@ export function WizardLayout({
                   onClick={() => onSelect(index)}
                   data-testid={`wizard-section-${step.key}`}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm whitespace-nowrap",
+                    "flex w-full items-center gap-2 rounded-control px-3 py-2 text-left text-sm whitespace-nowrap",
                     active && "bg-surface-2 font-semibold text-foreground",
                     open && "text-foreground hover:bg-surface-2",
                     !active && !open && "text-muted",

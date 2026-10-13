@@ -90,7 +90,7 @@ export function ComboboxField({ label, value, onChange, options, hint, error, cl
         onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}
         className={cn(
-          "min-h-12 rounded-xl border bg-surface px-4 py-2.5 font-normal text-foreground outline-none",
+          "min-h-12 rounded-control border bg-surface px-4 py-2.5 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm",
           "placeholder:text-muted/80 focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
           error ? "border-danger" : "border-line-strong",
           className,
@@ -102,7 +102,7 @@ export function ComboboxField({ label, value, onChange, options, hint, error, cl
           id={listId}
           role="listbox"
           aria-label={label}
-          className="absolute top-full z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-line bg-surface py-1 font-normal shadow-xl shadow-navy/10"
+          className="absolute top-full z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-control border border-line bg-surface py-1 font-normal shadow-lift"
         >
           {shown.map((option, index) => (
             <li

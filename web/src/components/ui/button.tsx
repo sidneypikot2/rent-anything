@@ -16,10 +16,10 @@ const VARIANTS = {
 };
 
 const SIZES = {
-  sm: "rounded-lg px-4 py-2 text-sm",
+  sm: "rounded-control px-4 py-2 text-sm",
   // The small look with a 44px touch target, for an action a traveller taps on a phone (RAA-85).
-  touch: "min-h-11 rounded-lg px-4 py-2 text-sm",
-  md: "min-h-12 rounded-xl px-6 py-3 text-[0.9375rem]",
+  touch: "min-h-11 rounded-control px-4 py-2 text-sm",
+  md: "min-h-12 rounded-control px-6 py-3 text-[0.9375rem]",
 };
 
 type Style = {
@@ -29,7 +29,8 @@ type Style = {
 
 function buttonClasses({ variant = "primary", size = "md" }: Style) {
   return cn(
-    "inline-flex items-center justify-center gap-2 font-semibold transition-colors",
+    "inline-flex items-center justify-center gap-2 font-semibold",
+    "transition-[background-color,border-color,box-shadow,transform] duration-300 ease-calm hover:-translate-y-px hover:shadow-soft active:translate-y-0",
     "disabled:pointer-events-none disabled:opacity-50",
     VARIANTS[variant],
     SIZES[size],

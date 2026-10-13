@@ -186,7 +186,7 @@ export function NearbyMap() {
         {unavailable ? (
           <p
             role="status"
-            className="flex h-96 w-full items-center justify-center rounded-lg border border-line-strong bg-surface-2 px-6 text-center text-muted"
+            className="flex h-96 w-full items-center justify-center rounded-control border border-line-strong bg-surface-2 px-6 text-center text-muted"
           >
             The map couldn&apos;t load. Reload the page to try again.
           </p>
@@ -195,7 +195,7 @@ export function NearbyMap() {
             ref={containerRef}
             data-testid="nearby-map"
             aria-label="Map: click to drop your pin"
-            className="h-96 w-full overflow-hidden rounded-lg border border-line-strong"
+            className="h-96 w-full overflow-hidden rounded-control border border-line-strong"
           />
         )}
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -243,7 +243,7 @@ export function NearbyMap() {
       {results && (
         <div data-testid="nearby-results" className={`flex flex-col gap-6 ${isFetching ? "opacity-60" : ""}`}>
           {results.anchor.isolated_to && (
-            <p data-testid="nearby-isolated" className="rounded-lg bg-surface-2 px-4 py-3 text-sm font-medium">
+            <p data-testid="nearby-isolated" className="rounded-control bg-surface-2 px-4 py-3 text-sm font-medium">
               Showing {results.anchor.isolated_to.name} only: the pin is on the island.
             </p>
           )}

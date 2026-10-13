@@ -18,7 +18,7 @@ export function TripStartedBanner({ name, show }: { name: string; show: boolean 
 
   if (!visible) return null;
   return (
-    <div data-testid="trip-started" className="rounded-2xl border border-line bg-mist p-4">
+    <div data-testid="trip-started" className="rounded-card border border-line bg-mist p-4">
       <p className="font-display text-2xl font-extrabold tracking-tight leading-tight">Your {name} trip — add your first thing</p>
       <p className="mt-1 text-sm text-pretty text-muted">
         Set your dates, then add a ride, a tour or a stay below. Saving is free, and there&apos;s nothing to pay yet.

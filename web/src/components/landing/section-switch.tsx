@@ -22,7 +22,7 @@ export function SectionSwitch({ to }: { to: keyof typeof TARGETS }) {
       variant="secondary"
       size="touch"
       title="Test aid: not shown in production"
-      className="fixed right-4 bottom-4 z-40 shadow-lg"
+      className="fixed right-4 bottom-4 z-40 shadow-lift"
     >
       <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5">
         <path

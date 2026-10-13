@@ -18,7 +18,7 @@ export function CartLink() {
       href="/cart"
       data-testid="nav-cart"
       aria-label={count === 1 ? "Cart, 1 item" : `Cart, ${count} items`}
-      className="relative flex size-11 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/15"
+      className="relative flex size-11 items-center justify-center rounded-full border border-glass-edge bg-glass-fill text-white hover:bg-glass-hover"
     >
       <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5">
         <path

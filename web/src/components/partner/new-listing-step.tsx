@@ -23,7 +23,7 @@ export function NewListingStep({
   const failed = verification.error ?? businesses.error ?? options.error;
 
   return (
-    <main data-testid="partner-listing-new" className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-12">
+    <main data-testid="partner-listing-new" className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-block px-gutter py-page-pad">
       <DisplayTitle>Add a listing</DisplayTitle>
       {verification.data && !isVerified(verification.data) ? (
         <ListingGate />

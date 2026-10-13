@@ -19,7 +19,7 @@ export function Field({ label, hint, error, className, ...props }: Props) {
         aria-invalid={error ? true : undefined}
         aria-describedby={note ? noteId : undefined}
         className={cn(
-          "min-h-12 rounded-xl border bg-surface px-4 py-2.5 font-normal text-foreground outline-none",
+          "min-h-12 rounded-control border bg-surface px-4 py-2.5 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm",
           "placeholder:text-muted/80 focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
           error ? "border-danger" : "border-line-strong",
           className,

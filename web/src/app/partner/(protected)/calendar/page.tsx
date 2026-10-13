@@ -11,7 +11,7 @@ const PANELS = [
 // The partner calendar: a skeleton until availability exists (M3).
 export default function PartnerCalendar() {
   return (
-    <main data-testid="partner-calendar" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-12">
+    <main data-testid="partner-calendar" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-block px-gutter py-page-pad">
       <DisplayTitle>Calendar</DisplayTitle>
       <div className="grid gap-3 sm:grid-cols-2">
         {PANELS.map((panel) => (

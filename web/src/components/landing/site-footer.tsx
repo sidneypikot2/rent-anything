@@ -18,18 +18,18 @@ export function SiteFooter() {
     <footer className="relative isolate mt-auto overflow-hidden text-white">
       <Image src={BAND_PHOTO} alt="" fill sizes="100vw" className="-z-20 object-cover" />
       <div aria-hidden className="absolute inset-0 -z-10 bg-linear-to-r from-forest/95 via-forest/85 to-forest/65" />
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-10 sm:flex-row sm:items-stretch">
+      <div className="mx-auto flex w-full max-w-page flex-col gap-gutter px-gutter py-block sm:flex-row sm:items-stretch sm:py-16">
         <div className="flex flex-1 flex-col justify-center gap-1">
           <Logo className="text-2xl" />
           <p className="font-display font-semibold text-sky-mist">{TAGLINE}</p>
         </div>
-        <GlassPanel tone="forest" className="flex flex-col gap-3 rounded-2xl p-5 text-sm sm:min-w-72">
+        <GlassPanel tone="forest" className="flex flex-col gap-4 rounded-card p-card text-sm sm:min-w-80">
           <nav aria-label="Footer" className="flex flex-wrap gap-2">
             {LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="flex min-h-9 items-center rounded-full border border-white/20 bg-white/10 px-4 font-medium hover:bg-white/20"
+                className="flex min-h-9 items-center rounded-full border border-glass-edge bg-glass-fill px-4 font-medium hover:bg-glass-hover"
               >
                 {link.label}
               </Link>

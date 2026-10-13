@@ -21,7 +21,7 @@ export default function PartnerDashboard() {
   const session = useSession();
 
   return (
-    <main data-testid="partner-dashboard" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-12">
+    <main data-testid="partner-dashboard" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-block px-gutter py-page-pad">
       <DisplayTitle>Hi, {session?.user.name ?? session?.user.email}</DisplayTitle>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

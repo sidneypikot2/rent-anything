@@ -24,6 +24,89 @@
   --color-sky-mist: #e0f2fe;
   /* The dark end of a photo's scrim, always used with an opacity. */
   --color-scrim: #020617;
+  /* Glass: one edge and two fills for everything frosted over a photo or the header. */
+  --color-glass-edge: rgb(255 255 255 / 0.18);
+  --color-glass-fill: rgb(255 255 255 / 0.12);
+  --color-glass-hover: rgb(255 255 255 / 0.22);
+
+  /* The system (RAA-102). Spacing: Tailwind's 4px steps inside components; between them, three
+     named steps that grow with the window, so pages breathe on a laptop and stay compact on
+     a phone. gutter = page side padding and the gap between cards; block = a heading to its
+     content; section = one section to the next. */
+  --spacing-gutter: clamp(1rem, 2.5vw, 1.5rem);
+  --spacing-block: clamp(1.5rem, 3vw, 2.25rem);
+  --spacing-section: clamp(4rem, 9vw, 7.5rem);
+  --spacing-card: 1.5rem;
+  /* A page's own top and bottom padding (pages without a banner, and below one). */
+  --spacing-page-pad: clamp(2.5rem, 6vw, 4.5rem);
+  /* Two page widths: page for browsing, narrow for one thing (a listing, the cart, a form). */
+  --container-page: 72rem;
+  --container-narrow: 48rem;
+  --container-prose: 40rem;
+
+  /* Radius: four sizes. An inner surface's radius is its container's minus the inset between
+     them (a glass panel 12px inside a 24px card is 12px), so nested corners stay parallel. */
+  --radius-control: 0.75rem;
+  --radius-card: 1.5rem;
+  --radius-frame: 2rem;
+
+  /* Elevation: soft for cards at rest, lift for hover and open panels, float for things over
+     a photo (the header, the search bar). */
+  --shadow-soft: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -14px rgb(15 23 42 / 0.14);
+  --shadow-lift: 0 20px 44px -20px rgb(15 23 42 / 0.32);
+  --shadow-float: 0 24px 60px -24px rgb(2 6 23 / 0.6);
+
+  /* Motion: one easing, slow and settling, for a calm feel. 300ms for small state changes,
+     500ms for hover lifts, 700–900ms for things arriving; the photo drift is ambient. */
+  --ease-calm: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-rise: rise 0.9s var(--ease-calm) both;
+  --animate-float-in: float-in 0.8s var(--ease-calm) both;
+  --animate-drift: drift 28s ease-in-out infinite alternate;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+  }
+  @keyframes float-in {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+  }
+  @keyframes drift {
+    from {
+      transform: scale(1.02);
+    }
+    to {
+      transform: scale(1.1) translate(-1%, -1%);
+    }
+  }
+}
+
+/* Arrivals one after another: stagger-1 … stagger-4 delay an animate-* by 120ms steps. */
+@utility stagger-1 {
+  animation-delay: 120ms;
+}
+@utility stagger-2 {
+  animation-delay: 240ms;
+}
+@utility stagger-3 {
+  animation-delay: 360ms;
+}
+@utility stagger-4 {
+  animation-delay: 480ms;
+}
+
+/* A section eases up as it scrolls into view, where the browser supports scroll-driven
+   animations; elsewhere it is simply there. Never hidden at rest. */
+@utility reveal {
+  @supports (animation-timeline: view()) {
+    animation: rise linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 35%;
+  }
 }
 
 :root {
@@ -77,6 +160,19 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+  line-height: 1.65;
+}
+
+/* Everything moves only for people who are fine with motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Keyboard focus in the palette instead of the browser's default ring; an outline follows

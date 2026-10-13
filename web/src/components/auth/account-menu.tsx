@@ -81,8 +81,8 @@ export function AccountMenu({ section }: { section: MenuSection }) {
         aria-controls="account-menu"
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex min-h-11 items-center gap-1 rounded-full border border-white/15 px-4 transition-colors",
-          open ? "bg-white text-navy" : "bg-white/10 text-white hover:bg-white/15",
+          "flex min-h-11 items-center gap-1 rounded-full border border-glass-edge px-4 transition-colors",
+          open ? "bg-white text-navy" : "bg-glass-fill text-white hover:bg-glass-hover",
         )}
       >
         <span className="max-w-36 truncate sm:max-w-56">{session.user.name ?? session.user.email}</span>
@@ -98,7 +98,7 @@ export function AccountMenu({ section }: { section: MenuSection }) {
         <ul
           id="account-menu"
           data-testid="nav-user-menu"
-          className="absolute right-0 top-full z-20 mt-2 min-w-48 overflow-hidden rounded-2xl border border-line bg-surface py-2 shadow-xl shadow-navy/20"
+          className="absolute right-0 top-full z-20 mt-2 min-w-48 overflow-hidden rounded-card border border-line bg-surface py-2 shadow-lift"
         >
           {LINKS[section].map(({ href, label, testId }) => (
             <li key={href}>

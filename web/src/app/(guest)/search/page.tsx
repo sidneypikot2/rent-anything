@@ -12,7 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { GlassPanel } from "@/components/ui/glass";
 import { PillLink } from "@/components/ui/pill";
-import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
+import { Section } from "@/components/ui/section";
+import { DisplayTitle } from "@/components/ui/typography";
 
 export const metadata: Metadata = { title: "Search" };
 
@@ -29,11 +30,11 @@ export default async function SearchPage(props: PageProps<"/search">) {
   return (
     <main className="flex flex-1 flex-col">
       <PageBanner photo="/images/hero.jpg" preload title={<DisplayTitle>{query ? <>Results for “{query}”</> : "Search"}</DisplayTitle>}>
-        <GlassPanel className="relative z-10 w-full max-w-2xl rounded-3xl p-2 shadow-2xl shadow-scrim/50">
+        <GlassPanel className="relative z-10 w-full max-w-2xl rounded-card p-2 shadow-float">
           <SearchBox key={query} initialQuery={query} />
         </GlassPanel>
       </PageBanner>
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10">
+      <div className="mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-page-pad">
       {results === null ? (
         <p className="text-muted">Type at least two letters: a destination, a landmark or an activity.</p>
       ) : (
@@ -67,10 +68,9 @@ function Results({ results }: { results: SearchResults }) {
   }
 
   return (
-    <div data-testid="search-results" className="flex flex-col gap-8">
+    <div data-testid="search-results" className="flex flex-col gap-section">
       {results.tags.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <SectionTitle>Activities & interests</SectionTitle>
+        <Section title="Activities & interests">
           {results.tags.map((tag) => (
             <Card key={tag.slug}>
               <CardBody className="flex flex-col gap-3">
@@ -92,7 +92,7 @@ function Results({ results }: { results: SearchResults }) {
               </CardBody>
             </Card>
           ))}
-        </section>
+        </Section>
       )}
 
       <LinkGroup
@@ -116,9 +116,8 @@ function Results({ results }: { results: SearchResults }) {
         }))}
       />
       {results.listings.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <SectionTitle>Things to book</SectionTitle>
-          <ul className="grid gap-3 sm:grid-cols-2">
+        <Section title="Things to book">
+          <ul className="grid gap-gutter sm:grid-cols-2">
             {results.listings.map((listing, index) => (
               <li key={listing.id}>
                 <ListingCard
@@ -131,7 +130,7 @@ function Results({ results }: { results: SearchResults }) {
               </li>
             ))}
           </ul>
-        </section>
+        </Section>
       )}
     </div>
   );
@@ -142,13 +141,12 @@ type Item = { key: string; href: string; icon: ReactNode; title: string; note: s
 function LinkGroup({ title, items }: { title: string; items: Item[] }) {
   if (items.length === 0) return null;
   return (
-    <section className="flex flex-col gap-3">
-      <SectionTitle>{title}</SectionTitle>
-      <ul className="grid gap-2 sm:grid-cols-2">
+    <Section title={title}>
+      <ul className="grid gap-gutter sm:grid-cols-2">
         {items.map((item) => (
           <li key={item.key}>
             <CardLink href={item.href} className="flex items-center gap-3 p-3">
-              <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-mist text-xl text-primary">
+              <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-control bg-mist text-xl text-primary">
                 {item.icon}
               </span>
               <span className="min-w-0 flex-1">
@@ -160,6 +158,6 @@ function LinkGroup({ title, items }: { title: string; items: Item[] }) {
           </li>
         ))}
       </ul>
-    </section>
+    </Section>
   );
 }

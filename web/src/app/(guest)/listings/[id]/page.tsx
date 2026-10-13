@@ -58,13 +58,13 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
       >
         <Link
           href={`/${area.slug}${tripDatesQuery(dates)}#listing-${listing.id}`}
-          className="self-start rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20"
+          className="self-start rounded-full border border-glass-edge bg-glass-fill px-4 py-2 text-sm font-semibold text-white hover:bg-glass-hover"
         >
           <span aria-hidden>←</span> {area.name}
         </Link>
       </PageBanner>
 
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-10">
+      <div className="mx-auto flex w-full max-w-narrow flex-col gap-block px-gutter py-page-pad">
       <TripAddProvider>
         {/* Unclipped: the dates calendar opens below the card's edge. */}
         <Card clip={false}>

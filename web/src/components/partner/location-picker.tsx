@@ -166,7 +166,7 @@ export function LocationPicker({ value, onChange, geocodeQuery, error, readOnly 
       {unavailable ? (
         <p
           role="status"
-          className="flex h-80 w-full items-center justify-center rounded-lg border border-line-strong bg-surface-2 px-6 text-center font-normal text-muted"
+          className="flex h-80 w-full items-center justify-center rounded-control border border-line-strong bg-surface-2 px-6 text-center font-normal text-muted"
         >
           The map couldn&apos;t load. Reload the page to try again.
         </p>
@@ -175,7 +175,7 @@ export function LocationPicker({ value, onChange, geocodeQuery, error, readOnly 
           ref={containerRef}
           aria-label={readOnly ? "Map showing the pin" : "Map: click to drop the pin"}
           className={cn(
-            "h-80 w-full overflow-hidden rounded-lg border",
+            "h-80 w-full overflow-hidden rounded-control border",
             error ? "border-danger" : "border-line-strong",
           )}
         />

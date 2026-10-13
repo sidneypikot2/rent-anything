@@ -14,7 +14,8 @@ import { PlanCta } from "@/components/landing/plan-cta";
 import { TripStart } from "@/components/landing/trip-start";
 import { cn } from "@/components/ui/cn";
 import { GlassPanel, glassClasses } from "@/components/ui/glass";
-import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
+import { Section } from "@/components/ui/section";
+import { DisplayTitle } from "@/components/ui/typography";
 
 // The guest home, as the Sky & Forest landing page (RAA-102): a photo hero holding, on glass,
 // where we launch, a search, the way in (RAA-80) and the kinds of things to book; then
@@ -45,11 +46,11 @@ export default function Home() {
         <div className="flex w-full max-w-2xl flex-col gap-3">
           {/* Glass makes its own stacking context, so the suggestions would sit under the
               panel below it; z-10 lifts the whole search above its neighbours. */}
-          <GlassPanel className="relative z-10 rounded-3xl p-2 shadow-2xl shadow-scrim/50">
+          <GlassPanel className="relative z-10 rounded-card p-2 shadow-float">
             <SearchBox />
           </GlassPanel>
           {/* The way in, on a phone's first screen too (RAA-80). */}
-          <GlassPanel tone="light" className="rounded-2xl px-4 py-1.5">
+          <GlassPanel tone="light" className="rounded-card px-4 py-1.5">
             <TripStart />
           </GlassPanel>
         </div>
@@ -60,7 +61,7 @@ export default function Home() {
               href={categoryHref(category.query)}
               className={cn(
                 glassClasses("dark"),
-                "flex min-h-14 items-center gap-3 rounded-2xl px-4 py-3 font-bold hover:bg-white/20",
+                "flex min-h-14 items-center gap-3 rounded-card px-4 py-3 font-bold hover:bg-glass-hover",
               )}
             >
               <CategoryGlyph name={category.icon} className="size-5 shrink-0 text-sky-pale" />
@@ -72,20 +73,28 @@ export default function Home() {
         <p className="text-sm text-sky-mist">ID-checked local partners · nothing to pay yet</p>
       </PageBanner>
 
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-4 py-12">
-        <section id="destinations" className="flex scroll-mt-6 flex-col gap-4">
-          <SectionTitle>Destinations</SectionTitle>
+      <div className="mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-section">
+        <Section
+          id="destinations"
+          eyebrow="Where to"
+          title="Destinations"
+          intro="Islands, towns and cities with local partners, the most to book first."
+        >
           <Suspense fallback={<DestinationsSkeleton />}>
             <Destinations />
           </Suspense>
-        </section>
+        </Section>
 
-        <section id="activities" className="flex scroll-mt-6 flex-col gap-4">
-          <SectionTitle>Browse by activity</SectionTitle>
+        <Section
+          id="activities"
+          eyebrow="What to do"
+          title="Browse by activity"
+          intro="Start from something you love doing, and see where you can do it."
+        >
           <Suspense fallback={<ActivitiesSkeleton />}>
             <Activities />
           </Suspense>
-        </section>
+        </Section>
 
         <HowItWorks />
 
@@ -107,7 +116,7 @@ async function Destinations() {
   }
   // A card left alone on the last row takes the whole row.
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid gap-gutter sm:grid-cols-2">
       {groups.map(({ area, subAreas }, index) => (
         <DestinationCard
           key={area.slug}
@@ -136,7 +145,7 @@ async function Activities() {
   const top = activities.slice(0, ACTIVITIES_SHOWN);
   const more = activities.slice(ACTIVITIES_SHOWN);
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-gutter">
       <ActivityGrid activities={top} />
       {more.length > 0 && (
         <ShowMore more={`More activities (${more.length})`} less="Fewer activities">
@@ -152,7 +161,7 @@ const ACTIVITIES_SHOWN = 4;
 // `from` is the first card's place in the whole list, so the sample photos keep their turn.
 function ActivityGrid({ activities, from = 0 }: { activities: Activity[]; from?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-gutter lg:grid-cols-4">
       {activities.map((activity, index) => (
         <ActivityCard key={activity.slug} activity={activity} photo={activityPhoto(activity.slug, from + index)} />
       ))}
@@ -160,11 +169,11 @@ function ActivityGrid({ activities, from = 0 }: { activities: Activity[]; from?:
   );
 }
 
-const SKELETON = "rounded-2xl bg-surface-2 motion-safe:animate-pulse";
+const SKELETON = "rounded-card bg-surface-2 motion-safe:animate-pulse";
 
 function DestinationsSkeleton() {
   return (
-    <div aria-busy className="grid gap-4 sm:grid-cols-2">
+    <div aria-busy className="grid gap-gutter sm:grid-cols-2">
       <span className="sr-only">Loading destinations…</span>
       <div className={`${SKELETON} h-[26rem]`} />
       <div className={`${SKELETON} h-[26rem]`} />
@@ -174,7 +183,7 @@ function DestinationsSkeleton() {
 
 function ActivitiesSkeleton() {
   return (
-    <div aria-busy className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div aria-busy className="grid grid-cols-2 gap-gutter lg:grid-cols-4">
       <span className="sr-only">Loading activities…</span>
       {[0, 1, 2, 3].map((index) => (
         <div key={index} className={`${SKELETON} aspect-[4/5]`} />

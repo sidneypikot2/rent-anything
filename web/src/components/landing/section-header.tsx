@@ -29,7 +29,7 @@ export function SectionHeader({ section }: { section: Section }) {
 
   return (
     <header className="pointer-events-none sticky top-0 z-40 px-3 pt-3 sm:px-6">
-      <div className="pointer-events-auto mx-auto flex min-h-14 w-full max-w-6xl flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-[1.75rem] border border-white/15 bg-navy/70 px-3 py-1.5 text-white shadow-xl shadow-navy/25 backdrop-blur-xl backdrop-saturate-150 sm:px-5">
+      <div className="pointer-events-auto mx-auto flex min-h-14 w-full max-w-page animate-float-in flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-frame border border-glass-edge bg-navy/70 px-3 py-1.5 text-white shadow-lift backdrop-blur-xl backdrop-saturate-150 sm:px-5">
         <Link
           href={section === "guest" ? "/" : `/${section}`}
           className="pl-1 text-xl sm:text-2xl"

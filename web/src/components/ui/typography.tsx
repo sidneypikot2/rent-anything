@@ -1,10 +1,12 @@
 import type { ComponentProps } from "react";
 import { cn } from "./cn";
 
+// The type scale, largest first: hero (one per site, the home page), page (a page's h1),
+// section (SectionTitle, h2), then card titles at text-lg semibold, body at text-base with
+// relaxed leading, and meta at text-sm in muted. Each step is clearly smaller than the last.
 const TITLE_SIZES = {
-  page: "text-4xl leading-tight sm:text-5xl",
-  // The home page hero.
-  hero: "text-5xl leading-[1.05] sm:text-6xl",
+  page: "text-4xl leading-[1.08] sm:text-5xl",
+  hero: "text-5xl leading-[1.02] sm:text-7xl",
 };
 
 // Page and section headings: the one family at extra-bold, tightly tracked (Sky & Forest).
@@ -26,7 +28,7 @@ export function DisplayTitle({
 export function SectionTitle({ className, ...props }: ComponentProps<"h2">) {
   return (
     <h2
-      className={cn("font-display text-3xl font-extrabold tracking-tight", className)}
+      className={cn("font-display text-3xl leading-tight font-extrabold tracking-tight text-balance sm:text-4xl", className)}
       {...props}
     />
   );

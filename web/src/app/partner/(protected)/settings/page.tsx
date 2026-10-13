@@ -10,7 +10,7 @@ const PANELS = [
 // The partner's settings: a skeleton until account settings exist (M1).
 export default function PartnerSettings() {
   return (
-    <main data-testid="partner-settings" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-12">
+    <main data-testid="partner-settings" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-block px-gutter py-page-pad">
       <DisplayTitle>Settings</DisplayTitle>
       <div className="grid gap-3 sm:grid-cols-2">
         {PANELS.map((panel) => (

@@ -27,7 +27,7 @@ export function SelectField({ label, options, hint, error, className, ...props }
           aria-invalid={error ? true : undefined}
           aria-describedby={note ? noteId : undefined}
           className={cn(
-            "w-full appearance-none min-h-12 rounded-xl border bg-surface py-2.5 pl-4 pr-10 font-normal text-foreground outline-none",
+            "w-full appearance-none min-h-12 rounded-control border bg-surface py-2.5 pl-4 pr-10 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm",
             "focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
             error ? "border-danger" : "border-line-strong",
             className,

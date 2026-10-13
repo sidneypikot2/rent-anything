@@ -18,7 +18,7 @@ const PANELS = [
 // The admin entry point, for the team. Sign-in only: admin accounts are never self-made.
 export default function AdminHome() {
   return (
-    <main className="mx-auto grid w-full max-w-5xl flex-1 gap-10 px-4 py-12 md:grid-cols-[1fr_20rem]">
+    <main className="mx-auto grid w-full max-w-page flex-1 gap-block px-gutter py-page-pad md:grid-cols-[1fr_20rem]">
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <DisplayTitle>Admin console</DisplayTitle>

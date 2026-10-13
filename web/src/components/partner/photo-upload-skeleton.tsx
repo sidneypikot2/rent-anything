@@ -7,9 +7,9 @@ export function PhotoUploadSkeleton() {
     <div data-testid="listing-photos" className="flex flex-col gap-4">
       <div
         aria-disabled
-        className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-line-strong bg-surface-2 px-4 py-10 text-center"
+        className="flex flex-col items-center gap-2 rounded-control border border-dashed border-line-strong bg-surface-2 px-4 py-10 text-center"
       >
-        <span className="flex size-12 items-center justify-center rounded-xl bg-mist text-primary">
+        <span className="flex size-12 items-center justify-center rounded-control bg-mist text-primary">
           <CategoryGlyph name="Camera" className="size-6" />
         </span>
         <p className="text-sm font-semibold">Drag photos here or choose them</p>
@@ -18,7 +18,7 @@ export function PhotoUploadSkeleton() {
       </div>
       <ul aria-label="Photos" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[0, 1, 2, 3].map((slot) => (
-          <li key={slot} aria-hidden className="aspect-square animate-pulse rounded-lg bg-surface-2" />
+          <li key={slot} aria-hidden className="aspect-square animate-pulse rounded-control bg-surface-2" />
         ))}
       </ul>
     </div>

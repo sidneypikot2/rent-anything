@@ -10,6 +10,15 @@ import { placeIcon, tagIcon } from "./icons";
 import { CategoryGlyph, TagGlyph } from "./tag-glyphs";
 import { AreaScene } from "./scenes";
 
+// Every photo card shares this frame (Sky & Forest, RAA-102): the photo fills a card-radius
+// box with the soft shadow; on hover the card rises and the photo slowly zooms. The content
+// sits on glass 12px in, at the control radius (the card's 24px less the inset).
+export const PHOTO_CARD =
+  "group relative isolate overflow-hidden rounded-card shadow-soft transition-[transform,box-shadow] duration-500 ease-calm hover:-translate-y-1 hover:shadow-lift";
+export const PHOTO_CARD_IMAGE =
+  "-z-20 object-cover object-[50%_70%] transition-transform duration-[1200ms] ease-calm group-hover:scale-105";
+const PHOTO_SCRIM = "absolute inset-0 -z-10 bg-linear-to-b from-transparent via-transparent to-scrim/55";
+
 const KIND_LABELS: Record<string, string> = {
   island: "Island",
   city: "City",
@@ -78,8 +87,8 @@ const PLAIN = {
 const ON_GLASS = {
   strong: "text-white",
   muted: "text-sky-mist",
-  row: "hover:bg-white/15",
-  divider: "border-white/20",
+  row: "hover:bg-glass-hover",
+  divider: "border-glass-edge",
   link: "text-sky-pale",
 };
 
@@ -110,7 +119,7 @@ export function DestinationCard({
           <Link
             href={`/${area.slug}`}
             // The card clips its content, so the focus ring is drawn inside its edge.
-            className="outline-none after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-primary"
+            className="outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-primary"
           >
             {area.name}
           </Link>
@@ -132,7 +141,7 @@ export function DestinationCard({
                 <Link
                   href={`/${sub.slug}`}
                   className={cn(
-                    "relative z-10 -mx-2 flex min-h-11 items-center justify-between gap-3 rounded-lg px-2",
+                    "relative z-10 -mx-2 flex min-h-11 items-center justify-between gap-3 rounded-control px-2",
                     text.row,
                   )}
                 >
@@ -160,14 +169,14 @@ export function DestinationCard({
     return (
       <Card
         data-testid="destination-card"
-        className={cn("relative isolate flex min-h-[26rem] flex-col justify-end p-3", className)}
+        className={cn(PHOTO_CARD, "flex min-h-[26rem] flex-col justify-end p-3", className)}
       >
-        <Image src={photo.src} alt={photo.alt} fill sizes="(min-width: 640px) 50vw, 100vw" className="-z-20 object-cover object-[50%_70%]" />
-        <div aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-transparent via-transparent to-scrim/50" />
+        <Image src={photo.src} alt={photo.alt} fill sizes="(min-width: 640px) 50vw, 100vw" className={PHOTO_CARD_IMAGE} />
+        <div aria-hidden className={PHOTO_SCRIM} />
         <Badge tone="mist" className="absolute left-3 top-3">
           {KIND_LABELS[area.kind] ?? area.kind}
         </Badge>
-        <GlassPanel className="flex flex-col gap-3 rounded-xl p-4">{body}</GlassPanel>
+        <GlassPanel className="flex flex-col gap-3 rounded-control p-5">{body}</GlassPanel>
       </Card>
     );
   }
@@ -214,18 +223,18 @@ export function ActivityCard({ activity, photo }: { activity: Activity; photo?: 
       <Link
         href={`/search?q=${encodeURIComponent(activity.name)}`}
         data-testid="activity-card"
-        className="group relative isolate flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-2xl p-2.5"
+        className={cn(PHOTO_CARD, "flex aspect-[4/5] flex-col justify-end p-3")}
       >
         <Image
           src={photo.src}
           alt={photo.alt}
           fill
           sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
-          className="-z-20 object-cover transition-transform duration-500 group-hover:scale-105"
+          className={PHOTO_CARD_IMAGE}
         />
-        <div aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-transparent via-transparent to-scrim/60" />
-        <GlassPanel className="flex items-center gap-2.5 rounded-xl p-2.5">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-white/25 bg-white/15 transition-colors group-hover:bg-primary">
+        <div aria-hidden className={PHOTO_SCRIM} />
+        <GlassPanel className="flex items-center gap-2.5 rounded-control p-2.5">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-control border border-glass-edge bg-glass-fill transition-colors group-hover:bg-primary">
             <TagGlyph slug={activity.slug} className="size-4" />
           </span>
           <span className="flex min-w-0 flex-col gap-0.5">
@@ -244,7 +253,7 @@ export function ActivityCard({ activity, photo }: { activity: Activity; photo?: 
       data-testid="activity-card"
       className="group flex items-center gap-4 p-4"
     >
-      <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-mist text-primary transition-colors group-hover:bg-primary group-hover:text-white">
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-control bg-mist text-primary transition-colors group-hover:bg-primary group-hover:text-white">
         <TagGlyph slug={activity.slug} className="size-6" />
       </span>
       <span className="flex min-w-0 flex-col">
@@ -268,10 +277,10 @@ function PhotoCard({
   ...props
 }: { photo: Photo; className?: string; children: ReactNode } & Omit<ComponentProps<"div">, "children">) {
   return (
-    <Card className={cn("relative isolate flex min-h-80 flex-col justify-end p-3", className)} {...props}>
-      <Image src={photo.src} alt={photo.alt} fill sizes="(min-width: 640px) 50vw, 100vw" className="-z-20 object-cover object-[50%_70%]" />
-      <div aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-transparent via-transparent to-scrim/55" />
-      <GlassPanel className="flex flex-col gap-2 rounded-xl p-4">{children}</GlassPanel>
+    <Card className={cn(PHOTO_CARD, "flex min-h-80 flex-col justify-end p-3", className)} {...props}>
+      <Image src={photo.src} alt={photo.alt} fill sizes="(min-width: 640px) 50vw, 100vw" className={PHOTO_CARD_IMAGE} />
+      <div aria-hidden className={PHOTO_SCRIM} />
+      <GlassPanel className="flex flex-col gap-3 rounded-control p-5">{children}</GlassPanel>
     </Card>
   );
 }
@@ -300,7 +309,7 @@ export function LandmarkCard({
           {landmark.tags.map((tag) => (
             <li
               key={tag.slug}
-              className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-[0.8125rem] font-semibold text-white"
+              className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-glass-edge bg-glass-fill px-3 text-[0.8125rem] font-semibold text-white"
             >
               <span aria-hidden>{tagIcon(tag.slug)}</span> {tag.name}
             </li>
@@ -335,7 +344,7 @@ export function ListingCard({
       <div className="flex items-start gap-3">
         <span
           aria-hidden
-          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/25 bg-white/15 text-white"
+          className="flex size-9 shrink-0 items-center justify-center rounded-control border border-glass-edge bg-glass-fill text-white"
         >
           <CategoryGlyph name={category} className="size-5" />
         </span>

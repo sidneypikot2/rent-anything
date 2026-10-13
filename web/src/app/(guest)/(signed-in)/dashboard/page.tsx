@@ -19,7 +19,7 @@ export default function GuestDashboard() {
   const session = useSession();
 
   return (
-    <main data-testid="guest-dashboard" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-12">
+    <main data-testid="guest-dashboard" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-block px-gutter py-page-pad">
       <div className="flex flex-col gap-4">
         <DisplayTitle>Hi, {session?.user.name ?? session?.user.email}</DisplayTitle>
         <div>

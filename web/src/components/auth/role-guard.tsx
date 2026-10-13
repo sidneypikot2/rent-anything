@@ -62,7 +62,7 @@ export function RoleGuard({ role, children }: { role: GuardedRole; children: Rea
   // Not a 401/403 but no answer at all: the API is down or unreachable.
   if (hasRole && error && !(error instanceof GuardError)) {
     return (
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-start gap-3 px-4 py-12">
+      <main className="mx-auto flex w-full max-w-page flex-1 flex-col items-start gap-3 px-gutter py-page-pad">
         <p role="alert" className="text-sm text-danger">
           Couldn&apos;t reach {BRAND}. Check your connection and try again.
         </p>
@@ -75,7 +75,7 @@ export function RoleGuard({ role, children }: { role: GuardedRole; children: Rea
 
   if (!hasRole || !data) {
     return (
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-12">
+      <main className="mx-auto w-full max-w-page flex-1 px-gutter py-page-pad">
         <p data-testid="role-guard" className="text-sm text-muted">
           Checking your account…
         </p>

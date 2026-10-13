@@ -51,7 +51,7 @@ export function PasswordField({
           aria-invalid={error ? true : undefined}
           aria-describedby={note ? noteId : undefined}
           className={cn(
-            "min-h-12 w-full rounded-xl border bg-surface py-2.5 pl-4 pr-16 font-normal text-foreground outline-none",
+            "min-h-12 w-full rounded-control border bg-surface py-2.5 pl-4 pr-16 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm",
             "placeholder:text-muted/80 focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
             error ? "border-danger" : "border-line-strong",
             className,

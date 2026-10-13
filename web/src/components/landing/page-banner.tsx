@@ -26,21 +26,23 @@ export function PageBanner({
   frameClass?: string;
 }) {
   return (
-    // Pulled up under the floating header, with room at the top so the frame clears it.
+    // Pulled up under the floating header, with room at the top so the frame clears it. The
+    // photo drifts very slowly; the frame's contents ease up one after another.
     <section className={cn("relative isolate flex overflow-hidden px-3 pb-3 pt-20 sm:px-6 sm:pb-6 sm:pt-22", HEADER_PULL)}>
-      <Image src={photo} alt="" fill preload={preload} sizes="100vw" className="-z-20 object-cover" />
+      <Image src={photo} alt="" fill preload={preload} sizes="100vw" className="-z-20 animate-drift object-cover will-change-transform" />
       <div aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-scrim/45 via-scrim/35 via-40% to-scrim/80" />
       <GlassPanel
         tone="frame"
         className={cn(
-          "mx-auto flex w-full max-w-6xl flex-col rounded-[2rem] px-4 sm:px-10",
-          hero ? "gap-7 pb-6 pt-16 sm:pb-10 sm:pt-28" : "gap-4 pb-6 pt-10 sm:pb-8 sm:pt-14",
+          "mx-auto flex w-full max-w-page flex-col rounded-frame px-5 sm:px-12",
+          "*:animate-rise [&>*:nth-child(2)]:stagger-1 [&>*:nth-child(3)]:stagger-2 [&>*:nth-child(n+4)]:stagger-3",
+          hero ? "gap-block pb-8 pt-16 sm:pb-12 sm:pt-32" : "gap-6 pb-8 pt-12 sm:pb-12 sm:pt-20",
           frameClass,
         )}
       >
-        <div className="flex max-w-3xl flex-col gap-3 text-white">
+        <div className="flex max-w-prose flex-col gap-4 text-white">
           {eyebrow && (
-            <span className="self-start rounded-full border border-white/20 bg-navy/40 px-3.5 py-1.5 text-sm font-semibold backdrop-blur-lg">
+            <span className="self-start rounded-full border border-glass-edge bg-navy/40 px-3.5 py-1.5 text-sm font-semibold backdrop-blur-lg">
               {eyebrow}
             </span>
           )}

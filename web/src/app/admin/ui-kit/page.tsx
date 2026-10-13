@@ -47,7 +47,7 @@ const ICON_CATEGORIES = ["Tour", "Hotel or cottage", "Motorcycle", "Bicycle", "E
 // pages from these rather than from raw colours.
 export default function UiKit() {
   return (
-    <main data-testid="ui-kit" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-12 px-4 py-12">
+    <main data-testid="ui-kit" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-12 px-gutter py-page-pad">
       <header className="flex flex-col gap-2">
         <Eyebrow>Colour system · 10 colours</Eyebrow>
         <DisplayTitle>
@@ -105,7 +105,7 @@ export default function UiKit() {
             Link as button
           </ButtonLink>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl bg-navy p-6">
+        <div className="mt-4 flex flex-wrap items-center gap-4 rounded-card bg-navy p-6">
           <p className="font-display text-2xl font-extrabold tracking-tight text-white">On navy</p>
           <span className="text-sm text-on-dark">Accent is for dark bands.</span>
           <Button variant="accent">Get started</Button>
@@ -168,13 +168,13 @@ export default function UiKit() {
       </Showcase>
 
       <Showcase title="Glass">
-        <div className="relative isolate overflow-hidden rounded-2xl p-6">
+        <div className="relative isolate overflow-hidden rounded-card p-6">
           <Image src="/images/hero.jpg" alt="" fill sizes="(min-width: 1024px) 64rem, 100vw" className="-z-20 object-cover" />
           <div aria-hidden className="absolute inset-0 -z-10 bg-scrim/30" />
           <div className="flex flex-wrap gap-3">
-            <GlassPanel className="rounded-2xl px-4 py-3 font-semibold">Dark</GlassPanel>
-            <GlassPanel tone="forest" className="rounded-2xl px-4 py-3 font-semibold">Forest</GlassPanel>
-            <GlassPanel tone="light" className="rounded-2xl px-4 py-3 font-semibold">Light</GlassPanel>
+            <GlassPanel className="rounded-card px-4 py-3 font-semibold">Dark</GlassPanel>
+            <GlassPanel tone="forest" className="rounded-card px-4 py-3 font-semibold">Forest</GlassPanel>
+            <GlassPanel tone="light" className="rounded-card px-4 py-3 font-semibold">Light</GlassPanel>
           </div>
         </div>
         <p className="mt-2 text-sm text-muted">
@@ -189,12 +189,12 @@ export default function UiKit() {
       <Showcase title="Icons">
         <div className="flex flex-wrap gap-2">
           {ICON_TAGS.map((slug) => (
-            <span key={slug} title={slug} className="flex size-11 items-center justify-center rounded-xl bg-mist text-primary">
+            <span key={slug} title={slug} className="flex size-11 items-center justify-center rounded-control bg-mist text-primary">
               <TagGlyph slug={slug} className="size-6" />
             </span>
           ))}
           {ICON_CATEGORIES.map((name) => (
-            <span key={name} title={name} className="flex size-11 items-center justify-center rounded-xl bg-sage text-forest">
+            <span key={name} title={name} className="flex size-11 items-center justify-center rounded-control bg-sage text-forest">
               <CategoryGlyph name={name} className="size-6" />
             </span>
           ))}
@@ -248,7 +248,7 @@ export default function UiKit() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <CardLink href="/admin/ui-kit" className="flex items-center gap-3 p-4">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-mist text-primary">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-control bg-mist text-primary">
               <AreaGlyph kind="island" className="size-6" />
             </span>
             <span>
