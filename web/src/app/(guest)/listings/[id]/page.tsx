@@ -3,12 +3,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getListing } from "@/api/discovery";
 import { categoryIcon } from "@/components/discovery/icons";
+import { PageBanner } from "@/components/landing/page-banner";
+import { listingPhoto } from "@/components/landing/sample-photos";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { readTripDates, tripDatesQuery } from "@/components/trips/trip-dates";
 import { TripDatesBar } from "@/components/trips/trip-dates-bar";
 import { Card, CardBody } from "@/components/ui/card";
-import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
+import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 
 // Only a positive integer can be a listing id; anything else is a 404 without asking the API.
 function listingId(param: string): number | null {
@@ -33,24 +35,36 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   const { area, category } = listing;
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-10">
-      <Link
-        href={`/${area.slug}${tripDatesQuery(dates)}#listing-${listing.id}`}
-        className="self-start text-sm font-semibold text-link underline-offset-4 hover:underline"
+    <main className="flex flex-1 flex-col">
+      <PageBanner
+        photo={listingPhoto(category.name, listing.id).src}
+        preload
+        eyebrow={
+          <span className="flex items-center gap-2">
+            <span aria-hidden className="text-sky-pale">
+              {categoryIcon(category.name)}
+            </span>
+            {category.name} · {area.name}
+          </span>
+        }
+        title={
+          <>
+            <DisplayTitle className="break-words">{listing.title}</DisplayTitle>
+            <p className="text-sky-mist">
+              by {listing.business.name} · {listing.units_label}
+            </p>
+          </>
+        }
       >
-        <span aria-hidden>←</span> {area.name}
-      </Link>
+        <Link
+          href={`/${area.slug}${tripDatesQuery(dates)}#listing-${listing.id}`}
+          className="self-start rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20"
+        >
+          <span aria-hidden>←</span> {area.name}
+        </Link>
+      </PageBanner>
 
-      <header className="flex flex-col gap-2">
-        <Eyebrow>
-          <span aria-hidden>{categoryIcon(category.name)}</span> {category.name} · {area.name}
-        </Eyebrow>
-        <DisplayTitle className="break-words">{listing.title}</DisplayTitle>
-        <p className="text-muted">
-          by {listing.business.name} · {listing.units_label}
-        </p>
-      </header>
-
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-10">
       <TripAddProvider>
         {/* Unclipped: the dates calendar opens below the card's edge. */}
         <Card clip={false}>
@@ -70,6 +84,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
           <p className="max-w-prose break-words whitespace-pre-line">{listing.description}</p>
         </section>
       )}
+      </div>
     </main>
   );
 }

@@ -2,13 +2,15 @@ import type { ComponentProps } from "react";
 import { cn } from "./cn";
 
 const TONES = {
+  // Highlights: "Best value", "Instant booking". Navy on pale blue.
   aqua: "border border-aqua bg-aqua text-navy",
-  // Forest green, for trust: "Verified partner", "Eco tour". White on it is 7.1:1.
-  emerald: "border border-emerald bg-emerald text-white",
+  // Trust, in forest green: "Verified partner", "Eco tour". Forest on its tint is 9.5:1.
+  emerald: "border border-sage bg-sage text-forest",
+  // Neutral facts on white: "Example", a tag. Blue on mist.
   mist: "border border-line bg-mist text-primary",
 };
 
-// A small uppercase label: "Best value", "Eco tour", "New".
+// A small pill label in sentence case: "Best value", "Eco tour", "New".
 export function Badge({
   tone = "aqua",
   className,
@@ -17,7 +19,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wider",
+        "inline-flex min-h-7 items-center gap-1.5 rounded-full px-3 text-[0.8125rem] font-semibold",
         TONES[tone],
         className,
       )}

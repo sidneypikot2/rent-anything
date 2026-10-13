@@ -46,7 +46,7 @@ export function WizardLayout({
                 >
                   <span
                     className={cn(
-                      "flex size-6 shrink-0 items-center justify-center rounded-full border-[1.5px] text-xs",
+                      "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs",
                       index <= reached ? "border-primary bg-primary text-white" : "border-line-strong",
                     )}
                   >

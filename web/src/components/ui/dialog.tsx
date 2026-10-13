@@ -54,7 +54,7 @@ export function Dialog({
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
-      className={cn("border-[1.5px] border-line bg-surface text-foreground backdrop:bg-navy/60", PLACEMENTS[placement])}
+      className={cn("border border-line bg-surface text-foreground shadow-2xl shadow-navy/20 backdrop:bg-navy/50 backdrop:backdrop-blur-sm", PLACEMENTS[placement])}
     >
       <div className="flex flex-col gap-4 p-5">
         <h2 id={titleId} className="font-display text-2xl font-extrabold tracking-tight">

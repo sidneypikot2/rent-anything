@@ -67,7 +67,7 @@ export function ComboboxField({ label, value, onChange, options, hint, error, cl
   }
 
   return (
-    <div className="relative flex flex-col gap-1 text-sm font-medium">
+    <div className="relative flex flex-col gap-1.5 text-sm font-semibold">
       <label htmlFor={inputId}>{label}</label>
       <input
         id={inputId}
@@ -90,8 +90,8 @@ export function ComboboxField({ label, value, onChange, options, hint, error, cl
         onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}
         className={cn(
-          "rounded-lg border-[1.5px] bg-surface px-3 py-2 font-normal text-foreground outline-none",
-          "placeholder:text-muted/80 focus:border-primary disabled:bg-surface-2",
+          "min-h-12 rounded-xl border bg-surface px-4 py-2.5 font-normal text-foreground outline-none",
+          "placeholder:text-muted/80 focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
           error ? "border-danger" : "border-line-strong",
           className,
         )}
@@ -102,7 +102,7 @@ export function ComboboxField({ label, value, onChange, options, hint, error, cl
           id={listId}
           role="listbox"
           aria-label={label}
-          className="absolute top-full z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border-[1.5px] border-line-strong bg-surface py-1 font-normal shadow-lg"
+          className="absolute top-full z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-line bg-surface py-1 font-normal shadow-xl shadow-navy/10"
         >
           {shown.map((option, index) => (
             <li
@@ -115,7 +115,7 @@ export function ComboboxField({ label, value, onChange, options, hint, error, cl
                 event.preventDefault();
                 pick(option);
               }}
-              className={cn("cursor-pointer px-3 py-2 text-foreground", index === active && "bg-surface-2")}
+              className={cn("cursor-pointer px-4 py-2.5 text-foreground", index === active && "bg-surface-2")}
             >
               {option.label}
             </li>

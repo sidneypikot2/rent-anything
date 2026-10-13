@@ -6,6 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
+import { LandmarkCard, ListingCard as PhotoListingCard } from "@/components/discovery/cards";
+import { AreaGlyph, CategoryGlyph, TagGlyph } from "@/components/discovery/tag-glyphs";
+import { landmarkPhoto, listingPhoto } from "@/components/landing/sample-photos";
 import { GlassPanel } from "@/components/ui/glass";
 import { PasswordField } from "@/components/ui/password-field";
 import { SelectField } from "@/components/ui/select-field";
@@ -36,6 +39,9 @@ const SWATCHES = [
 ];
 
 const CATEGORIES = ["Tours", "Transfers", "Motorbikes", "Freediving", "Stays"];
+
+const ICON_TAGS = ["sightseeing", "snorkelling", "island-hopping", "freediving", "swimming", "sunset-viewing", "hiking", "photography"];
+const ICON_CATEGORIES = ["Tour", "Hotel or cottage", "Motorcycle", "Bicycle", "E-trike", "Van transfer", "Snorkel gear", "Camera"];
 
 // A reference page for the palette and every component in src/components/ui/. Build new
 // pages from these rather than from raw colours.
@@ -180,6 +186,48 @@ export default function UiKit() {
         </p>
       </Showcase>
 
+      <Showcase title="Icons">
+        <div className="flex flex-wrap gap-2">
+          {ICON_TAGS.map((slug) => (
+            <span key={slug} title={slug} className="flex size-11 items-center justify-center rounded-xl bg-mist text-primary">
+              <TagGlyph slug={slug} className="size-6" />
+            </span>
+          ))}
+          {ICON_CATEGORIES.map((name) => (
+            <span key={name} title={name} className="flex size-11 items-center justify-center rounded-xl bg-sage text-forest">
+              <CategoryGlyph name={name} className="size-6" />
+            </span>
+          ))}
+        </div>
+        <p className="mt-2 text-sm text-muted">Line icons for activity tags (blue) and listing categories (green), in place of emoji.</p>
+      </Showcase>
+
+      <Showcase title="Photo cards">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <LandmarkCard
+            landmark={{
+              slug: "ui-kit-landmark",
+              name: "Kota Beach",
+              description: "A white-sand beach with a sandbar at low tide.",
+              tags: [
+                { slug: "white-sand", name: "White sand" },
+                { slug: "swimming", name: "Swimming" },
+              ],
+            }}
+            photo={landmarkPhoto([{ slug: "swimming" }], 0)}
+          />
+          <PhotoListingCard
+            href="/admin/ui-kit"
+            title="Virgin Island hopping"
+            category="Tour"
+            note="Tour · by Santa Fe Boats · per guest"
+            summary="Half a day on the water, with snorkelling stops."
+            photo={listingPhoto("Tour", 0)}
+            action={<Button size="sm">Add to trip</Button>}
+          />
+        </div>
+      </Showcase>
+
       <Showcase title="Cards">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <ListingCard
@@ -200,8 +248,8 @@ export default function UiKit() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <CardLink href="/admin/ui-kit" className="flex items-center gap-3 p-4">
-            <span aria-hidden className="text-2xl">
-              🏝️
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-mist text-primary">
+              <AreaGlyph kind="island" className="size-6" />
             </span>
             <span>
               <span className="block font-semibold">Card as link</span>

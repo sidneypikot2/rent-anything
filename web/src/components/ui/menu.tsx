@@ -71,7 +71,7 @@ export function Menu({ label, items, "data-testid": testId }: Props) {
       {open && (
         <ul
           id={listId}
-          className="absolute right-0 top-full z-20 mt-1 w-60 overflow-hidden rounded-xl border-[1.5px] border-line bg-surface py-1 text-sm shadow-xl shadow-navy/20"
+          className="absolute right-0 top-full z-20 mt-1 w-60 overflow-hidden rounded-2xl border border-line bg-surface py-1 text-sm shadow-xl shadow-navy/10"
         >
           {items.map((item) => {
             const content = (

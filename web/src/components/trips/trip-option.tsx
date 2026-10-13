@@ -18,7 +18,7 @@ export function TripOption({
   return (
     <label
       className={cn(
-        "flex cursor-pointer items-start gap-3 rounded-xl border-[1.5px] p-3",
+        "flex cursor-pointer items-start gap-3 rounded-xl border p-3",
         checked ? "border-primary bg-mist" : "border-line-strong bg-surface",
       )}
     >

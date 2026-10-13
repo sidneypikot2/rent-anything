@@ -1,11 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { ComponentProps, ReactNode } from "react";
 import type { Activity, AreaCard } from "@/api/discovery";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { GlassPanel } from "@/components/ui/glass";
-import { TagGlyph } from "./tag-glyphs";
+import { placeIcon, tagIcon } from "./icons";
+import { CategoryGlyph, TagGlyph } from "./tag-glyphs";
 import { AreaScene } from "./scenes";
 
 const KIND_LABELS: Record<string, string> = {
@@ -252,5 +254,104 @@ export function ActivityCard({ activity, photo }: { activity: Activity; photo?: 
         </span>
       </span>
     </CardLink>
+  );
+}
+
+type Photo = { src: string; alt: string };
+
+// The frame the photo cards share: the photo fills the card, a scrim darkens its foot, and
+// the content sits on dark glass there (Sky & Forest, RAA-102).
+function PhotoCard({
+  photo,
+  className,
+  children,
+  ...props
+}: { photo: Photo; className?: string; children: ReactNode } & Omit<ComponentProps<"div">, "children">) {
+  return (
+    <Card className={cn("relative isolate flex min-h-80 flex-col justify-end p-3", className)} {...props}>
+      <Image src={photo.src} alt={photo.alt} fill sizes="(min-width: 640px) 50vw, 100vw" className="-z-20 object-cover object-[50%_70%]" />
+      <div aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-transparent via-transparent to-scrim/55" />
+      <GlassPanel className="flex flex-col gap-2 rounded-xl p-4">{children}</GlassPanel>
+    </Card>
+  );
+}
+
+// A place to see on a destination's page: its name, what it is and its tags. Its `id` is the
+// landmark's slug, so a search result can link straight to it (#kota-beach).
+export function LandmarkCard({
+  landmark,
+  photo,
+}: {
+  landmark: { slug: string; name: string; description: string; tags: { slug: string; name: string }[] };
+  photo: Photo;
+}) {
+  return (
+    <PhotoCard photo={photo} id={landmark.slug} data-testid="landmark" className="scroll-mt-24">
+      <h3 className="flex items-center gap-2 font-semibold text-white">
+        <span aria-hidden className="text-sky-pale">
+          {placeIcon()}
+        </span>
+        {landmark.name}
+      </h3>
+      {/* Short on a phone, so what there is to book isn't screens away (RAA-85). */}
+      <p className="line-clamp-3 text-sm text-sky-mist sm:line-clamp-none">{landmark.description}</p>
+      {landmark.tags.length > 0 && (
+        <ul className="hidden flex-wrap gap-1.5 sm:flex">
+          {landmark.tags.map((tag) => (
+            <li
+              key={tag.slug}
+              className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-[0.8125rem] font-semibold text-white"
+            >
+              <span aria-hidden>{tagIcon(tag.slug)}</span> {tag.name}
+            </li>
+          ))}
+        </ul>
+      )}
+    </PhotoCard>
+  );
+}
+
+// A thing to book: its category's icon, the title linking to the listing, a note line and
+// a short summary, with an action (Add to trip) in the panel.
+export function ListingCard({
+  href,
+  title,
+  category,
+  note,
+  summary,
+  photo,
+  action,
+}: {
+  href: string;
+  title: string;
+  category: string;
+  note: string;
+  summary?: string | null;
+  photo: Photo;
+  action?: ReactNode;
+}) {
+  return (
+    <PhotoCard photo={photo}>
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden
+          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/25 bg-white/15 text-white"
+        >
+          <CategoryGlyph name={category} className="size-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <Link
+            href={href}
+            data-testid="listing-link"
+            className="block font-semibold break-words text-white underline-offset-4 hover:underline"
+          >
+            {title}
+          </Link>
+          <span className="block text-sm text-sky-mist">{note}</span>
+        </span>
+      </div>
+      {summary && <p className="line-clamp-2 text-sm text-white/90">{summary}</p>}
+      {action && <div className="flex justify-end">{action}</div>}
+    </PhotoCard>
   );
 }

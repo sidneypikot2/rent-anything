@@ -26,14 +26,14 @@ export function ChoiceCards({
 }) {
   return (
     <fieldset data-testid={testId} className="flex flex-col gap-2">
-      <legend className="mb-2 text-sm font-medium">{legend}</legend>
+      <legend className="mb-2 text-sm font-semibold">{legend}</legend>
       <div className={cn("grid gap-3", columns === 2 && "sm:grid-cols-2")}>
         {choices.map((choice) => (
           <label
             key={choice.value}
             data-testid={testId && `${testId}-${choice.value}`}
             className={cn(
-              "flex cursor-pointer items-start gap-3 rounded-xl border-[1.5px] bg-surface p-4",
+              "flex cursor-pointer items-start gap-3 rounded-xl border bg-surface p-4",
               "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary",
               value === choice.value ? "border-primary bg-surface-2" : "border-line-strong hover:border-primary",
             )}

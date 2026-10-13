@@ -8,7 +8,7 @@ import { cn } from "./cn";
 export function Card({ clip = true, className, ...props }: { clip?: boolean } & ComponentProps<"div">) {
   return (
     <div
-      className={cn("rounded-2xl border-[1.5px] border-line bg-surface", clip && "overflow-hidden", className)}
+      className={cn("rounded-2xl border border-line bg-surface", clip && "overflow-hidden", className)}
       {...props}
     />
   );
@@ -19,7 +19,7 @@ export function CardLink({ className, ...props }: ComponentProps<typeof Link>) {
   return (
     <Link
       className={cn(
-        "block rounded-2xl border-[1.5px] border-line bg-surface transition-colors hover:border-primary hover:bg-surface-2",
+        "block rounded-2xl border border-line bg-surface transition-colors hover:border-primary hover:bg-surface-2",
         className,
       )}
       {...props}

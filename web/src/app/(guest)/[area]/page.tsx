@@ -1,19 +1,21 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getArea, getDestinations, getExplore, type AreaCard, type AreaDetail } from "@/api/discovery";
-import { countLine, withSubAreas } from "@/components/discovery/cards";
+import { countLine, LandmarkCard, ListingCard, withSubAreas } from "@/components/discovery/cards";
 import { ExploreSections, withoutShown } from "@/components/discovery/explore-sections";
-import { areaIcon, categoryIcon, tagIcon } from "@/components/discovery/icons";
+import { areaIcon } from "@/components/discovery/icons";
+import { PageBanner } from "@/components/landing/page-banner";
+import { areaPhoto, landmarkPhoto, listingPhoto } from "@/components/landing/sample-photos";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { readTripDates, tripDatesQuery } from "@/components/trips/trip-dates";
 import { TripDatesBar } from "@/components/trips/trip-dates-bar";
 import { TripStartedBanner } from "@/components/trips/trip-started-banner";
-import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { Card, CardBody, CardLink } from "@/components/ui/card";
-import { DisplayTitle, Eyebrow, SectionTitle } from "@/components/ui/typography";
+import { GlassPanel } from "@/components/ui/glass";
+import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 
 type Listing = AreaDetail["listings"][number];
 
@@ -63,13 +65,20 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
 
   return (
     <main className="flex flex-1 flex-col">
-      <section className="border-b border-line bg-linear-to-br from-mist to-sage px-4 py-12">
-        <div className="mx-auto flex max-w-5xl flex-col gap-3">
-          <Eyebrow>{area.parent_name ? `${area.parent_name}, Philippines` : "Philippines"}</Eyebrow>
-          <DisplayTitle>
-            <span aria-hidden>{areaIcon(area.kind)}</span> {area.name}
+      <PageBanner
+        photo={areaPhoto(area.slug).src}
+        preload
+        eyebrow={area.parent_name ? `${area.parent_name}, Philippines` : "Philippines"}
+        title={
+          <DisplayTitle className="flex items-center gap-3">
+            <span aria-hidden className="text-sky-pale">
+              {areaIcon(area.kind)}
+            </span>
+            {area.name}
           </DisplayTitle>
-          <p className="text-muted empty:hidden">
+        }
+      >
+          <p className="max-w-3xl text-sky-mist empty:hidden">
             {[
               landmarks.length > 0 && `${landmarks.length} ${landmarks.length === 1 ? "place" : "places"} to see`,
               listings.length > 0 && `${listings.length} to book${counts && counts.more.length > 0 ? " here" : ""}`,
@@ -81,38 +90,51 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
             {counts?.more.map((child, index) => (
               <span key={child.area.slug}>
                 {index > 0 || landmarks.length > 0 || listings.length > 0 ? " · " : ""}
-                <Link href={`/${child.area.slug}`} className="font-semibold text-link underline-offset-4 hover:underline">
+                <Link href={`/${child.area.slug}`} className="font-semibold text-sky-pale underline-offset-4 hover:underline">
                   {listings.length > 0 ? `${child.listingCount} more` : `${child.listingCount} to book`} in {child.area.name}
                 </Link>
               </span>
             ))}
           </p>
           {listings.length > 0 && (
-            <ButtonLink href="#listings" className="mt-2 self-start">
+            <ButtonLink href="#listings" className="self-start">
               See what to book <span aria-hidden>↓</span>
             </ButtonLink>
           )}
-        </div>
-      </section>
+      </PageBanner>
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-12 px-4 py-10">
         {areas.length > 0 && (
           <section className="flex flex-col gap-3">
             <SectionTitle>Destinations in {area.name}</SectionTitle>
-            <ul className="grid gap-2 sm:grid-cols-2">
+            <ul className="grid gap-3 sm:grid-cols-2">
               {areas.map((child) => {
                 const childCount = counts?.children.get(child.slug);
+                const photo = areaPhoto(child.slug);
                 return (
                   <li key={child.slug}>
-                    <CardLink href={`/${child.slug}`} className="flex items-center gap-3 p-4">
-                      <span aria-hidden className="text-2xl">
-                        {areaIcon(child.kind)}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block font-semibold">{child.name}</span>
-                        {childCount && <span className="block text-sm text-muted">{childCount}</span>}
-                      </span>
-                    </CardLink>
+                    <Link
+                      href={`/${child.slug}`}
+                      className="group relative isolate flex min-h-44 items-end overflow-hidden rounded-2xl p-2.5"
+                    >
+                      <Image
+                        src={photo.src}
+                        alt={photo.alt}
+                        fill
+                        sizes="(min-width: 640px) 50vw, 100vw"
+                        className="-z-20 object-cover object-[50%_70%] transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <span aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-transparent to-scrim/55" />
+                      <GlassPanel className="flex w-full items-center gap-3 rounded-xl p-3">
+                        <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/25 bg-white/15 text-lg">
+                          {areaIcon(child.kind)}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block font-semibold">{child.name}</span>
+                          {childCount && <span className="block text-sm text-sky-mist">{childCount}</span>}
+                        </span>
+                      </GlassPanel>
+                    </Link>
                   </li>
                 );
               })}
@@ -124,23 +146,8 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           <section className="flex flex-col gap-3">
             <SectionTitle>Places to see</SectionTitle>
             <div className="grid gap-3 sm:grid-cols-2">
-              {landmarks.map((landmark) => (
-                <Card key={landmark.slug} id={landmark.slug} data-testid="landmark" className="scroll-mt-6">
-                  <CardBody className="flex flex-col gap-2">
-                    <h3 className="font-semibold">
-                      <span aria-hidden>📍</span> {landmark.name}
-                    </h3>
-                    {/* Short on a phone, so what there is to book isn't screens away (RAA-85). */}
-                    <p className="line-clamp-3 text-sm text-muted sm:line-clamp-none">{landmark.description}</p>
-                    <div className="hidden flex-wrap gap-1.5 sm:flex">
-                      {landmark.tags.map((tag) => (
-                        <Badge key={tag.slug} tone="mist">
-                          <span aria-hidden>{tagIcon(tag.slug)}</span> {tag.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardBody>
-                </Card>
+              {landmarks.map((landmark, index) => (
+                <LandmarkCard key={landmark.slug} landmark={landmark} photo={landmarkPhoto(landmark.tags, index)} />
               ))}
             </div>
           </section>
@@ -161,33 +168,19 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                 return (
                   <div key={need.title} className="flex flex-col gap-2">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-muted">{need.title}</h3>
-                    <ul className="grid gap-2 sm:grid-cols-2">
-                      {group.map((listing) => (
-                        // A search suggestion links straight to its row (#listing-<id>).
-                        <li key={listing.id} id={`listing-${listing.id}`} className="scroll-mt-6">
-                          <Card>
-                            <CardBody className="flex items-center gap-3">
-                              <span aria-hidden className="text-2xl">
-                                {categoryIcon(listing.category)}
-                              </span>
-                              <span className="min-w-0 flex-1">
-                                <Link
-                                  href={`/listings/${listing.id}${datesQuery}`}
-                                  data-testid="listing-link"
-                                  className="block font-semibold break-words underline-offset-4 hover:underline"
-                                >
-                                  {listing.title}
-                                </Link>
-                                <span className="block text-sm text-muted">
-                                  {listing.category} · by {listing.business.name} · {listing.units_label}
-                                </span>
-                                {listing.summary && (
-                                  <span className="mt-1 line-clamp-2 block text-sm">{listing.summary}</span>
-                                )}
-                              </span>
-                              <AddToTripButton listing={listing} dates={dates} />
-                            </CardBody>
-                          </Card>
+                    <ul className="grid gap-3 sm:grid-cols-2">
+                      {group.map((listing, index) => (
+                        // A search suggestion links straight to its card (#listing-<id>).
+                        <li key={listing.id} id={`listing-${listing.id}`} className="scroll-mt-24">
+                          <ListingCard
+                            href={`/listings/${listing.id}${datesQuery}`}
+                            title={listing.title}
+                            category={listing.category}
+                            note={`${listing.category} · by ${listing.business.name} · ${listing.units_label}`}
+                            summary={listing.summary}
+                            photo={listingPhoto(listing.category, index)}
+                            action={<AddToTripButton listing={listing} dates={dates} />}
+                          />
                         </li>
                       ))}
                     </ul>

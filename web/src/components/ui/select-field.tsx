@@ -17,7 +17,7 @@ export function SelectField({ label, options, hint, error, className, ...props }
   // The label points at the select rather than wrapping it: wrapped, a select's options
   // become part of its accessible name.
   return (
-    <div className="flex flex-col gap-1 text-sm font-medium">
+    <div className="flex flex-col gap-1.5 text-sm font-semibold">
       <label htmlFor={selectId}>{label}</label>
       {/* Our own chevron in the right padding: the browser's arrow sits wherever it likes
           and can run into the border. */}
@@ -27,8 +27,8 @@ export function SelectField({ label, options, hint, error, className, ...props }
           aria-invalid={error ? true : undefined}
           aria-describedby={note ? noteId : undefined}
           className={cn(
-            "w-full appearance-none rounded-lg border-[1.5px] bg-surface py-2 pl-3 pr-9 font-normal text-foreground outline-none",
-            "focus:border-primary disabled:bg-surface-2",
+            "w-full appearance-none min-h-12 rounded-xl border bg-surface py-2.5 pl-4 pr-10 font-normal text-foreground outline-none",
+            "focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
             error ? "border-danger" : "border-line-strong",
             className,
           )}

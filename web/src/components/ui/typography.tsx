@@ -45,7 +45,7 @@ export function Eyebrow({ className, ...props }: ComponentProps<"p">) {
 // A price in the display face, with its unit after it: <Price amount="₱1,200" unit="/ day" />.
 export function Price({ amount, unit }: { amount: string; unit?: string }) {
   return (
-    <span className="font-display text-xl font-bold text-primary">
+    <span className="font-display text-xl font-extrabold tracking-tight tabular-nums text-foreground">
       {amount}
       {unit && <small className="ml-1 font-sans text-xs font-normal text-muted">{unit}</small>}
     </span>

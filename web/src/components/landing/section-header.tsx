@@ -17,15 +17,17 @@ const SECTION_LABELS: Record<Section, string> = {
 // /partner, developers at /admin. Sections don't link to each other: partners and guests
 // have separate entry points. The one exception is SectionSwitch, a floating test aid
 // shown locally and on staging only.
+// Sky & Forest (RAA-102): a sticky frosted bar, so the page shows through it as it scrolls
+// beneath, with the links on a glass pill. Partner links take their own row on a phone.
 export function SectionHeader({ section }: { section: Section }) {
   const label = SECTION_LABELS[section];
 
   return (
-    <header className="bg-navy text-white">
-      <div className="mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-4 px-4">
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-navy/75 text-white backdrop-blur-xl">
+      <div className="mx-auto flex min-h-16 w-full max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2.5">
         <Link
           href={section === "guest" ? "/" : `/${section}`}
-          className="py-3 text-2xl"
+          className="text-2xl"
           aria-label={label ? `${BRAND} ${label}` : `${BRAND} home`}
         >
           <Logo />
@@ -35,11 +37,12 @@ export function SectionHeader({ section }: { section: Section }) {
             </span>
           )}
         </Link>
-        {/* Full height, so the account menu's tab reaches the bar's bottom edge. */}
-        <nav className="flex flex-wrap items-center self-stretch justify-end gap-x-6 gap-y-2 text-sm font-medium text-on-dark">
+        <nav className="contents text-sm font-medium text-on-dark">
           {section === "partner" && <PartnerNav />}
-          {section === "guest" && <CartLink />}
-          <AccountNav section={section} />
+          <div className="flex items-center gap-2">
+            {section === "guest" && <CartLink />}
+            <AccountNav section={section} />
+          </div>
         </nav>
       </div>
     </header>

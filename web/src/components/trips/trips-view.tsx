@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { Toast } from "@/components/ui/toast";
-import { DisplayTitle } from "@/components/ui/typography";
 import { DeletionBanner } from "./deletion-banner";
 import { EditTripSheet } from "./edit-trip-sheet";
 import { formatDateRange, itemCount, todayIso } from "./format";
@@ -39,8 +38,7 @@ export function TripsView() {
 
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <DisplayTitle>Trips</DisplayTitle>
+      <div className="flex flex-wrap items-end justify-end gap-4">
         <Button size="sm" data-testid="new-trip" onClick={() => setCreating(true)}>
           + Plan a new trip
         </Button>

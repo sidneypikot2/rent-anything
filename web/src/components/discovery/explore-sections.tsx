@@ -1,7 +1,7 @@
 import type { Explore, ExplorePlace } from "@/api/discovery";
 import { CardLink } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/typography";
-import { areaIcon } from "./icons";
+import { areaIcon, placeIcon } from "./icons";
 
 // "Nearby destinations" and "Often visited with" for one destination (RAA-58), from the
 // explore endpoint. Recommendations are curated links: they lead to another destination's
@@ -41,8 +41,8 @@ function PlaceGroup({ testId, title, places }: { testId: string; title: string; 
         {places.map((place) => (
           <li key={`${place.type}-${place.slug}`}>
             <CardLink href={placeHref(place)} className="flex items-center gap-3 p-3">
-              <span aria-hidden className="text-2xl">
-                {place.kind ? areaIcon(place.kind) : "📍"}
+              <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-mist text-xl text-primary">
+                {place.kind ? areaIcon(place.kind) : placeIcon()}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">{place.name}</span>

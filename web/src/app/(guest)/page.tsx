@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { getActivities, getDestinations, type Activity } from "@/api/discovery";
@@ -6,8 +5,10 @@ import { ActivityCard, DestinationCard, groupDestinations } from "@/components/d
 import { CATEGORIES, categoryHref } from "@/components/discovery/categories";
 import { LoadFailed } from "@/components/discovery/load-failed";
 import { SearchBox } from "@/components/discovery/search-box";
+import { CategoryGlyph } from "@/components/discovery/tag-glyphs";
 import { ShowMore } from "@/components/discovery/show-more";
 import { HowItWorks } from "@/components/landing/how-it-works";
+import { PageBanner } from "@/components/landing/page-banner";
 import { activityPhoto, destinationPhoto } from "@/components/landing/sample-photos";
 import { PlanCta } from "@/components/landing/plan-cta";
 import { TripStart } from "@/components/landing/trip-start";
@@ -24,15 +25,13 @@ import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 export default function Home() {
   return (
     <main className="flex flex-1 flex-col">
-      {/* The photo is decorative, so it has no alt text; the scrim keeps white text readable. */}
-      <section className="relative isolate flex overflow-hidden p-3 sm:p-6">
-        <Image src="/images/hero.jpg" alt="" fill preload sizes="100vw" className="-z-20 object-cover" />
-        <div aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-scrim/45 via-scrim/30 via-40% to-scrim/80" />
-        <GlassPanel tone="frame" className="mx-auto flex w-full max-w-6xl flex-col gap-7 rounded-[2rem] px-4 pb-6 pt-16 sm:px-10 sm:pb-10 sm:pt-28">
-          <div className="flex max-w-3xl flex-col gap-4 text-white">
-            <span className={cn(glassClasses("dark"), "self-start rounded-full px-3.5 py-1.5 text-sm font-semibold")}>
-              Now on Bantayan Island
-            </span>
+      <PageBanner
+        photo="/images/hero.jpg"
+        preload
+        hero
+        eyebrow="Now on Bantayan Island"
+        title={
+          <>
             <DisplayTitle size="hero" className="text-balance">
               Your whole Bantayan Island trip, <span className="font-semibold text-sky-pale italic">in one cart.</span>
             </DisplayTitle>
@@ -40,36 +39,38 @@ export default function Home() {
               Island hopping, a scooter for the week, a cottage in Santa Fe: pick them from local partners and
               keep every stop together in one trip, from the Cebu City transfer to the last boat out.
             </p>
-          </div>
-          <div className="flex w-full max-w-2xl flex-col gap-3">
-            {/* Glass makes its own stacking context, so the suggestions would sit under the
-                panel below it; z-10 lifts the whole search above its neighbours. */}
-            <GlassPanel className="relative z-10 rounded-3xl p-2 shadow-2xl shadow-scrim/50">
-              <SearchBox />
-            </GlassPanel>
-            {/* The way in, on a phone's first screen too (RAA-80). */}
-            <GlassPanel tone="light" className="rounded-2xl px-4 py-1.5">
-              <TripStart />
-            </GlassPanel>
-          </div>
-          <nav aria-label="Things to book" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-            {CATEGORIES.map((category) => (
-              <Link
-                key={category.label}
-                href={categoryHref(category.query)}
-                className={cn(
-                  glassClasses("dark"),
-                  "flex min-h-14 items-center rounded-2xl px-4 py-3 font-bold hover:bg-white/20",
-                )}
-              >
-                {category.label}
-              </Link>
-            ))}
-          </nav>
-          {/* The short form of HowItWorks' trust points (RAA-80). */}
-          <p className="text-sm text-sky-mist">ID-checked local partners · nothing to pay yet</p>
-        </GlassPanel>
-      </section>
+          </>
+        }
+      >
+        <div className="flex w-full max-w-2xl flex-col gap-3">
+          {/* Glass makes its own stacking context, so the suggestions would sit under the
+              panel below it; z-10 lifts the whole search above its neighbours. */}
+          <GlassPanel className="relative z-10 rounded-3xl p-2 shadow-2xl shadow-scrim/50">
+            <SearchBox />
+          </GlassPanel>
+          {/* The way in, on a phone's first screen too (RAA-80). */}
+          <GlassPanel tone="light" className="rounded-2xl px-4 py-1.5">
+            <TripStart />
+          </GlassPanel>
+        </div>
+        <nav aria-label="Things to book" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+          {CATEGORIES.map((category) => (
+            <Link
+              key={category.label}
+              href={categoryHref(category.query)}
+              className={cn(
+                glassClasses("dark"),
+                "flex min-h-14 items-center gap-3 rounded-2xl px-4 py-3 font-bold hover:bg-white/20",
+              )}
+            >
+              <CategoryGlyph name={category.icon} className="size-5 shrink-0 text-sky-pale" />
+              {category.label}
+            </Link>
+          ))}
+        </nav>
+        {/* The short form of HowItWorks' trust points (RAA-80). */}
+        <p className="text-sm text-sky-mist">ID-checked local partners · nothing to pay yet</p>
+      </PageBanner>
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-4 py-12">
         <section id="destinations" className="flex scroll-mt-6 flex-col gap-4">

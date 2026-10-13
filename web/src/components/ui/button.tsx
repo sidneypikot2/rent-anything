@@ -5,9 +5,9 @@ import { cn } from "./cn";
 const VARIANTS = {
   primary: "bg-primary text-white hover:bg-primary-hover",
   secondary: "bg-secondary text-white hover:bg-secondary-hover",
-  // A quiet action on a card: tinted fill, cerulean text.
-  soft: "border-[1.5px] border-line bg-surface-2 text-primary hover:border-primary",
-  // The loudest call to action, for dark bands. Navy text: white on aqua is 1.8:1.
+  // The outline button, a quiet action: white fill, blue text.
+  soft: "border border-line-strong bg-surface text-primary hover:border-primary hover:bg-mist",
+  // A soft call to action on a dark band: pale blue under navy text.
   accent: "bg-aqua font-bold text-navy hover:bg-fern",
   // Something that can't be undone, like deleting. White on danger is 6.5:1.
   danger: "bg-danger text-white hover:bg-danger-hover",
@@ -19,7 +19,7 @@ const SIZES = {
   sm: "rounded-lg px-4 py-2 text-sm",
   // The small look with a 44px touch target, for an action a traveller taps on a phone (RAA-85).
   touch: "min-h-11 rounded-lg px-4 py-2 text-sm",
-  md: "rounded-xl px-6 py-3 text-sm",
+  md: "min-h-12 rounded-xl px-6 py-3 text-[0.9375rem]",
 };
 
 type Style = {

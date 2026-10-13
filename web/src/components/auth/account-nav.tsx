@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AccountMenu } from "@/components/auth/account-menu";
-import { ButtonLink } from "@/components/ui/button";
 import { signOut } from "@/lib/auth/actions";
 import { DASHBOARD_PATHS, LOGIN_PATHS, REGISTER_PATHS } from "@/lib/auth/paths";
 import { useSession } from "@/lib/auth/session";
@@ -23,18 +22,21 @@ export function AccountNav({ section }: { section: Section }) {
   if (session === null) {
     const onAuthPage = pathname === LOGIN_PATHS.guest || pathname === REGISTER_PATHS.guest;
     return section === "guest" && !onAuthPage ? (
-      <span className="flex items-center gap-4">
-        <Link href={LOGIN_PATHS.guest} data-testid="nav-signin" className="hover:text-white">
+      <span className="flex items-center gap-1 rounded-full border border-white/15 bg-white/10 p-1">
+        <Link
+          href={LOGIN_PATHS.guest}
+          data-testid="nav-signin"
+          className="flex min-h-9 items-center rounded-full px-4 hover:bg-white/15 hover:text-white"
+        >
           Sign in
         </Link>
-        <ButtonLink
+        <Link
           href={REGISTER_PATHS.guest}
-          variant="accent"
-          size="sm"
           data-testid="nav-register"
+          className="flex min-h-9 items-center rounded-full bg-white px-4 font-bold text-navy hover:bg-sky-mist"
         >
           Create an account
-        </ButtonLink>
+        </Link>
       </span>
     ) : null;
   }
@@ -47,11 +49,15 @@ export function AccountNav({ section }: { section: Section }) {
   }
 
   return (
-    <span className="flex items-center gap-3">
-      <Link href={DASHBOARD_PATHS[session.user.role]} data-testid="nav-user" className="text-white">
+    <span className="flex items-center gap-1 rounded-full border border-white/15 bg-white/10 p-1">
+      <Link
+        href={DASHBOARD_PATHS[session.user.role]}
+        data-testid="nav-user"
+        className="flex min-h-9 items-center rounded-full px-4 text-white hover:bg-white/15"
+      >
         {session.user.name ?? session.user.email}
       </Link>
-      <button type="button" onClick={onSignOut} className="hover:text-white">
+      <button type="button" onClick={onSignOut} className="flex min-h-9 items-center rounded-full px-4 hover:bg-white/15 hover:text-white">
         Sign out
       </button>
     </span>

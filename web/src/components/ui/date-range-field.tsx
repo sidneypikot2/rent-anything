@@ -185,7 +185,7 @@ export function DateRangeField({
   } as const;
 
   return (
-    <div ref={root} onKeyDown={onKeyDown} className={cn("relative flex flex-col gap-1 text-sm font-medium", className)}>
+    <div ref={root} onKeyDown={onKeyDown} className={cn("relative flex flex-col gap-1.5 text-sm font-semibold", className)}>
       <span id={labelId}>{label}</span>
       <button
         ref={trigger}
@@ -201,8 +201,8 @@ export function DateRangeField({
           setOpen(!open);
         }}
         className={cn(
-          "flex items-center justify-between gap-2 rounded-lg border-[1.5px] bg-surface px-3 py-2 text-left font-normal outline-none",
-          "focus:border-primary disabled:bg-surface-2",
+          "flex items-center justify-between gap-2 min-h-12 rounded-xl border bg-surface px-4 py-2.5 text-left font-normal outline-none",
+          "focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
           error ? "border-danger" : "border-line-strong",
           open && "border-primary",
         )}
@@ -224,7 +224,7 @@ export function DateRangeField({
           role="group"
           aria-label={label}
           className={cn(
-            "flex w-full flex-col gap-2 rounded-xl border-[1.5px] border-line bg-surface p-3 font-normal",
+            "flex w-full flex-col gap-2 rounded-xl border border-line bg-surface p-3 font-normal",
             inline ? "mt-1" : "absolute left-0 top-full z-20 mt-1 shadow-xl shadow-navy/20 sm:w-80",
           )}
         >
