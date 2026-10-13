@@ -18,6 +18,7 @@ import { GlassPanel } from "@/components/ui/glass";
 import { cn } from "@/components/ui/cn";
 import { Section } from "@/components/ui/section";
 import { DisplayTitle } from "@/components/ui/typography";
+import { formatPeso } from "@/lib/money";
 
 type Listing = AreaDetail["listings"][number];
 
@@ -177,7 +178,14 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                             href={`/listings/${listing.id}${datesQuery}`}
                             title={listing.title}
                             category={listing.category}
-                            note={`${listing.category} · by ${listing.business.name} · ${listing.units_label}`}
+                            note={[
+                              listing.category,
+                              `by ${listing.business.name}`,
+                              listing.units_label,
+                              listing.price_from_cents && `from ${formatPeso(listing.price_from_cents)} / night`,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
                             summary={listing.summary}
                             photo={listingPhoto(listing.category, index)}
                             action={<AddToTripButton listing={listing} dates={dates} />}

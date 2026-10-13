@@ -57,6 +57,16 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
     changes.push("Landmarks");
   }
 
+  // A stay's price and fees (RAA-105), as a whole: the rate's defaults fill what the form leaves out.
+  if (body.stay_rate) {
+    const rate = { weekend_price_cents: null, max_nights: null, ...body.stay_rate };
+    const saved = listing.stay_rate ?? {};
+    if (Object.entries(rate).some(([key, value]) => saved[key as keyof typeof saved] !== value)) changes.push("Pricing");
+  }
+  const fees = (list: { name: string; amount_cents: number; charged_per: string; required?: boolean }[]) =>
+    JSON.stringify(list.map(({ name, amount_cents, charged_per, required }) => [name, amount_cents, charged_per, required ?? true]));
+  if (body.fees && fees(listing.fees) !== fees(body.fees)) changes.push("Fees");
+
   const attrs = body.attrs ?? {};
   for (const key of new Set([...Object.keys(listing.attrs), ...Object.keys(attrs)])) {
     if (displayValue(listing.attrs[key], key) !== displayValue(attrs[key], key)) changes.push(attributeLabel(key));

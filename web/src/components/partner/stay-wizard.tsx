@@ -19,6 +19,15 @@ import { LocationPicker } from "./location-picker";
 import { PhotoUploadSkeleton } from "./photo-upload-skeleton";
 import { SameAsBusinessAddress, useSameAsBusinessAddress } from "./same-as-business-address";
 import {
+  NEW_PRICING,
+  pricingErrors,
+  StayPricingFields,
+  toFeesBody,
+  toStayRateBody,
+  type PricingErrors,
+  type PricingValues,
+} from "./stay-pricing-fields";
+import {
   AmenityChoice,
   NEW_STAY,
   PlaceTypeChoice,
@@ -41,14 +50,14 @@ const STEPS = [
   { key: "amenities", label: "Amenities" },
   { key: "photos", label: "Photos" },
   { key: "basic", label: "Title and description" },
-  { key: "rate", label: "Rate" },
+  { key: "pricing", label: "Pricing" },
   { key: "cancellation", label: "Cancellation policy" },
   { key: "units", label: "Units" },
 ];
 
 // Adding an accommodation (RAA-83), once its property type is chosen: what guests book,
 // the address, the property info for that place type (RAA-95), amenities, photos (a placeholder until the API
-// stores them), the title and description, the nightly rate (shown, not saved yet), the cancellation policy (RAA-89)
+// stores them), the title and description, the pricing and fees (RAA-105), the cancellation policy (RAA-89)
 // and how many identical rooms or units it has (RAA-99).
 // Like ListingWizard, only the current step is on the page, every value is kept here and any
 // step already reached opens again (RAA-93).
@@ -82,8 +91,8 @@ export function StayWizard({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [policy, setPolicy] = useState<CancellationPolicy>(DEFAULT_CANCELLATION_POLICY);
-  // Shown and checked, not saved yet: the API has no pricing until its own ticket.
-  const [nightlyRate, setNightlyRate] = useState("");
+  const [pricing, setPricing] = useState<PricingValues>(NEW_PRICING);
+  const [priceErrors, setPriceErrors] = useState<PricingErrors>();
 
   // The current step's checks: the browser's required fields, the map pin and the beds.
   function stepIsValid() {
@@ -94,6 +103,10 @@ export function StayWizard({
     }
     if (step.key === "info" && stayErrors(stay)) {
       setInfoErrors(stayErrors(stay));
+      return false;
+    }
+    if (step.key === "pricing" && pricingErrors(pricing)) {
+      setPriceErrors(pricingErrors(pricing));
       return false;
     }
     return true;
@@ -125,6 +138,8 @@ export function StayWizard({
         attrs: toStayAttrs(stay),
         cancellation_policy: policy,
         units_count: units,
+        stay_rate: toStayRateBody(pricing, stay.placeType, stay.guests),
+        fees: toFeesBody(pricing),
       },
       { onSuccess: () => router.push("/partner/listings") },
     );
@@ -221,16 +236,16 @@ export function StayWizard({
             </>
           )}
 
-          {step.key === "rate" && (
-            <Field
-              label="Nightly rate (₱)"
-              name="nightly_rate"
-              type="number"
-              min={0}
-              step="any"
-              value={nightlyRate}
-              onChange={(event) => setNightlyRate(event.target.value)}
-              hint="Rates aren't saved yet — you'll set them on the listing once pricing is available."
+          {step.key === "pricing" && (
+            <StayPricingFields
+              values={pricing}
+              onChange={(values) => {
+                setPricing(values);
+                setPriceErrors(undefined);
+              }}
+              placeType={stay.placeType}
+              sleeps={stay.guests}
+              errors={priceErrors}
             />
           )}
 

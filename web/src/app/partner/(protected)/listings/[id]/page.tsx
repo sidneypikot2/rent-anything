@@ -18,8 +18,11 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { DisplayTitle } from "@/components/ui/typography";
+import { formatPeso } from "@/lib/money";
+import { feeText, nightUnit, stayRateTerms } from "@/lib/pricing";
 
-// One of the partner's listings, read-only (RAA-47), with the way to edit or delete it.
+// One of the partner's listings, read-only (RAA-47), with the way to edit or delete it. A stay
+// still on the back-filled nightly price of 0 asks for a real one (RAA-105).
 export default function PartnerListingPage() {
   const id = Number(useParams<{ id: string }>().id);
   const { data, error, refetch } = usePartnerListing(id);
@@ -55,6 +58,8 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
   const address = [street, city, province, region].filter(Boolean).join(", ") + (postal_code ? ` ${postal_code}` : "");
   const attrs = Object.entries(listing.attrs);
   const policies = useListingOptions().data?.cancellation_policies;
+  const rate = listing.stay_rate;
+  const perGuest = listing.attrs.place_type === "shared_room";
 
   return (
     <>
@@ -82,6 +87,22 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
           </div>
         </div>
       </div>
+
+      {rate && !rate.nightly_price_cents && (
+        <div
+          role="status"
+          data-testid="listing-needs-price"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-warning/40 bg-surface-2 px-5 py-4 text-sm"
+        >
+          <span>
+            <span className="font-semibold text-warning">No nightly price yet.</span> Guests don&apos;t see a price for
+            this place, and it can&apos;t be booked, until you set one.
+          </span>
+          <ButtonLink href={`/partner/listings/${listing.id}/edit`} size="sm">
+            Set a price
+          </ButtonLink>
+        </div>
+      )}
 
       {remove.error && (
         <p role="alert" className="text-sm text-danger">
@@ -116,6 +137,31 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
                 {displayValue(value, key)}
               </Detail>
             ))}
+            {rate && (
+              <Detail term="Pricing">
+                <span data-testid="listing-detail-pricing">
+                  {rate.nightly_price_cents ? `${formatPeso(rate.nightly_price_cents)} ${nightUnit(perGuest)}` : "No price yet"}
+                  {rate.nightly_price_cents > 0 &&
+                    stayRateTerms(rate, perGuest).map((term) => (
+                      <span key={term} className="block text-muted">
+                        {term}
+                      </span>
+                    ))}
+                </span>
+              </Detail>
+            )}
+            {(rate || listing.fees.length > 0) && (
+              <Detail term="Fees">
+                {listing.fees.length > 0
+                  ? listing.fees.map((fee) => (
+                      <span key={fee.id} className="block">
+                        {feeText(fee)}
+                        {!fee.required && <span className="text-muted"> · optional add-on</span>}
+                      </span>
+                    ))
+                  : "—"}
+              </Detail>
+            )}
             <Detail term="Units">
               <span data-testid="listing-detail-units">{listing.units_count}</span>
             </Detail>
