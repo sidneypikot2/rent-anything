@@ -4,6 +4,12 @@ require "rails_helper"
 # an endpoint and describe it; `rake rswag:specs:swaggerize` writes swagger/v1/openapi.yaml
 # from them, and web/src/api/schema.d.ts is generated from that file (script/check-api).
 
+# A listing's first photo (RAA-106), on every listing a guest sees in a list.
+COVER_PHOTO_URL = {
+  type: :string, nullable: true,
+  description: "The cover photo, sized for a card (about 800 by 600); null when the listing has no photos"
+}.freeze
+
 # What explore (RAA-56) says about a destination, nearby or recommended.
 EXPLORE_PLACE = {
   type: { type: :string, enum: %w[area landmark] },
@@ -171,9 +177,10 @@ RSpec.configure do |config|
               id: { type: :integer },
               title: { type: :string },
               category: { type: :string },
-              area_slug: { type: :string }
+              area_slug: { type: :string },
+              cover_photo_url: COVER_PHOTO_URL
             },
-            required: %w[id title category area_slug]
+            required: %w[id title category area_slug cover_photo_url]
           },
           # A guest's trip (RAA-64): what the cart lists. Dates are both set or both null.
           trip: {
@@ -245,9 +252,10 @@ RSpec.configure do |config|
               title: { type: :string },
               category: { type: :string },
               area_slug: { type: :string },
+              cover_photo_url: COVER_PHOTO_URL,
               location: { "$ref" => "#/components/schemas/lat_lng" }
             },
-            required: %w[id title category area_slug location]
+            required: %w[id title category area_slug cover_photo_url location]
           },
           # One active listing as a traveller sees it (RAA-86). Never its location or address.
           listing_detail: {
@@ -273,10 +281,34 @@ RSpec.configure do |config|
               partner_name: {
                 type: :string, deprecated: true,
                 description: "The business's name, as in business.name; will be removed (RAA-101)"
+              },
+              photos: {
+                type: :array, items: { "$ref" => "#/components/schemas/photo_urls" },
+                description: "In the partner's order; the first is the cover"
               }
             },
             required: %w[id title description summary category booking_type area business units_count units_label
-              partner_name]
+              partner_name photos]
+          },
+          # A listing photo's sizes (RAA-106), served straight from storage. Until a size is
+          # made, just after upload, its URL is the original's.
+          photo_urls: {
+            type: :object,
+            properties: {
+              card_url: { type: :string, description: "Cropped to fill about 800 by 600" },
+              large_url: { type: :string, description: "The whole photo, at most 1600 on its longer side" }
+            },
+            required: %w[card_url large_url]
+          },
+          # A listing photo as its partner sees it: photo_urls plus the id a listing's photos take.
+          partner_photo: {
+            type: :object,
+            properties: {
+              id: { type: :string, description: "The photo's signed id, as sent in a listing's photos" },
+              card_url: { type: :string },
+              large_url: { type: :string }
+            },
+            required: %w[id card_url large_url]
           },
           # The business offering a listing, as a guest sees it (RAA-100).
           business_ref: {
@@ -341,11 +373,15 @@ RSpec.configure do |config|
                 type: :array, items: { "$ref" => "#/components/schemas/area_ref" },
                 description: "The destinations those landmarks are in, by name"
               },
+              photos: {
+                type: :array, items: { "$ref" => "#/components/schemas/partner_photo" },
+                description: "In the partner's order; the first is the cover"
+              },
               created_at: { type: :string, format: "date-time" },
               updated_at: { type: :string, format: "date-time" }
             },
             required: %w[id title description status category area address location attrs cancellation_policy units_count
-              business landmarks covers created_at updated_at]
+              business landmarks covers photos created_at updated_at]
           },
           # A business a partner runs (RAA-100); its listings are shown under its name.
           partner_business: {
@@ -435,9 +471,44 @@ RSpec.configure do |config|
                 type: :array, items: { type: :integer }, maxItems: 30,
                 description: "Tours and activities only: the published landmarks it visits. Replaces them when " \
                   "sent; left out on a change, they stay as they are. A listing that isn't an activity has none."
+              },
+              photos: {
+                type: :array, items: { type: :string }, maxItems: 12,
+                description: "The listing's photos in order, the first the cover: each a signed_id from " \
+                  "POST /api/v1/partner/direct_uploads or the id of one of its photos. Replaces them when sent " \
+                  "(a photo left out is deleted); left out on a change, they stay as they are"
               }
             },
             required: %w[title category_id address location]
+          },
+          direct_upload_body: {
+            type: :object,
+            properties: {
+              filename: { type: :string, maxLength: 255 },
+              byte_size: { type: :integer, minimum: 1, maximum: 10_485_760 },
+              checksum: { type: :string, description: "The file's MD5 digest, base64-encoded" },
+              content_type: { type: :string, enum: %w[image/jpeg image/png image/webp] }
+            },
+            required: %w[filename byte_size checksum content_type]
+          },
+          # Where the browser sends a photo's bytes (RAA-106): storage, not this API.
+          direct_upload: {
+            type: :object,
+            properties: {
+              signed_id: { type: :string, description: "The photo's id, to send in a listing's photos" },
+              upload: {
+                type: :object,
+                properties: {
+                  url: { type: :string, description: "PUT the file's bytes here" },
+                  headers: {
+                    type: :object, additionalProperties: { type: :string },
+                    description: "Send exactly these headers with the PUT"
+                  }
+                },
+                required: %w[url headers]
+              }
+            },
+            required: %w[signed_id upload]
           },
           # What a guest gets back on cancelling (RAA-88); refunds follow it from M4.
           cancellation_policy: {
@@ -540,6 +611,7 @@ RSpec.configure do |config|
                     title: { type: :string },
                     category: { type: :string },
                     area_slug: { type: :string },
+                    cover_photo_url: COVER_PHOTO_URL,
                     booking_type: { type: :string, enum: %w[rental stay activity transfer] },
                     summary: { type: :string, description: "As in listing_detail" },
                     business: { "$ref" => "#/components/schemas/business_ref" },
@@ -547,7 +619,7 @@ RSpec.configure do |config|
                     units_label: { type: :string, description: "As in listing_detail" },
                     partner_name: { type: :string, deprecated: true, description: "As in listing_detail" }
                   },
-                  required: %w[id title category area_slug booking_type summary business units_count units_label
+                  required: %w[id title category area_slug cover_photo_url booking_type summary business units_count units_label
                     partner_name]
                 }
               }
@@ -586,10 +658,11 @@ RSpec.configure do |config|
               title: { type: :string },
               category: { type: :string },
               area_slug: { type: :string },
+              cover_photo_url: COVER_PHOTO_URL,
               location: { "$ref" => "#/components/schemas/lat_lng" },
               distance_km: { type: :number, description: "From the starting point's exact point, one decimal" }
             },
-            required: %w[id title category area_slug location distance_km]
+            required: %w[id title category area_slug cover_photo_url location distance_km]
           },
           explore: {
             type: :object,

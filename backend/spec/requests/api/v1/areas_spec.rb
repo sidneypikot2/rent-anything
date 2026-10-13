@@ -79,11 +79,11 @@ RSpec.describe "Areas", type: :request do
           expect(json["landmarks"].first["tags"].pluck("slug")).to eq(%w[swimming white-sand])
           expect(json["listings"]).to contain_exactly(
             { "id" => hopping.id, "title" => "Island hopping", "category" => "Tour", "area_slug" => "bantayan-island",
-              "booking_type" => "activity", "summary" => "Four islands and a sandbar in one day.",
+              "cover_photo_url" => nil, "booking_type" => "activity", "summary" => "Four islands and a sandbar in one day.",
               "business" => { "name" => "Moalboal Gear Rentals" }, "units_count" => 1, "units_label" => "1 unit",
               "partner_name" => "Moalboal Gear Rentals" },
             { "id" => honda.id, "title" => "Honda Click 125", "category" => "Motorcycle",
-              "area_slug" => "bantayan-island", "booking_type" => "rental", "summary" => "",
+              "area_slug" => "bantayan-island", "cover_photo_url" => nil, "booking_type" => "rental", "summary" => "",
               "business" => { "name" => "Basilia Motor Rentals" }, "units_count" => 50, "units_label" => "50 motorcycles",
               "partner_name" => "Basilia Motor Rentals" }
           )

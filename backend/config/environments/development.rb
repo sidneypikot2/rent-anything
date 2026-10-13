@@ -30,8 +30,9 @@ Rails.application.configure do
   # Change to :null_store to avoid any caching.
   config.cache_store = :memory_store
 
-  # Store uploaded files on the local file system (see config/storage.yml for options).
-  config.active_storage.service = :local
+  # Uploaded files stay on this disk (backend/storage) unless ACTIVE_STORAGE_SERVICE=cloudflare
+  # and the R2_* values in backend/.env point at a bucket (RAA-106).
+  config.active_storage.service = ENV.fetch("ACTIVE_STORAGE_SERVICE", "local").to_sym
 
   # Don't care if the mailer can't send.
   config.action_mailer.raise_delivery_errors = false

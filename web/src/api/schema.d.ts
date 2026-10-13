@@ -627,7 +627,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description units in the category's words */
+                /** @description its photos in the partner's order, and the first as the cover in lists */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1346,6 +1346,78 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/v1/partner/direct_uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a photo upload
+         * @description Partner-only, after the ID check (RAA-106). Reserves a listing photo and returns where the browser sends the file: a `PUT` of the file's bytes to `upload.url` with exactly `upload.headers`, straight to storage (Cloudflare R2), not to this API. Then pass `signed_id` in a listing's `photos`. JPEG, PNG or WebP, at most 10 MB; `checksum` is the file's MD5, base64-encoded. A photo no listing takes within two days is deleted.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["direct_upload_body"];
+                };
+            };
+            responses: {
+                /** @description a reserved photo and where to put it */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["direct_upload"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description values of the wrong type */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/partner/landmarks": {
@@ -3151,6 +3223,8 @@ export interface components {
             title: string;
             category: string;
             area_slug: string;
+            /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
+            cover_photo_url: string | null;
         };
         trip: {
             id: number;
@@ -3211,6 +3285,8 @@ export interface components {
             title: string;
             category: string;
             area_slug: string;
+            /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
+            cover_photo_url: string | null;
             location: components["schemas"]["lat_lng"];
         };
         listing_detail: {
@@ -3236,6 +3312,20 @@ export interface components {
              * @description The business's name, as in business.name; will be removed (RAA-101)
              */
             partner_name: string;
+            /** @description In the partner's order; the first is the cover */
+            photos: components["schemas"]["photo_urls"][];
+        };
+        photo_urls: {
+            /** @description Cropped to fill about 800 by 600 */
+            card_url: string;
+            /** @description The whole photo, at most 1600 on its longer side */
+            large_url: string;
+        };
+        partner_photo: {
+            /** @description The photo's signed id, as sent in a listing's photos */
+            id: string;
+            card_url: string;
+            large_url: string;
         };
         business_ref: {
             name: string;
@@ -3284,6 +3374,8 @@ export interface components {
             landmarks: components["schemas"]["partner_landmark"][];
             /** @description The destinations those landmarks are in, by name */
             covers: components["schemas"]["area_ref"][];
+            /** @description In the partner's order; the first is the cover */
+            photos: components["schemas"]["partner_photo"][];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -3372,6 +3464,28 @@ export interface components {
             units_count?: number;
             /** @description Tours and activities only: the published landmarks it visits. Replaces them when sent; left out on a change, they stay as they are. A listing that isn't an activity has none. */
             landmark_ids?: number[];
+            /** @description The listing's photos in order, the first the cover: each a signed_id from POST /api/v1/partner/direct_uploads or the id of one of its photos. Replaces them when sent (a photo left out is deleted); left out on a change, they stay as they are */
+            photos?: string[];
+        };
+        direct_upload_body: {
+            filename: string;
+            byte_size: number;
+            /** @description The file's MD5 digest, base64-encoded */
+            checksum: string;
+            /** @enum {string} */
+            content_type: "image/jpeg" | "image/png" | "image/webp";
+        };
+        direct_upload: {
+            /** @description The photo's id, to send in a listing's photos */
+            signed_id: string;
+            upload: {
+                /** @description PUT the file's bytes here */
+                url: string;
+                /** @description Send exactly these headers with the PUT */
+                headers: {
+                    [key: string]: string;
+                };
+            };
         };
         /**
          * @description free_cancellation: free any time before the booking starts; non_refundable: no refund; seven_days / fourteen_days: free up to 7 / 14 days before it starts, non-refundable after
@@ -3434,6 +3548,8 @@ export interface components {
                 title: string;
                 category: string;
                 area_slug: string;
+                /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
+                cover_photo_url: string | null;
                 /** @enum {string} */
                 booking_type: "rental" | "stay" | "activity" | "transfer";
                 /** @description As in listing_detail */
@@ -3495,6 +3611,8 @@ export interface components {
             title: string;
             category: string;
             area_slug: string;
+            /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
+            cover_photo_url: string | null;
             location: components["schemas"]["lat_lng"];
             /** @description From the starting point's exact point, one decimal */
             distance_km: number;

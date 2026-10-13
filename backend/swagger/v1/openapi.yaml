@@ -401,7 +401,8 @@ paths:
           type: integer
       responses:
         '200':
-          description: units in the category's words
+          description: its photos in the partner's order, and the first as the cover
+            in lists
           content:
             application/json:
               schema:
@@ -906,6 +907,54 @@ paths:
           application/json:
             schema:
               "$ref": "#/components/schemas/business_body"
+  "/api/v1/partner/direct_uploads":
+    post:
+      summary: Start a photo upload
+      tags:
+      - Partner
+      description: 'Partner-only, after the ID check (RAA-106). Reserves a listing
+        photo and returns where the browser sends the file: a `PUT` of the file''s
+        bytes to `upload.url` with exactly `upload.headers`, straight to storage (Cloudflare
+        R2), not to this API. Then pass `signed_id` in a listing''s `photos`. JPEG,
+        PNG or WebP, at most 10 MB; `checksum` is the file''s MD5, base64-encoded.
+        A photo no listing takes within two days is deleted.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: a reserved photo and where to put it
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/direct_upload"
+        '422':
+          description: values of the wrong type
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/direct_upload_body"
   "/api/v1/partner/landmarks":
     get:
       summary: Landmarks a tour can visit
@@ -2400,11 +2449,17 @@ components:
           type: string
         area_slug:
           type: string
+        cover_photo_url:
+          type: string
+          nullable: true
+          description: The cover photo, sized for a card (about 800 by 600); null
+            when the listing has no photos
       required:
       - id
       - title
       - category
       - area_slug
+      - cover_photo_url
     trip:
       type: object
       properties:
@@ -2532,6 +2587,11 @@ components:
           type: string
         area_slug:
           type: string
+        cover_photo_url:
+          type: string
+          nullable: true
+          description: The cover photo, sized for a card (about 800 by 600); null
+            when the listing has no photos
         location:
           "$ref": "#/components/schemas/lat_lng"
       required:
@@ -2539,6 +2599,7 @@ components:
       - title
       - category
       - area_slug
+      - cover_photo_url
       - location
     listing_detail:
       type: object
@@ -2585,6 +2646,11 @@ components:
           type: string
           deprecated: true
           description: The business's name, as in business.name; will be removed (RAA-101)
+        photos:
+          type: array
+          items:
+            "$ref": "#/components/schemas/photo_urls"
+          description: In the partner's order; the first is the cover
       required:
       - id
       - title
@@ -2597,6 +2663,33 @@ components:
       - units_count
       - units_label
       - partner_name
+      - photos
+    photo_urls:
+      type: object
+      properties:
+        card_url:
+          type: string
+          description: Cropped to fill about 800 by 600
+        large_url:
+          type: string
+          description: The whole photo, at most 1600 on its longer side
+      required:
+      - card_url
+      - large_url
+    partner_photo:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The photo's signed id, as sent in a listing's photos
+        card_url:
+          type: string
+        large_url:
+          type: string
+      required:
+      - id
+      - card_url
+      - large_url
     business_ref:
       type: object
       properties:
@@ -2711,6 +2804,11 @@ components:
           items:
             "$ref": "#/components/schemas/area_ref"
           description: The destinations those landmarks are in, by name
+        photos:
+          type: array
+          items:
+            "$ref": "#/components/schemas/partner_photo"
+          description: In the partner's order; the first is the cover
         created_at:
           type: string
           format: date-time
@@ -2732,6 +2830,7 @@ components:
       - business
       - landmarks
       - covers
+      - photos
       - created_at
       - updated_at
     partner_business:
@@ -2951,11 +3050,67 @@ components:
           description: 'Tours and activities only: the published landmarks it visits.
             Replaces them when sent; left out on a change, they stay as they are.
             A listing that isn''t an activity has none.'
+        photos:
+          type: array
+          items:
+            type: string
+          maxItems: 12
+          description: 'The listing''s photos in order, the first the cover: each
+            a signed_id from POST /api/v1/partner/direct_uploads or the id of one
+            of its photos. Replaces them when sent (a photo left out is deleted);
+            left out on a change, they stay as they are'
       required:
       - title
       - category_id
       - address
       - location
+    direct_upload_body:
+      type: object
+      properties:
+        filename:
+          type: string
+          maxLength: 255
+        byte_size:
+          type: integer
+          minimum: 1
+          maximum: 10485760
+        checksum:
+          type: string
+          description: The file's MD5 digest, base64-encoded
+        content_type:
+          type: string
+          enum:
+          - image/jpeg
+          - image/png
+          - image/webp
+      required:
+      - filename
+      - byte_size
+      - checksum
+      - content_type
+    direct_upload:
+      type: object
+      properties:
+        signed_id:
+          type: string
+          description: The photo's id, to send in a listing's photos
+        upload:
+          type: object
+          properties:
+            url:
+              type: string
+              description: PUT the file's bytes here
+            headers:
+              type: object
+              additionalProperties:
+                type: string
+              description: Send exactly these headers with the PUT
+          required:
+          - url
+          - headers
+      required:
+      - signed_id
+      - upload
     cancellation_policy:
       type: string
       enum:
@@ -3135,6 +3290,11 @@ components:
                 type: string
               area_slug:
                 type: string
+              cover_photo_url:
+                type: string
+                nullable: true
+                description: The cover photo, sized for a card (about 800 by 600);
+                  null when the listing has no photos
               booking_type:
                 type: string
                 enum:
@@ -3162,6 +3322,7 @@ components:
             - title
             - category
             - area_slug
+            - cover_photo_url
             - booking_type
             - summary
             - business
@@ -3289,6 +3450,11 @@ components:
           type: string
         area_slug:
           type: string
+        cover_photo_url:
+          type: string
+          nullable: true
+          description: The cover photo, sized for a card (about 800 by 600); null
+            when the listing has no photos
         location:
           "$ref": "#/components/schemas/lat_lng"
         distance_km:
@@ -3299,6 +3465,7 @@ components:
       - title
       - category
       - area_slug
+      - cover_photo_url
       - location
       - distance_km
     explore:

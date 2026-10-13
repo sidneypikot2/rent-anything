@@ -29,6 +29,9 @@ class Listing < ApplicationRecord
   has_many :trip_items, dependent: :delete_all
   # Its identical items, rooms or vehicles (RAA-98); the foreign key cascades too.
   has_many :units, -> { order(:position) }, class_name: "ListingUnit", dependent: :delete_all, inverse_of: :listing
+  # Its photos in the partner's order, the first the cover (RAA-106). Destroyed one by one so
+  # each image is deleted from storage too.
+  has_many :photos, -> { order(:position) }, class_name: "ListingPhoto", dependent: :destroy, inverse_of: :listing
 
   enum :status, STATUSES.index_with(&:itself), validate: true
 

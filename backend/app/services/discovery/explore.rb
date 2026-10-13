@@ -160,7 +160,7 @@ module Discovery
     # --- Queries -----------------------------------------------------------------------
 
     def listings
-      scope = Listing.active.includes(:category, :area)
+      scope = Listing.active.includes(:category, :area, photos: ListingPhoto::WITH_IMAGE)
         .select("listings.*", distance("listings.location"))
       scope = inside_anchor? ? inside(scope, @area, "listings.location", :area_id) : within_km(scope, "listings.location")
       scope = inside(scope, @island, "listings.location", :area_id) if @island

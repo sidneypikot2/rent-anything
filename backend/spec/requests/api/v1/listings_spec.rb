@@ -28,9 +28,9 @@ RSpec.describe "Listings", type: :request do
         run_test! do |response|
           expect(response.parsed_body).to eq([
             { "id" => osmo.id, "title" => "DJI Osmo Action", "category" => "Action camera", "area_slug" => "moalboal",
-              "location" => { "lat" => 9.93, "lng" => 123.39 } },
+              "cover_photo_url" => nil, "location" => { "lat" => 9.93, "lng" => 123.39 } },
             { "id" => gopro.id, "title" => "GoPro Hero 12", "category" => "Action camera", "area_slug" => "moalboal",
-              "location" => { "lat" => 9.95, "lng" => 123.37 } }
+              "cover_photo_url" => nil, "location" => { "lat" => 9.95, "lng" => 123.37 } }
           ])
         end
       end
@@ -80,6 +80,28 @@ RSpec.describe "Listings", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body).to include("units_count" => 3, "units_label" => "3 cameras", "summary" => "")
+        end
+      end
+
+      response "200", "its photos in the partner's order, and the first as the cover in lists" do
+        schema "$ref" => "#/components/schemas/listing_detail"
+        let(:id) { gopro.id }
+
+        before do
+          gopro.photos.create!(position: 2, image: uploaded_photo(filename: "side.jpg"))
+          gopro.photos.create!(position: 1, image: uploaded_photo(filename: "front.jpg"))
+        end
+
+        run_test! do |detail|
+          photos = detail.parsed_body["photos"]
+          expect(photos.size).to eq(2)
+          expect(photos.first.keys).to contain_exactly("card_url", "large_url")
+          expect(photos.first["large_url"]).to include("front")
+
+          get "/api/v1/listings"
+          pin = response.parsed_body.find { |row| row["id"] == gopro.id }
+          expect(pin["cover_photo_url"]).to include("front")
+          expect(response.parsed_body.find { |row| row["id"] == osmo.id }["cover_photo_url"]).to be_nil
         end
       end
 

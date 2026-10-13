@@ -6,6 +6,7 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
     libyaml-dev \
     libgeos-dev \
     libproj-dev \
+    libvips42t64 \
     git \
     curl \
   && rm -rf /var/lib/apt/lists/*

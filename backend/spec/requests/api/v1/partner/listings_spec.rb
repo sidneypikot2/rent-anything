@@ -245,6 +245,64 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
+      response "201", "with the uploaded photos in the order sent, the first the cover" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        let(:beach) { uploaded_photo(filename: "beach.jpg") }
+        let(:boat) { uploaded_photo(filename: "boat.jpg") }
+
+        before { body[:photos] = [ boat.signed_id, beach.signed_id ] }
+
+        run_test! do |response|
+          expect(response.parsed_body["photos"].pluck("id")).to eq([ boat.signed_id, beach.signed_id ])
+          expect(response.parsed_body["photos"].first).to include("card_url", "large_url")
+          expect(user.listings.sole.photos.map { |photo| photo.image.blob }).to eq([ boat, beach ])
+        end
+      end
+
+      response "422", "photos that aren't uploads, or not photos we take" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:menu) { uploaded_photo(filename: "menu.pdf", content_type: "application/pdf") }
+
+        before { body[:photos] = [ "not-a-signed-id", menu.signed_id ] }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to contain_exactly(
+            "Photos must be photos uploaded through /api/v1/partner/direct_uploads",
+            "Photos must be JPEG, PNG or WebP images"
+          )
+          expect(Listing.count).to eq(0)
+        end
+      end
+
+      response "422", "more than 12 photos, or photos that aren't a list" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:photo) { uploaded_photo }
+
+        before { body[:photos] = Array.new(13) { uploaded_photo.signed_id } }
+
+        run_test! do |refused|
+          expect(refused.parsed_body["errors"]).to eq([ "A listing can have at most 12 photos" ])
+          body[:photos] = photo.signed_id
+          post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["errors"]).to eq([ "Photos must be a list of uploaded photo ids" ])
+        end
+      end
+
+      response "422", "a photo already on another listing" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:taken) { create(:listing).photos.create!(position: 1, image: uploaded_photo).image.blob }
+
+        before { body[:photos] = [ taken.signed_id ] }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "Photos must not be on another listing" ])
+        end
+      end
+
       response "201", "under the partner's only business when business_id is left out" do
         schema "$ref" => "#/components/schemas/partner_listing"
 
@@ -519,6 +577,33 @@ RSpec.describe "Partner listings", type: :request do
             headers: { "Authorization" => Authorization() }
           expect(response.parsed_body["units_count"]).to eq(2)
           expect(listing.units.pluck(:position)).to eq([ 1, 2 ])
+        end
+      end
+
+      response "200", "photos reordered, added and removed to match the list sent, kept when left out" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        let(:beach) { uploaded_photo(filename: "beach.jpg") }
+        let(:boat) { uploaded_photo(filename: "boat.jpg") }
+        let(:reef) { uploaded_photo(filename: "reef.jpg") }
+
+        before do
+          listing.photos.create!(position: 1, image: beach)
+          listing.photos.create!(position: 2, image: boat)
+          body[:photos] = [ reef.signed_id, boat.signed_id ]
+        end
+
+        run_test! do |saved|
+          expect(saved.parsed_body["photos"].pluck("id")).to eq([ reef.signed_id, boat.signed_id ])
+          expect(listing.photos.reload.map { |photo| [ photo.position, photo.image.blob ] }).to eq([ [ 1, reef ], [ 2, boat ] ])
+          expect(ActiveStorage::PurgeJob).to have_been_enqueued.with(beach)
+
+          body.delete(:photos)
+          patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["photos"].pluck("id")).to eq([ reef.signed_id, boat.signed_id ])
+          patch "/api/v1/partner/listings/#{id}", params: body.merge(photos: [ boat.signed_id, reef.signed_id ]),
+            as: :json, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["photos"].pluck("id")).to eq([ boat.signed_id, reef.signed_id ])
         end
       end
 

@@ -53,6 +53,8 @@ Rails.application.routes.draw do
         resources :businesses, only: %i[index show create update]
         resources :listings, only: %i[index show create update destroy]
         resource :listing_options, only: :show
+        # A listing photo's upload, straight to storage (RAA-106).
+        resources :direct_uploads, only: :create
         # The tour landmark picker (RAA-70).
         resources :landmarks, only: :index
         resource :verification, only: %i[show create]
