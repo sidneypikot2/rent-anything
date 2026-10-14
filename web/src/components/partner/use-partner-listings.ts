@@ -18,11 +18,11 @@ function partnerListingsKey(userId: number | undefined) {
   return ["partner-listings", userId] as const;
 }
 
-function partnerListingKey(userId: number | undefined, id: number) {
+export function partnerListingKey(userId: number | undefined, id: number) {
   return ["partner-listing", userId, id] as const;
 }
 
-function saveError(error: unknown, fallback: string) {
+export function saveError(error: unknown, fallback: string) {
   const errors = error && typeof error === "object" && "errors" in error ? error.errors : undefined;
   return new Error((Array.isArray(errors) && errors.join(". ")) || fallback);
 }
@@ -75,6 +75,8 @@ export function useCreateListing() {
 }
 
 // One of the partner's listings; null when it isn't theirs or no longer exists (a 404).
+// While a photo is confirmed but not ready (being stripped and sized, RAA-106), it is asked
+// for again every two seconds, so the photo's sizes replace the original as soon as they exist.
 export function usePartnerListing(id: number) {
   const userId = useSession()?.user.id;
 
@@ -89,6 +91,7 @@ export function usePartnerListing(id: number) {
       return data;
     },
     enabled: userId !== undefined && Number.isInteger(id),
+    refetchInterval: (query) => (query.state.data?.photos.some((photo) => photo.uploaded && !photo.ready) ? 2000 : false),
   });
 }
 

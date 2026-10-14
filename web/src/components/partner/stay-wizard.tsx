@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,7 @@ import {
 } from "./cancellation-policy";
 import { categoryLabel, NO_ADDRESS } from "./listing-fields";
 import { LocationPicker } from "./location-picker";
-import { PhotoUploadSkeleton } from "./photo-upload-skeleton";
+import { NewListingPhotos } from "./new-listing-photos";
 import { SameAsBusinessAddress, useSameAsBusinessAddress } from "./same-as-business-address";
 import {
   NEW_PRICING,
@@ -38,7 +37,7 @@ import {
   type StayValues,
 } from "./stay-fields";
 import type { PartnerBusiness } from "./use-partner-businesses";
-import { useCreateListing, type ListingCategory } from "./use-partner-listings";
+import { useCreateListing, type ListingBody, type ListingCategory, type PartnerListing } from "./use-partner-listings";
 import { UnitsField } from "./units-field";
 import { WizardCancel } from "./wizard-cancel";
 import { WizardActions, WizardLayout } from "./wizard-steps";
@@ -48,19 +47,19 @@ const STEPS = [
   { key: "address", label: "Address" },
   { key: "info", label: "Property info" },
   { key: "amenities", label: "Amenities" },
-  { key: "photos", label: "Photos" },
   { key: "basic", label: "Title and description" },
   { key: "pricing", label: "Pricing" },
   { key: "cancellation", label: "Cancellation policy" },
   { key: "units", label: "Units" },
+  { key: "photos", label: "Photos" },
 ];
 
 // Adding an accommodation (RAA-83), once its property type is chosen: what guests book,
-// the address, the property info for that place type (RAA-95), amenities, photos (a placeholder until the API
-// stores them), the title and description, the pricing and fees (RAA-105), the cancellation policy (RAA-89)
-// and how many identical rooms or units it has (RAA-99).
+// the address, the property info for that place type (RAA-95), amenities, the title and description, the
+// pricing and fees (RAA-105), the cancellation policy (RAA-89), how many identical rooms or units it has
+// (RAA-99) and, last, photos.
 // Like ListingWizard, only the current step is on the page, every value is kept here and any
-// step already reached opens again (RAA-93).
+// step already reached opens again (RAA-93); Units saves the draft and then only Photos is open (RAA-109).
 export function StayWizard({
   business,
   category,
@@ -70,13 +69,14 @@ export function StayWizard({
   category: ListingCategory;
   policies: CancellationPolicies;
 }) {
-  const router = useRouter();
   const create = useCreateListing();
   const [stepIndex, setStepIndex] = useState(0);
   const [reached, setReached] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
   const step = STEPS[stepIndex];
-  const isLast = stepIndex === STEPS.length - 1;
+  // The last step before Photos saves the listing.
+  const isLast = stepIndex === STEPS.length - 2;
+  const [saved, setSaved] = useState<{ listing: PartnerListing; body: ListingBody }>();
 
   const [stay, setStay] = useState<StayValues>(NEW_STAY);
   const [infoErrors, setInfoErrors] = useState<StayErrors>();
@@ -127,21 +127,33 @@ export function StayWizard({
     }
     if (!stepIsValid()) return;
     if (!location) return;
-    create.mutate(
-      {
-        title: title.trim(),
-        description: description.trim(),
-        business_id: business.id,
-        category_id: category.id,
-        address: address.toBody(),
-        location,
-        attrs: toStayAttrs(stay),
-        cancellation_policy: policy,
-        units_count: units,
-        stay_rate: toStayRateBody(pricing, stay.placeType, stay.guests),
-        fees: toFeesBody(pricing),
+    const body: ListingBody = {
+      title: title.trim(),
+      description: description.trim(),
+      business_id: business.id,
+      category_id: category.id,
+      address: address.toBody(),
+      location,
+      attrs: toStayAttrs(stay),
+      cancellation_policy: policy,
+      units_count: units,
+      stay_rate: toStayRateBody(pricing, stay.placeType, stay.guests),
+      fees: toFeesBody(pricing),
+    };
+    create.mutate(body, {
+      onSuccess: (listing) => {
+        setSaved({ listing, body });
+        setStepIndex(STEPS.length - 1);
+        setReached(STEPS.length - 1);
       },
-      { onSuccess: () => router.push("/partner/listings") },
+    });
+  }
+
+  if (saved) {
+    return (
+      <WizardLayout steps={STEPS} current={stepIndex} reached={reached} onSelect={goTo} locked>
+        <NewListingPhotos listing={saved.listing} body={saved.body} />
+      </WizardLayout>
     );
   }
 
@@ -212,8 +224,6 @@ export function StayWizard({
             </>
           )}
 
-          {step.key === "photos" && <PhotoUploadSkeleton />}
-
           {step.key === "basic" && (
             <>
               <Field
@@ -259,11 +269,7 @@ export function StayWizard({
           next={
             isLast ? (
               <Button type="submit" disabled={create.isPending} data-testid="listing-save">
-                {create.isPending ? "Saving…" : "Save as draft"}
-              </Button>
-            ) : step.key === "photos" ? (
-              <Button type="submit" variant="soft" data-testid="listing-skip-photos">
-                Skip for now
+                {create.isPending ? "Saving…" : "Save and add photos"}
               </Button>
             ) : (
               <Button type="submit" data-testid="listing-next">

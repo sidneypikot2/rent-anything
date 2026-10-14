@@ -7,6 +7,7 @@ import { Price } from "@/components/ui/typography";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { GlassPanel } from "@/components/ui/glass";
+import { isApiPhoto } from "@/components/landing/sample-photos";
 import { placeIcon, tagIcon } from "./icons";
 import { CategoryGlyph, TagGlyph } from "./tag-glyphs";
 import { AreaScene } from "./scenes";
@@ -298,7 +299,14 @@ function PhotoCard({
 }: { photo: Photo; className?: string; children: ReactNode } & Omit<ComponentProps<"div">, "children">) {
   return (
     <Card bordered={false} className={cn(PHOTO_CARD, "flex min-h-80 flex-col justify-end p-3", className)} {...props}>
-      <Image src={photo.src} alt={photo.alt} fill sizes="(min-width: 640px) 50vw, 100vw" className={PHOTO_CARD_IMAGE} />
+      <Image
+        src={photo.src}
+        alt={photo.alt}
+        fill
+        unoptimized={isApiPhoto(photo.src)}
+        sizes="(min-width: 640px) 50vw, 100vw"
+        className={PHOTO_CARD_IMAGE}
+      />
       <div aria-hidden className={PHOTO_SCRIM} />
       <GlassPanel className="flex flex-col gap-3 rounded-control p-5">{children}</GlassPanel>
     </Card>

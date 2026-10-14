@@ -23,6 +23,7 @@ import {
   type AttributeValues,
 } from "./listing-fields";
 import { LandmarkPicker } from "./landmark-picker";
+import { ListingPhotos, orderedPhotos } from "./listing-photos";
 import { LocationPicker } from "./location-picker";
 import {
   AmenityChoice,
@@ -53,7 +54,7 @@ import { UnitsField } from "./units-field";
 // Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
 // visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
 // vehicle's, RAA-89), an accommodation's pricing and fees (RAA-105), the cancellation policy
-// (RAA-89) and, last, how many identical units it has (RAA-99). Saving first shows what changed and asks to confirm. Adding one is the stepped
+// (RAA-89), how many identical units it has (RAA-99) and, last, its photos (RAA-109). Saving first shows what changed and asks to confirm. Adding one is the stepped
 // ListingWizard (RAA-50). A partner with several businesses can move it to another (RAA-101).
 export function ListingForm({
   options,
@@ -83,6 +84,9 @@ export function ListingForm({
   const [landmarks, setLandmarks] = useState<PartnerLandmark[]>(listing.landmarks);
   // The edit waiting for the partner to confirm it, and what it changes.
   const [pending, setPending] = useState<{ body: ListingBody; changes: string[] }>();
+  // Photos are added and deleted at once (RAA-109); only a new order waits for Save.
+  const [photoOrder, setPhotoOrder] = useState<number[]>();
+  const [photosBusy, setPhotosBusy] = useState(false);
   const listingPath = `/partner/listings/${listing.id}`;
 
   const category = options.categories.find((option) => String(option.id) === categoryId);
@@ -130,6 +134,8 @@ export function ListingForm({
       ...(stayCategory
         ? { stay_rate: toStayRateBody(pricing, stay.placeType, stay.guests), fees: toFeesBody(pricing) }
         : {}),
+      // Sent only once moved: a body's photos deletes any photo it leaves out.
+      ...(photoOrder ? { photos: orderedPhotos(listing.photos, photoOrder).map((photo) => photo.id) } : {}),
     };
     setPending({ body, changes: listingChanges(listing, body) });
   }
@@ -284,8 +290,20 @@ export function ListingForm({
         <UnitsField bookingType={category?.booking_type} value={units} onChange={setUnits} />
       </fieldset>
 
+      <fieldset className="flex flex-col gap-4">
+        <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Photos</legend>
+        <p className="text-sm text-muted">New photos and deletions are saved straight away; a new order is saved with the rest.</p>
+        <ListingPhotos
+          listingId={listing.id}
+          photos={listing.photos}
+          order={photoOrder}
+          onOrderChange={setPhotoOrder}
+          onBusyChange={setPhotosBusy}
+        />
+      </fieldset>
+
       <div className="flex gap-3">
-        <Button type="submit" disabled={update.isPending} data-testid="listing-save">
+        <Button type="submit" disabled={update.isPending || photosBusy} data-testid="listing-save">
           {update.isPending ? "Saving…" : "Save changes"}
         </Button>
         <ButtonLink href={listingPath} variant="soft">

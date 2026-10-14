@@ -6,6 +6,8 @@ import { cancellationPolicyName } from "@/components/partner/cancellation-policy
 import { attributeLabel, displayValue } from "@/components/partner/listing-changes";
 import { visitsLandmarks } from "@/components/partner/listing-fields";
 import { ListingMissing } from "@/components/partner/listing-missing";
+import { PhotoStrip } from "@/components/partner/listing-photos";
+import { uploadedPhotos } from "@/components/partner/use-listing-photos";
 import { STATUS } from "@/components/partner/listings-table";
 import {
   useDeleteListing,
@@ -113,6 +115,13 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
       <Card>
         <CardBody pad="lg">
           <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-[10rem_1fr]">
+            <Detail term="Photos">
+              {uploadedPhotos(listing.photos).length > 0 ? (
+                <PhotoStrip photos={listing.photos} />
+              ) : (
+                <span className="text-muted">None yet — add them from Edit.</span>
+              )}
+            </Detail>
             <Detail term="Description">
               <span className="whitespace-pre-line">{listing.description || "—"}</span>
             </Detail>
@@ -210,7 +219,7 @@ function Detail({ term, children }: { term: string; children: ReactNode }) {
   return (
     <>
       <dt className="font-semibold text-muted">{term}</dt>
-      <dd className="-mt-3 sm:mt-0">{children}</dd>
+      <dd className="-mt-3 min-w-0 sm:mt-0">{children}</dd>
     </>
   );
 }

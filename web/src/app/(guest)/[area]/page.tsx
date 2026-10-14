@@ -9,7 +9,7 @@ import { areaIcon } from "@/components/discovery/icons";
 import { AreaGlyph } from "@/components/discovery/tag-glyphs";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
-import { areaPhoto, landmarkPhoto, listingPhoto } from "@/components/landing/sample-photos";
+import { areaPhoto, landmarkPhoto, listingCover } from "@/components/landing/sample-photos";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { readTripDates, tripDatesQuery } from "@/components/trips/trip-dates";
@@ -223,7 +223,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                 .filter(Boolean)
                                 .join(" · ")}
                               summary={listing.summary}
-                              photo={listingPhoto(listing.category, index)}
+                              photo={listingCover(listing, index)}
                               price={
                                 listing.price_from_cents
                                   ? { prefix: "from", amount: formatPeso(listing.price_from_cents), unit: "/ night" }
