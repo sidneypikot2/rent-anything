@@ -43,7 +43,7 @@ unless Rails.env.test?
     end
 
     # Vehicle rental types (RAA-88), loaded the same way. They need the categories above.
-    unless Category.exists?(slug: "multicab")
+    unless Category.exists?(slug: "van-rental")
       require Rails.root.join("db/migrate/20261011000002_add_vehicle_rental_types").to_s
       AddVehicleRentalTypes.new.migrate(:up)
     end
@@ -58,6 +58,13 @@ unless Rails.env.test?
     unless Category.where(slug: "hotel").where("attribute_schema -> 'properties' ? 'rooms'").exists?
       require Rails.root.join("db/migrate/20261012230000_add_stay_rooms").to_s
       AddStayRooms.new.migrate(:up)
+    end
+
+    # Fewer categories to start with (RAA-103): the loaders above still create the five it
+    # removes, so it runs after them.
+    if Category.exists?(slug: "photographer")
+      require Rails.root.join("db/migrate/20261014200000_remove_unfocused_categories").to_s
+      RemoveUnfocusedCategories.new.migrate(:up)
     end
 
     CreateBusinesses.backfill(connection)

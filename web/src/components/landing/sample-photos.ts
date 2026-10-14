@@ -44,10 +44,7 @@ const CATEGORY_PHOTOS: Record<string, Photo> = {
   Tour: ACTIVITY_PHOTOS["island-hopping"],
   "Hotel or cottage": DESTINATION_PHOTOS[3],
   Motorcycle: { src: "/images/samples/scooters.jpg", alt: "Sample photo: scooters parked by the road" },
-  Bicycle: { src: "/images/samples/scooters.jpg", alt: "Sample photo: scooters parked by the road" },
-  "E-trike": { src: "/images/samples/scooters.jpg", alt: "Sample photo: scooters parked by the road" },
   "Snorkel gear": ACTIVITY_PHOTOS.snorkelling,
-  Photographer: ACTIVITY_PHOTOS.photography,
   Camera: ACTIVITY_PHOTOS.photography,
   "Action camera": ACTIVITY_PHOTOS.photography,
 };
