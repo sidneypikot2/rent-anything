@@ -6,7 +6,7 @@ import { categoryIcon } from "@/components/discovery/icons";
 import { StayPrice, stayPriceLine } from "@/components/discovery/stay-price";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
-import { listingPhoto } from "@/components/landing/sample-photos";
+import { ListingGallery } from "@/components/discovery/listing-gallery";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { readTripDates, tripDatesQuery } from "@/components/trips/trip-dates";
@@ -37,6 +37,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   if (!listing) notFound();
   const { area, category } = listing;
   const rate = listing.stay_rate;
+  const cover = listing.photos.at(0);
   const nightsSet = Boolean(dates.from && dates.to && dates.from < dates.to);
   const quote =
     rate && nightsSet && dates.from && dates.to
@@ -46,6 +47,8 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   return (
     <main className="flex flex-1 flex-col">
       <PageBanner
+        // Its own cover (RAA-109); without one the banner stays on the backdrop (RAA-107).
+        photo={cover && { src: cover.large_url, alt: listing.title }}
         eyebrow={
           <span className="flex items-center gap-2">
             <span aria-hidden className="text-sky-pale">
@@ -92,6 +95,8 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
         </TripAddProvider>
 
         {rate && <StayPrice listing={listing} rate={rate} quote={quote} datesSet={Boolean(dates.from && dates.to)} />}
+
+        {listing.photos.length > 1 && <ListingGallery title={listing.title} photos={listing.photos} />}
 
         {listing.description.trim() && (
           <section className="flex flex-col gap-2">

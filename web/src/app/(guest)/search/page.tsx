@@ -7,7 +7,7 @@ import { ListingCard } from "@/components/discovery/cards";
 import { areaIcon, placeIcon, tagIcon } from "@/components/discovery/icons";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
-import { listingPhoto } from "@/components/landing/sample-photos";
+import { listingCover } from "@/components/landing/sample-photos";
 import { SearchBox } from "@/components/discovery/search-box";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
@@ -128,7 +128,7 @@ function Results({ results }: { results: SearchResults }) {
                   title={listing.title}
                   category={listing.category}
                   note={listingNote(listing, results)}
-                  photo={listingPhoto(listing.category, index)}
+                  photo={listingCover(listing, index)}
                 />
               </li>
             ))}

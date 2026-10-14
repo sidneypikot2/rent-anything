@@ -52,6 +52,9 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
     changes.push(`Units: ${listing.units_count} → ${body.units_count}`);
   }
   if (body.cancellation_policy) compare("Cancellation policy", listing.cancellation_policy, body.cancellation_policy);
+  if (body.photos && body.photos.join(",") !== listing.photos.map((photo) => photo.id).join(",")) {
+    changes.push("Photo order");
+  }
   const landmarkIds = (ids: number[]) => [...ids].sort((a, b) => a - b).join(",");
   if (body.landmark_ids && landmarkIds(listing.landmarks.map((landmark) => landmark.id)) !== landmarkIds(body.landmark_ids)) {
     changes.push("Landmarks");

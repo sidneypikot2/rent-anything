@@ -57,6 +57,20 @@ export function listingPhoto(category: string, index: number): Photo {
   return CATEGORY_PHOTOS[category] ?? destinationPhoto(index);
 }
 
+// A listing card's photo: its own cover from the API (RAA-109), or else the stand-in.
+export function listingCover(
+  listing: { title: string; category: string; cover_photo_url: string | null },
+  index: number,
+): Photo {
+  return listing.cover_photo_url ? { src: listing.cover_photo_url, alt: listing.title } : listingPhoto(listing.category, index);
+}
+
+// A listing's own photos are already sized by the API and served from storage (RAA-106), so
+// next/image passes them through rather than optimising them again; the stand-ins are local.
+export function isApiPhoto(src: string) {
+  return /^https?:\/\//.test(src);
+}
+
 // A landmark's photo by the first of its tags that has one, or else one in turn.
 export function landmarkPhoto(tags: { slug: string }[], index: number): Photo {
   const tag = tags.find((t) => ACTIVITY_PHOTOS[t.slug]);

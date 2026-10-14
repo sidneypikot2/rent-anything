@@ -7,18 +7,21 @@ type Step = { key: string; label: string };
 // Adding a listing, laid out as a sidebar of its sections beside the current one (RAA-83).
 // On a phone the sections are a row above it that scrolls sideways. Any section up to the
 // furthest one reached can be opened again (RAA-93), so going back loses nothing; the
-// wizard checks the current section before moving forward.
+// wizard checks the current section before moving forward. Once the listing is saved and
+// only its photos are left (RAA-109), `locked` closes the sections before.
 export function WizardLayout({
   steps,
   current,
   reached,
   onSelect,
+  locked = false,
   children,
 }: {
   steps: Step[];
   current: number;
   reached: number;
   onSelect: (index: number) => void;
+  locked?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -28,7 +31,7 @@ export function WizardLayout({
           {steps.map((step, index) => {
             const done = index < reached;
             const active = index === current;
-            const open = index <= reached && !active;
+            const open = !locked && index <= reached && !active;
             return (
               <li key={step.key} className="shrink-0">
                 <button

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
 import { Button } from "@/components/ui/button";
@@ -25,10 +24,10 @@ import {
 } from "./cancellation-policy";
 import { LandmarkPicker } from "./landmark-picker";
 import { LocationPicker } from "./location-picker";
-import { PhotoUploadSkeleton } from "./photo-upload-skeleton";
+import { NewListingPhotos } from "./new-listing-photos";
 import { SameAsBusinessAddress, useSameAsBusinessAddress } from "./same-as-business-address";
 import type { PartnerBusiness } from "./use-partner-businesses";
-import { useCreateListing, type ListingCategory } from "./use-partner-listings";
+import { useCreateListing, type ListingBody, type ListingCategory, type PartnerListing } from "./use-partner-listings";
 import { UnitsField } from "./units-field";
 import { isVehicle, NEW_VEHICLE, toVehicleAttrs, VehicleFields, type VehicleValues } from "./vehicle-fields";
 import { WizardCancel } from "./wizard-cancel";
@@ -40,11 +39,12 @@ type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "photos"
 // Adding a listing of the chosen category (RAA-50), one step at a time: Basic, Location,
 // Route (the landmarks a tour visits, RAA-70; not a photographer, RAA-89), the category's
 // own details (skipped when it has none; a vehicle's make, model, engine and color, RAA-89),
-// photos (a placeholder until the API stores them), Rate, the cancellation policy (RAA-89)
-// and how many identical units it has (RAA-99). Only the current step is
-// on the page, so the browser's required checks cover just that step; every value is kept
-// here, so going back loses nothing, and any step already reached opens again (RAA-93).
-// The listing is saved as a draft. Accommodation has its own steps (StayWizard).
+// Rate, the cancellation policy (RAA-89), how many identical units it has (RAA-99) and,
+// last, photos. Only the current step is on the page, so the browser's required checks
+// cover just that step; every value is kept here, so going back loses nothing, and any step
+// already reached opens again (RAA-93). Units saves the listing as a draft, since a photo
+// needs a listing to belong to (RAA-109); then only Photos is open (NewListingPhotos).
+// Accommodation has its own steps (StayWizard).
 export function ListingWizard({
   business,
   category,
@@ -54,7 +54,6 @@ export function ListingWizard({
   category: ListingCategory;
   policies: CancellationPolicies;
 }) {
-  const router = useRouter();
   const create = useCreateListing();
   const vehicle = isVehicle(category);
   const fields = vehicle ? [] : attributeFields(category);
@@ -65,16 +64,18 @@ export function ListingWizard({
     ...(withLandmarks ? [{ key: "route" as const, label: "Route" }] : []),
     ...(fields.length > 0 ? [{ key: "details" as const, label: `${category.name} details` }] : []),
     ...(vehicle ? [{ key: "vehicle" as const, label: "Vehicle details" }] : []),
-    { key: "photos", label: "Photos" },
     { key: "rate", label: "Rate" },
     { key: "cancellation", label: "Cancellation policy" },
     { key: "units", label: "Units" },
+    { key: "photos", label: "Photos" },
   ];
   const [stepIndex, setStepIndex] = useState(0);
   const [reached, setReached] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
   const step = steps[stepIndex];
-  const isLast = stepIndex === steps.length - 1;
+  // The last step before Photos saves the listing.
+  const isLast = stepIndex === steps.length - 2;
+  const [saved, setSaved] = useState<{ listing: PartnerListing; body: ListingBody }>();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -118,20 +119,32 @@ export function ListingWizard({
     }
     if (!stepIsValid()) return;
     if (!location) return;
-    create.mutate(
-      {
-        title: title.trim(),
-        description: description.trim(),
-        business_id: business.id,
-        category_id: category.id,
-        address: address.toBody(),
-        location,
-        attrs: vehicle ? toVehicleAttrs(vehicleValues) : toAttrs(fields, attrValues),
-        cancellation_policy: policy,
-        units_count: units,
-        ...(withLandmarks && { landmark_ids: landmarks.map((landmark) => landmark.id) }),
+    const body: ListingBody = {
+      title: title.trim(),
+      description: description.trim(),
+      business_id: business.id,
+      category_id: category.id,
+      address: address.toBody(),
+      location,
+      attrs: vehicle ? toVehicleAttrs(vehicleValues) : toAttrs(fields, attrValues),
+      cancellation_policy: policy,
+      units_count: units,
+      ...(withLandmarks && { landmark_ids: landmarks.map((landmark) => landmark.id) }),
+    };
+    create.mutate(body, {
+      onSuccess: (listing) => {
+        setSaved({ listing, body });
+        setStepIndex(steps.length - 1);
+        setReached(steps.length - 1);
       },
-      { onSuccess: () => router.push("/partner/listings") },
+    });
+  }
+
+  if (saved) {
+    return (
+      <WizardLayout steps={steps} current={stepIndex} reached={reached} onSelect={goTo} locked>
+        <NewListingPhotos listing={saved.listing} body={saved.body} />
+      </WizardLayout>
     );
   }
 
@@ -211,8 +224,6 @@ export function ListingWizard({
 
           {step.key === "vehicle" && <VehicleFields values={vehicleValues} onChange={setVehicleValues} />}
 
-          {step.key === "photos" && <PhotoUploadSkeleton />}
-
           {step.key === "rate" && (
             <Field
               label="Daily rate (₱)"
@@ -236,11 +247,7 @@ export function ListingWizard({
           next={
             isLast ? (
               <Button type="submit" disabled={create.isPending} data-testid="listing-save">
-                {create.isPending ? "Saving…" : "Save as draft"}
-              </Button>
-            ) : step.key === "photos" ? (
-              <Button type="submit" variant="soft" data-testid="listing-skip-photos">
-                Skip for now
+                {create.isPending ? "Saving…" : "Save and add photos"}
               </Button>
             ) : (
               <Button type="submit" data-testid="listing-next">

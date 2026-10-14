@@ -2,6 +2,7 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { cn } from "@/components/ui/cn";
 import { GlassPanel } from "@/components/ui/glass";
+import { isApiPhoto } from "./sample-photos";
 import { HEADER_PULL } from "./section-header";
 
 type Photo = { src: string; alt: string };
@@ -63,6 +64,7 @@ export function PageBanner({
             alt={photo.alt}
             fill
             preload
+            unoptimized={isApiPhoto(photo.src)}
             sizes="(min-width: 72rem) 72rem, 100vw"
             className="-z-20 object-cover motion-safe:animate-drift"
           />
