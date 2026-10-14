@@ -13,6 +13,7 @@ import { Field } from "@/components/ui/field";
 import { MonthCalendar, type DayMark } from "@/components/ui/month-calendar";
 import { Pill } from "@/components/ui/pill";
 import { StepperField } from "@/components/ui/stepper-field";
+import { Eyebrow } from "@/components/ui/typography";
 import { formatDateRange, todayIso } from "@/lib/dates";
 import { formatPeso, fromCents, toCents } from "@/lib/money";
 import {
@@ -748,7 +749,7 @@ export function TourPricingFields({ values, onChange, errors }: SectionProps) {
 
       {example && (
         <div className="flex flex-col gap-1 rounded-card bg-mist px-5 py-4 animate-rise" data-testid="tour-pricing-example">
-          <span className="text-xs font-bold uppercase tracking-[0.14em] text-primary">For example</span>
+          <Eyebrow>For example</Eyebrow>
           <span className="text-sm">
             For {example.who}: <span className="font-display text-lg font-extrabold tabular-nums">{example.total}</span>
           </span>
