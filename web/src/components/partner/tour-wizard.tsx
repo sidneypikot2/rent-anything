@@ -15,11 +15,11 @@ import {
   type CancellationPolicies,
   type CancellationPolicy,
 } from "./cancellation-policy";
-import { categoryLabel, NO_ADDRESS } from "./listing-fields";
+import { categoryLabel } from "./listing-fields";
 import { LandmarkPicker } from "./landmark-picker";
 import { LocationPicker } from "./location-picker";
 import { NewListingPhotos } from "./new-listing-photos";
-import { SameAsBusinessAddress, useSameAsBusinessAddress } from "./same-as-business-address";
+import { SameAsBusinessAddress, startingAddress, startingPin, useSameAsBusinessAddress } from "./same-as-business-address";
 import {
   basePriceText,
   NEW_TOUR,
@@ -89,8 +89,8 @@ export function TourWizard({
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const address = usePhAddress(NO_ADDRESS);
-  const [location, setLocation] = useState<LatLng | null>(null);
+  const address = usePhAddress(startingAddress(business));
+  const [location, setLocation] = useState<LatLng | null>(() => startingPin(business));
   const [locationError, setLocationError] = useState<string>();
   const sameAddress = useSameAsBusinessAddress(business, address, (point) => {
     setLocation(point);

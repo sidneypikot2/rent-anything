@@ -3,6 +3,7 @@
 import { Map as MapLibreMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import {
   DEFAULT_MAP_CENTER,
@@ -30,7 +31,8 @@ const GEOCODE_DELAY_MS = 600;
 // A map the partner clicks to drop the listing's pin on, then drags to adjust it.
 // A complete address moves the pin there too. A pin given when the map opens (a saved
 // listing, RAA-47) is shown there, and the map starts on it; a pin given later (copied from
-// the business, RAA-101) moves the map to it.
+// the business, RAA-101) moves the map to it. "Use my location" pins the spot the partner
+// is standing on, which also gives a keyboard-only partner a way to place it besides the address.
 export function LocationPicker({ value, onChange, geocodeQuery, error, readOnly = false, label = "Pin the spot" }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -42,6 +44,8 @@ export function LocationPicker({ value, onChange, geocodeQuery, error, readOnly 
   const readOnlyRef = useRef(readOnly);
   const [failed, setFailed] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState<string>();
   // The latest callback, so the map's listeners, bound once, never call a stale one.
   const onChangeRef = useRef(onChange);
   useEffect(() => {
@@ -159,10 +163,43 @@ export function LocationPicker({ value, onChange, geocodeQuery, error, readOnly 
   }, [geocodeQuery]);
 
   const unavailable = failed;
+  function locateMe() {
+    if (!("geolocation" in navigator)) {
+      setLocateError("This browser can't share your location. Drop the pin on the map instead.");
+      return;
+    }
+    setLocating(true);
+    setLocateError(undefined);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setLocating(false);
+        const point = { lat: coords.latitude, lng: coords.longitude };
+        if (!placePinRef.current || !mapRef.current) return;
+        placePinRef.current(point);
+        mapRef.current.jumpTo({ center: toLngLat(point), zoom: 17 });
+      },
+      (problem) => {
+        setLocating(false);
+        setLocateError(
+          problem.code === problem.PERMISSION_DENIED
+            ? "Location is blocked for this site. Allow it in your browser, or drop the pin on the map."
+            : "Couldn't find where you are. Drop the pin on the map instead.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
+  }
 
   return (
     <div data-testid="location-picker" className="flex flex-col gap-1 text-sm font-medium">
-      <span>{label}</span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span>{label}</span>
+        {!readOnly && !unavailable && (
+          <Button type="button" size="sm" variant="soft" onClick={locateMe} disabled={locating} data-testid="use-my-location">
+            {locating ? "Finding you…" : "Use my location"}
+          </Button>
+        )}
+      </div>
       {unavailable ? (
         <p
           role="status"
@@ -173,20 +210,26 @@ export function LocationPicker({ value, onChange, geocodeQuery, error, readOnly 
       ) : (
         <div
           ref={containerRef}
-          aria-label={readOnly ? "Map showing the pin" : "Map: click to drop the pin"}
+          aria-label={readOnly ? "Map showing the pin" : "Map: tap to drop the pin, or use your location or the address"}
           className={cn(
             "h-80 w-full overflow-hidden rounded-control border",
             error ? "border-danger" : "border-line-strong",
           )}
         />
       )}
-      <span className={cn("text-xs font-normal", error || notFound ? "text-danger" : "text-muted")}>
+      <span
+        role={locateError ? "alert" : undefined}
+        className={cn("text-xs font-normal", error || notFound || locateError ? "text-danger" : "text-muted")}
+      >
         {error ??
+          locateError ??
           (notFound
-            ? "Couldn't find that address on the map; drop the pin yourself."
+            ? "Couldn't find that address on the map. Drop the pin yourself."
             : value
-              ? `Pinned at ${value.lat.toFixed(5)}, ${value.lng.toFixed(5)}.${readOnly ? "" : " Drag the pin to adjust."}`
-              : "Fill in the address to place the pin, or click the map where travellers meet you.")}
+              ? readOnly
+                ? "Pinned at the business's spot."
+                : "Pin placed. Drag it to where travellers meet you."
+              : "Tap the map where travellers meet you, use your location, or fill in the address.")}
       </span>
     </div>
   );

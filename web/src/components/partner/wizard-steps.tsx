@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
@@ -12,6 +14,8 @@ type Step = { key: string; label: string };
 // wizard checks the current section before moving forward. Once the listing is saved and
 // only its photos are left (RAA-109), `locked` closes the sections before. The sections sit on
 // the page's glass; the current one is a white card that rises in as it opens (RAA-111).
+// Moving to another section takes keyboard focus to it, so a screen reader reads where it
+// landed, and on a phone scrolls the row of sections to show the current one.
 export function WizardLayout({
   steps,
   current,
@@ -27,9 +31,30 @@ export function WizardLayout({
   locked?: boolean;
   children: ReactNode;
 }) {
+  const navRef = useRef<HTMLElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const firstRender = useRef(true);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    const button = nav?.querySelector<HTMLElement>("[aria-current=step]");
+    // Only the row's own sideways scroll: scrollIntoView could move the whole page.
+    if (nav && button && nav.scrollWidth > nav.clientWidth) {
+      nav.scrollTo({ left: button.offsetLeft - (nav.clientWidth - button.offsetWidth) / 2, behavior: "smooth" });
+    }
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    bodyRef.current?.focus({ preventScroll: true });
+    if (bodyRef.current && bodyRef.current.getBoundingClientRect().top < 0) {
+      bodyRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [current]);
+
   return (
     <div className="flex w-full flex-col gap-6 md:grid md:grid-cols-[13rem_1fr] md:items-start md:gap-10">
-      <nav aria-label="Sections" className="-mx-4 overflow-x-auto px-4 md:sticky md:top-24 md:mx-0 md:px-0">
+      <nav ref={navRef} aria-label="Sections" className="relative -mx-4 overflow-x-auto px-4 md:sticky md:top-24 md:mx-0 md:px-0">
         <ol data-testid="wizard-sections" className="flex gap-2 md:flex-col md:gap-1">
           {steps.map((step, index) => {
             const done = index < reached;
@@ -67,7 +92,15 @@ export function WizardLayout({
         </ol>
       </nav>
       <Card clip={false} className="min-w-0">
-        <CardBody pad="lg" key={current} className="flex animate-rise flex-col gap-2">
+        <CardBody
+          pad="lg"
+          key={current}
+          ref={bodyRef}
+          tabIndex={-1}
+          role="group"
+          aria-label={`Step ${current + 1} of ${steps.length}: ${steps[current]?.label}`}
+          className="flex animate-rise scroll-mt-24 flex-col gap-2 outline-none"
+        >
           <Eyebrow>
             Step {current + 1} of {steps.length}
           </Eyebrow>

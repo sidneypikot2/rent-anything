@@ -4,6 +4,7 @@ import { ListingsByBusiness } from "@/components/partner/listings-table";
 import { usePartnerBusinesses } from "@/components/partner/use-partner-businesses";
 import { usePartnerListings } from "@/components/partner/use-partner-listings";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { Card, CardBody } from "@/components/ui/card";
 import { DisplayTitle } from "@/components/ui/typography";
 
 // The partner's listings, in any status (RAA-41), grouped by business (RAA-101) and then
@@ -25,9 +26,17 @@ export default function PartnerListings() {
         businesses.data.length > 0 ? (
           <ListingsByBusiness businesses={businesses.data} listings={listings.data} />
         ) : (
-          <p data-testid="listings-empty" className="text-sm text-muted">
-            No listings yet. Add your business first, then the first thing you offer: a tour, a motorbike, a room.
-          </p>
+          <Card data-testid="listings-empty">
+            <CardBody pad="lg" className="flex flex-col items-start gap-3">
+              <h2 className="text-lg font-semibold">No listings yet</h2>
+              <p className="max-w-prose text-sm text-muted">
+                Add your business first, then the first thing you offer: a tour, a motorbike, a room.
+              </p>
+              <ButtonLink href="/partner/businesses/new?next=/partner/listings/new" size="sm">
+                Add your business
+              </ButtonLink>
+            </CardBody>
+          </Card>
         )
       ) : failed ? (
         <div className="flex flex-col items-start gap-3">
@@ -46,7 +55,11 @@ export default function PartnerListings() {
           </Button>
         </div>
       ) : (
-        <p className="text-sm text-muted">Loading your listings…</p>
+        <div role="status" className="flex flex-col gap-4">
+          <span className="sr-only">Loading your listings…</span>
+          <div aria-hidden="true" className="h-8 w-48 animate-pulse rounded-control bg-glass-fill" />
+          <div aria-hidden="true" className="h-40 animate-pulse rounded-card bg-glass-fill" />
+        </div>
       )}
     </main>
   );

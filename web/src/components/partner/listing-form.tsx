@@ -1,10 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { Card, CardBody } from "@/components/ui/card";
+import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
+import { GlassPanel, glassClasses } from "@/components/ui/glass";
 import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
 import { TextareaField } from "@/components/ui/textarea-field";
@@ -16,7 +19,9 @@ import {
   AttributeFields,
   attributeFields,
   categoryLabel,
+  descriptionHint,
   geocodeQuery,
+  titleExample,
   toAttributeValues,
   toAttrs,
   visitsLandmarks as picksLandmarks,
@@ -182,214 +187,252 @@ export function ListingForm({
     });
   }
 
+  // The page's sections, in order, for the index beside them (and above them on a phone).
+  const sections = [
+    { id: "about", label: "About" },
+    { id: "where", label: "Where it is" },
+    ...(visitsLandmarks ? [{ id: "landmarks", label: tourCategory ? "Destinations" : "Landmarks" }] : []),
+    ...(stayCategory
+      ? [
+          { id: "place", label: "What guests book" },
+          { id: "property", label: "Property info" },
+          { id: "amenities", label: "Amenities" },
+          { id: "stay-pricing", label: "Pricing" },
+        ]
+      : []),
+    ...(tourCategory
+      ? [
+          { id: "tour", label: "The tour" },
+          { id: "group", label: "Group and duration" },
+          { id: "inclusions", label: "Inclusions" },
+          { id: "tour-pricing", label: "Pricing" },
+        ]
+      : []),
+    ...(vehicleCategory ? [{ id: "vehicle", label: "Vehicle details" }] : []),
+    ...(fields.length > 0 ? [{ id: "details", label: "Details" }] : []),
+    { id: "cancellation", label: "Cancellation policy" },
+    ...(!tourCategory ? [{ id: "units", label: "Units" }] : []),
+    { id: "photos", label: "Photos" },
+  ];
+
   return (
-    <form data-testid="listing-form" onSubmit={onSubmit} className="flex max-w-2xl flex-col gap-6">
-      {update.error && (
-        <p role="alert" className="text-sm text-danger">
-          {update.error.message}
-        </p>
-      )}
+    <form
+      data-testid="listing-form"
+      onSubmit={onSubmit}
+      className="flex flex-col gap-6 md:grid md:grid-cols-[13rem_minmax(0,42rem)] md:items-start md:gap-10"
+    >
+      <nav aria-label="Sections" className="-mx-4 overflow-x-auto px-4 md:sticky md:top-24 md:mx-0 md:px-0">
+        <ol className="flex gap-2 md:flex-col md:gap-1">
+          {sections.map((section) => (
+            <li key={section.id} className="shrink-0">
+              <a
+                href={`#${section.id}`}
+                className={cn(
+                  glassClasses("dark"),
+                  "flex rounded-full px-3 py-2 text-sm whitespace-nowrap hover:bg-glass-hover",
+                  "md:border-transparent md:bg-transparent md:backdrop-blur-none",
+                )}
+              >
+                {section.label}
+              </a>
+            </li>
+          ))}
+        </ol>
+      </nav>
 
-      <div className="flex flex-col gap-4">
-        {businesses.length > 1 && (
-          <SelectField
-            label="Business"
-            name="business_id"
-            required
-            value={businessId}
-            onChange={(event) => setBusinessId(event.target.value)}
-            options={businesses.map((business) => ({ value: String(business.id), label: business.name }))}
-          />
+      <div className="flex min-w-0 flex-col gap-6">
+        {update.error && (
+          <GlassPanel role="alert" className="rounded-card px-5 py-4 text-sm font-semibold">
+            {update.error.message}
+          </GlassPanel>
         )}
-        <SelectField
-          label="Category"
-          name="category_id"
-          required
-          value={categoryId}
-          onChange={(event) => {
-            setCategoryId(event.target.value);
-            setAttrValues({});
-            setStay(toStayValues({}));
-            setVehicleValues(toVehicleValues({}));
-          }}
-          options={[
-            { value: "", label: "Choose what you're listing" },
-            ...options.categories.map((option) => ({
-              value: String(option.id),
-              label: categoryLabel(option),
-            })),
-          ]}
-        />
-        <Field
-          label="Title"
-          name="title"
-          required
-          maxLength={120}
-          defaultValue={listing.title}
-          placeholder="e.g. Sardine run and turtle snorkel"
-        />
-        <TextareaField
-          label="Description"
-          name="description"
-          maxLength={5000}
-          defaultValue={listing.description}
-          hint="What's included, what to bring, anything a traveller should know."
-        />
-      </div>
+        {tourProblems && (
+          <GlassPanel role="alert" className="rounded-card px-5 py-4 text-sm font-semibold">
+            Check the tour&apos;s details: the sections below say what&apos;s missing.
+          </GlassPanel>
+        )}
 
-      <fieldset className="flex flex-col gap-4">
-        <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Where it is</legend>
-        <PhAddressFields address={address} />
-        <LocationPicker
-          value={location}
-          onChange={(point) => {
-            setLocation(point);
-            setLocationError(undefined);
-          }}
-          geocodeQuery={addressQuery}
-          error={locationError}
-        />
-      </fieldset>
-
-      {visitsLandmarks && (
-        <fieldset data-testid="listing-landmarks" className="flex flex-col gap-4">
-          <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">
-            {tourCategory ? "Destinations" : "Landmarks it visits"}
-          </legend>
-          <LandmarkPicker value={landmarks} onChange={setLandmarks} near={location} />
-        </fieldset>
-      )}
-
-      {stayCategory && (
-        <>
-          <fieldset data-testid="listing-stay-place" className="flex flex-col gap-4">
-            <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">What guests book</legend>
-            <PlaceTypeChoice values={stay} onChange={setStay} />
-          </fieldset>
-          <fieldset data-testid="listing-stay-info" className="flex flex-col gap-4">
-            <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Property info</legend>
-            <PropertyInfoFields
-              values={stay}
-              onChange={(values) => {
-                setStay(values);
-                setInfoErrors(undefined);
-              }}
-              errors={infoErrors}
+        <EditSection id="about" title="About">
+          {businesses.length > 1 && (
+            <SelectField
+              label="Business"
+              name="business_id"
+              required
+              value={businessId}
+              onChange={(event) => setBusinessId(event.target.value)}
+              options={businesses.map((business) => ({ value: String(business.id), label: business.name }))}
             />
-          </fieldset>
-          <fieldset className="flex flex-col gap-4">
-            <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Amenities</legend>
-            <AmenityChoice values={stay} onChange={setStay} />
-          </fieldset>
-          <fieldset data-testid="listing-stay-pricing" className="flex flex-col gap-4">
-            <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Pricing</legend>
-            {!listing.stay_rate?.nightly_price_cents && (
-              <p role="status" className="text-sm font-medium text-warning">
-                Set a nightly price: guests don&apos;t see a price for this place until you do.
-              </p>
-            )}
-            <StayPricingFields
-              values={pricing}
-              onChange={(values) => {
-                setPricing(values);
-                setPriceErrors(undefined);
-              }}
-              placeType={stay.placeType}
-              sleeps={stay.guests}
-              errors={priceErrors}
-            />
-          </fieldset>
-        </>
-      )}
+          )}
+          <SelectField
+            label="Category"
+            name="category_id"
+            required
+            value={categoryId}
+            onChange={(event) => {
+              setCategoryId(event.target.value);
+              setAttrValues({});
+              setStay(toStayValues({}));
+              setVehicleValues(toVehicleValues({}));
+            }}
+            options={[
+              { value: "", label: "Choose what you're listing" },
+              ...options.categories.map((option) => ({
+                value: String(option.id),
+                label: categoryLabel(option),
+              })),
+            ]}
+          />
+          <Field
+            label="Title"
+            name="title"
+            required
+            maxLength={120}
+            defaultValue={listing.title}
+            placeholder={`e.g. ${titleExample(category)}`}
+          />
+          <TextareaField
+            label="Description"
+            name="description"
+            maxLength={5000}
+            defaultValue={listing.description}
+            hint={descriptionHint(category)}
+          />
+        </EditSection>
 
-      {tourCategory && (
-        <>
-          {tourProblems && (
-            <p role="alert" className="text-sm text-danger">
-              Check the tour&apos;s details below.
+        <EditSection id="where" title="Where it is">
+          <PhAddressFields address={address} />
+          <LocationPicker
+            value={location}
+            onChange={(point) => {
+              setLocation(point);
+              setLocationError(undefined);
+            }}
+            geocodeQuery={addressQuery}
+            error={locationError}
+          />
+        </EditSection>
+
+        {visitsLandmarks && (
+          <EditSection id="landmarks" title={tourCategory ? "Destinations" : "Landmarks it visits"} data-testid="listing-landmarks">
+            <LandmarkPicker value={landmarks} onChange={setLandmarks} near={location} />
+          </EditSection>
+        )}
+
+        {stayCategory && (
+          <>
+            <EditSection id="place" title="What guests book" data-testid="listing-stay-place">
+              <PlaceTypeChoice values={stay} onChange={setStay} />
+            </EditSection>
+            <EditSection id="property" title="Property info" data-testid="listing-stay-info">
+              <PropertyInfoFields
+                values={stay}
+                onChange={(values) => {
+                  setStay(values);
+                  setInfoErrors(undefined);
+                }}
+                errors={infoErrors}
+              />
+            </EditSection>
+            <EditSection id="amenities" title="Amenities">
+              <AmenityChoice values={stay} onChange={setStay} />
+            </EditSection>
+            <EditSection id="stay-pricing" title="Pricing" data-testid="listing-stay-pricing">
+              {!listing.stay_rate?.nightly_price_cents && (
+                <p role="status" className="text-sm font-medium text-warning">
+                  Set a nightly price: guests don&apos;t see a price for this place until you do.
+                </p>
+              )}
+              <StayPricingFields
+                values={pricing}
+                onChange={(values) => {
+                  setPricing(values);
+                  setPriceErrors(undefined);
+                }}
+                placeType={stay.placeType}
+                sleeps={stay.guests}
+                errors={priceErrors}
+              />
+            </EditSection>
+          </>
+        )}
+
+        {tourCategory && (
+          <>
+            <EditSection id="tour" title="The tour" data-testid="listing-tour-type">
+              {listing.tour && !listing.tour.base_price_cents && (
+                <p role="status" className="text-sm font-medium text-warning">
+                  Set the tour&apos;s details and price: guests don&apos;t see a price for it until you do.
+                </p>
+              )}
+              <TourTypeChoice values={tour} onChange={changeTour} />
+            </EditSection>
+            <EditSection id="group" title="Group and duration" data-testid="listing-tour-group">
+              <TourGroupFields values={tour} onChange={changeTour} errors={tourProblems} />
+            </EditSection>
+            <EditSection id="inclusions" title="Inclusions" data-testid="listing-tour-inclusions">
+              <TourInclusionFields
+                values={tour}
+                onChange={changeTour}
+                errors={tourProblems}
+                kinds={options.tour_inclusions}
+                extras={extras}
+              />
+            </EditSection>
+            <EditSection id="tour-pricing" title="Pricing" data-testid="listing-tour-pricing">
+              <TourPricingFields values={tour} onChange={changeTour} errors={tourProblems} />
+            </EditSection>
+          </>
+        )}
+
+        {vehicleCategory && (
+          <EditSection id="vehicle" title="Vehicle details">
+            <VehicleFields values={vehicleValues} onChange={setVehicleValues} />
+          </EditSection>
+        )}
+
+        {fields.length > 0 && (
+          <EditSection id="details" title="Details" data-testid="listing-details">
+            <AttributeFields fields={fields} values={attrValues} onChange={setAttrValues} />
+          </EditSection>
+        )}
+
+        <EditSection id="cancellation" title="Cancellation policy">
+          <CancellationPolicyChoice policies={options.cancellation_policies} value={policy} onChange={setPolicy} />
+        </EditSection>
+
+        {!tourCategory && (
+          <EditSection id="units" title="Units">
+            <UnitsField bookingType={category?.booking_type} value={units} onChange={setUnits} />
+          </EditSection>
+        )}
+
+        <EditSection id="photos" title="Photos">
+          <p className="text-sm text-muted">New photos and deletions are saved straight away; a new order is saved with the rest.</p>
+          {extraPhotos > 0 && (
+            <p role="alert" className="text-sm font-medium text-warning" data-testid="listing-photos-over-limit">
+              A tour can have at most {photoLimit} photos: delete {extraPhotos} before saving.
             </p>
           )}
-          <fieldset data-testid="listing-tour-type" className="flex flex-col gap-4">
-            <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">The tour</legend>
-            {listing.tour && !listing.tour.base_price_cents && (
-              <p role="status" className="text-sm font-medium text-warning">
-                Set the tour&apos;s details and price: guests don&apos;t see a price for it until you do.
-              </p>
-            )}
-            <TourTypeChoice values={tour} onChange={changeTour} />
-          </fieldset>
-          <fieldset data-testid="listing-tour-group" className="flex flex-col gap-4">
-            <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Group and duration</legend>
-            <TourGroupFields values={tour} onChange={changeTour} errors={tourProblems} />
-          </fieldset>
-          <fieldset data-testid="listing-tour-inclusions" className="flex flex-col gap-4">
-            <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Inclusions</legend>
-            <TourInclusionFields
-              values={tour}
-              onChange={changeTour}
-              errors={tourProblems}
-              kinds={options.tour_inclusions}
-              extras={extras}
-            />
-          </fieldset>
-          <fieldset data-testid="listing-tour-pricing" className="flex flex-col gap-4">
-            <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Pricing</legend>
-            <TourPricingFields values={tour} onChange={changeTour} errors={tourProblems} />
-          </fieldset>
-        </>
-      )}
+          <ListingPhotos
+            listingId={listing.id}
+            photos={listing.photos}
+            limit={photoLimit}
+            order={photoOrder}
+            onOrderChange={setPhotoOrder}
+            onBusyChange={setPhotosBusy}
+          />
+        </EditSection>
 
-      {vehicleCategory && (
-        <fieldset className="flex flex-col gap-4">
-          <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Vehicle details</legend>
-          <VehicleFields values={vehicleValues} onChange={setVehicleValues} />
-        </fieldset>
-      )}
-
-      {fields.length > 0 && (
-        <fieldset data-testid="listing-details" className="flex flex-col gap-4">
-          <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Details</legend>
-          <AttributeFields fields={fields} values={attrValues} onChange={setAttrValues} />
-        </fieldset>
-      )}
-
-      <fieldset className="flex flex-col gap-4">
-        <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Cancellation policy</legend>
-        <CancellationPolicyChoice policies={options.cancellation_policies} value={policy} onChange={setPolicy} />
-      </fieldset>
-
-      {!tourCategory && (
-        <fieldset className="flex flex-col gap-4">
-          <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Units</legend>
-          <UnitsField bookingType={category?.booking_type} value={units} onChange={setUnits} />
-        </fieldset>
-      )}
-
-      <fieldset className="flex flex-col gap-4">
-        <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Photos</legend>
-        <p className="text-sm text-muted">New photos and deletions are saved straight away; a new order is saved with the rest.</p>
-        {extraPhotos > 0 && (
-          <p role="alert" className="text-sm font-medium text-warning" data-testid="listing-photos-over-limit">
-            A tour can have at most {photoLimit} photos: delete {extraPhotos} before saving.
-          </p>
-        )}
-        <ListingPhotos
-          listingId={listing.id}
-          photos={listing.photos}
-          limit={photoLimit}
-          order={photoOrder}
-          onOrderChange={setPhotoOrder}
-          onBusyChange={setPhotosBusy}
-        />
-      </fieldset>
-
-      <div className="flex gap-3">
-        <Button type="submit" disabled={update.isPending || photosBusy} data-testid="listing-save">
-          {update.isPending ? "Saving…" : "Save changes"}
-        </Button>
-        <ButtonLink href={listingPath} variant="soft">
-          Cancel
-        </ButtonLink>
+        <Card className="sticky bottom-4 z-10 shadow-float">
+          <CardBody pad="sm" className="flex items-center justify-between gap-3">
+            <ButtonLink href={listingPath} variant="soft">
+              Cancel
+            </ButtonLink>
+            <Button type="submit" disabled={update.isPending || photosBusy} data-testid="listing-save">
+              {update.isPending ? "Saving…" : "Save changes"}
+            </Button>
+          </CardBody>
+        </Card>
       </div>
 
       <Dialog
@@ -427,5 +470,30 @@ export function ListingForm({
         )}
       </Dialog>
     </form>
+  );
+}
+
+// One section of the edit page: a white card, so its fields read as they do in the wizard
+// rather than straight on the photo, with an id the index above links to.
+function EditSection({
+  id,
+  title,
+  children,
+  "data-testid": testId,
+}: {
+  id: string;
+  title: string;
+  children: ReactNode;
+  "data-testid"?: string;
+}) {
+  return (
+    <Card id={id} clip={false} className="scroll-mt-24">
+      <CardBody pad="lg">
+        <fieldset data-testid={testId} className="flex min-w-0 flex-col gap-4">
+          <legend className="mb-2 font-display text-xl font-extrabold tracking-tight">{title}</legend>
+          {children}
+        </fieldset>
+      </CardBody>
+    </Card>
   );
 }

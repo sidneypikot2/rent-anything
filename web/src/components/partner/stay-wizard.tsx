@@ -13,10 +13,10 @@ import {
   type CancellationPolicies,
   type CancellationPolicy,
 } from "./cancellation-policy";
-import { categoryLabel, NO_ADDRESS } from "./listing-fields";
+import { categoryLabel } from "./listing-fields";
 import { LocationPicker } from "./location-picker";
 import { NewListingPhotos } from "./new-listing-photos";
-import { SameAsBusinessAddress, useSameAsBusinessAddress } from "./same-as-business-address";
+import { SameAsBusinessAddress, startingAddress, startingPin, useSameAsBusinessAddress } from "./same-as-business-address";
 import {
   NEW_PRICING,
   pricingErrors,
@@ -81,8 +81,8 @@ export function StayWizard({
   const [stay, setStay] = useState<StayValues>(NEW_STAY);
   const [infoErrors, setInfoErrors] = useState<StayErrors>();
   const [units, setUnits] = useState(1);
-  const address = usePhAddress(NO_ADDRESS);
-  const [location, setLocation] = useState<LatLng | null>(null);
+  const address = usePhAddress(startingAddress(business));
+  const [location, setLocation] = useState<LatLng | null>(() => startingPin(business));
   const [locationError, setLocationError] = useState<string>();
   const sameAddress = useSameAsBusinessAddress(business, address, (point) => {
     setLocation(point);

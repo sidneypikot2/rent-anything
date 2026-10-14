@@ -145,7 +145,7 @@ export function LandmarkPicker({
             {results.map((landmark) => (
               <li key={landmark.id}>
                 <CheckboxField
-                  label={`${landmark.name} — ${landmark.area.name}`}
+                  label={`${landmark.name} · ${landmark.area.name}`}
                   checked={picked.has(landmark.id)}
                   disabled={!picked.has(landmark.id) && room <= 0}
                   onChange={() => toggle(landmark)}

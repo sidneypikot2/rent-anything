@@ -11,7 +11,8 @@ import { WizardActions } from "./wizard-steps";
 // The add-listing wizards' last step (RAA-109): photos go to a listing that exists, so the
 // step before saves the draft and this one adds them to it. Earlier steps are closed by
 // then; the listing is changed on its edit page. A new order is saved with the body the
-// wizard sent, the photos' ids added.
+// wizard sent, the photos' ids added. Done (or Skip) opens the new listing, which says it is a
+// draft guests can't see yet.
 export function NewListingPhotos({ listing, body }: { listing: PartnerListing; body: ListingBody }) {
   const router = useRouter();
   const live = usePartnerListing(listing.id);
@@ -21,7 +22,7 @@ export function NewListingPhotos({ listing, body }: { listing: PartnerListing; b
   const photos = live.data?.photos ?? listing.photos;
 
   function finish() {
-    const done = () => router.push("/partner/listings");
+    const done = () => router.push(`/partner/listings/${listing.id}`);
     if (!order) return done();
     update.mutate({ ...body, photos: orderedPhotos(photos, order).map((photo) => photo.id) }, { onSuccess: done });
   }
@@ -31,8 +32,8 @@ export function NewListingPhotos({ listing, body }: { listing: PartnerListing; b
       <div data-testid="listing-step-photos" className="flex flex-col gap-4">
         <h2 className="mb-2 font-display text-2xl font-extrabold tracking-tight">Photos</h2>
         <p className="text-sm text-muted">
-          <span className="font-medium text-foreground">{listing.title}</span> is saved as a draft. Add its photos now, or
-          later from the listing.
+          <span className="font-medium text-foreground">{listing.title}</span> is saved as a draft: guests can&apos;t see it
+          yet. Add its photos now, or later from the listing.
         </p>
         {update.error && (
           <p role="alert" className="text-sm text-danger">

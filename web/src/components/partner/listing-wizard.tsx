@@ -11,7 +11,8 @@ import {
   AttributeFields,
   attributeFields,
   categoryLabel,
-  NO_ADDRESS,
+  descriptionHint,
+  titleExample,
   toAttrs,
   visitsLandmarks,
   type AttributeValues,
@@ -25,7 +26,7 @@ import {
 import { LandmarkPicker } from "./landmark-picker";
 import { LocationPicker } from "./location-picker";
 import { NewListingPhotos } from "./new-listing-photos";
-import { SameAsBusinessAddress, useSameAsBusinessAddress } from "./same-as-business-address";
+import { SameAsBusinessAddress, startingAddress, startingPin, useSameAsBusinessAddress } from "./same-as-business-address";
 import type { PartnerBusiness } from "./use-partner-businesses";
 import { useCreateListing, type ListingBody, type ListingCategory, type PartnerListing } from "./use-partner-listings";
 import { UnitsField } from "./units-field";
@@ -34,12 +35,12 @@ import { WizardCancel } from "./wizard-cancel";
 import { WizardActions, WizardLayout } from "./wizard-steps";
 import type { PartnerLandmark } from "./use-partner-landmarks";
 
-type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "photos" | "rate" | "cancellation" | "units";
+type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "photos" | "cancellation" | "units";
 
 // Adding a listing of the chosen category (RAA-50), one step at a time: Basic, Location,
 // Route (the landmarks a tour visits, RAA-70; not a photographer, RAA-89), the category's
 // own details (skipped when it has none; a vehicle's make, model, engine and color, RAA-89),
-// Rate, the cancellation policy (RAA-89), how many identical units it has (RAA-99) and,
+// the cancellation policy (RAA-89), how many identical units it has (RAA-99) and,
 // last, photos. Only the current step is on the page, so the browser's required checks
 // cover just that step; every value is kept here, so going back loses nothing, and any step
 // already reached opens again (RAA-93). Units saves the listing as a draft, since a photo
@@ -64,7 +65,6 @@ export function ListingWizard({
     ...(withLandmarks ? [{ key: "route" as const, label: "Route" }] : []),
     ...(fields.length > 0 ? [{ key: "details" as const, label: `${category.name} details` }] : []),
     ...(vehicle ? [{ key: "vehicle" as const, label: "Vehicle details" }] : []),
-    { key: "rate", label: "Rate" },
     { key: "cancellation", label: "Cancellation policy" },
     { key: "units", label: "Units" },
     { key: "photos", label: "Photos" },
@@ -80,8 +80,8 @@ export function ListingWizard({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [units, setUnits] = useState(1);
-  const address = usePhAddress(NO_ADDRESS);
-  const [location, setLocation] = useState<LatLng | null>(null);
+  const address = usePhAddress(startingAddress(business));
+  const [location, setLocation] = useState<LatLng | null>(() => startingPin(business));
   const [locationError, setLocationError] = useState<string>();
   const sameAddress = useSameAsBusinessAddress(business, address, (point) => {
     setLocation(point);
@@ -91,8 +91,6 @@ export function ListingWizard({
   const [landmarks, setLandmarks] = useState<PartnerLandmark[]>([]);
   const [vehicleValues, setVehicleValues] = useState<VehicleValues>(NEW_VEHICLE);
   const [policy, setPolicy] = useState<CancellationPolicy>(DEFAULT_CANCELLATION_POLICY);
-  // Shown and checked, not saved yet: the API has no pricing until its own ticket.
-  const [dailyRate, setDailyRate] = useState("");
 
   // The current step's checks: the browser's required fields, then the map pin.
   function stepIsValid() {
@@ -181,7 +179,7 @@ export function ListingWizard({
                 maxLength={120}
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder="e.g. Sardine run and turtle snorkel"
+                placeholder={`e.g. ${titleExample(category)}`}
               />
               <TextareaField
                 label="Description"
@@ -189,7 +187,7 @@ export function ListingWizard({
                 maxLength={5000}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                hint="What's included, what to bring, anything a traveller should know."
+                hint={descriptionHint(category)}
               />
             </>
           )}
@@ -223,19 +221,6 @@ export function ListingWizard({
           {step.key === "details" && <AttributeFields fields={fields} values={attrValues} onChange={setAttrValues} />}
 
           {step.key === "vehicle" && <VehicleFields values={vehicleValues} onChange={setVehicleValues} />}
-
-          {step.key === "rate" && (
-            <Field
-              label="Daily rate (₱)"
-              name="daily_rate"
-              type="number"
-              min={0}
-              step="any"
-              value={dailyRate}
-              onChange={(event) => setDailyRate(event.target.value)}
-              hint="Rates aren't saved yet — you'll set them on the listing once pricing is available."
-            />
-          )}
 
           {step.key === "cancellation" && <CancellationPolicyChoice policies={policies} value={policy} onChange={setPolicy} />}
 

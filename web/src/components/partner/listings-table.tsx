@@ -4,10 +4,12 @@ import { Card } from "@/components/ui/card";
 import type { PartnerBusiness } from "./use-partner-businesses";
 import type { PartnerListing } from "./use-partner-listings";
 
+// Each status with what it means for guests, said beside the badge so a draft isn't
+// mistaken for a listing travellers can see.
 export const STATUS = {
-  draft: { label: "Draft", tone: "mist" },
-  pending: { label: "In review", tone: "aqua" },
-  active: { label: "Live", tone: "emerald" },
+  draft: { label: "Draft", tone: "mist", note: "Guests can't see it yet" },
+  pending: { label: "In review", tone: "aqua", note: "Guests can't see it yet" },
+  active: { label: "Live", tone: "emerald", note: "Guests can book it" },
 } as const;
 
 const UPDATED = new Intl.DateTimeFormat("en-PH", { day: "numeric", month: "short", year: "numeric" });
@@ -81,8 +83,10 @@ export function ListingsByBusiness({
   );
 }
 
-// A business's listings, one section and table per category. A row opens the listing:
-// its title is the link, stretched over the whole row.
+// A business's listings, one section per category. From `sm` up each is a table with fixed
+// column widths, so the columns line up from one category to the next; on a phone each
+// listing is a row of its own, its status beside the title. Either way the title is the
+// link, stretched over the whole row.
 function ListingsByCategory({ listings, idPrefix }: { listings: PartnerListing[]; idPrefix: string }) {
   return (
     <div className="flex flex-col gap-8">
@@ -93,23 +97,45 @@ function ListingsByCategory({ listings, idPrefix }: { listings: PartnerListing[]
           aria-labelledby={`${idPrefix}category-${id}`}
           className="flex flex-col gap-3"
         >
-          <h3
-            id={`${idPrefix}category-${id}`}
-            className="flex items-baseline gap-2 font-display text-2xl font-extrabold tracking-tight"
-          >
+          <h3 id={`${idPrefix}category-${id}`} className="flex items-baseline gap-2 text-lg font-semibold">
             {group.name}
-            <span className="font-sans text-sm font-normal text-muted">
-              {countLabel(group.listings.length)}
-            </span>
+            <span className="text-sm font-normal text-muted">{countLabel(group.listings.length)}</span>
           </h3>
-          <Card className="overflow-x-auto">
-            <table className="w-full min-w-lg text-left text-sm">
-              <thead className="border-b border-line bg-surface-2 text-xs uppercase tracking-wider text-muted">
+          <Card>
+            <ul className="divide-y divide-line sm:hidden">
+              {group.listings.map((listing) => (
+                <li key={listing.id} data-testid="listing-row" className="relative flex flex-col gap-1.5 px-4 py-3.5 active:bg-surface-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <Link
+                      href={`/partner/listings/${listing.id}`}
+                      data-testid="listing-link"
+                      className="font-medium text-link after:absolute after:inset-0"
+                    >
+                      {listing.title}
+                    </Link>
+                    <Badge tone={STATUS[listing.status].tone} className="shrink-0">
+                      {STATUS[listing.status].label}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted">
+                    {listing.area.name} · Updated {UPDATED.format(new Date(listing.updated_at))}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <table className="hidden w-full table-fixed text-left text-sm sm:table">
+              <colgroup>
+                <col />
+                <col className="w-40" />
+                <col className="w-56" />
+                <col className="w-32" />
+              </colgroup>
+              <thead className="border-b border-line bg-surface-2 text-muted">
                 <tr>
-                  <th scope="col" className="px-4 py-2 font-semibold">Title</th>
-                  <th scope="col" className="px-4 py-2 font-semibold">Area</th>
-                  <th scope="col" className="px-4 py-2 font-semibold">Status</th>
-                  <th scope="col" className="px-4 py-2 font-semibold">Updated</th>
+                  <th scope="col" className="px-4 py-2.5 font-semibold">Title</th>
+                  <th scope="col" className="px-4 py-2.5 font-semibold">Area</th>
+                  <th scope="col" className="px-4 py-2.5 font-semibold">Status</th>
+                  <th scope="col" className="px-4 py-2.5 font-semibold">Updated</th>
                 </tr>
               </thead>
               <tbody>
@@ -117,9 +143,9 @@ function ListingsByCategory({ listings, idPrefix }: { listings: PartnerListing[]
                   <tr
                     key={listing.id}
                     data-testid="listing-row"
-                    className="relative border-b border-line last:border-0 hover:bg-surface-2"
+                    className="relative border-b border-line transition-colors duration-300 ease-calm last:border-0 hover:bg-surface-2"
                   >
-                    <td className="px-4 py-3 font-medium">
+                    <td className="truncate px-4 py-3 font-medium">
                       <Link
                         href={`/partner/listings/${listing.id}`}
                         data-testid="listing-link"
@@ -128,11 +154,14 @@ function ListingsByCategory({ listings, idPrefix }: { listings: PartnerListing[]
                         {listing.title}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-muted">{listing.area.name}</td>
+                    <td className="truncate px-4 py-3 text-muted">{listing.area.name}</td>
                     <td className="px-4 py-3">
-                      <Badge tone={STATUS[listing.status].tone}>{STATUS[listing.status].label}</Badge>
+                      <span className="flex flex-col items-start gap-1">
+                        <Badge tone={STATUS[listing.status].tone}>{STATUS[listing.status].label}</Badge>
+                        <span className="text-xs text-muted">{STATUS[listing.status].note}</span>
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-muted">{UPDATED.format(new Date(listing.updated_at))}</td>
+                    <td className="px-4 py-3 text-muted tabular-nums">{UPDATED.format(new Date(listing.updated_at))}</td>
                   </tr>
                 ))}
               </tbody>

@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
+import { GlassPanel } from "@/components/ui/glass";
 import { DisplayTitle } from "@/components/ui/typography";
 import { formatPeso } from "@/lib/money";
 import { feeText, nightUnit, stayRateTerms } from "@/lib/pricing";
@@ -47,7 +48,11 @@ export default function PartnerListingPage() {
           </Button>
         </div>
       ) : (
-        <p className="text-sm text-muted">Loading the listing…</p>
+        <div role="status" className="flex flex-col gap-4">
+          <span className="sr-only">Loading the listing…</span>
+          <div aria-hidden="true" className="h-10 w-72 max-w-full animate-pulse rounded-control bg-glass-fill" />
+          <div aria-hidden="true" className="h-96 animate-pulse rounded-card bg-glass-fill" />
+        </div>
       )}
     </main>
   );
@@ -82,16 +87,20 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
               </span>
             </div>
           </div>
-          <div className="flex gap-3">
-            <ButtonLink href={`/partner/listings/${listing.id}/edit`} size="sm" data-testid="listing-edit">
-              Edit
-            </ButtonLink>
-            <Button size="sm" variant="danger" onClick={() => setConfirming(true)} data-testid="listing-delete">
-              Delete
-            </Button>
-          </div>
+          <ButtonLink href={`/partner/listings/${listing.id}/edit`} size="sm" data-testid="listing-edit">
+            Edit listing
+          </ButtonLink>
         </div>
       </div>
+
+      {listing.status !== "active" && (
+        <GlassPanel role="status" data-testid="listing-status-note" className="rounded-card px-5 py-4 text-sm">
+          <span className="font-semibold">
+            {status.label}: {status.note.toLowerCase()}.
+          </span>{" "}
+          It stays this way while you finish the details and photos.
+        </GlassPanel>
+      )}
 
       {rate && !rate.nightly_price_cents && (
         <div
@@ -138,22 +147,23 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
               {uploadedPhotos(listing.photos).length > 0 ? (
                 <PhotoStrip photos={listing.photos} />
               ) : (
-                <span className="text-muted">None yet — add them from Edit.</span>
+                <span className="text-muted">None yet. Add them from Edit listing.</span>
               )}
             </Detail>
             <Detail term="Description">
               <span className="whitespace-pre-line">{listing.description || "—"}</span>
             </Detail>
             <Detail term="Address">{address || "—"}</Detail>
-            <Detail term="Map pin">
-              {listing.location.lat.toFixed(5)}, {listing.location.lng.toFixed(5)}
-            </Detail>
             {visitsLandmarks(listing.category) && (
               <Detail term="Landmarks">
                 {listing.landmarks.length > 0 ? (
-                  <span data-testid="listing-landmarks">
-                    {listing.landmarks.map((landmark) => `${landmark.name} — ${landmark.area.name}`).join(", ")}
-                    <span className="block text-muted">Covers: {listing.covers.map((place) => place.name).join(", ")}</span>
+                  <span data-testid="listing-landmarks" className="flex flex-col gap-1">
+                    {landmarksByArea(listing.landmarks).map(([area, names]) => (
+                      <span key={area}>
+                        <span className="font-medium">{area}:</span> {names.join(", ")}
+                      </span>
+                    ))}
+                    <span className="text-muted">Covers {listing.covers.map((place) => place.name).join(", ")}</span>
                   </span>
                 ) : (
                   "—"
@@ -228,6 +238,13 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
         </CardBody>
       </Card>
 
+      <GlassPanel className="flex flex-wrap items-center justify-between gap-3 rounded-card px-5 py-4 text-sm">
+        <span>Deleting removes the listing and its photos for good.</span>
+        <Button size="sm" variant="danger" onClick={() => setConfirming(true)} data-testid="listing-delete">
+          Delete listing
+        </Button>
+      </GlassPanel>
+
       <Dialog
         open={confirming}
         onClose={() => setConfirming(false)}
@@ -258,6 +275,13 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
       </Dialog>
     </>
   );
+}
+
+// The landmarks a listing visits, grouped under their area, in the order they were picked.
+function landmarksByArea(landmarks: PartnerListing["landmarks"]) {
+  const areas = new Map<string, string[]>();
+  for (const landmark of landmarks) areas.set(landmark.area.name, [...(areas.get(landmark.area.name) ?? []), landmark.name]);
+  return [...areas.entries()];
 }
 
 function Detail({ term, children }: { term: string; children: ReactNode }) {

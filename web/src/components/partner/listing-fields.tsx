@@ -101,6 +101,37 @@ export function groupCategories(categories: ListingCategory[]) {
   return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// A title in the partner's own terms for each kind of listing, so a trike isn't shown a tour's.
+const TITLE_EXAMPLES: Record<string, string> = {
+  motorcycle: "Honda Click 125, automatic, with two helmets",
+  bicycle: "Mountain bike for the island loop",
+  "e-trike": "E-trike for up to 4, charged daily",
+  tricycle: "Tricycle with driver, up to 4 passengers",
+  car: "Toyota Vios, automatic, seats 5",
+  "van-rental": "Toyota Hiace, seats 12",
+  multicab: "Multicab for groups of 8",
+  "action-camera": "GoPro Hero 12 with dive housing",
+  camera: "Sony mirrorless with a zoom lens",
+  "snorkel-gear": "Mask, snorkel and fins set",
+  photographer: "Sunset photo shoot at Paradise Beach",
+  van: "Hagnaya port to Santa Fe van transfer",
+  tour: "Island hopping to Virgin Island and Hilantagaan",
+};
+
+export function titleExample(category: ListingCategory | undefined) {
+  if (!category) return "Island hopping to Virgin Island and Hilantagaan";
+  if (category.booking_type === "stay") return "Beachfront nipa cottage with sunset view";
+  return TITLE_EXAMPLES[category.slug] ?? `${category.name} in Bantayan`;
+}
+
+export function descriptionHint(category: ListingCategory | undefined) {
+  if (category?.booking_type === "rental") return "Its condition, what comes with it, where to pick it up and return it.";
+  if (category?.booking_type === "stay") return "The space, the neighbourhood, house rules: anything a guest should know.";
+  if (category?.slug === "tour") return "The route, what to bring, anything a traveller should know.";
+  if (category?.booking_type === "transfer") return "Where you pick up and drop off, luggage, and how long the ride takes.";
+  return "What's included, what to bring, anything a traveller should know.";
+}
+
 // The details a category asks for: a checkbox for a yes/no, a field for everything else.
 export function AttributeFields({
   fields,
