@@ -26,7 +26,7 @@ module ListingDetailSerializer
       stay_rate: listing.stay_rate&.priced? ? PricingSerializer.stay_rate(listing.stay_rate) : nil,
       fees: PricingSerializer.fees(listing),
       tour: TourSerializer.guest(listing),
-      photos: listing.ready_photos.map { |photo| ListingPhotoSerializer.call(photo) }
+      photos: listing.ready_photos.first(listing.photo_limit).map { |photo| ListingPhotoSerializer.call(photo) }
     }
   end
 

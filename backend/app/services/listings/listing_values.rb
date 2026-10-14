@@ -67,6 +67,9 @@ module Listings
 
       Listing.transaction do
         listing.save!
+        # Saves of one listing take turns: its dates, blocks and photos are replaced whole.
+        Listing.where(id: listing.id).lock.pluck(:id)
+        check_photo_limit!(listing)
         save_landmarks!(listing)
         save_units!(listing)
         save_stay_rate!(listing)
@@ -112,14 +115,25 @@ module Listings
       listing.units.reset
     end
 
+    # A listing made a tour (RAA-110), or photos put in order, may keep only as many photos as
+    # it takes. A tour made before the limit keeps its photos until they are reordered;
+    # guests see the first five.
+    def check_photo_limit!(listing)
+      kept = @photo_ids&.size || (listing.saved_change_to_category_id? ? listing.photos.count : 0)
+      return if kept <= listing.photo_limit
+
+      listing.errors.add(:base, "A #{listing.category.tour? ? 'tour' : 'listing'} can have at most " \
+        "#{listing.photo_limit} photos: remove #{kept - listing.photo_limit} first")
+      raise ActiveRecord::RecordInvalid, listing
+    end
+
     # Puts the photos listed in that order and deletes the rest (their files go from storage
     # after the commit). Positions are unique only at commit, so two photos can swap places;
-    # the listing's row is locked first, as adding a photo does, so a photo added meanwhile
-    # isn't numbered over.
+    # the listing's row is locked first (save_listing!), as adding a photo does, so a photo
+    # added meanwhile isn't numbered over.
     def save_photos!(listing)
       return if @photo_ids.nil?
 
-      Listing.where(id: listing.id).lock.pluck(:id)
       photos = listing.photos.reload.index_by(&:id)
       unless (@photo_ids - photos.keys).empty?
         listing.errors.add(:base, "Photos must be this listing's photos")

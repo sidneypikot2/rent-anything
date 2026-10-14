@@ -5,7 +5,8 @@ module Listings
   # when left out, refused for any other category and dropped when the listing stops being a
   # tour. `blocked_dates`, for any listing, replace its blocks when sent and keep them when
   # left out. Dates are "YYYY-MM-DD" strings, today or later; one the listing already has may
-  # be sent back once it is past, as the response stopped showing it only at midnight.
+  # be sent back once it is past, as the response stopped showing it only at midnight. Past
+  # dates and blocks are never shown or replaced: they stay as the listing's history (M3).
   module TourValues
     MAX_DATES = 366
     DATE = /\A\d{4}-\d{2}-\d{2}\z/
@@ -57,18 +58,21 @@ module Listings
 
       detail = listing.tour_detail || listing.build_tour_detail
       detail.update!(@tour[:detail])
-      listing.tour_dates.delete_all
-      @tour[:dates].each { |date| listing.tour_dates.create!(date:) }
+      listing.tour_dates.where(date: Date.current..).delete_all
+      dates = @tour[:dates].select { |date| date >= Date.current }
+      TourDate.insert_all(dates.map { |date| { listing_id: listing.id, date: } }) if dates.any?
       listing.tour_inclusions.delete_all
       @tour[:inclusions].each { |inclusion| listing.tour_inclusions.create!(inclusion) }
       [ listing.tour_dates, listing.tour_inclusions ].each(&:reset)
     end
 
+    # The values were checked when read, so they go in in one statement.
     def save_blocked_dates!(listing)
       return if @blocked_dates.nil?
 
-      listing.availability_blocks.delete_all
-      @blocked_dates.each { |block| listing.availability_blocks.create!(block) }
+      listing.availability_blocks.where(ends_on: Date.current..).delete_all
+      blocks = @blocked_dates.select { |block| block[:ends_on] >= Date.current }
+      AvailabilityBlock.insert_all(blocks.map { |block| block.merge(listing_id: listing.id) }) if blocks.any?
       listing.availability_blocks.reset
     end
 
@@ -175,6 +179,8 @@ module Listings
     # A private tour's inclusions are add-ons priced per head (0 is free); a joiner tour's are
     # in its price.
     def inclusion_price(value, type)
+      return nil unless TourDetail::TOUR_TYPES.include?(type)
+
       if type == "joiner"
         return 0 if value.nil? || value == 0
 

@@ -18,9 +18,10 @@ module TourSerializer
   end
 
   # What a guest needs to choose a day: the days it runs over the next weeks, not the rules.
+  # Nothing until the tour has a price, as with a stay's rate.
   def self.guest(listing)
     detail = listing.tour_detail
-    return nil unless detail
+    return nil unless detail&.priced?
 
     {
       **detail.slice(*DETAIL_FIELDS).symbolize_keys,

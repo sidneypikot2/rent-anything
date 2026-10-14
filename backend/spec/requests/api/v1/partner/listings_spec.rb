@@ -1136,6 +1136,31 @@ RSpec.describe "Partner listings", type: :request do
             expect(response.parsed_body["blocked_dates"]).to eq([
               { "starts_on" => yesterday.iso8601, "ends_on" => soon.iso8601, "reason" => nil }
             ])
+            # The past ones stay, as history, though not shown.
+            expect(listing.tour_dates.pluck(:date)).to eq([ yesterday, soon ])
+            expect(listing.availability_blocks.pluck(:starts_on, :ends_on))
+              .to eq([ [ yesterday - 3, yesterday - 1 ], [ yesterday, soon ] ])
+          end
+        end
+
+        response "422", "a listing made a tour while it has more photos than a tour takes" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          let(:listing) { create(:listing, partner: user, area: moalboal) }
+
+          before do
+            6.times { create_photo(listing) }
+            body[:tour] = { tour_type: "joiner", min_guests: 1, max_guests: 10, max_groups_per_day: 1, duration_value: 4,
+              duration_unit: "hours", weekdays: [ 6 ], dates: [], base_price_cents: 100_000 }
+          end
+
+          run_test! do |refused|
+            expect(refused.parsed_body["errors"]).to include("A tour can have at most 5 photos: remove 1 first")
+            expect(listing.reload.category).not_to be_tour
+            body[:photos] = listing.photos.pluck(:id).first(5)
+            patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response).to have_http_status(:ok)
+            expect(listing.photos.count).to eq(5)
           end
         end
 

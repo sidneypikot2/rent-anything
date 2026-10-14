@@ -150,6 +150,22 @@ RSpec.describe "Listings", type: :request do
         end
       end
 
+      response "200", "a tour with no price yet, and at most 5 of its photos" do
+        schema "$ref" => "#/components/schemas/listing_detail"
+        let(:listing) { create(:listing, :tour, area: moalboal) }
+        let(:id) { listing.id }
+
+        before do
+          listing.tour_detail.update_columns(base_price_cents: 0)
+          7.times { create_photo(listing) }
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body).to include("price_from_cents" => nil, "price_unit" => nil, "tour" => nil)
+          expect(response.parsed_body["photos"].size).to eq(5)
+        end
+      end
+
       response "200", "a stay with no price yet, and a listing that isn't priced by the night" do
         schema "$ref" => "#/components/schemas/listing_detail"
         let(:listing) { create(:listing, :stay, area: moalboal) }

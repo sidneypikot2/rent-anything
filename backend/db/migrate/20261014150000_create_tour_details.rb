@@ -33,13 +33,17 @@ class CreateTourDetails < ActiveRecord::Migration[8.1]
     connection.execute <<~SQL
       INSERT INTO tour_details (listing_id, tour_type, min_guests, max_guests, max_groups_per_day, duration_value,
         duration_unit, weekdays, base_price_cents, created_at, updated_at)
-      SELECT listings.id, 'joiner', 1,
-        LEAST(GREATEST(COALESCE(jsonb_path_query_first(listings.attrs, '$.max_group ? (@.type() == "number")')::int, 10), 1), 100),
-        1,
-        GREATEST(CEIL(COALESCE(jsonb_path_query_first(listings.attrs, '$.duration_hours ? (@.type() == "number")')::numeric, 4)), 1),
-        'hours', '{0,1,2,3,4,5,6}', 0, now(), now()
-      FROM listings JOIN categories ON categories.id = listings.category_id
-      WHERE categories.slug = 'tour'
+      SELECT id, 'joiner', 1, LEAST(GREATEST(ROUND(COALESCE(max_group, 10)), 1), 100)::int, 1,
+        -- Over a day it is counted in days, up to 30.
+        CASE WHEN hours > 24 THEN LEAST(CEIL(hours / 24), 30) ELSE GREATEST(CEIL(hours), 1) END::int,
+        CASE WHEN hours > 24 THEN 'days' ELSE 'hours' END, '{0,1,2,3,4,5,6}', 0, now(), now()
+      FROM (
+        SELECT listings.id,
+          jsonb_path_query_first(listings.attrs, '$.max_group ? (@.type() == "number")')::numeric AS max_group,
+          COALESCE(jsonb_path_query_first(listings.attrs, '$.duration_hours ? (@.type() == "number")')::numeric, 4) AS hours
+        FROM listings JOIN categories ON categories.id = listings.category_id
+        WHERE categories.slug = 'tour'
+      ) tours
       ON CONFLICT (listing_id) DO NOTHING
     SQL
     connection.execute <<~SQL
