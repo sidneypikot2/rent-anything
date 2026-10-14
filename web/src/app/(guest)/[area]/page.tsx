@@ -6,6 +6,7 @@ import { getArea, getDestinations, getExplore, type AreaCard, type AreaDetail } 
 import { countLine, LandmarkCard, ListingCard, PHOTO_CARD, PHOTO_CARD_IMAGE, withSubAreas } from "@/components/discovery/cards";
 import { ExploreSections, withoutShown } from "@/components/discovery/explore-sections";
 import { areaIcon } from "@/components/discovery/icons";
+import { AreaGlyph } from "@/components/discovery/tag-glyphs";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { areaPhoto, landmarkPhoto, listingPhoto } from "@/components/landing/sample-photos";
@@ -15,7 +16,7 @@ import { readTripDates, tripDatesQuery } from "@/components/trips/trip-dates";
 import { TripDatesBar } from "@/components/trips/trip-dates-bar";
 import { TripStartedBanner } from "@/components/trips/trip-started-banner";
 import { ButtonLink } from "@/components/ui/button";
-import { GlassPanel } from "@/components/ui/glass";
+import { GlassPanel, glassClasses } from "@/components/ui/glass";
 import { cn } from "@/components/ui/cn";
 import { Section } from "@/components/ui/section";
 import { DisplayTitle } from "@/components/ui/typography";
@@ -24,11 +25,12 @@ import { formatPeso } from "@/lib/money";
 type Listing = AreaDetail["listings"][number];
 
 // Listings grouped by what the trip needs (SPEC: the area home groups by trip need).
-const TRIP_NEEDS: { title: string; bookingTypes: Listing["booking_type"][] }[] = [
-  { title: "Tours & activities", bookingTypes: ["activity"] },
-  { title: "Getting there & around", bookingTypes: ["transfer"] },
-  { title: "Rentals & gear", bookingTypes: ["rental"] },
-  { title: "Stays", bookingTypes: ["stay"] },
+// Each has an anchor, which the jump bar above the groups links to (RAA-108).
+const TRIP_NEEDS: { title: string; id: string; bookingTypes: Listing["booking_type"][] }[] = [
+  { title: "Tours & activities", id: "need-activity", bookingTypes: ["activity"] },
+  { title: "Getting there & around", id: "need-transfer", bookingTypes: ["transfer"] },
+  { title: "Rentals & gear", id: "need-rental", bookingTypes: ["rental"] },
+  { title: "Stays", id: "need-stay", bookingTypes: ["stay"] },
 ];
 
 export async function generateMetadata(props: PageProps<"/[area]">): Promise<Metadata> {
@@ -38,7 +40,8 @@ export async function generateMetadata(props: PageProps<"/[area]">): Promise<Met
 
 // A destination: the places to see there, everything to book, and the destinations around
 // it and often visited with it (RAA-58). Listings go into the guest's trips (RAA-66), with
-// the trip dates and guests from the URL; booking comes later (M3).
+// the trip dates and guests from the URL; booking comes later (M3). Since RAA-108 the banner
+// shows the place's photo with its counts as chips, and a bar of trip needs jumps to each group.
 export default async function AreaPage(props: PageProps<"/[area]">) {
   const slug = (await props.params).area;
   const searchParams = await props.searchParams;
@@ -66,38 +69,48 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   ]);
   const nearby = explore && withoutShown(explore, { landmarks, areas: inside });
   const hasNearby = Boolean(nearby && (nearby.destinations.length > 0 || nearby.recommendations.length > 0));
+  const needs = TRIP_NEEDS.map((need) => ({
+    ...need,
+    listings: listings.filter((listing) => need.bookingTypes.includes(listing.booking_type)),
+  })).filter((need) => need.listings.length > 0);
+  const stats = [
+    landmarks.length > 0 && { count: landmarks.length, label: landmarks.length === 1 ? "place to see" : "places to see" },
+    listings.length > 0 && { count: listings.length, label: `to book${counts && counts.more.length > 0 ? " here" : ""}` },
+  ].filter((stat) => stat !== false);
 
   return (
     <main className="flex flex-1 flex-col">
       <PageBanner
+        photo={areaPhoto(slug)}
         eyebrow={area.parent_name ? `${area.parent_name}, Philippines` : "Philippines"}
         title={
-          <DisplayTitle className="flex items-center gap-3">
-            <span aria-hidden className="text-sky-pale">
-              {areaIcon(area.kind)}
-            </span>
+          <DisplayTitle className="flex items-center gap-4">
+            <GlassPanel aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-control sm:size-14">
+              <AreaGlyph kind={area.kind} className="size-6 text-sky-pale sm:size-7" />
+            </GlassPanel>
             {area.name}
           </DisplayTitle>
         }
       >
-          <p className="max-w-prose text-sky-mist empty:hidden">
-            {[
-              landmarks.length > 0 && `${landmarks.length} ${landmarks.length === 1 ? "place" : "places"} to see`,
-              listings.length > 0 && `${listings.length} to book${counts && counts.more.length > 0 ? " here" : ""}`,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-            {/* What the places inside this one add, linked, so the island's total isn't a promise
-                this page can't show (RAA-85). */}
-            {counts?.more.map((child, index) => (
-              <span key={child.area.slug}>
-                {index > 0 || landmarks.length > 0 || listings.length > 0 ? " · " : ""}
-                <Link href={`/${child.area.slug}`} className="font-semibold text-sky-pale underline-offset-4 hover:underline">
-                  {listings.length > 0 ? `${child.listingCount} more` : `${child.listingCount} to book`} in {child.area.name}
-                </Link>
-              </span>
-            ))}
-          </p>
+          {(stats.length > 0 || (counts && counts.more.length > 0)) && (
+            <ul aria-label={`In ${area.name}`} className="flex flex-wrap gap-2">
+              {stats.map((stat) => (
+                <li key={stat.label} className={cn(STAT_CHIP, glassClasses())}>
+                  <StatCount count={stat.count} /> {stat.label}
+                </li>
+              ))}
+              {/* What the places inside this one add, linked, so the island's total isn't a
+                  promise this page can't show (RAA-85). */}
+              {counts?.more.map((child) => (
+                <li key={child.area.slug}>
+                  <Link href={`/${child.area.slug}`} className={cn(STAT_CHIP, glassClasses(), "hover:bg-glass-hover")}>
+                    <StatCount count={child.listingCount} /> {listings.length > 0 ? "more" : "to book"} in {child.area.name}
+                    <span aria-hidden className="text-sky-pale">→</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
           {listings.length > 0 && (
             <ButtonLink href="#listings" className="self-start">
               See what to book <span aria-hidden>↓</span>
@@ -109,7 +122,8 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
         <div className="page-sections mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-page-pad">
           {areas.length > 0 && (
             <Section eyebrow="Inside" title={`Destinations in ${area.name}`}>
-              <ul className="grid gap-gutter sm:grid-cols-2">
+              {/* One place inside gets the whole row, as a shorter card, rather than half a row. */}
+              <ul className={cn("grid gap-gutter", areas.length > 1 && "sm:grid-cols-2")}>
                 {areas.map((child) => {
                   const childCount = counts?.children.get(child.slug);
                   const photo = areaPhoto(child.slug);
@@ -117,17 +131,17 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                     <li key={child.slug}>
                       <Link
                         href={`/${child.slug}`}
-                        className={cn("group flex min-h-48 items-end p-3", PHOTO_CARD)}
+                        className={cn("group flex items-end p-3", areas.length > 1 ? "min-h-48" : "min-h-40", PHOTO_CARD)}
                       >
                         <Image
                           src={photo.src}
                           alt={photo.alt}
                           fill
-                          sizes="(min-width: 640px) 50vw, 100vw"
+                          sizes={areas.length > 1 ? "(min-width: 640px) 50vw, 100vw" : "(min-width: 72rem) 72rem, 100vw"}
                           className={PHOTO_CARD_IMAGE}
                         />
                         <span aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-transparent to-scrim/55" />
-                        <GlassPanel className="flex w-full items-center gap-3 rounded-control p-3">
+                        <GlassPanel className={cn("flex items-center gap-3 rounded-control p-3", areas.length > 1 ? "w-full" : "w-full sm:w-auto sm:pr-6")}>
                           <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-control border border-glass-edge bg-glass-fill text-lg">
                             {areaIcon(child.kind)}
                           </span>
@@ -164,12 +178,35 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
               >
                 <TripStartedBanner name={area.name} show={starting} />
                 <TripDatesBar key={`${dates.from}-${dates.to}-${dates.guests}`} dates={dates} />
-                {TRIP_NEEDS.map((need) => {
-                  const group = listings.filter((listing) => need.bookingTypes.includes(listing.booking_type));
-                  if (group.length === 0) return null;
+                {needs.length > 1 && (
+                  <nav
+                    aria-label="Jump to"
+                    className="-mx-1 flex gap-2 overflow-x-auto px-1 py-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible"
+                  >
+                    {needs.map((need) => (
+                      <a
+                        key={need.id}
+                        href={`#${need.id}`}
+                        className={cn(
+                          glassClasses(),
+                          "flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-semibold whitespace-nowrap hover:bg-glass-hover",
+                        )}
+                      >
+                        {need.title}
+                        <span className="rounded-full bg-aqua px-2 text-xs font-bold tabular-nums text-navy">
+                          {need.listings.length}
+                        </span>
+                      </a>
+                    ))}
+                  </nav>
+                )}
+                {needs.map((need) => {
+                  const group = need.listings;
                   return (
                     <div key={need.title} className="flex flex-col gap-4">
-                      <h3 className="text-lg font-semibold">{need.title}</h3>
+                      <h3 id={need.id} className="scroll-mt-24 text-lg font-semibold">
+                        {need.title}
+                      </h3>
                       <ul className="grid gap-gutter sm:grid-cols-2">
                         {group.map((listing, index) => (
                           // A search suggestion links straight to its card (#listing-<id>).
@@ -182,12 +219,16 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                 listing.category,
                                 `by ${listing.business.name}`,
                                 listing.units_label,
-                                listing.price_from_cents && `from ${formatPeso(listing.price_from_cents)} / night`,
                               ]
                                 .filter(Boolean)
                                 .join(" · ")}
                               summary={listing.summary}
                               photo={listingPhoto(listing.category, index)}
+                              price={
+                                listing.price_from_cents
+                                  ? { prefix: "from", amount: formatPeso(listing.price_from_cents), unit: "/ night" }
+                                  : undefined
+                              }
                               action={<AddToTripButton listing={listing} dates={dates} />}
                             />
                           </li>
@@ -209,6 +250,13 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
       </PageSheet>
     </main>
   );
+}
+
+// A count in the banner's chips: the number in the display face, its words after it.
+const STAT_CHIP = "flex min-h-11 items-center gap-1.5 rounded-control px-3.5 text-sm text-sky-mist";
+
+function StatCount({ count }: { count: number }) {
+  return <span className="font-display text-xl font-extrabold tabular-nums text-white">{count}</span>;
 }
 
 // The counts for the places inside this one (RAA-80): each card's own line, and the ones

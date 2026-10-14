@@ -98,3 +98,8 @@ export function CategoryGlyph({ name, className }: { name: string } & Props) {
 export function PlaceGlyph({ className }: Props) {
   return <Glyph paths={PIN} className={className} />;
 }
+
+// A tick in a circle: a trust point.
+export function CheckGlyph({ className }: Props) {
+  return <Glyph paths={[circle(12, 12, 9), "M8 12.5l2.5 2.5L16 9.5"]} className={className} />;
+}

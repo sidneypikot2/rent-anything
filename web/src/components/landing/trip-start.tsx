@@ -9,7 +9,9 @@ import { useSession } from "@/lib/auth/session";
 const LAUNCH_AREA = "bantayan-island";
 
 // The hero's way in. A traveller, signed in or not, starts a trip; partners and admins have
-// no cart, so, as in PlanCta, they are sent to their own work instead (RAA-80).
+// no cart, so, as in PlanCta, they are sent to their own work instead (RAA-80). A line of
+// text and a pale button on the hero photo, under the search, with no panel of its own, so
+// it doesn't read as a second search box (RAA-108).
 const ROWS = {
   traveller: { note: "Free to save", href: `/${LAUNCH_AREA}?start=trip#listings`, action: "Start your trip" },
   partner: { note: "How travellers plan with your listings", href: "/partner/listings", action: "Your listings" },
@@ -25,11 +27,11 @@ export function TripStart({ className }: { className?: string }) {
   // role: they show the traveller's row, the one nearly every visitor needs, and a partner's
   // or admin's swaps in once the session has been read.
   return (
-    <div className={cn("flex min-h-11 items-center justify-between gap-x-3", className)}>
-      <p className="min-w-0 text-sm text-muted">{row.note}</p>
-      <ButtonLink href={row.href} variant="primary" size="sm" className="min-h-11 shrink-0 whitespace-nowrap">
-        {row.action}
+    <div className={cn("flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2", className)}>
+      <ButtonLink href={row.href} variant="accent" size="sm" className="min-h-11 shrink-0 whitespace-nowrap">
+        {row.action} <span aria-hidden>→</span>
       </ButtonLink>
+      <p className="min-w-0 text-sm text-sky-mist">{row.note}</p>
     </div>
   );
 }
