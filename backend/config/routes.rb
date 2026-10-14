@@ -5,6 +5,9 @@ Rails.application.routes.draw do
   # The OpenAPI document generated from the request specs (swagger/v1/openapi.yaml).
   mount Rswag::Api::Engine => "/api-docs"
 
+  # The local stack's stand-in for R2's signed photo uploads (PhotoStorage::Disk, RAA-106).
+  put "dev/photo_uploads/:token", to: "dev/photo_uploads#update" if Rails.env.local?
+
   namespace :api do
     namespace :v1 do
       resource :health, only: :show, controller: "health"
@@ -53,7 +56,10 @@ Rails.application.routes.draw do
         resource :profile, only: %i[show update]
         # The businesses a partner runs; each listing belongs to one (RAA-100).
         resources :businesses, only: %i[index show create update]
-        resources :listings, only: %i[index show create update destroy]
+        resources :listings, only: %i[index show create update destroy] do
+          # Its photos (RAA-106); the files go straight to storage.
+          resources :photos, only: %i[create update destroy], controller: "listing_photos"
+        end
         resource :listing_options, only: :show
         # The tour landmark picker (RAA-70).
         resources :landmarks, only: :index

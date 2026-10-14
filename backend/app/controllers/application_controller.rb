@@ -1,8 +1,4 @@
 class ApplicationController < ActionController::API
-  # Sets ActiveStorage::Current.url_options from the request; only auto-wired for
-  # ActionController::Base. Listing photo URLs need it.
-  include ActiveStorage::SetCurrent
-
   rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
   rescue_from NotAuthenticatedError, with: :render_unauthorized
   rescue_from NotAuthorizedError, with: :render_forbidden

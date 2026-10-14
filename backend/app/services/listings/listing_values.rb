@@ -16,6 +16,9 @@ module Listings
   # sent and kept when left out, and dropped when the listing stops being accommodation; the
   # rate is checked again on every save, as the guests the place sleeps may change. fees, for
   # any category, replace the listing's fees when sent and keep them when left out.
+  # photos (RAA-106) are the ids of the listing's own photos (added through
+  # /api/v1/partner/listings/:id/photos) in the partner's order: sent, the order is theirs
+  # and a photo left out is deleted; left out, the photos stay as they are.
   module ListingValues
     include RequestValues
 
@@ -38,6 +41,7 @@ module Listings
       @units_count = units_count
       @stay_rate = stay_rate_for(category)
       @fees = fees
+      @photo_ids = photo_ids
       {
         title: required_string(@params, :title, "Title"),
         description: optional_text(:description, "Description"),
@@ -63,6 +67,7 @@ module Listings
         save_units!(listing)
         save_stay_rate!(listing)
         save_fees!(listing)
+        save_photos!(listing)
       end
       listing
     end
@@ -101,6 +106,24 @@ module Listings
       listing.units.reset
     end
 
+    # Puts the photos listed in that order and deletes the rest (their files go from storage
+    # after the commit). Positions are unique only at commit, so two photos can swap places;
+    # the listing's row is locked first, as adding a photo does, so a photo added meanwhile
+    # isn't numbered over.
+    def save_photos!(listing)
+      return if @photo_ids.nil?
+
+      Listing.where(id: listing.id).lock.pluck(:id)
+      photos = listing.photos.reload.index_by(&:id)
+      unless (@photo_ids - photos.keys).empty?
+        listing.errors.add(:base, "Photos must be this listing's photos")
+        raise ActiveRecord::RecordInvalid, listing
+      end
+      photos.except(*@photo_ids).each_value(&:destroy!)
+      @photo_ids.each.with_index(1) { |id, position| photos[id].update!(position:) }
+      listing.photos.reset
+    end
+
     # Each service says whose listing it is: Create's partner, Update's listing's.
     def listing_partner
       raise NotImplementedError
@@ -125,6 +148,16 @@ module Listings
       return value if value.is_a?(Integer) && value.between?(1, MAX_UNITS)
 
       error("Units must be a whole number from 1 to #{MAX_UNITS}")
+    end
+
+    # nil keeps the listing's photos as they are; an array of its photo ids orders them. That
+    # they are this listing's is checked under the lock (save_photos!).
+    def photo_ids
+      ids = @params[:photos]
+      return nil if ids.nil?
+      return error("Photos must be a list of photo ids") unless ids.is_a?(Array) && ids.all?(Integer)
+
+      ids.uniq
     end
 
     # nil keeps the listing's landmarks as they are; an array replaces them.

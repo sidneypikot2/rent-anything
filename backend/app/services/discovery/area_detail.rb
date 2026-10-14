@@ -13,7 +13,8 @@ module Discovery
         area: AreaSerializer.call(@area),
         areas: @area.children.browsable.includes(:parent).order(:name).map { |area| AreaSerializer.call(area) },
         landmarks: @area.landmarks.published.includes(:tags).order(:name).map { |landmark| landmark_json(landmark) },
-        listings: @area.listings.active.includes(:category, :area, :business, :units, :stay_rate).order(:title).map do |listing|
+        listings: @area.listings.active.includes(:category, :area, :business, :units, :stay_rate, :cover_photo)
+          .order(:title).map do |listing|
           ListingSummarySerializer.call(listing).merge(
             booking_type: listing.category.booking_type,
             summary: ListingDetailSerializer.summary(listing),

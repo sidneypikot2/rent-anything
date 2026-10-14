@@ -33,6 +33,13 @@ class Listing < ApplicationRecord
   has_one :stay_rate, dependent: :delete, inverse_of: :listing
   # Extra charges, for any category (RAA-104); the foreign keys cascade too.
   has_many :fees, -> { order(:position) }, class_name: "ListingFee", dependent: :delete_all, inverse_of: :listing
+  # Its photos in the partner's order (RAA-106), with those still uploading. Destroyed one by
+  # one so each one's files are deleted from storage too.
+  has_many :photos, -> { order(:position) }, class_name: "ListingPhoto", dependent: :destroy, inverse_of: :listing
+  # What guests see: the ready ones (ListingPhotos::ResizeJob), the first the cover. Lists of
+  # listings show only that.
+  has_many :ready_photos, -> { ready.order(:position) }, class_name: "ListingPhoto", inverse_of: false
+  has_one :cover_photo, -> { ready.order(:position) }, class_name: "ListingPhoto", inverse_of: false
 
   enum :status, STATUSES.index_with(&:itself), validate: true
 

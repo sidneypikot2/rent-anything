@@ -1007,6 +1007,141 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+  "/api/v1/partner/listings/{listing_id}/photos":
+    post:
+      summary: Add a photo to a listing
+      tags:
+      - Partner
+      description: 'Partner-only, after the ID check (RAA-106). Adds a photo after
+        the listing''s others and returns where the browser sends the file: a `PUT`
+        of the file''s bytes to `upload.url` with exactly `upload.headers`, straight
+        to storage (Cloudflare R2), not to this API. Then confirm it with `PATCH .../photos/{id}`;
+        guests don''t see it until then, and one not confirmed within two days is
+        deleted. JPEG, PNG or WebP, at most 10 MB, 12 per listing; `checksum` is the
+        file''s MD5, base64-encoded.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      - name: listing_id
+        in: path
+        schema:
+          type: integer
+        required: true
+      responses:
+        '201':
+          description: a photo still uploading, and where its file goes
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/photo_upload"
+        '422':
+          description: a listing that already has 12
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another partner's listing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/photo_upload_body"
+  "/api/v1/partner/listings/{listing_id}/photos/{id}":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    - name: listing_id
+      in: path
+      schema:
+        type: integer
+      required: true
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    patch:
+      summary: Confirm a photo's upload
+      tags:
+      - Partner
+      description: 'Partner-only (RAA-106). Once the browser''s `PUT` has finished:
+        checks the file is in storage, then guests see the photo and its card and
+        large sizes are made (until then both URLs are the original''s). Sending it
+        again is harmless.'
+      security:
+      - bearer: []
+      parameters: []
+      responses:
+        '200':
+          description: uploaded, and its sizes on the way once, however often it is
+            sent
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_photo"
+        '422':
+          description: 'anything but uploaded: true'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another partner's photo
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/photo_update_body"
+    delete:
+      summary: Delete a photo
+      tags:
+      - Partner
+      description: Partner-only (RAA-106). Deletes the photo and its files; the listing's
+        other photos keep their order.
+      security:
+      - bearer: []
+      responses:
+        '204':
+          description: deleted, with its files
+        '404':
+          description: a photo of another partner's listing
+        '403':
+          description: a guest
+        '401':
+          description: signed out
   "/api/v1/partner/listings":
     get:
       summary: The signed-in partner's listings
@@ -2463,11 +2598,17 @@ components:
           type: string
         area_slug:
           type: string
+        cover_photo_url:
+          type: string
+          nullable: true
+          description: The cover photo, sized for a card (about 800 by 600); null
+            when the listing has no photos
       required:
       - id
       - title
       - category
       - area_slug
+      - cover_photo_url
     trip:
       type: object
       properties:
@@ -2595,6 +2736,11 @@ components:
           type: string
         area_slug:
           type: string
+        cover_photo_url:
+          type: string
+          nullable: true
+          description: The cover photo, sized for a card (about 800 by 600); null
+            when the listing has no photos
         location:
           "$ref": "#/components/schemas/lat_lng"
       required:
@@ -2602,6 +2748,7 @@ components:
       - title
       - category
       - area_slug
+      - cover_photo_url
       - location
     listing_detail:
       type: object
@@ -2666,6 +2813,12 @@ components:
           type: array
           items:
             "$ref": "#/components/schemas/listing_fee"
+        photos:
+          type: array
+          items:
+            "$ref": "#/components/schemas/photo_urls"
+          description: Its photos ready for guests (see partner_photo.ready), in the
+            partner's order; the first is the cover
       required:
       - id
       - title
@@ -2682,6 +2835,44 @@ components:
       - guests
       - stay_rate
       - fees
+      - photos
+    photo_urls:
+      type: object
+      properties:
+        card_url:
+          type: string
+          description: Cropped to fill about 800 by 600
+        large_url:
+          type: string
+          description: The whole photo, at most 1600 on its longer side
+      required:
+      - card_url
+      - large_url
+    partner_photo:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: As sent in a listing's photos
+        uploaded:
+          type: boolean
+          description: False until its upload is confirmed; until then the URLs may
+            have nothing behind them
+        ready:
+          type: boolean
+          description: True once its metadata is stripped and its sizes are made,
+            a few seconds after the upload is confirmed; guests see only ready photos,
+            and until then both URLs are the original's
+        card_url:
+          type: string
+        large_url:
+          type: string
+      required:
+      - id
+      - uploaded
+      - ready
+      - card_url
+      - large_url
     business_ref:
       type: object
       properties:
@@ -2806,6 +2997,11 @@ components:
           items:
             "$ref": "#/components/schemas/area_ref"
           description: The destinations those landmarks are in, by name
+        photos:
+          type: array
+          items:
+            "$ref": "#/components/schemas/partner_photo"
+          description: In the partner's order; the first is the cover
         created_at:
           type: string
           format: date-time
@@ -2829,6 +3025,7 @@ components:
       - business
       - landmarks
       - covers
+      - photos
       - created_at
       - updated_at
     partner_business:
@@ -3062,6 +3259,14 @@ components:
           description: Any category. Replaces the listing's fees, in this order, when
             sent; left out on a change, they stay. Names are unique per listing, ignoring
             case.
+        photos:
+          type: array
+          items:
+            type: integer
+          maxItems: 12
+          description: The ids of the listing's photos (POST /api/v1/partner/listings/{listing_id}/photos)
+            in order, the first uploaded one the cover. A photo left out is deleted;
+            left out on a change, they stay as they are. A new listing has none yet.
       required:
       - title
       - category_id
@@ -3323,6 +3528,62 @@ components:
       - name
       - amount_cents
       - charged_per
+    photo_upload_body:
+      type: object
+      properties:
+        filename:
+          type: string
+          maxLength: 255
+        byte_size:
+          type: integer
+          minimum: 1
+          maximum: 10485760
+        checksum:
+          type: string
+          description: The file's MD5 digest, base64-encoded
+        content_type:
+          type: string
+          enum:
+          - image/jpeg
+          - image/png
+          - image/webp
+      required:
+      - filename
+      - byte_size
+      - checksum
+      - content_type
+    photo_upload:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The photo's id, to confirm the upload and in a listing's photos
+        upload:
+          type: object
+          properties:
+            url:
+              type: string
+              description: PUT the file's bytes here
+            headers:
+              type: object
+              additionalProperties:
+                type: string
+              description: Send exactly these headers with the PUT
+          required:
+          - url
+          - headers
+      required:
+      - id
+      - upload
+    photo_update_body:
+      type: object
+      properties:
+        uploaded:
+          type: boolean
+          enum:
+          - true
+      required:
+      - uploaded
     cancellation_policy:
       type: string
       enum:
@@ -3502,6 +3763,11 @@ components:
                 type: string
               area_slug:
                 type: string
+              cover_photo_url:
+                type: string
+                nullable: true
+                description: The cover photo, sized for a card (about 800 by 600);
+                  null when the listing has no photos
               booking_type:
                 type: string
                 enum:
@@ -3533,6 +3799,7 @@ components:
             - title
             - category
             - area_slug
+            - cover_photo_url
             - booking_type
             - summary
             - business
@@ -3661,6 +3928,11 @@ components:
           type: string
         area_slug:
           type: string
+        cover_photo_url:
+          type: string
+          nullable: true
+          description: The cover photo, sized for a card (about 800 by 600); null
+            when the listing has no photos
         location:
           "$ref": "#/components/schemas/lat_lng"
         distance_km:
@@ -3671,6 +3943,7 @@ components:
       - title
       - category
       - area_slug
+      - cover_photo_url
       - location
       - distance_km
     explore:

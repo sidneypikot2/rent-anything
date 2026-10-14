@@ -179,6 +179,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000002) do
     t.check_constraint "relation::text = ANY (ARRAY['visits'::character varying::text, 'serves'::character varying::text])", name: "listing_landmarks_relation_check"
   end
 
+  create_table "listing_photos", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.integer "position", null: false
+    t.string "filename", null: false
+    t.string "content_type", null: false
+    t.bigint "byte_size", null: false
+    t.string "checksum", null: false
+    t.datetime "uploaded_at"
+    t.datetime "sized_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_listing_photos_unfinished", where: "(uploaded_at IS NULL)"
+    t.check_constraint "\"position\" >= 1", name: "listing_photos_position_check"
+    t.check_constraint "byte_size > 0", name: "listing_photos_byte_size_check"
+    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying::text, 'image/png'::character varying::text, 'image/webp'::character varying::text])", name: "listing_photos_content_type_check"
+    t.unique_constraint ["listing_id", "position"], deferrable: :deferred, name: "listing_photos_listing_id_position_key"
+  end
+
   create_table "listing_units", force: :cascade do |t|
     t.bigint "listing_id", null: false
     t.integer "position", null: false
@@ -389,6 +407,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000002) do
   add_foreign_key "listing_fees", "listings", on_delete: :cascade
   add_foreign_key "listing_landmarks", "landmarks"
   add_foreign_key "listing_landmarks", "listings"
+  add_foreign_key "listing_photos", "listings", on_delete: :cascade
   add_foreign_key "listing_units", "listings", on_delete: :cascade
   add_foreign_key "listings", "areas"
   add_foreign_key "listings", "businesses"

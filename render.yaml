@@ -60,3 +60,15 @@ services:
         sync: false
       - key: DIDIT_WEBHOOK_SECRET
         sync: false
+      # Listing photos on Cloudflare R2 (RAA-106): the account id, an R2 API token's key pair,
+      # the bucket, and the bucket's public URL guests load photos from (no trailing slash).
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_PUBLIC_URL
+        sync: false

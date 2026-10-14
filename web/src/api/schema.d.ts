@@ -1481,6 +1481,216 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/partner/listings/{listing_id}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a photo to a listing
+         * @description Partner-only, after the ID check (RAA-106). Adds a photo after the listing's others and returns where the browser sends the file: a `PUT` of the file's bytes to `upload.url` with exactly `upload.headers`, straight to storage (Cloudflare R2), not to this API. Then confirm it with `PATCH .../photos/{id}`; guests don't see it until then, and one not confirmed within two days is deleted. JPEG, PNG or WebP, at most 10 MB, 12 per listing; `checksum` is the file's MD5, base64-encoded.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["photo_upload_body"];
+                };
+            };
+            responses: {
+                /** @description a photo still uploading, and where its file goes */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["photo_upload"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a listing that already has 12 */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/listings/{listing_id}/photos/{id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                listing_id: number;
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a photo
+         * @description Partner-only (RAA-106). Deletes the photo and its files; the listing's other photos keep their order.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description deleted, with its files */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a photo of another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Confirm a photo's upload
+         * @description Partner-only (RAA-106). Once the browser's `PUT` has finished: checks the file is in storage, then guests see the photo and its card and large sizes are made (until then both URLs are the original's). Sending it again is harmless.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["photo_update_body"];
+                };
+            };
+            responses: {
+                /** @description uploaded, and its sizes on the way once, however often it is sent */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_photo"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's photo */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description anything but uploaded: true */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/v1/partner/listings": {
         parameters: {
             query?: never;
@@ -3214,6 +3424,8 @@ export interface components {
             title: string;
             category: string;
             area_slug: string;
+            /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
+            cover_photo_url: string | null;
         };
         trip: {
             id: number;
@@ -3274,6 +3486,8 @@ export interface components {
             title: string;
             category: string;
             area_slug: string;
+            /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
+            cover_photo_url: string | null;
             location: components["schemas"]["lat_lng"];
         };
         listing_detail: {
@@ -3306,6 +3520,24 @@ export interface components {
             /** @description Accommodation's nightly pricing once it has a price; null otherwise */
             stay_rate: components["schemas"]["stay_rate"] | null;
             fees: components["schemas"]["listing_fee"][];
+            /** @description Its photos ready for guests (see partner_photo.ready), in the partner's order; the first is the cover */
+            photos: components["schemas"]["photo_urls"][];
+        };
+        photo_urls: {
+            /** @description Cropped to fill about 800 by 600 */
+            card_url: string;
+            /** @description The whole photo, at most 1600 on its longer side */
+            large_url: string;
+        };
+        partner_photo: {
+            /** @description As sent in a listing's photos */
+            id: number;
+            /** @description False until its upload is confirmed; until then the URLs may have nothing behind them */
+            uploaded: boolean;
+            /** @description True once its metadata is stripped and its sizes are made, a few seconds after the upload is confirmed; guests see only ready photos, and until then both URLs are the original's */
+            ready: boolean;
+            card_url: string;
+            large_url: string;
         };
         business_ref: {
             name: string;
@@ -3358,6 +3590,8 @@ export interface components {
             landmarks: components["schemas"]["partner_landmark"][];
             /** @description The destinations those landmarks are in, by name */
             covers: components["schemas"]["area_ref"][];
+            /** @description In the partner's order; the first is the cover */
+            photos: components["schemas"]["partner_photo"][];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -3450,6 +3684,8 @@ export interface components {
             stay_rate?: components["schemas"]["stay_rate_body"];
             /** @description Any category. Replaces the listing's fees, in this order, when sent; left out on a change, they stay. Names are unique per listing, ignoring case. */
             fees?: components["schemas"]["listing_fee_body"][];
+            /** @description The ids of the listing's photos (POST /api/v1/partner/listings/{listing_id}/photos) in order, the first uploaded one the cover. A photo left out is deleted; left out on a change, they stay as they are. A new listing has none yet. */
+            photos?: number[];
         };
         stay_rate: {
             /** @description For each night, covering up to base_guests; per guest for a shared room. 0 means no price yet (listings made before pricing), and the listing can't be quoted */
@@ -3550,6 +3786,30 @@ export interface components {
             /** @description Default true */
             required?: boolean;
         };
+        photo_upload_body: {
+            filename: string;
+            byte_size: number;
+            /** @description The file's MD5 digest, base64-encoded */
+            checksum: string;
+            /** @enum {string} */
+            content_type: "image/jpeg" | "image/png" | "image/webp";
+        };
+        photo_upload: {
+            /** @description The photo's id, to confirm the upload and in a listing's photos */
+            id: number;
+            upload: {
+                /** @description PUT the file's bytes here */
+                url: string;
+                /** @description Send exactly these headers with the PUT */
+                headers: {
+                    [key: string]: string;
+                };
+            };
+        };
+        photo_update_body: {
+            /** @enum {boolean} */
+            uploaded: true;
+        };
         /**
          * @description free_cancellation: free any time before the booking starts; non_refundable: no refund; seven_days / fourteen_days: free up to 7 / 14 days before it starts, non-refundable after
          * @enum {string}
@@ -3611,6 +3871,8 @@ export interface components {
                 title: string;
                 category: string;
                 area_slug: string;
+                /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
+                cover_photo_url: string | null;
                 /** @enum {string} */
                 booking_type: "rental" | "stay" | "activity" | "transfer";
                 /** @description As in listing_detail */
@@ -3674,6 +3936,8 @@ export interface components {
             title: string;
             category: string;
             area_slug: string;
+            /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
+            cover_photo_url: string | null;
             location: components["schemas"]["lat_lng"];
             /** @description From the starting point's exact point, one decimal */
             distance_km: number;

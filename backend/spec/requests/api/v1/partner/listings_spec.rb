@@ -245,6 +245,22 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
+      response "422", "photos on a new listing, which has none yet, or photos that aren't a list of ids" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:taken) { create_photo(create(:listing)) }
+
+        before { body[:photos] = [ taken.id ] }
+
+        run_test! do |refused|
+          expect(refused.parsed_body["errors"]).to eq([ "Photos must be this listing's photos" ])
+          expect(user.listings).to be_empty
+          body[:photos] = [ "beach.jpg" ]
+          post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["errors"]).to eq([ "Photos must be a list of photo ids" ])
+        end
+      end
+
       response "201", "under the partner's only business when business_id is left out" do
         schema "$ref" => "#/components/schemas/partner_listing"
 
@@ -661,6 +677,43 @@ RSpec.describe "Partner listings", type: :request do
             headers: { "Authorization" => Authorization() }
           expect(response.parsed_body["units_count"]).to eq(2)
           expect(listing.units.pluck(:position)).to eq([ 1, 2 ])
+        end
+      end
+
+      response "200", "photos put in the order sent, those left out deleted, kept when left out" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        let!(:beach) { create_photo(listing) }
+        let!(:boat) { create_photo(listing) }
+        let!(:reef) { create_photo(listing, uploaded: false) }
+
+        before { body[:photos] = [ reef.id, boat.id ] }
+
+        run_test! do |saved|
+          expect(saved.parsed_body["photos"].map { |photo| photo.slice("id", "uploaded") })
+            .to eq([ { "id" => reef.id, "uploaded" => false }, { "id" => boat.id, "uploaded" => true } ])
+          expect(listing.photos.reload.map { |photo| [ photo.position, photo ] }).to eq([ [ 1, reef ], [ 2, boat ] ])
+          expect(ListingPhoto.exists?(beach.id)).to be(false)
+
+          body.delete(:photos)
+          patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["photos"].pluck("id")).to eq([ reef.id, boat.id ])
+          patch "/api/v1/partner/listings/#{id}", params: body.merge(photos: [ boat.id, reef.id ]),
+            as: :json, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["photos"].pluck("id")).to eq([ boat.id, reef.id ])
+        end
+      end
+
+      response "422", "another listing's photo" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:other) { create_photo(create(:listing)) }
+
+        before { body[:photos] = [ other.id ] }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "Photos must be this listing's photos" ])
+          expect(other.reload.listing).not_to eq(listing)
         end
       end
 
