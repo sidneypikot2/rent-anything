@@ -81,11 +81,11 @@ RSpec.describe "Areas", type: :request do
             { "id" => hopping.id, "title" => "Island hopping", "category" => "Tour", "area_slug" => "bantayan-island",
               "cover_photo_url" => nil, "booking_type" => "activity", "summary" => "Four islands and a sandbar in one day.",
               "business" => { "name" => "Moalboal Gear Rentals" }, "units_count" => 1, "units_label" => "1 unit",
-              "partner_name" => "Moalboal Gear Rentals", "price_from_cents" => nil },
+              "partner_name" => "Moalboal Gear Rentals", "price_from_cents" => nil, "price_unit" => nil },
             { "id" => honda.id, "title" => "Honda Click 125", "category" => "Motorcycle",
               "area_slug" => "bantayan-island", "cover_photo_url" => nil, "booking_type" => "rental", "summary" => "",
               "business" => { "name" => "Basilia Motor Rentals" }, "units_count" => 50, "units_label" => "50 motorcycles",
-              "partner_name" => "Basilia Motor Rentals", "price_from_cents" => nil }
+              "partner_name" => "Basilia Motor Rentals", "price_from_cents" => nil, "price_unit" => nil }
           )
         end
       end
@@ -102,7 +102,7 @@ RSpec.describe "Areas", type: :request do
 
         run_test! do |response|
           rows = response.parsed_body["listings"].index_by { _1["title"] }
-          expect(rows["Kota Beach house"]["price_from_cents"]).to eq(200_000)
+          expect(rows["Kota Beach house"].values_at("price_from_cents", "price_unit")).to eq([ 200_000, "night" ])
           expect(rows["Unpriced house"]["price_from_cents"]).to be_nil
         end
       end

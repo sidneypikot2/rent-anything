@@ -124,6 +124,48 @@ RSpec.describe "Listings", type: :request do
         end
       end
 
+      response "200", "a tour with its price per head, inclusions and the days it runs (RAA-110)" do
+        schema "$ref" => "#/components/schemas/listing_detail"
+        let(:listing) { create(:listing, :tour, area: moalboal) }
+        let(:id) { listing.id }
+        let(:today) { Date.current }
+
+        before do
+          listing.tour_detail.update!(weekdays: [], base_price_cents: 120_000)
+          [ 0, 3, 6, 70 ].each { |days| listing.tour_dates.create!(date: today + days) }
+          listing.availability_blocks.create!(starts_on: today + 2, ends_on: today + 4, reason: "Fiesta")
+          listing.tour_inclusions.create!(kind: "meal", options: %w[lunch])
+        end
+
+        run_test! do |response|
+          json = response.parsed_body
+          expect(json).to include("price_from_cents" => 120_000, "price_unit" => "person")
+          expect(json["tour"]).to include(
+            "tour_type" => "joiner", "min_guests" => 2, "max_guests" => 12, "duration_value" => 4,
+            "duration_unit" => "hours", "price_unit" => "person",
+            "open_dates" => [ today.iso8601, (today + 6).iso8601 ],
+            "inclusions" => [ { "kind" => "meal", "options" => %w[lunch], "note" => nil, "price_per_head_cents" => 0 } ]
+          )
+          expect(json["tour"].keys).not_to include("max_groups_per_day")
+        end
+      end
+
+      response "200", "a tour with no price yet, and at most 5 of its photos" do
+        schema "$ref" => "#/components/schemas/listing_detail"
+        let(:listing) { create(:listing, :tour, area: moalboal) }
+        let(:id) { listing.id }
+
+        before do
+          listing.tour_detail.update_columns(base_price_cents: 0)
+          7.times { create_photo(listing) }
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body).to include("price_from_cents" => nil, "price_unit" => nil, "tour" => nil)
+          expect(response.parsed_body["photos"].size).to eq(5)
+        end
+      end
+
       response "200", "a stay with no price yet, and a listing that isn't priced by the night" do
         schema "$ref" => "#/components/schemas/listing_detail"
         let(:listing) { create(:listing, :stay, area: moalboal) }

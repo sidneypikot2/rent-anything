@@ -469,6 +469,206 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
+      context "a tour, private or joiner, on a schedule (RAA-110)" do
+        let(:category) { create(:category, :tour) }
+        let(:soon) { Date.current + 10 }
+        let(:tour) do
+          { tour_type: "private", min_guests: 2, max_guests: 8, max_groups_per_day: 3, duration_value: 2,
+            duration_unit: "days", weekdays: [ 6, 0, 6 ], dates: [ (soon + 1).iso8601, soon.iso8601 ],
+            base_price_cents: 900_000,
+            inclusions: [
+              { kind: "transport", options: %w[van boat], price_per_head_cents: 50_000 },
+              { kind: "meal", options: %w[lunch snack], note: " Fresh seafood ", price_per_head_cents: 35_000 },
+              { kind: "accommodation", note: "Beach cottage, 1 night", price_per_head_cents: 0 }
+            ] }
+        end
+
+        before do
+          body.merge!(attrs: { guide_included: true }, tour:,
+            blocked_dates: [ { starts_on: (soon + 5).iso8601, ends_on: (soon + 5).iso8601, reason: "Fiesta" } ])
+        end
+
+        response "201", "a private tour on weekends and extra dates, with priced inclusions and a blocked day" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          run_test! do |response|
+            expect(response.parsed_body["tour"]).to eq(
+              "tour_type" => "private", "min_guests" => 2, "max_guests" => 8, "max_groups_per_day" => 3,
+              "duration_value" => 2, "duration_unit" => "days", "weekdays" => [ 0, 6 ],
+              "dates" => [ soon.iso8601, (soon + 1).iso8601 ], "base_price_cents" => 900_000, "price_unit" => "group",
+              "inclusions" => [
+                { "kind" => "accommodation", "options" => [], "note" => "Beach cottage, 1 night", "price_per_head_cents" => 0 },
+                { "kind" => "meal", "options" => %w[snack lunch], "note" => "Fresh seafood", "price_per_head_cents" => 35_000 },
+                { "kind" => "transport", "options" => %w[van boat], "note" => nil, "price_per_head_cents" => 50_000 }
+              ]
+            )
+            expect(response.parsed_body["blocked_dates"]).to eq([
+              { "starts_on" => (soon + 5).iso8601, "ends_on" => (soon + 5).iso8601, "reason" => "Fiesta" }
+            ])
+            expect(response.parsed_body["photo_limit"]).to eq(5)
+          end
+        end
+
+        response "201", "a joiner tour every day, its inclusions bundled in the price per head" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before do
+            tour.merge!(tour_type: "joiner", weekdays: (0..6).to_a, dates: [], duration_value: 6, duration_unit: "hours",
+              inclusions: [ { kind: "meal", options: %w[lunch] } ])
+            body[:blocked_dates] = []
+          end
+
+          run_test! do |response|
+            expect(response.parsed_body["tour"]).to include(
+              "tour_type" => "joiner", "weekdays" => (0..6).to_a, "dates" => [], "price_unit" => "person",
+              "inclusions" => [ { "kind" => "meal", "options" => %w[lunch], "note" => nil, "price_per_head_cents" => 0 } ]
+            )
+            expect(response.parsed_body["blocked_dates"]).to eq([])
+          end
+        end
+
+        response "201", "a tour on specific dates only" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before { tour.merge!(weekdays: [], dates: [ soon.iso8601 ]) }
+
+          run_test! do |response|
+            expect(response.parsed_body["tour"]).to include("weekdays" => [], "dates" => [ soon.iso8601 ])
+          end
+        end
+
+        response "422", "a tour without tour details" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          before { body.delete(:tour) }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to include("Tour details are required for a tour")
+            expect(Listing.count).to eq(0)
+          end
+        end
+
+        response "422", "missing and wrong-typed tour details" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          let(:tour) do
+            { tour_type: "both", min_guests: "2", max_groups_per_day: 0, duration_value: 1.5, duration_unit: "weeks",
+              weekdays: [ 7 ], dates: [ "next week", 20261020 ], base_price_cents: 0, inclusions: {} }
+          end
+
+          run_test! do |refused|
+            expect(refused.parsed_body["errors"]).to include(
+              "Tour type must be private or joiner",
+              "Minimum guests must be a whole number from 1 to 100",
+              "Maximum guests must be a whole number from 1 to 100",
+              "Groups per day must be a whole number from 1 to 100",
+              "Duration must be a whole number",
+              "Duration unit must be hours or days",
+              "Weekdays must be a list of days, 0 (Sunday) to 6 (Saturday)",
+              "Tour dates must be a list of dates (YYYY-MM-DD)",
+              "Base price must be a whole number of centavos above 0",
+              "Inclusions must be a list"
+            )
+            body[:tour] = "private"
+            post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["errors"]).to include("Tour details must be an object")
+            expect(Listing.count).to eq(0)
+          end
+        end
+
+        response "422", "a tour that never runs, too long, past dates and fewer maximum than minimum guests" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          before { tour.merge!(weekdays: [], dates: [ (Date.current - 1).iso8601 ], min_guests: 5, max_guests: 4, duration_value: 31) }
+
+          run_test! do |refused|
+            expect(refused.parsed_body["errors"]).to include(
+              "Tour dates must be today or later",
+              "Maximum guests can't be fewer than the minimum guests",
+              "Duration can be at most 30 days"
+            )
+            tour[:dates] = []
+            post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["errors"]).to include("A tour must run on at least one weekday or date")
+            tour[:dates] = (0..366).map { |n| (soon + n).iso8601 }
+            post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["errors"]).to include("A tour can have at most 366 dates")
+            expect(Listing.count).to eq(0)
+          end
+        end
+
+        response "422", "inclusions a tour of its type can't have" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          before do
+            tour[:inclusions] = [
+              { kind: "transport", options: [], price_per_head_cents: 1 },
+              { kind: "transport", options: %w[jeepney] },
+              { kind: "meal", options: %w[lunch], price_per_head_cents: "350", note: "x" * 121 },
+              { kind: "spa" },
+              "lunch"
+            ]
+          end
+
+          run_test! do |refused|
+            expect(refused.parsed_body["errors"]).to include(
+              "Transport must name at least one of van, tricycle, boat, motorbike, car or other",
+              "Transport options must be from van, tricycle, boat, motorbike, car or other",
+              "Each kind of inclusion can be listed once",
+              "A private tour's inclusions need a price per head: a whole number of centavos, 0 or more",
+              "Inclusions are accommodation, transport or meal",
+              "An inclusion's note can be at most 120 characters",
+              "Each inclusion must be an object"
+            )
+            tour.merge!(tour_type: "joiner", inclusions: [ { kind: "meal", options: %w[lunch], price_per_head_cents: 35_000 } ])
+            post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["errors"]).to include(
+              "A joiner tour's inclusions are in its price: leave out their price per head"
+            )
+            expect(Listing.count).to eq(0)
+          end
+        end
+
+        response "422", "blocked dates that overlap, end before they start or are past" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          before do
+            body[:blocked_dates] = [
+              { starts_on: soon.iso8601, ends_on: (soon + 3).iso8601 },
+              { starts_on: (soon + 3).iso8601, ends_on: (soon + 4).iso8601, reason: "x" * 121 },
+              { starts_on: (soon + 9).iso8601, ends_on: (soon + 8).iso8601 },
+              { starts_on: (Date.current - 3).iso8601, ends_on: (Date.current - 1).iso8601 },
+              { starts_on: "soon" }
+            ]
+          end
+
+          run_test! do |refused|
+            expect(refused.parsed_body["errors"]).to include(
+              "Blocked dates can't overlap",
+              "A blocked date's reason can be at most 120 characters",
+              "A blocked date can't end before it starts",
+              "Blocked dates must end today or later",
+              "Each blocked date needs starts_on and ends_on dates (YYYY-MM-DD)"
+            )
+            body[:blocked_dates] = { starts_on: soon.iso8601 }
+            post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["errors"]).to include("Blocked dates must be a list")
+            expect(Listing.count).to eq(0)
+          end
+        end
+      end
+
+      response "422", "tour details on a listing that isn't a tour" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:tour] = { tour_type: "joiner" } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Only tours have tour details")
+          expect(Listing.count).to eq(0)
+        end
+      end
+
       response "422", "a stay rate on a listing that isn't accommodation" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
@@ -876,6 +1076,128 @@ RSpec.describe "Partner listings", type: :request do
             expect(response.parsed_body["stay_rate"]).to be_nil
             expect(StayRate.count).to eq(0)
           end
+        end
+      end
+
+      context "a tour (RAA-110)" do
+        let(:category) { create(:category, :tour) }
+        let(:listing) { create(:listing, :tour, partner: user, area: moalboal) }
+        let(:soon) { Date.current + 10 }
+
+        before { body[:attrs] = { guide_included: true } }
+
+        response "200", "tour details and blocked dates replaced when sent, kept when left out" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before do
+            listing.tour_dates.create!(date: soon)
+            listing.tour_inclusions.create!(kind: "meal", options: %w[lunch])
+            listing.availability_blocks.create!(starts_on: soon, ends_on: soon + 1)
+            body.merge!(
+              tour: { tour_type: "private", min_guests: 1, max_guests: 6, max_groups_per_day: 2, duration_value: 3,
+                duration_unit: "hours", weekdays: [ 1, 2, 3, 4, 5 ], dates: [], base_price_cents: 400_000,
+                inclusions: [ { kind: "transport", options: %w[tricycle], price_per_head_cents: 10_000 } ] },
+              blocked_dates: [ { starts_on: (soon + 7).iso8601, ends_on: (soon + 9).iso8601, reason: "Boat repairs" } ]
+            )
+          end
+
+          run_test! do |saved|
+            expect(saved.parsed_body["tour"]).to include(
+              "tour_type" => "private", "weekdays" => [ 1, 2, 3, 4, 5 ], "dates" => [], "base_price_cents" => 400_000,
+              "inclusions" => [ { "kind" => "transport", "options" => %w[tricycle], "note" => nil, "price_per_head_cents" => 10_000 } ]
+            )
+            expect(saved.parsed_body["blocked_dates"].sole).to include("reason" => "Boat repairs")
+            body.except!(:tour, :blocked_dates)
+            patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["tour"]).to include("tour_type" => "private", "base_price_cents" => 400_000)
+            expect(response.parsed_body["blocked_dates"].sole).to include("reason" => "Boat repairs")
+            expect(TourDetail.count).to eq(1)
+          end
+        end
+
+        response "200", "a date or block already saved can be sent back once it is past; past ones aren't shown" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          let(:yesterday) { Date.current - 1 }
+
+          before do
+            listing.tour_dates.create!(date: yesterday)
+            listing.availability_blocks.create!(starts_on: yesterday - 3, ends_on: yesterday - 1)
+            listing.availability_blocks.create!(starts_on: yesterday, ends_on: soon)
+            body.merge!(
+              tour: { tour_type: "joiner", min_guests: 2, max_guests: 12, max_groups_per_day: 1, duration_value: 4,
+                duration_unit: "hours", weekdays: [], dates: [ yesterday.iso8601, soon.iso8601 ], base_price_cents: 150_000 },
+              blocked_dates: [ { starts_on: yesterday.iso8601, ends_on: soon.iso8601 } ]
+            )
+          end
+
+          run_test! do |response|
+            expect(response.parsed_body["tour"]).to include("dates" => [ soon.iso8601 ], "inclusions" => [])
+            expect(response.parsed_body["blocked_dates"]).to eq([
+              { "starts_on" => yesterday.iso8601, "ends_on" => soon.iso8601, "reason" => nil }
+            ])
+            # The past ones stay, as history, though not shown.
+            expect(listing.tour_dates.pluck(:date)).to eq([ yesterday, soon ])
+            expect(listing.availability_blocks.pluck(:starts_on, :ends_on))
+              .to eq([ [ yesterday - 3, yesterday - 1 ], [ yesterday, soon ] ])
+          end
+        end
+
+        response "422", "a listing made a tour while it has more photos than a tour takes" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          let(:listing) { create(:listing, partner: user, area: moalboal) }
+
+          before do
+            6.times { create_photo(listing) }
+            body[:tour] = { tour_type: "joiner", min_guests: 1, max_guests: 10, max_groups_per_day: 1, duration_value: 4,
+              duration_unit: "hours", weekdays: [ 6 ], dates: [], base_price_cents: 100_000 }
+          end
+
+          run_test! do |refused|
+            expect(refused.parsed_body["errors"]).to include("A tour can have at most 5 photos: remove 1 first")
+            expect(listing.reload.category).not_to be_tour
+            body[:photos] = listing.photos.pluck(:id).first(5)
+            patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response).to have_http_status(:ok)
+            expect(listing.photos.count).to eq(5)
+          end
+        end
+
+        response "200", "a back-filled tour with no price yet can still be changed without tour details" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before { listing.tour_detail.update_columns(base_price_cents: 0) }
+
+          run_test! do |response|
+            expect(response.parsed_body["tour"]).to include("base_price_cents" => 0)
+          end
+        end
+
+        response "200", "tour details dropped when the listing stops being a tour" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before do
+            listing.tour_dates.create!(date: soon)
+            listing.tour_inclusions.create!(kind: "meal", options: %w[lunch])
+            body.merge!(category_id: create(:category, booking_type: "activity").id, attrs: {})
+          end
+
+          run_test! do |response|
+            expect(response.parsed_body["tour"]).to be_nil
+            expect(response.parsed_body["photo_limit"]).to eq(12)
+            expect([ TourDetail.count, TourDate.count, TourInclusion.count ]).to eq([ 0, 0, 0 ])
+          end
+        end
+      end
+
+      response "422", "a listing made a tour without tour details" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body.merge!(category_id: create(:category, :tour).id, attrs: { guide_included: true }) }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Tour details are required for a tour")
         end
       end
 

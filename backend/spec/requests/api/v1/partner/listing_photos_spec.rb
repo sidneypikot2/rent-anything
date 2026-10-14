@@ -15,7 +15,7 @@ RSpec.describe "Partner listing photos", type: :request do
         "where the browser sends the file: a `PUT` of the file's bytes to `upload.url` with exactly " \
         "`upload.headers`, straight to storage (Cloudflare R2), not to this API. Then confirm it with " \
         "`PATCH .../photos/{id}`; guests don't see it until then, and one not confirmed within two days is " \
-        "deleted. JPEG, PNG or WebP, at most 10 MB, 12 per listing; `checksum` is the file's MD5, base64-encoded."
+        "deleted. JPEG, PNG or WebP, at most 10 MB, 12 per listing (5 per tour); `checksum` is the file's MD5, base64-encoded."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
       parameter name: :listing_id, in: :path, schema: { type: :integer }
@@ -72,6 +72,19 @@ RSpec.describe "Partner listing photos", type: :request do
         run_test! do |response|
           expect(response.parsed_body["errors"]).to eq([ "A listing can have at most 12 photos" ])
           expect(listing.photos.count).to eq(12)
+        end
+      end
+
+      response "422", "a tour that already has 5 (RAA-110)" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:listing) { create(:listing, :tour, partner: user) }
+
+        before { 5.times { create_photo(listing, uploaded: false) } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "A tour can have at most 5 photos" ])
+          expect(listing.photos.count).to eq(5)
         end
       end
 

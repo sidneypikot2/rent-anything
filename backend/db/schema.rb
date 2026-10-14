@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_14_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_14_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -45,6 +45,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000002) do
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'published'::character varying::text])", name: "areas_status_check"
     t.check_constraint "wikidata_id::text ~ '^Q[0-9]+$'::text", name: "areas_wikidata_id_check"
     t.check_constraint "wikidata_popularity >= 0", name: "areas_wikidata_popularity_check"
+  end
+
+  create_table "availability_blocks", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.date "starts_on", null: false
+    t.date "ends_on", null: false
+    t.string "reason"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+
+    t.check_constraint "char_length(reason::text) <= 120", name: "availability_blocks_reason_length_check"
+    t.check_constraint "ends_on >= starts_on", name: "availability_blocks_dates_check"
+    t.exclusion_constraint "listing_id WITH =, daterange(starts_on, ends_on, '[]'::text) WITH &&", using: :gist, name: "availability_blocks_no_overlap"
   end
 
   create_table "businesses", force: :cascade do |t|
@@ -347,6 +360,50 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000002) do
     t.check_constraint "kind::text = ANY (ARRAY['activity'::character varying::text, 'feature'::character varying::text, 'theme'::character varying::text])", name: "tags_kind_check"
   end
 
+  create_table "tour_dates", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.date "date", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["listing_id", "date"], name: "index_tour_dates_on_listing_id_and_date", unique: true
+  end
+
+  create_table "tour_details", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.string "tour_type", null: false
+    t.integer "min_guests", default: 1, null: false
+    t.integer "max_guests", null: false
+    t.integer "max_groups_per_day", default: 1, null: false
+    t.integer "duration_value", null: false
+    t.string "duration_unit", null: false
+    t.integer "weekdays", default: [], null: false, array: true
+    t.bigint "base_price_cents", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["listing_id"], name: "index_tour_details_on_listing_id", unique: true
+    t.check_constraint "base_price_cents >= 0", name: "tour_details_base_price_check"
+    t.check_constraint "duration_unit::text = ANY (ARRAY['hours'::character varying, 'days'::character varying]::text[])", name: "tour_details_duration_unit_check"
+    t.check_constraint "duration_value >= 1 AND duration_value <=\nCASE duration_unit\n    WHEN 'hours'::text THEN 24\n    ELSE 30\nEND", name: "tour_details_duration_value_check"
+    t.check_constraint "max_groups_per_day >= 1 AND max_groups_per_day <= 100", name: "tour_details_max_groups_check"
+    t.check_constraint "min_guests >= 1 AND max_guests >= min_guests AND max_guests <= 100", name: "tour_details_guests_check"
+    t.check_constraint "tour_type::text = ANY (ARRAY['private'::character varying, 'joiner'::character varying]::text[])", name: "tour_details_tour_type_check"
+    t.check_constraint "weekdays <@ '{0,1,2,3,4,5,6}'::integer[]", name: "tour_details_weekdays_check"
+  end
+
+  create_table "tour_inclusions", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.string "kind", null: false
+    t.string "options", default: [], null: false, array: true
+    t.string "note"
+    t.bigint "price_per_head_cents", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["listing_id", "kind"], name: "index_tour_inclusions_on_listing_id_and_kind", unique: true
+    t.check_constraint "char_length(note::text) <= 120", name: "tour_inclusions_note_length_check"
+    t.check_constraint "kind::text = ANY (ARRAY['accommodation'::character varying, 'transport'::character varying, 'meal'::character varying]::text[])", name: "tour_inclusions_kind_check"
+    t.check_constraint "price_per_head_cents >= 0", name: "tour_inclusions_price_check"
+  end
+
   create_table "trip_items", force: :cascade do |t|
     t.bigint "trip_id", null: false
     t.bigint "listing_id", null: false
@@ -395,6 +452,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000002) do
   end
 
   add_foreign_key "areas", "areas", column: "parent_id"
+  add_foreign_key "availability_blocks", "listings", on_delete: :cascade
   add_foreign_key "businesses", "users", column: "partner_id"
   add_foreign_key "categories", "categories", column: "parent_id"
   add_foreign_key "category_tags", "categories"
@@ -423,6 +481,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000002) do
   add_foreign_key "partner_verifications", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_partner_verifications_user_role"
   add_foreign_key "refresh_tokens", "users"
   add_foreign_key "stay_rates", "listings", on_delete: :cascade
+  add_foreign_key "tour_dates", "listings", on_delete: :cascade
+  add_foreign_key "tour_details", "listings", on_delete: :cascade
+  add_foreign_key "tour_inclusions", "listings", on_delete: :cascade
   add_foreign_key "trip_items", "listings", on_delete: :cascade
   add_foreign_key "trip_items", "trips", on_delete: :cascade
   add_foreign_key "trips", "users"
