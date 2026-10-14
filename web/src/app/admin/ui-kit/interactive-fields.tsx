@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ComboboxField } from "@/components/ui/combobox-field";
 import { ChoiceCards } from "@/components/ui/choice-cards";
-import { DateRangeField } from "@/components/ui/date-range-field";
+import { DateRangeField, toDate } from "@/components/ui/date-range-field";
 import { MonthCalendar } from "@/components/ui/month-calendar";
 import { PhoneField } from "@/components/ui/phone-field";
 import { StepperField } from "@/components/ui/stepper-field";
@@ -25,7 +25,7 @@ export function InteractiveFields() {
   // Weekends run; a tap blocks one, frees it, or adds a weekday.
   const [blocked, setBlocked] = useState<string[]>([]);
   const [added, setAdded] = useState<string[]>([]);
-  const weekend = (iso: string) => [0, 6].includes(new Date(`${iso}T00:00:00Z`).getUTCDay());
+  const weekend = (iso: string) => [0, 6].includes(toDate(iso).getUTCDay());
   const toggle = (list: string[], iso: string) => (list.includes(iso) ? list.filter((other) => other !== iso) : [...list, iso]);
 
   return (

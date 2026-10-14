@@ -8,7 +8,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { ChoiceCards } from "@/components/ui/choice-cards";
 import { cn } from "@/components/ui/cn";
-import { DateRangeField } from "@/components/ui/date-range-field";
+import { DateRangeField, toDate, toIso } from "@/components/ui/date-range-field";
 import { Field } from "@/components/ui/field";
 import { MonthCalendar, type DayMark } from "@/components/ui/month-calendar";
 import { Pill } from "@/components/ui/pill";
@@ -137,7 +137,7 @@ export function toTourValues(listing: Pick<PartnerListing, "tour" | "blocked_dat
 }
 
 function weekday(iso: string) {
-  return new Date(`${iso}T00:00:00Z`).getUTCDay();
+  return toDate(iso).getUTCDay();
 }
 
 // An added date that falls on one of the tour's weekdays says nothing more: it isn't sent.
@@ -191,6 +191,10 @@ export function toTourListingBody(
     attrs: toAttrs(extras, values.attrs),
   };
 }
+
+// The most photos a tour can have (the API's photo_limit for a tour, RAA-110): for a listing
+// whose category is changed to a tour before its saved photo_limit says so.
+export const TOUR_PHOTO_LIMIT = 5;
 
 // A tour has its own details (RAA-110): the API's Category#tour?, by slug.
 export function isTour(category: { slug: string } | undefined) {
@@ -361,9 +365,14 @@ function blockOn(blocks: BlockValues[], day: string) {
 }
 
 function shift(iso: string, days: number) {
-  const date = new Date(`${iso}T00:00:00Z`);
+  const date = toDate(iso);
   date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
+  return toIso(date);
+}
+
+// The days blocked, counting each day of a range.
+export function blockedDayCount(values: TourValues) {
+  return values.blocks.reduce((sum, block) => sum + (toDate(block.to).getTime() - toDate(block.from).getTime()) / 86_400_000 + 1, 0);
 }
 
 // When it runs: the days of the week, then a calendar to check them on, where a tap blocks a
@@ -398,9 +407,10 @@ export function TourScheduleFields({ values, onChange, errors }: SectionProps) {
   function tap(day: string) {
     const block = blockOn(values.blocks, day);
     if (block) {
-      // Free the day: a range splits around it.
+      // Free the day: a range splits around it. A piece that has already ended is history the
+      // API keeps on its own and refuses to be sent as new, so it is dropped.
       const rest = [
-        ...(block.from < day ? [{ ...block, key: nextBlockKey++, to: shift(day, -1) }] : []),
+        ...(block.from < day && shift(day, -1) >= today ? [{ ...block, key: nextBlockKey++, to: shift(day, -1) }] : []),
         ...(day < block.to ? [{ ...block, key: nextBlockKey++, from: shift(day, 1) }] : []),
       ];
       set({ blocks: [...values.blocks.filter((other) => other !== block), ...rest] });
@@ -532,6 +542,12 @@ export function TourScheduleFields({ values, onChange, errors }: SectionProps) {
             maxLength={REASON_LENGTH}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
+            onKeyDown={(event) => {
+              // Enter blocks the range here rather than submitting the whole form.
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              blockRange();
+            }}
             placeholder="e.g. Town fiesta"
           />
           <Button type="button" variant="soft" onClick={blockRange} data-testid="tour-block-add" className="sm:mb-0.5">

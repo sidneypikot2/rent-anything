@@ -25,7 +25,8 @@ export function TourFacts({ listing, tour }: { listing: ListingDetail; tour: Tou
   const facts: [string, string][] = [
     ["Group", groupText(tour.min_guests, tour.max_guests)],
     ["Duration", durationText(tour.duration_value, tour.duration_unit)],
-    ["Runs", scheduleText(tour.weekdays, tour.weekdays.length ? 0 : tour.open_dates.length)],
+    // The guest's tour has its open days, not the partner's added dates.
+    ["Runs", tour.weekdays.length ? scheduleText(tour.weekdays, 0) : "On set dates"],
   ];
 
   return (

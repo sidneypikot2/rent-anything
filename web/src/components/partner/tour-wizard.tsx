@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { TextareaField } from "@/components/ui/textarea-field";
 import type { LatLng } from "@/lib/map";
+import { plural } from "@/lib/pricing";
 import { durationText, groupText, inclusionText, scheduleText, tourTypeLabel } from "@/lib/tours";
 import {
   cancellationPolicyName,
@@ -22,6 +23,7 @@ import { NewListingPhotos } from "./new-listing-photos";
 import { SameAsBusinessAddress, useSameAsBusinessAddress } from "./same-as-business-address";
 import {
   basePriceText,
+  blockedDayCount,
   NEW_TOUR,
   toTourBody,
   toTourListingBody,
@@ -32,6 +34,7 @@ import {
   TourTypeChoice,
   tourErrors,
   tourExtras,
+  TOUR_SECTIONS,
   type TourErrors,
   type TourInclusionOptions,
   type TourValues,
@@ -138,6 +141,14 @@ export function TourWizard({
       return;
     }
     if (!location) return;
+    // A step reached earlier may no longer hold (a joiner tour made private needs its add-ons
+    // priced): open the first that doesn't.
+    const broken = (Object.keys(TOUR_SECTIONS) as (keyof typeof TOUR_SECTIONS)[]).find((key) => tourErrors(tour, key));
+    if (broken) {
+      setStepIndex(STEPS.findIndex((other) => other.key === broken));
+      setErrors(tourErrors(tour, broken));
+      return;
+    }
     const body: ListingBody = {
       title: title.trim(),
       description: description.trim(),
@@ -299,7 +310,7 @@ function reviewRows(tour: TourValues, extras: string[]): [string, string][] {
     ["Group", `${groupText(body.min_guests, body.max_guests)}, ${body.max_groups_per_day} a day`],
     ["Duration", durationText(body.duration_value, body.duration_unit)],
     ["Runs", scheduleText(body.weekdays, body.dates.length)],
-    ["Blocked days", tour.blocks.length ? String(tour.blocks.length) : "None"],
+    ["Blocked days", blockedDayCount(tour) ? plural(blockedDayCount(tour), "day") : "None"],
     [body.tour_type === "private" ? "Add-ons" : "Included", included.join("; ") || "Nothing listed"],
     ["Price", basePriceText(tour)],
     ["Fees", tour.fees.map((fee) => fee.name.trim()).join(", ") || "None"],

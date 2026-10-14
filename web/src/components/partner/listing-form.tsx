@@ -24,6 +24,7 @@ import {
 } from "./listing-fields";
 import { LandmarkPicker } from "./landmark-picker";
 import { ListingPhotos, orderedPhotos } from "./listing-photos";
+import { uploadedPhotos } from "./use-listing-photos";
 import { LocationPicker } from "./location-picker";
 import {
   AmenityChoice,
@@ -47,6 +48,7 @@ import {
 } from "./stay-pricing-fields";
 import {
   isTour,
+  TOUR_PHOTO_LIMIT,
   toTourListingBody,
   toTourValues,
   TourGroupFields,
@@ -114,6 +116,9 @@ export function ListingForm({
   const tourCategory = isTour(category);
   const fields = stayCategory || vehicleCategory || tourCategory ? [] : attributeFields(category);
   const extras = tourExtras(category);
+  // Made a tour here, the listing takes a tour's photos before it is saved as one.
+  const photoLimit = tourCategory && !listing.tour ? TOUR_PHOTO_LIMIT : listing.photo_limit;
+  const extraPhotos = uploadedPhotos(listing.photos).length - photoLimit;
   const changeTour = (values: TourValues) => {
     setTour(values);
     setTourProblems(undefined);
@@ -155,7 +160,8 @@ export function ListingForm({
           ? toVehicleAttrs(vehicleValues, savedAsVehicle ? listing.attrs : {})
           : toAttrs(fields, attrValues),
       cancellation_policy: policy,
-      units_count: units,
+      // A tour has no units: groups a day stand in for them (RAA-111).
+      units_count: tourCategory ? 1 : units,
       landmark_ids: visitsLandmarks ? landmarks.map((landmark) => landmark.id) : [],
       // Only accommodation is priced by the night, and a tour by its own price (RAA-111); other
       // categories' fees aren't edited here yet.
@@ -367,10 +373,15 @@ export function ListingForm({
       <fieldset className="flex flex-col gap-4">
         <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Photos</legend>
         <p className="text-sm text-muted">New photos and deletions are saved straight away; a new order is saved with the rest.</p>
+        {extraPhotos > 0 && (
+          <p role="alert" className="text-sm font-medium text-warning" data-testid="listing-photos-over-limit">
+            A tour can have at most {photoLimit} photos: delete {extraPhotos} before saving.
+          </p>
+        )}
         <ListingPhotos
           listingId={listing.id}
           photos={listing.photos}
-          limit={listing.photo_limit}
+          limit={photoLimit}
           order={photoOrder}
           onOrderChange={setPhotoOrder}
           onBusyChange={setPhotosBusy}

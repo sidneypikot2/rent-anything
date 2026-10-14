@@ -1,5 +1,6 @@
 import type { components } from "@/api/schema";
 import { formatPeso } from "./money";
+import { plural } from "./pricing";
 
 // How a tour's facts read (RAA-111), for partners and guests alike; plain functions so server
 // pages can use them. Weekdays are the API's: 0 Sunday … 6 Saturday.
@@ -33,10 +34,6 @@ export const INCLUSION_LABELS: Record<InclusionKind, string> = {
   transport: "Transport",
   meal: "Meals",
 };
-
-function plural(count: number, noun: string) {
-  return `${count} ${count === 1 ? noun : `${noun}s`}`;
-}
 
 function sentence(items: string[]) {
   if (items.length <= 1) return items.join("");

@@ -2,13 +2,9 @@ import type { ListingDetail, StayQuote } from "@/api/discovery";
 import { Card, CardBody } from "@/components/ui/card";
 import { Price } from "@/components/ui/typography";
 import { formatPeso } from "@/lib/money";
-import { feeText, nightUnit, stayRateTerms } from "@/lib/pricing";
+import { feeText, nightUnit, plural, stayRateTerms } from "@/lib/pricing";
 
 type Rate = NonNullable<ListingDetail["stay_rate"]>;
-
-function plural(count: number, noun: string) {
-  return `${count} ${count === 1 ? noun : `${noun}s`}`;
-}
 
 // "₱1,200 / night · up to 2 guests included" under a stay's title (RAA-105). Extra guests are
 // free without an extra-guest fee, so then it says how many the place sleeps instead.

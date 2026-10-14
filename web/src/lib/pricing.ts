@@ -37,7 +37,7 @@ export function priceUnitText(unit: components["schemas"]["price_unit"]) {
   return unit ? { night: "/ night", group: "/ group", person: "/ guest" }[unit] : undefined;
 }
 
-function plural(count: number, noun: string) {
+export function plural(count: number, noun: string) {
   return `${count} ${count === 1 ? noun : `${noun}s`}`;
 }
 
