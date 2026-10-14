@@ -68,7 +68,13 @@ export function MonthCalendar({
         onDayClick={(date, modifiers) => {
           if (!modifiers.disabled) onDayClick(toIso(date));
         }}
-        classNames={{ ...CLASS_NAMES, months: cn(CLASS_NAMES.months, months === 2 && "gap-6 sm:flex-row") }}
+        classNames={{
+          ...CLASS_NAMES,
+          // Side by side, each month takes half the width; left to their content, the grids
+          // shrink until the day numbers run together and the nav covers the first caption.
+          months: cn(CLASS_NAMES.months, months === 2 && "gap-6 sm:flex-row"),
+          month: cn(CLASS_NAMES.month, "flex-1"),
+        }}
         components={{ DayButton: Day }}
       />
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
