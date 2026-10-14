@@ -21,6 +21,7 @@ import { cn } from "@/components/ui/cn";
 import { Section } from "@/components/ui/section";
 import { DisplayTitle } from "@/components/ui/typography";
 import { formatPeso } from "@/lib/money";
+import { priceUnitText } from "@/lib/pricing";
 
 type Listing = AreaDetail["listings"][number];
 
@@ -226,7 +227,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                               photo={listingCover(listing, index)}
                               price={
                                 listing.price_from_cents
-                                  ? { prefix: "from", amount: formatPeso(listing.price_from_cents), unit: "/ night" }
+                                  ? { prefix: "from", amount: formatPeso(listing.price_from_cents), unit: priceUnitText(listing.price_unit) }
                                   : undefined
                               }
                               action={<AddToTripButton listing={listing} dates={dates} />}

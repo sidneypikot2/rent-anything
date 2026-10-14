@@ -31,6 +31,12 @@ export function nightUnit(perGuest: boolean) {
   return perGuest ? "/ guest / night" : "/ night";
 }
 
+// The unit after a listing's "from" price (price_unit): a night of a stay, a private tour's
+// whole group or one joiner (RAA-110).
+export function priceUnitText(unit: components["schemas"]["price_unit"]) {
+  return unit ? { night: "/ night", group: "/ group", person: "/ guest" }[unit] : undefined;
+}
+
 function plural(count: number, noun: string) {
   return `${count} ${count === 1 ? noun : `${noun}s`}`;
 }

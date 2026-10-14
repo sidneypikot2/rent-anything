@@ -70,6 +70,34 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
     JSON.stringify(list.map(({ name, amount_cents, charged_per, required }) => [name, amount_cents, charged_per, required ?? true]));
   if (body.fees && fees(listing.fees) !== fees(body.fees)) changes.push("Fees");
 
+  // A tour's details (RAA-111), by part: the body replaces them whole.
+  if (body.tour) {
+    const saved = listing.tour;
+    const tour = body.tour;
+    const same = (before: unknown, after: unknown) => JSON.stringify(before) === JSON.stringify(after);
+    const inclusions = (list: { kind: string; options?: string[]; note?: string | null; price_per_head_cents?: number }[]) =>
+      [...list]
+        .sort((a, b) => a.kind.localeCompare(b.kind))
+        .map((inclusion) => [inclusion.kind, inclusion.options ?? [], inclusion.note ?? null, inclusion.price_per_head_cents ?? 0]);
+    if (saved?.tour_type !== tour.tour_type) changes.push("Tour type");
+    if (
+      !same(
+        [saved?.min_guests, saved?.max_guests, saved?.max_groups_per_day, saved?.duration_value, saved?.duration_unit],
+        [tour.min_guests, tour.max_guests, tour.max_groups_per_day, tour.duration_value, tour.duration_unit],
+      )
+    ) {
+      changes.push("Group and duration");
+    }
+    if (!same([saved?.weekdays, saved?.dates], [tour.weekdays, tour.dates])) changes.push("Schedule");
+    if (!same(inclusions(saved?.inclusions ?? []), inclusions(tour.inclusions ?? []))) changes.push("Inclusions");
+    if (saved?.base_price_cents !== tour.base_price_cents) changes.push("Price");
+  }
+  if (body.blocked_dates) {
+    const blocks = (list: { starts_on: string; ends_on: string; reason: string | null }[]) =>
+      JSON.stringify(list.map((block) => [block.starts_on, block.ends_on, block.reason]));
+    if (blocks(listing.blocked_dates) !== blocks(body.blocked_dates)) changes.push("Blocked days");
+  }
+
   const attrs = body.attrs ?? {};
   for (const key of new Set([...Object.keys(listing.attrs), ...Object.keys(attrs)])) {
     if (displayValue(listing.attrs[key], key) !== displayValue(attrs[key], key)) changes.push(attributeLabel(key));

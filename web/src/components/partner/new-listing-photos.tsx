@@ -39,7 +39,7 @@ export function NewListingPhotos({ listing, body }: { listing: PartnerListing; b
             {update.error.message}
           </p>
         )}
-        <ListingPhotos listingId={listing.id} photos={photos} order={order} onOrderChange={setOrder} onBusyChange={setBusy} />
+        <ListingPhotos listingId={listing.id} photos={photos} limit={listing.photo_limit} order={order} onOrderChange={setOrder} onBusyChange={setBusy} />
       </div>
       <WizardActions
         next={

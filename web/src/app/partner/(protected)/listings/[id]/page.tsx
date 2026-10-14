@@ -21,10 +21,13 @@ import { Card, CardBody } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { DisplayTitle } from "@/components/ui/typography";
 import { formatPeso } from "@/lib/money";
+import { formatDateRange } from "@/lib/dates";
 import { feeText, nightUnit, stayRateTerms } from "@/lib/pricing";
+import { basePriceUnit, durationText, groupText, inclusionText, scheduleText, tourTypeLabel } from "@/lib/tours";
 
 // One of the partner's listings, read-only (RAA-47), with the way to edit or delete it. A stay
-// still on the back-filled nightly price of 0 asks for a real one (RAA-105).
+// still on the back-filled nightly price of 0 asks for a real one (RAA-105), and so does a tour
+// made before tours had a price (RAA-111).
 export default function PartnerListingPage() {
   const id = Number(useParams<{ id: string }>().id);
   const { data, error, refetch } = usePartnerListing(id);
@@ -62,6 +65,7 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
   const policies = useListingOptions().data?.cancellation_policies;
   const rate = listing.stay_rate;
   const perGuest = listing.attrs.place_type === "shared_room";
+  const tour = listing.tour;
 
   return (
     <>
@@ -106,6 +110,22 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
         </div>
       )}
 
+      {tour && !tour.base_price_cents && (
+        <div
+          role="status"
+          data-testid="listing-needs-price"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-warning/40 bg-surface-2 px-5 py-4 text-sm"
+        >
+          <span>
+            <span className="font-semibold text-warning">No price yet.</span> Guests don&apos;t see a price for this
+            tour, and it can&apos;t be booked, until you set its details and price.
+          </span>
+          <ButtonLink href={`/partner/listings/${listing.id}/edit`} size="sm">
+            Set a price
+          </ButtonLink>
+        </div>
+      )}
+
       {remove.error && (
         <p role="alert" className="text-sm text-danger">
           {remove.error.message}
@@ -141,6 +161,49 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
                 )}
               </Detail>
             )}
+            {tour && (
+              <>
+                <Detail term="Tour">
+                  <span data-testid="listing-detail-tour">{tourTypeLabel(tour.tour_type)}</span>
+                </Detail>
+                <Detail term="Group">
+                  {groupText(tour.min_guests, tour.max_guests)}, at most {tour.max_groups_per_day}{" "}
+                  {tour.max_groups_per_day === 1 ? "group" : "groups"} a day
+                </Detail>
+                <Detail term="Duration">{durationText(tour.duration_value, tour.duration_unit)}</Detail>
+                <Detail term="Runs">
+                  {scheduleText(tour.weekdays, tour.dates.length)}
+                  {tour.dates.length > 0 && (
+                    <span className="block text-muted">
+                      {tour.weekdays.length ? "Added: " : ""}
+                      {tour.dates.map((date) => formatDateRange(date, date)).join(", ")}
+                    </span>
+                  )}
+                </Detail>
+                <Detail term="Blocked days">
+                  {listing.blocked_dates.length > 0
+                    ? listing.blocked_dates.map((block) => (
+                        <span key={block.starts_on} className="block">
+                          {formatDateRange(block.starts_on, block.ends_on)}
+                          {block.reason && <span className="text-muted"> · {block.reason}</span>}
+                        </span>
+                      ))
+                    : "—"}
+                </Detail>
+                <Detail term={tour.tour_type === "private" ? "Add-ons" : "Included"}>
+                  {tour.inclusions.length > 0
+                    ? tour.inclusions.map((inclusion) => (
+                        <span key={inclusion.kind} className="block">
+                          {inclusionText(inclusion, tour.tour_type)}
+                        </span>
+                      ))
+                    : "—"}
+                </Detail>
+                <Detail term="Price">
+                  {tour.base_price_cents ? `${formatPeso(tour.base_price_cents)} ${basePriceUnit(tour.tour_type)}` : "No price yet"}
+                </Detail>
+              </>
+            )}
             {attrs.map(([key, value]) => (
               <Detail key={key} term={attributeLabel(key)}>
                 {displayValue(value, key)}
@@ -159,7 +222,7 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
                 </span>
               </Detail>
             )}
-            {(rate || listing.fees.length > 0) && (
+            {(rate || tour || listing.fees.length > 0) && (
               <Detail term="Fees">
                 {listing.fees.length > 0
                   ? listing.fees.map((fee) => (
@@ -171,9 +234,11 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
                   : "—"}
               </Detail>
             )}
-            <Detail term="Units">
-              <span data-testid="listing-detail-units">{listing.units_count}</span>
-            </Detail>
+            {!tour && (
+              <Detail term="Units">
+                <span data-testid="listing-detail-units">{listing.units_count}</span>
+              </Detail>
+            )}
             <Detail term="Cancellation policy">
               <span data-testid="listing-cancellation">
                 {cancellationPolicyName(policies, listing.cancellation_policy)}

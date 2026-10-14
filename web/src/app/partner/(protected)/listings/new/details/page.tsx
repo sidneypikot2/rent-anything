@@ -6,11 +6,13 @@ import { ListingWizard } from "@/components/partner/listing-wizard";
 import { NewListingStep } from "@/components/partner/new-listing-step";
 import { isStay } from "@/components/partner/stay-fields";
 import { StayWizard } from "@/components/partner/stay-wizard";
+import { isTour } from "@/components/partner/tour-fields";
+import { TourWizard } from "@/components/partner/tour-wizard";
 import { ButtonLink } from "@/components/ui/button";
 
 // The steps after the business and category (RAA-50, RAA-101): ?business= and ?category=
 // are the ones chosen on /partner/listings/new; a partner with one business may leave the
-// business out. Accommodation has its own steps (RAA-83).
+// business out. Accommodation (RAA-83) and tours (RAA-111) have their own steps.
 export default function NewPartnerListingDetails() {
   return (
     <Suspense>
@@ -45,6 +47,17 @@ function DetailSteps() {
           );
         }
         const key = `${business.id}-${category.id}`;
+        if (isTour(category)) {
+          return (
+            <TourWizard
+              key={key}
+              business={business}
+              category={category}
+              policies={policies}
+              inclusions={options.tour_inclusions}
+            />
+          );
+        }
         return isStay(category) ? (
           <StayWizard key={key} business={business} category={category} policies={policies} />
         ) : (

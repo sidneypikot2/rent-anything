@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getListing, getQuote } from "@/api/discovery";
 import { categoryIcon } from "@/components/discovery/icons";
 import { StayPrice, stayPriceLine } from "@/components/discovery/stay-price";
+import { TourFacts, tourPriceLine } from "@/components/discovery/tour-facts";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { ListingGallery } from "@/components/discovery/listing-gallery";
@@ -28,7 +29,8 @@ export async function generateMetadata(props: PageProps<"/listings/[id]">): Prom
 
 // One listing, for a traveller deciding whether to add it to a trip (RAA-90). Active listings
 // only; it never shows the location. A priced stay shows its nightly price and, with the trip's
-// dates, what the stay costs from /quotes (RAA-105); other categories have no price yet.
+// dates, what the stay costs from /quotes (RAA-105); a tour shows its facts and price (RAA-111);
+// other categories have no price yet.
 export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   const id = listingId((await props.params).id);
   if (!id) notFound();
@@ -37,6 +39,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   if (!listing) notFound();
   const { area, category } = listing;
   const rate = listing.stay_rate;
+  const tour = listing.tour;
   const cover = listing.photos.at(0);
   const nightsSet = Boolean(dates.from && dates.to && dates.from < dates.to);
   const quote =
@@ -68,6 +71,11 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
                 {stayPriceLine(rate, listing.guests)}
               </p>
             )}
+            {tour && (
+              <p data-testid="listing-price" className="font-semibold text-white">
+                {tourPriceLine(tour)}
+              </p>
+            )}
           </>
         }
       >
@@ -93,6 +101,8 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
             </CardBody>
           </Card>
         </TripAddProvider>
+
+        {tour && <TourFacts listing={listing} tour={tour} />}
 
         {rate && <StayPrice listing={listing} rate={rate} quote={quote} datesSet={Boolean(dates.from && dates.to)} />}
 
