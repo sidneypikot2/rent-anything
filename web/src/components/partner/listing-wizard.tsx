@@ -205,6 +205,7 @@ export function ListingWizard({
                 }}
                 geocodeQuery={sameAddress.geocodeQuery}
                 error={locationError}
+                onLocated={address.fillFromPlace}
               />
             </>
           )}

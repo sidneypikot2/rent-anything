@@ -38,3 +38,49 @@ export function findByName<T extends Place>(places: T[], name: string | null | u
   const wanted = name?.trim().toLowerCase();
   return wanted ? places.find((p) => p.name.toLowerCase() === wanted) : undefined;
 }
+
+// "City of Cebu" (PSA) and "Cebu City" (OpenStreetMap) as the same name, and
+// "Central Visayas (Region VII)" and "Central Visayas".
+function placeKey(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/ \(.*\)$/, "")
+    .replace(/^city of /, "")
+    .replace(/ city$/, "");
+}
+
+// The places a map lookup names (RAA-111), as PSA places. OpenStreetMap sometimes tags a
+// barangay as the town, so a city counts only when it is the one match for a name (inside the
+// province, if that matched) and the lookup's postcode, if any, is one of its ZIP codes; with
+// no such name, the one city in the province with that ZIP code. `areaName` is the province,
+// or only the region where OpenStreetMap has no province. Anything that doesn't match is left out.
+export function matchPlaces(
+  data: PhAddressData,
+  names: (string | undefined)[],
+  areaName: string | undefined,
+  postcode: string | undefined,
+) {
+  const named = <T extends Place>(places: T[]) =>
+    areaName ? places.find((p) => placeKey(p.name) === placeKey(areaName)) : undefined;
+  const province = named(data.provinces);
+  let city: City | undefined;
+  for (const name of names) {
+    if (!name) continue;
+    const matches = data.cities.filter((c) => placeKey(c.name) === placeKey(name));
+    const inProvince = province ? matches.filter((c) => c.province === province.code) : matches;
+    const candidate = inProvince.length === 1 ? inProvince[0] : undefined;
+    if (candidate && (!postcode || candidate.zips.includes(postcode))) {
+      city = candidate;
+      break;
+    }
+  }
+  if (!city && postcode) {
+    const byZip = data.cities.filter((c) => c.zips.includes(postcode) && (!province || c.province === province.code));
+    if (byZip.length === 1) city = byZip[0];
+  }
+  const provinceOf = city ? data.provinces.find((p) => p.code === city.province) : province;
+  const regionCode = city?.region ?? provinceOf?.region;
+  const region = regionCode ? data.regions.find((r) => r.code === regionCode) : named(data.regions);
+  return { city, province: provinceOf, region };
+}

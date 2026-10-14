@@ -58,17 +58,42 @@ export function circlePolygon(center: LatLng, km: number): { polygon: GeoJSON.Po
   return { polygon: { type: "Polygon", coordinates: [ring] }, bounds };
 }
 
-const PHOTON_URL = "https://photon.komoot.io/api";
+const PHOTON = "https://photon.komoot.io";
 
 // Where an address is, from Photon's public instance (OSM-based, no key; self-hosted at M8),
 // limited to the Philippines. Null when nothing matches; throws when Photon can't be reached.
 export async function geocodeAddress(query: string, signal?: AbortSignal): Promise<LatLng | null> {
   const params = new URLSearchParams({ q: query, limit: "1", countrycode: "PH" });
-  const response = await fetch(`${PHOTON_URL}?${params}`, { signal });
+  const response = await fetch(`${PHOTON}/api?${params}`, { signal });
   if (!response.ok) throw new Error(`Photon: ${response.status}`);
   const body: { features?: { geometry?: { coordinates?: [number, number] } }[] } = await response.json();
   const coordinates = body.features?.[0]?.geometry?.coordinates;
   return coordinates ? { lat: coordinates[1], lng: coordinates[0] } : null;
+}
+
+// What Photon knows about the place at a point (RAA-111), as OpenStreetMap names it: in the
+// Philippines `state` is the province and `locality` or `district` the barangay. Null when
+// nothing is near; throws when Photon can't be reached.
+export type ReversePlace = {
+  type?: string;
+  name?: string;
+  housenumber?: string;
+  street?: string;
+  locality?: string;
+  district?: string;
+  city?: string;
+  county?: string;
+  state?: string;
+  postcode?: string;
+  countrycode?: string;
+};
+
+export async function reverseGeocode(point: LatLng, signal?: AbortSignal): Promise<ReversePlace | null> {
+  const params = new URLSearchParams({ lat: String(point.lat), lon: String(point.lng), limit: "1" });
+  const response = await fetch(`${PHOTON}/reverse?${params}`, { signal });
+  if (!response.ok) throw new Error(`Photon: ${response.status}`);
+  const body: { features?: { properties?: ReversePlace }[] } = await response.json();
+  return body.features?.[0]?.properties ?? null;
 }
 
 // Where a map opens before anything is chosen: Cebu, the first areas' province.

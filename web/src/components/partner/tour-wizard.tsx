@@ -233,6 +233,7 @@ export function TourWizard({
                 }}
                 geocodeQuery={sameAddress.geocodeQuery}
                 error={locationError}
+                onLocated={address.fillFromPlace}
               />
             </>
           )}

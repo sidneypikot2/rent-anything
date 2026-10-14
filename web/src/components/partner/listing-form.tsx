@@ -309,6 +309,7 @@ export function ListingForm({
             }}
             geocodeQuery={addressQuery}
             error={locationError}
+            onLocated={address.fillFromPlace}
           />
         </EditSection>
 

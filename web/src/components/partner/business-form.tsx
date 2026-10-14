@@ -79,6 +79,7 @@ export function BusinessForm({
         }}
         geocodeQuery={addressQuery}
         error={locationError}
+        onLocated={address.fillFromPlace}
       />
       <div className="flex gap-3">
         <Button type="submit" data-testid="business-save" disabled={saving}>

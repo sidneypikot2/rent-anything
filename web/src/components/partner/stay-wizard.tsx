@@ -200,6 +200,7 @@ export function StayWizard({
                 }}
                 geocodeQuery={sameAddress.geocodeQuery}
                 error={locationError}
+                onLocated={address.fillFromPlace}
               />
             </>
           )}
