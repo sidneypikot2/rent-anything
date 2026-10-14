@@ -253,7 +253,7 @@ export function TourGroupFields({ values, onChange, errors }: SectionProps) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="grid grid-cols-[minmax(0,8rem)_1fr] items-end gap-3">
+        <div className="grid grid-cols-[minmax(0,11rem)_1fr] items-end gap-3">
           <Field
             label="How long it takes"
             name="duration"

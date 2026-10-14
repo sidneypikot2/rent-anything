@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState, type ComponentProps, type KeyboardEvent } from "react";
 import { cn } from "./cn";
+import { controlClasses, floatingLabelClasses, useFieldLook } from "./field-look";
 
 export type ComboboxOption = { value: string; label: string };
 
@@ -25,7 +26,20 @@ function fold(text: string) {
 // A text field with suggestions (the ARIA combobox pattern): typing filters the list,
 // arrow keys move through it, Enter or a click picks, Escape closes. Free text is kept, so
 // it works with no options at all.
-export function ComboboxField({ label, value, onChange, options, hint, error, className, disabled, ...props }: Props) {
+export function ComboboxField({
+  label,
+  value,
+  onChange,
+  options,
+  hint,
+  error,
+  className,
+  disabled,
+  placeholder,
+  ...props
+}: Props) {
+  const look = useFieldLook();
+  const floating = look === "floating";
   const inputId = useId();
   const listId = useId();
   const noteId = useId();
@@ -68,35 +82,38 @@ export function ComboboxField({ label, value, onChange, options, hint, error, cl
 
   return (
     <div className="relative flex flex-col gap-1.5 text-sm font-semibold">
-      <label htmlFor={inputId}>{label}</label>
-      <input
-        id={inputId}
-        role="combobox"
-        autoComplete="off"
-        aria-autocomplete="list"
-        aria-expanded={expanded}
-        aria-controls={listId}
-        aria-activedescendant={expanded && active >= 0 ? `${listId}-${active}` : undefined}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={note ? noteId : undefined}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => {
-          onChange(event.target.value);
-          setOpen(true);
-          setActive(-1);
-        }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-        onKeyDown={onKeyDown}
-        className={cn(
-          "min-h-12 rounded-control border bg-surface px-4 py-2.5 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm",
-          "placeholder:text-muted/80 focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
-          error ? "border-danger" : "border-line-strong",
-          className,
+      {!floating && <label htmlFor={inputId}>{label}</label>}
+      <div className="relative">
+        <input
+          id={inputId}
+          role="combobox"
+          autoComplete="off"
+          aria-autocomplete="list"
+          aria-expanded={expanded}
+          aria-controls={listId}
+          aria-activedescendant={expanded && active >= 0 ? `${listId}-${active}` : undefined}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={note ? noteId : undefined}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => {
+            onChange(event.target.value);
+            setOpen(true);
+            setActive(-1);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setOpen(false)}
+          onKeyDown={onKeyDown}
+          placeholder={floating ? (placeholder ?? " ") : placeholder}
+          className={cn("w-full", controlClasses(look, error), className)}
+          {...props}
+        />
+        {floating && (
+          <label htmlFor={inputId} className={floatingLabelClasses({ error })}>
+            {label}
+          </label>
         )}
-        {...props}
-      />
+      </div>
       {expanded && (
         <ul
           id={listId}
@@ -123,7 +140,10 @@ export function ComboboxField({ label, value, onChange, options, hint, error, cl
         </ul>
       )}
       {note && (
-        <span id={noteId} className={cn("text-xs font-normal", error ? "text-danger" : "text-muted")}>
+        <span
+          id={noteId}
+          className={cn("text-xs font-normal", floating && "px-1", error ? "text-danger" : "text-muted")}
+        >
           {note}
         </span>
       )}

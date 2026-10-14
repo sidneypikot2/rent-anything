@@ -1,5 +1,8 @@
+"use client";
+
 import { useId, type ComponentProps } from "react";
 import { cn } from "./cn";
+import { controlClasses, floatingLabelClasses, useFieldLook } from "./field-look";
 
 type Props = {
   label: string;
@@ -7,30 +10,50 @@ type Props = {
   error?: string;
 } & ComponentProps<"input">;
 
-// A labelled text input with an optional hint, or an error in its place.
-export function Field({ label, hint, error, className, ...props }: Props) {
+// A labelled text input with an optional hint, or an error in its place. The label sits above
+// the field, or inside it under <FieldLook look="floating">.
+export function Field({ label, hint, error, className, placeholder, ...props }: Props) {
+  const look = useFieldLook();
+  const inputId = useId();
   const noteId = useId();
   const note = error ?? hint;
+  const floating = look === "floating";
+
+  const input = (
+    <input
+      id={inputId}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={note ? noteId : undefined}
+      // A floating label reads :placeholder-shown to know the field is empty, so it needs one.
+      placeholder={floating ? (placeholder ?? " ") : placeholder}
+      className={cn("w-full", controlClasses(look, error), className)}
+      {...props}
+    />
+  );
 
   return (
-    <label className="flex flex-col gap-1.5 text-sm font-semibold">
-      {label}
-      <input
-        aria-invalid={error ? true : undefined}
-        aria-describedby={note ? noteId : undefined}
-        className={cn(
-          "min-h-12 rounded-control border bg-surface px-4 py-2.5 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm",
-          "placeholder:text-muted/80 focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
-          error ? "border-danger" : "border-line-strong",
-          className,
-        )}
-        {...props}
-      />
+    <div className="flex flex-col gap-1.5 text-sm font-semibold">
+      {floating ? (
+        <div className="relative">
+          {input}
+          <label htmlFor={inputId} className={floatingLabelClasses({ error })}>
+            {label}
+          </label>
+        </div>
+      ) : (
+        <>
+          <label htmlFor={inputId}>{label}</label>
+          {input}
+        </>
+      )}
       {note && (
-        <span id={noteId} className={cn("text-xs font-normal", error ? "text-danger" : "text-muted")}>
+        <span
+          id={noteId}
+          className={cn("text-xs font-normal", floating && "px-1", error ? "text-danger" : "text-muted")}
+        >
           {note}
         </span>
       )}
-    </label>
+    </div>
   );
 }
