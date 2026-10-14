@@ -16,9 +16,21 @@ module PricingSerializer
     end
   end
 
-  # What a guest sees on a listing row: the nightly price once one is set, else null.
+  # What a guest sees on a listing row: a stay's nightly price or a tour's base price
+  # (RAA-110) once one is set, else null. Preload stay_rate and tour_detail.
   def self.price_from_cents(listing)
     rate = listing.stay_rate
-    rate&.priced? ? rate.nightly_price_cents : nil
+    return rate.nightly_price_cents if rate&.priced?
+
+    tour = listing.tour_detail
+    tour&.priced? ? tour.base_price_cents : nil
+  end
+
+  # What price_from_cents is for: "night", a private tour's "group" or a joiner's "person".
+  def self.price_unit(listing)
+    return "night" if listing.stay_rate&.priced?
+
+    tour = listing.tour_detail
+    tour&.priced? ? tour.price_unit : nil
   end
 end

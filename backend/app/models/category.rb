@@ -27,6 +27,11 @@ class Category < ApplicationRecord
     parent&.slug == "accommodation"
   end
 
+  # The Tour category (RAA-110): only its listings have tour details.
+  def tour?
+    slug == "tour" && activity?
+  end
+
   # How many units a listing has, in this category's words (RAA-100): "5 rooms", "1 motorcycle".
   def units_label(count)
     noun = count == 1 ? unit_name.presence || "unit" : unit_name_plural.presence || "units"

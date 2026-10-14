@@ -1492,7 +1492,7 @@ export interface paths {
         put?: never;
         /**
          * Add a photo to a listing
-         * @description Partner-only, after the ID check (RAA-106). Adds a photo after the listing's others and returns where the browser sends the file: a `PUT` of the file's bytes to `upload.url` with exactly `upload.headers`, straight to storage (Cloudflare R2), not to this API. Then confirm it with `PATCH .../photos/{id}`; guests don't see it until then, and one not confirmed within two days is deleted. JPEG, PNG or WebP, at most 10 MB, 12 per listing; `checksum` is the file's MD5, base64-encoded.
+         * @description Partner-only, after the ID check (RAA-106). Adds a photo after the listing's others and returns where the browser sends the file: a `PUT` of the file's bytes to `upload.url` with exactly `upload.headers`, straight to storage (Cloudflare R2), not to this API. Then confirm it with `PATCH .../photos/{id}`; guests don't see it until then, and one not confirmed within two days is deleted. JPEG, PNG or WebP, at most 10 MB, 12 per listing (5 per tour); `checksum` is the file's MD5, base64-encoded.
          */
         post: {
             parameters: {
@@ -1547,7 +1547,7 @@ export interface paths {
                         "application/json": components["schemas"]["error"];
                     };
                 };
-                /** @description a listing that already has 12 */
+                /** @description a tour that already has 5 (RAA-110) */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -1950,7 +1950,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description the stay rate dropped when the listing stops being accommodation */
+                /** @description tour details dropped when the listing stops being a tour */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -3513,13 +3513,16 @@ export interface components {
              * @description The business's name, as in business.name; will be removed (RAA-101)
              */
             partner_name: string;
-            /** @description Accommodation: the nightly price, in centavos; null with no price yet or for any other category */
+            /** @description Accommodation: the nightly price; a tour: its base price (RAA-110). In centavos; null with no price yet or for any other category */
             price_from_cents: number | null;
+            price_unit: components["schemas"]["price_unit"];
             /** @description Accommodation: the most guests it sleeps; null otherwise */
             guests: number | null;
             /** @description Accommodation's nightly pricing once it has a price; null otherwise */
             stay_rate: components["schemas"]["stay_rate"] | null;
             fees: components["schemas"]["listing_fee"][];
+            /** @description A tour's details and the days it runs; null for any other category */
+            tour: components["schemas"]["guest_tour"] | null;
             /** @description Its photos ready for guests (see partner_photo.ready), in the partner's order; the first is the cover */
             photos: components["schemas"]["photo_urls"][];
         };
@@ -3582,6 +3585,10 @@ export interface components {
             stay_rate: components["schemas"]["stay_rate"] | null;
             /** @description In the partner's order */
             fees: components["schemas"]["listing_fee"][];
+            /** @description A tour's details (RAA-110); null for any other category */
+            tour: components["schemas"]["partner_tour"] | null;
+            /** @description Days it takes no bookings, by start; those already ended are left out */
+            blocked_dates: components["schemas"]["blocked_date"][];
             business: {
                 id: number;
                 name: string;
@@ -3592,6 +3599,8 @@ export interface components {
             covers: components["schemas"]["area_ref"][];
             /** @description In the partner's order; the first is the cover */
             photos: components["schemas"]["partner_photo"][];
+            /** @description How many photos it can have: 5 for a tour, 12 otherwise */
+            photo_limit: number;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -3684,8 +3693,108 @@ export interface components {
             stay_rate?: components["schemas"]["stay_rate_body"];
             /** @description Any category. Replaces the listing's fees, in this order, when sent; left out on a change, they stay. Names are unique per listing, ignoring case. */
             fees?: components["schemas"]["listing_fee_body"][];
-            /** @description The ids of the listing's photos (POST /api/v1/partner/listings/{listing_id}/photos) in order, the first uploaded one the cover. A photo left out is deleted; left out on a change, they stay as they are. A new listing has none yet. */
+            /** @description Tours only (category slug `tour`), and required on a new one or one moved into it: replaces the tour's details, dates and inclusions when sent; left out on a change, they stay. Refused for any other category. */
+            tour?: components["schemas"]["tour_body"];
+            /** @description Any category. Days it takes no bookings, which may not overlap and must end today or later (one the listing already has may be sent back once past). Replaces them when sent; left out on a change, they stay. */
+            blocked_dates?: components["schemas"]["blocked_date"][];
+            /** @description The ids of the listing's photos (POST /api/v1/partner/listings/{listing_id}/photos) in order, the first uploaded one the cover. A photo left out is deleted; left out on a change, they stay as they are. A new listing has none yet. A tour has at most 5. */
             photos?: number[];
+        };
+        /** @enum {string} */
+        tour_type: "private" | "joiner";
+        /**
+         * @description What price_from_cents is for: a night of a stay, a private tour's whole group or one joiner; null when there is no price
+         * @enum {string|null}
+         */
+        price_unit: "night" | "group" | "person" | null;
+        tour_inclusion: {
+            /** @enum {string} */
+            kind: "accommodation" | "transport" | "meal";
+            /** @description transport: van, tricycle, boat, motorbike, car or other (at least one); meal: snack, breakfast, lunch or dinner (at least one); accommodation: none. In that order */
+            options: string[];
+            /** @description E.g. "Beach cottage, 1 night" */
+            note: string | null;
+            /** @description A private tour's add-on price per guest; 0 on a joiner tour */
+            price_per_head_cents: number;
+        };
+        tour_inclusion_body: {
+            /**
+             * @description Each kind at most once
+             * @enum {string}
+             */
+            kind: "accommodation" | "transport" | "meal";
+            /** @description As in tour_inclusion */
+            options?: string[];
+            note?: string | null;
+            /** @description Required on a private tour; left out (or 0) on a joiner tour */
+            price_per_head_cents?: number;
+        };
+        partner_tour: {
+            tour_type: components["schemas"]["tour_type"];
+            min_guests: number;
+            max_guests: number;
+            /** @description Private: bookings a day; joiner: groups filled to max_guests a day. Enforced with bookings (M3) */
+            max_groups_per_day: number;
+            duration_value: number;
+            /** @enum {string} */
+            duration_unit: "hours" | "days";
+            /** @description The days of the week it runs, 0 Sunday to 6 Saturday, sorted; empty: specific dates only */
+            weekdays: number[];
+            /** @description Extra days it runs besides its weekdays, today or later, sorted. Start days for a multi-day tour */
+            dates: string[];
+            /** @description 0: no price yet (tours made before RAA-110) */
+            base_price_cents: number;
+            /**
+             * @description Private: group; joiner: person
+             * @enum {string}
+             */
+            price_unit: "group" | "person";
+            /** @description accommodation, meal, transport, each at most once */
+            inclusions: components["schemas"]["tour_inclusion"][];
+        };
+        guest_tour: {
+            tour_type: components["schemas"]["tour_type"];
+            min_guests: number;
+            max_guests: number;
+            duration_value: number;
+            /** @enum {string} */
+            duration_unit: "hours" | "days";
+            /** @description As in partner_tour */
+            weekdays: number[];
+            base_price_cents: number;
+            /** @enum {string} */
+            price_unit: "group" | "person";
+            /** @description The days it runs (starts) over the next 60 days from today, blocked days left out */
+            open_dates: string[];
+            inclusions: components["schemas"]["tour_inclusion"][];
+        };
+        /** @description The whole tour, replaced when sent. It must run on at least one weekday or date. */
+        tour_body: {
+            tour_type: components["schemas"]["tour_type"];
+            min_guests: number;
+            /** @description At least min_guests */
+            max_guests: number;
+            max_groups_per_day: number;
+            /** @description At most 24 hours or 30 days */
+            duration_value: number;
+            /** @enum {string} */
+            duration_unit: "hours" | "days";
+            weekdays: number[];
+            /** @description Today or later; one the tour already has may be sent back once past */
+            dates: string[];
+            base_price_cents: number;
+            /** @description Left out: none */
+            inclusions?: components["schemas"]["tour_inclusion_body"][];
+        };
+        blocked_date: {
+            /** Format: date */
+            starts_on: string;
+            /**
+             * Format: date
+             * @description On or after starts_on; the same day for one day
+             */
+            ends_on: string;
+            reason: string | null;
         };
         stay_rate: {
             /** @description For each night, covering up to base_guests; per guest for a shared room. 0 means no price yet (listings made before pricing), and the listing can't be quoted */
@@ -3822,6 +3931,12 @@ export interface components {
                 name: string;
                 description: string;
             }[];
+            /** @description What a tour can include (RAA-110), each kind with the options it takes, in order */
+            tour_inclusions: {
+                /** @enum {string} */
+                kind: "accommodation" | "transport" | "meal";
+                options: string[];
+            }[];
             categories: {
                 id: number;
                 slug: string;
@@ -3888,6 +4003,7 @@ export interface components {
                 partner_name: string;
                 /** @description As in listing_detail */
                 price_from_cents: number | null;
+                price_unit: components["schemas"]["price_unit"];
             }[];
         };
         activity: {

@@ -284,21 +284,27 @@ RSpec.configure do |config|
               },
               price_from_cents: {
                 type: :integer, nullable: true,
-                description: "Accommodation: the nightly price, in centavos; null with no price yet or for any other category"
+                description: "Accommodation: the nightly price; a tour: its base price (RAA-110). In centavos; null " \
+                  "with no price yet or for any other category"
               },
+              price_unit: { "$ref" => "#/components/schemas/price_unit" },
               guests: { type: :integer, nullable: true, description: "Accommodation: the most guests it sleeps; null otherwise" },
               stay_rate: {
                 allOf: [ { "$ref" => "#/components/schemas/stay_rate" } ], nullable: true,
                 description: "Accommodation's nightly pricing once it has a price; null otherwise"
               },
               fees: { type: :array, items: { "$ref" => "#/components/schemas/listing_fee" } },
+              tour: {
+                allOf: [ { "$ref" => "#/components/schemas/guest_tour" } ], nullable: true,
+                description: "A tour's details and the days it runs; null for any other category"
+              },
               photos: {
                 type: :array, items: { "$ref" => "#/components/schemas/photo_urls" },
                 description: "Its photos ready for guests (see partner_photo.ready), in the partner's order; the first is the cover"
               }
             },
             required: %w[id title description summary category booking_type area business units_count units_label
-              partner_name price_from_cents guests stay_rate fees photos]
+              partner_name price_from_cents price_unit guests stay_rate fees tour photos]
           },
           # A listing photo's sizes (RAA-106), served straight from storage. A partner's photo not
           # ready yet (partner_photo) gives the original for both.
@@ -384,6 +390,14 @@ RSpec.configure do |config|
                 description: "Accommodation's nightly pricing; null for any other category"
               },
               fees: { type: :array, items: { "$ref" => "#/components/schemas/listing_fee" }, description: "In the partner's order" },
+              tour: {
+                allOf: [ { "$ref" => "#/components/schemas/partner_tour" } ], nullable: true,
+                description: "A tour's details (RAA-110); null for any other category"
+              },
+              blocked_dates: {
+                type: :array, items: { "$ref" => "#/components/schemas/blocked_date" },
+                description: "Days it takes no bookings, by start; those already ended are left out"
+              },
               business: {
                 type: :object,
                 properties: { id: { type: :integer }, name: { type: :string } },
@@ -401,11 +415,12 @@ RSpec.configure do |config|
                 type: :array, items: { "$ref" => "#/components/schemas/partner_photo" },
                 description: "In the partner's order; the first is the cover"
               },
+              photo_limit: { type: :integer, description: "How many photos it can have: 5 for a tour, 12 otherwise" },
               created_at: { type: :string, format: "date-time" },
               updated_at: { type: :string, format: "date-time" }
             },
             required: %w[id title description status category area address location attrs cancellation_policy units_count
-              stay_rate fees business landmarks covers photos created_at updated_at]
+              stay_rate fees tour blocked_dates business landmarks covers photos photo_limit created_at updated_at]
           },
           # A business a partner runs (RAA-100); its listings are shown under its name.
           partner_business: {
@@ -506,14 +521,149 @@ RSpec.configure do |config|
                 description: "Any category. Replaces the listing's fees, in this order, when sent; left out on a " \
                   "change, they stay. Names are unique per listing, ignoring case."
               },
+              tour: {
+                allOf: [ { "$ref" => "#/components/schemas/tour_body" } ],
+                description: "Tours only (category slug `tour`), and required on a new one or one moved into it: " \
+                  "replaces the tour's details, dates and inclusions when sent; left out on a change, they stay. " \
+                  "Refused for any other category."
+              },
+              blocked_dates: {
+                type: :array, items: { "$ref" => "#/components/schemas/blocked_date" }, maxItems: 366,
+                description: "Any category. Days it takes no bookings, which may not overlap and must end today or " \
+                  "later (one the listing already has may be sent back once past). Replaces them when sent; left " \
+                  "out on a change, they stay."
+              },
               photos: {
                 type: :array, items: { type: :integer }, maxItems: 12,
                 description: "The ids of the listing's photos (POST /api/v1/partner/listings/{listing_id}/photos) in " \
                   "order, the first uploaded one the cover. A photo left out is deleted; left out on a change, they " \
-                  "stay as they are. A new listing has none yet."
+                  "stay as they are. A new listing has none yet. A tour has at most 5."
               }
             },
             required: %w[title category_id address location]
+          },
+          # A tour (RAA-110). A private tour is booked by one group: base_price is per group, and
+          # each inclusion is an add-on priced per head. A joiner tour sells seats: base_price is
+          # per head, its inclusions in the price. Money is in centavos.
+          tour_type: { type: :string, enum: %w[private joiner] },
+          price_unit: {
+            type: :string, enum: %w[night group person], nullable: true,
+            description: "What price_from_cents is for: a night of a stay, a private tour's whole group or one " \
+              "joiner; null when there is no price"
+          },
+          tour_inclusion: {
+            type: :object,
+            properties: {
+              kind: { type: :string, enum: %w[accommodation transport meal] },
+              options: {
+                type: :array, items: { type: :string },
+                description: "transport: van, tricycle, boat, motorbike, car or other (at least one); meal: snack, " \
+                  "breakfast, lunch or dinner (at least one); accommodation: none. In that order"
+              },
+              note: { type: :string, maxLength: 120, nullable: true, description: "E.g. \"Beach cottage, 1 night\"" },
+              price_per_head_cents: {
+                type: :integer, minimum: 0, description: "A private tour's add-on price per guest; 0 on a joiner tour"
+              }
+            },
+            required: %w[kind options note price_per_head_cents]
+          },
+          tour_inclusion_body: {
+            type: :object,
+            properties: {
+              kind: { type: :string, enum: %w[accommodation transport meal], description: "Each kind at most once" },
+              options: { type: :array, items: { type: :string }, description: "As in tour_inclusion" },
+              note: { type: :string, maxLength: 120, nullable: true },
+              price_per_head_cents: {
+                type: :integer, minimum: 0, description: "Required on a private tour; left out (or 0) on a joiner tour"
+              }
+            },
+            required: %w[kind]
+          },
+          partner_tour: {
+            type: :object,
+            properties: {
+              tour_type: { "$ref" => "#/components/schemas/tour_type" },
+              min_guests: { type: :integer, minimum: 1, maximum: 100 },
+              max_guests: { type: :integer, minimum: 1, maximum: 100 },
+              max_groups_per_day: {
+                type: :integer, minimum: 1, maximum: 100,
+                description: "Private: bookings a day; joiner: groups filled to max_guests a day. Enforced with " \
+                  "bookings (M3)"
+              },
+              duration_value: { type: :integer, minimum: 1 },
+              duration_unit: { type: :string, enum: %w[hours days] },
+              weekdays: {
+                type: :array, items: { type: :integer, minimum: 0, maximum: 6 },
+                description: "The days of the week it runs, 0 Sunday to 6 Saturday, sorted; empty: specific dates only"
+              },
+              dates: {
+                type: :array, items: { type: :string, format: :date },
+                description: "Extra days it runs besides its weekdays, today or later, sorted. Start days for a " \
+                  "multi-day tour"
+              },
+              base_price_cents: { type: :integer, minimum: 0, description: "0: no price yet (tours made before RAA-110)" },
+              price_unit: { type: :string, enum: %w[group person], description: "Private: group; joiner: person" },
+              inclusions: {
+                type: :array, items: { "$ref" => "#/components/schemas/tour_inclusion" },
+                description: "accommodation, meal, transport, each at most once"
+              }
+            },
+            required: %w[tour_type min_guests max_guests max_groups_per_day duration_value duration_unit weekdays dates
+              base_price_cents price_unit inclusions]
+          },
+          guest_tour: {
+            type: :object,
+            properties: {
+              tour_type: { "$ref" => "#/components/schemas/tour_type" },
+              min_guests: { type: :integer },
+              max_guests: { type: :integer },
+              duration_value: { type: :integer },
+              duration_unit: { type: :string, enum: %w[hours days] },
+              weekdays: { type: :array, items: { type: :integer }, description: "As in partner_tour" },
+              base_price_cents: { type: :integer },
+              price_unit: { type: :string, enum: %w[group person] },
+              open_dates: {
+                type: :array, items: { type: :string, format: :date },
+                description: "The days it runs (starts) over the next 60 days from today, blocked days left out"
+              },
+              inclusions: { type: :array, items: { "$ref" => "#/components/schemas/tour_inclusion" } }
+            },
+            required: %w[tour_type min_guests max_guests duration_value duration_unit weekdays base_price_cents
+              price_unit open_dates inclusions]
+          },
+          tour_body: {
+            type: :object,
+            description: "The whole tour, replaced when sent. It must run on at least one weekday or date.",
+            properties: {
+              tour_type: { "$ref" => "#/components/schemas/tour_type" },
+              min_guests: { type: :integer, minimum: 1, maximum: 100 },
+              max_guests: { type: :integer, minimum: 1, maximum: 100, description: "At least min_guests" },
+              max_groups_per_day: { type: :integer, minimum: 1, maximum: 100 },
+              duration_value: { type: :integer, minimum: 1, description: "At most 24 hours or 30 days" },
+              duration_unit: { type: :string, enum: %w[hours days] },
+              weekdays: { type: :array, items: { type: :integer, minimum: 0, maximum: 6 } },
+              dates: {
+                type: :array, items: { type: :string, format: :date }, maxItems: 366,
+                description: "Today or later; one the tour already has may be sent back once past"
+              },
+              base_price_cents: { type: :integer, minimum: 1 },
+              inclusions: {
+                type: :array, items: { "$ref" => "#/components/schemas/tour_inclusion_body" }, maxItems: 3,
+                description: "Left out: none"
+              }
+            },
+            required: %w[tour_type min_guests max_guests max_groups_per_day duration_value duration_unit weekdays dates
+              base_price_cents]
+          },
+          # Days a listing takes no bookings (RAA-110), both ends included.
+          blocked_date: {
+            type: :object,
+            properties: {
+              starts_on: { type: :string, format: :date },
+              ends_on: { type: :string, format: :date, description: "On or after starts_on; the same day for one day" },
+              reason: { type: :string, maxLength: 120, nullable: true }
+            },
+            required: %w[starts_on ends_on reason]
           },
           # Accommodation's nightly pricing (RAA-104). Money is in centavos.
           stay_rate: {
@@ -696,6 +846,18 @@ RSpec.configure do |config|
                   required: %w[value name description]
                 }
               },
+              tour_inclusions: {
+                type: :array,
+                description: "What a tour can include (RAA-110), each kind with the options it takes, in order",
+                items: {
+                  type: :object,
+                  properties: {
+                    kind: { type: :string, enum: %w[accommodation transport meal] },
+                    options: { type: :array, items: { type: :string } }
+                  },
+                  required: %w[kind options]
+                }
+              },
               categories: {
                 type: :array,
                 items: {
@@ -716,7 +878,7 @@ RSpec.configure do |config|
                 }
               }
             },
-            required: %w[categories cancellation_policies]
+            required: %w[categories cancellation_policies tour_inclusions]
           },
           area: {
             type: :object,
@@ -782,10 +944,11 @@ RSpec.configure do |config|
                     units_count: { type: :integer, minimum: 1 },
                     units_label: { type: :string, description: "As in listing_detail" },
                     partner_name: { type: :string, deprecated: true, description: "As in listing_detail" },
-                    price_from_cents: { type: :integer, nullable: true, description: "As in listing_detail" }
+                    price_from_cents: { type: :integer, nullable: true, description: "As in listing_detail" },
+                    price_unit: { "$ref" => "#/components/schemas/price_unit" }
                   },
                   required: %w[id title category area_slug cover_photo_url booking_type summary business units_count units_label
-                    partner_name price_from_cents]
+                    partner_name price_from_cents price_unit]
                 }
               }
             },

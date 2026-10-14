@@ -47,6 +47,18 @@ FactoryBot.define do
           association(:category, :parent, slug: "accommodation", name: "Accommodation")
       end
     end
+
+    # The Tour category (RAA-110), whose listings have tour details. There is only one.
+    trait :tour do
+      slug { "tour" }
+      name { "Tour" }
+      booking_type { "activity" }
+      attribute_schema do
+        { type: "object", properties: { guide_included: { type: "boolean" }, life_vests: { type: "boolean" } },
+          required: %w[guide_included] }
+      end
+      initialize_with { Category.find_or_initialize_by(slug: "tour") }
+    end
   end
 
   factory :listing do
@@ -79,6 +91,27 @@ FactoryBot.define do
       transient { with_rate { true } }
       after(:create) { |listing, context| create(:stay_rate, listing:) if context.with_rate && !listing.stay_rate }
     end
+
+    # A daily joiner tour for 2 to 12 guests, 4 hours, at ₱1,500 a head (RAA-110).
+    trait :tour do
+      category factory: %i[category tour]
+      title { "Virgin Island hopping" }
+      attrs { { "guide_included" => true } }
+      transient { with_detail { true } }
+      after(:create) { |listing, context| create(:tour_detail, listing:) if context.with_detail && !listing.tour_detail }
+    end
+  end
+
+  factory :tour_detail do
+    listing { association(:listing, :tour, with_detail: false) }
+    tour_type { "joiner" }
+    min_guests { 2 }
+    max_guests { 12 }
+    max_groups_per_day { 1 }
+    duration_value { 4 }
+    duration_unit { "hours" }
+    weekdays { (0..6).to_a }
+    base_price_cents { 150_000 }
   end
 
   factory :stay_rate do

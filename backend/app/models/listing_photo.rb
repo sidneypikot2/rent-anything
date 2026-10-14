@@ -10,6 +10,8 @@ class ListingPhoto < ApplicationRecord
   FIELDS = %i[image image_card image_large].freeze
   MAX_BYTES = 10.megabytes
   MAX_PER_LISTING = 12
+  # A tour's carousel (RAA-110): Listing#photo_limit picks between them.
+  MAX_PER_TOUR = 5
 
   belongs_to :listing
 

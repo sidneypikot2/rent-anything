@@ -21,11 +21,11 @@ module ListingPhotos
       raise_invalid!(photo) if @errors.any?
 
       Listing.transaction do
-        # Two adds at once would both count 11 and take the same position.
+        # Two adds at once would both count one under the limit and take the same position.
         Listing.where(id: @listing.id).lock.pluck(:id)
-        count = @listing.photos.count
-        if count >= ListingPhoto::MAX_PER_LISTING
-          error("A listing can have at most #{ListingPhoto::MAX_PER_LISTING} photos")
+        limit = @listing.photo_limit
+        if @listing.photos.count >= limit
+          error("#{@listing.category.tour? ? 'A tour' : 'A listing'} can have at most #{limit} photos")
           raise_invalid!(photo)
         end
         photo.update!(position: @listing.photos.maximum(:position).to_i + 1)

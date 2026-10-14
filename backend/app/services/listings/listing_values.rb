@@ -16,11 +16,13 @@ module Listings
   # sent and kept when left out, and dropped when the listing stops being accommodation; the
   # rate is checked again on every save, as the guests the place sleeps may change. fees, for
   # any category, replace the listing's fees when sent and keep them when left out.
+  # A tour's details and any listing's blocked dates (RAA-110) are read by TourValues.
   # photos (RAA-106) are the ids of the listing's own photos (added through
   # /api/v1/partner/listings/:id/photos) in the partner's order: sent, the order is theirs
   # and a photo left out is deleted; left out, the photos stay as they are.
   module ListingValues
     include RequestValues
+    include TourValues
 
     AREA_KINDS = %w[city town island].freeze
     AREA_RADIUS_METERS = 50_000
@@ -40,6 +42,8 @@ module Listings
       @landmarks = landmarks_for(category)
       @units_count = units_count
       @stay_rate = stay_rate_for(category)
+      @tour = tour_for(category)
+      @blocked_dates = blocked_dates
       @fees = fees
       @photo_ids = photo_ids
       {
@@ -66,6 +70,8 @@ module Listings
         save_landmarks!(listing)
         save_units!(listing)
         save_stay_rate!(listing)
+        save_tour!(listing)
+        save_blocked_dates!(listing)
         save_fees!(listing)
         save_photos!(listing)
       end
