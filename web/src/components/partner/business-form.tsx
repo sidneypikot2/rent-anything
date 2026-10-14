@@ -6,7 +6,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { TextareaField } from "@/components/ui/textarea-field";
 import type { LatLng } from "@/lib/map";
-import { addressChanged, geocodeQuery, NO_ADDRESS } from "./listing-fields";
+import { addressChanged, areaQuery, geocodeQuery, NO_ADDRESS } from "./listing-fields";
 import { LocationPicker } from "./location-picker";
 import type { BusinessBody, PartnerBusiness } from "./use-partner-businesses";
 
@@ -78,8 +78,9 @@ export function BusinessForm({
           setLocationError(undefined);
         }}
         geocodeQuery={addressQuery}
+        areaQuery={areaQuery(address)}
         error={locationError}
-        onLocated={address.fillFromPlace}
+        onPinAddress={address.fillFromPlace}
       />
       <div className="flex gap-3">
         <Button type="submit" data-testid="business-save" disabled={saving}>

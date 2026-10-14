@@ -26,8 +26,12 @@ type Props = {
   // Shows the pin without letting it move: a listing using its business's pin (RAA-101).
   readOnly?: boolean;
   label?: string;
-  // The address where "Use my location" put the pin (RAA-111), for the form to fill in.
-  onLocated?: (place: ReversePlace) => void;
+  // The town picked before the rest of the address (RAA-111): the map moves there while
+  // there is no pin yet, without placing one.
+  areaQuery?: string;
+  // The address where the partner put the pin (RAA-111) — by tapping, dragging or "Use my
+  // location" — for the form to fill in.
+  onPinAddress?: (place: ReversePlace) => void;
 };
 
 const GEOCODE_DELAY_MS = 600;
@@ -36,17 +40,17 @@ const GEOCODE_DELAY_MS = 600;
 // A complete address moves the pin there too. A pin given when the map opens (a saved
 // listing, RAA-47) is shown there, and the map starts on it; a pin given later (copied from
 // the business, RAA-101) moves the map to it. "Use my location" pins the spot the partner
-// is standing on, which also gives a keyboard-only partner a way to place it besides the address,
-// and hands the address there to onLocated. A located pin is more exact than an address lookup,
-// so the address no longer moves it; dragging or tapping still does.
+// is standing on, which also gives a keyboard-only partner a way to place it besides the address.
+// Wherever the partner puts the pin, the address there goes to onPinAddress (RAA-111).
 export function LocationPicker({
   value,
   onChange,
   geocodeQuery,
+  areaQuery,
   error,
   readOnly = false,
   label = "Pin the spot",
-  onLocated,
+  onPinAddress,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -63,9 +67,25 @@ export function LocationPicker({
   const [located, setLocated] = useState(false);
   // The latest callback, so the map's listeners, bound once, never call a stale one.
   const onChangeRef = useRef(onChange);
+  const onPinAddressRef = useRef(onPinAddress);
   useEffect(() => {
     onChangeRef.current = onChange;
-  }, [onChange]);
+    onPinAddressRef.current = onPinAddress;
+  }, [onChange, onPinAddress]);
+  // Looks up the address at a pin the partner put down; a newer pin cancels the lookup before.
+  const addressLookupRef = useRef<AbortController | undefined>(undefined);
+  const lookUpAddressRef = useRef((point: LatLng) => {
+    addressLookupRef.current?.abort();
+    if (!onPinAddressRef.current) return;
+    const controller = new AbortController();
+    addressLookupRef.current = controller;
+    // No address there, or Photon unreachable: the pin stays, the partner types the address.
+    reverseGeocode(point, controller.signal)
+      .then((place) => {
+        if (place && !controller.signal.aborted) onPinAddressRef.current?.(place);
+      })
+      .catch(() => undefined);
+  });
   // The pin when the map opens; read once, when it has loaded.
   const initialValueRef = useRef(value);
 
@@ -102,7 +122,12 @@ export function LocationPicker({
       if (!markerRef.current) {
         const placed = new Marker({ draggable: !readOnlyRef.current }).setLngLat(toLngLat(point)).addTo(map);
         placed.getElement().title = "Location";
-        placed.on("dragend", () => onChangeRef.current(fromLngLat(placed.getLngLat())));
+        placed.on("dragend", () => {
+          const point = fromLngLat(placed.getLngLat());
+          setLocated(false);
+          onChangeRef.current(point);
+          lookUpAddressRef.current(point);
+        });
         markerRef.current = placed;
       } else {
         markerRef.current.setLngLat(toLngLat(point));
@@ -121,7 +146,11 @@ export function LocationPicker({
     };
 
     map.on("click", (event) => {
-      if (!readOnlyRef.current) placePinRef.current?.(fromLngLat(event.lngLat));
+      if (readOnlyRef.current) return;
+      const point = fromLngLat(event.lngLat);
+      setLocated(false);
+      placePinRef.current?.(point);
+      lookUpAddressRef.current(point);
     });
     mapRef.current = map;
 
@@ -131,6 +160,7 @@ export function LocationPicker({
       placePinRef.current = null;
       showPinRef.current = null;
       markerRef.current = undefined;
+      addressLookupRef.current?.abort();
     };
   }, []);
 
@@ -152,7 +182,7 @@ export function LocationPicker({
 
   // Once the address stops changing, look it up and move the pin there.
   useEffect(() => {
-    if (!geocodeQuery || located) return;
+    if (!geocodeQuery) return;
     const controller = new AbortController();
     const timer = setTimeout(() => {
       geocodeAddress(geocodeQuery, controller.signal)
@@ -175,7 +205,26 @@ export function LocationPicker({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [geocodeQuery, located]);
+  }, [geocodeQuery]);
+
+  // A town picked with no pin yet: show the partner that town, ready for the pin.
+  useEffect(() => {
+    if (!areaQuery || markerRef.current) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      geocodeAddress(areaQuery, controller.signal)
+        .then((point) => {
+          if (point && !controller.signal.aborted && !markerRef.current) {
+            mapRef.current?.jumpTo({ center: toLngLat(point), zoom: 13 });
+          }
+        })
+        .catch(() => undefined);
+    }, GEOCODE_DELAY_MS);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [areaQuery]);
 
   const unavailable = failed;
   function locateMe() {
@@ -193,12 +242,7 @@ export function LocationPicker({
         placePinRef.current(point);
         mapRef.current.jumpTo({ center: toLngLat(point), zoom: 17 });
         setLocated(true);
-        // No address found, or Photon unreachable: the pin is placed, the partner types the address.
-        if (onLocated) {
-          void reverseGeocode(point)
-            .then((place) => place && onLocated(place))
-            .catch(() => undefined);
-        }
+        lookUpAddressRef.current(point);
       },
       (problem) => {
         setLocating(false);

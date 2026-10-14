@@ -51,7 +51,8 @@ export function usePhAddress(saved: SavedAddress) {
   const [city, setCity] = useState(saved.city ?? "");
   const [zip, setZip] = useState(saved.postal_code ?? "");
   const [street, setStreet] = useState(saved.street ?? "");
-  // Filled in from the partner's location (RAA-111): the street is a guess until they check it.
+  // Filled in from the map (RAA-111) and not edited since: the street is a guess until the
+  // partner checks it, and the address doesn't move the pin it came from.
   const [fromMap, setFromMap] = useState(false);
 
   // Codes follow from the names, so a saved address reopens with its suggestions narrowed.
@@ -69,6 +70,7 @@ export function usePhAddress(saved: SavedAddress) {
 
   // Changing a field clears the ones below it.
   function changeRegion(text: string, option?: ComboboxOption) {
+    setFromMap(false);
     const next = option?.value ?? (ph && findByName(ph.regions, text)?.code);
     setRegion(text);
     if (next !== regionCode) {
@@ -79,6 +81,7 @@ export function usePhAddress(saved: SavedAddress) {
   }
 
   function changeProvince(text: string, option?: ComboboxOption) {
+    setFromMap(false);
     const next = option?.value ?? findByName(provinces, text)?.code;
     setProvince(text);
     if (next !== provinceCode) {
@@ -88,6 +91,7 @@ export function usePhAddress(saved: SavedAddress) {
   }
 
   function changeCity(text: string, option?: ComboboxOption) {
+    setFromMap(false);
     const next = option?.value ?? findByName(cities, text)?.code;
     setCity(text);
     if (next === cityCode) return;
@@ -108,16 +112,20 @@ export function usePhAddress(saved: SavedAddress) {
     changeRegion,
     changeProvince,
     changeCity,
-    setZip,
+    setZip: (text: string) => {
+      setZip(text);
+      setFromMap(false);
+    },
     setStreet: (text: string) => {
       setStreet(text);
       setFromMap(false);
     },
     fromMap,
-    // The address at a map point (RAA-111), only into a blank address: one the partner typed
-    // stays. Fields the lookup can't match to a PSA place stay blank for the partner to pick.
+    // The address at the pin (RAA-111), into a blank address or one filled from the map
+    // before: one the partner typed or edited stays. Fields the lookup can't match to a PSA
+    // place stay blank for the partner to pick.
     fillFromPlace: async (place: ReversePlace) => {
-      if ([region, province, city, zip, street].some((value) => value.trim())) return;
+      if (!fromMap && [region, province, city, zip, street].some((value) => value.trim())) return;
       if (place.countrycode && place.countrycode !== COUNTRY) return;
       const data = await loadPhAddressData();
       const match = matchPlaces(data, [place.city, place.county, place.district], place.state, place.postcode);
@@ -140,6 +148,7 @@ export function usePhAddress(saved: SavedAddress) {
     // Every field at once, as saved elsewhere (a listing copying its business's address,
     // RAA-101), without the cascade above clearing the fields below.
     setAll: (next: SavedAddress) => {
+      setFromMap(false);
       setRegion(next.region ?? "");
       setProvince(next.province ?? "");
       setCity(next.city ?? "");

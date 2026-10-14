@@ -232,8 +232,9 @@ export function TourWizard({
                   setLocationError(undefined);
                 }}
                 geocodeQuery={sameAddress.geocodeQuery}
+                areaQuery={sameAddress.areaQuery}
                 error={locationError}
-                onLocated={address.fillFromPlace}
+                onPinAddress={address.fillFromPlace}
               />
             </>
           )}

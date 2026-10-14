@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { PhAddress } from "@/components/address/ph-address-fields";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import type { LatLng } from "@/lib/map";
-import { addressChanged, geocodeQuery, NO_ADDRESS } from "./listing-fields";
+import { addressChanged, areaQuery, geocodeQuery, NO_ADDRESS } from "./listing-fields";
 import type { PartnerBusiness } from "./use-partner-businesses";
 
 // A business made before addresses and pins (the RAA-100 backfill) may have neither yet.
@@ -48,7 +48,7 @@ export function useSameAsBusinessAddress(
   }
 
   const query = same || (copied && !addressChanged(address, business.address)) ? undefined : geocodeQuery(address);
-  return { same, change, geocodeQuery: query };
+  return { same, change, geocodeQuery: query, areaQuery: same ? undefined : areaQuery(address) };
 }
 
 export function SameAsBusinessAddress({

@@ -53,14 +53,25 @@ export function toAttributeValues(attrs: PartnerListing["attrs"]) {
   return values;
 }
 
-// The address as one line for Google's geocoder, once every field it needs is filled in.
+// The address as one line for the geocoder, once every field it needs is filled in. Not for an
+// address filled in from the pin (RAA-111): it would move the pin off the spot it came from.
 export function geocodeQuery(address: PhAddress) {
+  if (address.fromMap) return undefined;
   const { region, province, city, zip, street } = address.values;
   const parts = [street, city, address.hasProvinces ? province : "", region].map((part) => part.trim());
   if (!street.trim() || !city.trim() || !region.trim() || !zip.trim() || (address.hasProvinces && !province.trim())) {
     return undefined;
   }
   return `${parts.filter(Boolean).join(", ")} ${zip.trim()}, Philippines`;
+}
+
+// The town the partner picked, before the rest of the address (RAA-111): the map moves there.
+export function areaQuery(address: PhAddress) {
+  if (address.fromMap) return undefined;
+  const { region, province, city } = address.values;
+  if (!city.trim() || !region.trim()) return undefined;
+  const parts = [city, address.hasProvinces ? province : "", region.replace(/ \(.*\)$/, "")].map((part) => part.trim());
+  return `${parts.filter(Boolean).join(", ")}, Philippines`;
 }
 
 // Whether the address differs from a saved one: a saved pin stays where it is until then.

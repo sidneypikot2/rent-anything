@@ -16,6 +16,7 @@ import { CancellationPolicyChoice, type CancellationPolicy } from "./cancellatio
 import { listingChanges } from "./listing-changes";
 import {
   addressChanged,
+  areaQuery,
   AttributeFields,
   attributeFields,
   categoryLabel,
@@ -308,8 +309,9 @@ export function ListingForm({
               setLocationError(undefined);
             }}
             geocodeQuery={addressQuery}
+            areaQuery={areaQuery(address)}
             error={locationError}
-            onLocated={address.fillFromPlace}
+            onPinAddress={address.fillFromPlace}
           />
         </EditSection>
 
