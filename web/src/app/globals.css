@@ -200,7 +200,7 @@ body {
 
 /* Guest content over the fixed backdrop (RAA-107). .on-glass (the "sheet" glass tone) turns
    the text light: white, sky-mist for muted text, sky-pale for links and eyebrows. White
-   surfaces inside (cards, fields, dialogs) keep their dark text. On pages made of Sections
+   surfaces inside (cards, fields, dialogs, mist panels) keep their dark text. On pages made of Sections
    (.page-sections, which is on-glass too), sections take turns with the page's banner: the
    banner above them takes the first turn (RAA-108), so the odd sections show the bare photo
    and the even ones sit on the hero frame's glass (as the sheet glass tone). A .band brings its own background (How it works,
@@ -213,7 +213,7 @@ body {
     --muted: var(--color-sky-mist);
     --link: var(--color-sky-pale);
   }
-  :is(.on-glass, .page-sections) :where(.bg-surface, .bg-surface-2, .bg-background) {
+  :is(.on-glass, .page-sections) :where(.bg-surface, .bg-surface-2, .bg-background, .bg-mist) {
     color: var(--foreground);
     --muted: var(--muted-ink);
     --link: var(--link-ink);

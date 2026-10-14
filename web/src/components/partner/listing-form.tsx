@@ -54,7 +54,6 @@ import {
   TourGroupFields,
   TourInclusionFields,
   TourPricingFields,
-  TourScheduleFields,
   TourTypeChoice,
   tourErrors,
   tourExtras,
@@ -322,10 +321,6 @@ export function ListingForm({
           <fieldset data-testid="listing-tour-group" className="flex flex-col gap-4">
             <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Group and duration</legend>
             <TourGroupFields values={tour} onChange={changeTour} errors={tourProblems} />
-          </fieldset>
-          <fieldset data-testid="listing-tour-schedule" className="flex flex-col gap-4">
-            <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Schedule</legend>
-            <TourScheduleFields values={tour} onChange={changeTour} errors={tourProblems} />
           </fieldset>
           <fieldset data-testid="listing-tour-inclusions" className="flex flex-col gap-4">
             <legend className="mb-2 font-display text-2xl font-extrabold tracking-tight">Inclusions</legend>

@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { cancellationPolicyName } from "@/components/partner/cancellation-policy";
-import { attributeLabel, displayValue } from "@/components/partner/listing-changes";
+import { attributeLabel, displayValue, RETIRED_ATTRS } from "@/components/partner/listing-changes";
 import { visitsLandmarks } from "@/components/partner/listing-fields";
 import { ListingMissing } from "@/components/partner/listing-missing";
 import { PhotoStrip } from "@/components/partner/listing-photos";
@@ -21,9 +21,8 @@ import { Card, CardBody } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { DisplayTitle } from "@/components/ui/typography";
 import { formatPeso } from "@/lib/money";
-import { formatDateRange } from "@/lib/dates";
 import { feeText, nightUnit, stayRateTerms } from "@/lib/pricing";
-import { basePriceUnit, durationText, groupText, inclusionText, scheduleText, tourTypeLabel } from "@/lib/tours";
+import { basePriceUnit, durationText, groupText, inclusionText, tourTypeLabel } from "@/lib/tours";
 
 // One of the partner's listings, read-only (RAA-47), with the way to edit or delete it. A stay
 // still on the back-filled nightly price of 0 asks for a real one (RAA-105), and so does a tour
@@ -61,7 +60,7 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
   const status = STATUS[listing.status];
   const { street, city, province, region, postal_code } = listing.address;
   const address = [street, city, province, region].filter(Boolean).join(", ") + (postal_code ? ` ${postal_code}` : "");
-  const attrs = Object.entries(listing.attrs);
+  const attrs = Object.entries(listing.attrs).filter(([key]) => !RETIRED_ATTRS.has(key));
   const policies = useListingOptions().data?.cancellation_policies;
   const rate = listing.stay_rate;
   const perGuest = listing.attrs.place_type === "shared_room";
@@ -171,25 +170,6 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
                   {tour.max_groups_per_day === 1 ? "group" : "groups"} a day
                 </Detail>
                 <Detail term="Duration">{durationText(tour.duration_value, tour.duration_unit)}</Detail>
-                <Detail term="Runs">
-                  {scheduleText(tour.weekdays, tour.dates.length)}
-                  {tour.dates.length > 0 && (
-                    <span className="block text-muted">
-                      {tour.weekdays.length ? "Added: " : ""}
-                      {tour.dates.map((date) => formatDateRange(date, date)).join(", ")}
-                    </span>
-                  )}
-                </Detail>
-                <Detail term="Blocked days">
-                  {listing.blocked_dates.length > 0
-                    ? listing.blocked_dates.map((block) => (
-                        <span key={block.starts_on} className="block">
-                          {formatDateRange(block.starts_on, block.ends_on)}
-                          {block.reason && <span className="text-muted"> · {block.reason}</span>}
-                        </span>
-                      ))
-                    : "—"}
-                </Detail>
                 <Detail term={tour.tour_type === "private" ? "Add-ons" : "Included"}>
                   {tour.inclusions.length > 0
                     ? tour.inclusions.map((inclusion) => (

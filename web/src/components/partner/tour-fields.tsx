@@ -1,59 +1,40 @@
 "use client";
 
-import { useState } from "react";
 import type { components } from "@/api/schema";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { ChoiceCards } from "@/components/ui/choice-cards";
 import { cn } from "@/components/ui/cn";
-import { DateRangeField, toDate, toIso } from "@/components/ui/date-range-field";
 import { Field } from "@/components/ui/field";
-import { MonthCalendar, type DayMark } from "@/components/ui/month-calendar";
 import { Pill } from "@/components/ui/pill";
 import { StepperField } from "@/components/ui/stepper-field";
 import { Eyebrow } from "@/components/ui/typography";
-import { formatDateRange, todayIso } from "@/lib/dates";
 import { formatPeso, fromCents, toCents } from "@/lib/money";
 import {
   basePriceUnit,
   capitalize,
   INCLUSION_LABELS,
   TOUR_TYPES,
-  WEEK,
   type InclusionKind,
   type TourType,
 } from "@/lib/tours";
 import { exampleFees, FeeFields, feesError, toFeesBody, toFeeValues, type FeeValues } from "./fee-fields";
 import { AttributeFields, attributeFields, toAttrs, type AttributeField, type AttributeValues } from "./listing-fields";
+import { RETIRED_ATTRS } from "./listing-changes";
 import type { ListingBody, ListingCategory, ListingOptions, PartnerListing } from "./use-partner-listings";
 
 type PartnerTour = components["schemas"]["partner_tour"];
 type TourBody = components["schemas"]["tour_body"];
-type BlockedDate = components["schemas"]["blocked_date"];
 export type TourInclusionOptions = ListingOptions["tour_inclusions"];
 
-// The API's limits (TourDetail, TourInclusion, AvailabilityBlock, Listings::TourValues).
+// The API's limits (TourDetail, TourInclusion, Listings::TourValues).
 const MAX_GUESTS = 100;
 const MAX_GROUPS_PER_DAY = 100;
 const LONGEST = { hours: 24, days: 30 } as const;
-const MAX_DATES = 366;
 const NOTE_LENGTH = 120;
-const REASON_LENGTH = 120;
-
-// Which days of the week a tour runs, as the partner picks them.
-export type SchedulePreset = "every_day" | "weekdays" | "weekends" | "custom" | "dates";
-const PRESETS: { value: SchedulePreset; label: string; weekdays?: number[] }[] = [
-  { value: "every_day", label: "Every day", weekdays: [0, 1, 2, 3, 4, 5, 6] },
-  { value: "weekdays", label: "Weekdays", weekdays: [1, 2, 3, 4, 5] },
-  { value: "weekends", label: "Weekends", weekdays: [0, 6] },
-  { value: "custom", label: "Custom days" },
-  { value: "dates", label: "Specific dates only", weekdays: [] },
-];
 
 type InclusionValues = { on: boolean; options: string[]; note: string; price: string };
-type BlockValues = { key: number; from: string; to: string; reason: string };
 
 // A tour as the form holds it (RAA-111): counts as numbers, money and the duration as typed.
 export type TourValues = {
@@ -63,17 +44,12 @@ export type TourValues = {
   maxGroups: number;
   duration: string;
   durationUnit: "hours" | "days";
-  preset: SchedulePreset;
-  weekdays: number[];
-  dates: string[];
-  blocks: BlockValues[];
   inclusions: Record<InclusionKind, InclusionValues>;
   basePrice: string;
   fees: FeeValues[];
   attrs: AttributeValues;
 };
 
-let nextBlockKey = 1;
 const NO_INCLUSION: InclusionValues = { on: false, options: [], note: "", price: "" };
 
 export const NEW_TOUR: TourValues = {
@@ -83,33 +59,18 @@ export const NEW_TOUR: TourValues = {
   maxGroups: 1,
   duration: "4",
   durationUnit: "hours",
-  preset: "every_day",
-  weekdays: [0, 1, 2, 3, 4, 5, 6],
-  dates: [],
-  blocks: [],
   inclusions: { accommodation: NO_INCLUSION, transport: NO_INCLUSION, meal: NO_INCLUSION },
   basePrice: "",
   fees: [],
   attrs: {},
 };
 
-function presetFor(weekdays: number[]): SchedulePreset {
-  const key = [...weekdays].sort().join(",");
-  return PRESETS.find((preset) => preset.weekdays && [...preset.weekdays].sort().join(",") === key)?.value ?? "custom";
-}
-
 // A saved tour as the fields hold it. A tour made before RAA-110 has a base price of 0: empty.
-export function toTourValues(listing: Pick<PartnerListing, "tour" | "blocked_dates" | "fees" | "attrs">): TourValues {
+export function toTourValues(listing: Pick<PartnerListing, "tour" | "fees" | "attrs">): TourValues {
   const tour: PartnerTour | null = listing.tour;
   const attrs: AttributeValues = {};
   for (const [key, value] of Object.entries(listing.attrs)) if (typeof value === "boolean") attrs[key] = value;
-  const blocks = listing.blocked_dates.map((block) => ({
-    key: nextBlockKey++,
-    from: block.starts_on,
-    to: block.ends_on,
-    reason: block.reason ?? "",
-  }));
-  if (!tour) return { ...NEW_TOUR, blocks, fees: toFeeValues(listing.fees), attrs };
+  if (!tour) return { ...NEW_TOUR, fees: toFeeValues(listing.fees), attrs };
   const inclusions = { ...NEW_TOUR.inclusions };
   for (const inclusion of tour.inclusions) {
     inclusions[inclusion.kind] = {
@@ -126,10 +87,6 @@ export function toTourValues(listing: Pick<PartnerListing, "tour" | "blocked_dat
     maxGroups: tour.max_groups_per_day,
     duration: String(tour.duration_value),
     durationUnit: tour.duration_unit,
-    preset: presetFor(tour.weekdays),
-    weekdays: tour.weekdays,
-    dates: tour.dates,
-    blocks,
     inclusions,
     basePrice: tour.base_price_cents ? fromCents(tour.base_price_cents) : "",
     fees: toFeeValues(listing.fees),
@@ -137,14 +94,8 @@ export function toTourValues(listing: Pick<PartnerListing, "tour" | "blocked_dat
   };
 }
 
-function weekday(iso: string) {
-  return toDate(iso).getUTCDay();
-}
-
-// An added date that falls on one of the tour's weekdays says nothing more: it isn't sent.
-function extraDates(values: TourValues) {
-  return values.dates.filter((date) => !values.weekdays.includes(weekday(date)));
-}
+// A tour runs every day: the API's weekdays, 0 Sunday … 6 Saturday.
+const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
 
 // What the API takes. Call it after tourErrors has passed.
 export function toTourBody(values: TourValues): TourBody {
@@ -156,8 +107,8 @@ export function toTourBody(values: TourValues): TourBody {
     max_groups_per_day: values.maxGroups,
     duration_value: Number(values.duration),
     duration_unit: values.durationUnit,
-    weekdays: [...values.weekdays].sort(),
-    dates: extraDates(values).sort(),
+    weekdays: EVERY_DAY,
+    dates: [],
     base_price_cents: toCents(values.basePrice) ?? 0,
     inclusions: (Object.keys(values.inclusions) as InclusionKind[]).flatMap((kind) => {
       const inclusion = values.inclusions[kind];
@@ -174,20 +125,13 @@ export function toTourBody(values: TourValues): TourBody {
   };
 }
 
-export function toBlockedDatesBody(values: TourValues): BlockedDate[] {
-  return [...values.blocks]
-    .sort((a, b) => a.from.localeCompare(b.from))
-    .map((block) => ({ starts_on: block.from, ends_on: block.to, reason: block.reason.trim() || null }));
-}
-
-// The tour's part of a listing body: its details, blocked days, fees and yes/no extras.
+// The tour's part of a listing body: its details, fees and yes/no extras.
 export function toTourListingBody(
   values: TourValues,
   extras: AttributeField[],
-): Pick<ListingBody, "tour" | "blocked_dates" | "fees" | "attrs"> {
+): Pick<ListingBody, "tour" | "fees" | "attrs"> {
   return {
     tour: toTourBody(values),
-    blocked_dates: toBlockedDatesBody(values),
     fees: toFeesBody(values),
     attrs: toAttrs(extras, values.attrs),
   };
@@ -202,19 +146,18 @@ export function isTour(category: { slug: string } | undefined) {
   return category?.slug === "tour";
 }
 
-// The category's yes/no attrs (a guide, life vests), shown with the inclusions.
+// The category's yes/no attrs (a guide), shown with the inclusions.
 export function tourExtras(category: ListingCategory | undefined) {
-  return attributeFields(category).filter((field) => field.type === "boolean");
+  return attributeFields(category).filter((field) => field.type === "boolean" && !RETIRED_ATTRS.has(field.key));
 }
 
 export type TourErrors = Partial<
-  Record<"duration" | "schedule" | "blocks" | "transport" | "meal" | "accommodation" | "basePrice" | "fees", string>
+  Record<"duration" | "transport" | "meal" | "accommodation" | "basePrice" | "fees", string>
 >;
 
 // The sections of a tour, for checking one step at a time.
 export const TOUR_SECTIONS = {
   group: ["duration"],
-  schedule: ["schedule", "blocks"],
   inclusions: ["accommodation", "transport", "meal"],
   pricing: ["basePrice", "fees"],
 } as const satisfies Record<string, (keyof TourErrors)[]>;
@@ -226,15 +169,6 @@ export function tourErrors(values: TourValues, section?: keyof typeof TOUR_SECTI
   const duration = /^\d+$/.test(values.duration.trim()) ? Number(values.duration) : 0;
   const longest = LONGEST[values.durationUnit];
   if (duration < 1 || duration > longest) errors.duration = `A whole number from 1 to ${longest} ${values.durationUnit}`;
-
-  if (values.weekdays.length === 0 && extraDates(values).length === 0) {
-    errors.schedule =
-      values.preset === "dates" ? "Tap the days it runs on the calendar" : "Pick at least one day it runs, or add a date";
-  } else if (extraDates(values).length > MAX_DATES) errors.schedule = `At most ${MAX_DATES} added dates`;
-  if (values.blocks.length > MAX_DATES) errors.blocks = `At most ${MAX_DATES} blocked days or ranges`;
-  else if (values.blocks.some((block) => block.reason.trim().length > REASON_LENGTH)) {
-    errors.blocks = `A reason can be at most ${REASON_LENGTH} characters`;
-  }
 
   for (const kind of Object.keys(values.inclusions) as InclusionKind[]) {
     const inclusion = values.inclusions[kind];
@@ -354,211 +288,6 @@ export function TourGroupFields({ values, onChange, errors }: SectionProps) {
           values.durationUnit === "days" && (
             <p className="text-xs text-muted">A tour of several days starts on the days it runs.</p>
           )
-        )}
-      </div>
-    </div>
-  );
-}
-
-// The block a day belongs to, if any.
-function blockOn(blocks: BlockValues[], day: string) {
-  return blocks.find((block) => block.from <= day && day <= block.to);
-}
-
-function shift(iso: string, days: number) {
-  const date = toDate(iso);
-  date.setUTCDate(date.getUTCDate() + days);
-  return toIso(date);
-}
-
-// The days blocked, counting each day of a range.
-export function blockedDayCount(values: TourValues) {
-  return values.blocks.reduce((sum, block) => sum + (toDate(block.to).getTime() - toDate(block.from).getTime()) / 86_400_000 + 1, 0);
-}
-
-// When it runs: the days of the week, then a calendar to check them on, where a tap blocks a
-// day it runs, frees a blocked one, or adds (or drops) a day it otherwise doesn't run. Ranges
-// are blocked with a reason below it.
-export function TourScheduleFields({ values, onChange, errors }: SectionProps) {
-  const today = todayIso();
-  const [range, setRange] = useState({ from: "", to: "" });
-  const [reason, setReason] = useState("");
-  const [rangeError, setRangeError] = useState<string>();
-  const set = (patch: Partial<TourValues>) => onChange({ ...values, ...patch });
-
-  function pickPreset(preset: SchedulePreset) {
-    const weekdays = PRESETS.find((option) => option.value === preset)?.weekdays;
-    set({ preset, weekdays: weekdays ?? values.weekdays });
-  }
-
-  function toggleDay(day: number) {
-    const weekdays = values.weekdays.includes(day)
-      ? values.weekdays.filter((other) => other !== day)
-      : [...values.weekdays, day];
-    set({ preset: "custom", weekdays });
-  }
-
-  function mark(day: string): DayMark | undefined {
-    if (blockOn(values.blocks, day)) return "blocked";
-    if (values.weekdays.includes(weekday(day))) return "open";
-    if (values.dates.includes(day)) return "extra";
-    return undefined;
-  }
-
-  function tap(day: string) {
-    const block = blockOn(values.blocks, day);
-    if (block) {
-      // Free the day: a range splits around it. A piece that has already ended is history the
-      // API keeps on its own and refuses to be sent as new, so it is dropped.
-      const rest = [
-        ...(block.from < day && shift(day, -1) >= today ? [{ ...block, key: nextBlockKey++, to: shift(day, -1) }] : []),
-        ...(day < block.to ? [{ ...block, key: nextBlockKey++, from: shift(day, 1) }] : []),
-      ];
-      set({ blocks: [...values.blocks.filter((other) => other !== block), ...rest] });
-    } else if (values.weekdays.includes(weekday(day))) {
-      set({ blocks: [...values.blocks, { key: nextBlockKey++, from: day, to: day, reason: "" }] });
-    } else if (values.dates.includes(day)) {
-      set({ dates: values.dates.filter((other) => other !== day) });
-    } else {
-      set({ dates: [...values.dates, day].sort() });
-    }
-  }
-
-  function blockRange() {
-    if (!range.from || !range.to) return setRangeError("Pick the first and last day");
-    if (values.blocks.some((block) => block.from <= range.to && range.from <= block.to)) {
-      return setRangeError("Overlaps days already blocked: remove those first");
-    }
-    set({ blocks: [...values.blocks, { key: nextBlockKey++, ...range, reason }] });
-    setRange({ from: "", to: "" });
-    setReason("");
-    setRangeError(undefined);
-  }
-
-  const blocks = [...values.blocks].sort((a, b) => a.from.localeCompare(b.from));
-  const setBlock = (key: number, patch: Partial<BlockValues>) =>
-    set({ blocks: values.blocks.map((block) => (block.key === key ? { ...block, ...patch } : block)) });
-
-  return (
-    <div data-testid="tour-schedule" className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3">
-        <span className="text-sm font-semibold">Days it runs</span>
-        <div role="group" aria-label="Days it runs" className="flex flex-wrap gap-2">
-          {PRESETS.map((preset) => (
-            <Pill
-              key={preset.value}
-              on={values.preset === preset.value}
-              onClick={() => pickPreset(preset.value)}
-              data-testid={`tour-preset-${preset.value}`}
-            >
-              {preset.label}
-            </Pill>
-          ))}
-        </div>
-        {values.preset === "custom" && (
-          <div role="group" aria-label="Days of the week" className="grid grid-cols-7 gap-1.5 animate-rise">
-            {WEEK.map(({ day, short, long }) => (
-              <button
-                key={day}
-                type="button"
-                aria-pressed={values.weekdays.includes(day)}
-                aria-label={long}
-                onClick={() => toggleDay(day)}
-                data-testid={`tour-weekday-${day}`}
-                className={cn(
-                  "min-h-11 rounded-control border text-sm font-semibold transition-colors duration-300 ease-calm",
-                  values.weekdays.includes(day)
-                    ? "border-primary bg-primary text-white"
-                    : "border-line-strong bg-surface text-muted hover:border-primary hover:text-primary",
-                )}
-              >
-                {short}
-              </button>
-            ))}
-          </div>
-        )}
-        <p className="text-sm text-muted">
-          {values.preset === "dates"
-            ? "Tap each day it runs on the calendar."
-            : "Tap a day it runs to block it, a blocked day to free it, or any other day to add it."}
-        </p>
-      </div>
-
-      <div className="rounded-card bg-surface-2 p-4">
-        <MonthCalendar label="Tour calendar" min={today} months={2} mark={mark} onDayClick={tap} data-testid="tour-calendar" />
-      </div>
-      {errors?.schedule && (
-        <p role="alert" className="-mt-3 text-xs text-danger">
-          {errors.schedule}
-        </p>
-      )}
-
-      <div className="flex flex-col gap-3" data-testid="tour-blocks">
-        <div className="flex flex-col">
-          <span className="text-sm font-semibold">Blocked days</span>
-          <span className="text-xs text-muted">No tour on these: a holiday, a fiesta, the boat in for repairs.</span>
-        </div>
-        {blocks.length > 0 && (
-          <ul className="flex flex-col divide-y divide-line rounded-control border border-line">
-            {blocks.map((block) => (
-              <li key={block.key} className="flex flex-wrap items-end gap-3 px-4 py-3" data-testid="tour-block">
-                <div className="min-w-0 flex-1">
-                  <Field
-                    label={formatDateRange(block.from, block.to) ?? ""}
-                    maxLength={REASON_LENGTH}
-                    placeholder="Reason (optional)"
-                    value={block.reason}
-                    onChange={(event) => setBlock(block.key, { reason: event.target.value })}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => set({ blocks: values.blocks.filter((other) => other.key !== block.key) })}
-                >
-                  Remove
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
-          <DateRangeField
-            label="Block a stretch of days"
-            min={today}
-            from={range.from}
-            to={range.to}
-            onChange={(next) => {
-              setRange(next);
-              setRangeError(undefined);
-            }}
-            error={rangeError}
-            clearable
-            data-testid="tour-block-range"
-          />
-          <Field
-            label="Reason (optional)"
-            name="block_reason"
-            maxLength={REASON_LENGTH}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            onKeyDown={(event) => {
-              // Enter blocks the range here rather than submitting the whole form.
-              if (event.key !== "Enter") return;
-              event.preventDefault();
-              blockRange();
-            }}
-            placeholder="e.g. Town fiesta"
-          />
-          <Button type="button" variant="soft" onClick={blockRange} data-testid="tour-block-add" className="sm:mb-0.5">
-            Block
-          </Button>
-        </div>
-        {errors?.blocks && (
-          <p role="alert" className="text-xs text-danger">
-            {errors.blocks}
-          </p>
         )}
       </div>
     </div>

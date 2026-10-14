@@ -3,7 +3,7 @@ import { formatPeso } from "./money";
 import { plural } from "./pricing";
 
 // How a tour's facts read (RAA-111), for partners and guests alike; plain functions so server
-// pages can use them. Weekdays are the API's: 0 Sunday … 6 Saturday.
+// pages can use them.
 
 export type TourType = components["schemas"]["tour_type"];
 export type InclusionKind = components["schemas"]["tour_inclusion"]["kind"];
@@ -22,23 +22,11 @@ export const TOUR_TYPES: { value: TourType; label: string; description: string }
   },
 ];
 
-// Monday first, as the calendars are.
-export const WEEK = [1, 2, 3, 4, 5, 6, 0].map((day) => ({
-  day,
-  short: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day],
-  long: ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"][day],
-}));
-
 export const INCLUSION_LABELS: Record<InclusionKind, string> = {
   accommodation: "Accommodation",
   transport: "Transport",
   meal: "Meals",
 };
-
-function sentence(items: string[]) {
-  if (items.length <= 1) return items.join("");
-  return `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
-}
 
 export function capitalize(text: string) {
   return text.charAt(0).toUpperCase() + text.slice(1);
@@ -57,18 +45,6 @@ export function groupText(min: number, max: number) {
 // "4 hours", "2 days".
 export function durationText(value: number, unit: "hours" | "days") {
   return plural(value, unit === "hours" ? "hour" : "day");
-}
-
-// "Every day", "Weekdays", "Saturdays and Sundays", "Specific dates only", with the added dates.
-export function scheduleText(weekdays: number[], extraDates: number) {
-  const days = new Set(weekdays);
-  let text: string;
-  if (days.size === 7) text = "Every day";
-  else if (days.size === 5 && [1, 2, 3, 4, 5].every((day) => days.has(day))) text = "Weekdays";
-  else if (days.size === 0) text = "Specific dates only";
-  else text = sentence(WEEK.filter(({ day }) => days.has(day)).map(({ long }) => long));
-  if (extraDates === 0) return days.size === 0 ? "No dates yet" : text;
-  return days.size === 0 ? `${plural(extraDates, "date")}` : `${text}, plus ${plural(extraDates, "added date")}`;
 }
 
 // "Transport: van, boat", with its note; a private tour's add-on price after it.

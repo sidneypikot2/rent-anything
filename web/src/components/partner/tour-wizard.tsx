@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { TextareaField } from "@/components/ui/textarea-field";
 import type { LatLng } from "@/lib/map";
-import { plural } from "@/lib/pricing";
-import { durationText, groupText, inclusionText, scheduleText, tourTypeLabel } from "@/lib/tours";
+import { durationText, groupText, inclusionText, tourTypeLabel } from "@/lib/tours";
 import {
   cancellationPolicyName,
   CancellationPolicyChoice,
@@ -23,14 +22,12 @@ import { NewListingPhotos } from "./new-listing-photos";
 import { SameAsBusinessAddress, useSameAsBusinessAddress } from "./same-as-business-address";
 import {
   basePriceText,
-  blockedDayCount,
   NEW_TOUR,
   toTourBody,
   toTourListingBody,
   TourGroupFields,
   TourInclusionFields,
   TourPricingFields,
-  TourScheduleFields,
   TourTypeChoice,
   tourErrors,
   tourExtras,
@@ -50,7 +47,6 @@ const STEPS = [
   { key: "meeting", label: "Meeting point" },
   { key: "destinations", label: "Destinations" },
   { key: "group", label: "Group and duration" },
-  { key: "schedule", label: "Schedule" },
   { key: "inclusions", label: "Inclusions" },
   { key: "pricing", label: "Pricing" },
   { key: "cancellation", label: "Cancellation policy" },
@@ -61,14 +57,12 @@ const STEPS = [
 const INTROS: Partial<Record<(typeof STEPS)[number]["key"], string>> = {
   meeting: "Where guests meet you. Guests see the area, not the pin.",
   destinations: "The places the tour visits. Travellers find it from each one.",
-  schedule: "The days guests can book. Change it any time from the listing.",
   review: "Check it over. Saving keeps it as a draft; then add photos.",
 };
 
 // Adding a tour (RAA-111): what it is (private or joiner), where guests meet, the places it
-// visits, the group and how long it takes, when it runs (days of the week, added dates and
-// blocked days on a calendar), what it includes, the price (per group or per guest), the
-// cancellation policy, a review that saves the draft and, last, photos (at most 5). Like the
+// visits, the group and how long it takes, what it includes, the price (per group or per
+// guest), the cancellation policy, a review that saves the draft and, last, photos (at most 5). Like the
 // other wizards, only the current step is on the page, every value is kept here and any step
 // already reached opens again; after the save only Photos is open (RAA-109). A tour has no
 // units: groups a day stand in for them.
@@ -119,7 +113,7 @@ export function TourWizard({
       setLocationError("Drop a pin on the map");
       return false;
     }
-    if (step.key === "group" || step.key === "schedule" || step.key === "inclusions" || step.key === "pricing") {
+    if (step.key === "group" || step.key === "inclusions" || step.key === "pricing") {
       const found = tourErrors(tour, step.key);
       setErrors(found);
       if (found) return false;
@@ -247,7 +241,6 @@ export function TourWizard({
 
           {step.key === "group" && <TourGroupFields values={tour} onChange={changeTour} errors={errors} />}
 
-          {step.key === "schedule" && <TourScheduleFields values={tour} onChange={changeTour} errors={errors} />}
 
           {step.key === "inclusions" && (
             <TourInclusionFields values={tour} onChange={changeTour} errors={errors} kinds={inclusions} extras={extras} />
@@ -309,8 +302,6 @@ function reviewRows(tour: TourValues, extras: string[]): [string, string][] {
   return [
     ["Group", `${groupText(body.min_guests, body.max_guests)}, ${body.max_groups_per_day} a day`],
     ["Duration", durationText(body.duration_value, body.duration_unit)],
-    ["Runs", scheduleText(body.weekdays, body.dates.length)],
-    ["Blocked days", blockedDayCount(tour) ? plural(blockedDayCount(tour), "day") : "None"],
     [body.tour_type === "private" ? "Add-ons" : "Included", included.join("; ") || "Nothing listed"],
     ["Price", basePriceText(tour)],
     ["Fees", tour.fees.map((fee) => fee.name.trim()).join(", ") || "None"],
@@ -330,7 +321,7 @@ function TourReview({ rows, onEdit }: { rows: [string, ReactNode][]; onEdit: (st
       </dl>
       <div className="flex flex-wrap gap-2 text-sm">
         <span className="text-muted">Change:</span>
-        {(["basics", "schedule", "inclusions", "pricing"] as const).map((key) => (
+        {(["basics", "group", "inclusions", "pricing"] as const).map((key) => (
           <button key={key} type="button" onClick={() => onEdit(key)} className="font-medium text-link underline">
             {STEPS.find((other) => other.key === key)?.label}
           </button>

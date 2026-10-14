@@ -2,10 +2,9 @@ import type { ListingDetail } from "@/api/discovery";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
 import { Price } from "@/components/ui/typography";
-import { formatDateRange } from "@/lib/dates";
 import { feeText, priceUnitText } from "@/lib/pricing";
 import { formatPeso } from "@/lib/money";
-import { durationText, groupText, inclusionText, scheduleText, tourTypeLabel } from "@/lib/tours";
+import { durationText, groupText, inclusionText, tourTypeLabel } from "@/lib/tours";
 
 type Tour = NonNullable<ListingDetail["tour"]>;
 
@@ -16,17 +15,13 @@ export function tourPriceLine(tour: Tour) {
 }
 
 // What a guest needs to know about a tour (RAA-111): private or joiner, the group, how long,
-// when it runs and its next open days, what's included (or, on a private tour, the add-ons
-// a group can pick) and the price. Booking and its totals come with M3.
+// what's included (or, on a private tour, the add-ons a group can pick) and the price. Booking and its totals come with M3.
 export function TourFacts({ listing, tour }: { listing: ListingDetail; tour: Tour }) {
   const privateTour = tour.tour_type === "private";
-  const next = tour.open_dates.slice(0, 6);
   const fees = listing.fees.filter((fee) => fee.required);
   const facts: [string, string][] = [
     ["Group", groupText(tour.min_guests, tour.max_guests)],
     ["Duration", durationText(tour.duration_value, tour.duration_unit)],
-    // The guest's tour has its open days, not the partner's added dates.
-    ["Runs", tour.weekdays.length ? scheduleText(tour.weekdays, 0) : "On set dates"],
   ];
 
   return (
@@ -49,19 +44,6 @@ export function TourFacts({ listing, tour }: { listing: ListingDetail; tour: Tou
             </div>
           ))}
         </dl>
-
-        {next.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-semibold">Next open days</span>
-            <ul className="flex flex-wrap gap-2" data-testid="tour-open-dates">
-              {next.map((date) => (
-                <li key={date}>
-                  <Badge tone="mist">{formatDateRange(date, date)}</Badge>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         {tour.inclusions.length > 0 && (
           <div className="flex flex-col gap-2 border-t border-line pt-4">

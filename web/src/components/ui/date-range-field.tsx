@@ -32,11 +32,11 @@ type Props = {
 
 // The calendar runs in UTC, like the app's dates ("YYYY-MM-DD", a day with no time zone,
 // and today as the UTC day), so a day never shifts with the browser's time zone.
-export function toDate(iso: string) {
+function toDate(iso: string) {
   return new Date(`${iso}T00:00:00Z`);
 }
 
-export function toIso(date: Date) {
+function toIso(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
@@ -44,8 +44,8 @@ export function toIso(date: Date) {
 const NAV_BUTTON =
   "flex size-9 items-center justify-center rounded-control text-foreground hover:bg-surface-2 aria-disabled:cursor-not-allowed aria-disabled:text-muted/40 aria-disabled:hover:bg-transparent";
 
-// react-day-picker's parts, styled with the palette instead of its stylesheet (MonthCalendar too).
-export const CLASS_NAMES = {
+// react-day-picker's parts, styled with the palette instead of its stylesheet.
+const CLASS_NAMES = {
   root: "w-full",
   months: "relative flex flex-col",
   month: "flex flex-col gap-2",
