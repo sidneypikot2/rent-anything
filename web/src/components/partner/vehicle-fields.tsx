@@ -10,7 +10,7 @@ const VEHICLE_KEYS = ["make", "model", "engine_cc", "color"] as const;
 export type VehicleValues = Record<(typeof VEHICLE_KEYS)[number], string>;
 export const NEW_VEHICLE: VehicleValues = { make: "", model: "", engine_cc: "", color: "" };
 
-// A motorcycle, car, van, tricycle or multicab: its schema asks for make, model and engine.
+// A motorcycle, car or van: its schema asks for make, model and engine.
 export function isVehicle(category: ListingCategory | undefined) {
   const properties = (category?.attribute_schema as { properties?: Record<string, unknown> } | undefined)?.properties;
   return !!properties && "make" in properties && "model" in properties && "engine_cc" in properties;
