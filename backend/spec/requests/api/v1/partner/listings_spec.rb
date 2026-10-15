@@ -26,7 +26,7 @@ RSpec.describe "Partner listings", type: :request do
             location: "POINT(123.80 11.17)")
           create(:listing, partner: user, business: tours, category: camera, title: "Boat camera")
           create(:listing, partner: user, business: gear, category: camera, title: "Insta360 X4")
-          create(:listing, partner: user, business: gear, category: camera, title: "GoPro Hero 12", status: "pending")
+          create(:listing, partner: user, business: gear, category: camera, title: "GoPro Hero 12", status: "paused")
           create(:listing, category: camera, title: "Someone else's camera")
         end
 
@@ -709,7 +709,7 @@ RSpec.describe "Partner listings", type: :request do
 
     let(:user) { create(:user, :partner, :id_verified) }
     let(:Authorization) { bearer_for(user) }
-    let(:listing) { create(:listing, partner: user, title: "GoPro Hero 12", status: "pending") }
+    let(:listing) { create(:listing, partner: user, title: "GoPro Hero 12", status: "paused") }
     let(:id) { listing.id }
 
     get "One of the signed-in partner's listings" do
@@ -722,7 +722,7 @@ RSpec.describe "Partner listings", type: :request do
         schema "$ref" => "#/components/schemas/partner_listing"
 
         run_test! do |response|
-          expect(response.parsed_body).to include("id" => listing.id, "title" => "GoPro Hero 12", "status" => "pending")
+          expect(response.parsed_body).to include("id" => listing.id, "title" => "GoPro Hero 12", "status" => "paused")
         end
       end
 
@@ -762,7 +762,7 @@ RSpec.describe "Partner listings", type: :request do
       let!(:moalboal) { create(:area, slug: "moalboal", name: "Moalboal", center: "POINT(123.396 9.945)") }
       let!(:oslob) { create(:area, slug: "oslob", name: "Oslob", center: "POINT(123.43 9.46)") }
       let(:listing) do
-        create(:listing, partner: user, area: moalboal, title: "GoPro Hero 12", status: "pending",
+        create(:listing, partner: user, area: moalboal, title: "GoPro Hero 12", status: "paused",
           location: "POINT(123.37 9.95)")
       end
       let(:category) do
@@ -784,14 +784,50 @@ RSpec.describe "Partner listings", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body).to include(
-            "title" => "Whale shark swim", "description" => "Early morning.", "status" => "pending",
+            "title" => "Whale shark swim", "description" => "Early morning.", "status" => "paused",
             "location" => { "lat" => 9.46, "lng" => 123.43 }, "attrs" => { "duration_hours" => 3 }
           )
           expect(response.parsed_body["area"]).to eq("slug" => "oslob", "name" => "Oslob")
           expect(response.parsed_body["address"]).to eq(address.stringify_keys)
           expect(listing.reload).to have_attributes(title: "Whale shark swim", category: category, area: oslob,
-            status: "pending")
+            status: "paused")
         end
+      end
+
+      response "422", "a live listing losing what going live needed" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:category) { listing.category }
+        let(:listing) do
+          create(:listing, partner: user, area: moalboal, status: "active", description: "Waterproof to 10 m.",
+            location: "POINT(123.37 9.95)")
+        end
+
+        before do
+          create_photo(listing)
+          body.merge!(description: "", attrs: {})
+        end
+
+        run_test! do |refused|
+          expect(refused.parsed_body["errors"]).to eq([ "A live listing needs a description: pause it first" ])
+          expect(listing.reload).to have_attributes(description: "Waterproof to 10 m.", title: "GoPro Hero 12")
+          listing.update!(status: "paused")
+          patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+          expect(response).to have_http_status(:ok)
+        end
+      end
+
+      response "200", "a live listing that already lacked something can still be changed" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        let(:category) { listing.category }
+        let(:listing) do
+          create(:listing, partner: user, area: moalboal, status: "active", location: "POINT(123.37 9.95)")
+        end
+
+        before { body.merge!(description: "", attrs: {}) }
+
+        run_test! { |response| expect(response.parsed_body).to include("status" => "active", "title" => "Whale shark swim") }
       end
 
       response "200", "the cancellation policy changed when sent, kept when left out" do
@@ -961,7 +997,7 @@ RSpec.describe "Partner listings", type: :request do
 
       context "accommodation (RAA-104)" do
         let(:category) { create(:category, :accommodation) }
-        let(:listing) { create(:listing, :stay, partner: user, category:, area: moalboal) }
+        let(:listing) { create(:listing, :stay, partner: user, category:, area: moalboal, status: "draft") }
 
         before { body.merge!(attrs: { place_type: "entire_place", guests: 4 }) }
 
@@ -1054,7 +1090,7 @@ RSpec.describe "Partner listings", type: :request do
         response "422", "a listing made a tour while it has more photos than a tour takes" do
           schema "$ref" => "#/components/schemas/validation_errors"
 
-          let(:listing) { create(:listing, partner: user, area: moalboal) }
+          let(:listing) { create(:listing, partner: user, area: moalboal, status: "draft") }
 
           before do
             6.times { create_photo(listing) }

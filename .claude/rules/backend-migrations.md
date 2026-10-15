@@ -13,7 +13,7 @@ paths:
 
 **Style**, as in the existing files: one `change` method that Rails can reverse (use `up`/`down` only when it can't), a comment on top saying what the feature is and its ticket (`# Trips (RAA-64): ...`), an index on every foreign key and on anything looked up by, and a unique index — not just a model validation — wherever uniqueness matters.
 
-**Constraints in the database**: rules that must hold under concurrency live in the schema, not only in Ruby — the bookings no-overlap rule is an `EXCLUDE USING gist` constraint (`btree_gist` is enabled), money columns are `bigint ... null: false` with a `CHECK (... >= 0)`, and enums are backed by a `CHECK` on the allowed values. Geography columns get a GiST index.
+**Constraints in the database**: rules that must hold under concurrency live in the schema, not only in Ruby — the bookings no-overlap rule is an `EXCLUDE USING gist` constraint (`btree_gist` is enabled), money columns are `bigint ... null: false` with a `CHECK (... >= 0)`, and enums are backed by a `CHECK` on the allowed values — or, for a new one, a Postgres enum type (`create_enum`, as `listings.status` is since RAA-115). A Postgres enum column can't change type while a view reads it: drop and recreate the view around the change (`search_terms`). Geography columns get a GiST index.
 
 **`cache_schema.rb` and `queue_schema.rb`** belong to Solid Cache and Solid Queue. They change only when those gems are upgraded; don't write migrations against them.
 

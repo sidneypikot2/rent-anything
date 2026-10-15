@@ -19,15 +19,15 @@ RSpec.describe "Activities", type: :request do
     # Nothing to book in Oslob, so its whale watching doesn't count.
     create(:landmark, area: empty_area, name: "Tan-awan", tags: [ whale_watching ])
     # Listings count for an activity through their category's tags: two tours and a camera
-    # for sightseeing, one camera for swimming. A pending listing, or one in Oslob (not
+    # for sightseeing, one camera for swimming. A paused listing, or one in Oslob (not
     # bookable: nothing active there), doesn't count; nor does an active one in a draft area.
     tour = create(:category, name: "Tour", tags: [ sightseeing ])
     camera = create(:category, name: "Action camera", tags: [ sightseeing, swimming ])
     create(:listing, area: bantayan, category: tour)
     create(:listing, area: cebu_city, category: tour)
     create(:listing, area: cebu_city, category: camera)
-    create(:listing, :pending, area: bantayan, category: camera)
-    create(:listing, :pending, area: empty_area, category: camera)
+    create(:listing, :paused, area: bantayan, category: camera)
+    create(:listing, :paused, area: empty_area, category: camera)
     create(:listing, area: create(:area, :draft), category: tour)
   end
 

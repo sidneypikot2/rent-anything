@@ -131,7 +131,9 @@ snapshotted on the booking.
 ### Trust
 
 ID verification (government ID + selfie, run by Didit) before a partner can add a listing,
-with 3 tries and then an hour's wait; admin approval of listings; reviews after completion; condition photos at pickup and return;
+with 3 tries and then an hour's wait; partners take a complete listing live themselves, and
+pause or delist it (draft → active ⇄ paused, → delisted; RAA-115), with admin review of
+listings possible later; reviews after completion; condition photos at pickup and return;
 deposits held in-app; a partner's exact location and contact details are revealed only
 after a booking is paid (keeps deals on the platform).
 

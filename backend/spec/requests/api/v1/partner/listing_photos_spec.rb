@@ -207,6 +207,19 @@ RSpec.describe "Partner listing photos", type: :request do
         end
       end
 
+      response "422", "the last ready photo of a live listing" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:listing) { create(:listing, partner: user, description: "Waterproof to 10 m.") }
+        let(:photo) { create_photo(listing) }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "A live listing needs a photo: pause it first" ])
+          expect(ListingPhoto.exists?(photo.id)).to be(true)
+          expect(ListingPhotos::DeleteFilesJob).not_to have_been_enqueued
+        end
+      end
+
       response "404", "a photo of another partner's listing" do
         schema "$ref" => "#/components/schemas/error"
         let(:listing) { create(:listing) }

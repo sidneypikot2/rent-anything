@@ -3,7 +3,8 @@ module Listings
   # one (RAA-46) so both take the same body by the same rules. Values of the wrong type are
   # refused, not coerced; the model checks lengths, that the category is bookable and that
   # attrs match the category's attribute_schema. The area is the published city, town or
-  # island the pin is in (RAA-59), or else the nearest. Status is never read from the request.
+  # island the pin is in (RAA-59), or else the nearest. Status is never read from the request
+  # (Listings::ChangeStatus sets it, RAA-115).
   # An activity (a tour) also lists the published landmarks it visits (RAA-70): landmark_ids
   # replaces them when sent and keeps them when left out; a listing that isn't an activity
   # has none. The cancellation policy (RAA-88) is kept when left out, so a new listing is
@@ -75,6 +76,7 @@ module Listings
         save_tour!(listing)
         save_fees!(listing)
         save_photos!(listing)
+        listing.reload.check_still_live!(@live_blockers) if @live_blockers
       end
       listing
     end

@@ -4,8 +4,9 @@ import type { PartnerListing } from "./use-partner-listings";
 // mistaken for a listing travellers can see.
 export const STATUS = {
   draft: { label: "Draft", tone: "mist", note: "Guests can't see it yet" },
-  pending: { label: "In review", tone: "aqua", note: "Guests can't see it yet" },
   active: { label: "Live", tone: "emerald", note: "Guests can book it" },
+  paused: { label: "Paused", tone: "aqua", note: "Guests can't see it until you resume it" },
+  delisted: { label: "Delisted", tone: "mist", note: "Off the marketplace" },
 } as const;
 
 // A stay still on the back-filled nightly price of 0 (RAA-105), or a tour made before tours had

@@ -26,6 +26,10 @@ unless Rails.env.test?
     # Not in test: specs build their own areas.
     unless Area.exists?
       require Rails.root.join("db/migrate/20261006000001_seed_discovery_sample_data").to_s
+      # Its pending listing is a draft since RAA-115: the listing_status enum has no pending.
+      listings = SeedDiscoverySampleData::LISTINGS.map { |row| row[5] == "pending" ? [ *row[0, 5], "draft", *row[6..] ] : row }
+      SeedDiscoverySampleData.send(:remove_const, :LISTINGS)
+      SeedDiscoverySampleData.const_set(:LISTINGS, listings.freeze)
       SeedDiscoverySampleData.new.migrate(:up)
     end
 
@@ -98,4 +102,9 @@ unless Rails.env.test?
 
   # The search box reads the search_terms view (RAA-60); fill it from what was just loaded.
   SearchTerm.refresh
+
+  # Live listings need a photo, a description and a price (RAA-115): the sample listings get
+  # theirs, uploaded the way a partner's are, and the sample partners an approved ID check.
+  require Rails.root.join("db/migrate/20261015180000_complete_sample_listings").to_s
+  CompleteSampleListings.complete
 end

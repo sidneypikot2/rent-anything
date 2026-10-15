@@ -10,13 +10,17 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_15_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_15_180001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
   enable_extension "postgis"
   enable_extension "unaccent"
+
+  # Custom types defined in this database.
+  # Note that some types may not work with other database engines. Be careful if changing database.
+  create_enum "listing_status", ["draft", "active", "paused", "delisted"]
 
   create_table "areas", force: :cascade do |t|
     t.bigint "parent_id"
@@ -214,7 +218,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000000) do
     t.string "title", null: false
     t.text "description", default: "", null: false
     t.geography "location", limit: {srid: 4326, type: "st_point", geographic: true}, null: false
-    t.string "status", default: "draft", null: false
+    t.enum "status", default: "draft", null: false, enum_type: "listing_status"
     t.jsonb "attrs", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
@@ -235,7 +239,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000000) do
     t.check_constraint "cancellation_policy::text = ANY (ARRAY['free_cancellation'::character varying::text, 'non_refundable'::character varying::text, 'seven_days'::character varying::text, 'fourteen_days'::character varying::text])", name: "listings_cancellation_policy_check"
     t.check_constraint "country::text ~ '^[A-Z]{2}$'::text", name: "listings_country_check"
     t.check_constraint "partner_role::text = 'partner'::text", name: "listings_partner_role_check"
-    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'pending'::character varying::text, 'active'::character varying::text])", name: "listings_status_check"
   end
 
   create_table "oauth_identities", force: :cascade do |t|
@@ -486,7 +489,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000000) do
            SELECT area_tree.ancestor_id AS id,
               (count(DISTINCT listings.id) + count(DISTINCT landmarks.id)) AS score
              FROM ((area_tree
-               LEFT JOIN listings ON (((listings.area_id = area_tree.area_id) AND ((listings.status)::text = 'active'::text))))
+               LEFT JOIN listings ON (((listings.area_id = area_tree.area_id) AND (listings.status = 'active'::listing_status))))
                LEFT JOIN landmarks ON (((landmarks.area_id = area_tree.area_id) AND ((landmarks.status)::text = 'published'::text))))
             GROUP BY area_tree.ancestor_id
           ), targets AS (
@@ -506,7 +509,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000000) do
               (( SELECT count(*) AS count
                      FROM (listing_landmarks
                        JOIN listings ON ((listings.id = listing_landmarks.listing_id)))
-                    WHERE ((listing_landmarks.landmark_id = landmarks.id) AND ((listings.status)::text = 'active'::text))) + landmarks.wikidata_popularity)
+                    WHERE ((listing_landmarks.landmark_id = landmarks.id) AND (listings.status = 'active'::listing_status))) + landmarks.wikidata_popularity)
              FROM landmarks
             WHERE ((landmarks.status)::text = 'published'::text)
           UNION ALL

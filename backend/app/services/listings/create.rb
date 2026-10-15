@@ -1,8 +1,8 @@
 module Listings
-  # A partner adds a listing (RAA-41). It starts as a draft whatever the request says:
-  # going live needs an admin's approval (M5). The fields are read by ListingValues. Only a
-  # partner who has passed the ID check (RAA-44) and has a business (RAA-100), whose name
-  # travellers see on the listing, may add one.
+  # A partner adds a listing (RAA-41). It starts as a draft whatever the request says: going
+  # live needs a photo, which needs the listing first (Listings::ChangeStatus, RAA-115). The
+  # fields are read by ListingValues. Only a partner who has passed the ID check (RAA-44) and
+  # has a business (RAA-100), whose name travellers see on the listing, may add one.
   class Create < ApplicationService
     include ListingValues
 

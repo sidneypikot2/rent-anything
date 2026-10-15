@@ -1,9 +1,18 @@
 # One thing a partner offers in one area: a GoPro, a tour, a room, a van route. Its
 # category-specific fields live in attrs, checked against the category's attribute_schema.
 # Only active listings reach guests, and never with their exact location before a paid
-# booking.
+# booking. The partner moves it between draft, active (live), paused and delisted
+# (Listings::ChangeStatus, RAA-115); the column is the listing_status Postgres enum.
 class Listing < ApplicationRecord
-  STATUSES = %w[draft pending active].freeze
+  STATUSES = %w[draft active paused delisted].freeze
+  # What a listing needs before it can go live (RAA-115), beyond what saving it checks, with
+  # how a message names it.
+  LIVE_BLOCKERS = {
+    "photo" => "a photo",
+    "description" => "a description",
+    "price" => "a price",
+    "route" => "a landmark on its route"
+  }.freeze
   # What a guest gets back on cancelling (RAA-88), chosen by the partner; refunds follow it in M4.
   CANCELLATION_POLICIES = {
     "free_cancellation" => { name: "Free cancellation",
@@ -66,7 +75,34 @@ class Listing < ApplicationRecord
     category&.tour? ? ListingPhoto::MAX_PER_TOUR : ListingPhoto::MAX_PER_LISTING
   end
 
+  # What it still lacks to go live (LIVE_BLOCKERS' keys): a ready photo, a description, a
+  # price for a stay or a tour (the others aren't priced yet), and a landmark on an
+  # activity's route. Reads photos, stay_rate, tour_detail and visited_landmarks.
+  def live_blockers
+    [
+      ("photo" unless photos.any?(&:ready?)),
+      ("description" if description.blank?),
+      ("price" if needs_price?),
+      ("route" if category.activity? && visited_landmarks.empty?)
+    ].compact
+  end
+
+  # Refuses a change that takes from a live listing something it needs to be live (RAA-115);
+  # what it lacked already (a listing made live before the rule) doesn't block the change.
+  def check_still_live!(blockers_before)
+    added = active? ? live_blockers - blockers_before : []
+    return if added.empty?
+
+    errors.add(:base, "A live listing needs #{added.map { LIVE_BLOCKERS[_1] }.to_sentence}: pause it first")
+    raise ActiveRecord::RecordInvalid, self
+  end
+
   private
+
+  def needs_price?
+    (category.accommodation? && !stay_rate&.nightly_price_cents&.positive?) ||
+      (category.tour? && !tour_detail&.base_price_cents&.positive?)
+  end
 
   def partner_is_a_partner
     errors.add(:partner, "must be a partner") if partner && !partner.partner?

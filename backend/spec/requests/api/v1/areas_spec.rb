@@ -32,7 +32,7 @@ RSpec.describe "Areas", type: :request do
   end
 
   before { honda.units.create!((2..50).map { |position| { position: } }) }
-  let!(:pending) { create(:listing, :pending, area: bantayan, category: scooter, title: "Pending scooter") }
+  let!(:paused) { create(:listing, :paused, area: bantayan, category: scooter, title: "Paused scooter") }
   let!(:walk) { create(:listing, area: cebu_city, category: tour, title: "Heritage walk") }
 
   path "/api/v1/areas" do

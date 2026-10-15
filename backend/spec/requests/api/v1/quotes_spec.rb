@@ -107,7 +107,7 @@ RSpec.describe "Quotes", type: :request do
       response "422", "a listing that isn't active" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
-        let(:listing) { create(:listing, :stay, :pending) }
+        let(:listing) { create(:listing, :stay, :paused) }
 
         run_test! do |response|
           expect(response.parsed_body["errors"]).to include("That listing isn't available to book")

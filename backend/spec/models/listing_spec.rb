@@ -48,6 +48,43 @@ RSpec.describe Listing do
 
   it "only allows known statuses" do
     expect(build(:listing, status: "archived")).not_to be_valid
+    expect(build(:listing, status: "pending")).not_to be_valid
+  end
+
+  it "keeps its status to the listing_status enum, even bypassing validations" do
+    listing = create(:listing)
+    expect { listing.update_column(:status, "pending") }.to raise_error(ActiveRecord::StatementInvalid, /listing_status/)
+  end
+
+  describe "#live_blockers (RAA-115)" do
+    it "is empty for a rental with a description and a ready photo" do
+      listing = create(:listing, description: "Waterproof to 10 m.")
+      create_photo(listing)
+      expect(listing.reload.live_blockers).to eq([])
+    end
+
+    it "asks for a ready photo and a description" do
+      listing = create(:listing, description: " ")
+      create_photo(listing, uploaded: true, ready: false)
+      expect(listing.reload.live_blockers).to eq(%w[photo description])
+    end
+
+    it "asks a stay or a tour for a price above 0" do
+      stay = create(:listing, :stay, description: "By the sea.")
+      stay.stay_rate.update_column(:nightly_price_cents, 0)
+      tour = create(:listing, :tour, description: "Four islands.")
+      tour.tour_detail.update_column(:base_price_cents, 0)
+      tour.landmark_visits.create!(landmark: create(:landmark))
+      [ stay, tour ].each { create_photo(_1) }
+      expect(stay.reload.live_blockers).to eq(%w[price])
+      expect(tour.reload.live_blockers).to eq(%w[price])
+    end
+
+    it "asks an activity for a landmark on its route" do
+      tour = create(:listing, :tour, description: "Four islands.")
+      create_photo(tour)
+      expect(tour.reload.live_blockers).to eq(%w[route])
+    end
   end
 
   it "is free to cancel unless the partner chose otherwise" do
