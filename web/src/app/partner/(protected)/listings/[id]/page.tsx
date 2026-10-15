@@ -7,8 +7,9 @@ import { attributeLabel, displayValue, RETIRED_ATTRS } from "@/components/partne
 import { visitsLandmarks } from "@/components/partner/listing-fields";
 import { ListingMissing } from "@/components/partner/listing-missing";
 import { PhotoStrip } from "@/components/partner/listing-photos";
+import { UNITS_LABEL } from "@/components/partner/units-field";
 import { uploadedPhotos } from "@/components/partner/use-listing-photos";
-import { STATUS } from "@/components/partner/listings-table";
+import { STATUS } from "@/components/partner/listing-status";
 import {
   useDeleteListing,
   useListingOptions,
@@ -225,7 +226,7 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
               </Detail>
             )}
             {!tour && (
-              <Detail term="Units">
+              <Detail term={UNITS_LABEL}>
                 <span data-testid="listing-detail-units">{listing.units_count}</span>
               </Detail>
             )}

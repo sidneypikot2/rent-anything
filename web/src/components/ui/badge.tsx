@@ -8,6 +8,8 @@ const TONES = {
   emerald: "border border-sage bg-sage text-forest",
   // Neutral facts on white: "Example", a tag. Blue on mist.
   mist: "border border-line bg-mist text-primary",
+  // Something the partner needs to fix: "Needs a price". Warning on white is 5:1.
+  warning: "border border-warning/40 bg-surface text-warning",
 };
 
 // A small pill label in sentence case: "Best value", "Eco tour", "New".

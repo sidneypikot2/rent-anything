@@ -1,4 +1,5 @@
 import { stayDisplayValue } from "./stay-fields";
+import { UNITS_LABEL } from "./units-field";
 import type { ListingBody, PartnerListing } from "./use-partner-listings";
 
 const ADDRESS_LABELS = {
@@ -53,7 +54,7 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
   }
   compare("Map pin", pin(listing.location), pin(body.location));
   if (body.units_count !== undefined && body.units_count !== listing.units_count) {
-    changes.push(`Units: ${listing.units_count} → ${body.units_count}`);
+    changes.push(`${UNITS_LABEL}: ${listing.units_count} → ${body.units_count}`);
   }
   if (body.cancellation_policy) compare("Cancellation policy", listing.cancellation_policy, body.cancellation_policy);
   if (body.photos && body.photos.join(",") !== listing.photos.map((photo) => photo.id).join(",")) {

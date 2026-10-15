@@ -122,6 +122,7 @@ export default function UiKit() {
           <Badge>Best value</Badge>
           <Badge tone="emerald">Eco tour</Badge>
           <Badge tone="mist">New</Badge>
+          <Badge tone="warning">Needs a price</Badge>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {CATEGORIES.map((category, index) => (

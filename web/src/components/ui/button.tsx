@@ -22,12 +22,12 @@ const SIZES = {
   md: "min-h-12 rounded-control px-6 py-3 text-[0.9375rem]",
 };
 
-type Style = {
+export type ButtonStyle = {
   variant?: keyof typeof VARIANTS;
   size?: keyof typeof SIZES;
 };
 
-function buttonClasses({ variant = "primary", size = "md" }: Style) {
+function buttonClasses({ variant = "primary", size = "md" }: ButtonStyle) {
   return cn(
     "inline-flex items-center justify-center gap-2 font-semibold",
     "transition-[background-color,border-color,box-shadow,transform] duration-300 ease-calm hover:-translate-y-px hover:shadow-soft active:translate-y-0",
@@ -37,7 +37,7 @@ function buttonClasses({ variant = "primary", size = "md" }: Style) {
   );
 }
 
-export function Button({ variant, size, className, ...props }: Style & ComponentProps<"button">) {
+export function Button({ variant, size, className, ...props }: ButtonStyle & ComponentProps<"button">) {
   return <button className={cn(buttonClasses({ variant, size }), className)} {...props} />;
 }
 
@@ -47,6 +47,6 @@ export function ButtonLink({
   size,
   className,
   ...props
-}: Style & ComponentProps<typeof Link>) {
+}: ButtonStyle & ComponentProps<typeof Link>) {
   return <Link className={cn(buttonClasses({ variant, size }), className)} {...props} />;
 }

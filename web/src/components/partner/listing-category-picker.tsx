@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ChoiceCards } from "@/components/ui/choice-cards";
 import { groupCategories, type CategoryGroup } from "./listing-fields";
@@ -74,6 +74,15 @@ export function ListingCategoryPicker({
   const [groupName, setGroupName] = useState(initial ? (initial.parent_name ?? initial.name) : "");
   const [categoryId, setCategoryId] = useState(initial ? String(initial.id) : "");
   const group = groups.find((option) => option.name === groupName);
+  const subcategories = useRef<HTMLDivElement>(null);
+  // Why Next is still disabled, said beside it.
+  const missing = !businessId
+    ? "Pick a business to continue"
+    : !groupName
+      ? "Pick what you're listing to continue"
+      : !categoryId
+        ? `Pick a ${group ? subcategoryLegend(group).toLowerCase() : "type"} to continue`
+        : undefined;
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -118,6 +127,11 @@ export function ListingCategoryPicker({
             setGroupName(name);
             const only = groups.find((option) => option.name === name)?.categories;
             setCategoryId(only?.length === 1 ? String(only[0].id) : "");
+            // The group's kinds open below the cards, often under the fold on a phone.
+            if (only && only.length > 1) {
+              const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+              requestAnimationFrame(() => subcategories.current?.scrollIntoView({ behavior: calm, block: "nearest" }));
+            }
           }}
           choices={groups.map((option) => ({
             value: option.name,
@@ -127,28 +141,40 @@ export function ListingCategoryPicker({
           data-testid="listing-group-cards"
         />
         {group && group.categories.length > 1 && (
-          <ChoiceCards
-            legend={subcategoryLegend(group)}
-            name="category_id"
-            required
-            value={categoryId}
-            onChange={setCategoryId}
-            choices={group.categories.map((option) => ({
-              value: String(option.id),
-              label: option.name,
-              description: option.description,
-            }))}
-            data-testid="listing-subcategory-cards"
-          />
+          <div ref={subcategories} className="scroll-mb-28">
+            <ChoiceCards
+              legend={subcategoryLegend(group)}
+              name="category_id"
+              required
+              value={categoryId}
+              onChange={setCategoryId}
+              choices={group.categories.map((option) => ({
+                value: String(option.id),
+                label: option.name,
+                description: option.description,
+              }))}
+              data-testid="listing-subcategory-cards"
+            />
+          </div>
         )}
       </div>
-      <div className="flex gap-3">
-        <Button type="submit" disabled={!businessId || !categoryId} data-testid="listing-category-next">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          type="submit"
+          disabled={missing !== undefined}
+          aria-describedby={missing ? "listing-category-missing" : undefined}
+          data-testid="listing-category-next"
+        >
           Next
         </Button>
         <ButtonLink href="/partner/listings" variant="soft">
           Cancel
         </ButtonLink>
+        {missing && (
+          <p id="listing-category-missing" className="text-sm text-muted">
+            {missing}
+          </p>
+        )}
       </div>
     </form>
   );

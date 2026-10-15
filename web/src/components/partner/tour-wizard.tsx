@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
 import { Button } from "@/components/ui/button";
@@ -39,7 +38,7 @@ import {
 import type { PartnerBusiness } from "./use-partner-businesses";
 import type { PartnerLandmark } from "./use-partner-landmarks";
 import { useCreateListing, type ListingBody, type ListingCategory, type PartnerListing } from "./use-partner-listings";
-import { WizardCancel } from "./wizard-cancel";
+import { ChangeCategoryLink, WizardCancel } from "./wizard-cancel";
 import { WizardActions, WizardLayout } from "./wizard-steps";
 
 const STEPS = [
@@ -191,13 +190,10 @@ export function TourWizard({
               <p className="text-sm text-muted">
                 Listing a <span className="font-medium text-foreground">{categoryLabel(category)}</span> for{" "}
                 <span className="font-medium text-foreground">{business.name}</span>.{" "}
-                <Link
+                <ChangeCategoryLink
                   href={`/partner/listings/new?business=${business.id}&category=${category.id}`}
-                  className="text-link underline"
-                  data-testid="listing-change-category"
-                >
-                  Change
-                </Link>
+                  dirty={title !== "" || description !== ""}
+                  />
               </p>
               <Field
                 label="Title"

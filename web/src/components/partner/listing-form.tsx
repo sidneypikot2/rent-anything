@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
@@ -70,7 +70,8 @@ import type { PartnerBusiness } from "./use-partner-businesses";
 import type { PartnerLandmark } from "./use-partner-landmarks";
 import { isVehicle, toVehicleAttrs, toVehicleValues, VehicleFields, type VehicleValues } from "./vehicle-fields";
 import { useUpdateListing, type ListingBody, type ListingOptions, type PartnerListing } from "./use-partner-listings";
-import { UnitsField } from "./units-field";
+import { UNITS_LABEL, UnitsField } from "./units-field";
+import { WizardCancel } from "./wizard-cancel";
 
 // Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
 // visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
@@ -111,6 +112,9 @@ export function ListingForm({
   // Photos are added and deleted at once (RAA-109); only a new order waits for Save.
   const [photoOrder, setPhotoOrder] = useState<number[]>();
   const [photosBusy, setPhotosBusy] = useState(false);
+  // A new category waiting for the partner to confirm that its details are cleared.
+  const [nextCategoryId, setNextCategoryId] = useState<string>();
+  const formRef = useRef<HTMLFormElement>(null);
   const listingPath = `/partner/listings/${listing.id}`;
 
   const category = options.categories.find((option) => String(option.id) === categoryId);
@@ -133,28 +137,13 @@ export function ListingForm({
   // Changing to a category that doesn't visit landmarks (not a tour) drops them when saved.
   const visitsLandmarks = picksLandmarks(category);
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!location) {
-      setLocationError("Drop a pin on the map");
-      return;
-    }
-    if (stayCategory && stayErrors(stay)) {
-      setInfoErrors(stayErrors(stay));
-      return;
-    }
-    if (stayCategory && pricingErrors(pricing)) {
-      setPriceErrors(pricingErrors(pricing));
-      return;
-    }
-    if (tourCategory && tourErrors(tour)) {
-      setTourProblems(tourErrors(tour));
-      return;
-    }
-    const form = new FormData(event.currentTarget);
-    const body = {
-      title: String(form.get("title") ?? ""),
-      description: String(form.get("description") ?? ""),
+  // What saving the form as it stands would send; undefined without a pin.
+  function toBody(form: HTMLFormElement): ListingBody | undefined {
+    if (!location) return undefined;
+    const values = new FormData(form);
+    return {
+      title: String(values.get("title") ?? ""),
+      description: String(values.get("description") ?? ""),
       business_id: Number(businessId),
       category_id: Number(categoryId),
       address: address.toBody(),
@@ -177,6 +166,47 @@ export function ListingForm({
       // Sent only once moved: a body's photos deletes any photo it leaves out.
       ...(photoOrder ? { photos: orderedPhotos(listing.photos, photoOrder).map((photo) => photo.id) } : {}),
     };
+  }
+
+  // Whether leaving now would lose an edit (photos added or deleted are saved already).
+  function unsaved() {
+    const body = formRef.current ? toBody(formRef.current) : undefined;
+    return !body || listingChanges(listing, body).length > 0;
+  }
+
+  // The details the current category asks for, once the partner has filled any in.
+  const detailsEntered =
+    Object.keys(toAttrs(fields, attrValues)).length > 0 ||
+    (stayCategory && JSON.stringify(stay) !== JSON.stringify(toStayValues({}))) ||
+    (vehicleCategory && JSON.stringify(vehicleValues) !== JSON.stringify(toVehicleValues({})));
+
+  function changeCategory(id: string) {
+    setCategoryId(id);
+    setAttrValues({});
+    setStay(toStayValues({}));
+    setVehicleValues(toVehicleValues({}));
+    setNextCategoryId(undefined);
+  }
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const body = toBody(event.currentTarget);
+    if (!body) {
+      setLocationError("Drop a pin on the map");
+      return;
+    }
+    if (stayCategory && stayErrors(stay)) {
+      setInfoErrors(stayErrors(stay));
+      return;
+    }
+    if (stayCategory && pricingErrors(pricing)) {
+      setPriceErrors(pricingErrors(pricing));
+      return;
+    }
+    if (tourCategory && tourErrors(tour)) {
+      setTourProblems(tourErrors(tour));
+      return;
+    }
     setPending({ body, changes: listingChanges(listing, body) });
   }
 
@@ -212,20 +242,21 @@ export function ListingForm({
     ...(vehicleCategory ? [{ id: "vehicle", label: "Vehicle details" }] : []),
     ...(fields.length > 0 ? [{ id: "details", label: "Details" }] : []),
     { id: "cancellation", label: "Cancellation policy" },
-    ...(!tourCategory ? [{ id: "units", label: "Units" }] : []),
+    ...(!tourCategory ? [{ id: "units", label: UNITS_LABEL }] : []),
     { id: "photos", label: "Photos" },
   ];
 
   return (
     <form
+      ref={formRef}
       data-testid="listing-form"
       onSubmit={onSubmit}
       className="flex flex-col gap-6 md:grid md:grid-cols-[13rem_minmax(0,42rem)] md:items-start md:gap-10"
     >
-      <nav aria-label="Sections" className="-mx-4 overflow-x-auto px-4 md:sticky md:top-24 md:mx-0 md:px-0">
-        <ol className="flex gap-2 md:flex-col md:gap-1">
+      <nav aria-label="Sections" className="md:sticky md:top-24">
+        <ol className="flex flex-wrap gap-2 md:flex-col md:flex-nowrap md:gap-1">
           {sections.map((section) => (
-            <li key={section.id} className="shrink-0">
+            <li key={section.id}>
               <a
                 href={`#${section.id}`}
                 className={cn(
@@ -270,10 +301,8 @@ export function ListingForm({
             required
             value={categoryId}
             onChange={(event) => {
-              setCategoryId(event.target.value);
-              setAttrValues({});
-              setStay(toStayValues({}));
-              setVehicleValues(toVehicleValues({}));
+              if (detailsEntered) setNextCategoryId(event.target.value);
+              else changeCategory(event.target.value);
             }}
             options={[
               { value: "", label: "Choose what you're listing" },
@@ -404,7 +433,7 @@ export function ListingForm({
         </EditSection>
 
         {!tourCategory && (
-          <EditSection id="units" title="Units">
+          <EditSection id="units" title={UNITS_LABEL}>
             <UnitsField bookingType={category?.booking_type} value={units} onChange={setUnits} />
           </EditSection>
         )}
@@ -428,9 +457,14 @@ export function ListingForm({
 
         <Card className="sticky bottom-4 z-10 shadow-float">
           <CardBody pad="sm" className="flex items-center justify-between gap-3">
-            <ButtonLink href={listingPath} variant="soft">
-              Cancel
-            </ButtonLink>
+            <WizardCancel
+              href={listingPath}
+              dirty={unsaved}
+              variant="soft"
+              size="md"
+              title="Discard your changes?"
+              message="Your edits won't be saved. Photos you added or deleted stay as they are."
+            />
             <Button type="submit" disabled={update.isPending || photosBusy} data-testid="listing-save">
               {update.isPending ? "Saving…" : "Save changes"}
             </Button>
@@ -471,6 +505,33 @@ export function ListingForm({
         ) : (
           <p className="text-sm text-muted">Nothing has changed yet.</p>
         )}
+      </Dialog>
+
+      <Dialog
+        open={nextCategoryId !== undefined}
+        onClose={() => setNextCategoryId(undefined)}
+        title="Change the category?"
+        data-testid="listing-category-confirm"
+        actions={
+          <>
+            <Button type="button" variant="soft" onClick={() => setNextCategoryId(undefined)}>
+              Keep {category?.name ?? "it"}
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={() => nextCategoryId !== undefined && changeCategory(nextCategoryId)}
+              data-testid="listing-category-confirm-button"
+            >
+              Change and clear
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted">
+          The {category ? categoryLabel(category) : "current"} details you&apos;ve filled in are cleared, and the new
+          category asks for its own.
+        </p>
       </Dialog>
     </form>
   );

@@ -1,37 +1,32 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Pill } from "@/components/ui/pill";
+import { needsAttention, sortForPartner, statusDisplay } from "./listing-status";
 import type { PartnerBusiness } from "./use-partner-businesses";
 import type { PartnerListing } from "./use-partner-listings";
 
-// Each status with what it means for guests, said beside the badge so a draft isn't
-// mistaken for a listing travellers can see.
-export const STATUS = {
-  draft: { label: "Draft", tone: "mist", note: "Guests can't see it yet" },
-  pending: { label: "In review", tone: "aqua", note: "Guests can't see it yet" },
-  active: { label: "Live", tone: "emerald", note: "Guests can book it" },
-} as const;
-
 const UPDATED = new Intl.DateTimeFormat("en-PH", { day: "numeric", month: "short", year: "numeric" });
 
-// The API orders listings by category, then title, so grouping keeps that order.
-function byCategory(listings: PartnerListing[]) {
-  const groups = new Map<number, { name: string; listings: PartnerListing[] }>();
-  for (const listing of listings) {
-    const group = groups.get(listing.category.id) ?? { name: listing.category.name, listings: [] };
-    group.listings.push(listing);
-    groups.set(listing.category.id, group);
-  }
-  return [...groups.entries()];
-}
+const FILTERS = {
+  all: { label: "All", keep: () => true },
+  attention: { label: "Needs attention", keep: needsAttention },
+  drafts: { label: "Drafts", keep: (listing: PartnerListing) => listing.status === "draft" },
+} as const;
+type Filter = keyof typeof FILTERS;
 
 function countLabel(count: number) {
   return `${count} ${count === 1 ? "listing" : "listings"}`;
 }
 
 // Every business the partner runs, in the API's order (by name), each with its listings
-// (RAA-101): a heading with its name, how many listings it has and Edit, then its listings
-// by category. A business with none yet offers to add the first.
+// (RAA-101): a heading with its name, how many listings it has and Edit, then one list of its
+// listings, those that need the partner first. Chips above narrow every business's list to
+// what needs attention or to drafts; they show only when that would leave something out. A
+// business with no listings yet offers to add the first.
 export function ListingsByBusiness({
   businesses,
   listings,
@@ -39,136 +34,151 @@ export function ListingsByBusiness({
   businesses: PartnerBusiness[];
   listings: PartnerListing[];
 }) {
+  const [filter, setFilter] = useState<Filter>("all");
+  const counts = Object.fromEntries(
+    Object.entries(FILTERS).map(([key, { keep }]) => [key, listings.filter(keep).length]),
+  ) as Record<Filter, number>;
+  const filtering = counts.attention > 0 && counts.attention < counts.all;
+  const active = filtering ? filter : "all";
+  const shown = sortForPartner(listings.filter(FILTERS[active].keep));
+
   return (
-    <div className="flex flex-col gap-12">
-      {businesses.map((business) => {
-        const own = listings.filter((listing) => listing.business.id === business.id);
-        return (
-          <section
-            key={business.id}
-            data-testid="listing-business"
-            aria-labelledby={`business-${business.id}`}
-            className="flex flex-col gap-4"
-          >
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-line-strong pb-2">
-              <h2
-                id={`business-${business.id}`}
-                className="flex items-baseline gap-2 font-display text-3xl font-extrabold tracking-tight"
-              >
-                {business.name}
-                <span className="font-sans text-sm font-normal text-muted">{countLabel(own.length)}</span>
-              </h2>
-              <Link
-                href={`/partner/businesses/${business.id}/edit`}
-                data-testid="business-edit"
-                className="text-sm text-link underline"
-              >
-                Edit<span className="sr-only"> {business.name}</span>
-              </Link>
-            </div>
-            {own.length > 0 ? (
-              <ListingsByCategory listings={own} idPrefix={`business-${business.id}-`} />
-            ) : (
-              <p data-testid="business-empty" className="text-sm text-muted">
-                No listings yet ·{" "}
-                <Link href={`/partner/listings/new?business=${business.id}`} className="text-link underline">
-                  Add listing
+    <div className="flex flex-col gap-8">
+      {filtering && (
+        <div role="group" aria-label="Show" className="flex flex-wrap gap-2" data-testid="listing-filters">
+          {(Object.keys(FILTERS) as Filter[])
+            .filter((key) => key !== "drafts" || counts.drafts > 0)
+            .map((key) => (
+              <Pill key={key} on={active === key} onClick={() => setFilter(key)} data-testid={`listing-filter-${key}`}>
+                {FILTERS[key].label} <span className="tabular-nums opacity-80">{counts[key]}</span>
+              </Pill>
+            ))}
+        </div>
+      )}
+      <div className="flex flex-col gap-12">
+        {businesses.map((business) => {
+          const all = listings.filter((listing) => listing.business.id === business.id);
+          const own = shown.filter((listing) => listing.business.id === business.id);
+          // Narrowed, a business with nothing to show steps aside.
+          if (active !== "all" && own.length === 0) return null;
+          return (
+            <section
+              key={business.id}
+              data-testid="listing-business"
+              aria-labelledby={`business-${business.id}`}
+              className="flex flex-col gap-4"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-line-strong pb-2">
+                <h2
+                  id={`business-${business.id}`}
+                  className="flex items-baseline gap-2 font-display text-3xl font-extrabold tracking-tight"
+                >
+                  {business.name}
+                  <span className="font-sans text-sm font-normal text-muted">{countLabel(all.length)}</span>
+                </h2>
+                <Link
+                  href={`/partner/businesses/${business.id}/edit`}
+                  data-testid="business-edit"
+                  className="text-sm text-link underline"
+                >
+                  Edit<span className="sr-only"> {business.name}</span>
                 </Link>
-              </p>
-            )}
-          </section>
-        );
-      })}
+              </div>
+              {own.length > 0 ? (
+                <ListingRows listings={own} />
+              ) : (
+                <p data-testid="business-empty" className="text-sm text-muted">
+                  No listings yet ·{" "}
+                  <Link href={`/partner/listings/new?business=${business.id}`} className="text-link underline">
+                    Add listing
+                  </Link>
+                </p>
+              )}
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-// A business's listings, one section per category. From `sm` up each is a table with fixed
-// column widths, so the columns line up from one category to the next; on a phone each
-// listing is a row of its own, its status beside the title. Either way the title is the
-// link, stretched over the whole row.
-function ListingsByCategory({ listings, idPrefix }: { listings: PartnerListing[]; idPrefix: string }) {
+// A business's listings in one card. From `sm` up it is a table, the category under each
+// title; on a phone each listing is a row of its own, its status beside the title. Either way
+// the title is the link, stretched over the whole row.
+function ListingRows({ listings }: { listings: PartnerListing[] }) {
   return (
-    <div className="flex flex-col gap-8">
-      {byCategory(listings).map(([id, group]) => (
-        <section
-          key={id}
-          data-testid="listing-category"
-          aria-labelledby={`${idPrefix}category-${id}`}
-          className="flex flex-col gap-3"
-        >
-          <h3 id={`${idPrefix}category-${id}`} className="flex items-baseline gap-2 text-lg font-semibold">
-            {group.name}
-            <span className="text-sm font-normal text-muted">{countLabel(group.listings.length)}</span>
-          </h3>
-          <Card>
-            <ul className="divide-y divide-line sm:hidden">
-              {group.listings.map((listing) => (
-                <li key={listing.id} data-testid="listing-row" className="relative flex flex-col gap-1.5 px-4 py-3.5 active:bg-surface-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <Link
-                      href={`/partner/listings/${listing.id}`}
-                      data-testid="listing-link"
-                      className="font-medium text-link after:absolute after:inset-0"
-                    >
-                      {listing.title}
-                    </Link>
-                    <Badge tone={STATUS[listing.status].tone} className="shrink-0">
-                      {STATUS[listing.status].label}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted">
-                    {listing.area.name} · Updated {UPDATED.format(new Date(listing.updated_at))}
-                  </p>
-                </li>
-              ))}
-            </ul>
-            <table className="hidden w-full table-fixed text-left text-sm sm:table">
-              <colgroup>
-                <col />
-                <col className="w-40" />
-                <col className="w-56" />
-                <col className="w-32" />
-              </colgroup>
-              <thead className="border-b border-line bg-surface-2 text-muted">
-                <tr>
-                  <th scope="col" className="px-4 py-2.5 font-semibold">Title</th>
-                  <th scope="col" className="px-4 py-2.5 font-semibold">Area</th>
-                  <th scope="col" className="px-4 py-2.5 font-semibold">Status</th>
-                  <th scope="col" className="px-4 py-2.5 font-semibold">Updated</th>
-                </tr>
-              </thead>
-              <tbody>
-                {group.listings.map((listing) => (
-                  <tr
-                    key={listing.id}
-                    data-testid="listing-row"
-                    className="relative border-b border-line transition-colors duration-300 ease-calm last:border-0 hover:bg-surface-2"
+    <Card>
+      <ul className="divide-y divide-line sm:hidden">
+        {listings.map((listing) => {
+          const status = statusDisplay(listing);
+          return (
+            <li key={listing.id} data-testid="listing-row" className="relative flex flex-col gap-1.5 px-4 py-3.5 active:bg-surface-2">
+              <div className="flex items-start justify-between gap-3">
+                <Link
+                  href={`/partner/listings/${listing.id}`}
+                  data-testid="listing-link"
+                  className="font-medium text-link after:absolute after:inset-0"
+                >
+                  {listing.title}
+                </Link>
+                <Badge tone={status.tone} className="shrink-0">
+                  {status.label}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted">
+                {listing.category.name} · {listing.area.name} · Updated {UPDATED.format(new Date(listing.updated_at))}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+      <table className="hidden w-full table-fixed text-left text-sm sm:table">
+        <colgroup>
+          <col />
+          <col className="w-36 lg:w-44" />
+          <col className="w-48 lg:w-56" />
+          <col className="w-32" />
+        </colgroup>
+        <thead className="border-b border-line bg-surface-2 text-muted">
+          <tr>
+            <th scope="col" className="px-4 py-2.5 font-semibold">Listing</th>
+            <th scope="col" className="px-4 py-2.5 font-semibold">Area</th>
+            <th scope="col" className="px-4 py-2.5 font-semibold">Status</th>
+            <th scope="col" className="px-4 py-2.5 font-semibold">Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {listings.map((listing) => {
+            const status = statusDisplay(listing);
+            return (
+              <tr
+                key={listing.id}
+                data-testid="listing-row"
+                className="relative border-b border-line transition-colors duration-300 ease-calm last:border-0 hover:bg-surface-2"
+              >
+                <td className="px-4 py-3">
+                  <Link
+                    href={`/partner/listings/${listing.id}`}
+                    data-testid="listing-link"
+                    className="block truncate font-medium text-link after:absolute after:inset-0 hover:underline"
                   >
-                    <td className="truncate px-4 py-3 font-medium">
-                      <Link
-                        href={`/partner/listings/${listing.id}`}
-                        data-testid="listing-link"
-                        className="text-link after:absolute after:inset-0 hover:underline"
-                      >
-                        {listing.title}
-                      </Link>
-                    </td>
-                    <td className="truncate px-4 py-3 text-muted">{listing.area.name}</td>
-                    <td className="px-4 py-3">
-                      <span className="flex flex-col items-start gap-1">
-                        <Badge tone={STATUS[listing.status].tone}>{STATUS[listing.status].label}</Badge>
-                        <span className="text-xs text-muted">{STATUS[listing.status].note}</span>
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted tabular-nums">{UPDATED.format(new Date(listing.updated_at))}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-        </section>
-      ))}
-    </div>
+                    {listing.title}
+                  </Link>
+                  <span className="block truncate text-xs text-muted">{listing.category.name}</span>
+                </td>
+                <td className="truncate px-4 py-3 text-muted">{listing.area.name}</td>
+                <td className="px-4 py-3">
+                  <span className="flex flex-col items-start gap-1">
+                    <Badge tone={status.tone}>{status.label}</Badge>
+                    {status.note && <span className="text-xs text-muted">{status.note}</span>}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-muted tabular-nums">{UPDATED.format(new Date(listing.updated_at))}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </Card>
   );
 }

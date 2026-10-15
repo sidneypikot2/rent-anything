@@ -7,8 +7,8 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { DisplayTitle } from "@/components/ui/typography";
 
-// The partner's listings, in any status (RAA-41), grouped by business (RAA-101) and then
-// by category.
+// The partner's listings, in any status (RAA-41), grouped by business (RAA-101), those that
+// need the partner first.
 export default function PartnerListings() {
   const listings = usePartnerListings();
   const businesses = usePartnerBusinesses();

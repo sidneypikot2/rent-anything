@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRef, useState, type FormEvent } from "react";
 import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
 import { Button } from "@/components/ui/button";
@@ -29,9 +28,9 @@ import { NewListingPhotos } from "./new-listing-photos";
 import { SameAsBusinessAddress, startingAddress, startingPin, useSameAsBusinessAddress } from "./same-as-business-address";
 import type { PartnerBusiness } from "./use-partner-businesses";
 import { useCreateListing, type ListingBody, type ListingCategory, type PartnerListing } from "./use-partner-listings";
-import { UnitsField } from "./units-field";
+import { UNITS_LABEL, UnitsField } from "./units-field";
 import { isVehicle, NEW_VEHICLE, toVehicleAttrs, VehicleFields, type VehicleValues } from "./vehicle-fields";
-import { WizardCancel } from "./wizard-cancel";
+import { ChangeCategoryLink, WizardCancel } from "./wizard-cancel";
 import { WizardActions, WizardLayout } from "./wizard-steps";
 import type { PartnerLandmark } from "./use-partner-landmarks";
 
@@ -66,7 +65,7 @@ export function ListingWizard({
     ...(fields.length > 0 ? [{ key: "details" as const, label: `${category.name} details` }] : []),
     ...(vehicle ? [{ key: "vehicle" as const, label: "Vehicle details" }] : []),
     { key: "cancellation", label: "Cancellation policy" },
-    { key: "units", label: "Units" },
+    { key: "units", label: UNITS_LABEL },
     { key: "photos", label: "Photos" },
   ];
   const [stepIndex, setStepIndex] = useState(0);
@@ -164,13 +163,10 @@ export function ListingWizard({
               <p className="text-sm text-muted">
                 Listing a <span className="font-medium text-foreground">{categoryLabel(category)}</span> for{" "}
                 <span className="font-medium text-foreground">{business.name}</span>.{" "}
-                <Link
+                <ChangeCategoryLink
                   href={`/partner/listings/new?business=${business.id}&category=${category.id}`}
-                  className="text-link underline"
-                  data-testid="listing-change-category"
-                >
-                  Change
-                </Link>
+                  dirty={title !== "" || description !== ""}
+                  />
               </p>
               <Field
                 label="Title"
