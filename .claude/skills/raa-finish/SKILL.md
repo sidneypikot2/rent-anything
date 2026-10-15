@@ -39,6 +39,8 @@ something users would notice, say in the report that it is live there once the d
 
 ## 3. Tear down the worktree
 
+If this session is isolated in a worktree other than the task's own, steps 3–4 can't run here: its guard refuses `git -C`, `cd` into another worktree and updating the main checkout. Give the user the exact commands from steps 3–4, or ask them to run `/raa-finish` from a session in the main checkout.
+
 If the task has a worktree (`git worktree list` shows its branch):
 
 ```bash

@@ -15,6 +15,8 @@ paths:
 
 **Constraints in the database**: rules that must hold under concurrency live in the schema, not only in Ruby — the bookings no-overlap rule is an `EXCLUDE USING gist` constraint (`btree_gist` is enabled), money columns are `bigint ... null: false` with a `CHECK (... >= 0)`, and enums are backed by a `CHECK` on the allowed values — or, for a new one, a Postgres enum type (`create_enum`, as `listings.status` is since RAA-115). A Postgres enum column can't change type while a view reads it: drop and recreate the view around the change (`search_terms`). Geography columns get a GiST index.
 
+**Timestamps**: a new migration's timestamp must be later than the newest one in `db/migrate` and no more than a day ahead of the clock — Rails raises `InvalidMigrationTimestampError` beyond that. If the newest is already in the future, step just past it (+1 hour), not to the next day (RAA-119).
+
 **`cache_schema.rb` and `queue_schema.rb`** belong to Solid Cache and Solid Queue. They change only when those gems are upgraded; don't write migrations against them.
 
 **After a migration**: a running stack applies it on restart (`docker compose restart backend` re-runs `db:prepare`). The test database follows `schema.rb` on the next `rspec` run. Each worktree stack has its own database, so a migration applied in one is not applied in another. A new migration is written in a worktree (`/raa-task` step 3; `guard-edit.sh` blocks one written with Edit/Write in the main checkout, not one from `rails g`), so the main development database only gets it once it merges.

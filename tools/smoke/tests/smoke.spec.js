@@ -6,11 +6,20 @@
 import { test, expect } from "@playwright/test";
 
 // Uncaught exceptions and console errors: a page that renders but logs errors is broken.
+// Except Google sign-in's own failed requests: Google answers 403 to any origin not
+// registered on the OAuth client, and only port 8100 is, so a worktree (8100+N) always
+// gets them. The message's text has no URL; its location is the failed resource.
 function collectErrors(page, errors) {
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(`console: ${message.text()}`);
+    if (message.type() !== "error") return;
+    if (message.text().startsWith("Failed to load resource") && isGoogle(message.location().url)) return;
+    errors.push(`console: ${message.text()}`);
   });
+}
+
+function isGoogle(url) {
+  return URL.canParse(url) && new URL(url).hostname === "accounts.google.com";
 }
 
 test("home page renders and reaches the API", async ({ page }) => {
