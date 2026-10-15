@@ -42,7 +42,7 @@ export function ListingStatusSection({ listing, editable = false }: { listing: P
         <Button
           type="button"
           size="pill"
-          variant="glass"
+          variant="soft"
           className="self-start"
           onClick={() => setChanging(true)}
           data-testid="listing-change-status"
@@ -87,7 +87,7 @@ export function ListingStatusSection({ listing, editable = false }: { listing: P
               Delist
             </Button>
           )}
-          <Button type="button" size="pill" variant="glass" disabled={change.isPending} onClick={close} data-testid="listing-status-cancel">
+          <Button type="button" size="pill" variant="ghost" disabled={change.isPending} onClick={close} data-testid="listing-status-cancel">
             Cancel
           </Button>
         </div>
