@@ -28,8 +28,8 @@ import { formatPeso } from "@/lib/money";
 import { feeText, nightUnit, stayRateTerms } from "@/lib/pricing";
 import { basePriceUnit, durationText, groupText, inclusionText, tourTypeLabel } from "@/lib/tours";
 
-// One of the partner's listings, read-only (RAA-47), with the way to edit or delete it and its
-// status, which is changed here (RAA-115). A stay
+// One of the partner's listings, read-only (RAA-47), with the way to edit or delete it. Its
+// status (RAA-115) follows the details, only shown: it is changed on the edit page. A stay
 // still on the back-filled nightly price of 0 asks for a real one (RAA-105), and so does a tour
 // made before tours had a price (RAA-111).
 export default function PartnerListingPage() {
@@ -97,13 +97,6 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
           </ButtonLink>
         </div>
       </div>
-
-      <Card>
-        <CardBody pad="lg" className="flex flex-col gap-4">
-          <h2 className="font-display text-xl font-extrabold tracking-tight">Status</h2>
-          <ListingStatusSection listing={listing} />
-        </CardBody>
-      </Card>
 
       {rate && !rate.nightly_price_cents && (
         <div
@@ -238,6 +231,14 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
               </span>
             </Detail>
           </dl>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardBody pad="lg" className="flex flex-col gap-4">
+          <h2 className="font-display text-xl font-extrabold tracking-tight">Status</h2>
+          <ListingStatusSection listing={listing} />
+          <p className="text-sm text-muted">Change it from Edit listing.</p>
         </CardBody>
       </Card>
 

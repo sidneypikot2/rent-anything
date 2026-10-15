@@ -13,7 +13,7 @@ paths:
 
 # Listing photos in the web app (RAA-109)
 
-The API side is in `photos.md`. A photo belongs to a listing that already exists, so every add-listing wizard (generic, stay, tour) ends with Photos: the step before it ("Save and add photos") creates the draft, then `NewListingPhotos` adds photos to it and the earlier sections are closed (`WizardLayout locked`). Never move Photos before the save.
+The API side is in `photos.md`. A photo belongs to a listing that already exists, so every add-listing wizard (generic, stay, tour) ends with Photos then Listing status (RAA-116): the step before Photos ("Save and add photos") creates the draft, then `NewListingPhotos` runs both last steps (adding photos, then Save as draft or Go live) with the earlier sections closed (`WizardLayout locked`). Never move Photos before the save.
 
 **Upload** (`useListingPhotos` in `use-listing-photos.ts`): per file, the client checks type, size (`photoProblem`) and the listing's `photo_limit` from the API (5 for a tour, 12 otherwise; `ListingPhotos`' `limit`), computes the MD5 with `spark-md5` (Web Crypto has none) as base64, `POST`s the photo, `PUT`s the bytes to `upload.url` with exactly `upload.headers`, then confirms with `PATCH {uploaded: true}`. That `PUT` is the one plain `fetch` allowed: it goes to storage (R2, or the local stand-in), not the API. `usePartnerListing` polls every 2 s while a photo is uploaded but not ready. A failed `PUT` or confirm deletes its row. The partner listing also returns unconfirmed rows (another file mid-upload), whose URLs have no file yet: show only `uploadedPhotos`.
 

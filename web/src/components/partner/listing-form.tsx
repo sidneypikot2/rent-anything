@@ -76,11 +76,11 @@ import { UNITS_LABEL, UnitsField } from "./units-field";
 import { WizardCancel } from "./wizard-cancel";
 import { TickGlyph } from "@/components/discovery/tag-glyphs";
 
-// Changing a listing (RAA-47): its status first, changed straight away rather than with Save
-// (RAA-115), then what it is, where it is, the landmarks a tour or activity
+// Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
 // visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
 // vehicle's, RAA-89), an accommodation's pricing and fees (RAA-105), the cancellation policy
-// (RAA-89), how many identical units it has (RAA-99) and, last, its photos (RAA-109). A tour has
+// (RAA-89), how many identical units it has (RAA-99), its photos (RAA-109) and, last, its status, changed
+// straight away behind Change status rather than with Save (RAA-115). A tour has
 // the TourWizard's sections instead of details and units (RAA-111). Saving first shows what changed and asks to confirm. Adding one is the stepped
 // ListingWizard (RAA-50). A partner with several businesses can move it to another (RAA-101).
 export function ListingForm({
@@ -224,7 +224,6 @@ export function ListingForm({
 
   // The page's sections, in order, for the index beside them (and above them on a phone).
   const sections = [
-    { id: "status", label: "Status" },
     { id: "about", label: "About" },
     { id: "where", label: "Where it is" },
     ...(visitsLandmarks ? [{ id: "landmarks", label: tourCategory ? "Destinations" : "Landmarks" }] : []),
@@ -249,6 +248,7 @@ export function ListingForm({
     { id: "cancellation", label: "Cancellation policy" },
     ...(!tourCategory ? [{ id: "units", label: UNITS_LABEL }] : []),
     { id: "photos", label: "Photos" },
+    { id: "status", label: "Status" },
   ];
 
   const current = useCurrentSection(sections.map((section) => section.id));
@@ -292,10 +292,6 @@ export function ListingForm({
             Check the tour&apos;s details: the sections below say what&apos;s missing.
           </GlassPanel>
         )}
-
-        <EditSection id="status" title="Status">
-          <ListingStatusSection listing={listing} />
-        </EditSection>
 
         <EditSection id="about" title="About">
           {businesses.length > 1 && (
@@ -466,6 +462,11 @@ export function ListingForm({
             onOrderChange={setPhotoOrder}
             onBusyChange={setPhotosBusy}
           />
+        </EditSection>
+
+        <EditSection id="status" title="Status">
+          <p className="text-sm text-muted">A change of status is saved straight away, not with Save.</p>
+          <ListingStatusSection listing={listing} editable />
         </EditSection>
 
         <ActionBar>
