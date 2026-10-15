@@ -12,7 +12,9 @@ const ENABLED =
 
 // A floating jump between the guest and partner sites, for testing on staging. The product
 // keeps the two sections apart (see SectionHeader); this is the one link between them. On a
-// phone it sits higher, clear of a form's footer (the listing wizard's Next).
+// phone it takes its place at the foot of the page instead of floating, since anywhere it
+// floats it covers something: the home page's first screen, or a form's footer (the listing
+// wizard's Next).
 export function SectionSwitch({ to }: { to: keyof typeof TARGETS }) {
   if (!ENABLED) return null;
   const { href, label } = TARGETS[to];
@@ -23,7 +25,7 @@ export function SectionSwitch({ to }: { to: keyof typeof TARGETS }) {
       variant="secondary"
       size="touch"
       title="Test aid: not shown in production"
-      className="fixed right-4 bottom-24 z-40 shadow-lift sm:bottom-4"
+      className="fixed right-4 bottom-4 z-40 shadow-lift max-sm:static max-sm:mb-6 max-sm:self-center"
     >
       <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5">
         <path

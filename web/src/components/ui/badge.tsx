@@ -10,6 +10,8 @@ const TONES = {
   mist: "border border-line bg-mist text-primary",
   // Something the partner needs to fix: "Needs a price". Warning on white is 5:1.
   warning: "border border-warning/40 bg-surface text-warning",
+  // On a photo or glass: a landmark's tag, a step number. White on the glass fill.
+  glass: "border border-glass-edge bg-glass-fill text-white",
 };
 
 // A small pill label in sentence case: "Best value", "Eco tour", "New".

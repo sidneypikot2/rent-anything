@@ -23,16 +23,17 @@ const SECTION_LABELS: Record<Section, string> = {
 // shown locally and on staging only.
 // Sky & Forest (RAA-102): a floating glass bar, inset from the edges and sticky, so the page
 // shows through it as it scrolls beneath. A PageBanner slides up under it (HEADER_PULL), so
-// on those pages it floats over the photo. Partner links take their own row on a phone.
+// on those pages it floats over the photo. Partner links take their own row on a phone; on the
+// smallest phones the bar's padding tightens so the logo and the guest's account links share one.
 export function SectionHeader({ section }: { section: Section }) {
   const label = SECTION_LABELS[section];
 
   return (
     <header className="pointer-events-none sticky top-0 z-40 px-3 pt-3 sm:px-6">
-      <div className="pointer-events-auto mx-auto flex min-h-14 w-full max-w-page animate-float-in flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-frame border border-glass-edge bg-navy/70 px-3 py-1.5 text-white shadow-lift backdrop-blur-xl backdrop-saturate-150 sm:px-5">
+      <div className="pointer-events-auto mx-auto flex min-h-14 w-full max-w-page animate-float-in flex-wrap items-center justify-between gap-x-3 gap-y-2 focus-light rounded-frame border border-glass-edge bg-navy/70 px-3 py-1.5 text-white shadow-lift backdrop-blur-xl backdrop-saturate-150 max-xs:gap-x-2 max-xs:px-2 sm:px-5">
         <Link
           href={section === "guest" ? "/" : `/${section}`}
-          className="pl-1 text-xl sm:text-2xl"
+          className="tap-target pl-1 text-xl sm:text-2xl"
           aria-label={label ? `${BRAND} ${label}` : `${BRAND} home`}
         >
           <Logo />
@@ -42,7 +43,7 @@ export function SectionHeader({ section }: { section: Section }) {
             </span>
           )}
         </Link>
-        <nav className="contents text-sm font-medium text-on-dark">
+        <nav aria-label="Main" className="contents text-sm font-medium text-on-dark">
           {section === "partner" && <PartnerNav />}
           <div className="flex items-center gap-2">
             {section === "guest" && <CartLink />}

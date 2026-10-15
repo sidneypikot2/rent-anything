@@ -110,6 +110,25 @@ export function ArrowGlyph({ direction = "right", className }: { direction?: "le
   return <Glyph paths={direction === "right" ? ["M5 12h14", "M13 6l6 6-6 6"] : ["M19 12H5", "M11 6l-6 6 6 6"]} className={className} />;
 }
 
+// A magnifier: search, where a button has no room for its word.
+export function SearchGlyph({ className }: Props) {
+  return <Glyph paths={[circle(11, 11, 6.5), "M20 20l-4.4-4.4"]} className={className} />;
+}
+
 export function CloseGlyph({ className }: Props) {
   return <Glyph paths={["M6 6l12 12", "M18 6L6 18"]} className={className} />;
+}
+
+// The hero search's When and Guests: a calendar page and two people.
+export function CalendarGlyph({ className }: Props) {
+  return <Glyph paths={["M4 6h16v14H4Z", "M4 10h16", "M8 3v4", "M16 3v4"]} className={className} />;
+}
+
+export function GuestsGlyph({ className }: Props) {
+  return (
+    <Glyph
+      paths={[circle(9, 8, 3.5), "M3 20a6 6 0 0 1 12 0", "M15.5 4.8a3.5 3.5 0 0 1 0 6.4", "M18 14.5a6 6 0 0 1 3 5.5"]}
+      className={className}
+    />
+  );
 }

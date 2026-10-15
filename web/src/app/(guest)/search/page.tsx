@@ -9,6 +9,7 @@ import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { listingCover } from "@/components/landing/sample-photos";
 import { SearchBox } from "@/components/discovery/search-box";
+import { readTripDates, tripDatesQuery } from "@/components/trips/trip-dates";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { GlassPanel } from "@/components/ui/glass";
@@ -21,8 +22,12 @@ export const metadata: Metadata = { title: "Search" };
 // Full search results, grouped like the autocomplete. An activity lists the destinations
 // that have it, most matching places first.
 export default async function SearchPage(props: PageProps<"/search">) {
-  const { q } = await props.searchParams;
+  const searchParams = await props.searchParams;
+  const { q } = searchParams;
   const query = typeof q === "string" ? q.trim() : "";
+  // The trip dates and guests picked in the home hero's search, carried on to every destination.
+  const dates = readTripDates(searchParams);
+  const carry = tripDatesQuery(dates);
   // Characters, not UTF-16 units, to match the API's minimum (an emoji is one).
   const results = [...query].length >= 2 ? await search(query) : null;
   const top = results && topDestination(results);
@@ -32,7 +37,7 @@ export default async function SearchPage(props: PageProps<"/search">) {
     <main className="flex flex-1 flex-col">
       <PageBanner title={<DisplayTitle>{query ? <>Results for “{query}”</> : "Search"}</DisplayTitle>}>
         <GlassPanel className="relative z-10 w-full max-w-2xl rounded-card p-2 shadow-float">
-          <SearchBox key={query} initialQuery={query} />
+          <SearchBox key={query} initialQuery={query} initialDates={dates} />
         </GlassPanel>
       </PageBanner>
       <PageSheet tone="clear">
@@ -41,7 +46,7 @@ export default async function SearchPage(props: PageProps<"/search">) {
           <p className="text-muted">Type at least two letters: a destination, a landmark or an activity.</p>
         ) : (
           <>
-            <Results results={results} />
+            <Results results={results} carry={carry} />
             {top && explore && <ExploreSections explore={explore} name={top.name} />}
           </>
         )}
@@ -61,7 +66,7 @@ function topDestination(results: SearchResults) {
   return null;
 }
 
-function Results({ results }: { results: SearchResults }) {
+function Results({ results, carry }: { results: SearchResults; carry: string }) {
   if (Object.values(results).every((group) => group.length === 0)) {
     return (
       <p data-testid="search-empty" className="text-muted">
@@ -83,7 +88,7 @@ function Results({ results }: { results: SearchResults }) {
                 <ul className="flex flex-wrap gap-2">
                   {tag.areas.map((area) => (
                     <li key={area.slug}>
-                      <PillLink href={`/${area.slug}`}>
+                      <PillLink href={`/${area.slug}${carry}`}>
                         <span className="text-primary">{area.name}</span>
                         <span className="text-xs">
                           {area.landmark_count} to see
@@ -102,7 +107,7 @@ function Results({ results }: { results: SearchResults }) {
         title="Destinations"
         items={results.areas.map((area) => ({
           key: area.slug,
-          href: `/${area.slug}`,
+          href: `/${area.slug}${carry}`,
           icon: areaIcon(area.kind),
           title: area.name,
           note: area.parent_name ?? "",
@@ -112,7 +117,7 @@ function Results({ results }: { results: SearchResults }) {
         title="Landmarks"
         items={results.landmarks.map((landmark) => ({
           key: landmark.slug,
-          href: `/${landmark.area.slug}#${landmark.slug}`,
+          href: `/${landmark.area.slug}${carry}#${landmark.slug}`,
           icon: placeIcon(),
           title: landmark.name,
           note: landmark.area.name,
@@ -124,7 +129,7 @@ function Results({ results }: { results: SearchResults }) {
             {results.listings.map((listing, index) => (
               <li key={listing.id}>
                 <ListingCard
-                  href={`/${listing.area_slug}#listing-${listing.id}`}
+                  href={`/${listing.area_slug}${carry}#listing-${listing.id}`}
                   title={listing.title}
                   category={listing.category}
                   note={listingNote(listing, results)}

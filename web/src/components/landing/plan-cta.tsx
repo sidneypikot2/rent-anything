@@ -1,6 +1,7 @@
 "use client";
 
 import { ButtonLink } from "@/components/ui/button";
+import { cn } from "@/components/ui/cn";
 import { SectionTitle } from "@/components/ui/typography";
 import { REGISTER_PATHS } from "@/lib/auth/paths";
 import { useSession } from "@/lib/auth/session";
@@ -8,8 +9,8 @@ import { useSession } from "@/lib/auth/session";
 // The home page's closing band (RAA-73). Signed out it asks for an account; a guest already
 // has one and is sent to their trips. Partners and admins have no cart, so since RAA-78 they
 // are sent to their own work instead.
-// Nothing renders until the session has been read (it lives in localStorage), so no one sees
-// the wrong band first; it is the last thing on the page, below the fold.
+// The session lives in localStorage, so until it has been read the signed-out band holds the
+// place, hidden: no one sees the wrong band first, and the page doesn't grow when it arrives.
 const BANDS = {
   signedOut: {
     title: "Start planning your trip",
@@ -39,16 +40,20 @@ const BANDS = {
 
 export function PlanCta() {
   const session = useSession();
-  if (session === undefined) return null;
   const band = BANDS[session ? session.user.role : "signedOut"];
 
   return (
-    <section className="band reveal flex flex-col items-start gap-6 rounded-frame bg-navy p-card text-white sm:flex-row sm:items-center sm:justify-between sm:p-12">
+    <section
+      className={cn(
+        "band reveal flex flex-col items-start gap-6 rounded-frame bg-navy p-card text-white sm:flex-row sm:items-center sm:justify-between sm:p-12",
+        session === undefined && "invisible",
+      )}
+    >
       <div>
         <SectionTitle>{band.title}</SectionTitle>
-        <p className="mt-1 text-on-dark">{band.body}</p>
+        <p className="mt-2 max-w-lede text-pretty text-on-dark">{band.body}</p>
       </div>
-      <ButtonLink href={band.href} variant="accent" className="shrink-0 whitespace-nowrap">
+      <ButtonLink href={band.href} variant="accent" className="shrink-0 sm:whitespace-nowrap">
         {band.action}
       </ButtonLink>
     </section>

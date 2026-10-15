@@ -7,7 +7,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { LandmarkCard, ListingCard as PhotoListingCard } from "@/components/discovery/cards";
-import { AreaGlyph, CategoryGlyph, CloseGlyph, TagGlyph } from "@/components/discovery/tag-glyphs";
+import { AreaGlyph, CategoryGlyph, CloseGlyph, SearchGlyph, TagGlyph } from "@/components/discovery/tag-glyphs";
 import { landmarkPhoto, listingPhoto } from "@/components/landing/sample-photos";
 import { GlassPanel } from "@/components/ui/glass";
 import { PasswordField } from "@/components/ui/password-field";
@@ -109,6 +109,9 @@ export default function UiKit() {
           <Button variant="quiet" size="icon" aria-label="Close">
             <CloseGlyph className="size-5" />
           </Button>
+          <Button size="icon-lg" aria-label="Search">
+            <SearchGlyph className="size-6" />
+          </Button>
           <ButtonLink href="/admin" variant="soft" size="sm">
             Link as button
           </ButtonLink>
@@ -126,6 +129,10 @@ export default function UiKit() {
           <Badge tone="emerald">Eco tour</Badge>
           <Badge tone="mist">New</Badge>
           <Badge tone="warning">Needs a price</Badge>
+          {/* glass is for photos and glass; navy stands in for one here. */}
+          <span className="rounded-full bg-navy p-1.5">
+            <Badge tone="glass">Step 1</Badge>
+          </span>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {CATEGORIES.map((category, index) => (
@@ -182,6 +189,7 @@ export default function UiKit() {
           <div aria-hidden className="absolute inset-0 -z-10 bg-scrim/30" />
           <div className="flex flex-wrap gap-3">
             <GlassPanel className="rounded-card px-4 py-3 font-semibold">Dark</GlassPanel>
+            <GlassPanel tone="card" className="rounded-card px-4 py-3 font-semibold">Card</GlassPanel>
             <GlassPanel tone="forest" className="rounded-card px-4 py-3 font-semibold">Forest</GlassPanel>
             <GlassPanel tone="light" className="rounded-card px-4 py-3 font-semibold">Light</GlassPanel>
           </div>

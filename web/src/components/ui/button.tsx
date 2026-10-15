@@ -28,6 +28,9 @@ const SIZES = {
   md: "min-h-12 rounded-control px-6 py-3 text-[0.9375rem]",
   // A round 44px button holding one icon; give it an aria-label.
   icon: "size-11 rounded-full",
+  // The same, larger, for the one main action in a tall bar (the home page's search):
+  // 48px, 56px from sm.
+  "icon-lg": "size-12 rounded-full sm:size-14",
   // The md height as a pill.
   pill: "min-h-11 rounded-full px-5 py-2.5 text-[0.9375rem]",
 };

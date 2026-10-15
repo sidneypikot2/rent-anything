@@ -4,12 +4,19 @@
 
 type Photo = { src: string; alt: string };
 
+// The first leads the home page's destinations on its widest card, so it is a landscape one;
+// the portrait island suits the tall card beside it.
 const DESTINATION_PHOTOS: Photo[] = [
-  { src: "/images/samples/island.jpg", alt: "Sample photo: a green island in clear water" },
   { src: "/images/samples/wooden-boat.jpg", alt: "Sample photo: a boat on the water at sunset" },
+  { src: "/images/samples/island.jpg", alt: "Sample photo: a green island in clear water" },
   { src: "/images/samples/snorkeling.jpg", alt: "Sample photo: snorkelling in clear blue water" },
   { src: "/images/samples/cottages.jpg", alt: "Sample photo: bamboo cottages under coconut trees" },
 ];
+
+const SCOOTERS: Photo = { src: "/images/samples/scooters.jpg", alt: "Sample photo: scooters parked by the road" };
+
+// A city gets a street rather than a beach, so Cebu City's card doesn't show a sandbar.
+const PHOTOS_BY_KIND: Record<string, Photo[]> = { city: [SCOOTERS] };
 
 // By tag slug, for the activities the seed data has.
 const ACTIVITY_PHOTOS: Record<string, Photo> = {
@@ -23,15 +30,17 @@ const ACTIVITY_PHOTOS: Record<string, Photo> = {
   "cliff-diving": { src: "/images/samples/cliff-diving.jpg", alt: "Sample photo: a person jumping off a cliff into the sea" },
 };
 
-// The nth destination's photo; they repeat in turn.
-export function destinationPhoto(index: number): Photo {
-  return DESTINATION_PHOTOS[index % DESTINATION_PHOTOS.length];
+// The nth destination's photo, from those that suit its kind (an island, a city) when given;
+// they repeat in turn.
+export function destinationPhoto(index: number, kind?: string): Photo {
+  const photos = (kind && PHOTOS_BY_KIND[kind]) || DESTINATION_PHOTOS;
+  return photos[index % photos.length];
 }
 
 // A destination's photo by its slug, so its page and its card agree wherever it is listed.
-export function areaPhoto(slug: string): Photo {
+export function areaPhoto(slug: string, kind?: string): Photo {
   const hash = [...slug].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  return destinationPhoto(hash);
+  return destinationPhoto(hash, kind);
 }
 
 // An activity's photo, or else one of the destination photos in turn.
@@ -43,7 +52,7 @@ export function activityPhoto(slug: string, index: number): Photo {
 const CATEGORY_PHOTOS: Record<string, Photo> = {
   Tour: ACTIVITY_PHOTOS["island-hopping"],
   "Hotel or cottage": DESTINATION_PHOTOS[3],
-  Motorcycle: { src: "/images/samples/scooters.jpg", alt: "Sample photo: scooters parked by the road" },
+  Motorcycle: SCOOTERS,
   "Snorkel gear": ACTIVITY_PHOTOS.snorkelling,
   Camera: ACTIVITY_PHOTOS.photography,
   "Action camera": ACTIVITY_PHOTOS.photography,

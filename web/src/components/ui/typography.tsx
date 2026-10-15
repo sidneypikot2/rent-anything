@@ -4,9 +4,11 @@ import { cn } from "./cn";
 // The type scale, largest first: hero (one per site, the home page), page (a page's h1),
 // section (SectionTitle, h2), then card titles at text-lg semibold, body at text-base with
 // relaxed leading, and meta at text-sm in muted. Each step is clearly smaller than the last.
+// The bigger the title, the tighter it is set: at the hero's size the usual tracking-tight
+// leaves the extra-bold letters looking spaced out.
 const TITLE_SIZES = {
-  page: "text-4xl leading-[1.08] sm:text-5xl",
-  hero: "text-5xl leading-[1.02] sm:text-7xl",
+  page: "text-4xl leading-[1.08] tracking-tight sm:text-5xl",
+  hero: "text-[clamp(2.25rem,11vw,3rem)] leading-[1.02] tracking-[-0.035em] sm:text-7xl landscape-phone:text-4xl",
 };
 
 // Page and section headings: the one family at extra-bold, tightly tracked (Sky & Forest).
@@ -19,7 +21,7 @@ export function DisplayTitle({
 }: { as?: "h1" | "p"; size?: keyof typeof TITLE_SIZES } & ComponentProps<"h1">) {
   return (
     <Tag
-      className={cn("font-display font-extrabold tracking-tight", TITLE_SIZES[size], className)}
+      className={cn("font-display font-extrabold", TITLE_SIZES[size], className)}
       {...props}
     />
   );
@@ -28,17 +30,18 @@ export function DisplayTitle({
 export function SectionTitle({ className, ...props }: ComponentProps<"h2">) {
   return (
     <h2
-      className={cn("font-display text-3xl leading-tight font-extrabold tracking-tight text-balance sm:text-4xl", className)}
+      className={cn("font-display text-3xl leading-[1.1] font-extrabold tracking-tight text-balance sm:text-4xl", className)}
       {...props}
     />
   );
 }
 
-// The small uppercase line above a heading.
-export function Eyebrow({ className, ...props }: ComponentProps<"p">) {
+// The small uppercase line above a heading. `tone="inherit"` leaves its colour to the caller,
+// for a label in a card's own text colours (a className colour can't override text-primary).
+export function Eyebrow({ tone = "primary", className, ...props }: { tone?: "primary" | "inherit" } & ComponentProps<"p">) {
   return (
     <p
-      className={cn("text-xs font-bold uppercase tracking-[0.14em] text-primary", className)}
+      className={cn("text-xs font-bold uppercase tracking-[0.14em]", tone === "primary" && "text-primary", className)}
       {...props}
     />
   );

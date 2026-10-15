@@ -26,14 +26,14 @@ export function AccountNav({ section }: { section: Section }) {
         <Link
           href={LOGIN_PATHS.guest}
           data-testid="nav-signin"
-          className="flex min-h-9 items-center rounded-full px-3 whitespace-nowrap hover:bg-glass-hover hover:text-white sm:px-4"
+          className="tap-target flex min-h-9 items-center rounded-full px-3 whitespace-nowrap hover:bg-glass-hover hover:text-white sm:px-4"
         >
           Sign in
         </Link>
         <Link
           href={REGISTER_PATHS.guest}
           data-testid="nav-register"
-          className="flex min-h-9 items-center rounded-full bg-white px-3 font-bold whitespace-nowrap text-navy hover:bg-sky-mist sm:px-4"
+          className="tap-target flex min-h-9 items-center rounded-full bg-white px-3 font-bold whitespace-nowrap text-navy hover:bg-sky-mist sm:px-4"
         >
           {/* Short on a phone, so the bar stays one row. */}
           <span className="sm:hidden">Sign up</span>
@@ -55,11 +55,11 @@ export function AccountNav({ section }: { section: Section }) {
       <Link
         href={DASHBOARD_PATHS[session.user.role]}
         data-testid="nav-user"
-        className="flex min-h-9 items-center rounded-full px-4 text-white hover:bg-glass-hover"
+        className="tap-target flex min-h-9 items-center rounded-full px-4 text-white hover:bg-glass-hover"
       >
         {session.user.name ?? session.user.email}
       </Link>
-      <button type="button" onClick={onSignOut} className="flex min-h-9 items-center rounded-full px-4 hover:bg-glass-hover hover:text-white">
+      <button type="button" onClick={onSignOut} className="tap-target flex min-h-9 items-center rounded-full px-4 hover:bg-glass-hover hover:text-white">
         Sign out
       </button>
     </span>
