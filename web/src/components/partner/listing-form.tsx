@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
+import { ActionBar } from "@/components/ui/action-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
@@ -72,6 +73,7 @@ import { isVehicle, toVehicleAttrs, toVehicleValues, VehicleFields, type Vehicle
 import { useUpdateListing, type ListingBody, type ListingOptions, type PartnerListing } from "./use-partner-listings";
 import { UNITS_LABEL, UnitsField } from "./units-field";
 import { WizardCancel } from "./wizard-cancel";
+import { TickGlyph } from "@/components/discovery/tag-glyphs";
 
 // Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
 // visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
@@ -246,6 +248,8 @@ export function ListingForm({
     { id: "photos", label: "Photos" },
   ];
 
+  const current = useCurrentSection(sections.map((section) => section.id));
+
   return (
     <form
       ref={formRef}
@@ -259,10 +263,12 @@ export function ListingForm({
             <li key={section.id}>
               <a
                 href={`#${section.id}`}
+                aria-current={section.id === current ? "location" : undefined}
                 className={cn(
                   glassClasses("dark"),
-                  "flex rounded-full px-3 py-2 text-sm whitespace-nowrap hover:bg-glass-hover",
+                  "flex rounded-full px-3 py-2 text-sm whitespace-nowrap duration-200 hover:bg-glass-hover",
                   "md:border-transparent md:bg-transparent md:backdrop-blur-none",
+                  "aria-[current=location]:bg-white aria-[current=location]:font-semibold aria-[current=location]:text-navy md:aria-[current=location]:border-white/60 md:aria-[current=location]:bg-white/90",
                 )}
               >
                 {section.label}
@@ -455,21 +461,26 @@ export function ListingForm({
           />
         </EditSection>
 
-        <Card className="sticky bottom-4 z-10 shadow-float">
-          <CardBody pad="sm" className="flex items-center justify-between gap-3">
-            <WizardCancel
-              href={listingPath}
-              dirty={unsaved}
-              variant="soft"
-              size="md"
-              title="Discard your changes?"
-              message="Your edits won't be saved. Photos you added or deleted stay as they are."
-            />
-            <Button type="submit" disabled={update.isPending || photosBusy} data-testid="listing-save">
-              {update.isPending ? "Saving…" : "Save changes"}
-            </Button>
-          </CardBody>
-        </Card>
+        <ActionBar>
+          <WizardCancel
+            href={listingPath}
+            dirty={unsaved}
+            variant="glass"
+            size="pill"
+            title="Discard your changes?"
+            message="Your edits won't be saved. Photos you added or deleted stay as they are."
+          />
+          <Button
+            type="submit"
+            variant="glow"
+            size="pill"
+            disabled={update.isPending || photosBusy}
+            data-testid="listing-save"
+          >
+            {!update.isPending && <TickGlyph className="size-4.5" />}
+            {update.isPending ? "Saving…" : "Save changes"}
+          </Button>
+        </ActionBar>
       </div>
 
       <Dialog
@@ -560,4 +571,40 @@ function EditSection({
       </CardBody>
     </Card>
   );
+}
+
+// The section in view, for the index to mark as you scroll: the last one whose top has passed
+// just under the sticky header, or the last of all once the page is scrolled to the bottom.
+function useCurrentSection(ids: string[]) {
+  const [current, setCurrent] = useState(ids[0]);
+  const key = ids.join(" ");
+
+  useEffect(() => {
+    const sectionIds = key.split(" ");
+    let frame = 0;
+    function update() {
+      frame = 0;
+      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+      if (atBottom) return setCurrent(sectionIds[sectionIds.length - 1]);
+      let found = sectionIds[0];
+      for (const id of sectionIds) {
+        const top = document.getElementById(id)?.getBoundingClientRect().top;
+        if (top !== undefined && top <= window.innerHeight * 0.45) found = id;
+      }
+      setCurrent(found);
+    }
+    function onScroll() {
+      if (!frame) frame = requestAnimationFrame(update);
+    }
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [key]);
+
+  return current;
 }

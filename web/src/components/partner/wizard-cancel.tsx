@@ -6,6 +6,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Button, type ButtonStyle } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { CloseGlyph } from "@/components/discovery/tag-glyphs";
 
 // Leaving a listing form that may hold unsaved work: `leave(href, dirty)` goes straight there
 // when nothing has been entered, and otherwise opens the dialog this returns, which asks first.
@@ -52,21 +53,23 @@ export function useDiscardConfirm({
 
 // A form's way out, kept apart from Back and Next (RAA-97): a quiet Cancel that asks before
 // throwing away what the partner has entered. `dirty` says whether there is anything to lose;
-// without it, it always asks.
+// without it, it always asks. `icon` shows it as a round close button (the wizard's header).
 export function WizardCancel({
   href,
   className,
   dirty,
   title,
   message,
-  variant = "ghost",
-  size = "sm",
+  icon = false,
+  variant = icon ? "quiet" : "ghost",
+  size = icon ? "icon" : "sm",
 }: {
   href: string;
   className?: string;
   dirty?: () => boolean;
   title?: string;
   message?: string;
+  icon?: boolean;
 } & ButtonStyle) {
   const { leave, dialog } = useDiscardConfirm({ title, message });
 
@@ -79,8 +82,10 @@ export function WizardCancel({
         className={className}
         onClick={() => leave(href, dirty ? dirty() : true)}
         data-testid="listing-cancel"
+        aria-label={icon ? "Cancel" : undefined}
+        title={icon ? "Cancel" : undefined}
       >
-        Cancel
+        {icon ? <CloseGlyph className="size-5" /> : "Cancel"}
       </Button>
       {dialog}
     </>

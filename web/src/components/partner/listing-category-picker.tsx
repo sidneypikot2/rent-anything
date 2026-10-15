@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
+import { ArrowGlyph } from "@/components/discovery/tag-glyphs";
+import { ActionBar } from "@/components/ui/action-bar";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ChoiceCards } from "@/components/ui/choice-cards";
 import { groupCategories, type CategoryGroup } from "./listing-fields";
@@ -158,23 +160,28 @@ export function ListingCategoryPicker({
           </div>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          type="submit"
-          disabled={missing !== undefined}
-          aria-describedby={missing ? "listing-category-missing" : undefined}
-          data-testid="listing-category-next"
-        >
-          Next
-        </Button>
-        <ButtonLink href="/partner/listings" variant="soft">
-          Cancel
-        </ButtonLink>
+      <div className="flex flex-col gap-2">
         {missing && (
           <p id="listing-category-missing" className="text-sm text-muted">
             {missing}
           </p>
         )}
+        <ActionBar>
+          <ButtonLink href="/partner/listings" variant="glass" size="pill">
+            Cancel
+          </ButtonLink>
+          <Button
+            type="submit"
+            variant="glow"
+            size="pill"
+            disabled={missing !== undefined}
+            aria-describedby={missing ? "listing-category-missing" : undefined}
+            data-testid="listing-category-next"
+          >
+            Next
+            <ArrowGlyph className="size-4" />
+          </Button>
+        </ActionBar>
       </div>
     </form>
   );

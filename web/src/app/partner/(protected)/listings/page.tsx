@@ -18,7 +18,7 @@ export default function PartnerListings() {
     <main data-testid="partner-listings" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-block px-gutter py-page-pad">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <DisplayTitle>Listings</DisplayTitle>
-        <ButtonLink href="/partner/listings/new" size="sm" data-testid="add-listing">
+        <ButtonLink href="/partner/listings/new" variant="glow" size="pill" data-testid="add-listing">
           Add listing
         </ButtonLink>
       </div>
@@ -32,7 +32,7 @@ export default function PartnerListings() {
               <p className="max-w-prose text-sm text-muted">
                 Add your business first, then the first thing you offer: a tour, a motorbike, a room.
               </p>
-              <ButtonLink href="/partner/businesses/new?next=/partner/listings/new" size="sm">
+              <ButtonLink href="/partner/businesses/new?next=/partner/listings/new" variant="glow" size="pill">
                 Add your business
               </ButtonLink>
             </CardBody>
@@ -44,8 +44,8 @@ export default function PartnerListings() {
             Couldn&apos;t load your listings.
           </p>
           <Button
-            size="sm"
-            variant="soft"
+            size="pill"
+            variant="glass"
             onClick={() => {
               if (listings.error) void listings.refetch();
               if (businesses.error) void businesses.refetch();

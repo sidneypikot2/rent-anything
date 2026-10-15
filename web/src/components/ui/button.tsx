@@ -13,6 +13,12 @@ const VARIANTS = {
   danger: "bg-danger text-white hover:bg-danger-hover",
   // Text only, for a secondary way out (a wizard's Cancel) that shouldn't draw the eye.
   ghost: "text-muted underline-offset-4 hover:text-foreground hover:underline",
+  // A control that is only an icon, like closing a panel: muted until hovered.
+  quiet: "text-muted hover:bg-surface-2 hover:text-foreground",
+  // A quiet action on dark glass (the edit page's save bar): light text, a faint fill on hover.
+  glass: "text-white/80 hover:bg-white/10 hover:text-white",
+  // The main action on dark glass: blue with a lit top edge, so it reads as raised.
+  glow: "bg-linear-to-b from-primary to-secondary text-white inset-shadow-xs inset-shadow-white/30 shadow-[0_8px_24px_-8px_var(--color-primary)] hover:from-primary-hover hover:to-secondary-hover",
 };
 
 const SIZES = {
@@ -20,6 +26,10 @@ const SIZES = {
   // The small look with a 44px touch target, for an action a traveller taps on a phone (RAA-85).
   touch: "min-h-11 rounded-control px-4 py-2 text-sm",
   md: "min-h-12 rounded-control px-6 py-3 text-[0.9375rem]",
+  // A round 44px button holding one icon; give it an aria-label.
+  icon: "size-11 rounded-full",
+  // The md height as a pill.
+  pill: "min-h-11 rounded-full px-5 py-2.5 text-[0.9375rem]",
 };
 
 export type ButtonStyle = {

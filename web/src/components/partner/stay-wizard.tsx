@@ -39,7 +39,7 @@ import type { PartnerBusiness } from "./use-partner-businesses";
 import { useCreateListing, type ListingBody, type ListingCategory, type PartnerListing } from "./use-partner-listings";
 import { UNITS_LABEL, UnitsField } from "./units-field";
 import { ChangeCategoryLink, WizardCancel } from "./wizard-cancel";
-import { WizardActions, WizardLayout } from "./wizard-steps";
+import { WizardActions, WizardLayout, WizardNext, WizardTitle } from "./wizard-steps";
 
 const STEPS = [
   { key: "place", label: "What guests book" },
@@ -157,9 +157,8 @@ export function StayWizard({
   }
 
   return (
-    <WizardLayout steps={STEPS} current={stepIndex} reached={reached} onSelect={goTo}>
-      <form ref={formRef} data-testid="stay-wizard" onSubmit={onSubmit} className="relative flex w-full flex-col gap-6">
-        <WizardCancel href="/partner/listings" className="absolute right-0 top-0" />
+    <WizardLayout steps={STEPS} current={stepIndex} reached={reached} onSelect={goTo} cancel={<WizardCancel href="/partner/listings" icon />}>
+      <form ref={formRef} data-testid="stay-wizard" onSubmit={onSubmit} className="flex w-full flex-col gap-6">
         {create.error && (
           <p role="alert" className="text-sm text-danger">
             {create.error.message}
@@ -167,7 +166,7 @@ export function StayWizard({
         )}
 
         <fieldset data-testid={`listing-step-${step.key}`} className="flex flex-col gap-4">
-          <legend className="mb-2 pr-20 font-display text-2xl font-extrabold tracking-tight">{step.label}</legend>
+          <WizardTitle>{step.label}</WizardTitle>
 
           {step.key === "place" && (
             <>
@@ -266,13 +265,11 @@ export function StayWizard({
           onBack={stepIndex > 0 ? () => goTo(stepIndex - 1) : undefined}
           next={
             isLast ? (
-              <Button type="submit" disabled={create.isPending} data-testid="listing-save">
+              <Button type="submit" variant="glow" size="pill" disabled={create.isPending} data-testid="listing-save">
                 {create.isPending ? "Saving…" : "Save and add photos"}
               </Button>
             ) : (
-              <Button type="submit" data-testid="listing-next">
-                Next
-              </Button>
+              <WizardNext />
             )
           }
         />

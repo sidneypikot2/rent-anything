@@ -2,6 +2,7 @@
 
 import { useId, type ComponentProps } from "react";
 import { cn } from "./cn";
+import { FieldNote, useFieldError } from "./field-error";
 import { controlClasses, floatingLabelClasses, useFieldLook } from "./field-look";
 
 type Props = {
@@ -12,10 +13,12 @@ type Props = {
 
 // A labelled text input with an optional hint, or an error in its place. The label sits above
 // the field, or inside it under <FieldLook look="floating">.
-export function Field({ label, hint, error, className, placeholder, ...props }: Props) {
+export function Field({ label, hint, error: apiError, className, placeholder, onChange, ...props }: Props) {
   const look = useFieldLook();
   const inputId = useId();
   const noteId = useId();
+  const native = useFieldError(label);
+  const error = apiError ?? native.message;
   const note = error ?? hint;
   const floating = look === "floating";
 
@@ -27,6 +30,11 @@ export function Field({ label, hint, error, className, placeholder, ...props }: 
       // A floating label reads :placeholder-shown to know the field is empty, so it needs one.
       placeholder={floating ? (placeholder ?? " ") : placeholder}
       className={cn("w-full", controlClasses(look, error), className)}
+      onInvalid={native.onInvalid}
+      onChange={(event) => {
+        native.recheck(event.currentTarget);
+        onChange?.(event);
+      }}
       {...props}
     />
   );
@@ -46,14 +54,7 @@ export function Field({ label, hint, error, className, placeholder, ...props }: 
           {input}
         </>
       )}
-      {note && (
-        <span
-          id={noteId}
-          className={cn("text-xs font-normal", floating && "px-1", error ? "text-danger" : "text-muted")}
-        >
-          {note}
-        </span>
-      )}
+      <FieldNote id={noteId} error={error} hint={hint} inset={floating} />
     </div>
   );
 }

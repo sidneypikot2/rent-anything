@@ -11,7 +11,8 @@ const ENABLED =
   process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_SECTION_SWITCH === "true";
 
 // A floating jump between the guest and partner sites, for testing on staging. The product
-// keeps the two sections apart (see SectionHeader); this is the one link between them.
+// keeps the two sections apart (see SectionHeader); this is the one link between them. On a
+// phone it sits higher, clear of a form's footer (the listing wizard's Next).
 export function SectionSwitch({ to }: { to: keyof typeof TARGETS }) {
   if (!ENABLED) return null;
   const { href, label } = TARGETS[to];
@@ -22,7 +23,7 @@ export function SectionSwitch({ to }: { to: keyof typeof TARGETS }) {
       variant="secondary"
       size="touch"
       title="Test aid: not shown in production"
-      className="fixed right-4 bottom-4 z-40 shadow-lift"
+      className="fixed right-4 bottom-24 z-40 shadow-lift sm:bottom-4"
     >
       <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5">
         <path

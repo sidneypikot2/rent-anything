@@ -2,6 +2,7 @@
 
 import { useId, type ComponentProps } from "react";
 import { cn } from "./cn";
+import { FieldNote, useFieldError } from "./field-error";
 import { controlClasses, floatingLabelClasses, useFieldLook } from "./field-look";
 
 type Props = {
@@ -13,10 +14,12 @@ type Props = {
 
 // A labelled select, styled like Field, with an optional hint or an error in its place. Under a
 // floating FieldLook its label stays on the top border: a select always shows a value.
-export function SelectField({ label, options, hint, error, className, ...props }: Props) {
+export function SelectField({ label, options, hint, error: apiError, className, onChange, ...props }: Props) {
   const look = useFieldLook();
   const selectId = useId();
   const noteId = useId();
+  const native = useFieldError(label);
+  const error = apiError ?? native.message;
   const note = error ?? hint;
 
   // The label points at the select rather than wrapping it: wrapped, a select's options
@@ -32,6 +35,11 @@ export function SelectField({ label, options, hint, error, className, ...props }
           aria-invalid={error ? true : undefined}
           aria-describedby={note ? noteId : undefined}
           className={cn("w-full appearance-none pr-10", controlClasses(look, error), className)}
+          onInvalid={native.onInvalid}
+          onChange={(event) => {
+            native.recheck(event.currentTarget);
+            onChange?.(event);
+          }}
           {...props}
         >
           {options.map((option) => (
@@ -54,14 +62,7 @@ export function SelectField({ label, options, hint, error, className, ...props }
           </label>
         )}
       </div>
-      {note && (
-        <span
-          id={noteId}
-          className={cn("text-xs font-normal", look === "floating" && "px-1", error ? "text-danger" : "text-muted")}
-        >
-          {note}
-        </span>
-      )}
+      <FieldNote id={noteId} error={error} hint={hint} inset={look === "floating"} />
     </div>
   );
 }

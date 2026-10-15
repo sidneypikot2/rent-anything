@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import { ArrowGlyph } from "@/components/discovery/tag-glyphs";
 import { cancellationPolicyName } from "@/components/partner/cancellation-policy";
 import { attributeLabel, displayValue, RETIRED_ATTRS } from "@/components/partner/listing-changes";
 import { visitsLandmarks } from "@/components/partner/listing-fields";
@@ -44,7 +45,7 @@ export default function PartnerListingPage() {
           <p role="alert" className="text-sm text-danger">
             Couldn&apos;t load the listing.
           </p>
-          <Button size="sm" variant="soft" onClick={() => void refetch()}>
+          <Button size="pill" variant="glass" onClick={() => void refetch()}>
             Try again
           </Button>
         </div>
@@ -75,8 +76,9 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
   return (
     <>
       <div className="flex flex-col gap-4">
-        <ButtonLink href="/partner/listings" size="sm" variant="soft" className="self-start">
-          ← Listings
+        <ButtonLink href="/partner/listings" size="pill" variant="glass" className="-ml-3 self-start">
+          <ArrowGlyph direction="left" className="size-4" />
+          Listings
         </ButtonLink>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-2">
@@ -88,7 +90,7 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
               </span>
             </div>
           </div>
-          <ButtonLink href={`/partner/listings/${listing.id}/edit`} size="sm" data-testid="listing-edit">
+          <ButtonLink href={`/partner/listings/${listing.id}/edit`} variant="glow" size="pill" data-testid="listing-edit">
             Edit listing
           </ButtonLink>
         </div>
@@ -113,7 +115,7 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
             <span className="font-semibold text-warning">No nightly price yet.</span> Guests don&apos;t see a price for
             this place, and it can&apos;t be booked, until you set one.
           </span>
-          <ButtonLink href={`/partner/listings/${listing.id}/edit`} size="sm">
+          <ButtonLink href={`/partner/listings/${listing.id}/edit`} variant="glow" size="pill">
             Set a price
           </ButtonLink>
         </div>
@@ -129,7 +131,7 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
             <span className="font-semibold text-warning">No price yet.</span> Guests don&apos;t see a price for this
             tour, and it can&apos;t be booked, until you set its details and price.
           </span>
-          <ButtonLink href={`/partner/listings/${listing.id}/edit`} size="sm">
+          <ButtonLink href={`/partner/listings/${listing.id}/edit`} variant="glow" size="pill">
             Set a price
           </ButtonLink>
         </div>
@@ -241,7 +243,7 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
 
       <GlassPanel className="flex flex-wrap items-center justify-between gap-3 rounded-card px-5 py-4 text-sm">
         <span>Deleting removes the listing and its photos for good.</span>
-        <Button size="sm" variant="danger" onClick={() => setConfirming(true)} data-testid="listing-delete">
+        <Button size="pill" variant="danger" onClick={() => setConfirming(true)} data-testid="listing-delete">
           Delete listing
         </Button>
       </GlassPanel>
@@ -253,11 +255,12 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
         data-testid="listing-delete-confirm"
         actions={
           <>
-            <Button variant="soft" onClick={() => setConfirming(false)}>
+            <Button variant="soft" size="pill" onClick={() => setConfirming(false)}>
               Cancel
             </Button>
             <Button
               variant="danger"
+              size="pill"
               disabled={remove.isPending}
               data-testid="listing-delete-confirm-button"
               onClick={() =>

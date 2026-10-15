@@ -2,6 +2,7 @@
 
 import { useId, type ComponentProps } from "react";
 import { cn } from "./cn";
+import { FieldNote, useFieldError } from "./field-error";
 import { controlClasses, floatingLabelClasses, useFieldLook } from "./field-look";
 
 type Props = {
@@ -11,10 +12,12 @@ type Props = {
 } & ComponentProps<"textarea">;
 
 // A labelled multi-line input, styled like Field, with an optional hint or an error in its place.
-export function TextareaField({ label, hint, error, className, rows = 4, placeholder, ...props }: Props) {
+export function TextareaField({ label, hint, error: apiError, className, rows = 4, placeholder, onChange, ...props }: Props) {
   const look = useFieldLook();
   const textareaId = useId();
   const noteId = useId();
+  const native = useFieldError(label);
+  const error = apiError ?? native.message;
   const note = error ?? hint;
   const floating = look === "floating";
 
@@ -26,6 +29,11 @@ export function TextareaField({ label, hint, error, className, rows = 4, placeho
       aria-describedby={note ? noteId : undefined}
       placeholder={floating ? (placeholder ?? " ") : placeholder}
       className={cn("w-full", controlClasses(look, error), floating ? "pt-4" : "py-3", className)}
+      onInvalid={native.onInvalid}
+      onChange={(event) => {
+        native.recheck(event.currentTarget);
+        onChange?.(event);
+      }}
       {...props}
     />
   );
@@ -45,14 +53,7 @@ export function TextareaField({ label, hint, error, className, rows = 4, placeho
           {textarea}
         </>
       )}
-      {note && (
-        <span
-          id={noteId}
-          className={cn("text-xs font-normal", floating && "px-1", error ? "text-danger" : "text-muted")}
-        >
-          {note}
-        </span>
-      )}
+      <FieldNote id={noteId} error={error} hint={hint} inset={floating} />
     </div>
   );
 }

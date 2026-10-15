@@ -39,7 +39,8 @@ function DetailSteps() {
               <p className="text-sm text-muted">Choose the business and what you&apos;re listing first.</p>
               <ButtonLink
                 href={category ? `/partner/listings/new?category=${category.id}` : "/partner/listings/new"}
-                size="sm"
+                variant="glow"
+                size="pill"
               >
                 Choose
               </ButtonLink>

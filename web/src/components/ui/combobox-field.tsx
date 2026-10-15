@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState, type ComponentProps, type KeyboardEvent } from "react";
 import { cn } from "./cn";
+import { FieldNote, useFieldError } from "./field-error";
 import { controlClasses, floatingLabelClasses, useFieldLook } from "./field-look";
 
 export type ComboboxOption = { value: string; label: string };
@@ -32,7 +33,7 @@ export function ComboboxField({
   onChange,
   options,
   hint,
-  error,
+  error: apiError,
   className,
   disabled,
   placeholder,
@@ -43,6 +44,8 @@ export function ComboboxField({
   const inputId = useId();
   const listId = useId();
   const noteId = useId();
+  const native = useFieldError(label);
+  const error = apiError ?? native.message;
   const note = error ?? hint;
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
@@ -96,7 +99,9 @@ export function ComboboxField({
           aria-describedby={note ? noteId : undefined}
           value={value}
           disabled={disabled}
+          onInvalid={native.onInvalid}
           onChange={(event) => {
+            native.recheck(event.currentTarget);
             onChange(event.target.value);
             setOpen(true);
             setActive(-1);
@@ -139,14 +144,7 @@ export function ComboboxField({
           ))}
         </ul>
       )}
-      {note && (
-        <span
-          id={noteId}
-          className={cn("text-xs font-normal", floating && "px-1", error ? "text-danger" : "text-muted")}
-        >
-          {note}
-        </span>
-      )}
+      <FieldNote id={noteId} error={error} hint={hint} inset={floating} />
     </div>
   );
 }

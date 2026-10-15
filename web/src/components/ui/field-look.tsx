@@ -24,11 +24,14 @@ export function useFieldLook() {
 export function controlClasses(look: FieldLookName, error: string | undefined) {
   return cn(
     "rounded-control border bg-surface px-4 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm",
-    "focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
+    "focus:ring-4 disabled:bg-surface-2",
     look === "floating"
       ? "peer min-h-14 py-3 shadow-xs placeholder:text-transparent focus:placeholder:text-muted/80 hover:border-foreground/60"
       : "min-h-12 py-2.5 placeholder:text-muted/80",
-    error ? "border-danger hover:border-danger" : "border-line-strong",
+    // An error stays red with focus, so fixing it doesn't hide which field it was.
+    error
+      ? "border-danger hover:border-danger focus:border-danger focus:ring-danger/10"
+      : "border-line-strong focus:border-primary focus:ring-sky-mist",
   );
 }
 
