@@ -11,6 +11,7 @@ import { PhotoStrip } from "@/components/partner/listing-photos";
 import { UNITS_LABEL } from "@/components/partner/units-field";
 import { uploadedPhotos } from "@/components/partner/use-listing-photos";
 import { STATUS } from "@/components/partner/listing-status";
+import { ListingStatusSection } from "@/components/partner/listing-status-section";
 import {
   useDeleteListing,
   useListingOptions,
@@ -27,7 +28,8 @@ import { formatPeso } from "@/lib/money";
 import { feeText, nightUnit, stayRateTerms } from "@/lib/pricing";
 import { basePriceUnit, durationText, groupText, inclusionText, tourTypeLabel } from "@/lib/tours";
 
-// One of the partner's listings, read-only (RAA-47), with the way to edit or delete it. A stay
+// One of the partner's listings, read-only (RAA-47), with the way to edit or delete it and its
+// status, which is changed here (RAA-115). A stay
 // still on the back-filled nightly price of 0 asks for a real one (RAA-105), and so does a tour
 // made before tours had a price (RAA-111).
 export default function PartnerListingPage() {
@@ -96,14 +98,12 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
         </div>
       </div>
 
-      {listing.status !== "active" && (
-        <GlassPanel role="status" data-testid="listing-status-note" className="rounded-card px-5 py-4 text-sm">
-          <span className="font-semibold">
-            {status.label}: {status.note.toLowerCase()}.
-          </span>{" "}
-          It stays this way while you finish the details and photos.
-        </GlassPanel>
-      )}
+      <Card>
+        <CardBody pad="lg" className="flex flex-col gap-4">
+          <h2 className="font-display text-xl font-extrabold tracking-tight">Status</h2>
+          <ListingStatusSection listing={listing} />
+        </CardBody>
+      </Card>
 
       {rate && !rate.nightly_price_cents && (
         <div

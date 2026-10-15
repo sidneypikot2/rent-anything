@@ -31,6 +31,7 @@ import {
 } from "./listing-fields";
 import { LandmarkPicker } from "./landmark-picker";
 import { ListingPhotos, orderedPhotos } from "./listing-photos";
+import { ListingStatusSection } from "./listing-status-section";
 import { uploadedPhotos } from "./use-listing-photos";
 import { LocationPicker } from "./location-picker";
 import {
@@ -75,7 +76,8 @@ import { UNITS_LABEL, UnitsField } from "./units-field";
 import { WizardCancel } from "./wizard-cancel";
 import { TickGlyph } from "@/components/discovery/tag-glyphs";
 
-// Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
+// Changing a listing (RAA-47): its status first, changed straight away rather than with Save
+// (RAA-115), then what it is, where it is, the landmarks a tour or activity
 // visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
 // vehicle's, RAA-89), an accommodation's pricing and fees (RAA-105), the cancellation policy
 // (RAA-89), how many identical units it has (RAA-99) and, last, its photos (RAA-109). A tour has
@@ -222,6 +224,7 @@ export function ListingForm({
 
   // The page's sections, in order, for the index beside them (and above them on a phone).
   const sections = [
+    { id: "status", label: "Status" },
     { id: "about", label: "About" },
     { id: "where", label: "Where it is" },
     ...(visitsLandmarks ? [{ id: "landmarks", label: tourCategory ? "Destinations" : "Landmarks" }] : []),
@@ -289,6 +292,10 @@ export function ListingForm({
             Check the tour&apos;s details: the sections below say what&apos;s missing.
           </GlassPanel>
         )}
+
+        <EditSection id="status" title="Status">
+          <ListingStatusSection listing={listing} />
+        </EditSection>
 
         <EditSection id="about" title="About">
           {businesses.length > 1 && (

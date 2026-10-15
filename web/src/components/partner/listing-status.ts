@@ -1,13 +1,22 @@
 import type { PartnerListing } from "./use-partner-listings";
 
 // Each status with what it means for guests, said beside the badge so a draft isn't
-// mistaken for a listing travellers can see.
+// mistaken for a listing travellers can see. The partner moves between them (RAA-115).
 export const STATUS = {
   draft: { label: "Draft", tone: "mist", note: "Guests can't see it yet" },
   active: { label: "Live", tone: "emerald", note: "Guests can book it" },
   paused: { label: "Paused", tone: "aqua", note: "Guests can't see it until you resume it" },
   delisted: { label: "Delisted", tone: "mist", note: "Off the marketplace" },
 } as const;
+
+// What a listing still needs before it can go live (the API's live_blockers), said as a
+// to-do.
+export const BLOCKER_LABELS: Record<PartnerListing["live_blockers"][number], string> = {
+  photo: "Add a photo",
+  description: "Write a description",
+  price: "Set a price",
+  route: "Add a destination to its route",
+};
 
 // A stay still on the back-filled nightly price of 0 (RAA-105), or a tour made before tours had
 // a price (RAA-111): guests see no price and can't book it, whatever its status.
@@ -34,10 +43,11 @@ export function statusDisplay(listing: PartnerListing) {
 // transfers), so the list reads the same way.
 const KIND_ORDER = ["activity", "rental", "stay", "transfer"] as const;
 
-// Listings that need the partner first, then by kind as the picker orders them (a tour leading
-// its kind), then by category and title.
+// Delisted listings last; before them, those that need the partner first, then by kind as the
+// picker orders them (a tour leading its kind), then by category and title.
 export function sortForPartner(listings: PartnerListing[]) {
   const rank = (listing: PartnerListing) => [
+    listing.status === "delisted" ? 1 : 0,
     needsAttention(listing) ? 0 : 1,
     KIND_ORDER.indexOf(listing.category.booking_type),
     listing.category.slug === "tour" ? 0 : 1,

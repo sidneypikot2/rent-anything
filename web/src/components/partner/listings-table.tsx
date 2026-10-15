@@ -11,10 +11,15 @@ import type { PartnerListing } from "./use-partner-listings";
 
 const UPDATED = new Intl.DateTimeFormat("en-PH", { day: "numeric", month: "short", year: "numeric" });
 
+const hasStatus = (status: PartnerListing["status"]) => (listing: PartnerListing) => listing.status === status;
+
 const FILTERS = {
   all: { label: "All", keep: () => true },
   attention: { label: "Needs attention", keep: needsAttention },
-  drafts: { label: "Drafts", keep: (listing: PartnerListing) => listing.status === "draft" },
+  live: { label: "Live", keep: hasStatus("active") },
+  paused: { label: "Paused", keep: hasStatus("paused") },
+  drafts: { label: "Drafts", keep: hasStatus("draft") },
+  delisted: { label: "Delisted", keep: hasStatus("delisted") },
 } as const;
 type Filter = keyof typeof FILTERS;
 
@@ -24,9 +29,9 @@ function countLabel(count: number) {
 
 // Every business the partner runs, in the API's order (by name), each with its listings
 // (RAA-101): a heading with its name, how many listings it has and Edit, then one list of its
-// listings, those that need the partner first. Chips above narrow every business's list to
-// what needs attention or to drafts; they show only when that would leave something out. A
-// business with no listings yet offers to add the first.
+// listings, those that need the partner first and delisted ones last. Chips above narrow
+// every business's list to what needs attention or to one status (RAA-115); each shows only
+// when it would leave something out. A business with no listings yet offers to add the first.
 export function ListingsByBusiness({
   businesses,
   listings,
@@ -38,8 +43,10 @@ export function ListingsByBusiness({
   const counts = Object.fromEntries(
     Object.entries(FILTERS).map(([key, { keep }]) => [key, listings.filter(keep).length]),
   ) as Record<Filter, number>;
-  const filtering = counts.attention > 0 && counts.attention < counts.all;
-  const active = filtering ? filter : "all";
+  // A chip shows only when it would narrow the list, and the row only when one does.
+  const offered = (key: Filter) => key === "all" || (counts[key] > 0 && counts[key] < counts.all);
+  const filtering = (Object.keys(FILTERS) as Filter[]).some((key) => key !== "all" && offered(key));
+  const active = filtering && offered(filter) ? filter : "all";
   const shown = sortForPartner(listings.filter(FILTERS[active].keep));
 
   return (
@@ -47,7 +54,7 @@ export function ListingsByBusiness({
       {filtering && (
         <div role="group" aria-label="Show" className="flex flex-wrap gap-2" data-testid="listing-filters">
           {(Object.keys(FILTERS) as Filter[])
-            .filter((key) => key !== "drafts" || counts.drafts > 0)
+            .filter(offered)
             .map((key) => (
               <Pill key={key} on={active === key} onClick={() => setFilter(key)} data-testid={`listing-filter-${key}`}>
                 {FILTERS[key].label} <span className="tabular-nums opacity-80">{counts[key]}</span>

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { DisplayTitle } from "@/components/ui/typography";
 
 // Changing one of the partner's listings (RAA-47): the add-listing form, filled in. Saving
-// asks to confirm what changed. The status stays as it is.
+// asks to confirm what changed; the status is changed on its own (RAA-115).
 export default function EditPartnerListing() {
   const id = Number(useParams<{ id: string }>().id);
   const listing = usePartnerListing(id);
