@@ -31,6 +31,7 @@ import {
 } from "./listing-fields";
 import { LandmarkPicker } from "./landmark-picker";
 import { ListingPhotos, orderedPhotos } from "./listing-photos";
+import { ListingStatusSection } from "./listing-status-section";
 import { uploadedPhotos } from "./use-listing-photos";
 import { LocationPicker } from "./location-picker";
 import {
@@ -78,7 +79,8 @@ import { TickGlyph } from "@/components/discovery/tag-glyphs";
 // Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
 // visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
 // vehicle's, RAA-89), an accommodation's pricing and fees (RAA-105), the cancellation policy
-// (RAA-89), how many identical units it has (RAA-99) and, last, its photos (RAA-109). A tour has
+// (RAA-89), how many identical units it has (RAA-99), its photos (RAA-109) and, last, its status, changed
+// straight away behind Change status rather than with Save (RAA-115). A tour has
 // the TourWizard's sections instead of details and units (RAA-111). Saving first shows what changed and asks to confirm. Adding one is the stepped
 // ListingWizard (RAA-50). A partner with several businesses can move it to another (RAA-101).
 export function ListingForm({
@@ -246,6 +248,7 @@ export function ListingForm({
     { id: "cancellation", label: "Cancellation policy" },
     ...(!tourCategory ? [{ id: "units", label: UNITS_LABEL }] : []),
     { id: "photos", label: "Photos" },
+    { id: "status", label: "Status" },
   ];
 
   const current = useCurrentSection(sections.map((section) => section.id));
@@ -459,6 +462,11 @@ export function ListingForm({
             onOrderChange={setPhotoOrder}
             onBusyChange={setPhotosBusy}
           />
+        </EditSection>
+
+        <EditSection id="status" title="Status">
+          <p className="text-sm text-muted">A change of status is saved straight away, not with Save.</p>
+          <ListingStatusSection listing={listing} editable />
         </EditSection>
 
         <ActionBar>

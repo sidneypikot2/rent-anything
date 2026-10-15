@@ -51,6 +51,7 @@ const STEPS = [
   { key: "cancellation", label: "Cancellation policy" },
   { key: "review", label: "Review" },
   { key: "photos", label: "Photos" },
+  { key: "status", label: "Listing status" },
 ] as const;
 
 const INTROS: Partial<Record<(typeof STEPS)[number]["key"], string>> = {
@@ -61,9 +62,9 @@ const INTROS: Partial<Record<(typeof STEPS)[number]["key"], string>> = {
 
 // Adding a tour (RAA-111): what it is (private or joiner), where guests meet, the places it
 // visits, the group and how long it takes, what it includes, the price (per group or per
-// guest), the cancellation policy, a review that saves the draft and, last, photos (at most 5). Like the
+// guest), the cancellation policy, a review that saves the draft then photos (at most 5) and, last, the listing status. Like the
 // other wizards, only the current step is on the page, every value is kept here and any step
-// already reached opens again; after the save only Photos is open (RAA-109). A tour has no
+// already reached opens again; after the save only Photos and Listing status are open (RAA-109). A tour has no
 // units: groups a day stand in for them.
 export function TourWizard({
   business,
@@ -82,7 +83,7 @@ export function TourWizard({
   const formRef = useRef<HTMLFormElement>(null);
   const step = STEPS[stepIndex];
   // Review, the step before Photos, saves the listing.
-  const isLast = stepIndex === STEPS.length - 2;
+  const isLast = stepIndex === STEPS.length - 3;
   const [saved, setSaved] = useState<{ listing: PartnerListing; body: ListingBody }>();
   const extras = tourExtras(category);
 
@@ -156,20 +157,12 @@ export function TourWizard({
     create.mutate(body, {
       onSuccess: (listing) => {
         setSaved({ listing, body });
-        setStepIndex(STEPS.length - 1);
-        setReached(STEPS.length - 1);
       },
     });
   }
 
   const steps = [...STEPS];
-  if (saved) {
-    return (
-      <WizardLayout steps={steps} current={stepIndex} reached={reached} onSelect={goTo} locked>
-        <NewListingPhotos listing={saved.listing} body={saved.body} />
-      </WizardLayout>
-    );
-  }
+  if (saved) return <NewListingPhotos steps={steps} listing={saved.listing} body={saved.body} />;
 
   return (
     <WizardLayout steps={steps} current={stepIndex} reached={reached} onSelect={goTo} cancel={<WizardCancel href="/partner/listings" icon />}>

@@ -11,6 +11,7 @@ export type ListingOptions = components["schemas"]["listing_options"];
 export type ListingCategory = ListingOptions["categories"][number];
 // What the form sends to add or change a listing.
 export type ListingBody = components["schemas"]["listing_body"];
+export type ListingStatusBody = components["schemas"]["listing_status_body"];
 
 // One cache entry per signed-in partner, so a listing added on /partner/listings/new is on
 // the list when the partner lands back there.
@@ -106,6 +107,31 @@ export function useUpdateListing(id: number) {
         body,
       });
       if (!data) throw saveError(error, "Couldn't save the changes.");
+      return data;
+    },
+    onSuccess: (listing) => {
+      queryClient.setQueryData(partnerListingKey(userId, id), listing);
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: partnerListingsKey(userId) }),
+        queryClient.invalidateQueries({ queryKey: partnerBusinessesKey(userId) }),
+      ]);
+    },
+  });
+}
+
+// Go live, pause, resume or delist one of the partner's listings (RAA-115). The API refuses
+// going live while the listing has live_blockers, with a message saying what's missing.
+export function useChangeListingStatus(id: number) {
+  const userId = useSession()?.user.id;
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (status: ListingStatusBody["status"]) => {
+      const { data, error } = await apiClient().PATCH("/api/v1/partner/listings/{listing_id}/status", {
+        params: { path: { listing_id: id } },
+        body: { status },
+      });
+      if (!data) throw saveError(error, "Couldn't change the listing's status.");
       return data;
     },
     onSuccess: (listing) => {

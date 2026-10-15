@@ -51,14 +51,16 @@ const STEPS = [
   { key: "cancellation", label: "Cancellation policy" },
   { key: "units", label: UNITS_LABEL },
   { key: "photos", label: "Photos" },
+  { key: "status", label: "Listing status" },
 ];
 
 // Adding an accommodation (RAA-83), once its property type is chosen: what guests book,
 // the address, the property info for that place type (RAA-95), amenities, the title and description, the
 // pricing and fees (RAA-105), the cancellation policy (RAA-89), how many identical rooms or units it has
-// (RAA-99) and, last, photos.
+// (RAA-99), then photos and, last, the listing status.
 // Like ListingWizard, only the current step is on the page, every value is kept here and any
-// step already reached opens again (RAA-93); Units saves the draft and then only Photos is open (RAA-109).
+// step already reached opens again (RAA-93); Units saves the draft and then only Photos and Listing status
+// are open (RAA-109).
 export function StayWizard({
   business,
   category,
@@ -74,7 +76,7 @@ export function StayWizard({
   const formRef = useRef<HTMLFormElement>(null);
   const step = STEPS[stepIndex];
   // The last step before Photos saves the listing.
-  const isLast = stepIndex === STEPS.length - 2;
+  const isLast = stepIndex === STEPS.length - 3;
   const [saved, setSaved] = useState<{ listing: PartnerListing; body: ListingBody }>();
 
   const [stay, setStay] = useState<StayValues>(NEW_STAY);
@@ -142,19 +144,11 @@ export function StayWizard({
     create.mutate(body, {
       onSuccess: (listing) => {
         setSaved({ listing, body });
-        setStepIndex(STEPS.length - 1);
-        setReached(STEPS.length - 1);
       },
     });
   }
 
-  if (saved) {
-    return (
-      <WizardLayout steps={STEPS} current={stepIndex} reached={reached} onSelect={goTo} locked>
-        <NewListingPhotos listing={saved.listing} body={saved.body} />
-      </WizardLayout>
-    );
-  }
+  if (saved) return <NewListingPhotos steps={STEPS} listing={saved.listing} body={saved.body} />;
 
   return (
     <WizardLayout steps={STEPS} current={stepIndex} reached={reached} onSelect={goTo} cancel={<WizardCancel href="/partner/listings" icon />}>
