@@ -45,7 +45,7 @@ export default function PartnerListings() {
           </p>
           <Button
             size="pill"
-            variant="glass"
+            variant="quiet"
             onClick={() => {
               if (listings.error) void listings.refetch();
               if (businesses.error) void businesses.refetch();
@@ -57,8 +57,8 @@ export default function PartnerListings() {
       ) : (
         <div role="status" className="flex flex-col gap-4">
           <span className="sr-only">Loading your listings…</span>
-          <div aria-hidden="true" className="h-8 w-48 animate-pulse rounded-control bg-glass-fill" />
-          <div aria-hidden="true" className="h-40 animate-pulse rounded-card bg-glass-fill" />
+          <div aria-hidden="true" className="h-8 w-48 animate-pulse rounded-control bg-mist" />
+          <div aria-hidden="true" className="h-40 animate-pulse rounded-card bg-mist" />
         </div>
       )}
     </main>

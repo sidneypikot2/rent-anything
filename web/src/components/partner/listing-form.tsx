@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
-import { GlassPanel, glassClasses } from "@/components/ui/glass";
 import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
 import { TextareaField } from "@/components/ui/textarea-field";
@@ -268,10 +267,9 @@ export function ListingForm({
                 href={`#${section.id}`}
                 aria-current={section.id === current ? "location" : undefined}
                 className={cn(
-                  glassClasses("dark"),
-                  "flex rounded-full px-3 py-2 text-sm whitespace-nowrap duration-200 hover:bg-glass-hover",
-                  "md:border-transparent md:bg-transparent md:backdrop-blur-none",
-                  "aria-[current=location]:bg-white aria-[current=location]:font-semibold aria-[current=location]:text-navy md:aria-[current=location]:border-white/60 md:aria-[current=location]:bg-white/90",
+                  "flex rounded-full border border-line bg-surface-2 px-3 py-2 text-sm whitespace-nowrap transition-colors duration-200 ease-calm hover:bg-mist",
+                  "md:border-transparent md:bg-transparent",
+                  "aria-[current=location]:bg-mist aria-[current=location]:font-semibold aria-[current=location]:text-primary",
                 )}
               >
                 {section.label}
@@ -283,14 +281,14 @@ export function ListingForm({
 
       <div className="flex min-w-0 flex-col gap-6">
         {update.error && (
-          <GlassPanel role="alert" className="rounded-card px-5 py-4 text-sm font-semibold">
+          <div role="alert" className="rounded-card bg-danger-tint px-5 py-4 text-sm font-semibold text-danger">
             {update.error.message}
-          </GlassPanel>
+          </div>
         )}
         {tourProblems && (
-          <GlassPanel role="alert" className="rounded-card px-5 py-4 text-sm font-semibold">
+          <div role="alert" className="rounded-card bg-danger-tint px-5 py-4 text-sm font-semibold text-danger">
             Check the tour&apos;s details: the sections below say what&apos;s missing.
-          </GlassPanel>
+          </div>
         )}
 
         <EditSection id="about" title="About">

@@ -22,7 +22,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { GlassPanel } from "@/components/ui/glass";
 import { DisplayTitle } from "@/components/ui/typography";
 import { formatPeso } from "@/lib/money";
 import { feeText, nightUnit, stayRateTerms } from "@/lib/pricing";
@@ -47,15 +46,15 @@ export default function PartnerListingPage() {
           <p role="alert" className="text-sm text-danger">
             Couldn&apos;t load the listing.
           </p>
-          <Button size="pill" variant="glass" onClick={() => void refetch()}>
+          <Button size="pill" variant="quiet" onClick={() => void refetch()}>
             Try again
           </Button>
         </div>
       ) : (
         <div role="status" className="flex flex-col gap-4">
           <span className="sr-only">Loading the listing…</span>
-          <div aria-hidden="true" className="h-10 w-72 max-w-full animate-pulse rounded-control bg-glass-fill" />
-          <div aria-hidden="true" className="h-96 animate-pulse rounded-card bg-glass-fill" />
+          <div aria-hidden="true" className="h-10 w-72 max-w-full animate-pulse rounded-control bg-mist" />
+          <div aria-hidden="true" className="h-96 animate-pulse rounded-card bg-mist" />
         </div>
       )}
     </main>
@@ -78,7 +77,7 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
   return (
     <>
       <div className="flex flex-col gap-4">
-        <ButtonLink href="/partner/listings" size="pill" variant="glass" className="-ml-3 self-start">
+        <ButtonLink href="/partner/listings" size="pill" variant="quiet" className="-ml-3 self-start">
           <ArrowGlyph direction="left" className="size-4" />
           Listings
         </ButtonLink>
@@ -242,12 +241,12 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
         </CardBody>
       </Card>
 
-      <GlassPanel className="flex flex-wrap items-center justify-between gap-3 rounded-card px-5 py-4 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-card bg-surface-2 px-5 py-4 text-sm">
         <span>Deleting removes the listing and its photos for good.</span>
         <Button size="pill" variant="danger" onClick={() => setConfirming(true)} data-testid="listing-delete">
           Delete listing
         </Button>
-      </GlassPanel>
+      </div>
 
       <Dialog
         open={confirming}

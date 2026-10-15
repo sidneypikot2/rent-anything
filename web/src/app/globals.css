@@ -97,6 +97,11 @@
   @apply border border-card-edge bg-clip-padding ring-1 ring-card-outline;
 }
 
+/* A blocked day on the partner calendar (RAA-120): fine diagonal lines in line. */
+@utility bg-hatch {
+  background-image: repeating-linear-gradient(135deg, transparent 0 6px, var(--line) 6px 8px);
+}
+
 @utility stagger-1 {
   animation-delay: 120ms;
 }
@@ -163,6 +168,8 @@
   /* Status colours for form states. Not part of the brand palette. */
   --color-danger: #b91c1c;
   --color-danger-hover: #991b1b;
+  /* A day with nothing left to sell on the partner calendar (RAA-120); danger text on it is 5.9:1. */
+  --color-danger-tint: #fef2f2;
   --color-warning: #b45309;
   --font-sans: var(--font-jakarta);
   --font-display: var(--font-jakarta);

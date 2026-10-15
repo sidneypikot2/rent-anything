@@ -5,7 +5,7 @@ export function ListingMissing() {
   return (
     <div data-testid="listing-missing" className="flex flex-col items-start gap-3">
       <p className="text-sm text-muted">This listing doesn&apos;t exist, or it isn&apos;t one of yours.</p>
-      <ButtonLink href="/partner/listings" size="pill" variant="glass">
+      <ButtonLink href="/partner/listings" size="pill" variant="quiet">
         Back to listings
       </ButtonLink>
     </div>

@@ -14,7 +14,7 @@ type Step = { key: string; label: string };
 // furthest one reached can be opened again (RAA-93), so going back loses nothing; the
 // wizard checks the current section before moving forward. Once the listing is saved and
 // only its photos are left (RAA-109), `locked` closes the sections before. The sections sit on
-// the page's glass; the current one is a white card that rises in as it opens (RAA-111). The
+// the page's white sheet; the current one is a card that rises in as it opens (RAA-111). The
 // card's header shows how far along the partner is, as a count and a bar of one segment per
 // section, with `cancel` (the way out, absent once the listing is saved) at its end.
 // Moving to another section takes keyboard focus to it, so a screen reader reads where it
@@ -77,7 +77,7 @@ export function WizardLayout({
                     "flex w-full items-center gap-2 rounded-full px-3 py-2 text-left text-sm whitespace-nowrap",
                     "transition-colors duration-300 ease-calm",
                     active && "bg-surface font-semibold text-foreground shadow-soft",
-                    open && "hover:bg-glass-hover",
+                    open && "hover:bg-mist",
                     !active && !open && "text-muted",
                   )}
                 >
@@ -85,7 +85,7 @@ export function WizardLayout({
                     className={cn(
                       "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs tabular-nums",
                       "transition-colors duration-300 ease-calm",
-                      index <= reached ? "border-primary bg-primary text-white" : "border-glass-edge",
+                      index <= reached ? "border-primary bg-primary text-white" : "border-line-strong",
                       active && "ring-4 ring-sky-mist",
                     )}
                   >
