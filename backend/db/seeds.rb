@@ -102,4 +102,9 @@ unless Rails.env.test?
 
   # The search box reads the search_terms view (RAA-60); fill it from what was just loaded.
   SearchTerm.refresh
+
+  # Live listings need a photo, a description and a price (RAA-115): the sample listings get
+  # theirs, uploaded the way a partner's are, and the sample partners an approved ID check.
+  require Rails.root.join("db/migrate/20261015180000_complete_sample_listings").to_s
+  CompleteSampleListings.complete
 end

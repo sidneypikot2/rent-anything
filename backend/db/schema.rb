@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_15_170000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_15_180001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -185,7 +185,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_170000) do
     t.check_constraint "\"position\" >= 1", name: "listing_fees_position_check"
     t.check_constraint "amount_cents >= 0", name: "listing_fees_amount_check"
     t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 60", name: "listing_fees_name_length_check"
-    t.check_constraint "charged_per::text = ANY (ARRAY['booking'::character varying::text, 'night'::character varying::text, 'guest'::character varying::text, 'guest_night'::character varying::text, 'unit'::character varying::text])", name: "listing_fees_charged_per_check"
+    t.check_constraint "charged_per::text = ANY (ARRAY['booking'::character varying, 'night'::character varying, 'guest'::character varying, 'guest_night'::character varying, 'unit'::character varying]::text[])", name: "listing_fees_charged_per_check"
   end
 
   create_table "listing_landmarks", primary_key: ["listing_id", "landmark_id"], force: :cascade do |t|
@@ -210,7 +210,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_170000) do
     t.index ["created_at"], name: "index_listing_photos_unfinished", where: "(uploaded_at IS NULL)"
     t.check_constraint "\"position\" >= 1", name: "listing_photos_position_check"
     t.check_constraint "byte_size > 0", name: "listing_photos_byte_size_check"
-    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying::text, 'image/png'::character varying::text, 'image/webp'::character varying::text])", name: "listing_photos_content_type_check"
+    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "listing_photos_content_type_check"
     t.unique_constraint ["listing_id", "position"], deferrable: :deferred, name: "listing_photos_listing_id_position_key"
   end
 
@@ -385,11 +385,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_170000) do
     t.datetime "updated_at", null: false
     t.index ["listing_id"], name: "index_tour_details_on_listing_id", unique: true
     t.check_constraint "base_price_cents >= 0", name: "tour_details_base_price_check"
-    t.check_constraint "duration_unit::text = ANY (ARRAY['hours'::character varying::text, 'days'::character varying::text])", name: "tour_details_duration_unit_check"
+    t.check_constraint "duration_unit::text = ANY (ARRAY['hours'::character varying, 'days'::character varying]::text[])", name: "tour_details_duration_unit_check"
     t.check_constraint "duration_value >= 1 AND duration_value <=\nCASE duration_unit\n    WHEN 'hours'::text THEN 24\n    ELSE 30\nEND", name: "tour_details_duration_value_check"
     t.check_constraint "max_groups_per_day >= 1 AND max_groups_per_day <= 100", name: "tour_details_max_groups_check"
     t.check_constraint "min_guests >= 1 AND max_guests >= min_guests AND max_guests <= 100", name: "tour_details_guests_check"
-    t.check_constraint "tour_type::text = ANY (ARRAY['private'::character varying::text, 'joiner'::character varying::text])", name: "tour_details_tour_type_check"
+    t.check_constraint "tour_type::text = ANY (ARRAY['private'::character varying, 'joiner'::character varying]::text[])", name: "tour_details_tour_type_check"
     t.check_constraint "weekdays <@ '{0,1,2,3,4,5,6}'::integer[]", name: "tour_details_weekdays_check"
   end
 
@@ -403,7 +403,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_170000) do
     t.datetime "updated_at", null: false
     t.index ["listing_id", "kind"], name: "index_tour_inclusions_on_listing_id_and_kind", unique: true
     t.check_constraint "char_length(note::text) <= 120", name: "tour_inclusions_note_length_check"
-    t.check_constraint "kind::text = ANY (ARRAY['accommodation'::character varying::text, 'transport'::character varying::text, 'meal'::character varying::text])", name: "tour_inclusions_kind_check"
+    t.check_constraint "kind::text = ANY (ARRAY['accommodation'::character varying, 'transport'::character varying, 'meal'::character varying]::text[])", name: "tour_inclusions_kind_check"
     t.check_constraint "price_per_head_cents >= 0", name: "tour_inclusions_price_check"
   end
 
@@ -527,7 +527,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_170000) do
                JOIN area_popularity ON ((area_popularity.id = areas.id)))
             WHERE ((areas.status)::text = 'published'::text)
           UNION ALL
-           SELECT 'Landmark'::text,
+           SELECT 'Landmark'::text AS text,
               landmarks.id,
               landmarks.name,
               (landmarks.aliases || landmarks.wikidata_aliases),
@@ -538,7 +538,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_170000) do
              FROM landmarks
             WHERE ((landmarks.status)::text = 'published'::text)
           UNION ALL
-           SELECT 'Tag'::text,
+           SELECT 'Tag'::text AS text,
               tags.id,
               tags.name,
               tags.aliases,
@@ -559,7 +559,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_170000) do
            SELECT targets.target_type,
               targets.target_id,
               alias_name.alias_name,
-              'alias'::text,
+              'alias'::text AS text,
               1,
               targets.score
              FROM targets,
