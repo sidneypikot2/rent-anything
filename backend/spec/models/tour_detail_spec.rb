@@ -16,12 +16,11 @@ RSpec.describe TourDetail do
     expect(messages(detail(listing: other))).to include("Only tours have tour details")
   end
 
-  it "keeps the group size, duration and weekdays in range" do
+  it "keeps the group size and duration in range" do
     expect(detail).to be_valid
     expect(messages(detail(min_guests: 5, max_guests: 4))).to include("Max guests can't be fewer than the minimum guests")
     expect(messages(detail(duration_value: 25))).to include("Duration value can be at most 24 hours")
     expect(detail(duration_value: 30, duration_unit: "days")).to be_valid
-    expect(messages(detail(weekdays: [ 7 ]))).to include("Weekdays must be days of the week, 0 (Sunday) to 6 (Saturday)")
     expect(messages(detail(tour_type: "both"))).to include("Tour type is not included in the list")
   end
 

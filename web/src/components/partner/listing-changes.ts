@@ -13,10 +13,6 @@ const ADDRESS_LABELS = {
 // A stay's rooms are its beds, by bedroom (RAA-95).
 const LABELS: Record<string, string> = { engine_cc: "Engine size (cc)", rooms: "Beds" };
 
-// Attrs the team dropped (RAA-111) that the tour category's schema still has until the backend
-// removes them: never shown, edited or sent, so a save clears them from the listing.
-export const RETIRED_ATTRS = new Set(["life_vests"]);
-
 // "duration_hours" → "Duration hours": how a category's attribute is labelled everywhere.
 export function attributeLabel(key: string) {
   if (LABELS[key]) return LABELS[key];
@@ -99,7 +95,6 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
 
   const attrs = body.attrs ?? {};
   for (const key of new Set([...Object.keys(listing.attrs), ...Object.keys(attrs)])) {
-    if (RETIRED_ATTRS.has(key)) continue;
     if (displayValue(listing.attrs[key], key) !== displayValue(attrs[key], key)) changes.push(attributeLabel(key));
   }
   return changes;

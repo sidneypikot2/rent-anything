@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { ArrowGlyph } from "@/components/discovery/tag-glyphs";
 import { cancellationPolicyName } from "@/components/partner/cancellation-policy";
-import { attributeLabel, displayValue, RETIRED_ATTRS } from "@/components/partner/listing-changes";
+import { attributeLabel, displayValue } from "@/components/partner/listing-changes";
 import { visitsLandmarks } from "@/components/partner/listing-fields";
 import { ListingMissing } from "@/components/partner/listing-missing";
 import { PhotoStrip } from "@/components/partner/listing-photos";
@@ -69,7 +69,7 @@ function ListingDetail({ listing }: { listing: PartnerListing }) {
   const status = STATUS[listing.status];
   const { street, city, province, region, postal_code } = listing.address;
   const address = [street, city, province, region].filter(Boolean).join(", ") + (postal_code ? ` ${postal_code}` : "");
-  const attrs = Object.entries(listing.attrs).filter(([key]) => !RETIRED_ATTRS.has(key));
+  const attrs = Object.entries(listing.attrs);
   const policies = useListingOptions().data?.cancellation_policies;
   const rate = listing.stay_rate;
   const perGuest = listing.attrs.place_type === "shared_room";

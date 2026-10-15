@@ -24,7 +24,7 @@ class Listing < ApplicationRecord
       description: "Free to cancel at least 14 days before the booking starts; non-refundable within 14 days." }
   }.freeze
   # What TourSerializer reads, to preload (RAA-110).
-  TOUR_ASSOCIATIONS = %i[tour_detail tour_dates tour_inclusions availability_blocks].freeze
+  TOUR_ASSOCIATIONS = %i[tour_detail tour_inclusions].freeze
 
   belongs_to :area
   belongs_to :partner, class_name: "User"
@@ -44,13 +44,10 @@ class Listing < ApplicationRecord
   has_one :stay_rate, dependent: :delete, inverse_of: :listing
   # Extra charges, for any category (RAA-104); the foreign keys cascade too.
   has_many :fees, -> { order(:position) }, class_name: "ListingFee", dependent: :delete_all, inverse_of: :listing
-  # A tour's type, group size, schedule and price (RAA-110); every tour has one. Its extra
-  # dates and what it includes come with it; the foreign keys cascade too.
+  # A tour's type, group size and price (RAA-110); every tour has one. What it includes comes
+  # with it; the foreign keys cascade too.
   has_one :tour_detail, dependent: :delete, inverse_of: :listing
-  has_many :tour_dates, -> { order(:date) }, dependent: :delete_all, inverse_of: :listing
   has_many :tour_inclusions, -> { order(:kind) }, dependent: :delete_all, inverse_of: :listing
-  # Days it takes no bookings (RAA-110), for any category.
-  has_many :availability_blocks, -> { order(:starts_on) }, dependent: :delete_all, inverse_of: :listing
   # Its photos in the partner's order (RAA-106), with those still uploading. Destroyed one by
   # one so each one's files are deleted from storage too.
   has_many :photos, -> { order(:position) }, class_name: "ListingPhoto", dependent: :destroy, inverse_of: :listing

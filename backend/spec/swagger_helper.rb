@@ -402,10 +402,6 @@ RSpec.configure do |config|
                 allOf: [ { "$ref" => "#/components/schemas/partner_tour" } ], nullable: true,
                 description: "A tour's details (RAA-110); null for any other category"
               },
-              blocked_dates: {
-                type: :array, items: { "$ref" => "#/components/schemas/blocked_date" },
-                description: "Days it takes no bookings, by start; those already ended are left out"
-              },
               business: {
                 type: :object,
                 properties: { id: { type: :integer }, name: { type: :string } },
@@ -428,7 +424,7 @@ RSpec.configure do |config|
               updated_at: { type: :string, format: "date-time" }
             },
             required: %w[id title description status live_blockers category area address location attrs cancellation_policy units_count
-              stay_rate fees tour blocked_dates business landmarks covers photos photo_limit created_at updated_at]
+              stay_rate fees tour business landmarks covers photos photo_limit created_at updated_at]
           },
           # A business a partner runs (RAA-100); its listings are shown under its name.
           partner_business: {
@@ -539,14 +535,8 @@ RSpec.configure do |config|
               tour: {
                 allOf: [ { "$ref" => "#/components/schemas/tour_body" } ],
                 description: "Tours only (category slug `tour`), and required on a new one or one moved into it: " \
-                  "replaces the tour's details, dates and inclusions when sent; left out on a change, they stay. " \
+                  "replaces the tour's details and inclusions when sent; left out on a change, they stay. " \
                   "Refused for any other category."
-              },
-              blocked_dates: {
-                type: :array, items: { "$ref" => "#/components/schemas/blocked_date" }, maxItems: 366,
-                description: "Any category. Days it takes no bookings, which may not overlap and must end today or " \
-                  "later (one the listing already has may be sent back once past). Replaces them when sent; left " \
-                  "out on a change, they stay."
               },
               photos: {
                 type: :array, items: { type: :integer }, maxItems: 12,
@@ -607,15 +597,6 @@ RSpec.configure do |config|
               },
               duration_value: { type: :integer, minimum: 1 },
               duration_unit: { type: :string, enum: %w[hours days] },
-              weekdays: {
-                type: :array, items: { type: :integer, minimum: 0, maximum: 6 },
-                description: "The days of the week it runs, 0 Sunday to 6 Saturday, sorted; empty: specific dates only"
-              },
-              dates: {
-                type: :array, items: { type: :string, format: :date },
-                description: "Extra days it runs besides its weekdays, today or later, sorted. Start days for a " \
-                  "multi-day tour"
-              },
               base_price_cents: { type: :integer, minimum: 0, description: "0: no price yet (tours made before RAA-110)" },
               price_unit: { type: :string, enum: %w[group person], description: "Private: group; joiner: person" },
               inclusions: {
@@ -623,7 +604,7 @@ RSpec.configure do |config|
                 description: "accommodation, meal, transport, each at most once"
               }
             },
-            required: %w[tour_type min_guests max_guests max_groups_per_day duration_value duration_unit weekdays dates
+            required: %w[tour_type min_guests max_guests max_groups_per_day duration_value duration_unit
               base_price_cents price_unit inclusions]
           },
           guest_tour: {
@@ -634,21 +615,16 @@ RSpec.configure do |config|
               max_guests: { type: :integer },
               duration_value: { type: :integer },
               duration_unit: { type: :string, enum: %w[hours days] },
-              weekdays: { type: :array, items: { type: :integer }, description: "As in partner_tour" },
               base_price_cents: { type: :integer },
               price_unit: { type: :string, enum: %w[group person] },
-              open_dates: {
-                type: :array, items: { type: :string, format: :date },
-                description: "The days it runs (starts) over the next 60 days from today, blocked days left out"
-              },
               inclusions: { type: :array, items: { "$ref" => "#/components/schemas/tour_inclusion" } }
             },
-            required: %w[tour_type min_guests max_guests duration_value duration_unit weekdays base_price_cents
-              price_unit open_dates inclusions]
+            required: %w[tour_type min_guests max_guests duration_value duration_unit base_price_cents price_unit
+              inclusions]
           },
           tour_body: {
             type: :object,
-            description: "The whole tour, replaced when sent. It must run on at least one weekday or date.",
+            description: "The whole tour, replaced when sent. A tour runs every day.",
             properties: {
               tour_type: { "$ref" => "#/components/schemas/tour_type" },
               min_guests: { type: :integer, minimum: 1, maximum: 100 },
@@ -656,29 +632,13 @@ RSpec.configure do |config|
               max_groups_per_day: { type: :integer, minimum: 1, maximum: 100 },
               duration_value: { type: :integer, minimum: 1, description: "At most 24 hours or 30 days" },
               duration_unit: { type: :string, enum: %w[hours days] },
-              weekdays: { type: :array, items: { type: :integer, minimum: 0, maximum: 6 } },
-              dates: {
-                type: :array, items: { type: :string, format: :date }, maxItems: 366,
-                description: "Today or later; one the tour already has may be sent back once past"
-              },
               base_price_cents: { type: :integer, minimum: 1 },
               inclusions: {
                 type: :array, items: { "$ref" => "#/components/schemas/tour_inclusion_body" }, maxItems: 3,
                 description: "Left out: none"
               }
             },
-            required: %w[tour_type min_guests max_guests max_groups_per_day duration_value duration_unit weekdays dates
-              base_price_cents]
-          },
-          # Days a listing takes no bookings (RAA-110), both ends included.
-          blocked_date: {
-            type: :object,
-            properties: {
-              starts_on: { type: :string, format: :date },
-              ends_on: { type: :string, format: :date, description: "On or after starts_on; the same day for one day" },
-              reason: { type: :string, maxLength: 120, nullable: true }
-            },
-            required: %w[starts_on ends_on reason]
+            required: %w[tour_type min_guests max_guests max_groups_per_day duration_value duration_unit base_price_cents]
           },
           # Accommodation's nightly pricing (RAA-104). Money is in centavos.
           stay_rate: {

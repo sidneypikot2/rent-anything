@@ -3,9 +3,9 @@
 # revealed only after a paid booking. The business offering it and how many units it has
 # (RAA-100): "by Basilia Guest House · 5 rooms". An area page's rows reuse its summary and
 # offered_by. Its pricing (RAA-104): a stay's nightly rate once it has a price, the guests it
-# sleeps, and its fees. Its ready photos in the partner's order (RAA-106). A tour's details and
-# the days it runs (RAA-110). Preload business, category, units, stay_rate, fees,
-# ready_photos, tour_detail, tour_dates, tour_inclusions and availability_blocks.
+# sleeps, and its fees. Its ready photos in the partner's order (RAA-106). A tour's details
+# (RAA-110). Preload business, category, units, stay_rate, fees, ready_photos, tour_detail
+# and tour_inclusions.
 module ListingDetailSerializer
   SUMMARY_LENGTH = 160
 
