@@ -20,7 +20,7 @@ RSpec.describe "Search", type: :request do
   let!(:camera) { create(:category, slug: "action-camera", name: "Action camera") }
   let!(:gopro) { create(:listing, area: bantayan, category: camera, title: "GoPro Hero 12 with dive housing") }
   let!(:city_gopro) { create(:listing, area: cebu_city, category: camera, title: "Sony mirrorless camera") }
-  let!(:pending_gopro) { create(:listing, :pending, area: cebu_city, category: camera, title: "GoPro Hero 11") }
+  let!(:paused_gopro) { create(:listing, :paused, area: cebu_city, category: camera, title: "GoPro Hero 11") }
 
   # Areas, landmarks and tags are searched through the search_terms view (RAA-60).
   before { SearchTerm.refresh }

@@ -47,7 +47,7 @@ RSpec.describe Area do
     end
 
     it "ignores listings that are not active" do
-      create(:listing, :pending)
+      create(:listing, :paused)
 
       expect(described_class.browsable).to be_empty
     end

@@ -179,7 +179,7 @@ RSpec.describe "Trips", type: :request do
 
       response "422", "a listing that can't be booked" do
         schema "$ref" => "#/components/schemas/validation_errors"
-        let(:listing_id) { create(:listing, :pending).id }
+        let(:listing_id) { create(:listing, :paused).id }
 
         run_test! do |response|
           expect(response.parsed_body["errors"]).to eq([ "That listing isn't available to book" ])

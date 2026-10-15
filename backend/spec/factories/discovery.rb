@@ -79,8 +79,9 @@ FactoryBot.define do
     # Every listing has at least one unit (RAA-98); Listings::Create makes them in the app.
     after(:create) { |listing| listing.units.create!(position: 1) if listing.units.none? }
 
-    trait :pending do
-      status { "pending" }
+    # Off to guests until the partner resumes it (RAA-115).
+    trait :paused do
+      status { "paused" }
     end
 
     # An entire place sleeping 4, at ₱2,000 a night for up to 2 guests (RAA-104).

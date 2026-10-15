@@ -59,6 +59,8 @@ Rails.application.routes.draw do
         resources :listings, only: %i[index show create update destroy] do
           # Its photos (RAA-106); the files go straight to storage.
           resources :photos, only: %i[create update destroy], controller: "listing_photos"
+          # Go live, pause, resume, delist (RAA-115).
+          resource :status, only: :update, controller: "listing_statuses"
         end
         resource :listing_options, only: :show
         # The tour landmark picker (RAA-70).

@@ -614,7 +614,7 @@ export interface paths {
         };
         /**
          * One active listing, as a traveller sees it
-         * @description An active listing's description, category, area, business and number of units. Never its location or address: the exact point is revealed only after a paid booking. Draft and pending listings are a 404.
+         * @description An active listing's description, category, area, business and number of units. Never its location or address: the exact point is revealed only after a paid booking. Draft, paused and delisted listings are a 404.
          */
         get: {
             parameters: {
@@ -1625,6 +1625,13 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description the last ready photo of a live listing */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
         options?: never;
@@ -1679,6 +1686,89 @@ export interface paths {
                     };
                 };
                 /** @description anything but uploaded: true */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/partner/listings/{listing_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a listing's status
+         * @description Partner-only (RAA-115). `active` goes live from a draft, paused or delisted listing, and needs everything in `live_blockers` first: there is no review. `paused` takes a live listing off for now, `delisted` takes a live or paused one off the marketplace. Only active listings reach guests. The status it already has changes nothing. Another partner's listing is a 404.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["listing_status_body"];
+                };
+            };
+            responses: {
+                /** @description the status it already has */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_listing"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a status we don't know, or not text */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -3559,8 +3649,13 @@ export interface components {
             id: number;
             title: string;
             description: string;
-            /** @enum {string} */
-            status: "draft" | "pending" | "active";
+            /**
+             * @description draft, active (live: guests see it), paused or delisted; only active reaches guests
+             * @enum {string}
+             */
+            status: "draft" | "active" | "paused" | "delisted";
+            /** @description What it still needs to go live: a ready photo, a description, a price (stays and tours) and a landmark on an activity's route. Empty when it can go live. */
+            live_blockers: ("photo" | "description" | "price" | "route")[];
             category: {
                 id: number;
                 slug: string;
@@ -3658,6 +3753,10 @@ export interface components {
                 name: string;
                 landmark_count: number;
             }[];
+        };
+        listing_status_body: {
+            /** @enum {string} */
+            status: "active" | "paused" | "delisted";
         };
         listing_body: {
             title: string;

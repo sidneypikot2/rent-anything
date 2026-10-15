@@ -20,7 +20,7 @@ module Api
         end
 
         def destroy
-          @listing.photos.find(params[:id]).destroy!
+          ListingPhotos::Destroy.call(@listing, @listing.photos.find(params[:id]))
           head :no_content
         end
 

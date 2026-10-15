@@ -11,7 +11,7 @@ RSpec.describe "Listings", type: :request do
   end
 
   before do
-    create(:listing, :pending, area: moalboal, category: camera, title: "Pending camera")
+    create(:listing, :paused, area: moalboal, category: camera, title: "Paused camera")
     create(:listing, area: moalboal, category: camera, title: "Draft camera", status: "draft")
   end
 
@@ -43,7 +43,7 @@ RSpec.describe "Listings", type: :request do
       produces "application/json"
       description "An active listing's description, category, area, business and number of units. Never its " \
         "location or address: " \
-        "the exact point is revealed only after a paid booking. Draft and pending listings are a 404."
+        "the exact point is revealed only after a paid booking. Draft, paused and delisted listings are a 404."
       parameter name: :id, in: :path, type: :integer
 
       response "200", "an active listing" do
@@ -180,9 +180,9 @@ RSpec.describe "Listings", type: :request do
         end
       end
 
-      response "404", "a pending listing" do
+      response "404", "a paused listing" do
         schema "$ref" => "#/components/schemas/error"
-        let(:id) { Listing.find_by!(title: "Pending camera").id }
+        let(:id) { Listing.find_by!(title: "Paused camera").id }
 
         run_test!
       end

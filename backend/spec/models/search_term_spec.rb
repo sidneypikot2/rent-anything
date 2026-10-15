@@ -37,7 +37,7 @@ RSpec.describe SearchTerm do
 
   it "counts listings and landmarks under an area, and picks in the last 90 days, as popularity" do
     create_list(:listing, 2, area: moalboal)
-    create(:listing, :pending, area: moalboal)
+    create(:listing, :paused, area: moalboal)
     create(:landmark, area: moalboal)
     create(:search_event, target: moalboal)
     create(:search_event, target: moalboal, created_at: 91.days.ago)

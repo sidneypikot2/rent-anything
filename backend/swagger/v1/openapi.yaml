@@ -392,7 +392,7 @@ paths:
       - Discovery
       description: 'An active listing''s description, category, area, business and
         number of units. Never its location or address: the exact point is revealed
-        only after a paid booking. Draft and pending listings are a 404.'
+        only after a paid booking. Draft, paused and delisted listings are a 404.'
       parameters:
       - name: id
         in: path
@@ -1136,12 +1136,73 @@ paths:
       responses:
         '204':
           description: deleted, with its files
+        '422':
+          description: the last ready photo of a live listing
         '404':
           description: a photo of another partner's listing
         '403':
           description: a guest
         '401':
           description: signed out
+  "/api/v1/partner/listings/{listing_id}/status":
+    patch:
+      summary: Change a listing's status
+      tags:
+      - Partner
+      description: 'Partner-only (RAA-115). `active` goes live from a draft, paused
+        or delisted listing, and needs everything in `live_blockers` first: there
+        is no review. `paused` takes a live listing off for now, `delisted` takes
+        a live or paused one off the marketplace. Only active listings reach guests.
+        The status it already has changes nothing. Another partner''s listing is a
+        404.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      - name: listing_id
+        in: path
+        schema:
+          type: integer
+        required: true
+      responses:
+        '200':
+          description: the status it already has
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_listing"
+        '422':
+          description: a status we don't know, or not text
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another partner's listing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/listing_status_body"
   "/api/v1/partner/listings":
     get:
       summary: The signed-in partner's listings
@@ -2928,8 +2989,23 @@ components:
           type: string
           enum:
           - draft
-          - pending
           - active
+          - paused
+          - delisted
+          description: 'draft, active (live: guests see it), paused or delisted; only
+            active reaches guests'
+        live_blockers:
+          type: array
+          items:
+            type: string
+            enum:
+            - photo
+            - description
+            - price
+            - route
+          description: 'What it still needs to go live: a ready photo, a description,
+            a price (stays and tours) and a landmark on an activity''s route. Empty
+            when it can go live.'
         category:
           type: object
           properties:
@@ -3036,6 +3112,7 @@ components:
       - title
       - description
       - status
+      - live_blockers
       - category
       - area
       - address
@@ -3194,6 +3271,17 @@ components:
       required:
       - landmarks
       - destinations
+    listing_status_body:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - active
+          - paused
+          - delisted
+      required:
+      - status
     listing_body:
       type: object
       properties:

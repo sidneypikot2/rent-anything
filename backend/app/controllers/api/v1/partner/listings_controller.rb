@@ -45,8 +45,7 @@ module Api
         end
 
         def with_landmarks
-          current_user.listings.includes(:business, :category, :area, :units, :stay_rate, :fees, :photos,
-            *Listing::TOUR_ASSOCIATIONS, visited_landmarks: :area)
+          current_user.listings.includes(*PartnerListingSerializer::ASSOCIATIONS)
         end
 
         def listing_params

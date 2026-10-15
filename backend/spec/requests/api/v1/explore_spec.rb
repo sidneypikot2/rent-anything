@@ -61,7 +61,7 @@ RSpec.describe "Explore", type: :request do
   let!(:oslob_tour) { offer(oslob, "Oslob whale shark tour", "123.43 9.47") }
   let!(:sagada_room) { offer(sagada, "Sagada inn", "120.90 17.08") }
   let!(:baguio_room) { offer(baguio, "Baguio hotel", "120.59 16.41") }
-  let!(:pending_tour) { create(:listing, :pending, area: moalboal, category: camera, location: "POINT(123.37 9.94)") }
+  let!(:paused_tour) { create(:listing, :paused, area: moalboal, category: camera, location: "POINT(123.37 9.94)") }
 
   before do
     link(moalboal, badian)

@@ -364,7 +364,15 @@ RSpec.configure do |config|
               id: { type: :integer },
               title: { type: :string },
               description: { type: :string },
-              status: { type: :string, enum: %w[draft pending active] },
+              status: {
+                type: :string, enum: Listing::STATUSES,
+                description: "draft, active (live: guests see it), paused or delisted; only active reaches guests"
+              },
+              live_blockers: {
+                type: :array, items: { type: :string, enum: Listing::LIVE_BLOCKERS.keys },
+                description: "What it still needs to go live: a ready photo, a description, a price (stays and " \
+                  "tours) and a landmark on an activity's route. Empty when it can go live."
+              },
               category: {
                 type: :object,
                 properties: {
@@ -419,7 +427,7 @@ RSpec.configure do |config|
               created_at: { type: :string, format: "date-time" },
               updated_at: { type: :string, format: "date-time" }
             },
-            required: %w[id title description status category area address location attrs cancellation_policy units_count
+            required: %w[id title description status live_blockers category area address location attrs cancellation_policy units_count
               stay_rate fees tour blocked_dates business landmarks covers photos photo_limit created_at updated_at]
           },
           # A business a partner runs (RAA-100); its listings are shown under its name.
@@ -483,6 +491,13 @@ RSpec.configure do |config|
             required: %w[landmarks destinations]
           },
           # What a partner sends to add or change a listing; `status` is never taken from it.
+          listing_status_body: {
+            type: :object,
+            properties: {
+              status: { type: :string, enum: %w[active paused delisted] }
+            },
+            required: %w[status]
+          },
           listing_body: {
             type: :object,
             properties: {
