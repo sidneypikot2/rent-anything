@@ -41,7 +41,7 @@ const SWATCHES = [
 const CATEGORIES = ["Tours", "Transfers", "Motorbikes", "Freediving", "Stays"];
 
 const ICON_TAGS = ["sightseeing", "snorkelling", "island-hopping", "freediving", "swimming", "sunset-viewing", "hiking", "photography"];
-const ICON_CATEGORIES = ["Tour", "Hotel or cottage", "Motorcycle", "Bicycle", "E-trike", "Van transfer", "Snorkel gear", "Camera"];
+const ICON_CATEGORIES = ["Tour", "Hotel or cottage", "Motorcycle", "Van transfer", "Action camera", "Snorkel gear", "Camera"];
 
 // A reference page for the palette and every component in src/components/ui/. Build new
 // pages from these rather than from raw colours.

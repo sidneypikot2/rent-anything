@@ -50,12 +50,9 @@ const AREAS: Record<string, string[]> = {
 
 const CATEGORIES: Record<string, string[]> = {
   Tour: SAILBOAT,
-  Photographer: CAMERA,
   Camera: CAMERA,
   "Hotel or cottage": HUT,
   Motorcycle: [circle(5, 17, 3), circle(19, 17, 3), "M5 17l4-6h5l3 6", "M12 11l-1-4h3", "M14 11h4"],
-  Bicycle: BICYCLE,
-  "E-trike": [circle(6, 18, 2), circle(16, 18, 2), "M4 17V9h9v8", "M13 13h4l3 4", "M4 9l2-3h7"],
   "Action camera": ["M4 8h11v9H4Z", "M15 11l5-2v7l-5-2", circle(9.5, 12.5, 2)],
   "Snorkel gear": SNORKEL,
   "Van transfer": ["M3 16V8a2 2 0 0 1 2-2h10l5 5v5Z", "M3 11h17", circle(7, 17, 2), circle(17, 17, 2)],

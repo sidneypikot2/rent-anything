@@ -37,7 +37,7 @@ import type { PartnerLandmark } from "./use-partner-landmarks";
 type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "photos" | "cancellation" | "units";
 
 // Adding a listing of the chosen category (RAA-50), one step at a time: Basic, Location,
-// Route (the landmarks a tour visits, RAA-70; not a photographer, RAA-89), the category's
+// Route (the landmarks a tour visits, RAA-70), the category's
 // own details (skipped when it has none; a vehicle's make, model, engine and color, RAA-89),
 // the cancellation policy (RAA-89), how many identical units it has (RAA-99) and,
 // last, photos. Only the current step is on the page, so the browser's required checks
