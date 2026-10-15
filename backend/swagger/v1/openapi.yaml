@@ -3066,12 +3066,6 @@ components:
           - "$ref": "#/components/schemas/partner_tour"
           nullable: true
           description: A tour's details (RAA-110); null for any other category
-        blocked_dates:
-          type: array
-          items:
-            "$ref": "#/components/schemas/blocked_date"
-          description: Days it takes no bookings, by start; those already ended are
-            left out
         business:
           type: object
           properties:
@@ -3123,7 +3117,6 @@ components:
       - stay_rate
       - fees
       - tour
-      - blocked_dates
       - business
       - landmarks
       - covers
@@ -3377,16 +3370,8 @@ components:
           allOf:
           - "$ref": "#/components/schemas/tour_body"
           description: 'Tours only (category slug `tour`), and required on a new one
-            or one moved into it: replaces the tour''s details, dates and inclusions
-            when sent; left out on a change, they stay. Refused for any other category.'
-        blocked_dates:
-          type: array
-          items:
-            "$ref": "#/components/schemas/blocked_date"
-          maxItems: 366
-          description: Any category. Days it takes no bookings, which may not overlap
-            and must end today or later (one the listing already has may be sent back
-            once past). Replaces them when sent; left out on a change, they stay.
+            or one moved into it: replaces the tour''s details and inclusions when
+            sent; left out on a change, they stay. Refused for any other category.'
         photos:
           type: array
           items:
@@ -3497,21 +3482,6 @@ components:
           enum:
           - hours
           - days
-        weekdays:
-          type: array
-          items:
-            type: integer
-            minimum: 0
-            maximum: 6
-          description: 'The days of the week it runs, 0 Sunday to 6 Saturday, sorted;
-            empty: specific dates only'
-        dates:
-          type: array
-          items:
-            type: string
-            format: date
-          description: Extra days it runs besides its weekdays, today or later, sorted.
-            Start days for a multi-day tour
         base_price_cents:
           type: integer
           minimum: 0
@@ -3534,8 +3504,6 @@ components:
       - max_groups_per_day
       - duration_value
       - duration_unit
-      - weekdays
-      - dates
       - base_price_cents
       - price_unit
       - inclusions
@@ -3555,11 +3523,6 @@ components:
           enum:
           - hours
           - days
-        weekdays:
-          type: array
-          items:
-            type: integer
-          description: As in partner_tour
         base_price_cents:
           type: integer
         price_unit:
@@ -3567,13 +3530,6 @@ components:
           enum:
           - group
           - person
-        open_dates:
-          type: array
-          items:
-            type: string
-            format: date
-          description: The days it runs (starts) over the next 60 days from today,
-            blocked days left out
         inclusions:
           type: array
           items:
@@ -3584,15 +3540,12 @@ components:
       - max_guests
       - duration_value
       - duration_unit
-      - weekdays
       - base_price_cents
       - price_unit
-      - open_dates
       - inclusions
     tour_body:
       type: object
-      description: The whole tour, replaced when sent. It must run on at least one
-        weekday or date.
+      description: The whole tour, replaced when sent. A tour runs every day.
       properties:
         tour_type:
           "$ref": "#/components/schemas/tour_type"
@@ -3618,20 +3571,6 @@ components:
           enum:
           - hours
           - days
-        weekdays:
-          type: array
-          items:
-            type: integer
-            minimum: 0
-            maximum: 6
-        dates:
-          type: array
-          items:
-            type: string
-            format: date
-          maxItems: 366
-          description: Today or later; one the tour already has may be sent back once
-            past
         base_price_cents:
           type: integer
           minimum: 1
@@ -3648,27 +3587,7 @@ components:
       - max_groups_per_day
       - duration_value
       - duration_unit
-      - weekdays
-      - dates
       - base_price_cents
-    blocked_date:
-      type: object
-      properties:
-        starts_on:
-          type: string
-          format: date
-        ends_on:
-          type: string
-          format: date
-          description: On or after starts_on; the same day for one day
-        reason:
-          type: string
-          maxLength: 120
-          nullable: true
-      required:
-      - starts_on
-      - ends_on
-      - reason
     stay_rate:
       type: object
       properties:

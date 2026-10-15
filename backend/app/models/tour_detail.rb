@@ -1,10 +1,8 @@
 # What a tour is (RAA-110), one row per listing in the `tour` category. A private tour is
 # booked by one group: base_price is per group, and each inclusion the group picks adds its
 # price per head. A joiner tour sells seats: base_price is per head, its inclusions bundled in.
-# It runs on its weekdays (Date#wday: 0 Sunday … 6 Saturday) and its extra tour_dates, never
-# on an availability_block (Tours::Schedule); for a multi-day tour those are start days.
-# max_groups_per_day caps the bookings a day takes (private) or the groups filled to
-# max_guests (joiner), enforced with bookings in M3. A base price of 0 is "no price yet": the
+# It runs every day (RAA-117); max_groups_per_day caps the bookings a day takes (private) or
+# the groups filled to max_guests (joiner), enforced with bookings in M3. A base price of 0 is "no price yet": the
 # tours made before RAA-110 have one until their partners set it.
 class TourDetail < ApplicationRecord
   TOUR_TYPES = %w[private joiner].freeze
@@ -12,7 +10,6 @@ class TourDetail < ApplicationRecord
   MAX_GROUPS_PER_DAY = 100
   # The longest tour, per unit.
   DURATION_UNITS = { "hours" => 24, "days" => 30 }.freeze
-  WEEKDAYS = (0..6).to_a.freeze
 
   belongs_to :listing, inverse_of: :tour_detail
 
@@ -25,7 +22,6 @@ class TourDetail < ApplicationRecord
   validate :listing_is_a_tour
   validate :max_guests_from_min_guests
   validate :duration_within_unit
-  validate :weekdays_are_days
 
   def private_tour?
     tour_type == "private"
@@ -61,9 +57,5 @@ class TourDetail < ApplicationRecord
     return unless longest && duration_value.is_a?(Integer) && duration_value > longest
 
     errors.add(:duration_value, "can be at most #{longest} #{duration_unit}")
-  end
-
-  def weekdays_are_days
-    errors.add(:weekdays, "must be days of the week, 0 (Sunday) to 6 (Saturday)") unless (weekdays - WEEKDAYS).empty?
   end
 end
