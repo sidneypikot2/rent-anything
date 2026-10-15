@@ -2,9 +2,9 @@
 # spec/swagger_helper.rb). The exact location is fine here: the reader owns the listing.
 # A tour's landmarks come by name, and `covers` is the destinations they're in (RAA-70).
 # Its photos, still uploading ones too, come with the ids a change sends back (RAA-106).
-# A tour's details and any listing's blocked dates (RAA-110), and how many photos it takes.
-# Preload units, stay_rate, fees, photos, tour_detail, tour_dates, tour_inclusions,
-# availability_blocks and visited_landmarks: :area, and pass destinations for a list.
+# A tour's details (RAA-110), and how many photos it takes. Preload units, stay_rate, fees,
+# photos, tour_detail, tour_inclusions and visited_landmarks: :area, and pass destinations
+# for a list.
 module PartnerListingSerializer
   def self.call(listing, destinations: PartnerLandmarkSerializer.destinations_for(listing.visited_landmarks))
     category = listing.category
@@ -24,7 +24,6 @@ module PartnerListingSerializer
       stay_rate: PricingSerializer.stay_rate(listing.stay_rate),
       fees: PricingSerializer.fees(listing),
       tour: TourSerializer.partner(listing),
-      blocked_dates: TourSerializer.blocked_dates(listing),
       business: { id: listing.business.id, name: listing.business.name },
       landmarks:,
       covers: landmarks.filter_map { |landmark| landmark[:destination] }.uniq.sort_by { |place| place[:name] },

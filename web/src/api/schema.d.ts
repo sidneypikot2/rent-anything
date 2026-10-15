@@ -3587,8 +3587,6 @@ export interface components {
             fees: components["schemas"]["listing_fee"][];
             /** @description A tour's details (RAA-110); null for any other category */
             tour: components["schemas"]["partner_tour"] | null;
-            /** @description Days it takes no bookings, by start; those already ended are left out */
-            blocked_dates: components["schemas"]["blocked_date"][];
             business: {
                 id: number;
                 name: string;
@@ -3693,10 +3691,8 @@ export interface components {
             stay_rate?: components["schemas"]["stay_rate_body"];
             /** @description Any category. Replaces the listing's fees, in this order, when sent; left out on a change, they stay. Names are unique per listing, ignoring case. */
             fees?: components["schemas"]["listing_fee_body"][];
-            /** @description Tours only (category slug `tour`), and required on a new one or one moved into it: replaces the tour's details, dates and inclusions when sent; left out on a change, they stay. Refused for any other category. */
+            /** @description Tours only (category slug `tour`), and required on a new one or one moved into it: replaces the tour's details and inclusions when sent; left out on a change, they stay. Refused for any other category. */
             tour?: components["schemas"]["tour_body"];
-            /** @description Any category. Days it takes no bookings, which may not overlap and must end today or later (one the listing already has may be sent back once past). Replaces them when sent; left out on a change, they stay. */
-            blocked_dates?: components["schemas"]["blocked_date"][];
             /** @description The ids of the listing's photos (POST /api/v1/partner/listings/{listing_id}/photos) in order, the first uploaded one the cover. A photo left out is deleted; left out on a change, they stay as they are. A new listing has none yet. A tour has at most 5. */
             photos?: number[];
         };
@@ -3738,10 +3734,6 @@ export interface components {
             duration_value: number;
             /** @enum {string} */
             duration_unit: "hours" | "days";
-            /** @description The days of the week it runs, 0 Sunday to 6 Saturday, sorted; empty: specific dates only */
-            weekdays: number[];
-            /** @description Extra days it runs besides its weekdays, today or later, sorted. Start days for a multi-day tour */
-            dates: string[];
             /** @description 0: no price yet (tours made before RAA-110) */
             base_price_cents: number;
             /**
@@ -3759,16 +3751,12 @@ export interface components {
             duration_value: number;
             /** @enum {string} */
             duration_unit: "hours" | "days";
-            /** @description As in partner_tour */
-            weekdays: number[];
             base_price_cents: number;
             /** @enum {string} */
             price_unit: "group" | "person";
-            /** @description The days it runs (starts) over the next 60 days from today, blocked days left out */
-            open_dates: string[];
             inclusions: components["schemas"]["tour_inclusion"][];
         };
-        /** @description The whole tour, replaced when sent. It must run on at least one weekday or date. */
+        /** @description The whole tour, replaced when sent. A tour runs every day. */
         tour_body: {
             tour_type: components["schemas"]["tour_type"];
             min_guests: number;
@@ -3779,22 +3767,9 @@ export interface components {
             duration_value: number;
             /** @enum {string} */
             duration_unit: "hours" | "days";
-            weekdays: number[];
-            /** @description Today or later; one the tour already has may be sent back once past */
-            dates: string[];
             base_price_cents: number;
             /** @description Left out: none */
             inclusions?: components["schemas"]["tour_inclusion_body"][];
-        };
-        blocked_date: {
-            /** Format: date */
-            starts_on: string;
-            /**
-             * Format: date
-             * @description On or after starts_on; the same day for one day
-             */
-            ends_on: string;
-            reason: string | null;
         };
         stay_rate: {
             /** @description For each night, covering up to base_guests; per guest for a shared room. 0 means no price yet (listings made before pricing), and the listing can't be quoted */

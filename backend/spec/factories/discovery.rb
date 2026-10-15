@@ -54,7 +54,7 @@ FactoryBot.define do
       name { "Tour" }
       booking_type { "activity" }
       attribute_schema do
-        { type: "object", properties: { guide_included: { type: "boolean" }, life_vests: { type: "boolean" } },
+        { type: "object", properties: { guide_included: { type: "boolean" } },
           required: %w[guide_included] }
       end
       initialize_with { Category.find_or_initialize_by(slug: "tour") }
@@ -110,7 +110,6 @@ FactoryBot.define do
     max_groups_per_day { 1 }
     duration_value { 4 }
     duration_unit { "hours" }
-    weekdays { (0..6).to_a }
     base_price_cents { 150_000 }
   end
 
