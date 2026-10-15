@@ -1412,7 +1412,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description a day booking takes its last day too */
+                /** @description a joiner tour takes joiners until its seats are full */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -1826,7 +1826,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description a price, units and minimum nights set, then put back */
+                /** @description a joiner tour's seats on sale, past 100 */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -4854,8 +4854,18 @@ export interface components {
                 /** @enum {string} */
                 booking_type: "rental" | "stay" | "activity" | "transfer";
             };
-            /** @description What a day can sell at most: a tour's groups a day, otherwise its units */
+            /**
+             * @description A tour's type (a joiner tour sells seats); null for anything else
+             * @enum {string|null}
+             */
+            tour_type: "private" | "joiner" | null;
+            /** @description What a day can sell at most: a joiner tour's seats, a private tour's groups, otherwise its units */
             capacity: number;
+            /**
+             * @description What capacity, units on sale and a booking's quantity count
+             * @enum {string}
+             */
+            capacity_unit: "units" | "groups" | "seats";
             price_unit: components["schemas"]["price_unit"];
             days: components["schemas"]["calendar_day"][];
             /** @description Blocks touching the window */
@@ -4870,7 +4880,7 @@ export interface components {
             price_cents: number | null;
             /** @description Whether the price is the day's own */
             price_set: boolean;
-            /** @description Units (a tour's groups) on sale that day */
+            /** @description Units on sale that day (a private tour's groups, a joiner tour's seats) */
             units_available: number;
             /** @description Whether units_available is the day's own */
             units_set: boolean;
@@ -4934,7 +4944,7 @@ export interface components {
              * @description A stay's check-out (it takes the nights before); otherwise the last day it takes
              */
             ends_on: string;
-            /** @description Units, or a tour's groups */
+            /** @description Units, a private tour's groups or a joiner tour's joiners */
             quantity: number;
             /** @enum {string} */
             status: "confirmed" | "cancelled";

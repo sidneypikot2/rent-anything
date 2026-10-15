@@ -3,7 +3,7 @@ module Availability
   # most MAX_DAYS, none past): any of
   #
   # - price_cents, the day's price in centavos;
-  # - units_available, how many of its units (a tour's groups) are on sale, from 0 to its
+  # - units_available, how many of its units (a private tour's groups, a joiner tour's seats) are on sale, from 0 to its
   #   capacity and never below what is already booked that day;
   # - min_nights, a stay's minimum nights from that check-in, 1 to 365.
   #

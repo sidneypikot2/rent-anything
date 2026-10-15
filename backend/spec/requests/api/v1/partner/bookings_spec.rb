@@ -107,6 +107,29 @@ RSpec.describe "Partner bookings", type: :request do
         end
       end
 
+      response "201", "a joiner tour takes joiners until its seats are full" do
+        schema "$ref" => "#/components/schemas/booking"
+
+        let(:listing) { create(:listing, :tour, partner: user) }
+        let(:body) do
+          { guest_name: "Ana", starts_on: (today + 1).iso8601, ends_on: (today + 1).iso8601, quantity: 2,
+            total_cents: 300_000 }
+        end
+
+        before do
+          listing.tour_detail.update!(tour_type: "joiner", min_guests: 1, max_guests: 5, max_groups_per_day: 1)
+        end
+
+        run_test! do
+          book(quantity: 4)
+          expect(response.parsed_body["errors"]).to eq([ "Only 3 left on #{on(1)}" ])
+          book(quantity: 3)
+          expect(response).to have_http_status(:created)
+          book(quantity: 1)
+          expect(response.parsed_body["errors"]).to eq([ "#{on(1)} is fully booked" ])
+        end
+      end
+
       response "422", "a blocked day, too few units, or too short a stay" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
@@ -136,7 +159,7 @@ RSpec.describe "Partner bookings", type: :request do
         run_test! do |first|
           expect(first.parsed_body["errors"]).to eq([
             "Guest name is required", "Check-in can't be in the past", "Check-out must be after check-in",
-            "Quantity must be a whole number from 1 to 99", "Total must be a whole number of centavos, 0 or more",
+            "Quantity must be a whole number from 1 to 100", "Total must be a whole number of centavos, 0 or more",
             "Notes can be at most 500 characters"
           ])
         end

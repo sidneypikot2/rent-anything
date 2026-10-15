@@ -52,6 +52,22 @@ RSpec.describe "Partner calendar days", type: :request do
         end
       end
 
+      response "200", "a joiner tour's seats on sale, past 100" do
+        schema "$ref" => "#/components/schemas/calendar_listing"
+
+        let(:listing) { create(:listing, :tour, partner: user) }
+        let(:body) { { starts_on: (today + 1).iso8601, ends_on: (today + 1).iso8601, units_available: 150 } }
+
+        before do
+          listing.tour_detail.update!(tour_type: "joiner", min_guests: 1, max_guests: 20, max_groups_per_day: 10)
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body).to include("capacity" => 200, "capacity_unit" => "seats")
+          expect(response.parsed_body["days"].first).to include("units_available" => 150, "units_set" => true)
+        end
+      end
+
       response "422", "fewer units on sale than are booked" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
