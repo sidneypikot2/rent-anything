@@ -8,14 +8,15 @@ import { glassClasses } from "@/components/ui/glass";
 // Sections that take turns on the bare photo and on frosted glass, after the banner's own turn
 // (.page-sections, globals.css). Inset like
 // the banner's frame so the two line up; it fills the rest of the page, so the footer stays at
-// the bottom.
+// the bottom. "paper" is a white sheet with dark text, for the partner pages, which are
+// work screens rather than browsing (RAA-120).
 export function PageSheet({
   children,
   tone = "sheet",
   className,
 }: {
   children: ReactNode;
-  tone?: "sheet" | "clear";
+  tone?: "sheet" | "clear" | "paper";
   className?: string;
 }) {
   return (
@@ -24,6 +25,7 @@ export function PageSheet({
         className={cn(
           "mx-auto flex w-full max-w-page flex-1 flex-col",
           tone === "sheet" && cn(glassClasses("sheet"), "rounded-frame sm:px-6"),
+          tone === "paper" && "card-edge rounded-frame bg-surface px-4 text-foreground shadow-float sm:px-6",
           className,
         )}
       >

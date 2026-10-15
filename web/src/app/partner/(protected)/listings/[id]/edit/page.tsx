@@ -44,8 +44,8 @@ export default function EditPartnerListing() {
       ) : (
         <div role="status" className="flex flex-col gap-6 md:grid md:grid-cols-[13rem_minmax(0,42rem)] md:gap-10">
           <span className="sr-only">Loading the listing…</span>
-          <div aria-hidden="true" className="hidden h-72 animate-pulse rounded-card bg-glass-fill md:block" />
-          <div aria-hidden="true" className="h-96 animate-pulse rounded-card bg-glass-fill" />
+          <div aria-hidden="true" className="hidden h-72 animate-pulse rounded-card bg-mist md:block" />
+          <div aria-hidden="true" className="h-96 animate-pulse rounded-card bg-mist" />
         </div>
       )}
     </main>
