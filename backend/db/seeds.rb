@@ -83,10 +83,10 @@ unless Rails.env.test?
   require Rails.root.join("db/migrate/20261014000001_create_stay_rates").to_s
   CreateStayRates.backfill(ActiveRecord::Base.connection)
 
-  # Every tour has tour details (RAA-110): the sample tours become daily joiner tours, with no
-  # price until their partners set one, and the tour category gets its RAA-110 attrs schema.
-  require Rails.root.join("db/migrate/20261014150000_create_tour_details").to_s
-  CreateTourDetails.backfill(ActiveRecord::Base.connection)
+  # Every tour has tour details (RAA-110): the sample tours become joiner tours, with no price
+  # until their partners set one, and the tour category gets its RAA-117 attrs schema.
+  require Rails.root.join("db/migrate/20261015000000_drop_tour_schedule").to_s
+  DropTourSchedule.backfill(ActiveRecord::Base.connection)
 end
 
 # The data migrations above insert areas without a status, which a database built from

@@ -21,7 +21,6 @@ import {
 } from "@/lib/tours";
 import { exampleFees, FeeFields, feesError, toFeesBody, toFeeValues, type FeeValues } from "./fee-fields";
 import { AttributeFields, attributeFields, toAttrs, type AttributeField, type AttributeValues } from "./listing-fields";
-import { RETIRED_ATTRS } from "./listing-changes";
 import type { ListingBody, ListingCategory, ListingOptions, PartnerListing } from "./use-partner-listings";
 
 type PartnerTour = components["schemas"]["partner_tour"];
@@ -94,9 +93,6 @@ export function toTourValues(listing: Pick<PartnerListing, "tour" | "fees" | "at
   };
 }
 
-// A tour runs every day: the API's weekdays, 0 Sunday … 6 Saturday.
-const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
-
 // What the API takes. Call it after tourErrors has passed.
 export function toTourBody(values: TourValues): TourBody {
   const joiner = values.tourType === "joiner";
@@ -107,8 +103,6 @@ export function toTourBody(values: TourValues): TourBody {
     max_groups_per_day: values.maxGroups,
     duration_value: Number(values.duration),
     duration_unit: values.durationUnit,
-    weekdays: EVERY_DAY,
-    dates: [],
     base_price_cents: toCents(values.basePrice) ?? 0,
     inclusions: (Object.keys(values.inclusions) as InclusionKind[]).flatMap((kind) => {
       const inclusion = values.inclusions[kind];
@@ -148,7 +142,7 @@ export function isTour(category: { slug: string } | undefined) {
 
 // The category's yes/no attrs (a guide), shown with the inclusions.
 export function tourExtras(category: ListingCategory | undefined) {
-  return attributeFields(category).filter((field) => field.type === "boolean" && !RETIRED_ATTRS.has(field.key));
+  return attributeFields(category).filter((field) => field.type === "boolean");
 }
 
 export type TourErrors = Partial<

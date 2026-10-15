@@ -6,7 +6,7 @@ module Api
       class ListingsController < ApplicationController
         LISTING_PARAMS = %i[
           title description category_id address location attrs landmark_ids cancellation_policy units_count business_id
-          stay_rate fees photos tour blocked_dates
+          stay_rate fees photos tour
         ].freeze
 
         before_action :authenticate_user!
