@@ -1,4 +1,5 @@
 import { stayDisplayValue } from "./stay-fields";
+import { UNITS_LABEL } from "./units-field";
 import type { ListingBody, PartnerListing } from "./use-partner-listings";
 
 const ADDRESS_LABELS = {
@@ -11,6 +12,10 @@ const ADDRESS_LABELS = {
 
 // A stay's rooms are its beds, by bedroom (RAA-95).
 const LABELS: Record<string, string> = { engine_cc: "Engine size (cc)", rooms: "Beds" };
+
+// Attrs the team dropped (RAA-111) that the tour category's schema still has until the backend
+// removes them: never shown, edited or sent, so a save clears them from the listing.
+export const RETIRED_ATTRS = new Set(["life_vests"]);
 
 // "duration_hours" → "Duration hours": how a category's attribute is labelled everywhere.
 export function attributeLabel(key: string) {
@@ -49,7 +54,7 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
   }
   compare("Map pin", pin(listing.location), pin(body.location));
   if (body.units_count !== undefined && body.units_count !== listing.units_count) {
-    changes.push(`Units: ${listing.units_count} → ${body.units_count}`);
+    changes.push(`${UNITS_LABEL}: ${listing.units_count} → ${body.units_count}`);
   }
   if (body.cancellation_policy) compare("Cancellation policy", listing.cancellation_policy, body.cancellation_policy);
   if (body.photos && body.photos.join(",") !== listing.photos.map((photo) => photo.id).join(",")) {
@@ -70,8 +75,31 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
     JSON.stringify(list.map(({ name, amount_cents, charged_per, required }) => [name, amount_cents, charged_per, required ?? true]));
   if (body.fees && fees(listing.fees) !== fees(body.fees)) changes.push("Fees");
 
+  // A tour's details (RAA-111), by part: the body replaces them whole.
+  if (body.tour) {
+    const saved = listing.tour;
+    const tour = body.tour;
+    const same = (before: unknown, after: unknown) => JSON.stringify(before) === JSON.stringify(after);
+    const inclusions = (list: { kind: string; options?: string[]; note?: string | null; price_per_head_cents?: number }[]) =>
+      [...list]
+        .sort((a, b) => a.kind.localeCompare(b.kind))
+        .map((inclusion) => [inclusion.kind, inclusion.options ?? [], inclusion.note ?? null, inclusion.price_per_head_cents ?? 0]);
+    if (saved?.tour_type !== tour.tour_type) changes.push("Tour type");
+    if (
+      !same(
+        [saved?.min_guests, saved?.max_guests, saved?.max_groups_per_day, saved?.duration_value, saved?.duration_unit],
+        [tour.min_guests, tour.max_guests, tour.max_groups_per_day, tour.duration_value, tour.duration_unit],
+      )
+    ) {
+      changes.push("Group and duration");
+    }
+    if (!same(inclusions(saved?.inclusions ?? []), inclusions(tour.inclusions ?? []))) changes.push("Inclusions");
+    if (saved?.base_price_cents !== tour.base_price_cents) changes.push("Price");
+  }
+
   const attrs = body.attrs ?? {};
   for (const key of new Set([...Object.keys(listing.attrs), ...Object.keys(attrs)])) {
+    if (RETIRED_ATTRS.has(key)) continue;
     if (displayValue(listing.attrs[key], key) !== displayValue(attrs[key], key)) changes.push(attributeLabel(key));
   }
   return changes;

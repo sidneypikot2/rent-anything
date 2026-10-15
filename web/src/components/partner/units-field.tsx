@@ -4,6 +4,9 @@ import type { ListingCategory } from "./use-partner-listings";
 
 const MAX_UNITS = 100;
 
+// The step, section and detail heading for it: plain words, not "units".
+export const UNITS_LABEL = "How many you have";
+
 type BookingType = NonNullable<ListingCategory["booking_type"]>;
 
 // The question for each kind of listing: identical items, rooms, groups or vehicles.

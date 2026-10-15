@@ -7,7 +7,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { LandmarkCard, ListingCard as PhotoListingCard } from "@/components/discovery/cards";
-import { AreaGlyph, CategoryGlyph, TagGlyph } from "@/components/discovery/tag-glyphs";
+import { AreaGlyph, CategoryGlyph, CloseGlyph, TagGlyph } from "@/components/discovery/tag-glyphs";
 import { landmarkPhoto, listingPhoto } from "@/components/landing/sample-photos";
 import { GlassPanel } from "@/components/ui/glass";
 import { PasswordField } from "@/components/ui/password-field";
@@ -106,6 +106,9 @@ export default function UiKit() {
           <Button variant="ghost" size="sm">
             Ghost
           </Button>
+          <Button variant="quiet" size="icon" aria-label="Close">
+            <CloseGlyph className="size-5" />
+          </Button>
           <ButtonLink href="/admin" variant="soft" size="sm">
             Link as button
           </ButtonLink>
@@ -122,6 +125,7 @@ export default function UiKit() {
           <Badge>Best value</Badge>
           <Badge tone="emerald">Eco tour</Badge>
           <Badge tone="mist">New</Badge>
+          <Badge tone="warning">Needs a price</Badge>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {CATEGORIES.map((category, index) => (

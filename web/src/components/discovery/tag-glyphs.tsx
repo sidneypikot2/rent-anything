@@ -100,3 +100,16 @@ export function PlaceGlyph({ className }: Props) {
 export function CheckGlyph({ className }: Props) {
   return <Glyph paths={[circle(12, 12, 9), "M8 12.5l2.5 2.5L16 9.5"]} className={className} />;
 }
+
+// Controls: a plain tick (a step done), arrows (a wizard's Back and Next) and a cross (closing).
+export function TickGlyph({ className }: Props) {
+  return <Glyph paths={["M5 12.5l4.5 4.5L19 7.5"]} className={className} />;
+}
+
+export function ArrowGlyph({ direction = "right", className }: { direction?: "left" | "right" } & Props) {
+  return <Glyph paths={direction === "right" ? ["M5 12h14", "M13 6l6 6-6 6"] : ["M19 12H5", "M11 6l-6 6 6 6"]} className={className} />;
+}
+
+export function CloseGlyph({ className }: Props) {
+  return <Glyph paths={["M6 6l12 12", "M18 6L6 18"]} className={className} />;
+}

@@ -1,5 +1,9 @@
+"use client";
+
 import { useId, type ComponentProps } from "react";
 import { cn } from "./cn";
+import { FieldNote, useFieldError } from "./field-error";
+import { controlClasses, floatingLabelClasses, useFieldLook } from "./field-look";
 
 type Props = {
   label: string;
@@ -8,17 +12,21 @@ type Props = {
   error?: string;
 } & ComponentProps<"select">;
 
-// A labelled select, styled like Field, with an optional hint or an error in its place.
-export function SelectField({ label, options, hint, error, className, ...props }: Props) {
+// A labelled select, styled like Field, with an optional hint or an error in its place. Under a
+// floating FieldLook its label stays on the top border: a select always shows a value.
+export function SelectField({ label, options, hint, error: apiError, className, onChange, ...props }: Props) {
+  const look = useFieldLook();
   const selectId = useId();
   const noteId = useId();
+  const native = useFieldError(label);
+  const error = apiError ?? native.message;
   const note = error ?? hint;
 
   // The label points at the select rather than wrapping it: wrapped, a select's options
   // become part of its accessible name.
   return (
     <div className="flex flex-col gap-1.5 text-sm font-semibold">
-      <label htmlFor={selectId}>{label}</label>
+      {look === "stacked" && <label htmlFor={selectId}>{label}</label>}
       {/* Our own chevron in the right padding: the browser's arrow sits wherever it likes
           and can run into the border. */}
       <div className="relative">
@@ -26,12 +34,12 @@ export function SelectField({ label, options, hint, error, className, ...props }
           id={selectId}
           aria-invalid={error ? true : undefined}
           aria-describedby={note ? noteId : undefined}
-          className={cn(
-            "w-full appearance-none min-h-12 rounded-control border bg-surface py-2.5 pl-4 pr-10 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm",
-            "focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
-            error ? "border-danger" : "border-line-strong",
-            className,
-          )}
+          className={cn("w-full appearance-none pr-10", controlClasses(look, error), className)}
+          onInvalid={native.onInvalid}
+          onChange={(event) => {
+            native.recheck(event.currentTarget);
+            onChange?.(event);
+          }}
           {...props}
         >
           {options.map((option) => (
@@ -48,12 +56,13 @@ export function SelectField({ label, options, hint, error, className, ...props }
         >
           <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" />
         </svg>
+        {look === "floating" && (
+          <label htmlFor={selectId} className={floatingLabelClasses({ error, raised: true })}>
+            {label}
+          </label>
+        )}
       </div>
-      {note && (
-        <span id={noteId} className={cn("text-xs font-normal", error ? "text-danger" : "text-muted")}>
-          {note}
-        </span>
-      )}
+      <FieldNote id={noteId} error={error} hint={hint} inset={look === "floating"} />
     </div>
   );
 }

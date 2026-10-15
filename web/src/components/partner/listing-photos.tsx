@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import {
-  MAX_PHOTOS,
   PHOTO_TYPES,
   photoProblem,
   uploadedPhotos,
@@ -32,16 +31,19 @@ type Upload = { key: number; name: string };
 // order is the parent's to save with the listing (`photos` in its body), so moving one only
 // reports the new order. `onBusyChange` says while files upload or a photo is deleted, so
 // the parent holds a save back: a body's `photos` must list exactly the listing's photos.
-// Unconfirmed rows aren't shown (`uploadedPhotos`).
+// Unconfirmed rows aren't shown (`uploadedPhotos`). `limit` is the listing's photo_limit
+// (5 for a tour, 12 otherwise, RAA-110).
 export function ListingPhotos({
   listingId,
   photos,
+  limit,
   order,
   onOrderChange,
   onBusyChange,
 }: {
   listingId: number;
   photos: PartnerPhoto[];
+  limit: number;
   order?: number[];
   onOrderChange: (ids: number[]) => void;
   onBusyChange?: (busy: boolean) => void;
@@ -53,7 +55,7 @@ export function ListingPhotos({
   const [dragging, setDragging] = useState(false);
   const [deleting, setDeleting] = useState<PartnerPhoto>();
   const shown = orderedPhotos(uploadedPhotos(photos), order);
-  const room = MAX_PHOTOS - photos.length - uploads.length;
+  const room = limit - photos.length - uploads.length;
 
   const busy = uploads.length > 0 || remove.isPending;
   useEffect(() => onBusyChange?.(busy), [busy, onBusyChange]);
@@ -65,7 +67,7 @@ export function ListingPhotos({
       const problem = photoProblem(file);
       if (problem) problems.push(problem);
       else if (accepted.length < room) accepted.push(file);
-      else problems.push(`${file.name}: a listing has at most ${MAX_PHOTOS} photos`);
+      else problems.push(`${file.name}: this listing can have at most ${limit} photos`);
     }
     setErrors(problems);
     for (const file of accepted) {
@@ -111,7 +113,7 @@ export function ListingPhotos({
           <CategoryGlyph name="Camera" className="size-6" />
         </span>
         <span className="text-sm font-semibold">
-          {room > 0 ? "Drag photos here or choose them" : `That's the most photos a listing can have (${MAX_PHOTOS})`}
+          {room > 0 ? "Drag photos here or choose them" : `That's the most photos this listing can have (${limit})`}
         </span>
         <span className="text-xs text-muted">JPG, PNG or WebP, up to 10 MB each. The first photo is the cover.</span>
         <input

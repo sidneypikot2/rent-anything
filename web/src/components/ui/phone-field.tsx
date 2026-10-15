@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { cn } from "./cn";
+import { FieldNote, useFieldError } from "./field-error";
 
 type Props = {
   label: string;
@@ -12,9 +13,11 @@ type Props = {
 
 // A Philippine phone number: a fixed +63 in front of the number, drawn as one field. The
 // caller checks it (libphonenumber-js) and sends one international number.
-export function PhoneField({ label, number, onNumberChange, required, hint, error }: Props) {
+export function PhoneField({ label, number, onNumberChange, required, hint, error: apiError }: Props) {
   const inputId = useId();
   const noteId = useId();
+  const native = useFieldError(label);
+  const error = apiError ?? native.message;
   const note = error ?? hint;
 
   return (
@@ -22,8 +25,8 @@ export function PhoneField({ label, number, onNumberChange, required, hint, erro
       <label htmlFor={inputId}>{label}</label>
       <div
         className={cn(
-          "flex min-h-12 overflow-hidden rounded-control border bg-surface transition-[border-color,box-shadow] duration-300 ease-calm focus-within:border-primary focus-within:ring-4 focus-within:ring-sky-mist",
-          error ? "border-danger" : "border-line-strong",
+          "flex min-h-12 overflow-hidden rounded-control border bg-surface transition-[border-color,box-shadow] duration-300 ease-calm focus-within:ring-4",
+          error ? "border-danger focus-within:border-danger focus-within:ring-danger/10" : "border-line-strong focus-within:border-primary focus-within:ring-sky-mist",
         )}
       >
         <span aria-hidden className="flex items-center border-r-[1.5px] border-line-strong bg-surface-2 px-3 font-normal text-muted">
@@ -36,17 +39,17 @@ export function PhoneField({ label, number, onNumberChange, required, hint, erro
           autoComplete="tel-national"
           required={required}
           value={number}
-          onChange={(event) => onNumberChange(event.target.value)}
+          onInvalid={native.onInvalid}
+          onChange={(event) => {
+            native.recheck(event.currentTarget);
+            onNumberChange(event.target.value);
+          }}
           aria-invalid={error ? true : undefined}
           aria-describedby={note ? noteId : undefined}
           className="min-w-0 flex-1 bg-transparent px-4 py-2.5 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm placeholder:text-muted/80"
         />
       </div>
-      {note && (
-        <span id={noteId} className={cn("text-xs font-normal", error ? "text-danger" : "text-muted")}>
-          {note}
-        </span>
-      )}
+      <FieldNote id={noteId} error={error} hint={hint} />
     </div>
   );
 }

@@ -10,10 +10,10 @@ import { partnerListingKey, saveError } from "./use-partner-listings";
 export type PartnerPhoto = components["schemas"]["partner_photo"];
 type PhotoType = components["schemas"]["photo_upload_body"]["content_type"];
 
-// What the API takes (RAA-106): checked here first so a partner hears at once, not after a request.
+// What the API takes (RAA-106): checked here first so a partner hears at once, not after a
+// request. How many a listing takes is its photo_limit (RAA-110).
 export const PHOTO_TYPES: PhotoType[] = ["image/jpeg", "image/png", "image/webp"];
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
-export const MAX_PHOTOS = 12;
 
 // Why a file can't be a listing photo; undefined when it can.
 export function photoProblem(file: File) {
@@ -56,7 +56,7 @@ async function uploadPhoto(listingId: number, file: File) {
     });
     if (!confirmed.data) throw saveError(confirmed.error, `Couldn't finish ${file.name}.`);
   } catch (error) {
-    // Don't leave the row holding one of the 12 places; the API would purge it in two days anyway.
+    // Don't leave the row holding one of the listing's places; the API would purge it in two days anyway.
     await client.DELETE("/api/v1/partner/listings/{listing_id}/photos/{id}", photo).catch(() => undefined);
     throw error;
   }

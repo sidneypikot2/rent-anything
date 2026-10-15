@@ -53,14 +53,25 @@ export function toAttributeValues(attrs: PartnerListing["attrs"]) {
   return values;
 }
 
-// The address as one line for Google's geocoder, once every field it needs is filled in.
+// The address as one line for the geocoder, once every field it needs is filled in. Not for an
+// address filled in from the pin (RAA-111): it would move the pin off the spot it came from.
 export function geocodeQuery(address: PhAddress) {
+  if (address.fromMap) return undefined;
   const { region, province, city, zip, street } = address.values;
   const parts = [street, city, address.hasProvinces ? province : "", region].map((part) => part.trim());
   if (!street.trim() || !city.trim() || !region.trim() || !zip.trim() || (address.hasProvinces && !province.trim())) {
     return undefined;
   }
   return `${parts.filter(Boolean).join(", ")} ${zip.trim()}, Philippines`;
+}
+
+// The town the partner picked, before the rest of the address (RAA-111): the map moves there.
+export function areaQuery(address: PhAddress) {
+  if (address.fromMap) return undefined;
+  const { region, province, city } = address.values;
+  if (!city.trim() || !region.trim()) return undefined;
+  const parts = [city, address.hasProvinces ? province : "", region.replace(/ \(.*\)$/, "")].map((part) => part.trim());
+  return `${parts.filter(Boolean).join(", ")}, Philippines`;
 }
 
 // Whether the address differs from a saved one: a saved pin stays where it is until then.
@@ -99,6 +110,37 @@ export function groupCategories(categories: ListingCategory[]) {
     groups.set(name, group);
   }
   return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// A title in the partner's own terms for each kind of listing, so a trike isn't shown a tour's.
+const TITLE_EXAMPLES: Record<string, string> = {
+  motorcycle: "Honda Click 125, automatic, with two helmets",
+  bicycle: "Mountain bike for the island loop",
+  "e-trike": "E-trike for up to 4, charged daily",
+  tricycle: "Tricycle with driver, up to 4 passengers",
+  car: "Toyota Vios, automatic, seats 5",
+  "van-rental": "Toyota Hiace, seats 12",
+  multicab: "Multicab for groups of 8",
+  "action-camera": "GoPro Hero 12 with dive housing",
+  camera: "Sony mirrorless with a zoom lens",
+  "snorkel-gear": "Mask, snorkel and fins set",
+  photographer: "Sunset photo shoot at Paradise Beach",
+  van: "Hagnaya port to Santa Fe van transfer",
+  tour: "Island hopping to Virgin Island and Hilantagaan",
+};
+
+export function titleExample(category: ListingCategory | undefined) {
+  if (!category) return "Island hopping to Virgin Island and Hilantagaan";
+  if (category.booking_type === "stay") return "Beachfront nipa cottage with sunset view";
+  return TITLE_EXAMPLES[category.slug] ?? `${category.name} in Bantayan`;
+}
+
+export function descriptionHint(category: ListingCategory | undefined) {
+  if (category?.booking_type === "rental") return "Its condition, what comes with it, where to pick it up and return it.";
+  if (category?.booking_type === "stay") return "The space, the neighbourhood, house rules: anything a guest should know.";
+  if (category?.slug === "tour") return "The route, what to bring, anything a traveller should know.";
+  if (category?.booking_type === "transfer") return "Where you pick up and drop off, luggage, and how long the ride takes.";
+  return "What's included, what to bring, anything a traveller should know.";
 }
 
 // The details a category asks for: a checkbox for a yes/no, a field for everything else.

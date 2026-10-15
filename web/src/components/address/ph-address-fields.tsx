@@ -5,10 +5,12 @@ import type { components } from "@/api/schema";
 import { ComboboxField, type ComboboxOption } from "@/components/ui/combobox-field";
 import { Field } from "@/components/ui/field";
 import { countryName } from "@/lib/countries";
+import type { ReversePlace } from "@/lib/map";
 import {
   citiesOf,
   findByName,
   loadPhAddressData,
+  matchPlaces,
   provincesOf,
   zipsOf,
   type PhAddressData,
@@ -49,6 +51,9 @@ export function usePhAddress(saved: SavedAddress) {
   const [city, setCity] = useState(saved.city ?? "");
   const [zip, setZip] = useState(saved.postal_code ?? "");
   const [street, setStreet] = useState(saved.street ?? "");
+  // Filled in from the map (RAA-111) and not edited since: the street is a guess until the
+  // partner checks it, and the address doesn't move the pin it came from.
+  const [fromMap, setFromMap] = useState(false);
 
   // Codes follow from the names, so a saved address reopens with its suggestions narrowed.
   const ph = usePhAddressData();
@@ -65,6 +70,7 @@ export function usePhAddress(saved: SavedAddress) {
 
   // Changing a field clears the ones below it.
   function changeRegion(text: string, option?: ComboboxOption) {
+    setFromMap(false);
     const next = option?.value ?? (ph && findByName(ph.regions, text)?.code);
     setRegion(text);
     if (next !== regionCode) {
@@ -75,6 +81,7 @@ export function usePhAddress(saved: SavedAddress) {
   }
 
   function changeProvince(text: string, option?: ComboboxOption) {
+    setFromMap(false);
     const next = option?.value ?? findByName(provinces, text)?.code;
     setProvince(text);
     if (next !== provinceCode) {
@@ -84,6 +91,7 @@ export function usePhAddress(saved: SavedAddress) {
   }
 
   function changeCity(text: string, option?: ComboboxOption) {
+    setFromMap(false);
     const next = option?.value ?? findByName(cities, text)?.code;
     setCity(text);
     if (next === cityCode) return;
@@ -104,11 +112,43 @@ export function usePhAddress(saved: SavedAddress) {
     changeRegion,
     changeProvince,
     changeCity,
-    setZip,
-    setStreet,
+    setZip: (text: string) => {
+      setZip(text);
+      setFromMap(false);
+    },
+    setStreet: (text: string) => {
+      setStreet(text);
+      setFromMap(false);
+    },
+    fromMap,
+    // The address at the pin (RAA-111), into a blank address or one filled from the map
+    // before: one the partner typed or edited stays. Fields the lookup can't match to a PSA
+    // place stay blank for the partner to pick.
+    fillFromPlace: async (place: ReversePlace) => {
+      if (!fromMap && [region, province, city, zip, street].some((value) => value.trim())) return;
+      if (place.countrycode && place.countrycode !== COUNTRY) return;
+      const data = await loadPhAddressData();
+      const match = matchPlaces(data, [place.city, place.county, place.district], place.state, place.postcode);
+      const road = place.street ?? (place.type === "street" ? place.name : undefined);
+      // The barangay; where OpenStreetMap has none, a "city" that matched no PSA town is one.
+      const town = match.city?.name.toLowerCase();
+      const unmatchedCity = place.city && !(town && town.includes(place.city.toLowerCase())) ? place.city : undefined;
+      const barangay = place.locality ?? place.district ?? unmatchedCity;
+      const line = [[place.housenumber, road].filter(Boolean).join(" "), barangay]
+        .filter((part, index, parts) => part && parts.indexOf(part) === index)
+        .join(", ");
+      const zips = match.city?.zips ?? [];
+      setRegion(match.region?.name ?? "");
+      setProvince(match.province?.name ?? "");
+      setCity(match.city?.name ?? "");
+      setZip(place.postcode && zips.includes(place.postcode) ? place.postcode : zips.length === 1 ? zips[0] : "");
+      setStreet(line);
+      setFromMap(true);
+    },
     // Every field at once, as saved elsewhere (a listing copying its business's address,
     // RAA-101), without the cascade above clearing the fields below.
     setAll: (next: SavedAddress) => {
+      setFromMap(false);
       setRegion(next.region ?? "");
       setProvince(next.province ?? "");
       setCity(next.city ?? "");
@@ -209,7 +249,11 @@ export function PhAddressFields({ address, disabled }: { address: PhAddress; dis
           value={values.street}
           onChange={(event) => address.setStreet(event.target.value)}
           placeholder="e.g. 12 Rizal St, Poblacion"
-          hint="House or building number, street and barangay"
+          hint={
+            address.fromMap
+              ? "Filled in from your location. Check it, and add the house or building number."
+              : "House or building number, street and barangay"
+          }
         />
       </div>
       <p className="text-xs text-muted sm:col-span-6">

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRef, useState, type FormEvent } from "react";
 import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
 import { Button } from "@/components/ui/button";
@@ -13,10 +12,10 @@ import {
   type CancellationPolicies,
   type CancellationPolicy,
 } from "./cancellation-policy";
-import { categoryLabel, NO_ADDRESS } from "./listing-fields";
+import { categoryLabel } from "./listing-fields";
 import { LocationPicker } from "./location-picker";
 import { NewListingPhotos } from "./new-listing-photos";
-import { SameAsBusinessAddress, useSameAsBusinessAddress } from "./same-as-business-address";
+import { SameAsBusinessAddress, startingAddress, startingPin, useSameAsBusinessAddress } from "./same-as-business-address";
 import {
   NEW_PRICING,
   pricingErrors,
@@ -38,9 +37,9 @@ import {
 } from "./stay-fields";
 import type { PartnerBusiness } from "./use-partner-businesses";
 import { useCreateListing, type ListingBody, type ListingCategory, type PartnerListing } from "./use-partner-listings";
-import { UnitsField } from "./units-field";
-import { WizardCancel } from "./wizard-cancel";
-import { WizardActions, WizardLayout } from "./wizard-steps";
+import { UNITS_LABEL, UnitsField } from "./units-field";
+import { ChangeCategoryLink, WizardCancel } from "./wizard-cancel";
+import { WizardActions, WizardLayout, WizardNext, WizardTitle } from "./wizard-steps";
 
 const STEPS = [
   { key: "place", label: "What guests book" },
@@ -50,7 +49,7 @@ const STEPS = [
   { key: "basic", label: "Title and description" },
   { key: "pricing", label: "Pricing" },
   { key: "cancellation", label: "Cancellation policy" },
-  { key: "units", label: "Units" },
+  { key: "units", label: UNITS_LABEL },
   { key: "photos", label: "Photos" },
 ];
 
@@ -81,8 +80,8 @@ export function StayWizard({
   const [stay, setStay] = useState<StayValues>(NEW_STAY);
   const [infoErrors, setInfoErrors] = useState<StayErrors>();
   const [units, setUnits] = useState(1);
-  const address = usePhAddress(NO_ADDRESS);
-  const [location, setLocation] = useState<LatLng | null>(null);
+  const address = usePhAddress(startingAddress(business));
+  const [location, setLocation] = useState<LatLng | null>(() => startingPin(business));
   const [locationError, setLocationError] = useState<string>();
   const sameAddress = useSameAsBusinessAddress(business, address, (point) => {
     setLocation(point);
@@ -158,9 +157,8 @@ export function StayWizard({
   }
 
   return (
-    <WizardLayout steps={STEPS} current={stepIndex} reached={reached} onSelect={goTo}>
-      <form ref={formRef} data-testid="stay-wizard" onSubmit={onSubmit} className="relative flex w-full flex-col gap-6">
-        <WizardCancel href="/partner/listings" className="absolute right-0 top-0" />
+    <WizardLayout steps={STEPS} current={stepIndex} reached={reached} onSelect={goTo} cancel={<WizardCancel href="/partner/listings" icon />}>
+      <form ref={formRef} data-testid="stay-wizard" onSubmit={onSubmit} className="flex w-full flex-col gap-6">
         {create.error && (
           <p role="alert" className="text-sm text-danger">
             {create.error.message}
@@ -168,20 +166,17 @@ export function StayWizard({
         )}
 
         <fieldset data-testid={`listing-step-${step.key}`} className="flex flex-col gap-4">
-          <legend className="mb-2 pr-20 font-display text-2xl font-extrabold tracking-tight">{step.label}</legend>
+          <WizardTitle>{step.label}</WizardTitle>
 
           {step.key === "place" && (
             <>
               <p className="text-sm text-muted">
                 Listing a <span className="font-medium text-foreground">{categoryLabel(category)}</span> for{" "}
                 <span className="font-medium text-foreground">{business.name}</span>.{" "}
-                <Link
+                <ChangeCategoryLink
                   href={`/partner/listings/new?business=${business.id}&category=${category.id}`}
-                  className="text-link underline"
-                  data-testid="listing-change-category"
-                >
-                  Change
-                </Link>
+                  dirty={title !== "" || description !== ""}
+                  />
               </p>
               <PlaceTypeChoice values={stay} onChange={setStay} />
             </>
@@ -199,7 +194,9 @@ export function StayWizard({
                   setLocationError(undefined);
                 }}
                 geocodeQuery={sameAddress.geocodeQuery}
+                areaQuery={sameAddress.areaQuery}
                 error={locationError}
+                onPinAddress={address.fillFromPlace}
               />
             </>
           )}
@@ -268,13 +265,11 @@ export function StayWizard({
           onBack={stepIndex > 0 ? () => goTo(stepIndex - 1) : undefined}
           next={
             isLast ? (
-              <Button type="submit" disabled={create.isPending} data-testid="listing-save">
+              <Button type="submit" variant="glow" size="pill" disabled={create.isPending} data-testid="listing-save">
                 {create.isPending ? "Saving…" : "Save and add photos"}
               </Button>
             ) : (
-              <Button type="submit" data-testid="listing-next">
-                Next
-              </Button>
+              <WizardNext />
             )
           }
         />
