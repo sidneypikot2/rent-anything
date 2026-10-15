@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 import type { Activity, AreaCard } from "@/api/discovery";
 import { Badge } from "@/components/ui/badge";
-import { Price } from "@/components/ui/typography";
+import { Eyebrow, Price } from "@/components/ui/typography";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { GlassPanel } from "@/components/ui/glass";
@@ -13,13 +13,12 @@ import { CategoryGlyph, TagGlyph } from "./tag-glyphs";
 import { AreaScene } from "./scenes";
 
 // Every photo card shares this frame (Sky & Forest, RAA-102): the photo fills a card-radius
-// box with the soft shadow; on hover the card rises and the photo slowly zooms. The content
+// box with the soft shadow; on hover the card rises, the photo staying still. The content
 // sits on glass 12px in, at the control radius (the card's 24px less the inset). The card edge's
 // frosted rim shows the backdrop around the photo.
 export const PHOTO_CARD =
   "card-edge group relative isolate overflow-hidden rounded-card shadow-soft transition-[transform,box-shadow] duration-500 ease-calm hover:-translate-y-1 hover:shadow-lift";
-export const PHOTO_CARD_IMAGE =
-  "-z-20 object-cover object-[50%_70%] transition-transform duration-[1200ms] ease-calm group-hover:scale-105";
+export const PHOTO_CARD_IMAGE = "-z-20 object-cover object-[50%_70%]";
 const PHOTO_SCRIM = "absolute inset-0 -z-10 bg-linear-to-b from-transparent via-transparent to-scrim/55";
 
 const KIND_LABELS: Record<string, string> = {
@@ -29,6 +28,10 @@ const KIND_LABELS: Record<string, string> = {
   province: "Province",
   region: "Region",
 };
+
+// How tall a destination photo card is, the lead one and the rest; the home page's skeleton
+// takes the same, so the cards arrive where it stood.
+export const DESTINATION_HEIGHTS = { feature: "min-h-[26rem] sm:min-h-[28rem]", other: "min-h-80" };
 
 export type DestinationGroup = { area: AreaCard; subAreas: AreaCard[] };
 
@@ -101,8 +104,11 @@ const ON_GLASS = {
 // that. `wide` lays it out side by side from `sm` up, for a card that has a row to itself.
 // With a `photo` the photo fills the card and the text sits on frosted glass over its foot
 // (Sky & Forest, RAA-102); the API has no destination photos yet, so only the preview passes one.
-// `feature` is the lead destination's card (RAA-108): from `sm` up the glass stands as a panel
-// down the card's right side, leaving most of the photo clear; on a phone it is the usual card.
+// `feature` is the lead destination's card (RAA-108): once the card itself is wide enough (a
+// container query, since the home grid gives it anything from a phone's width to the whole row)
+// the glass stands as a panel at the foot of its right side, as tall as its contents, leaving
+// most of the photo clear; narrower, it is the usual card. Otherwise the glass is at most max-w-md wide, so a
+// card with a row to itself keeps its photo rather than a strip of glass.
 export function DestinationCard({
   area,
   subAreas = [],
@@ -122,11 +128,11 @@ export function DestinationCard({
   const body = (
     <>
       <div>
-        <h3 className={cn("font-display text-2xl font-bold", photo && text.strong)}>
+        <h3 className={cn("font-display text-2xl leading-tight font-extrabold tracking-tight", photo && text.strong)}>
           <Link
             href={`/${area.slug}`}
             // The card clips its content, so the focus ring is drawn inside its edge.
-            className="outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-primary"
+            className="outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-(--focus)"
           >
             {area.name}
           </Link>
@@ -141,7 +147,7 @@ export function DestinationCard({
       )}
       {subAreas.length > 0 && (
         <div>
-          <p className={cn("text-xs font-semibold uppercase tracking-wider", text.muted)}>Also in {area.name}</p>
+          <Eyebrow tone="inherit" className={text.muted}>Also in {area.name}</Eyebrow>
           <ul className="mt-1">
             {subAreas.map((sub) => (
               <li key={sub.slug}>
@@ -153,20 +159,21 @@ export function DestinationCard({
                   )}
                 >
                   <span className={cn("font-semibold", text.strong)}>{sub.name}</span>
-                  <span className={cn("text-sm", text.muted)}>{countLine(sub)}</span>
+                  <span className={cn("text-sm tabular-nums", text.muted)}>{countLine(sub)}</span>
                 </Link>
               </li>
             ))}
           </ul>
         </div>
       )}
-      <div className={cn("mt-auto flex min-h-11 items-center justify-between gap-x-3 border-t pt-3", text.divider)}>
-        <p className={cn("min-w-0 text-sm", text.muted)}>
+      <div className={cn("mt-auto flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t pt-3", text.divider)}>
+        <p className={cn("text-sm text-pretty", text.muted)}>
           {countLine(withSubAreas(area, subAreas), subAreas.length > 0 ? area.name : undefined)}
         </p>
         {/* What tapping the card does; the heading is the link. */}
         <span aria-hidden className={cn("shrink-0 whitespace-nowrap text-sm font-semibold", text.link)}>
-          View destination →
+          View destination{" "}
+          <span className="inline-flex transition-transform duration-500 ease-calm group-hover:translate-x-1">→</span>
         </span>
       </div>
     </>
@@ -180,7 +187,7 @@ export function DestinationCard({
         className={cn(
           PHOTO_CARD,
           "flex flex-col justify-end p-3",
-          feature ? "min-h-[26rem] sm:min-h-[28rem] sm:flex-row sm:items-stretch" : "min-h-80",
+          feature ? cn("@container", DESTINATION_HEIGHTS.feature) : DESTINATION_HEIGHTS.other,
           className,
         )}
       >
@@ -188,14 +195,14 @@ export function DestinationCard({
           src={photo.src}
           alt={photo.alt}
           fill
-          sizes={feature ? "(min-width: 72rem) 72rem, 100vw" : "(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"}
+          sizes={feature ? "(min-width: 72rem) 48rem, (min-width: 1024px) 67vw, 100vw" : "(min-width: 72rem) 36rem, (min-width: 640px) 50vw, 100vw"}
           className={PHOTO_CARD_IMAGE}
         />
-        <div aria-hidden className={cn(PHOTO_SCRIM, feature && "sm:bg-linear-to-r sm:via-transparent sm:to-scrim/45")} />
+        <div aria-hidden className={cn(PHOTO_SCRIM, feature && "@xl:bg-linear-to-r @xl:via-transparent @xl:to-scrim/45")} />
         <Badge tone="mist" className="absolute left-3 top-3">
           {KIND_LABELS[area.kind] ?? area.kind}
         </Badge>
-        <GlassPanel className={cn("flex flex-col gap-3 rounded-control p-5", feature && "sm:w-2/5 sm:p-6 lg:w-[38%]")}>
+        <GlassPanel tone="card" className={cn("flex flex-col gap-3 rounded-control p-5", feature ? "@xl:ml-auto @xl:w-1/2 @xl:p-6 @4xl:w-[38%]" : "max-w-md")}>
           {body}
         </GlassPanel>
       </Card>
@@ -206,7 +213,7 @@ export function DestinationCard({
     <Card
       data-testid="destination-card"
       className={cn(
-        "relative flex flex-col transition-colors hover:border-primary",
+        "group relative flex flex-col transition-colors hover:border-primary",
         wide && "sm:flex-row",
         className,
       )}
@@ -229,10 +236,13 @@ export function DestinationCard({
 
 // "Browse by activity": an activity, how much there is to book for it (or, with nothing to
 // book yet, how many places there are to see) and in how many destinations — the same words
-// as the destination cards. The two counts stack, so a narrow card never wraps mid-phrase.
+// as the destination cards. Each count keeps to one line, so a narrow card never wraps mid-phrase.
 // A line icon in a tinted well beside the name, and the two counts on one line (Sky & Forest,
 // RAA-102). With a `photo` the photo fills the card and those sit on frosted glass over its
-// foot; the API has no activity photos yet, so only the preview passes one.
+// foot, one count to a line, as a quarter-row card is too narrow for both at 14px; the API has
+// no activity photos yet, so only the preview passes one. In a phone's two columns the glass
+// shows only how much there is to book, so it leaves the photo showing; the card's label still
+// names both counts.
 export function ActivityCard({ activity, photo }: { activity: Activity; photo?: { src: string; alt: string } }) {
   const toBook =
     activity.listing_count > 0
@@ -244,24 +254,29 @@ export function ActivityCard({ activity, photo }: { activity: Activity; photo?: 
       <Link
         href={`/search?q=${encodeURIComponent(activity.name)}`}
         data-testid="activity-card"
+        // Named by its words: the photo's alt would otherwise lead every card's name. A comma, not
+        // the visible dot, which some screen readers read out as "middle dot".
+        aria-label={`${activity.name}: ${toBook}, ${where}`}
         className={cn(PHOTO_CARD, "flex aspect-[4/5] flex-col justify-end p-3")}
       >
         <Image
           src={photo.src}
           alt={photo.alt}
           fill
-          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+          sizes="(min-width: 72rem) 18rem, (min-width: 1024px) 25vw, 50vw"
           className={PHOTO_CARD_IMAGE}
         />
         <div aria-hidden className={PHOTO_SCRIM} />
-        <GlassPanel className="flex items-center gap-2.5 rounded-control p-2.5">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-control border border-glass-edge bg-glass-fill transition-colors group-hover:bg-primary">
+        <GlassPanel tone="card" className="flex items-center gap-2.5 rounded-control p-2.5">
+          {/* Only from sm up: in a phone's two columns the name needs the room. */}
+          <span className="hidden size-8 shrink-0 items-center justify-center rounded-control border border-glass-edge bg-glass-fill transition-colors group-hover:bg-primary sm:flex">
             <TagGlyph slug={activity.slug} className="size-4" />
           </span>
           <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="truncate text-sm leading-tight font-semibold">{activity.name}</span>
-            <span className="text-xs leading-snug text-sky-mist">
-              {toBook} · {where}
+            <span className="line-clamp-2 text-sm leading-tight font-semibold">{activity.name}</span>
+            <span className="flex flex-col text-sm leading-snug whitespace-nowrap text-sky-mist">
+              <span>{toBook}</span>
+              <span className="hidden sm:block">{where}</span>
             </span>
           </span>
         </GlassPanel>
@@ -308,7 +323,7 @@ function PhotoCard({
         className={PHOTO_CARD_IMAGE}
       />
       <div aria-hidden className={PHOTO_SCRIM} />
-      <GlassPanel className="flex flex-col gap-3 rounded-control p-5">{children}</GlassPanel>
+      <GlassPanel tone="card" className="flex flex-col gap-3 rounded-control p-5">{children}</GlassPanel>
     </Card>
   );
 }
@@ -335,11 +350,10 @@ export function LandmarkCard({
       {landmark.tags.length > 0 && (
         <ul className="hidden flex-wrap gap-1.5 sm:flex">
           {landmark.tags.map((tag) => (
-            <li
-              key={tag.slug}
-              className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-glass-edge bg-glass-fill px-3 text-[0.8125rem] font-semibold text-white"
-            >
-              <span aria-hidden>{tagIcon(tag.slug)}</span> {tag.name}
+            <li key={tag.slug}>
+              <Badge tone="glass">
+                <span aria-hidden>{tagIcon(tag.slug)}</span> {tag.name}
+              </Badge>
             </li>
           ))}
         </ul>

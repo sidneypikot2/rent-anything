@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 export function LoadFailed({ what }: { what: string }) {
   const router = useRouter();
   return (
-    <p className="text-muted">
+    <p role="status" className="text-muted">
       Couldn&apos;t load {what}. Our server may be waking up.{" "}
       <button
         type="button"

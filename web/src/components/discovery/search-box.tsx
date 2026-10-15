@@ -1,44 +1,93 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
+import { LAUNCH_AREA } from "@/components/landing/trip-start";
+import { tripDatesQuery, type TripDates } from "@/components/trips/trip-dates";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
+import { GlassPanel } from "@/components/ui/glass";
+import { DateRangeCalendar } from "@/components/ui/date-range-field";
+import { PillLink } from "@/components/ui/pill";
+import { StepperField } from "@/components/ui/stepper-field";
 import type { SearchResults } from "@/api/discovery";
+import { formatDateRange, todayIso } from "@/lib/dates";
 import { CATEGORIES, categoryHref, listingNote } from "./categories";
 import { areaIcon, categoryIcon, placeIcon, tagIcon } from "./icons";
+import { ArrowGlyph, CalendarGlyph, CategoryGlyph, CloseGlyph, GuestsGlyph, SearchGlyph } from "./tag-glyphs";
 
 const MIN_LENGTH = 2;
 const DEBOUNCE_MS = 250;
 // Below `sm` the on-screen keyboard takes half the screen: the search moves to the top of
 // the screen on focus, and the suggestions get the height left above the keyboard.
 const PHONE = "(max-width: 639px)";
+// From `lg` the hero's calendar shows two months side by side.
+const WIDE = "(min-width: 64rem)";
 const MIN_PANEL_PX = 160;
+const MAX_GUESTS = 50;
 
-// The hero search: destinations, landmarks, activities and things to book as you type.
-// It is a plain GET form, so Enter (or no JavaScript) opens the full results at /search,
-// which also explains a query that is too short. The suggestions follow the ARIA combobox
-// pattern (as ComboboxField does, RAA-75): arrow keys move through them, Enter opens the
-// highlighted one, Escape closes the list.
-export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
+type Panel = "where" | "when" | "guests" | null;
+
+// The search: destinations, landmarks, activities and things to book as you type. It is a
+// plain GET form, so Enter (or no JavaScript) opens the full results at /search, which also
+// explains a query that is too short. The suggestions follow the ARIA combobox pattern (as
+// ComboboxField does, RAA-75): arrow keys move through them, Enter opens the highlighted one,
+// Escape closes the list. Before anything is typed it offers where we launch and the kinds
+// of things to book.
+// On the home page's hero it is the page's main action: a line to fill in (go or do what,
+// when, with whom), so the trip dates and guests travel with whatever is picked, into the
+// destination page's `?from=&to=&guests=` (readTripDates). Elsewhere it is one field, and
+// keeps the dates it was given.
+export function SearchBox({
+  initialQuery = "",
+  initialDates = { guests: 1 },
+  hero = false,
+}: {
+  initialQuery?: string;
+  initialDates?: TripDates;
+  hero?: boolean;
+}) {
   const router = useRouter();
   const [text, setText] = useState(initialQuery);
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
+  const [panel, setPanel] = useState<Panel>(null);
+  const [range, setRange] = useState({ from: initialDates.from ?? "", to: initialDates.to ?? "" });
+  const [guests, setGuests] = useState(initialDates.guests);
+  const [twoMonths, setTwoMonths] = useState(false);
   // The highlighted suggestion, tied to the list it was picked in: new results start with
   // nothing highlighted, so the highlight never points at another item or past the list.
   const [highlight, setHighlight] = useState<{ items: Item[]; index: number } | null>(null);
   const listId = useId();
+  const datesId = useId();
+  const guestsId = useId();
   const formRef = useRef<HTMLFormElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const whenRef = useRef<HTMLButtonElement>(null);
+  const guestsRef = useRef<HTMLButtonElement>(null);
+  const open = panel === "where";
   const room = useRoomAboveKeyboard(formRef, open);
 
   useEffect(() => {
     const timer = setTimeout(() => setQuery(text.trim()), DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [text]);
+
+  // Only a complete range travels; a half-picked one is dropped, as readTripDates would.
+  const dates: TripDates = range.from && range.to ? { ...range, guests } : { guests };
+  const carry = tripDatesQuery(dates);
 
   // Characters, not UTF-16 units, to match the API's count (an emoji is one).
   const enabled = [...query].length >= MIN_LENGTH;
@@ -54,10 +103,15 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
   });
 
   const empty = data !== undefined && Object.values(data).every((group) => group.length === 0);
-  const items = useMemo(() => (data ? suggestionItems(data, query) : []), [data, query]);
-  const expanded = open && enabled;
+  const items = useMemo(
+    () => (!enabled ? popularItems(carry) : data ? suggestionItems(data, query, carry) : []),
+    [enabled, data, query, carry],
+  );
+  // While a query waits for the debounce, the list it replaces stays shut rather than flicker.
+  const typing = !enabled && [...text.trim()].length >= MIN_LENGTH;
+  const expanded = open && !typing;
   // The keys only move through a list that is on screen.
-  const listed = expanded && !isError && data !== undefined && !empty;
+  const listed = expanded && (!enabled || (!isError && data !== undefined && !empty));
   const active = listed && highlight?.items === items ? highlight.index : -1;
   const moveTo = (index: number) => setHighlight({ items, index });
   const optionId = (index: number) => `${listId}-${index}`;
@@ -78,59 +132,175 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
       moveTo(active < 0 ? items.length - 1 : Math.max(active - 1, 0));
     } else if (event.key === "Enter" && active >= 0) {
       event.preventDefault();
-      setOpen(false);
+      setPanel(null);
       router.push(items[active].href);
     } else if (event.key === "Escape" && expanded) {
       // Close the list first; the browser's own clear of a search field waits for the next Escape.
       event.preventDefault();
-      setOpen(false);
+      setPanel(null);
       setHighlight(null);
     }
   }
+
+  // Escape closes the calendar or the guests and goes back to the part that opened it.
+  function onFormKeyDown(event: KeyboardEvent<HTMLFormElement>) {
+    if (event.key !== "Escape" || (panel !== "when" && panel !== "guests")) return;
+    event.preventDefault();
+    (panel === "when" ? whenRef : guestsRef).current?.focus();
+    setPanel(null);
+  }
+
+  function toggle(next: "when" | "guests") {
+    if (next === "when") setTwoMonths(window.matchMedia(WIDE).matches);
+    setPanel(panel === next ? null : next);
+  }
+
+  const input = (
+    <input
+      ref={inputRef}
+      name="q"
+      type="search"
+      role="combobox"
+      value={text}
+      onChange={(event) => {
+        setText(event.target.value);
+        setPanel("where");
+        setHighlight(null);
+      }}
+      onFocus={() => {
+        setPanel("where");
+        if (window.matchMedia(PHONE).matches) {
+          const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          formRef.current?.scrollIntoView({ block: "start", behavior: smooth ? "smooth" : "auto" });
+        }
+      }}
+      onKeyDown={onKeyDown}
+      placeholder={hero ? "Bantayan, island hopping…" : "A place or activity"}
+      aria-label={
+        hero
+          ? "Where to go or what to do: search destinations, landmarks and activities"
+          : "Search destinations, landmarks and activities"
+      }
+      aria-autocomplete="list"
+      aria-expanded={expanded}
+      aria-controls={expanded ? listId : undefined}
+      aria-activedescendant={expanded && active >= 0 ? optionId(active) : undefined}
+      autoComplete="off"
+      data-testid="search-input"
+      className={cn(
+        // The browser's own clear button is unstyled; the one below replaces it.
+        "min-w-0 flex-1 bg-transparent text-base text-foreground caret-primary outline-none selection:bg-fern selection:text-navy placeholder:text-muted/80 [&::-webkit-search-cancel-button]:appearance-none",
+        // In the hero the label gives the field its height.
+        hero ? "w-full truncate font-semibold text-navy placeholder:font-medium placeholder:text-muted" : "min-h-12",
+      )}
+    />
+  );
+
+  const clear = text && (
+    <button
+      type="button"
+      aria-label="Clear search"
+      onClick={() => {
+        // The query too, so the old suggestions don't linger for the debounce.
+        setText("");
+        setQuery("");
+        setHighlight(null);
+        inputRef.current?.focus();
+      }}
+      className="-mx-1 grid size-10 shrink-0 place-items-center rounded-full text-muted transition-colors duration-300 ease-calm hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+    >
+      <CloseGlyph className="size-4.5" />
+    </button>
+  );
+
+  const dateLabel = range.from && range.to ? formatDateRange(range.from, range.to) : null;
 
   return (
     <form
       ref={formRef}
       action="/search"
       role="search"
-      className="relative w-full max-w-xl scroll-mt-4 text-left"
+      className={cn("relative w-full scroll-mt-4 text-left", !hero && "max-w-xl")}
+      onKeyDown={onFormKeyDown}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+        if (!event.currentTarget.contains(event.relatedTarget)) setPanel(null);
       }}
     >
-      <div className="flex items-center gap-2 rounded-card border border-line-strong bg-surface p-1.5 pl-4 shadow-soft focus-within:border-primary">
-        <input
-          name="q"
-          type="search"
-          role="combobox"
-          value={text}
-          onChange={(event) => {
-            setText(event.target.value);
-            setOpen(true);
-            setHighlight(null);
-          }}
-          onFocus={() => {
-            setOpen(true);
-            if (window.matchMedia(PHONE).matches) {
-              const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-              formRef.current?.scrollIntoView({ block: "start", behavior: smooth ? "smooth" : "auto" });
-            }
-          }}
-          onKeyDown={onKeyDown}
-          placeholder="Try Bantayan or snorkelling"
-          aria-label="Search destinations, landmarks and activities"
-          aria-autocomplete="list"
-          aria-expanded={expanded}
-          aria-controls={expanded ? listId : undefined}
-          aria-activedescendant={expanded && active >= 0 ? optionId(active) : undefined}
-          autoComplete="off"
-          data-testid="search-input"
-          className="min-w-0 flex-1 bg-transparent py-2 text-base text-foreground outline-none placeholder:text-muted/80"
-        />
-        <Button type="submit" className="shrink-0">
-          Search
-        </Button>
-      </div>
+      {/* What the GET form sends with the query, so Enter and the results page keep them too. */}
+      {dates.from && <input type="hidden" name="from" value={dates.from} />}
+      {dates.to && <input type="hidden" name="to" value={dates.to} />}
+      {guests > 1 && <input type="hidden" name="guests" value={guests} />}
+
+      {hero ? (
+        // A line to fill in: go or do what, when, with whom. Each blank is a white chip on the
+        // dark glass that turns pale blue once filled. From sm Where has the first row, and When,
+        // Guests and the button the second. On a phone the lead words sit above their chips:
+        // Where on its own row, When and Guests side by side, then the button.
+        <GlassPanel
+          tone="dark"
+          className="grid grid-cols-2 gap-x-2 gap-y-3 card-edge rounded-card p-3 shadow-float sm:flex sm:flex-wrap sm:items-center sm:gap-x-4 sm:p-4 landscape-phone:gap-y-2 landscape-phone:p-2.5"
+        >
+          <label className={cn(BLANK, "col-span-2 sm:basis-full")}>
+            <span className={cn(LEAD, ROW_LEAD)}>Go or do</span>
+            <span className={cn(chipClasses(Boolean(text), panel === "where"), "min-w-0 flex-1 pr-1.5")}>
+              {input}
+              {clear}
+            </span>
+          </label>
+          <button
+            ref={whenRef}
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={panel === "when"}
+            aria-controls={panel === "when" ? datesId : undefined}
+            onClick={() => toggle("when")}
+            data-testid="search-dates"
+            className={cn(BLANK, "group outline-none")}
+          >
+            <span className={cn(LEAD, ROW_LEAD)}>when</span>
+            <span className={chipClasses(Boolean(dateLabel), panel === "when")}>
+              <CalendarGlyph className="size-4.5 shrink-0" />
+              <span className="truncate">{dateLabel ?? "Add dates"}</span>
+            </span>
+          </button>
+          <button
+            ref={guestsRef}
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={panel === "guests"}
+            aria-controls={panel === "guests" ? guestsId : undefined}
+            onClick={() => toggle("guests")}
+            data-testid="search-guests"
+            className={cn(BLANK, "group outline-none")}
+          >
+            <span className={LEAD}>with</span>
+            <span className={chipClasses(guests > 1, panel === "guests")}>
+              <GuestsGlyph className="size-4.5 shrink-0" />
+              <span className="truncate">{guests === 1 ? "just me" : `${guests} guests`}</span>
+            </span>
+          </button>
+          <Button
+            type="submit"
+            variant="glow"
+            size="pill"
+            aria-label="Search"
+            className="group/go col-span-2 min-h-12 gap-2 sm:ml-auto landscape-phone:min-h-11"
+          >
+            Show me
+            <ArrowGlyph className="size-5 transition-transform duration-300 ease-calm group-hover/go:translate-x-0.5" />
+          </Button>
+        </GlassPanel>
+      ) : (
+        <div className="flex items-center gap-2 rounded-card border border-line-strong bg-surface p-1.5 pl-4 shadow-soft transition-[border-color,box-shadow] duration-300 ease-calm focus-within:border-primary focus-within:ring-4 focus-within:ring-sky-mist">
+          {input}
+          {clear}
+          {/* On the smallest phones the button is its icon, so the placeholder fits in full. */}
+          <Button type="submit" className="shrink-0 max-xs:px-3.5">
+            <SearchGlyph className="size-5 xs:hidden" />
+            <span className="max-xs:sr-only">Search</span>
+          </Button>
+        </div>
+      )}
 
       {expanded && (
         <div
@@ -140,9 +310,16 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
           onMouseDown={(event) => event.preventDefault()}
           // On a phone, only as tall as the room above the on-screen keyboard.
           style={room === null ? undefined : { maxHeight: Math.max(room, MIN_PANEL_PX) }}
-          className="absolute inset-x-0 top-full z-20 mt-2 max-h-[45vh] overflow-y-auto overscroll-contain card-edge rounded-card bg-surface p-2 shadow-lift sm:max-h-[70vh]"
+          // Its own text colour, as the hero around it is glass.
+          className={cn(
+            PANEL,
+            "inset-x-0 max-h-[45vh] overflow-y-auto overscroll-contain p-2 sm:max-h-[70vh]",
+            hero && "sm:right-auto sm:w-[min(100%,34rem)]",
+          )}
         >
-          {isError ? (
+          {!enabled ? (
+            <Suggestions id={listId} items={items} active={active} optionId={optionId} query="" />
+          ) : isError ? (
             <p role="status" className="p-3 text-sm text-muted">
               Search isn&apos;t available right now.{" "}
               <button
@@ -158,30 +335,130 @@ export function SearchBox({ initialQuery = "" }: { initialQuery?: string }) {
               Searching…
             </p>
           ) : empty ? (
-            <NoMatches query={query} />
+            <NoMatches query={query} carry={carry} />
           ) : (
-            <Suggestions id={listId} items={items} active={active} optionId={optionId} />
+            <Suggestions id={listId} items={items} active={active} optionId={optionId} query={query} />
           )}
+        </div>
+      )}
+
+      {panel === "when" && (
+        <div
+          id={datesId}
+          role="dialog"
+          aria-label="Trip dates"
+          // Clicks on the calendar's padding keep focus inside the form, so it stays open.
+          onMouseDown={keepFocus}
+          className={cn(PANEL, "inset-x-0 flex flex-col gap-2 p-4 sm:right-auto sm:w-88 lg:w-[40rem]")}
+        >
+          <DateRangeCalendar
+            from={range.from}
+            to={range.to}
+            onChange={setRange}
+            min={todayIso()}
+            months={twoMonths ? 2 : 1}
+            onComplete={() => {
+              // Dates picked: on to the guests, as the bar reads.
+              setPanel("guests");
+              guestsRef.current?.focus();
+            }}
+          />
+          <PanelActions
+            onClear={range.from ? () => setRange({ from: "", to: "" }) : undefined}
+            onDone={() => {
+              setPanel(null);
+              whenRef.current?.focus();
+            }}
+          />
+        </div>
+      )}
+
+      {panel === "guests" && (
+        <div
+          id={guestsId}
+          role="dialog"
+          aria-label="Guests"
+          onMouseDown={keepFocus}
+          className={cn(PANEL, "inset-x-0 flex flex-col gap-3 p-4 sm:right-auto sm:w-80")}
+        >
+          <StepperField
+            label="Guests"
+            hint="Everyone on the trip, kids too"
+            value={guests}
+            onChange={setGuests}
+            min={1}
+            max={MAX_GUESTS}
+            data-testid="search-guests-count"
+          />
+          <PanelActions
+            onDone={() => {
+              setPanel(null);
+              guestsRef.current?.focus();
+            }}
+          />
         </div>
       )}
     </form>
   );
 }
 
-// Nothing found is not a dead end: the kinds of things to book are one tap away.
-function NoMatches({ query }: { query: string }) {
+// The panels under the bar: suggestions, the calendar, the guests.
+const PANEL = "absolute right-0 top-full z-20 mt-2 card-edge rounded-card bg-surface text-foreground shadow-lift";
+// A blank in the hero's line: its lead word, then its chip. On a phone the word sits above.
+const BLANK = "flex min-w-0 cursor-pointer flex-col gap-1 text-left sm:flex-row sm:items-center sm:gap-2.5";
+const LEAD =
+  "px-1 text-sm font-semibold text-sky-mist sm:px-0 sm:font-display sm:text-lg sm:text-white max-sm:short:sr-only landscape-phone:sr-only";
+// From sm the word that starts each row ("Go or do", "when") shares one width, set flush right,
+// so the search field and the dates chip start in one column under each other. In em, as it
+// follows the lead's type; a min width, so a wider fallback font misaligns rather than clips.
+const ROW_LEAD = "sm:min-w-[4.5em] sm:shrink-0 sm:text-right";
+
+// The chip of a blank: white with a dashed rim while empty, pale blue once filled, ringed
+// while its panel is open. The focus ring follows the button or the input inside.
+function chipClasses(filled: boolean, open: boolean) {
+  return cn(
+    "flex min-h-12 min-w-0 items-center gap-2 rounded-full border px-4 text-base transition-[background-color,border-color,box-shadow] duration-300 ease-calm sm:min-h-13 landscape-phone:min-h-11",
+    "group-focus-visible:ring-2 group-focus-visible:ring-sky-pale has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-sky-pale",
+    filled
+      ? "border-transparent bg-fern font-semibold text-navy"
+      : "border-dashed border-line-strong bg-surface font-medium text-muted group-hover:border-primary",
+    open ? "shadow-lift ring-2 ring-sky-pale" : "shadow-soft",
+  );
+}
+
+function PanelActions({ onClear, onDone }: { onClear?: () => void; onDone: () => void }) {
   return (
-    <div className="flex flex-col gap-1 p-3">
-      <p role="status" className="text-sm text-muted">Nothing matches “{query}” yet. Try one of these:</p>
-      <ul className="flex flex-wrap gap-x-4">
+    <div className="flex items-center justify-end gap-1 text-sm">
+      {onClear && (
+        <button type="button" onClick={onClear} className="mr-auto rounded-control px-3 py-2 font-medium text-link hover:bg-surface-2">
+          Clear dates
+        </button>
+      )}
+      <Button type="button" variant="soft" size="touch" onClick={onDone}>
+        Done
+      </Button>
+    </div>
+  );
+}
+
+function keepFocus(event: MouseEvent) {
+  event.preventDefault();
+}
+
+// Nothing found is not a dead end: the kinds of things to book are one tap away.
+function NoMatches({ query, carry }: { query: string; carry: string }) {
+  return (
+    <div className="flex flex-col gap-3 p-3">
+      <p role="status" className="text-sm text-muted">
+        Nothing matches “{query}” yet. Try one of these:
+      </p>
+      <ul className="flex flex-wrap gap-2">
         {CATEGORIES.map((category) => (
           <li key={category.label}>
-            <Link
-              href={categoryHref(category.query)}
-              className="inline-flex min-h-11 items-center text-sm font-semibold text-link underline-offset-2 hover:underline"
-            >
+            <PillLink href={withDates(categoryHref(category.query), carry)}>
+              <CategoryGlyph name={category.icon} className="size-4.5 shrink-0 text-primary" />
               {category.label}
-            </Link>
+            </PillLink>
           </li>
         ))}
       </ul>
@@ -216,29 +493,57 @@ function useRoomAboveKeyboard(ref: RefObject<HTMLFormElement | null>, active: bo
   return room;
 }
 
+// A link with the trip dates and guests ("?from=…&to=…&guests=2", or "") added to its query,
+// before any #hash.
+function withDates(href: string, carry: string) {
+  if (!carry) return href;
+  const hash = href.indexOf("#");
+  const [path, fragment] = hash < 0 ? [href, ""] : [href.slice(0, hash), href.slice(hash)];
+  return `${path}${path.includes("?") ? `&${carry.slice(1)}` : carry}${fragment}`;
+}
+
 type Item = { group: string; href: string; icon: ReactNode; title: string; note?: string };
+
+// Before anything is typed: where we launch and the kinds of things to book.
+function popularItems(carry: string): Item[] {
+  return [
+    {
+      group: "Where we launch",
+      href: withDates(`/${LAUNCH_AREA.slug}`, carry),
+      icon: areaIcon(LAUNCH_AREA.kind),
+      title: LAUNCH_AREA.name,
+      note: "Beaches, island hopping and local partners",
+    },
+    ...CATEGORIES.map((category) => ({
+      group: "Things to book",
+      href: withDates(categoryHref(category.query), carry),
+      icon: categoryIcon(category.icon),
+      title: category.label,
+    })),
+  ];
+}
 
 // Every suggestion in display order, ending with "See all results", so the arrow keys and
 // the list agree on one index.
-function suggestionItems(results: SearchResults, query: string): Item[] {
+function suggestionItems(results: SearchResults, query: string, carry: string): Item[] {
   return [
     ...results.areas.map((area) => ({
       group: "Destinations",
-      href: `/${area.slug}`,
+      href: withDates(`/${area.slug}`, carry),
       icon: areaIcon(area.kind),
       title: area.name,
       note: area.parent_name ?? undefined,
     })),
     ...results.landmarks.map((landmark) => ({
       group: "Landmarks",
-      href: `/${landmark.area.slug}#${landmark.slug}`,
+      href: withDates(`/${landmark.area.slug}#${landmark.slug}`, carry),
       icon: placeIcon(),
       title: landmark.name,
       note: landmark.area.name,
     })),
     ...results.tags.map((tag) => ({
       group: "Activities & interests",
-      href: `/search?q=${encodeURIComponent(tag.name)}`,
+      href: withDates(`/search?q=${encodeURIComponent(tag.name)}`, carry),
       icon: tagIcon(tag.slug),
       title: tag.name,
       note: tag.areas.map((area) => area.name).join(", "),
@@ -246,13 +551,31 @@ function suggestionItems(results: SearchResults, query: string): Item[] {
     ...results.listings.map((listing) => ({
       group: "Things to book",
       // The listing's own row on its destination page.
-      href: `/${listing.area_slug}#listing-${listing.id}`,
+      href: withDates(`/${listing.area_slug}#listing-${listing.id}`, carry),
       icon: categoryIcon(listing.category),
       title: listing.title,
       note: listingNote(listing, results),
     })),
-    { group: "", href: `/search?q=${encodeURIComponent(query)}`, icon: null, title: `See all results for “${query}” →` },
+    {
+      group: "",
+      href: withDates(`/search?q=${encodeURIComponent(query)}`, carry),
+      icon: <SearchGlyph className="size-[1.1em]" />,
+      title: `See all results for “${query}”`,
+    },
   ];
+}
+
+// The title with the first match of what was typed in bold, so a row shows why it is there.
+function Matched({ title, query }: { title: string; query: string }) {
+  const at = query ? title.toLowerCase().indexOf(query.toLowerCase()) : -1;
+  if (at < 0) return title;
+  return (
+    <>
+      {title.slice(0, at)}
+      <strong className="font-bold text-navy">{title.slice(at, at + query.length)}</strong>
+      {title.slice(at + query.length)}
+    </>
+  );
 }
 
 function Suggestions({
@@ -260,19 +583,29 @@ function Suggestions({
   items,
   active,
   optionId,
+  query,
 }: {
   id: string;
   items: Item[];
   active: number;
   optionId: (index: number) => string;
+  query: string;
 }) {
   const groups = [...new Set(items.map((item) => item.group))];
+  // A row is an icon in its well, the name and where it is. The highlighted row (pointer or
+  // arrow keys) turns pale blue and its well white; nothing else changes.
   return (
-    <div id={id} role="listbox" aria-label="Suggestions" className="flex flex-col gap-1">
+    <div id={id} role="listbox" aria-label="Suggestions" className="flex flex-col">
       {groups.map((group) => (
-        <ul key={group || "all"} role="group" aria-label={group || undefined}>
+        // "See all results" closes the list below a divider.
+        <ul
+          key={group || "all"}
+          role="group"
+          aria-label={group || undefined}
+          className={cn(!group && "mt-1.5 border-t border-line pt-1.5")}
+        >
           {group && (
-            <li role="presentation" className="px-3 pb-1 pt-2 text-xs font-bold uppercase tracking-wider text-muted">
+            <li role="presentation" className="px-3 pb-1.5 pt-3 text-xs font-bold text-muted">
               {group}
             </li>
           )}
@@ -286,18 +619,30 @@ function Suggestions({
                   tabIndex={-1}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 rounded-control px-3 py-2 hover:bg-surface-2",
-                    index === active && "bg-surface-2",
-                    !item.group && "text-sm font-semibold text-link",
+                    "group/option flex min-h-12 items-center gap-3 rounded-control px-2.5 py-1.5 transition-colors duration-200 ease-calm hover:bg-mist",
+                    index === active && "bg-mist",
+                    !item.group && "min-h-11 text-sm font-semibold text-link",
                   )}
                 >
-                  {item.icon && (
-                    <span aria-hidden className="text-lg">
+                  {item.group ? (
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "grid size-10 shrink-0 place-items-center rounded-control text-lg text-primary transition-colors duration-200 ease-calm group-hover/option:bg-surface",
+                        index === active ? "bg-surface" : "bg-mist",
+                      )}
+                    >
+                      {item.icon}
+                    </span>
+                  ) : (
+                    <span aria-hidden className="grid w-10 shrink-0 place-items-center text-lg">
                       {item.icon}
                     </span>
                   )}
                   <span className="min-w-0">
-                    <span className={cn("block truncate", item.group && "font-medium text-foreground")}>{item.title}</span>
+                    <span className={cn("block truncate", item.group && "font-medium text-foreground")}>
+                      {item.group ? <Matched title={item.title} query={query} /> : item.title}
+                    </span>
                     {item.note && <span className="block truncate text-xs text-muted">{item.note}</span>}
                   </span>
                 </Link>

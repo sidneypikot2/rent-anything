@@ -13,7 +13,7 @@ const LINKS = [
 // pages' fixed backdrop (Sky & Forest, RAA-102; RAA-107).
 export function SiteFooter() {
   return (
-    <footer className="mt-auto text-white">
+    <footer className="focus-light mt-auto text-white">
       <div className="mx-auto flex w-full max-w-page flex-col gap-gutter px-gutter py-8 sm:flex-row sm:items-stretch sm:py-10">
         <div className="flex flex-1 flex-col justify-center gap-1">
           <Logo className="text-2xl" />
@@ -25,7 +25,7 @@ export function SiteFooter() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="flex min-h-9 items-center rounded-full border border-glass-edge bg-glass-fill px-4 font-medium hover:bg-glass-hover"
+                className="flex min-h-11 items-center rounded-full border border-glass-edge bg-glass-fill px-4 font-medium hover:bg-glass-hover"
               >
                 {link.label}
               </Link>

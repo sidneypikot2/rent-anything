@@ -1,5 +1,7 @@
 import Image from "next/image";
+import { Badge } from "@/components/ui/badge";
 import { GlassPanel } from "@/components/ui/glass";
+import { Section } from "@/components/ui/section";
 import { BAND_PHOTO } from "./sample-photos";
 
 // Each step's icon: a soft filled shape (`fill`) under the line drawing (`line`).
@@ -33,45 +35,63 @@ const STEPS = [
 // What a traveller can rely on before booking anything. Only what is true today: a partner
 // passes an ID check before adding a listing (Listings::Create) — the sample partners seeded
 // before that check weren't, so it doesn't promise "every" — and nothing can be paid yet.
-const TRUST = [
-  { title: "ID checks for partners", body: "A partner verifies their ID before adding a new listing." },
+// `short` is the point's line under the home hero's search; the one source keeps them agreeing.
+export const TRUST: { title: string; body: string; short?: string }[] = [
+  {
+    title: "ID checks for partners",
+    body: "A partner verifies their ID before adding a new listing.",
+    short: "ID check before listing",
+  },
   { title: "Straight from the locals", body: "The people who run the boats, scooters and cottages list them here themselves." },
-  { title: "Nothing to pay yet", body: "Saving to a trip is free. Booking and payment are coming soon." },
+  {
+    title: "Nothing to pay yet",
+    body: "Saving to a trip is free. Booking and payment are coming soon.",
+    short: "Nothing to pay yet",
+  },
 ];
 
 // How the cart works, in three steps, and why the partners can be trusted: a forest-tinted
-// photo band with the steps on glass (Sky & Forest, RAA-102).
+// photo band with the steps on glass (Sky & Forest, RAA-102). It is a Section, so it is headed
+// like the rest; the page's glass rules give its eyebrow and intro their light colours. The steps
+// ease in in their order.
 export function HowItWorks() {
   return (
-    <section className="band reveal relative isolate flex flex-col gap-block overflow-hidden rounded-frame p-card text-white sm:p-12">
-      <Image src={BAND_PHOTO} alt="" fill sizes="(min-width: 1024px) 64rem, 100vw" className="-z-20 object-cover" />
+    <Section
+      eyebrow="How it works"
+      title="How a trip comes together"
+      intro="One trip for every place you visit, planned in one cart."
+      className="band relative isolate overflow-hidden rounded-frame p-card text-white sm:p-12"
+    >
+      <Image src={BAND_PHOTO} alt="" fill sizes="(min-width: 72rem) 72rem, 100vw" className="-z-20 object-cover" />
       <div aria-hidden className="absolute inset-0 -z-10 bg-linear-to-r from-forest/95 via-forest/80 to-forest/55" />
-      <div className="grid gap-gutter lg:grid-cols-4">
-        <div className="flex flex-col justify-center gap-2 lg:pr-4">
-          <p className="text-xs font-bold tracking-[0.14em] text-sky-pale uppercase">How it works</p>
-          <h2 className="font-display text-3xl leading-tight font-extrabold tracking-tight text-balance sm:text-4xl">How a trip comes together</h2>
-          <p className="text-sky-mist">One trip for every place you visit, planned in one cart.</p>
-        </div>
-        <ol className="grid gap-gutter sm:grid-cols-3 lg:col-span-3">
-          {STEPS.map((step, index) => (
-            <li key={step.title}>
-              <GlassPanel tone="forest" className="flex h-full flex-col gap-5 rounded-card p-card hover:bg-forest/60">
-                <div className="flex items-center justify-between">
-                  <StepIcon paths={step.icon} />
-                  <span className="rounded-full border border-glass-edge bg-glass-fill px-2.5 py-1 text-xs font-bold tracking-wider uppercase">
-                    Step {index + 1}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-lg font-bold text-pretty">{step.title}</p>
-                  <p className="text-sm text-pretty text-sky-mist">{step.body}</p>
-                </div>
-              </GlassPanel>
-            </li>
-          ))}
-        </ol>
-      </div>
-      <ul aria-label="Why book here" className="grid gap-gutter border-t border-glass-edge pt-block sm:grid-cols-3">
+      {/* The trust points are small text at the foot, where the scrim above is lightest on the
+          right: a second scrim darkens the foot so they read on any photo. */}
+      <div aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-1/2 bg-linear-to-t from-forest/80 to-transparent" />
+      {/* On a phone each step is a row, its icon beside the words, and the words drop under the
+          icon when enlarged text leaves them under 10rem; from sm up the steps stand side by
+          side, the icon above. */}
+      <ol className="reveal-steps grid gap-3 sm:grid-cols-3 sm:gap-gutter">
+        {STEPS.map((step, index) => (
+          <li key={step.title} className="min-w-0">
+            <GlassPanel tone="forest" className="flex h-full gap-4 rounded-card p-5 max-sm:flex-wrap sm:flex-col sm:gap-5 sm:p-card">
+              <div className="flex shrink-0 items-start justify-between sm:items-center">
+                <StepIcon paths={step.icon} />
+                <span className="hidden sm:block">
+                  <StepBadge number={index + 1} />
+                </span>
+              </div>
+              <div className="flex min-w-0 flex-col items-start gap-1.5 max-sm:flex-1 max-sm:basis-40">
+                <span className="sm:hidden">
+                  <StepBadge number={index + 1} />
+                </span>
+                <h3 className="text-lg font-bold text-pretty">{step.title}</h3>
+                <p className="text-sm text-pretty text-sky-mist">{step.body}</p>
+              </div>
+            </GlassPanel>
+          </li>
+        ))}
+      </ol>
+      <ul aria-label="What you can rely on" className="grid gap-gutter border-t border-glass-edge pt-block sm:grid-cols-3">
         {TRUST.map((point) => (
           <li key={point.title}>
             <p className="font-semibold">{point.title}</p>
@@ -79,14 +99,24 @@ export function HowItWorks() {
           </li>
         ))}
       </ul>
-    </section>
+    </Section>
+  );
+}
+
+// Its visibility goes on a wrapper: Badge's own inline-flex would win over a hidden passed in.
+// Hidden from screen readers: the list already numbers the steps, so it would say "1. Step 1".
+function StepBadge({ number }: { number: number }) {
+  return (
+    <Badge tone="glass" aria-hidden className="whitespace-nowrap">
+      Step {number}
+    </Badge>
   );
 }
 
 // A step's icon in a glowing glass square: the light sky fill shows through the white lines.
 function StepIcon({ paths }: { paths: { fill: string[]; line: string[] } }) {
   return (
-    <span className="relative isolate flex size-14 items-center justify-center rounded-control border border-glass-edge bg-linear-to-br from-white/30 to-white/5 shadow-lift inset-shadow-xs inset-shadow-white/40">
+    <span className="relative isolate flex size-14 items-center justify-center rounded-control border border-glass-edge bg-linear-to-br from-glass-hover to-glass-fill shadow-lift inset-shadow-xs inset-shadow-white/40">
       <span aria-hidden className="absolute inset-2 -z-10 rounded-full bg-sky-pale/30 blur-md" />
       <svg viewBox="0 0 24 24" aria-hidden className="size-7">
         {paths.fill.map((d) => (

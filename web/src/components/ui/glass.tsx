@@ -1,18 +1,28 @@
 import type { ComponentProps } from "react";
 import { cn } from "./cn";
 
+// On a phone the dark and forest glass is a denser tint with no blur: over the fixed backdrop
+// every blurred panel is redrawn on each scroll frame, and a page holds a score of them.
 const TONES = {
   // Controls on a photo: the nav pill, the search bar, a category tile. White text.
-  dark: "border-glass-edge bg-navy/40 text-white backdrop-blur-lg",
+  dark: "focus-light border-glass-edge bg-navy/40 text-white backdrop-blur-lg max-sm:bg-navy/65 max-sm:backdrop-blur-none",
+  // The text panel on a photo card. Denser than dark, at the phone's density everywhere: a
+  // card's photo can be any partner's, and over a near-white one sky-mist text still reads at
+  // 5:1 (dark's 40% leaves it near 3:1).
+  card: "focus-light border-glass-edge bg-navy/65 text-white backdrop-blur-lg max-sm:backdrop-blur-none",
   // Forest-tinted, for a trust or trip element on a photo, and the footer. White text.
-  forest: "border-glass-edge bg-forest/50 text-white backdrop-blur-lg",
+  forest:
+    "focus-light border-glass-edge bg-forest/50 text-white backdrop-blur-lg max-sm:bg-forest/75 max-sm:backdrop-blur-none",
   // A badge or tab bar on a photo. Dark text.
   light: "border-white/60 bg-white/70 text-foreground backdrop-blur-md",
-  // The faint frame inset into a full-bleed hero, holding the other panels.
-  frame: "border-glass-edge bg-white/5 text-white inset-shadow-xs inset-shadow-white/25 backdrop-blur-[2px]",
+  // The faint frame inset into a full-bleed hero, holding the other panels. No blur of its
+  // own: a backdrop-filter makes it the backdrop the glass inside it blurs, so theirs would
+  // blur the frame's faint fill rather than the photo.
+  frame: "focus-light glass-frame text-white",
   // A guest page's content over the fixed backdrop (RAA-107): the same glass as the hero frame. It
   // carries on-glass (globals.css): the text inside turns light, white cards keep theirs dark.
-  sheet: "on-glass border-glass-edge bg-white/5 inset-shadow-xs inset-shadow-white/25 backdrop-blur-[2px]",
+  // Unblurred, like the frame, so the glass inside it blurs the photo.
+  sheet: "on-glass glass-frame",
 };
 
 export type GlassTone = keyof typeof TONES;

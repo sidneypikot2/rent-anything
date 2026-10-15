@@ -47,8 +47,8 @@ const NAV_BUTTON =
 // react-day-picker's parts, styled with the palette instead of its stylesheet.
 const CLASS_NAMES = {
   root: "w-full",
-  months: "relative flex flex-col",
-  month: "flex flex-col gap-2",
+  months: "relative flex flex-col gap-6 md:flex-row",
+  month: "flex min-w-0 flex-1 flex-col gap-2",
   month_caption: "flex h-9 items-center justify-center font-medium",
   nav: "absolute inset-x-0 top-0 flex justify-between",
   button_previous: NAV_BUTTON,
@@ -107,8 +107,6 @@ export function DateRangeField({
   "data-testid": testId,
 }: Props) {
   const [open, setOpen] = useState(false);
-  // The day under the pointer, shown as the end while one is picked.
-  const [hovered, setHovered] = useState<string>();
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const labelId = useId();
@@ -116,7 +114,6 @@ export function DateRangeField({
   const noteId = useId();
   const calendarId = useId();
   const note = error ?? hint;
-  const keepsStart = !single && Boolean(from) && from < min;
 
   useEffect(() => {
     if (!open) return;
@@ -130,19 +127,6 @@ export function DateRangeField({
   function close() {
     setOpen(false);
     trigger.current?.focus();
-  }
-
-  // DayPicker's own range rules differ (it stretches a complete range), so a pick is
-  // worked out here from the day tapped.
-  function pick(date: Date) {
-    const day = toIso(date);
-    if (single) {
-      onChange({ from: day, to: day });
-      return close();
-    }
-    if (!from || (to && !keepsStart) || day < from) return onChange({ from: day, to: "" });
-    onChange({ from, to: day });
-    close();
   }
 
   // Escape closes the calendar only, not a sheet the field is in.
@@ -160,29 +144,6 @@ export function DateRangeField({
       : from
         ? `${formatDateRange(from, from)} – pick an end`
         : null;
-  const pickingEnd = !single && Boolean(from) && (!to || keepsStart);
-  const shownEnd = (pickingEnd && hovered && hovered >= from ? hovered : undefined) || to;
-  const opensOn = toDate(from && from >= min ? from : min);
-  const instruction = keepsStart
-    ? "Under way: pick the new last day"
-    : pickingEnd
-      ? "Now pick the last day"
-      : single
-        ? undefined
-        : "Pick the first day";
-  const calendar = {
-    timeZone: "UTC",
-    weekStartsOn: 1,
-    autoFocus: true,
-    defaultMonth: opensOn,
-    startMonth: toDate(min),
-    disabled: { before: toDate(min) },
-    classNames: CLASS_NAMES,
-    components: { DayButton: Day },
-    footer: instruction,
-    onDayMouseEnter: (date: Date) => setHovered(toIso(date)),
-    onDayMouseLeave: () => setHovered(undefined),
-  } as const;
 
   return (
     <div ref={root} onKeyDown={onKeyDown} className={cn("relative flex flex-col gap-1.5 text-sm font-semibold", className)}>
@@ -196,10 +157,7 @@ export function DateRangeField({
         aria-expanded={open}
         aria-controls={calendarId}
         data-testid={testId}
-        onClick={() => {
-          setHovered(undefined);
-          setOpen(!open);
-        }}
+        onClick={() => setOpen(!open)}
         className={cn(
           "flex items-center justify-between gap-2 min-h-12 rounded-control border bg-surface px-4 py-2.5 text-left font-normal outline-none",
           "focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
@@ -228,21 +186,7 @@ export function DateRangeField({
             inline ? "mt-1" : "absolute left-0 top-full z-20 mt-1 shadow-lift sm:w-80",
           )}
         >
-          {single ? (
-            <DayPicker
-              {...calendar}
-              mode="single"
-              selected={from ? toDate(from) : undefined}
-              onSelect={(_, date) => pick(date)}
-            />
-          ) : (
-            <DayPicker
-              {...calendar}
-              mode="range"
-              selected={from ? { from: toDate(from), to: shownEnd ? toDate(shownEnd) : undefined } : undefined}
-              onSelect={(_, date) => pick(date)}
-            />
-          )}
+          <DateRangeCalendar from={from} to={to} onChange={onChange} min={min} single={single} onComplete={close} />
 
           <div className="flex justify-end gap-1 text-sm">
             {clearable && from && (
@@ -264,6 +208,72 @@ export function DateRangeField({
         </div>
       )}
     </div>
+  );
+}
+
+// The calendar on its own, for a control that opens it its own way (the home hero's search).
+// A tap picks the start and the next the end; `onComplete` runs once the range (or, with
+// `single`, the day) is picked.
+export function DateRangeCalendar({
+  from,
+  to,
+  onChange,
+  min,
+  single = false,
+  months = 1,
+  onComplete,
+}: Pick<Props, "from" | "to" | "onChange" | "min" | "single"> & { months?: number; onComplete?: () => void }) {
+  // The day under the pointer, shown as the end while one is picked.
+  const [hovered, setHovered] = useState<string>();
+  const keepsStart = !single && Boolean(from) && from < min;
+
+  // DayPicker's own range rules differ (it stretches a complete range), so a pick is
+  // worked out here from the day tapped.
+  function pick(date: Date) {
+    const day = toIso(date);
+    if (single) {
+      onChange({ from: day, to: day });
+      return onComplete?.();
+    }
+    if (!from || (to && !keepsStart) || day < from) return onChange({ from: day, to: "" });
+    onChange({ from, to: day });
+    onComplete?.();
+  }
+
+  const pickingEnd = !single && Boolean(from) && (!to || keepsStart);
+  const shownEnd = (pickingEnd && hovered && hovered >= from ? hovered : undefined) || to;
+  const opensOn = toDate(from && from >= min ? from : min);
+  const instruction = keepsStart
+    ? "Under way: pick the new last day"
+    : pickingEnd
+      ? "Now pick the last day"
+      : single
+        ? undefined
+        : "Pick the first day";
+  const calendar = {
+    numberOfMonths: months,
+    timeZone: "UTC",
+    weekStartsOn: 1,
+    autoFocus: true,
+    defaultMonth: opensOn,
+    startMonth: toDate(min),
+    disabled: { before: toDate(min) },
+    classNames: CLASS_NAMES,
+    components: { DayButton: Day },
+    footer: instruction,
+    onDayMouseEnter: (date: Date) => setHovered(toIso(date)),
+    onDayMouseLeave: () => setHovered(undefined),
+  } as const;
+
+  return single ? (
+    <DayPicker {...calendar} mode="single" selected={from ? toDate(from) : undefined} onSelect={(_, date) => pick(date)} />
+  ) : (
+    <DayPicker
+      {...calendar}
+      mode="range"
+      selected={from ? { from: toDate(from), to: shownEnd ? toDate(shownEnd) : undefined } : undefined}
+      onSelect={(_, date) => pick(date)}
+    />
   );
 }
 

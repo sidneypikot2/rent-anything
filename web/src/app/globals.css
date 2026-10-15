@@ -47,6 +47,12 @@
   --container-page: 72rem;
   --container-narrow: 48rem;
   --container-prose: 40rem;
+  /* A lede: the short paragraph under a big title (the hero, the closing band), about 50
+     characters a line. */
+  --container-lede: 31rem;
+  /* The small phones (320px wide) get max-xs: tweaks, so the header bar and the search keep
+     to one row there. */
+  --breakpoint-xs: 22.5rem;
 
   /* Radius: four sizes. An inner surface's radius is its container's minus the inset between
      them (a glass panel 12px inside a 24px card is 12px), so nested corners stay parallel. */
@@ -79,6 +85,16 @@
       transform: translateY(-10px);
     }
   }
+  /* The hero's promise ("in one cart."): wiped in from the left. */
+  --animate-unveil: unveil 0.9s var(--ease-calm) 0.45s both;
+  @keyframes unveil {
+    from {
+      clip-path: inset(-0.2em 100% -0.2em 0);
+    }
+    to {
+      clip-path: inset(-0.2em 0 -0.2em 0);
+    }
+  }
   @keyframes drift {
     from {
       transform: scale(1.02);
@@ -88,6 +104,13 @@
     }
   }
 }
+
+/* Layouts by the screen's height as well as its width, so the home hero's search stays on the
+   first screen: `short` for a phone with little height to spare (an SE, or any phone with its
+   browser bars showing; pair it with max-sm:), `landscape-phone` for a phone on its side, wide
+   enough for sm: but too short for a stacked hero. */
+@custom-variant short (@media (max-height: 44rem));
+@custom-variant landscape-phone (@media (width >= 40rem) and (max-height: 30rem));
 
 /* Arrivals one after another: stagger-1 … stagger-4 delay an animate-* by 120ms steps. */
 /* The one edge for cards, photo cards, dialogs, menus and popovers: a 1px frosted glass rim
@@ -100,6 +123,18 @@
 /* A blocked day on the partner calendar (RAA-120): fine diagonal lines in line. */
 @utility bg-hatch {
   background-image: repeating-linear-gradient(135deg, transparent 0 6px, var(--line) 6px 8px);
+}
+
+/* Keyboard focus on a dark surface (photo, glass, navy or forest): the ring turns sky-pale,
+   11:1 there, where the primary blue is under 3:1. A white surface inside resets it (below). */
+@utility focus-light {
+  --focus: var(--color-sky-pale);
+}
+
+/* The faint glass of the hero frame, the page sheet and the alternating home sections: one
+   recipe, so they always match. Unblurred (see the frame tone in glass.tsx). */
+@utility glass-frame {
+  @apply border border-glass-edge bg-white/5 inset-shadow-xs inset-shadow-white/25;
 }
 
 @utility stagger-1 {
@@ -115,11 +150,84 @@
   animation-delay: 480ms;
 }
 
+/* What reveal and reveal-steps play: a rise without the fade. They follow the scroll, so a
+   section that stops at the foot of the screen stops mid-way; with no fade, nothing is left dim. */
+@keyframes lift {
+  from {
+    transform: translateY(14px);
+  }
+}
+
+/* For cascade's [--cascade:slide-in]: outside @theme, which only emits the keyframes an
+   --animate-* token names. */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+}
+
+/* A list arriving as a list: its items ease up one after another, 70ms apart, the sixth and
+   later together so a long list never keeps anyone waiting. `[--cascade:slide-in]` brings them
+   in from the left instead, for a row. */
+@utility cascade {
+  & > * {
+    animation: var(--cascade, rise) 0.8s var(--ease-calm) both;
+  }
+  & > :nth-child(2) {
+    animation-delay: 70ms;
+  }
+  & > :nth-child(3) {
+    animation-delay: 140ms;
+  }
+  & > :nth-child(4) {
+    animation-delay: 210ms;
+  }
+  & > :nth-child(5) {
+    animation-delay: 280ms;
+  }
+  & > :nth-child(n + 6) {
+    animation-delay: 350ms;
+  }
+}
+
+/* Steps that ease up in their order as they scroll into view, each a little after the one
+   before, so a row of them still reads first to last. Simply there without support. */
+@utility reveal-steps {
+  @supports (animation-timeline: view()) {
+    & > * {
+      animation: lift linear both;
+      animation-timeline: view();
+      animation-range: entry 10% entry 50%;
+    }
+    & > :nth-child(2) {
+      animation-range: entry 25% entry 65%;
+    }
+    & > :nth-child(3) {
+      animation-range: entry 40% entry 80%;
+    }
+  }
+}
+
+/* A 44px touch target around a control drawn smaller (the header's pills), without changing
+   how it looks: an invisible layer, centred on it, at least 44px tall. */
+@utility tap-target {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 50%;
+    height: max(100%, 2.75rem);
+    translate: 0 -50%;
+  }
+}
+
 /* A section eases up as it scrolls into view, where the browser supports scroll-driven
    animations; elsewhere it is simply there. Never hidden at rest. */
 @utility reveal {
   @supports (animation-timeline: view()) {
-    animation: rise linear both;
+    animation: lift linear both;
     animation-timeline: view();
     animation-range: entry 0% entry 35%;
   }
@@ -145,6 +253,8 @@
   /* Every button is a shade of the one blue (white text 8.7:1); green is never a button. */
   --secondary: #1e40af;
   --secondary-hover: #1e3a8a;
+  /* The keyboard focus ring: primary blue on white; focus-light turns it sky-pale on dark. */
+  --focus: var(--color-primary);
 }
 
 @theme inline {
@@ -183,25 +293,37 @@ body {
   line-height: 1.65;
 }
 
-/* Everything moves only for people who are fine with motion. */
+/* Everything moves only for people who are fine with motion. A scroll-driven animation (reveal)
+   ignores a duration, so it goes back on the document's timeline to end at once, and no delay
+   (stagger, cascade, the hero's unveil) keeps anything hidden. Transitions keep their colour
+   and shadow fades, which don't move anything, so hover and focus still ease; a lift or a
+   slide happens at once. */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
   ::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    animation-timeline: auto !important;
+    transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke,
+      opacity, box-shadow !important;
     scroll-behavior: auto !important;
   }
 }
 
 /* Keyboard focus in the palette instead of the browser's default ring; an outline follows
-   rounded corners, and the offset keeps it visible on a primary-coloured button. In the
-   base layer, so a component's outline-none (fields, the search input) still wins. */
+   rounded corners, and the offset keeps it visible on a primary-coloured button. Its colour is
+   --focus, so it stays 3:1 on dark surfaces too (focus-light). In the base layer, so a
+   component's outline-none (fields, the search input) still wins. */
 @layer base {
   :focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
+  }
+  /* A white surface brings the blue ring back, wherever it sits. */
+  :where(.bg-surface, .bg-surface-2, .bg-background, .bg-mist) {
+    --focus: var(--color-primary);
   }
 }
 
@@ -215,6 +337,11 @@ body {
    components layer, so a utility on an element still wins. */
 @layer components {
   .on-glass,
+  .page-sections,
+  .band {
+    --focus: var(--color-sky-pale);
+  }
+  .on-glass,
   .page-sections {
     color: white;
     --muted: var(--color-sky-mist);
@@ -225,15 +352,14 @@ body {
     --muted: var(--muted-ink);
     --link: var(--link-ink);
   }
+  /* Inset as the bands are (p-card, sm:p-12), less the frame's 1px border, so every section's
+     heading starts on one line. */
   .page-sections > section:nth-of-type(even):not(.band) {
-    padding: 1.25rem;
-    border: 1px solid var(--color-glass-edge);
+    @apply glass-frame;
+    padding: calc(var(--spacing-card) - 1px);
     border-radius: var(--radius-frame);
-    background: rgb(255 255 255 / 0.05);
-    box-shadow: inset 0 1px 2px rgb(255 255 255 / 0.25);
-    backdrop-filter: blur(2px);
     @media (width >= 40rem) {
-      padding: 2.5rem;
+      padding: calc(3rem - 1px);
     }
   }
 }

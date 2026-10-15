@@ -82,7 +82,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   return (
     <main className="flex flex-1 flex-col">
       <PageBanner
-        photo={areaPhoto(slug)}
+        photo={areaPhoto(slug, area.kind)}
         eyebrow={area.parent_name ? `${area.parent_name}, Philippines` : "Philippines"}
         title={
           <DisplayTitle className="flex items-center gap-4">
@@ -127,7 +127,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
               <ul className={cn("grid gap-gutter", areas.length > 1 && "sm:grid-cols-2")}>
                 {areas.map((child) => {
                   const childCount = counts?.children.get(child.slug);
-                  const photo = areaPhoto(child.slug);
+                  const photo = areaPhoto(child.slug, child.kind);
                   return (
                     <li key={child.slug}>
                       <Link
@@ -142,7 +142,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                           className={PHOTO_CARD_IMAGE}
                         />
                         <span aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-transparent to-scrim/55" />
-                        <GlassPanel className={cn("flex items-center gap-3 rounded-control p-3", areas.length > 1 ? "w-full" : "w-full sm:w-auto sm:pr-6")}>
+                        <GlassPanel tone="card" className={cn("flex items-center gap-3 rounded-control p-3", areas.length > 1 ? "w-full" : "w-full sm:w-auto sm:pr-6")}>
                           <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-control border border-glass-edge bg-glass-fill text-lg">
                             {areaIcon(child.kind)}
                           </span>
