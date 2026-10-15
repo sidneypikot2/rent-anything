@@ -860,6 +860,21 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
+      response "422", "fewer units than are booked on one day (RAA-118)" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before do
+          body[:units_count] = 1
+          listing.units.create!(position: 2)
+          create(:booking, listing:, starts_on: Date.current + 1, ends_on: Date.current + 2, quantity: 2)
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "2 units are booked on the same day: keep at least 2" ])
+          expect(listing.units.count).to eq(2)
+        end
+      end
+
       response "200", "photos put in the order sent, those left out deleted, kept when left out" do
         schema "$ref" => "#/components/schemas/partner_listing"
 
@@ -1194,8 +1209,9 @@ RSpec.describe "Partner listings", type: :request do
     delete "Delete a listing" do
       tags "Partner"
       produces "application/json"
-      description "Partner-only. Deletes the listing for good, and takes it out of any guest's trip. Another " \
-        "partner's listing is a 404."
+      description "Partner-only. Deletes the listing for good, and takes it out of any guest's trip. A listing with " \
+        "bookings, even cancelled ones, can't be deleted: delist it instead (RAA-118). Another partner's listing is " \
+        "a 404."
       security [ { bearer: [] } ]
 
       response "204", "deleted" do
@@ -1208,6 +1224,17 @@ RSpec.describe "Partner listings", type: :request do
         run_test! do
           expect(TripItem.exists?(item.id)).to be(false)
           expect(Trip.exists?(item.trip_id)).to be(true)
+        end
+      end
+
+      response "422", "a listing with bookings (RAA-118)" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { create(:booking, listing:, status: "cancelled") }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "A listing with bookings can't be deleted: delist it instead" ])
+          expect(Listing.exists?(listing.id)).to be(true)
         end
       end
 

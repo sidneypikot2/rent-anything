@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_15_180001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_16_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -20,6 +20,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_180001) do
 
   # Custom types defined in this database.
   # Note that some types may not work with other database engines. Be careful if changing database.
+  create_enum "booking_source", ["offline", "checkout"]
+  create_enum "booking_status", ["confirmed", "cancelled"]
   create_enum "listing_status", ["draft", "active", "paused", "delisted"]
 
   create_table "areas", force: :cascade do |t|
@@ -49,6 +51,41 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_180001) do
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'published'::character varying::text])", name: "areas_status_check"
     t.check_constraint "wikidata_id::text ~ '^Q[0-9]+$'::text", name: "areas_wikidata_id_check"
     t.check_constraint "wikidata_popularity >= 0", name: "areas_wikidata_popularity_check"
+  end
+
+  create_table "availability_blocks", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.date "starts_on", null: false
+    t.date "ends_on", null: false
+    t.string "reason"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+
+    t.check_constraint "char_length(reason::text) <= 120", name: "availability_blocks_reason_length_check"
+    t.check_constraint "ends_on >= starts_on", name: "availability_blocks_dates_check"
+    t.exclusion_constraint "listing_id WITH =, daterange(starts_on, ends_on, '[]'::text) WITH &&", using: :gist, name: "availability_blocks_no_overlap"
+  end
+
+  create_table "bookings", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.bigint "user_id"
+    t.string "guest_name", null: false
+    t.date "starts_on", null: false
+    t.date "ends_on", null: false
+    t.integer "quantity", default: 1, null: false
+    t.enum "status", default: "confirmed", null: false, enum_type: "booking_status"
+    t.enum "source", null: false, enum_type: "booking_source"
+    t.bigint "total_cents", null: false
+    t.text "notes", default: "", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["listing_id", "starts_on", "ends_on"], name: "index_bookings_on_listing_id_and_starts_on_and_ends_on"
+    t.index ["user_id"], name: "index_bookings_on_user_id"
+    t.check_constraint "char_length(guest_name::text) >= 1 AND char_length(guest_name::text) <= 80", name: "bookings_guest_name_length_check"
+    t.check_constraint "char_length(notes) <= 500", name: "bookings_notes_length_check"
+    t.check_constraint "ends_on >= starts_on", name: "bookings_dates_check"
+    t.check_constraint "quantity >= 1 AND quantity <= 99", name: "bookings_quantity_check"
+    t.check_constraint "total_cents >= 0", name: "bookings_total_check"
   end
 
   create_table "businesses", force: :cascade do |t|
@@ -157,6 +194,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_180001) do
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'published'::character varying::text])", name: "landmarks_status_check"
     t.check_constraint "wikidata_id::text ~ '^Q[0-9]+$'::text", name: "landmarks_wikidata_id_check"
     t.check_constraint "wikidata_popularity >= 0", name: "landmarks_wikidata_popularity_check"
+  end
+
+  create_table "listing_days", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.date "date", null: false
+    t.bigint "price_cents"
+    t.integer "units_available"
+    t.integer "min_nights"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["listing_id", "date"], name: "index_listing_days_on_listing_id_and_date", unique: true
+    t.check_constraint "min_nights >= 1 AND min_nights <= 365", name: "listing_days_min_nights_check"
+    t.check_constraint "price_cents > 0", name: "listing_days_price_check"
+    t.check_constraint "price_cents IS NOT NULL OR units_available IS NOT NULL OR min_nights IS NOT NULL", name: "listing_days_not_empty_check"
+    t.check_constraint "units_available >= 0 AND units_available <= 100", name: "listing_days_units_check"
   end
 
   create_table "listing_fees", force: :cascade do |t|
@@ -432,6 +484,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_180001) do
   end
 
   add_foreign_key "areas", "areas", column: "parent_id"
+  add_foreign_key "availability_blocks", "listings", on_delete: :cascade
+  add_foreign_key "bookings", "listings"
+  add_foreign_key "bookings", "users"
   add_foreign_key "businesses", "users", column: "partner_id"
   add_foreign_key "categories", "categories", column: "parent_id"
   add_foreign_key "category_tags", "categories"
@@ -441,6 +496,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_180001) do
   add_foreign_key "landmark_tags", "landmarks"
   add_foreign_key "landmark_tags", "tags"
   add_foreign_key "landmarks", "areas"
+  add_foreign_key "listing_days", "listings", on_delete: :cascade
   add_foreign_key "listing_fees", "listings", on_delete: :cascade
   add_foreign_key "listing_landmarks", "landmarks"
   add_foreign_key "listing_landmarks", "listings"

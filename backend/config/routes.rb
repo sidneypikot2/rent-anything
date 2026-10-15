@@ -61,7 +61,14 @@ Rails.application.routes.draw do
           resources :photos, only: %i[create update destroy], controller: "listing_photos"
           # Go live, pause, resume, delist (RAA-115).
           resource :status, only: :update, controller: "listing_statuses"
+          # The partner calendar (RAA-118): a run of days' price, units on sale and minimum
+          # stay, blocked days, and bookings taken offline (update cancels).
+          resource :calendar_days, only: :update
+          resources :availability_blocks, only: %i[index create update destroy]
+          resources :bookings, only: %i[index create update]
         end
+        # Every listing's days, blocks and bookings in a window (RAA-118).
+        resource :calendar, only: :show, controller: "calendar"
         resource :listing_options, only: :show
         # The tour landmark picker (RAA-70).
         resources :landmarks, only: :index

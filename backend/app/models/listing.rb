@@ -53,10 +53,17 @@ class Listing < ApplicationRecord
   has_many :photos, -> { order(:position) }, class_name: "ListingPhoto", dependent: :destroy, inverse_of: :listing
   # What guests see: the ready ones (ListingPhotos::ResizeJob), the first the cover. Lists of
   # listings show only that.
+  # The partner calendar (RAA-118): blocked days, per-day changes and bookings. A listing with
+  # bookings isn't deleted: delisting takes it off the marketplace.
+  has_many :availability_blocks, -> { order(:starts_on) }, dependent: :delete_all, inverse_of: :listing
+  has_many :days, class_name: "ListingDay", dependent: :delete_all, inverse_of: :listing
+  has_many :bookings, dependent: :restrict_with_error, inverse_of: :listing
   has_many :ready_photos, -> { ready.order(:position) }, class_name: "ListingPhoto", inverse_of: false
   has_one :cover_photo, -> { ready.order(:position) }, class_name: "ListingPhoto", inverse_of: false
 
   enum :status, STATUSES.index_with(&:itself), validate: true
+
+  before_destroy :keep_if_booked, prepend: true
 
   validates :title, :location, presence: true
   validates :title, length: { maximum: 120 }
@@ -98,6 +105,13 @@ class Listing < ApplicationRecord
   end
 
   private
+
+  def keep_if_booked
+    return unless bookings.exists?
+
+    errors.add(:base, "A listing with bookings can't be deleted: delist it instead")
+    throw :abort
+  end
 
   def needs_price?
     (category.accommodation? && !stay_rate&.nightly_price_cents&.positive?) ||

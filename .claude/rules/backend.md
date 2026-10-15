@@ -5,7 +5,7 @@ paths:
 
 # Backend conventions
 
-Topic rules load on top of this one when their files are read: `backend-migrations.md` (anything under `db/`), `auth.md` (auth services, controllers, the web session). Add a topic rule (payments, bookings) when that area is built — `SPEC.md` holds the design until then.
+Topic rules load on top of this one when their files are read: `backend-migrations.md` (anything under `db/`), `auth.md` (auth services, controllers, the web session), `bookings.md` (bookings and the partner calendar). Add a topic rule (payments) when that area is built — `SPEC.md` holds the design until then.
 
 **API-only** (`ActionController::API`), versioned under `/api/v1` (`app/controllers/api/v1/`) — no views, no cookie sessions. The web app and the future mobile app are both clients of the same API. Access tokens are short-lived JWTs (`app/lib/json_web_token.rb`) sent as `Authorization: Bearer <token>`, with a refresh token from every sign-in (`auth.md`). CORS allows `ENV["FRONTEND_ORIGIN"]` (default `http://localhost:8100`).
 

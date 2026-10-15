@@ -2,7 +2,8 @@ module Stays
   # What a stay at an accommodation listing costs (RAA-104), in centavos, the way Airbnb and
   # Booking.com work it out from its StayRate:
   #
-  # - each night at the nightly price, or the weekend price on Friday and Saturday nights;
+  # - each night at the partner's price for that day on the calendar (RAA-118), else the
+  #   nightly price, or the weekend price on Friday and Saturday nights;
   #   a shared room's price is per guest, so the nights are multiplied by the guests;
   # - each guest above base_guests pays extra_guest_fee per night;
   # - the monthly discount from 28 nights, otherwise the weekly one from 7, comes off the
@@ -10,7 +11,8 @@ module Stays
   # - the listing's required fees and the optional ones picked (fee_ids), each multiplied by
   #   what it is charged per. One unit is quoted.
   #
-  # Availability isn't checked: there are no bookings yet (M3). A refusal is a RecordInvalid.
+  # A night that is blocked or fully booked on the calendar is refused, and so is a stay
+  # shorter than the minimum nights set for its check-in day. A refusal is a RecordInvalid.
   class Quote < ApplicationService
     def initialize(listing, starts_on:, ends_on:, guests:, fee_ids: [])
       @listing = listing
@@ -23,6 +25,7 @@ module Stays
     end
 
     def call
+      @ledger = Availability::Ledger.new([ @listing ], @starts_on, @ends_on) if @ends_on > @starts_on
       check!
       nights = (@starts_on...@ends_on).map { |date| night(date) }
       nightly_subtotal = nights.sum { _1[:price_cents] } * (@rate.per_guest? ? @guests : 1)
@@ -66,11 +69,14 @@ module Stays
       return @errors << "Check-in can't be in the past" if @starts_on < Date.current
 
       nights = (@ends_on - @starts_on).to_i
-      if nights < @rate.min_nights
-        @errors << "This place needs a stay of at least #{@rate.min_nights} nights"
+      min_nights = @ledger.day(@listing, @starts_on)[:min_nights]
+      if nights < min_nights
+        @errors << "This place needs a stay of at least #{min_nights} nights"
       elsif @rate.max_nights && nights > @rate.max_nights
         @errors << "This place takes stays of at most #{@rate.max_nights} nights"
       end
+      refusal = @ledger.refusal(@listing, @starts_on...@ends_on, 1)
+      @errors << "Those dates aren't available: #{refusal}" if refusal
     end
 
     def check_guests
@@ -95,9 +101,7 @@ module Stays
     end
 
     def night(date)
-      weekend = StayRate::WEEKEND_DAYS.include?(date.wday)
-      price = weekend && @rate.weekend_price_cents ? @rate.weekend_price_cents : @rate.nightly_price_cents
-      { date:, price_cents: price, weekend: }
+      { date:, price_cents: @ledger.day(@listing, date)[:price_cents], weekend: StayRate::WEEKEND_DAYS.include?(date.wday) }
     end
 
     def discount(nights, amount)

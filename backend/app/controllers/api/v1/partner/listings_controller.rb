@@ -34,7 +34,8 @@ module Api
         end
 
         def destroy
-          @listing.destroy!
+          # One with bookings is kept (RAA-118).
+          raise ActiveRecord::RecordInvalid, @listing unless @listing.destroy
           head :no_content
         end
 
