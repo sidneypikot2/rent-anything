@@ -26,11 +26,13 @@ RSpec.describe "Partner calendar", type: :request do
         let(:resort) { create(:business, partner: user, name: "Amihan Resort") }
         let(:stay) { create(:listing, :stay, partner: user, business: resort, title: "Garden room") }
         let(:tour) { create(:listing, :tour, partner: user, business: resort, title: "Island hopping") }
+        let(:joiner) { create(:listing, :tour, partner: user, business: resort, title: "Sunset joiner") }
 
         before do
           stay.units.create!(position: 2)
           stay.units.create!(position: 3)
-          tour.tour_detail.update!(max_groups_per_day: 4)
+          tour.tour_detail.update!(tour_type: "private", max_groups_per_day: 4)
+          joiner.tour_detail.update!(tour_type: "joiner", min_guests: 1, max_guests: 5, max_groups_per_day: 1)
           create(:listing, :stay, title: "Someone else's room")
           create(:listing_day, listing: stay, date: today + 1, price_cents: 260_000, units_available: 2)
           create(:availability_block, listing: stay, starts_on: today + 4, ends_on: today + 5, reason: "Repainting")
@@ -38,13 +40,14 @@ RSpec.describe "Partner calendar", type: :request do
           create(:booking, listing: stay, starts_on: today + 2, ends_on: today + 3, quantity: 2)
           create(:booking, listing: stay, starts_on: today + 1, ends_on: today + 2, status: "cancelled")
           create(:booking, listing: tour, starts_on: today, ends_on: today, quantity: 3)
+          create(:booking, listing: joiner, starts_on: today, ends_on: today, quantity: 2)
         end
 
         run_test! do |response|
           body = response.parsed_body
-          expect(body["listings"].pluck("title")).to eq([ "Garden room", "Island hopping" ])
-          room, hopping = body["listings"]
-          expect(room).to include("capacity" => 3, "price_unit" => "night")
+          expect(body["listings"].pluck("title")).to eq([ "Garden room", "Island hopping", "Sunset joiner" ])
+          room, hopping, sunset = body["listings"]
+          expect(room).to include("capacity" => 3, "capacity_unit" => "units", "tour_type" => nil, "price_unit" => "night")
           expect(room["days"].size).to eq(7)
           expect(room["days"][1]).to include(
             "price_cents" => 260_000, "price_set" => true, "units_available" => 2, "units_set" => true,
@@ -56,9 +59,14 @@ RSpec.describe "Partner calendar", type: :request do
           expect(room["days"][4]).to include("units_left" => 0, "block_id" => room["blocks"].first["id"])
           expect(room["blocks"]).to match([ hash_including("reason" => "Repainting") ])
           expect(room["bookings"].pluck("quantity")).to eq([ 1, 2 ])
-          expect(hopping).to include("capacity" => 4, "price_unit" => "person")
+          expect(hopping).to include("capacity" => 4, "capacity_unit" => "groups", "tour_type" => "private")
           expect(hopping["days"].first).to include("booked" => 3, "units_left" => 1, "min_nights" => nil,
             "price_cents" => 150_000)
+          # A joiner tour sells seats: two of five taken leaves the day open.
+          expect(sunset).to include("capacity" => 5, "capacity_unit" => "seats", "tour_type" => "joiner",
+            "price_unit" => "person")
+          expect(sunset["days"].first).to include("booked" => 2, "units_available" => 5, "units_left" => 3,
+            "block_id" => nil)
         end
       end
 

@@ -1,7 +1,7 @@
 module Bookings
   # A booking the partner took outside the app (RAA-118), so the calendar counts it: the
-  # guest's name, starts_on and ends_on (a stay's check-in and check-out), quantity (units, or
-  # a tour's groups; 1 to Booking::MAX_QUANTITY), total_cents (what the guest pays the
+  # guest's name, starts_on and ends_on (a stay's check-in and check-out), quantity (units, a
+  # private tour's groups or a joiner tour's joiners; 1 to Booking::MAX_QUANTITY), total_cents (what the guest pays the
   # partner, 0 or more) and optional notes. Refused on any day it would take that is blocked
   # or hasn't `quantity` left, and for a stay shorter than the check-in day's minimum nights
   # or longer than the listing's maximum. Checkout (M4) will make bookings itself.

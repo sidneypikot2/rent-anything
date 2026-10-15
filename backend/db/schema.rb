@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_16_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_16_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -84,7 +84,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_000000) do
     t.check_constraint "char_length(guest_name::text) >= 1 AND char_length(guest_name::text) <= 80", name: "bookings_guest_name_length_check"
     t.check_constraint "char_length(notes) <= 500", name: "bookings_notes_length_check"
     t.check_constraint "ends_on >= starts_on", name: "bookings_dates_check"
-    t.check_constraint "quantity >= 1 AND quantity <= 99", name: "bookings_quantity_check"
+    t.check_constraint "quantity >= 1 AND quantity <= 100", name: "bookings_quantity_check"
     t.check_constraint "total_cents >= 0", name: "bookings_total_check"
   end
 
@@ -208,7 +208,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_000000) do
     t.check_constraint "min_nights >= 1 AND min_nights <= 365", name: "listing_days_min_nights_check"
     t.check_constraint "price_cents > 0", name: "listing_days_price_check"
     t.check_constraint "price_cents IS NOT NULL OR units_available IS NOT NULL OR min_nights IS NOT NULL", name: "listing_days_not_empty_check"
-    t.check_constraint "units_available >= 0 AND units_available <= 100", name: "listing_days_units_check"
+    t.check_constraint "units_available >= 0 AND units_available <= 10000", name: "listing_days_units_check"
   end
 
   create_table "listing_fees", force: :cascade do |t|

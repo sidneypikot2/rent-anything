@@ -935,7 +935,7 @@ paths:
       parameters: []
       responses:
         '201':
-          description: a day booking takes its last day too
+          description: a joiner tour takes joiners until its seats are full
           content:
             application/json:
               schema:
@@ -1211,7 +1211,7 @@ paths:
         required: true
       responses:
         '200':
-          description: a price, units and minimum nights set, then put back
+          description: a joiner tour's seats on sale, past 100
           content:
             application/json:
               schema:
@@ -5015,10 +5015,26 @@ components:
           - slug
           - name
           - booking_type
+        tour_type:
+          type: string
+          nullable: true
+          enum:
+          - private
+          - joiner
+          -
+          description: A tour's type (a joiner tour sells seats); null for anything
+            else
         capacity:
           type: integer
-          description: 'What a day can sell at most: a tour''s groups a day, otherwise
-            its units'
+          description: 'What a day can sell at most: a joiner tour''s seats, a private
+            tour''s groups, otherwise its units'
+        capacity_unit:
+          type: string
+          enum:
+          - units
+          - groups
+          - seats
+          description: What capacity, units on sale and a booking's quantity count
         price_unit:
           "$ref": "#/components/schemas/price_unit"
         days:
@@ -5041,7 +5057,9 @@ components:
       - status
       - business
       - category
+      - tour_type
       - capacity
+      - capacity_unit
       - price_unit
       - days
       - blocks
@@ -5062,7 +5080,8 @@ components:
           description: Whether the price is the day's own
         units_available:
           type: integer
-          description: Units (a tour's groups) on sale that day
+          description: Units on sale that day (a private tour's groups, a joiner tour's
+            seats)
         units_set:
           type: boolean
           description: Whether units_available is the day's own
@@ -5183,7 +5202,7 @@ components:
             the last day it takes
         quantity:
           type: integer
-          description: Units, or a tour's groups
+          description: Units, a private tour's groups or a joiner tour's joiners
         status:
           type: string
           enum:
@@ -5230,7 +5249,7 @@ components:
         quantity:
           type: integer
           minimum: 1
-          maximum: 99
+          maximum: 100
         total_cents:
           type: integer
           minimum: 0

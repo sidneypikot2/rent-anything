@@ -1,5 +1,5 @@
-# A booking of a listing (RAA-118): `quantity` of its units (a tour's groups) on the days it
-# takes. A stay's dates are check-in and check-out, so it takes the nights between; any other
+# A booking of a listing (RAA-118): `quantity` of its units (a private tour's groups, a joiner
+# tour's joiners since RAA-119) on the days it takes. A stay's dates are check-in and check-out, so it takes the nights between; any other
 # booking takes every day from starts_on to ends_on. Until checkout (M4) every booking is one
 # the partner took offline (Bookings::CreateOffline), with the total the guest paid them; a
 # cancelled one frees its days. Capacity is counted per day under a lock on the listing row.
@@ -8,7 +8,7 @@ class Booking < ApplicationRecord
   SOURCES = %w[offline checkout].freeze
   GUEST_NAME_LENGTH = 80
   NOTES_LENGTH = 500
-  MAX_QUANTITY = 99
+  MAX_QUANTITY = 100
 
   belongs_to :listing, inverse_of: :bookings
   belongs_to :user, optional: true

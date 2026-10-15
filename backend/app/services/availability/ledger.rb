@@ -3,15 +3,28 @@ module Availability
   # query per table: each day's price, units on sale, units booked and left, minimum stay and
   # block. Preload each listing's category, units, stay_rate and tour_detail.
   #
-  # - Capacity is a tour's groups a day, otherwise its units; a day's units_available can
-  #   lower it, never raise it.
+  # - Capacity is a joiner tour's seats a day (its groups filled to max_guests, RAA-119), a
+  #   private tour's groups a day, otherwise its units; a day's units_available can lower it,
+  #   never raise it.
   # - The price is the day's own, else a stay's nightly price (its weekend one on Friday and
   #   Saturday nights) or a tour's base price; null while the listing has none (rentals and
   #   transfers aren't priced yet).
   # - A stay's minimum nights apply to stays checking in that day.
   class Ledger
     def self.capacity(listing)
-      listing.category.tour? ? listing.tour_detail&.max_groups_per_day.to_i : listing.units.size
+      return listing.units.size unless listing.category.tour?
+
+      tour = listing.tour_detail
+      return 0 unless tour
+
+      tour.joiner? ? tour.max_guests * tour.max_groups_per_day : tour.max_groups_per_day
+    end
+
+    # What capacity counts: a joiner tour's seats, a private tour's groups, otherwise units.
+    def self.capacity_unit(listing)
+      return "units" unless listing.category.tour?
+
+      listing.tour_detail&.joiner? ? "seats" : "groups"
     end
 
     def initialize(listings, from, to)

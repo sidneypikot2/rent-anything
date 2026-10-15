@@ -1140,9 +1140,17 @@ RSpec.configure do |config|
                 },
                 required: %w[id slug name booking_type]
               },
+              tour_type: {
+                type: :string, nullable: true, enum: [ *TourDetail::TOUR_TYPES, nil ],
+                description: "A tour's type (a joiner tour sells seats); null for anything else"
+              },
               capacity: {
                 type: :integer,
-                description: "What a day can sell at most: a tour's groups a day, otherwise its units"
+                description: "What a day can sell at most: a joiner tour's seats, a private tour's groups, otherwise its units"
+              },
+              capacity_unit: {
+                type: :string, enum: %w[units groups seats],
+                description: "What capacity, units on sale and a booking's quantity count"
               },
               price_unit: { "$ref" => "#/components/schemas/price_unit" },
               days: { type: :array, items: { "$ref" => "#/components/schemas/calendar_day" } },
@@ -1155,7 +1163,7 @@ RSpec.configure do |config|
                 description: "Confirmed bookings touching the window"
               }
             },
-            required: %w[id title status business category capacity price_unit days blocks bookings]
+            required: %w[id title status business category tour_type capacity capacity_unit price_unit days blocks bookings]
           },
           calendar_day: {
             type: :object,
@@ -1167,7 +1175,9 @@ RSpec.configure do |config|
                   "null while the listing has none"
               },
               price_set: { type: :boolean, description: "Whether the price is the day's own" },
-              units_available: { type: :integer, description: "Units (a tour's groups) on sale that day" },
+              units_available: {
+                type: :integer, description: "Units on sale that day (a private tour's groups, a joiner tour's seats)"
+              },
               units_set: { type: :boolean, description: "Whether units_available is the day's own" },
               booked: { type: :integer, description: "Units taken by confirmed bookings" },
               units_left: { type: :integer, description: "What can still be booked: 0 when blocked or sold out" },
@@ -1229,7 +1239,7 @@ RSpec.configure do |config|
                 type: :string, format: :date,
                 description: "A stay's check-out (it takes the nights before); otherwise the last day it takes"
               },
-              quantity: { type: :integer, description: "Units, or a tour's groups" },
+              quantity: { type: :integer, description: "Units, a private tour's groups or a joiner tour's joiners" },
               status: { type: :string, enum: Booking::STATUSES },
               source: { type: :string, enum: Booking::SOURCES, description: "offline: taken by the partner outside the app" },
               total_cents: { type: :integer },
