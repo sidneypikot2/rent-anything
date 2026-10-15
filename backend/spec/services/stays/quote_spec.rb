@@ -90,6 +90,25 @@ RSpec.describe Stays::Quote do
     expect(errors_for(nights: 6)).to eq([ "This place takes stays of at most 5 nights" ])
   end
 
+  it "follows the partner calendar: a day's own price and minimum nights (RAA-118)" do
+    create(:listing_day, listing:, date: monday + 1, price_cents: 250_000)
+    expect(quote(nights: 2)[:nights].pluck(:price_cents)).to eq([ 200_000, 250_000 ])
+
+    create(:listing_day, listing:, date: monday, price_cents: nil, min_nights: 3)
+    expect(errors_for(nights: 2)).to eq([ "This place needs a stay of at least 3 nights" ])
+    expect(quote(starts_on: monday + 1, nights: 1)[:total_cents]).to eq(250_000)
+  end
+
+  it "refuses a night that is blocked or fully booked, but not the check-out day (RAA-118)" do
+    create(:availability_block, listing:, starts_on: monday + 1, ends_on: monday + 1)
+    expect(errors_for(nights: 2)).to eq([ "Those dates aren't available: Nov 3 is blocked" ])
+
+    create(:booking, listing:, starts_on: monday + 4, ends_on: monday + 6)
+    expect(errors_for(starts_on: monday + 5, nights: 1)).to eq([ "Those dates aren't available: Nov 7 is fully booked" ])
+    expect(quote(starts_on: monday + 2, nights: 2)[:nights_count]).to eq(2)
+    expect(quote(starts_on: monday + 6, nights: 1)[:nights_count]).to eq(1)
+  end
+
   it "refuses more guests than the place sleeps, and no guests" do
     expect(errors_for(guests: 5)).to eq([ "This place sleeps at most 4 guests" ])
     expect(errors_for(guests: 0)).to eq([ "Guests must be at least 1" ])

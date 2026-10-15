@@ -737,6 +737,287 @@ paths:
               required:
               - token
               - role
+  "/api/v1/partner/listings/{listing_id}/availability_blocks":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    - name: listing_id
+      in: path
+      schema:
+        type: integer
+      required: true
+    get:
+      summary: A listing's blocked days
+      tags:
+      - Partner
+      description: Partner-only (RAA-118). The listing's blocks ending today or later,
+        by start date.
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: the blocks still to come
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/availability_block"
+        '404':
+          description: another partner's listing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    post:
+      summary: Block a run of a listing's days
+      tags:
+      - Partner
+      description: Partner-only (RAA-118). Bookings already on those days stay; no
+        new ones can take them. A block can't overlap another of the listing's.
+      security:
+      - bearer: []
+      parameters: []
+      responses:
+        '201':
+          description: blocked
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/availability_block"
+        '422':
+          description: dates missing, backwards or past, or a reason too long
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another partner's listing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/availability_block_body"
+  "/api/v1/partner/listings/{listing_id}/availability_blocks/{id}":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    - name: listing_id
+      in: path
+      schema:
+        type: integer
+      required: true
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    patch:
+      summary: Change a block
+      tags:
+      - Partner
+      description: Partner-only (RAA-118). Its dates and reason, as when blocking.
+        A block already over keeps its end date when only its reason changes.
+      security:
+      - bearer: []
+      parameters: []
+      responses:
+        '200':
+          description: a past block's reason
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/availability_block"
+        '404':
+          description: another partner's block
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/availability_block_body"
+    delete:
+      summary: Unblock
+      tags:
+      - Partner
+      description: Partner-only (RAA-118). The days can be booked again.
+      security:
+      - bearer: []
+      responses:
+        '204':
+          description: removed
+        '404':
+          description: another partner's block
+        '403':
+          description: a guest
+        '401':
+          description: signed out
+  "/api/v1/partner/listings/{listing_id}/bookings":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    - name: listing_id
+      in: path
+      schema:
+        type: integer
+      required: true
+    get:
+      summary: A listing's bookings
+      tags:
+      - Partner
+      description: Partner-only (RAA-118). The listing's bookings ending today or
+        later, cancelled ones too, by start date.
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: the bookings still to come
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/booking"
+        '404':
+          description: another partner's listing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    post:
+      summary: Add a booking taken offline
+      tags:
+      - Partner
+      description: Partner-only (RAA-118). A booking the partner took outside the
+        app, so the calendar counts it. A stay's dates are check-in and check-out.
+        Refused on a blocked day or one without `quantity` units left, and for a stay
+        shorter than its check-in day's minimum nights or longer than the listing's
+        maximum.
+      security:
+      - bearer: []
+      parameters: []
+      responses:
+        '201':
+          description: a day booking takes its last day too
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/booking"
+        '422':
+          description: missing or wrong values
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another partner's listing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/offline_booking_body"
+  "/api/v1/partner/listings/{listing_id}/bookings/{id}":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    - name: listing_id
+      in: path
+      schema:
+        type: integer
+      required: true
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    patch:
+      summary: Cancel a booking
+      tags:
+      - Partner
+      description: Partner-only (RAA-118). Cancelling frees the booking's days; a
+        cancelled booking stays cancelled.
+      security:
+      - bearer: []
+      parameters: []
+      responses:
+        '200':
+          description: cancelled; the days are free again
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/booking"
+        '422':
+          description: anything but cancelling
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another partner's booking
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/booking_status_body"
   "/api/v1/partner/businesses":
     get:
       summary: The signed-in partner's businesses
@@ -907,6 +1188,117 @@ paths:
           application/json:
             schema:
               "$ref": "#/components/schemas/business_body"
+  "/api/v1/partner/listings/{listing_id}/calendar_days":
+    patch:
+      summary: Change a run of a listing's days
+      tags:
+      - Partner
+      description: Partner-only (RAA-118). Sets the price, units on sale or a stay's
+        minimum nights on each day from `starts_on` to `ends_on`; null puts back the
+        listing's own. Answers with the listing's calendar for those days. Another
+        partner's listing is a 404.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      - name: listing_id
+        in: path
+        schema:
+          type: integer
+        required: true
+      responses:
+        '200':
+          description: a price, units and minimum nights set, then put back
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/calendar_listing"
+        '422':
+          description: a minimum stay on something that isn't a stay
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another partner's listing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/calendar_days_body"
+  "/api/v1/partner/calendar":
+    get:
+      summary: The partner's calendar
+      tags:
+      - Partner
+      description: 'Partner-only (RAA-118). Every one of the partner''s listings,
+        by business, category and title, with each day from `from` to `to` (at most
+        92 days): its price, units on sale, units booked and left, a stay''s minimum
+        nights and any block; and the blocks and confirmed bookings touching the window.
+        A stay''s booking takes the nights from check-in to the night before check-out.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      - name: from
+        in: query
+        schema:
+          type: string
+          format: date
+        required: true
+      - name: to
+        in: query
+        schema:
+          type: string
+          format: date
+        required: true
+      responses:
+        '200':
+          description: each listing's days, blocks and bookings
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_calendar"
+        '422':
+          description: dates missing, backwards or too far apart
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/partner/landmarks":
     get:
       summary: Landmarks a tour can visit
@@ -1382,14 +1774,21 @@ paths:
       summary: Delete a listing
       tags:
       - Partner
-      description: Partner-only. Deletes the listing for good, and takes it out of
-        any guest's trip. Another partner's listing is a 404.
+      description: 'Partner-only. Deletes the listing for good, and takes it out of
+        any guest''s trip. A listing with bookings, even cancelled ones, can''t be
+        deleted: delist it instead (RAA-118). Another partner''s listing is a 404.'
       security:
       - bearer: []
       responses:
         '204':
           description: 'deleted while in a guest''s trip: the item goes, the trip
             stays'
+        '422':
+          description: a listing with bookings (RAA-118)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
         '404':
           description: another partner's listing
           content:
@@ -4553,3 +4952,304 @@ components:
       - target
       - kind
       - weight
+    partner_calendar:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        listings:
+          type: array
+          items:
+            "$ref": "#/components/schemas/calendar_listing"
+          description: Every listing of the partner's, by business, category and title
+      required:
+      - from
+      - to
+      - listings
+    calendar_listing:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+          enum:
+          - draft
+          - active
+          - paused
+          - delisted
+        business:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+          required:
+          - id
+          - name
+        category:
+          type: object
+          properties:
+            id:
+              type: integer
+            slug:
+              type: string
+            name:
+              type: string
+            booking_type:
+              type: string
+              enum:
+              - rental
+              - stay
+              - activity
+              - transfer
+          required:
+          - id
+          - slug
+          - name
+          - booking_type
+        capacity:
+          type: integer
+          description: 'What a day can sell at most: a tour''s groups a day, otherwise
+            its units'
+        price_unit:
+          "$ref": "#/components/schemas/price_unit"
+        days:
+          type: array
+          items:
+            "$ref": "#/components/schemas/calendar_day"
+        blocks:
+          type: array
+          items:
+            "$ref": "#/components/schemas/availability_block"
+          description: Blocks touching the window
+        bookings:
+          type: array
+          items:
+            "$ref": "#/components/schemas/booking"
+          description: Confirmed bookings touching the window
+      required:
+      - id
+      - title
+      - status
+      - business
+      - category
+      - capacity
+      - price_unit
+      - days
+      - blocks
+      - bookings
+    calendar_day:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        price_cents:
+          type: integer
+          nullable: true
+          description: The day's own price, else the listing's (a stay's weekend price
+            on Friday and Saturday); null while the listing has none
+        price_set:
+          type: boolean
+          description: Whether the price is the day's own
+        units_available:
+          type: integer
+          description: Units (a tour's groups) on sale that day
+        units_set:
+          type: boolean
+          description: Whether units_available is the day's own
+        booked:
+          type: integer
+          description: Units taken by confirmed bookings
+        units_left:
+          type: integer
+          description: 'What can still be booked: 0 when blocked or sold out'
+        min_nights:
+          type: integer
+          nullable: true
+          description: A stay's minimum nights checking in that day; null for anything
+            else
+        min_nights_set:
+          type: boolean
+          description: Whether min_nights is the day's own
+        block_id:
+          type: integer
+          nullable: true
+          description: The block covering the day, if any
+      required:
+      - date
+      - price_cents
+      - price_set
+      - units_available
+      - units_set
+      - booked
+      - units_left
+      - min_nights
+      - min_nights_set
+      - block_id
+    calendar_days_body:
+      type: object
+      description: Send any of price_cents, units_available and min_nights; null puts
+        back the listing's own, and a key left out stays as it is
+      properties:
+        starts_on:
+          type: string
+          format: date
+          description: Today or later
+        ends_on:
+          type: string
+          format: date
+          description: At most 366 days from starts_on
+        price_cents:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 1000000000
+        units_available:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: Up to the listing's capacity, and never below what is booked
+            on any of the days
+        min_nights:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 365
+          description: Stays only
+      required:
+      - starts_on
+      - ends_on
+    availability_block:
+      type: object
+      properties:
+        id:
+          type: integer
+        starts_on:
+          type: string
+          format: date
+        ends_on:
+          type: string
+          format: date
+          description: Included
+        reason:
+          type: string
+          nullable: true
+      required:
+      - id
+      - starts_on
+      - ends_on
+      - reason
+    availability_block_body:
+      type: object
+      properties:
+        starts_on:
+          type: string
+          format: date
+        ends_on:
+          type: string
+          format: date
+          description: Included; today or later, at most 366 days from starts_on.
+            A block can't overlap another.
+        reason:
+          type: string
+          nullable: true
+          maxLength: 120
+      required:
+      - starts_on
+      - ends_on
+    booking:
+      type: object
+      properties:
+        id:
+          type: integer
+        guest_name:
+          type: string
+        starts_on:
+          type: string
+          format: date
+        ends_on:
+          type: string
+          format: date
+          description: A stay's check-out (it takes the nights before); otherwise
+            the last day it takes
+        quantity:
+          type: integer
+          description: Units, or a tour's groups
+        status:
+          type: string
+          enum:
+          - confirmed
+          - cancelled
+        source:
+          type: string
+          enum:
+          - offline
+          - checkout
+          description: 'offline: taken by the partner outside the app'
+        total_cents:
+          type: integer
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - guest_name
+      - starts_on
+      - ends_on
+      - quantity
+      - status
+      - source
+      - total_cents
+      - notes
+      - created_at
+    offline_booking_body:
+      type: object
+      properties:
+        guest_name:
+          type: string
+          maxLength: 80
+        starts_on:
+          type: string
+          format: date
+          description: Today or later; a stay's check-in
+        ends_on:
+          type: string
+          format: date
+          description: A stay's check-out; otherwise the last day
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+        total_cents:
+          type: integer
+          minimum: 0
+          description: What the guest pays the partner
+        notes:
+          type: string
+          maxLength: 500
+      required:
+      - guest_name
+      - starts_on
+      - ends_on
+      - quantity
+      - total_cents
+    booking_status_body:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - cancelled
+      required:
+      - status

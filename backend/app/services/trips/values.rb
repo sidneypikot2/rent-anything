@@ -29,6 +29,12 @@ module Trips
       error("#{label} must be a date like 2026-11-12")
     end
 
+    def required_date(key, label)
+      return error("#{label} is required") if @params[key].blank?
+
+      date_value(key, label)
+    end
+
     def integer_value(key, label, required: false, digits: false)
       value = @params[key]
       return value if value.is_a?(Integer)

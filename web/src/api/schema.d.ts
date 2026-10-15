@@ -1092,6 +1092,450 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/partner/listings/{listing_id}/availability_blocks": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                listing_id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * A listing's blocked days
+         * @description Partner-only (RAA-118). The listing's blocks ending today or later, by start date.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the blocks still to come */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["availability_block"][];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Block a run of a listing's days
+         * @description Partner-only (RAA-118). Bookings already on those days stay; no new ones can take them. A block can't overlap another of the listing's.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["availability_block_body"];
+                };
+            };
+            responses: {
+                /** @description blocked */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["availability_block"];
+                    };
+                };
+                /** @description another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description dates missing, backwards or past, or a reason too long */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/listings/{listing_id}/availability_blocks/{id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                listing_id: number;
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unblock
+         * @description Partner-only (RAA-118). The days can be booked again.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description removed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description another partner's block */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Change a block
+         * @description Partner-only (RAA-118). Its dates and reason, as when blocking. A block already over keeps its end date when only its reason changes.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["availability_block_body"];
+                };
+            };
+            responses: {
+                /** @description a past block's reason */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["availability_block"];
+                    };
+                };
+                /** @description another partner's block */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/partner/listings/{listing_id}/bookings": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                listing_id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * A listing's bookings
+         * @description Partner-only (RAA-118). The listing's bookings ending today or later, cancelled ones too, by start date.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the bookings still to come */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["booking"][];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add a booking taken offline
+         * @description Partner-only (RAA-118). A booking the partner took outside the app, so the calendar counts it. A stay's dates are check-in and check-out. Refused on a blocked day or one without `quantity` units left, and for a stay shorter than its check-in day's minimum nights or longer than the listing's maximum.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["offline_booking_body"];
+                };
+            };
+            responses: {
+                /** @description a day booking takes its last day too */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["booking"];
+                    };
+                };
+                /** @description another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description missing or wrong values */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/listings/{listing_id}/bookings/{id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                listing_id: number;
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Cancel a booking
+         * @description Partner-only (RAA-118). Cancelling frees the booking's days; a cancelled booking stays cancelled.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["booking_status_body"];
+                };
+            };
+            responses: {
+                /** @description cancelled; the days are free again */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["booking"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's booking */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description anything but cancelling */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/v1/partner/businesses": {
         parameters: {
             query?: never;
@@ -1346,6 +1790,160 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/v1/partner/listings/{listing_id}/calendar_days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a run of a listing's days
+         * @description Partner-only (RAA-118). Sets the price, units on sale or a stay's minimum nights on each day from `starts_on` to `ends_on`; null puts back the listing's own. Answers with the listing's calendar for those days. Another partner's listing is a 404.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    listing_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["calendar_days_body"];
+                };
+            };
+            responses: {
+                /** @description a price, units and minimum nights set, then put back */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["calendar_listing"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's listing */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a minimum stay on something that isn't a stay */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/partner/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The partner's calendar
+         * @description Partner-only (RAA-118). Every one of the partner's listings, by business, category and title, with each day from `from` to `to` (at most 92 days): its price, units on sale, units booked and left, a stay's minimum nights and any block; and the blocks and confirmed bookings touching the window. A stay's booking takes the nights from check-in to the night before check-out.
+         */
+        get: {
+            parameters: {
+                query: {
+                    from: string;
+                    to: string;
+                };
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description each listing's days, blocks and bookings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_calendar"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description dates missing, backwards or too far apart */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/partner/landmarks": {
@@ -1966,7 +2564,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a listing
-         * @description Partner-only. Deletes the listing for good, and takes it out of any guest's trip. Another partner's listing is a 404.
+         * @description Partner-only. Deletes the listing for good, and takes it out of any guest's trip. A listing with bookings, even cancelled ones, can't be deleted: delist it instead (RAA-118). Another partner's listing is a 404.
          */
         delete: {
             parameters: {
@@ -2013,6 +2611,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a listing with bookings (RAA-118) */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
                     };
                 };
             };
@@ -4222,6 +4829,145 @@ export interface components {
             /** @enum {string} */
             kind: "bundled" | "adjacent";
             weight: number;
+        };
+        partner_calendar: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** @description Every listing of the partner's, by business, category and title */
+            listings: components["schemas"]["calendar_listing"][];
+        };
+        calendar_listing: {
+            id: number;
+            title: string;
+            /** @enum {string} */
+            status: "draft" | "active" | "paused" | "delisted";
+            business: {
+                id: number;
+                name: string;
+            };
+            category: {
+                id: number;
+                slug: string;
+                name: string;
+                /** @enum {string} */
+                booking_type: "rental" | "stay" | "activity" | "transfer";
+            };
+            /** @description What a day can sell at most: a tour's groups a day, otherwise its units */
+            capacity: number;
+            price_unit: components["schemas"]["price_unit"];
+            days: components["schemas"]["calendar_day"][];
+            /** @description Blocks touching the window */
+            blocks: components["schemas"]["availability_block"][];
+            /** @description Confirmed bookings touching the window */
+            bookings: components["schemas"]["booking"][];
+        };
+        calendar_day: {
+            /** Format: date */
+            date: string;
+            /** @description The day's own price, else the listing's (a stay's weekend price on Friday and Saturday); null while the listing has none */
+            price_cents: number | null;
+            /** @description Whether the price is the day's own */
+            price_set: boolean;
+            /** @description Units (a tour's groups) on sale that day */
+            units_available: number;
+            /** @description Whether units_available is the day's own */
+            units_set: boolean;
+            /** @description Units taken by confirmed bookings */
+            booked: number;
+            /** @description What can still be booked: 0 when blocked or sold out */
+            units_left: number;
+            /** @description A stay's minimum nights checking in that day; null for anything else */
+            min_nights: number | null;
+            /** @description Whether min_nights is the day's own */
+            min_nights_set: boolean;
+            /** @description The block covering the day, if any */
+            block_id: number | null;
+        };
+        /** @description Send any of price_cents, units_available and min_nights; null puts back the listing's own, and a key left out stays as it is */
+        calendar_days_body: {
+            /**
+             * Format: date
+             * @description Today or later
+             */
+            starts_on: string;
+            /**
+             * Format: date
+             * @description At most 366 days from starts_on
+             */
+            ends_on: string;
+            price_cents?: number | null;
+            /** @description Up to the listing's capacity, and never below what is booked on any of the days */
+            units_available?: number | null;
+            /** @description Stays only */
+            min_nights?: number | null;
+        };
+        availability_block: {
+            id: number;
+            /** Format: date */
+            starts_on: string;
+            /**
+             * Format: date
+             * @description Included
+             */
+            ends_on: string;
+            reason: string | null;
+        };
+        availability_block_body: {
+            /** Format: date */
+            starts_on: string;
+            /**
+             * Format: date
+             * @description Included; today or later, at most 366 days from starts_on. A block can't overlap another.
+             */
+            ends_on: string;
+            reason?: string | null;
+        };
+        booking: {
+            id: number;
+            guest_name: string;
+            /** Format: date */
+            starts_on: string;
+            /**
+             * Format: date
+             * @description A stay's check-out (it takes the nights before); otherwise the last day it takes
+             */
+            ends_on: string;
+            /** @description Units, or a tour's groups */
+            quantity: number;
+            /** @enum {string} */
+            status: "confirmed" | "cancelled";
+            /**
+             * @description offline: taken by the partner outside the app
+             * @enum {string}
+             */
+            source: "offline" | "checkout";
+            total_cents: number;
+            notes: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        offline_booking_body: {
+            guest_name: string;
+            /**
+             * Format: date
+             * @description Today or later; a stay's check-in
+             */
+            starts_on: string;
+            /**
+             * Format: date
+             * @description A stay's check-out; otherwise the last day
+             */
+            ends_on: string;
+            quantity: number;
+            /** @description What the guest pays the partner */
+            total_cents: number;
+            notes?: string;
+        };
+        booking_status_body: {
+            /** @enum {string} */
+            status: "cancelled";
         };
     };
     responses: never;

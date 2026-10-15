@@ -18,16 +18,10 @@ module Stays
       fee_ids = read_fee_ids
       raise_errors!(StayRate.new)
 
-      Quote.call(Listing.includes(:category, :stay_rate, :fees).find(listing.id), starts_on:, ends_on:, guests:, fee_ids:)
+      Quote.call(Listing.includes(:category, :units, :stay_rate, :tour_detail, :fees).find(listing.id), starts_on:, ends_on:, guests:, fee_ids:)
     end
 
     private
-
-    def required_date(key, label)
-      return error("#{label} is required") if @params[key].blank?
-
-      date_value(key, label)
-    end
 
     def read_fee_ids
       ids = @params[:fee_ids]

@@ -104,15 +104,28 @@ module Listings
       @landmarks.each { |landmark| listing.landmark_visits.create!(landmark:) }
     end
 
-    # Adds or removes units from the end to reach the count. From M3, removing a unit that
-    # has active bookings must be refused.
+    # Adds or removes units from the end to reach the count, never below the units booked on
+    # any day from today (RAA-118): bookings take a number of units, not particular ones.
     def save_units!(listing)
       count = @units_count || (listing.units.none? ? 1 : nil)
       return if count.nil?
 
+      check_units_booked!(listing, count) if count < listing.units.size
       listing.units.where("position > ?", count).delete_all
       (listing.units.maximum(:position).to_i + 1..count).each { |position| listing.units.create!(position:) }
       listing.units.reset
+    end
+
+    def check_units_booked!(listing, count)
+      last = listing.bookings.confirmed.where(ends_on: Date.current..).maximum(:ends_on)
+      return unless last
+
+      ledger = Availability::Ledger.new([ listing ], Date.current, last)
+      booked = (Date.current..last).map { ledger.booked(listing, _1) }.max
+      return if booked <= count
+
+      listing.errors.add(:base, "#{booked} units are booked on the same day: keep at least #{booked}")
+      raise ActiveRecord::RecordInvalid, listing
     end
 
     # A listing made a tour (RAA-110), or photos put in order, may keep only as many photos as

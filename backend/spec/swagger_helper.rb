@@ -1109,6 +1109,151 @@ RSpec.configure do |config|
               weight: { type: :integer }
             },
             required: %w[source target kind weight]
+          },
+          # The partner calendar (RAA-118). Money is in centavos; dates are ISO 8601.
+          partner_calendar: {
+            type: :object,
+            properties: {
+              from: { type: :string, format: :date },
+              to: { type: :string, format: :date },
+              listings: {
+                type: :array, items: { "$ref" => "#/components/schemas/calendar_listing" },
+                description: "Every listing of the partner's, by business, category and title"
+              }
+            },
+            required: %w[from to listings]
+          },
+          calendar_listing: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              title: { type: :string },
+              status: { type: :string, enum: Listing::STATUSES },
+              business: {
+                type: :object, properties: { id: { type: :integer }, name: { type: :string } }, required: %w[id name]
+              },
+              category: {
+                type: :object,
+                properties: {
+                  id: { type: :integer }, slug: { type: :string }, name: { type: :string },
+                  booking_type: { type: :string, enum: Category::BOOKING_TYPES }
+                },
+                required: %w[id slug name booking_type]
+              },
+              capacity: {
+                type: :integer,
+                description: "What a day can sell at most: a tour's groups a day, otherwise its units"
+              },
+              price_unit: { "$ref" => "#/components/schemas/price_unit" },
+              days: { type: :array, items: { "$ref" => "#/components/schemas/calendar_day" } },
+              blocks: {
+                type: :array, items: { "$ref" => "#/components/schemas/availability_block" },
+                description: "Blocks touching the window"
+              },
+              bookings: {
+                type: :array, items: { "$ref" => "#/components/schemas/booking" },
+                description: "Confirmed bookings touching the window"
+              }
+            },
+            required: %w[id title status business category capacity price_unit days blocks bookings]
+          },
+          calendar_day: {
+            type: :object,
+            properties: {
+              date: { type: :string, format: :date },
+              price_cents: {
+                type: :integer, nullable: true,
+                description: "The day's own price, else the listing's (a stay's weekend price on Friday and Saturday); " \
+                  "null while the listing has none"
+              },
+              price_set: { type: :boolean, description: "Whether the price is the day's own" },
+              units_available: { type: :integer, description: "Units (a tour's groups) on sale that day" },
+              units_set: { type: :boolean, description: "Whether units_available is the day's own" },
+              booked: { type: :integer, description: "Units taken by confirmed bookings" },
+              units_left: { type: :integer, description: "What can still be booked: 0 when blocked or sold out" },
+              min_nights: {
+                type: :integer, nullable: true,
+                description: "A stay's minimum nights checking in that day; null for anything else"
+              },
+              min_nights_set: { type: :boolean, description: "Whether min_nights is the day's own" },
+              block_id: { type: :integer, nullable: true, description: "The block covering the day, if any" }
+            },
+            required: %w[date price_cents price_set units_available units_set booked units_left min_nights
+              min_nights_set block_id]
+          },
+          calendar_days_body: {
+            type: :object,
+            description: "Send any of price_cents, units_available and min_nights; null puts back the listing's own, " \
+              "and a key left out stays as it is",
+            properties: {
+              starts_on: { type: :string, format: :date, description: "Today or later" },
+              ends_on: { type: :string, format: :date, description: "At most 366 days from starts_on" },
+              price_cents: { type: :integer, nullable: true, minimum: 1, maximum: Availability::SetDays::MAX_PRICE_CENTS },
+              units_available: {
+                type: :integer, nullable: true, minimum: 0,
+                description: "Up to the listing's capacity, and never below what is booked on any of the days"
+              },
+              min_nights: { type: :integer, nullable: true, minimum: 1, maximum: 365, description: "Stays only" }
+            },
+            required: %w[starts_on ends_on]
+          },
+          availability_block: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              starts_on: { type: :string, format: :date },
+              ends_on: { type: :string, format: :date, description: "Included" },
+              reason: { type: :string, nullable: true }
+            },
+            required: %w[id starts_on ends_on reason]
+          },
+          availability_block_body: {
+            type: :object,
+            properties: {
+              starts_on: { type: :string, format: :date },
+              ends_on: {
+                type: :string, format: :date,
+                description: "Included; today or later, at most 366 days from starts_on. A block can't overlap another."
+              },
+              reason: { type: :string, nullable: true, maxLength: AvailabilityBlock::REASON_LENGTH }
+            },
+            required: %w[starts_on ends_on]
+          },
+          booking: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              guest_name: { type: :string },
+              starts_on: { type: :string, format: :date },
+              ends_on: {
+                type: :string, format: :date,
+                description: "A stay's check-out (it takes the nights before); otherwise the last day it takes"
+              },
+              quantity: { type: :integer, description: "Units, or a tour's groups" },
+              status: { type: :string, enum: Booking::STATUSES },
+              source: { type: :string, enum: Booking::SOURCES, description: "offline: taken by the partner outside the app" },
+              total_cents: { type: :integer },
+              notes: { type: :string },
+              created_at: { type: :string, format: "date-time" }
+            },
+            required: %w[id guest_name starts_on ends_on quantity status source total_cents notes created_at]
+          },
+          offline_booking_body: {
+            type: :object,
+            properties: {
+              guest_name: { type: :string, maxLength: Booking::GUEST_NAME_LENGTH },
+              starts_on: { type: :string, format: :date, description: "Today or later; a stay's check-in" },
+              ends_on: { type: :string, format: :date, description: "A stay's check-out; otherwise the last day" },
+              quantity: { type: :integer, minimum: 1, maximum: Booking::MAX_QUANTITY },
+              total_cents: { type: :integer, minimum: 0, description: "What the guest pays the partner" },
+              notes: { type: :string, maxLength: Booking::NOTES_LENGTH }
+            },
+            required: %w[guest_name starts_on ends_on quantity total_cents]
+          },
+          booking_status_body: {
+            type: :object,
+            properties: { status: { type: :string, enum: %w[cancelled] } },
+            required: %w[status]
           }
         }
       }
