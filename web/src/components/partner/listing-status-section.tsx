@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -41,9 +41,9 @@ function confirmation(move: Move, listing: PartnerListing): Confirmation {
 }
 
 // A listing's status (RAA-115), with what it still needs before it can go live. On the
-// listing page it is only shown; on the edit page (`editable`) Change status opens the moves
-// it offers, kept out of sight until then so a tap can't change it by accident, and each move
-// is confirmed in a dialog first: a draft or delisted listing goes live, a live one pauses or
+// listing page it is only shown; on the edit page (`editable`) Change status opens a sheet of
+// the moves it offers, kept out of sight until then so a tap can't change it by accident, and
+// picking one swaps the sheet for a dialog confirming it: a draft or delisted listing goes live, a live one pauses or
 // delists, a paused one resumes or delists. Going live or resuming is greyed out while the
 // listing lacks something it needs. It reads the saved listing, so on the edit page unsaved
 // changes don't count yet. The add-listing wizards end with their own Listing status step
@@ -57,13 +57,10 @@ export function ListingStatusSection({ listing, editable = false }: { listing: P
   const live = listing.status === "active";
   const confirm = confirming && confirmation(confirming, listing);
 
-  function close() {
-    change.reset();
-    setChanging(false);
-  }
-
+  // The options sheet gives way to the confirmation, so only one modal is open at a time.
   function ask(move: Move) {
     change.reset();
+    setChanging(false);
     setConfirming(move);
   }
 
@@ -78,7 +75,7 @@ export function ListingStatusSection({ listing, editable = false }: { listing: P
 
       {!live && <LiveBlockers blockers={listing.live_blockers} />}
 
-      {editable && !changing && (
+      {editable && (
         <Button
           type="button"
           size="pill"
@@ -91,34 +88,47 @@ export function ListingStatusSection({ listing, editable = false }: { listing: P
         </Button>
       )}
 
-      {changing && change.error && !confirming && (
-        <p role="alert" className="text-sm text-danger">
-          {change.error.message}
-        </p>
-      )}
-
-      {changing && (
-        <div className="flex flex-wrap gap-2">
-          {!live && (
-            <Button type="button" size="pill" disabled={blocked || change.isPending} onClick={() => ask("active")} data-testid="listing-go-live">
-              {listing.status === "paused" ? "Resume" : "Go live"}
-            </Button>
-          )}
-          {live && (
-            <Button type="button" size="pill" variant="soft" disabled={change.isPending} onClick={() => ask("paused")} data-testid="listing-pause">
-              Pause
-            </Button>
-          )}
-          {(live || listing.status === "paused") && (
-            <Button type="button" size="pill" variant="soft" disabled={change.isPending} onClick={() => ask("delisted")} data-testid="listing-delist">
-              Delist
-            </Button>
-          )}
-          <Button type="button" size="pill" variant="ghost" disabled={change.isPending} onClick={close} data-testid="listing-status-cancel">
+      <Dialog
+        open={changing}
+        onClose={() => setChanging(false)}
+        title="Change status"
+        placement="sheet"
+        data-testid="listing-status-options"
+        actions={
+          <Button type="button" size="pill" variant="ghost" onClick={() => setChanging(false)} data-testid="listing-status-cancel">
             Cancel
           </Button>
+        }
+      >
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted">Now:</span>
+          <Badge tone={status.tone}>{status.label}</Badge>
         </div>
-      )}
+        <ul className="flex flex-col divide-y divide-line">
+          {!live && (
+            <StatusOption description={blocked ? "It still needs a few things first." : "Guests can find and book it."}>
+              <Button type="button" size="pill" disabled={blocked} onClick={() => ask("active")} data-testid="listing-go-live">
+                {listing.status === "paused" ? "Resume" : "Go live"}
+              </Button>
+            </StatusOption>
+          )}
+          {live && (
+            <StatusOption description="Hide it for a while; bookings already made stay.">
+              <Button type="button" size="pill" variant="soft" onClick={() => ask("paused")} data-testid="listing-pause">
+                Pause
+              </Button>
+            </StatusOption>
+          )}
+          {(live || listing.status === "paused") && (
+            <StatusOption description="Take it off the site; you can make it live again.">
+              <Button type="button" size="pill" variant="soft" onClick={() => ask("delisted")} data-testid="listing-delist">
+                Delist
+              </Button>
+            </StatusOption>
+          )}
+        </ul>
+        {!live && <LiveBlockers blockers={listing.live_blockers} />}
+      </Dialog>
 
       <Dialog
         open={!!confirm}
@@ -139,10 +149,7 @@ export function ListingStatusSection({ listing, editable = false }: { listing: P
               onClick={() =>
                 confirming &&
                 change.mutate(confirming, {
-                  onSuccess: () => {
-                    setConfirming(undefined);
-                    close();
-                  },
+                  onSuccess: () => setConfirming(undefined),
                 })
               }
             >
@@ -161,6 +168,16 @@ export function ListingStatusSection({ listing, editable = false }: { listing: P
         </div>
       </Dialog>
     </div>
+  );
+}
+
+// One move in the Change status sheet: what it does, and its button.
+function StatusOption({ description, children }: { description: string; children: ReactNode }) {
+  return (
+    <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+      <span className="text-sm text-muted">{description}</span>
+      {children}
+    </li>
   );
 }
 
