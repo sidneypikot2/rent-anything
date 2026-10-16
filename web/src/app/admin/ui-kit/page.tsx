@@ -239,6 +239,7 @@ export default function UiKit() {
               ],
             }}
             photo={landmarkPhoto([{ slug: "swimming" }], 0)}
+            areaName="Santa Fe"
           />
           <PhotoListingCard
             href="/admin/ui-kit"
@@ -252,6 +253,8 @@ export default function UiKit() {
         </div>
         <div className="mt-6 rounded-frame bg-surface-2 p-4 card-edge">
           <ListingRow
+            // No such listing: its panel shows what the row has and says the rest couldn't load.
+            listingId={0}
             href="/admin/ui-kit"
             title="Virgin Island and Hilantagaan island hopping"
             category="Tour"

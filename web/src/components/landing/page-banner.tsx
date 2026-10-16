@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/components/ui/cn";
 import { GlassPanel, glassClasses } from "@/components/ui/glass";
 import { DriftingPhoto } from "./drifting-photo";
+import { SearchBar } from "./search-bar";
 
 // `sizes` defaults to the frame's width; a photo also shown elsewhere passes that one's.
 type Photo = { src: string; alt: string; mirror?: boolean; sizes?: string };
@@ -66,7 +67,9 @@ export function PageBanner({
     // Starts just under the floating header, 12px below it like the gap the header keeps from
     // the window's edge (RAA-125), so the bar never sits on the frame. z-10 keeps the hero
     // search's suggestions, which open past the frame's foot, over the page sheet that follows
-    // (its glass sections are stacking contexts); the header is z-40.
+    // (its glass sections are stacking contexts); the header is z-40. Every banner but the
+    // hero, which holds the search itself, has the search bar under it (RAA-126).
+    <>
     <section className="focus-light relative isolate z-10 flex px-3 pb-3 pt-3 sm:px-6 sm:pb-6">
       {photo ? (
         <div
@@ -125,5 +128,7 @@ export function PageBanner({
         </GlassPanel>
       )}
     </section>
+    {!hero && <SearchBar />}
+    </>
   );
 }

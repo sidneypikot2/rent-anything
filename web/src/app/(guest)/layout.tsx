@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CurrentPlaceProvider } from "@/components/landing/current-place";
 import { SectionHeader } from "@/components/landing/section-header";
 import { SectionSwitch } from "@/components/landing/section-switch";
 import { SiteBackdrop } from "@/components/landing/site-backdrop";
@@ -16,10 +17,12 @@ export default function GuestLayout({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <SiteBackdrop />
-      <SectionHeader section="guest" />
-      <div id="content" tabIndex={-1} className="flex flex-1 flex-col outline-none">
-        {children}
-      </div>
+      <CurrentPlaceProvider>
+        <SectionHeader section="guest" />
+        <div id="content" tabIndex={-1} className="flex flex-1 flex-col outline-none">
+          {children}
+        </div>
+      </CurrentPlaceProvider>
       <SiteFooter />
       <SectionSwitch to="partner" />
     </>

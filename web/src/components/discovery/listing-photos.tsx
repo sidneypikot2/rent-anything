@@ -11,10 +11,12 @@ type Photo = { src: string; alt: string };
 // A listing's photos on its row (RAA-125): swiped on a phone, stepped with the arrows with a
 // mouse (they show on hover or focus), with dots and an "n / N" count. One photo is just the
 // photo. Scroll snapping does the moving, so it stays smooth and keyboard scrolling works too.
-export function ListingPhotos({ photos, label, sample = false, className }: {
+export function ListingPhotos({ photos, label, sample = false, count = "top", className }: {
   photos: Photo[];
   label: string;
   sample?: boolean;
+  // Where "n / N" sits: "bottom" keeps the top right clear for a side panel's close button.
+  count?: "top" | "bottom";
   className?: string;
 }) {
   const track = useRef<HTMLDivElement>(null);
@@ -61,7 +63,7 @@ export function ListingPhotos({ photos, label, sample = false, className }: {
       )}
       {many && (
         <>
-          <span className="absolute right-2.5 top-2.5 rounded-full bg-scrim/60 px-2 py-0.5 text-xs font-bold tabular-nums text-white">
+          <span className={cn("absolute right-2.5 rounded-full bg-scrim/60 px-2 py-0.5 text-xs font-bold tabular-nums text-white", count === "top" ? "top-2.5" : "bottom-2.5")}>
             {index + 1} / {photos.length}
           </span>
           <PhotoStep direction="left" hidden={index === 0} onClick={() => step(-1)} />
