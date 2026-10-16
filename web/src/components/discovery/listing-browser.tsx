@@ -115,7 +115,7 @@ export function ListingBrowser({ groups, dates, empty }: { groups: ListingGroup[
                       </span>
                     )}
                   </span>
-                  <span className={cn("tabular-nums lg:text-right", on ? "lg:text-primary" : "text-muted")}>{option.count}</span>
+                  <span className={cn("nums lg:text-right", on ? "lg:text-primary" : "text-muted")}>{option.count}</span>
                 </button>
               );
             })}
@@ -149,7 +149,7 @@ export function ListingBrowser({ groups, dates, empty }: { groups: ListingGroup[
                     >
                       <FilterGlyph className="size-5" />
                       {set > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-bold text-white tabular-nums">
+                        <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 nums text-xs font-bold text-white">
                           {set}
                         </span>
                       )}

@@ -241,7 +241,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
 const STAT_CHIP = "flex min-h-11 items-center gap-1.5 rounded-control px-3.5 text-sm text-sky-mist";
 
 function StatCount({ count }: { count: number }) {
-  return <span className="font-display text-xl font-extrabold tabular-nums text-white">{count}</span>;
+  return <span className="nums text-xl font-extrabold text-white">{count}</span>;
 }
 
 // The counts for the places inside this one (RAA-80): each card's own line, and the ones

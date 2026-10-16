@@ -474,7 +474,7 @@ export function TourPricingFields({ values, onChange, errors }: SectionProps) {
         <div className="flex flex-col gap-1 rounded-card bg-mist px-5 py-4 animate-rise" data-testid="tour-pricing-example">
           <Eyebrow>For example</Eyebrow>
           <span className="text-sm">
-            For {example.who}: <span className="font-display text-lg font-extrabold tabular-nums">{example.total}</span>
+            For {example.who}: <span className="nums text-lg font-extrabold">{example.total}</span>
           </span>
           <span className="text-xs text-muted">{example.parts}</span>
         </div>

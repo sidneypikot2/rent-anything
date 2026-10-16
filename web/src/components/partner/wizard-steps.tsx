@@ -83,7 +83,7 @@ export function WizardLayout({
                 >
                   <span
                     className={cn(
-                      "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs tabular-nums",
+                      "flex size-6 shrink-0 items-center justify-center rounded-full border nums text-xs",
                       "transition-colors duration-300 ease-calm",
                       index <= reached ? "border-primary bg-primary text-white" : "border-line-strong",
                       active && "ring-4 ring-sky-mist",

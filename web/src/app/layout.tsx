@@ -1,14 +1,22 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { DM_Sans, Geist_Mono, Manrope } from "next/font/google";
 import { BRAND, TAGLINE } from "@/lib/brand";
 import { Providers } from "./providers";
 import "./globals.css";
 
-// The one family for headings and text (Sky & Forest, RAA-102).
-const jakarta = Plus_Jakarta_Sans({
-  variable: "--font-jakarta",
+// DM Sans for headings and text, sized optically; Manrope for numbers (`nums`, RAA-127). DM
+// Sans has no peso sign, so both stacks fall back to Manrope for it (globals.css); it lives
+// in latin-ext, whose file loads only on a page that shows one.
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
   subsets: ["latin"],
   style: ["normal", "italic"],
+  axes: ["opsz"],
+});
+
+const manrope = Manrope({
+  variable: "--font-manrope",
+  subsets: ["latin", "latin-ext"],
 });
 
 const geistMono = Geist_Mono({
@@ -26,7 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${jakarta.variable} ${geistMono.variable} h-full scroll-pt-(--chrome) antialiased`}
+      className={`${dmSans.variable} ${manrope.variable} ${geistMono.variable} h-full scroll-pt-(--chrome) antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
