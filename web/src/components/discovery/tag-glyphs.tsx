@@ -132,3 +132,41 @@ export function GuestsGlyph({ className }: Props) {
     />
   );
 }
+
+// A plus: adding something (Add to trip).
+export function PlusGlyph({ className }: Props) {
+  return <Glyph paths={["M12 5v14", "M5 12h14"]} className={className} />;
+}
+
+// What a listing includes (RAA-125), for the chips on its row: listingFeatures names them.
+const FEATURES: Record<string, string[]> = {
+  guide: [circle(9, 7, 3), "M3.5 20a5.5 5.5 0 0 1 11 0", "M17 4v16", "M17 4l4 2.5-4 2.5"],
+  seats: ["M7 4h6v9H7Z", "M5 13h12l1 4H5Z", "M7 17v3", "M16 17v3"],
+  luggage: ["M6 8h12v12H6Z", "M9 8V5h6v3", "M10 12v4", "M14 12v4"],
+  route: [circle(6, 18, 2), circle(18, 6, 2), "M8 18h6a3 3 0 0 0 0-6h-4a3 3 0 0 1 0-6h6"],
+  sizes: ["M3 15 15 3l6 6L9 21Z", "M7 11l2 2", "M10 8l2 2", "M13 5l2 2"],
+  accessory: ["M4 8h11v9H4Z", "M15 11l5-2v7l-5-2"],
+  engine: [circle(12, 13, 7), "M12 13l3-3", "M9 4h6"],
+  helmet: ["M3.5 15a8.5 8.5 0 0 1 17 0v2h-17Z", "M12 6.5v4", "M3.5 17l1.5 3h14l1.5-3"],
+  guests: [circle(9, 8, 3.5), "M3 20a6 6 0 0 1 12 0", "M15.5 4.8a3.5 3.5 0 0 1 0 6.4", "M18 14.5a6 6 0 0 1 3 5.5"],
+  bed: ["M3 18V7", "M3 14h18v4", "M21 14v-2a3 3 0 0 0-3-3h-7v5", circle(7, 11, 1.8)],
+  bathroom: ["M4 21V7a4 4 0 0 1 8 0", "M9 9h6l-1-2h-4Z", "M10 12v1", "M14 12v1", "M12 15v1"],
+  amenity: ["M5 12.5l4.5 4.5L19 7.5"],
+  wifi: ["M2.5 9a14 14 0 0 1 19 0", "M5.5 12.5a9.5 9.5 0 0 1 13 0", "M8.5 16a5 5 0 0 1 7 0", "M12 19h.01"],
+  breakfast: ["M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5Z", "M17 10h1.5a2.5 2.5 0 0 1 0 5H17", "M8 3.5V6", "M12 3.5V6"],
+  cancellation: ["M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6Z", "M9 12l2 2 4-4"],
+};
+
+export function FeatureGlyph({ name, className }: { name: string } & Props) {
+  return <Glyph paths={FEATURES[name] ?? FEATURES.amenity} className={className} />;
+}
+
+// Four squares: everything, the "All" filter.
+export function GridGlyph({ className }: Props) {
+  return (
+    <Glyph
+      paths={["M4 4h7v7H4Z", "M13 4h7v7h-7Z", "M4 13h7v7H4Z", "M13 13h7v7h-7Z"]}
+      className={className}
+    />
+  );
+}

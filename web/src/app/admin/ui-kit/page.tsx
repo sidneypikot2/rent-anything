@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
-import { LandmarkCard, ListingCard as PhotoListingCard } from "@/components/discovery/cards";
-import { AreaGlyph, CategoryGlyph, CloseGlyph, SearchGlyph, TagGlyph } from "@/components/discovery/tag-glyphs";
+import { LandmarkCard, ListingCard as PhotoListingCard, ListingRow } from "@/components/discovery/cards";
+import { AreaGlyph, CategoryGlyph, CloseGlyph, PlusGlyph, SearchGlyph, TagGlyph } from "@/components/discovery/tag-glyphs";
 import { landmarkPhoto, listingPhoto } from "@/components/landing/sample-photos";
 import { GlassPanel } from "@/components/ui/glass";
 import { PasswordField } from "@/components/ui/password-field";
@@ -115,6 +115,13 @@ export default function UiKit() {
           <ButtonLink href="/admin" variant="soft" size="sm">
             Link as button
           </ButtonLink>
+          <Button arrow>With arrow</Button>
+          <Button variant="tint" size="touch" className="pl-3">
+            <span aria-hidden className="flex size-6 items-center justify-center rounded-full bg-white/70">
+              <PlusGlyph className="size-3.5" />
+            </span>
+            Tint (Add to trip)
+          </Button>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-4 rounded-card bg-navy p-6">
           <p className="font-display text-2xl font-extrabold tracking-tight text-white">On navy</p>
@@ -241,6 +248,23 @@ export default function UiKit() {
             summary="Half a day on the water, with snorkelling stops."
             photo={listingPhoto("Tour", 0)}
             action={<Button size="sm">Add to trip</Button>}
+          />
+        </div>
+        <div className="mt-6 rounded-frame bg-surface-2 p-4 card-edge">
+          <ListingRow
+            href="/admin/ui-kit"
+            title="Virgin Island and Hilantagaan island hopping"
+            category="Tour"
+            by="by Santa Fe Boats · 1 unit"
+            summary="Joiner boat from Santa Fe: snorkelling, cliff diving and lunch on Virgin Island."
+            photos={[listingPhoto("Tour", 0), listingPhoto("Snorkel gear", 1), listingPhoto("Motorcycle", 2)]}
+            samplePhoto
+            features={[
+              { icon: "guide", label: "Guide included" },
+              { icon: "cancellation", label: "Free cancellation", trust: true },
+            ]}
+            price={{ prefix: "from", amount: "₱1,500", unit: "/ guest" }}
+            action={<Button variant="tint" size="touch">Add to trip</Button>}
           />
         </div>
       </Showcase>

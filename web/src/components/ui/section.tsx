@@ -5,6 +5,8 @@ import { Eyebrow, SectionTitle } from "./typography";
 // One section of a page, so they all read the same way: an optional eyebrow, the title, an
 // optional intro and action, then the content one `block` step below. Sections sit one
 // `section` step apart in their page (gap-section). It eases up as it scrolls into view.
+// In a .page-sections page, `surface` says what it sits on (RAA-125): the bare photo, the
+// faint glass or paper (a pale sheet, for a section of white cards); globals.css draws them.
 export function Section({
   id,
   testId,
@@ -12,6 +14,7 @@ export function Section({
   title,
   intro,
   action,
+  surface,
   className,
   children,
 }: {
@@ -21,11 +24,12 @@ export function Section({
   title: ReactNode;
   intro?: ReactNode;
   action?: ReactNode;
+  surface?: "photo" | "glass" | "paper";
   className?: string;
   children: ReactNode;
 }) {
   return (
-    <section id={id} data-testid={testId} className={cn("reveal flex scroll-mt-28 flex-col gap-block", className)}>
+    <section id={id} data-testid={testId} data-surface={surface} className={cn("reveal flex scroll-mt-28 flex-col gap-block", className)}>
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="flex max-w-prose flex-col gap-2">
           {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}

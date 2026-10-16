@@ -41,7 +41,7 @@ export default async function SearchPage(props: PageProps<"/search">) {
         </GlassPanel>
       </PageBanner>
       <PageSheet tone="clear">
-        <div className="page-sections mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-page-pad">
+        <div className="page-sections mx-auto flex w-full max-w-page flex-col gap-section py-page-pad">
         {results === null ? (
           <p className="text-muted">Type at least two letters: a destination, a landmark or an activity.</p>
         ) : (

@@ -1,5 +1,6 @@
 "use client";
 
+import { PlusGlyph, TickGlyph } from "@/components/discovery/tag-glyphs";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth/session";
 import { RANGE_TYPES } from "./format";
@@ -13,7 +14,8 @@ type Props = {
 };
 
 // "Add to trip" on a listing (screen 1). The page's dates and guests go with it; a tour or
-// transfer takes the first day. Trips are for guests: a partner or admin sees nothing.
+// transfer takes the first day. Trips are for guests: a partner or admin sees nothing. A tint
+// pill led by a plus, or by a tick once it is in a trip (RAA-125).
 export function AddToTripButton({ listing, dates }: Props) {
   const session = useSession();
   const { add, busyListingId } = useTripAdd();
@@ -27,9 +29,9 @@ export function AddToTripButton({ listing, dates }: Props) {
 
   return (
     <Button
-      variant="soft"
+      variant="tint"
       size="touch"
-      className="shrink-0"
+      className="shrink-0 pl-3"
       data-testid="add-to-trip"
       disabled={session === undefined || busy}
       onClick={() =>
@@ -43,7 +45,10 @@ export function AddToTripButton({ listing, dates }: Props) {
         })
       }
     >
-      {busy ? "Adding…" : inTrip ? "✓ In your trip" : "Add to trip"}
+      <span aria-hidden className="flex size-6 items-center justify-center rounded-full bg-white/70 text-navy">
+        {inTrip ? <TickGlyph className="size-3.5" /> : <PlusGlyph className="size-3.5" />}
+      </span>
+      {busy ? "Adding…" : inTrip ? "In your trip" : "Add to trip"}
     </Button>
   );
 }

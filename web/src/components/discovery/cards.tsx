@@ -9,7 +9,9 @@ import { cn } from "@/components/ui/cn";
 import { GlassPanel } from "@/components/ui/glass";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { placeIcon, tagIcon } from "./icons";
-import { CategoryGlyph, TagGlyph } from "./tag-glyphs";
+import type { Feature } from "./listing-features";
+import { ListingPhotos } from "./listing-photos";
+import { CategoryGlyph, FeatureGlyph, TagGlyph } from "./tag-glyphs";
 import { AreaScene } from "./scenes";
 
 // Every photo card shares this frame (Sky & Forest, RAA-102): the photo fills a card-radius
@@ -345,8 +347,9 @@ export function LandmarkCard({
         </span>
         {landmark.name}
       </h3>
-      {/* Short on a phone, so what there is to book isn't screens away (RAA-85). */}
-      <p className="line-clamp-3 text-sm text-sky-mist sm:line-clamp-none">{landmark.description}</p>
+      {/* Short on a phone, so what there is to book isn't screens away (RAA-85), and in the
+          four-up row from lg (RAA-125). */}
+      <p className="line-clamp-3 text-sm text-sky-mist sm:line-clamp-none lg:line-clamp-3">{landmark.description}</p>
       {landmark.tags.length > 0 && (
         <ul className="hidden flex-wrap gap-1.5 sm:flex">
           {landmark.tags.map((tag) => (
@@ -411,5 +414,74 @@ export function ListingCard({
         </div>
       )}
     </PhotoCard>
+  );
+}
+
+// A thing to book as a row on white (RAA-125), for the area page's paper sheet: its photos to
+// step through, then the title linking to the listing, its category and who offers it, a short
+// summary and chips for what it includes, then its price and the action (Add to trip). From md
+// the photo sits on the left and the price and action on the right; on a phone they stack.
+export function ListingRow({
+  href,
+  title,
+  category,
+  by,
+  summary,
+  photos,
+  samplePhoto = false,
+  features,
+  price,
+  action,
+}: {
+  href: string;
+  title: string;
+  category: string;
+  by: string;
+  summary?: string | null;
+  photos: Photo[];
+  samplePhoto?: boolean;
+  features: Feature[];
+  price?: ComponentProps<typeof Price>;
+  action?: ReactNode;
+}) {
+  return (
+    <Card className="grid gap-4 p-3 md:grid-cols-[19rem_minmax(0,1fr)_auto] md:items-center md:gap-5">
+      <ListingPhotos photos={photos} label={title} sample={samplePhoto} className="aspect-[16/10] md:aspect-[4/3]" />
+      <div className="flex min-w-0 flex-col gap-2 px-1 md:px-0">
+        <h3 className="text-lg leading-snug font-semibold text-balance">
+          <Link href={href} data-testid="listing-link" className="underline-offset-4 hover:underline">
+            {title}
+          </Link>
+        </h3>
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+          <Badge tone="mist" className="min-h-6 px-2.5 text-xs">
+            <CategoryGlyph name={category} className="size-3.5" />
+            {category}
+          </Badge>
+          {by}
+        </p>
+        {summary && <p className="line-clamp-2 text-sm text-foreground">{summary}</p>}
+        {features.length > 0 && (
+          <ul aria-label="Includes" className="flex flex-wrap gap-1.5">
+            {features.map((feature) => (
+              <li key={feature.label}>
+                <Badge tone={feature.trust ? "emerald" : "mist"} className="min-h-7 px-2.5 text-xs">
+                  <FeatureGlyph name={feature.icon} className="size-3.5" />
+                  {feature.label}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {(price || action) && (
+        <div className="flex items-center justify-between gap-3 border-t border-line px-1 pt-3 md:flex-col md:items-end md:justify-center md:border-0 md:px-0 md:pt-0">
+          {/* No price yet for rentals and transfers (only stays and tours are priced), so nothing
+              is promised here. */}
+          {price ? <Price {...price} /> : <span />}
+          {action}
+        </div>
+      )}
+    </Card>
   );
 }
