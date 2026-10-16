@@ -51,6 +51,10 @@ test("search a landmark and open its destination", async ({ page }) => {
   await expect(suggestions).toContainText("Kota Beach");
   // Listings near Kota Beach are suggested too; take the landmark, named with its destination.
   await suggestions.getByRole("option", { name: "Kota Beach Bantayan Island" }).click();
+  // Picking a place opens nothing yet: the dates come next, and Show me goes there.
+  await expect(page.getByTestId("search-input")).toHaveValue("Kota Beach");
+  await expect(page).toHaveURL(/\/$/);
+  await page.getByTestId("search-submit").click();
 
   await expect(page).toHaveURL(/\/bantayan-island#kota-beach$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bantayan Island");

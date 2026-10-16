@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { formatPeso } from "@/lib/money";
+import { listingKey, MapHoverTarget, MapSwitch, useAreaMap } from "./area-map-context";
 import type { Feature } from "./listing-features";
 import { CategoryGlyph, CloseGlyph, FilterGlyph, GridGlyph } from "./tag-glyphs";
 import { useFitRows } from "./use-fit-rows";
@@ -14,7 +15,8 @@ import { useFitRows } from "./use-fit-rows";
 // A row as the filters see it: its "from" price (null while it has none) and the chips it
 // shows. `content` is the row itself, rendered on the server.
 export type ListingItem = { id: number; priceCents: number | null; priceUnit?: string | null; features: Feature[]; content: ReactNode };
-export type ListingGroup = { id: string; title: string; icon: string; items: ListingItem[] };
+// `bookingType` tells the area map which pins the group's rows are.
+export type ListingGroup = { id: string; title: string; icon: string; bookingType?: string; items: ListingItem[] };
 
 type Filters = { free: boolean; min: string; max: string; includes: string[] };
 const NO_FILTERS: Filters = { free: false, min: "", max: "", includes: [] };
@@ -45,6 +47,9 @@ function passes(item: ListingItem, filters: Filters, skipIncludes = false) {
 // Filters belong to one section (RAA-126), so a price set for a motorbike never hides a
 // cottage: each title has a filter button opening them in a modal, and what is set shows
 // beside it as pills to remove, one row of them with "+N more" for the rest.
+// On an area page with its map, the map's pins follow the group and filters shown here, a row
+// and its pin light up together, and a distance search narrows the rows to what is in range,
+// nearest first, each with how far it is.
 export function ListingBrowser({ groups, dates, empty }: { groups: ListingGroup[]; dates: ReactNode; empty: ReactNode }) {
   const [current, setCurrent] = useState<string>("all");
   const [filters, setFilters] = useState<Record<string, Filters>>({});
@@ -52,7 +57,28 @@ export function ListingBrowser({ groups, dates, empty }: { groups: ListingGroup[
   const [editing, setEditing] = useState<{ id: string; draft: Filters } | null>(null);
   const filtersOf = (id: string) => filters[id] ?? NO_FILTERS;
   const setFiltersOf = (id: string, next: Filters) => setFilters((all) => ({ ...all, [id]: next }));
-  const visible = (group: ListingGroup) => group.items.filter((item) => passes(item, filtersOf(group.id)));
+  const map = useAreaMap();
+  const near = map?.near ?? null;
+  const filtered = (group: ListingGroup) => group.items.filter((item) => passes(item, filtersOf(group.id)));
+  const visible = (group: ListingGroup) =>
+    near
+      ? filtered(group)
+          .filter((item) => near.has(item.id))
+          .sort((a, b) => (near.get(a.id) ?? 0) - (near.get(b.id) ?? 0))
+      : filtered(group);
+
+  // Tell the map what is showing: the picked group's pins, without the rows its filters hide.
+  const setView = map?.setView;
+  const bookingType = groups.find((group) => group.id === current)?.bookingType ?? null;
+  const hiddenIds = groups
+    .flatMap((group) => {
+      const kept = new Set(filtered(group).map((item) => item.id));
+      return group.items.filter((item) => !kept.has(item.id)).map((item) => item.id);
+    })
+    .join(",");
+  useEffect(() => {
+    setView?.({ bookingType, hidden: hiddenIds ? hiddenIds.split(",").map(Number) : [] });
+  }, [setView, bookingType, hiddenIds]);
 
   const total = groups.reduce((sum, group) => sum + visible(group).length, 0);
   const options = [{ id: "all", title: "All", icon: "", count: total, set: 0 }, ...groups.map((group) => ({
@@ -121,6 +147,7 @@ export function ListingBrowser({ groups, dates, empty }: { groups: ListingGroup[
             })}
           </div>
         )}
+        <MapSwitch />
       </aside>
       <div className="flex min-w-0 flex-col gap-8">
         {shown.length === 0
@@ -170,14 +197,25 @@ export function ListingBrowser({ groups, dates, empty }: { groups: ListingGroup[
                     <ul className="flex flex-col gap-3">
                       {rows.map((item) => (
                         // A search suggestion links straight to its row (#listing-<id>).
-                        <li key={item.id} id={`listing-${item.id}`} className="scroll-mt-36">
-                          {item.content}
+                        // A container, so the row lays itself out by its own width: beside the map
+                        // it is narrower than the window says.
+                        <li key={item.id} id={`listing-${item.id}`} className="@container scroll-mt-36">
+                          {near?.has(item.id) && (
+                            <p className="mb-1.5 px-1 text-sm font-semibold text-primary">{near.get(item.id)?.toFixed(1)} km from your pin</p>
+                          )}
+                          <MapHoverTarget pin={listingKey(item.id)}>{item.content}</MapHoverTarget>
                         </li>
                       ))}
                     </ul>
                   ) : (
                     <p className="rounded-card bg-surface p-4 text-sm text-muted card-edge">
-                      Nothing here matches these filters. <TextButton onClick={clear} />
+                      {near && filtered(group).length > 0 ? (
+                        "Nothing in this section is within that distance of your pin."
+                      ) : (
+                        <>
+                          Nothing here matches these filters. <TextButton onClick={clear} />
+                        </>
+                      )}
                     </p>
                   )}
                 </div>

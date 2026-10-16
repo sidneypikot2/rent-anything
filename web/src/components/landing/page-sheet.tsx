@@ -9,21 +9,25 @@ import { glassClasses } from "@/components/ui/glass";
 // (.page-sections, globals.css). Inset like
 // the banner's frame so the two line up; it fills the rest of the page, so the footer stays at
 // the bottom. "paper" is a white sheet with dark text, for the partner pages, which are
-// work screens rather than browsing (RAA-120).
+// work screens rather than browsing (RAA-120). `wide` lets what's inside go past the page width,
+// for an area page with its map beside the sections, which sets its own width.
 export function PageSheet({
   children,
   tone = "sheet",
+  wide = false,
   className,
 }: {
   children: ReactNode;
   tone?: "sheet" | "clear" | "paper";
+  wide?: boolean;
   className?: string;
 }) {
   return (
     <div className="flex flex-1 flex-col px-3 pb-3 sm:px-6 sm:pb-6">
       <div
         className={cn(
-          "mx-auto flex w-full max-w-page flex-1 flex-col",
+          "mx-auto flex w-full flex-1 flex-col",
+          wide ? "max-w-split" : "max-w-page",
           tone === "sheet" && cn(glassClasses("sheet"), "rounded-frame sm:px-6"),
           tone === "paper" && "card-edge rounded-frame bg-surface px-4 text-foreground shadow-float sm:px-6",
           className,

@@ -26,6 +26,13 @@
   --color-mint: #86efac;
   /* The dark end of a photo's scrim, always used with an opacity. */
   --color-scrim: #020617;
+  /* Map pins (area map): one colour per What to book group, so a pin says what it is before
+     its label is read; places to see are navy. Each takes white text at 4.5:1 or more. Only
+     for pins and the key beside them, never a button. */
+  --color-pin-activity: #c2410c;
+  --color-pin-transfer: #7c3aed;
+  --color-pin-rental: #0f766e;
+  --color-pin-stay: #be185d;
   /* Glass: one edge and two fills for everything frosted over a photo or the header. */
   --color-glass-edge: rgb(255 255 255 / 0.18);
   --color-glass-fill: rgb(255 255 255 / 0.12);
@@ -52,6 +59,9 @@
   /* Two page widths: page for browsing, narrow for one thing (a listing, the cart, a form). */
   --container-page: 72rem;
   --container-narrow: 48rem;
+  /* An area page with its map beside the sections: the sections keep about a page's width on
+     the left, the map takes the rest. */
+  --container-split: 110rem;
   --container-prose: 40rem;
   /* A lede: the short paragraph under a big title (the hero, the closing band), about 50
      characters a line. */

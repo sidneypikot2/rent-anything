@@ -3,6 +3,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getArea, getDestinations, getExplore, type AreaCard, type AreaDetail } from "@/api/discovery";
+import { AreaMapProvider, MapHoverTarget } from "@/components/discovery/area-map-context";
+import { AreaMapLayout } from "@/components/discovery/area-map-layout";
+import { listingPin, placeKey, placePins, type LandmarkInfo, type ListingPanelInfo } from "@/components/discovery/area-map-pins";
 import { countLine, LandmarkCard, ListingRow, PHOTO_CARD, PHOTO_CARD_IMAGE, withSubAreas } from "@/components/discovery/cards";
 import { ExploreSections, withoutShown } from "@/components/discovery/explore-sections";
 import { areaIcon } from "@/components/discovery/icons";
@@ -29,11 +32,11 @@ type Listing = AreaDetail["listings"][number];
 
 // Listings grouped by what the trip needs (SPEC: the area home groups by trip need), which
 // What to book's filter offers (RAA-125). Each group keeps its anchor, and an icon for the rail.
-const TRIP_NEEDS: { title: string; id: string; icon: string; bookingTypes: Listing["booking_type"][] }[] = [
-  { title: "Tours & activities", id: "need-activity", icon: "Tour", bookingTypes: ["activity"] },
-  { title: "Getting there & around", id: "need-transfer", icon: "Van transfer", bookingTypes: ["transfer"] },
-  { title: "Rentals & gear", id: "need-rental", icon: "Motorcycle", bookingTypes: ["rental"] },
-  { title: "Stays", id: "need-stay", icon: "Hotel or cottage", bookingTypes: ["stay"] },
+const TRIP_NEEDS: { title: string; id: string; icon: string; bookingType: Listing["booking_type"] }[] = [
+  { title: "Tours & activities", id: "need-activity", icon: "Tour", bookingType: "activity" },
+  { title: "Getting there & around", id: "need-transfer", icon: "Van transfer", bookingType: "transfer" },
+  { title: "Rentals & gear", id: "need-rental", icon: "Motorcycle", bookingType: "rental" },
+  { title: "Stays", id: "need-stay", icon: "Hotel or cottage", bookingType: "stay" },
 ];
 
 export async function generateMetadata(props: PageProps<"/[area]">): Promise<Metadata> {
@@ -47,6 +50,9 @@ export async function generateMetadata(props: PageProps<"/[area]">): Promise<Met
 // shows the place's photo with its counts as chips. Since RAA-125 tabs under it lead to its
 // sections, places to see come first (spots to recommend before things to sell), and what to
 // book sits on a paper sheet: a filter rail beside rows with their photos and what they include.
+// A map of its listings and places to see sits beside the sections from lg (full screen from a
+// Map button on a phone), its pins from the explore response, which also covers the places
+// inside this one.
 export default async function AreaPage(props: PageProps<"/[area]">) {
   const slug = (await props.params).area;
   const searchParams = await props.searchParams;
@@ -76,8 +82,45 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   const hasNearby = Boolean(nearby && (nearby.destinations.length > 0 || nearby.recommendations.length > 0));
   const needs = TRIP_NEEDS.map((need) => ({
     ...need,
-    listings: listings.filter((listing) => need.bookingTypes.includes(listing.booking_type)),
+    listings: listings.filter((listing) => listing.booking_type === need.bookingType),
   })).filter((need) => need.listings.length > 0);
+  // The map's pins, reusing what the rows and cards show, so a pin's pop-up and panel match.
+  const rowInfo = new Map<number, ListingPanelInfo>(
+    needs.flatMap((need) =>
+      need.listings.map((listing, index) => [
+        listing.id,
+        {
+          by: [`by ${listing.business.name}`, listing.units_label].filter(Boolean).join(" · "),
+          summary: listing.summary,
+          features: listingFeatures(listing),
+          photo: listing.photos[0] ? { src: listing.photos[0].card_url, alt: listing.title } : listingCover(listing, index),
+        },
+      ]),
+    ),
+  );
+  const landmarkInfo = new Map<string, LandmarkInfo>(
+    landmarks.map((landmark, index) => [
+      landmark.slug,
+      { description: landmark.description, tags: landmark.tags, photo: landmarkPhoto(landmark.tags, index) },
+    ]),
+  );
+  const pins = explore
+    ? [
+        ...explore.listings.map((listing, index) => listingPin(listing, index, rowInfo.get(listing.id))),
+        ...placePins(explore.destinations, landmarkInfo),
+      ]
+    : [];
+  const map =
+    explore && pins.length > 0
+      ? {
+          pins,
+          center: explore.anchor.location,
+          dates,
+          datesQuery,
+          areaName: area.name,
+          landmarks: Object.fromEntries(landmarkInfo),
+        }
+      : null;
   const stats = [
     landmarks.length > 0 && { count: landmarks.length, label: landmarks.length === 1 ? "place to see" : "places to see" },
     listings.length > 0 && { count: listings.length, label: `to book${counts && counts.more.length > 0 ? " here" : ""}` },
@@ -119,119 +162,127 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           )}
       </PageBanner>
 
-      <PageSheet tone="clear">
-        {/* One block under the search bar, as it is one block under the banner. */}
-        <div className="page-sections mx-auto flex w-full max-w-page flex-col gap-section pt-block pb-page-pad">
-          {landmarks.length > 0 && (
-            <Section id="places" surface="photo" title="Places to see">
-              {/* A row to swipe on a phone, two to a row from sm, four from lg. */}
-              <div className="-mx-3 grid snap-x snap-mandatory auto-cols-[80%] grid-flow-col gap-3 overflow-x-auto scroll-px-3 px-3 [scrollbar-width:none] sm:mx-0 sm:grid-flow-row sm:grid-cols-2 sm:gap-gutter sm:overflow-visible sm:px-0 lg:grid-cols-4">
-                {landmarks.map((landmark, index) => (
-                  <LandmarkCard key={landmark.slug} landmark={landmark} photo={landmarkPhoto(landmark.tags, index)} areaName={area.name} />
-                ))}
+      <PageSheet tone="clear" wide>
+        <AreaMapProvider>
+          <TripAddProvider>
+            <AreaMapLayout map={map}>
+              {/* One block under the search bar, as it is one block under the banner. */}
+              <div className="page-sections flex min-w-0 flex-col gap-section pt-block pb-page-pad">
+                {landmarks.length > 0 && (
+                  <Section id="places" surface="photo" title="Places to see">
+                    {/* A row to swipe on a phone, two to a row from sm, four from lg. */}
+                    {/* Two to a row beside the map. */}
+                    <div className="-mx-3 grid snap-x snap-mandatory auto-cols-[80%] grid-flow-col gap-3 overflow-x-auto scroll-px-3 px-3 [scrollbar-width:none] sm:mx-0 sm:grid-flow-row sm:grid-cols-2 sm:gap-gutter sm:overflow-visible sm:px-0 lg:grid-cols-4 lg:group-data-[map=on]/map:grid-cols-2">
+                      {landmarks.map((landmark, index) => (
+                        <MapHoverTarget key={landmark.slug} pin={placeKey(landmark.slug)}>
+                          <LandmarkCard landmark={landmark} photo={landmarkPhoto(landmark.tags, index)} areaName={area.name} />
+                        </MapHoverTarget>
+                      ))}
+                    </div>
+                  </Section>
+                )}
+
+                {listings.length > 0 && (
+                    <Section
+                      id="listings"
+                      surface="paper"
+                      title="What to book"
+                      intro="Tours, rides, gear and stays from local partners. Saving to a trip is free, and there's nothing to pay yet."
+                    >
+                      <TripStartedBanner name={area.name} show={starting} />
+                      <ListingBrowser
+                        dates={<TripDatesBar key={`${dates.from}-${dates.to}-${dates.guests}`} dates={dates} rail />}
+                        empty={<p className="text-muted">Nothing here yet.</p>}
+                        groups={needs.map((need) => ({
+                          id: need.id,
+                          title: need.title,
+                          icon: need.icon,
+                          bookingType: need.bookingType,
+                          items: need.listings.map((listing, index) => {
+                            const cover = listingCover(listing, index);
+                            const photos = listing.photos.length > 0
+                              ? listing.photos.map((photo) => ({ src: photo.card_url, alt: listing.title }))
+                              : [cover];
+                            const features = listingFeatures(listing);
+                            const priceUnit = listing.price_from_cents ? priceUnitText(listing.price_unit) : null;
+                            return {
+                              id: listing.id,
+                              priceCents: listing.price_from_cents ?? null,
+                              priceUnit,
+                              features,
+                              content: (
+                                <ListingRow
+                                  listingId={listing.id}
+                                  href={`/listings/${listing.id}${datesQuery}`}
+                                  title={listing.title}
+                                  category={listing.category}
+                                  by={[`by ${listing.business.name}`, listing.units_label].filter(Boolean).join(" · ")}
+                                  summary={listing.summary}
+                                  photos={photos}
+                                  samplePhoto={listing.photos.length === 0 && !listing.cover_photo_url}
+                                  features={features}
+                                  price={
+                                    listing.price_from_cents
+                                      ? { prefix: "from", amount: formatPeso(listing.price_from_cents), unit: priceUnit ?? undefined }
+                                      : undefined
+                                  }
+                                  action={<AddToTripButton listing={listing} dates={dates} />}
+                                />
+                              ),
+                            };
+                          }),
+                        }))}
+                      />
+                    </Section>
+                )}
+
+                {areas.length > 0 && (
+                  <Section id="inside" surface="photo" title={`Destinations in ${area.name}`}>
+                    {/* One place inside gets the whole row, as a shorter card, rather than half a row. */}
+                    <ul className={cn("grid gap-gutter", areas.length > 1 && "sm:grid-cols-2")}>
+                      {areas.map((child) => {
+                        const childCount = counts?.children.get(child.slug);
+                        const photo = areaPhoto(child.slug, child.kind);
+                        return (
+                          <li key={child.slug}>
+                            <Link
+                              href={`/${child.slug}`}
+                              className={cn("group flex items-end p-3", areas.length > 1 ? "min-h-48" : "min-h-40", PHOTO_CARD)}
+                            >
+                              <Image
+                                src={photo.src}
+                                alt={photo.alt}
+                                fill
+                                sizes={areas.length > 1 ? "(min-width: 640px) 50vw, 100vw" : "(min-width: 72rem) 72rem, 100vw"}
+                                className={PHOTO_CARD_IMAGE}
+                              />
+                              <span aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-transparent to-scrim/55" />
+                              <GlassPanel tone="card" className={cn("flex items-center gap-3 rounded-control p-3", areas.length > 1 ? "w-full" : "w-full sm:w-auto sm:pr-6")}>
+                                <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-control border border-glass-edge bg-glass-fill text-lg">
+                                  {areaIcon(child.kind)}
+                                </span>
+                                <span className="min-w-0">
+                                  <span className="block font-semibold">{child.name}</span>
+                                  {childCount && <span className="block text-sm text-sky-mist">{childCount}</span>}
+                                </span>
+                              </GlassPanel>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </Section>
+                )}
+
+                {nearby && <ExploreSections explore={nearby} name={area.name} />}
+
+                {areas.length === 0 && landmarks.length === 0 && listings.length === 0 && !hasNearby && (
+                  <p className="text-muted">Nothing here yet. Local partners are still being added.</p>
+                )}
               </div>
-            </Section>
-          )}
-
-          {listings.length > 0 && (
-            <TripAddProvider>
-              <Section
-                id="listings"
-                surface="paper"
-                title="What to book"
-                intro="Tours, rides, gear and stays from local partners. Saving to a trip is free, and there's nothing to pay yet."
-              >
-                <TripStartedBanner name={area.name} show={starting} />
-                <ListingBrowser
-                  dates={<TripDatesBar key={`${dates.from}-${dates.to}-${dates.guests}`} dates={dates} rail />}
-                  empty={<p className="text-muted">Nothing here yet.</p>}
-                  groups={needs.map((need) => ({
-                    id: need.id,
-                    title: need.title,
-                    icon: need.icon,
-                    items: need.listings.map((listing, index) => {
-                      const cover = listingCover(listing, index);
-                      const photos = listing.photos.length > 0
-                        ? listing.photos.map((photo) => ({ src: photo.card_url, alt: listing.title }))
-                        : [cover];
-                      const features = listingFeatures(listing);
-                      const priceUnit = listing.price_from_cents ? priceUnitText(listing.price_unit) : null;
-                      return {
-                        id: listing.id,
-                        priceCents: listing.price_from_cents ?? null,
-                        priceUnit,
-                        features,
-                        content: (
-                          <ListingRow
-                            listingId={listing.id}
-                            href={`/listings/${listing.id}${datesQuery}`}
-                            title={listing.title}
-                            category={listing.category}
-                            by={[`by ${listing.business.name}`, listing.units_label].filter(Boolean).join(" · ")}
-                            summary={listing.summary}
-                            photos={photos}
-                            samplePhoto={listing.photos.length === 0 && !listing.cover_photo_url}
-                            features={features}
-                            price={
-                              listing.price_from_cents
-                                ? { prefix: "from", amount: formatPeso(listing.price_from_cents), unit: priceUnit ?? undefined }
-                                : undefined
-                            }
-                            action={<AddToTripButton listing={listing} dates={dates} />}
-                          />
-                        ),
-                      };
-                    }),
-                  }))}
-                />
-              </Section>
-            </TripAddProvider>
-          )}
-
-          {areas.length > 0 && (
-            <Section id="inside" surface="photo" title={`Destinations in ${area.name}`}>
-              {/* One place inside gets the whole row, as a shorter card, rather than half a row. */}
-              <ul className={cn("grid gap-gutter", areas.length > 1 && "sm:grid-cols-2")}>
-                {areas.map((child) => {
-                  const childCount = counts?.children.get(child.slug);
-                  const photo = areaPhoto(child.slug, child.kind);
-                  return (
-                    <li key={child.slug}>
-                      <Link
-                        href={`/${child.slug}`}
-                        className={cn("group flex items-end p-3", areas.length > 1 ? "min-h-48" : "min-h-40", PHOTO_CARD)}
-                      >
-                        <Image
-                          src={photo.src}
-                          alt={photo.alt}
-                          fill
-                          sizes={areas.length > 1 ? "(min-width: 640px) 50vw, 100vw" : "(min-width: 72rem) 72rem, 100vw"}
-                          className={PHOTO_CARD_IMAGE}
-                        />
-                        <span aria-hidden className="absolute inset-0 -z-10 bg-linear-to-b from-transparent to-scrim/55" />
-                        <GlassPanel tone="card" className={cn("flex items-center gap-3 rounded-control p-3", areas.length > 1 ? "w-full" : "w-full sm:w-auto sm:pr-6")}>
-                          <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-control border border-glass-edge bg-glass-fill text-lg">
-                            {areaIcon(child.kind)}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block font-semibold">{child.name}</span>
-                            {childCount && <span className="block text-sm text-sky-mist">{childCount}</span>}
-                          </span>
-                        </GlassPanel>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </Section>
-          )}
-
-          {nearby && <ExploreSections explore={nearby} name={area.name} />}
-
-          {areas.length === 0 && landmarks.length === 0 && listings.length === 0 && !hasNearby && (
-            <p className="text-muted">Nothing here yet. Local partners are still being added.</p>
-          )}
-        </div>
+            </AreaMapLayout>
+          </TripAddProvider>
+        </AreaMapProvider>
       </PageSheet>
     </main>
   );

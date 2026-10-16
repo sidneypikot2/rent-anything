@@ -181,6 +181,36 @@ export function FilterGlyph({ className }: Props) {
   );
 }
 
+// A minus: zoom out.
+export function MinusGlyph({ className }: Props) {
+  return <Glyph paths={["M5 12h14"]} className={className} />;
+}
+
+// A folded map: show the map.
+export function MapGlyph({ className }: Props) {
+  return <Glyph paths={MAP} className={className} />;
+}
+
+// Three lines: back to the list.
+export function ListGlyph({ className }: Props) {
+  return <Glyph paths={["M9 6h11", "M9 12h11", "M9 18h11", "M4 6h.01", "M4 12h.01", "M4 18h.01"]} className={className} />;
+}
+
+// A circle with its radius: search by distance.
+export function RadiusGlyph({ className }: Props) {
+  return <Glyph paths={[circle(12, 12, 8), circle(12, 12, 1.5), "M12 12l6-5"]} className={className} />;
+}
+
+// Crosshairs: use my location.
+export function LocateGlyph({ className }: Props) {
+  return <Glyph paths={[circle(12, 12, 7), circle(12, 12, 2), "M12 2v3", "M12 19v3", "M2 12h3", "M19 12h3"]} className={className} />;
+}
+
+// Corners: fit the map to every pin.
+export function FitGlyph({ className }: Props) {
+  return <Glyph paths={["M4 9V4h5", "M20 9V4h-5", "M4 15v5h5", "M20 15v5h-5"]} className={className} />;
+}
+
 // An i in a circle: a card's details (RAA-126).
 export function InfoGlyph({ className }: Props) {
   return <Glyph paths={[circle(12, 12, 9), "M12 11v5", "M12 8h.01"]} className={className} />;

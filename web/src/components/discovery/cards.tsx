@@ -397,8 +397,10 @@ export function ListingCard({
 
 // A thing to book as a row on white (RAA-125), for the area page's paper sheet: its photos to
 // step through, then the title linking to the listing, its category and who offers it, a short
-// summary and chips for what it includes, then its price and the action (Add to trip). From md
-// the photo sits on the left and the price and action on the right; on a phone they stack. At
+// summary and chips for what it includes, then its price and the action (Add to trip). It goes by
+// its container's width (an @container around it), not the window's, as the area page's map can
+// take half the window: stacked when narrow, a small photo beside the details from 24rem, and from
+// 42rem the photo on the left and the price and action on the right. At
 // rest the summary keeps to one line and the chips to two rows (RAA-126, ListingRowDetails).
 export function ListingRow({
   listingId,
@@ -427,9 +429,9 @@ export function ListingRow({
 }) {
   return (
     // Top-aligned, so titles start on one line across rows whatever their summaries and chips.
-    <Card className="relative grid gap-4 p-3 md:grid-cols-[19rem_minmax(0,1fr)_auto] md:items-start md:gap-5">
-      <ListingPhotos photos={photos} label={title} sample={samplePhoto} className="z-10 aspect-[16/10] md:aspect-[4/3]" />
-      <div className="flex min-w-0 flex-col gap-2 px-1 md:px-0">
+    <Card className="relative grid gap-4 p-3 @sm:grid-cols-[10rem_minmax(0,1fr)] @2xl:grid-cols-[19rem_minmax(0,1fr)_auto] @2xl:items-start @2xl:gap-5">
+      <ListingPhotos photos={photos} label={title} sample={samplePhoto} className="z-10 aspect-[16/10] @sm:aspect-square @2xl:aspect-[4/3]" />
+      <div className="flex min-w-0 flex-col gap-2 px-1 @sm:px-0">
         <h3 className="text-lg leading-snug font-semibold text-balance">
           <DetailPanelButton
             data-testid="listing-open"
@@ -461,7 +463,7 @@ export function ListingRow({
         <ListingRowDetails summary={summary} features={features} />
       </div>
       {(price || action) && (
-        <div className="relative z-10 flex items-center justify-between gap-3 border-t border-line px-1 pt-3 md:flex-col md:items-end md:justify-start md:border-0 md:px-0 md:pt-1">
+        <div className="relative z-10 flex items-center justify-between gap-3 border-t border-line px-1 pt-3 @sm:col-span-2 @2xl:col-span-1 @2xl:flex-col @2xl:items-end @2xl:justify-start @2xl:border-0 @2xl:px-0 @2xl:pt-1">
           {/* No price yet for rentals and transfers (only stays and tours are priced), so nothing
               is promised here. */}
           {price ? <Price {...price} /> : <span />}
