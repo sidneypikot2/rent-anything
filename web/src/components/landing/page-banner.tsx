@@ -26,7 +26,8 @@ const HERO_PHOTO_PAD = "pb-8 pt-16 max-sm:short:pb-6 max-sm:short:pt-6 sm:pb-8 s
 // The home hero's photo is the backdrop's own, at full colour: its scrim darkens only where the
 // text is, the foot on a phone and the left from sm up, so the boats show on the right. `mirror`
 // flips a photo whose open side is on the wrong side for the text; it is the `scale` property,
-// so it composes with the drift's transform.
+// so it composes with the drift's transform. `search={false}` leaves out the search bar under it,
+// for a page that isn't about finding a place (the cart).
 export function PageBanner({
   eyebrow,
   title,
@@ -35,6 +36,7 @@ export function PageBanner({
   photo,
   frameClass,
   aside,
+  search = true,
 }: {
   eyebrow?: ReactNode;
   title: ReactNode;
@@ -45,6 +47,7 @@ export function PageBanner({
   // A card beside the contents from lg (the home hero's destination summary, RAA-125), at the
   // foot of the frame. Only with a photo.
   aside?: ReactNode;
+  search?: boolean;
 }) {
   const contents = (
     <>
@@ -128,7 +131,7 @@ export function PageBanner({
         </GlassPanel>
       )}
     </section>
-    {!hero && <SearchBar />}
+    {!hero && search && <SearchBar />}
     </>
   );
 }

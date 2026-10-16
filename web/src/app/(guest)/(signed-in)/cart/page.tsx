@@ -15,7 +15,7 @@ export default async function Cart(props: PageProps<"/cart">) {
   const trip = Number((await props.searchParams).trip);
   return (
     <main data-testid="cart" className="flex flex-1 flex-col">
-      <PageBanner title={<DisplayTitle>Your trips</DisplayTitle>}>
+      <PageBanner title={<DisplayTitle>Your trips</DisplayTitle>} search={false}>
         <ButtonLink href="/trips" variant="soft" size="sm" className="self-start">
           All trips
         </ButtonLink>

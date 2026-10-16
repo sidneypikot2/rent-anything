@@ -11,7 +11,6 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
@@ -44,8 +43,9 @@ type Panel = "where" | "when" | "guests" | null;
 // The search: destinations, landmarks, activities and things to book as you type. It is a
 // plain GET form, so Enter (or no JavaScript) opens the full results at /search, which also
 // explains a query that is too short. The suggestions follow the ARIA combobox pattern (as
-// ComboboxField does, RAA-75): arrow keys move through them, Enter opens the highlighted one,
-// Escape closes the list. Before anything is typed it offers where we launch and the kinds
+// ComboboxField does, RAA-75): arrow keys move through them, Enter picks the highlighted one,
+// Escape closes the list. Picking a suggestion opens nothing yet: it fills Where and moves on
+// to the dates, then the guests, and Show me goes to the picked place with them. Before anything is typed it offers where we launch and the kinds
 // of things to book.
 // On the home page's hero it is the page's main action: a line to fill in (go or do what,
 // when, with whom), so the trip dates and guests travel with whatever is picked, into the
@@ -76,6 +76,8 @@ export function SearchBox({
   const [panel, setPanel] = useState<Panel>(null);
   const [range, setRange] = useState({ from: initialDates.from ?? "", to: initialDates.to ?? "" });
   const [guests, setGuests] = useState(initialDates.guests);
+  // The suggestion picked for Where; typing again drops it.
+  const [picked, setPicked] = useState<Item | null>(null);
   const [twoMonths, setTwoMonths] = useState(false);
   // The highlighted suggestion, tied to the list it was picked in: new results start with
   // nothing highlighted, so the highlight never points at another item or past the list.
@@ -113,9 +115,11 @@ export function SearchBox({
   });
 
   const empty = data !== undefined && Object.values(data).every((group) => group.length === 0);
+  // Hrefs without the dates: they are added when Show me is pressed, so dates picked after the
+  // place still travel.
   const items = useMemo(
-    () => (!enabled ? popularItems(carry) : data ? suggestionItems(data, query, carry) : []),
-    [enabled, data, query, carry],
+    () => (!enabled ? popularItems() : data ? suggestionItems(data, query) : []),
+    [enabled, data, query],
   );
   // While a query waits for the debounce, the list it replaces stays shut rather than flicker.
   const typing = !enabled && [...text.trim()].length >= MIN_LENGTH;
@@ -132,6 +136,17 @@ export function SearchBox({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
+  // Fills Where with the suggestion and goes on to the dates, as the bar reads.
+  function choose(item: Item) {
+    setPicked(item);
+    // "See all results" keeps what was typed.
+    if (item.group) setText(item.title);
+    setHighlight(null);
+    setTwoMonths(window.matchMedia(WIDE).matches);
+    setPanel("when");
+    whenRef.current?.focus();
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown" && listed) {
       event.preventDefault();
@@ -142,8 +157,7 @@ export function SearchBox({
       moveTo(active < 0 ? items.length - 1 : Math.max(active - 1, 0));
     } else if (event.key === "Enter" && active >= 0) {
       event.preventDefault();
-      setPanel(null);
-      router.push(items[active].href);
+      choose(items[active]);
     } else if (event.key === "Escape" && expanded) {
       // Close the list first; the browser's own clear of a search field waits for the next Escape.
       event.preventDefault();
@@ -174,6 +188,7 @@ export function SearchBox({
       value={text}
       onChange={(event) => {
         setText(event.target.value);
+        setPicked(null);
         setPanel("where");
         setHighlight(null);
       }}
@@ -218,6 +233,7 @@ export function SearchBox({
         // The query too, so the old suggestions don't linger for the debounce.
         setText("");
         setQuery("");
+        setPicked(null);
         setHighlight(null);
         inputRef.current?.focus();
       }}
@@ -242,7 +258,11 @@ export function SearchBox({
       onKeyDown={onFormKeyDown}
       onSubmit={(event) => {
         const typed = text.trim();
-        if (here && (!typed || typed === here.name)) {
+        if (picked) {
+          event.preventDefault();
+          setPanel(null);
+          router.push(withDates(picked.href, carry));
+        } else if (here && (!typed || typed === here.name)) {
           event.preventDefault();
           setPanel(null);
           router.push(`${here.href}${carry}`, { scroll: false });
@@ -311,6 +331,7 @@ export function SearchBox({
             variant="glow"
             size="pill"
             aria-label="Search"
+            data-testid="search-submit"
             className="group/go col-span-2 min-h-12 gap-2 sm:ml-auto landscape-phone:min-h-11"
           >
             Show me
@@ -379,7 +400,7 @@ export function SearchBox({
         <div
           data-testid="search-suggestions"
           // Keeps focus in the input while a suggestion is clicked: Safari doesn't focus a
-          // clicked link, so the form's blur would close the panel before the click lands.
+          // clicked button, so the form's blur would close the panel before the click lands.
           onMouseDown={(event) => event.preventDefault()}
           // On a phone, only as tall as the room above the on-screen keyboard.
           style={room === null ? undefined : { maxHeight: Math.max(room, MIN_PANEL_PX) }}
@@ -392,7 +413,7 @@ export function SearchBox({
           )}
         >
           {!enabled ? (
-            <Suggestions id={listId} items={items} active={active} optionId={optionId} query="" />
+            <Suggestions id={listId} items={items} active={active} optionId={optionId} query="" onChoose={choose} />
           ) : isError ? (
             <p role="status" className="p-3 text-sm text-muted">
               Search isn&apos;t available right now.{" "}
@@ -411,7 +432,7 @@ export function SearchBox({
           ) : empty ? (
             <NoMatches query={query} carry={carry} />
           ) : (
-            <Suggestions id={listId} items={items} active={active} optionId={optionId} query={query} />
+            <Suggestions id={listId} items={items} active={active} optionId={optionId} query={query} onChoose={choose} />
           )}
         </div>
       )}
@@ -589,18 +610,18 @@ function withDates(href: string, carry: string) {
 type Item = { group: string; href: string; icon: ReactNode; title: string; note?: string };
 
 // Before anything is typed: where we launch and the kinds of things to book.
-function popularItems(carry: string): Item[] {
+function popularItems(): Item[] {
   return [
     {
       group: "Where we launch",
-      href: withDates(`/${LAUNCH_AREA.slug}`, carry),
+      href: `/${LAUNCH_AREA.slug}`,
       icon: areaIcon(LAUNCH_AREA.kind),
       title: LAUNCH_AREA.name,
       note: "Beaches, island hopping and local partners",
     },
     ...CATEGORIES.map((category) => ({
       group: "Things to book",
-      href: withDates(categoryHref(category.query), carry),
+      href: categoryHref(category.query),
       icon: categoryIcon(category.icon),
       title: category.label,
     })),
@@ -609,25 +630,25 @@ function popularItems(carry: string): Item[] {
 
 // Every suggestion in display order, ending with "See all results", so the arrow keys and
 // the list agree on one index.
-function suggestionItems(results: SearchResults, query: string, carry: string): Item[] {
+function suggestionItems(results: SearchResults, query: string): Item[] {
   return [
     ...results.areas.map((area) => ({
       group: "Destinations",
-      href: withDates(`/${area.slug}`, carry),
+      href: `/${area.slug}`,
       icon: areaIcon(area.kind),
       title: area.name,
       note: area.parent_name ?? undefined,
     })),
     ...results.landmarks.map((landmark) => ({
       group: "Landmarks",
-      href: withDates(`/${landmark.area.slug}#${landmark.slug}`, carry),
+      href: `/${landmark.area.slug}#${landmark.slug}`,
       icon: placeIcon(),
       title: landmark.name,
       note: landmark.area.name,
     })),
     ...results.tags.map((tag) => ({
       group: "Activities & interests",
-      href: withDates(`/search?q=${encodeURIComponent(tag.name)}`, carry),
+      href: `/search?q=${encodeURIComponent(tag.name)}`,
       icon: tagIcon(tag.slug),
       title: tag.name,
       note: tag.areas.map((area) => area.name).join(", "),
@@ -635,14 +656,14 @@ function suggestionItems(results: SearchResults, query: string, carry: string): 
     ...results.listings.map((listing) => ({
       group: "Things to book",
       // The listing's own row on its destination page.
-      href: withDates(`/${listing.area_slug}#listing-${listing.id}`, carry),
+      href: `/${listing.area_slug}#listing-${listing.id}`,
       icon: categoryIcon(listing.category),
       title: listing.title,
       note: listingNote(listing, results),
     })),
     {
       group: "",
-      href: withDates(`/search?q=${encodeURIComponent(query)}`, carry),
+      href: `/search?q=${encodeURIComponent(query)}`,
       icon: <SearchGlyph className="size-[1.1em]" />,
       title: `See all results for “${query}”`,
     },
@@ -668,12 +689,14 @@ function Suggestions({
   active,
   optionId,
   query,
+  onChoose,
 }: {
   id: string;
   items: Item[];
   active: number;
   optionId: (index: number) => string;
   query: string;
+  onChoose: (item: Item) => void;
 }) {
   const groups = [...new Set(items.map((item) => item.group))];
   // A row is an icon in its well, the name and where it is. The highlighted row (pointer or
@@ -696,14 +719,15 @@ function Suggestions({
           {items.map((item, index) =>
             item.group === group ? (
               <li key={item.href + index} role="presentation">
-                <Link
+                <button
+                  type="button"
                   id={optionId(index)}
                   role="option"
                   aria-selected={index === active}
                   tabIndex={-1}
-                  href={item.href}
+                  onClick={() => onChoose(item)}
                   className={cn(
-                    "group/option flex min-h-12 items-center gap-3 rounded-control px-2.5 py-1.5 transition-colors duration-200 ease-calm hover:bg-mist",
+                    "group/option flex min-h-12 w-full items-center gap-3 rounded-control px-2.5 py-1.5 text-left transition-colors duration-200 ease-calm hover:bg-mist",
                     index === active && "bg-mist",
                     !item.group && "min-h-11 text-sm font-semibold text-link",
                   )}
@@ -729,7 +753,7 @@ function Suggestions({
                     </span>
                     {item.note && <span className="block truncate text-xs text-muted">{item.note}</span>}
                   </span>
-                </Link>
+                </button>
               </li>
             ) : null,
           )}
