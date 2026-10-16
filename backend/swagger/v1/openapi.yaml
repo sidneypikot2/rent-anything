@@ -4299,6 +4299,13 @@ components:
           - true
       required:
       - uploaded
+    listing_details:
+      type: object
+      additionalProperties: true
+      description: 'Only the keys the listing has, from: guide_included, seats, luggage
+        (bags a transfer carries), route, sizes, accessories, lenses, engine_cc, helmet_included,
+        guests (how many a stay sleeps), rooms ([{beds: [{type, count}]}]), bathroom,
+        amenities, place_type'
     cancellation_policy:
       type: string
       enum:
@@ -4532,6 +4539,16 @@ components:
                 description: As in listing_detail
               price_unit:
                 "$ref": "#/components/schemas/price_unit"
+              photos:
+                type: array
+                maxItems: 6
+                items:
+                  "$ref": "#/components/schemas/photo_urls"
+                description: Its first ready photos, in the partner's order
+              details:
+                "$ref": "#/components/schemas/listing_details"
+              cancellation_policy:
+                "$ref": "#/components/schemas/cancellation_policy"
             required:
             - id
             - title
@@ -4546,6 +4563,9 @@ components:
             - partner_name
             - price_from_cents
             - price_unit
+            - photos
+            - details
+            - cancellation_policy
       required:
       - area
       - areas

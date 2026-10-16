@@ -8,6 +8,10 @@
 # and tour_inclusions.
 module ListingDetailSerializer
   SUMMARY_LENGTH = 160
+  # The attrs a guest may see (RAA-124): what a listing includes and how big it is. Never an
+  # identifier like a plate or serial number.
+  GUEST_DETAILS = %w[guide_included seats luggage route sizes accessories lenses engine_cc helmet_included
+    guests rooms bathroom amenities place_type].freeze
 
   def self.call(listing)
     category = listing.category
@@ -34,6 +38,11 @@ module ListingDetailSerializer
   def self.summary(listing)
     line = listing.description.lines.map(&:strip).find(&:present?)
     line.to_s.truncate(SUMMARY_LENGTH, omission: "…")
+  end
+
+  # Only the GUEST_DETAILS keys the listing has, in that order.
+  def self.details(listing)
+    listing.attrs.slice(*GUEST_DETAILS).sort_by { |key, _| GUEST_DETAILS.index(key) }.to_h
   end
 
   # partner_name repeats the business name until the web app reads business (RAA-101).
