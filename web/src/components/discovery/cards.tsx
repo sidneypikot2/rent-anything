@@ -27,6 +27,9 @@ const KIND_LABELS: Record<string, string> = {
   region: "Region",
 };
 
+// The badge's tone on a destination's photo (RAA-130): islands and cities have their own.
+const KIND_TONES: Record<string, "island" | "city"> = { island: "island", city: "city" };
+
 // How tall a destination photo card is, the lead one and the rest; the home page's skeleton
 // takes the same, so the cards arrive where it stood.
 export const DESTINATION_HEIGHTS = { feature: "min-h-[26rem] sm:min-h-[28rem]", other: "h-80" };
@@ -190,7 +193,7 @@ export function DestinationCard({
         className={cn(feature && "@container", className)}
         scrimClassName={cn(feature && "@xl:bg-linear-to-r @xl:via-transparent @xl:to-scrim/45")}
         glassClassName={feature ? "@xl:ml-auto @xl:w-1/2 @xl:p-6 @4xl:w-[38%]" : "max-w-md"}
-        badge={<Badge tone="mist">{KIND_LABELS[area.kind] ?? area.kind}</Badge>}
+        badge={<Badge tone={KIND_TONES[area.kind] ?? "mist"}>{KIND_LABELS[area.kind] ?? area.kind}</Badge>}
         head={head}
         details={details || undefined}
         foot={foot}
@@ -248,7 +251,7 @@ export function ActivityCard({ activity, photo }: { activity: Activity; photo?: 
         // Named by its words: the photo's alt would otherwise lead every card's name. A comma, not
         // the visible dot, which some screen readers read out as "middle dot".
         aria-label={`${activity.name}: ${toBook}, ${where}`}
-        className={cn(PHOTO_CARD, "flex aspect-[4/5] flex-col justify-end p-3")}
+        className={cn(PHOTO_CARD, "flex aspect-[4/5] flex-col justify-end p-2 lg:aspect-[4/3.6] lg:p-3")}
       >
         <Image
           src={photo.src}
@@ -258,17 +261,16 @@ export function ActivityCard({ activity, photo }: { activity: Activity; photo?: 
           className={PHOTO_CARD_IMAGE}
         />
         <div aria-hidden className={PHOTO_SCRIM} />
-        <GlassPanel tone="card" className="flex items-center gap-2.5 rounded-control p-2.5">
-          {/* Only from sm up: in a phone's two columns the name needs the room. */}
-          <span className="hidden size-8 shrink-0 items-center justify-center rounded-control border border-glass-edge bg-glass-fill transition-colors group-hover:bg-primary sm:flex">
-            <TagGlyph slug={activity.slug} className="size-4" />
+        {/* The name leads with its icon, the counts under it (RAA-130): tighter on a phone's two
+            columns, where the glass sits 8px in rather than 12px. */}
+        <GlassPanel tone="card" className="flex flex-col gap-0.5 rounded-control px-2.5 py-2 lg:px-3 lg:py-2.5">
+          <span className="flex min-w-0 items-center gap-1.5 font-display text-[0.9375rem] leading-tight font-extrabold tracking-tight lg:text-[1.0625rem]">
+            <TagGlyph slug={activity.slug} className="size-4 shrink-0 text-sky-pale" />
+            <span className="line-clamp-2">{activity.name}</span>
           </span>
-          <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="line-clamp-2 text-sm leading-tight font-semibold">{activity.name}</span>
-            <span className="flex flex-col text-sm leading-snug whitespace-nowrap text-sky-mist">
-              <span>{toBook}</span>
-              <span className="hidden sm:block">{where}</span>
-            </span>
+          <span className="flex flex-col text-xs leading-snug whitespace-nowrap text-sky-mist sm:text-[0.8125rem]">
+            <span>{toBook}</span>
+            <span className="hidden sm:block">{where}</span>
           </span>
         </GlassPanel>
       </Link>

@@ -12,6 +12,9 @@ const TONES = {
   warning: "border border-warning/40 bg-surface text-warning",
   // On a photo or glass: a landmark's tag, a step number. White on the glass fill.
   glass: "border border-glass-edge bg-glass-fill text-white",
+  // A destination's kind on its photo (RAA-130): an island in teal, a city in blue.
+  island: "border border-island-tint bg-island-tint text-island-ink",
+  city: "border border-city-tint bg-city-tint text-city-ink",
 };
 
 // A small pill label in sentence case: "Best value", "Eco tour", "New".

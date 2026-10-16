@@ -136,6 +136,8 @@ export default function UiKit() {
           <Badge tone="emerald">Eco tour</Badge>
           <Badge tone="mist">New</Badge>
           <Badge tone="warning">Needs a price</Badge>
+          <Badge tone="island">Island</Badge>
+          <Badge tone="city">City</Badge>
           {/* glass is for photos and glass; navy stands in for one here. */}
           <span className="rounded-full bg-navy p-1.5">
             <Badge tone="glass">Step 1</Badge>

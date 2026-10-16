@@ -83,5 +83,5 @@ export function landmarkPhoto(tags: { slug: string }[], index: number): Photo {
   return tag ? ACTIVITY_PHOTOS[tag.slug] : destinationPhoto(index);
 }
 
-// The photo behind the How-it-works band.
-export const BAND_PHOTO = "/images/samples/cottages.jpg";
+// The photo behind the home page's closing band (RAA-130), under its forest tint.
+export const BAND_PHOTO = "/images/samples/island.jpg";

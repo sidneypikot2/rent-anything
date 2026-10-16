@@ -37,7 +37,7 @@ export function TripStart({ className, wideHidden = false }: { className?: strin
         className,
       )}
     >
-      <ButtonLink href={row.href} variant="accent" size="sm" className="group min-h-11 shrink-0 whitespace-nowrap">
+      <ButtonLink href={row.href} variant="tint" size="sm" className="group min-h-11 shrink-0 whitespace-nowrap">
         {row.action}{" "}
         <span aria-hidden className="inline-flex transition-transform duration-300 ease-calm group-hover:translate-x-1">
           →
