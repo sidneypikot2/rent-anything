@@ -33,6 +33,19 @@
   --color-pin-transfer: #7c3aed;
   --color-pin-rental: #0f766e;
   --color-pin-stay: #be185d;
+  /* The same groups' hues lightened for an icon on dark glass (RAA-130): the home hero's kinds
+     of things to book, so a Tours pill and a tour's pin share a colour. Wayfinding, not brand:
+     only for those icons, never a button or text. Each is 7:1 or more on navy glass. */
+  --color-kind-activity: #fdba74;
+  --color-kind-transfer: #c4b5fd;
+  --color-kind-rental: #5eead4;
+  --color-kind-stay: #f9a8d4;
+  /* A destination's kind on its photo card (RAA-130): an island in teal, a city in blue, each
+     a pale tint under its own dark ink (8:1 or more). */
+  --color-island-tint: #d5f5f0;
+  --color-island-ink: #0a4f4c;
+  --color-city-tint: #deebfd;
+  --color-city-ink: #163f79;
   /* Glass: one edge and two fills for everything frosted over a photo or the header. */
   --color-glass-edge: rgb(255 255 255 / 0.18);
   --color-glass-fill: rgb(255 255 255 / 0.12);

@@ -53,7 +53,14 @@ export function PageBanner({
     <>
       <div className={cn("flex max-w-prose flex-col gap-4 text-white", hero && "max-sm:short:gap-3 landscape-phone:row-span-2 landscape-phone:gap-3")}>
         {eyebrow && (
-          <span className={cn(glassClasses("dark"), "self-start rounded-full px-3.5 py-1.5 text-sm font-semibold")}>
+          // A mint dot leads it, as on the trust ticks (RAA-130): something is live here.
+          <span
+            className={cn(
+              glassClasses("dark"),
+              "flex items-center gap-2 self-start rounded-full px-3.5 py-1.5 text-sm font-semibold",
+            )}
+          >
+            <span aria-hidden className="size-2 shrink-0 rounded-full bg-mint" />
             {eyebrow}
           </span>
         )}

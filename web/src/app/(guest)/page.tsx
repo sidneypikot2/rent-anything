@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { getActivities, getDestinations, type Activity } from "@/api/discovery";
 import { ActivityCard, DESTINATION_HEIGHTS, DestinationCard, groupDestinations } from "@/components/discovery/cards";
-import { CATEGORIES, categoryHref } from "@/components/discovery/categories";
+import { CATEGORIES, GROUP_ICON, categoryHref } from "@/components/discovery/categories";
 import { LoadFailed } from "@/components/discovery/load-failed";
 import { SearchBox } from "@/components/discovery/search-box";
 import { CategoryGlyph, CheckGlyph } from "@/components/discovery/tag-glyphs";
@@ -66,7 +66,8 @@ export default function Home() {
         </div>
         {/* The kinds of things to book and why book here, as one group under the search. */}
         <div className="flex flex-col gap-3">
-          {/* One row: it wraps from sm up and scrolls sideways on a phone (on its side too), so the row stays one
+          {/* Each icon in its What to book group's hue, as on the area map's pins (RAA-130).
+              One row: it wraps from sm up and scrolls sideways on a phone (on its side too), so the row stays one
               line on the first screen. The negative margin lets the pills scroll to the frame's edge,
               and the matching scroll padding keeps the first one snapped in line with the text. A
               scroller clips both ways, so the row has room above and below for the focus ring.
@@ -84,7 +85,7 @@ export default function Home() {
                   "flex min-h-11 shrink-0 snap-start items-center gap-2 rounded-full px-4 text-sm font-bold whitespace-nowrap hover:bg-glass-hover",
                 )}
               >
-                <CategoryGlyph name={category.icon} className="size-4.5 shrink-0 text-sky-pale" />
+                <CategoryGlyph name={category.icon} className={cn("size-4.5 shrink-0", GROUP_ICON[category.group])} />
                 {category.label}
               </Link>
             ))}
@@ -206,7 +207,7 @@ async function Activities() {
     <div className="flex flex-col gap-gutter">
       <ActivityGrid activities={top} />
       {more.length > 0 && (
-        <ShowMore more={`More activities (${more.length})`} less="Fewer activities">
+        <ShowMore glass more={`More activities (${more.length})`} less="Fewer activities">
           <ActivityGrid activities={more} from={ACTIVITIES_SHOWN} />
         </ShowMore>
       )}
@@ -247,7 +248,7 @@ function ActivitiesSkeleton() {
     <div role="status" aria-busy className="grid grid-cols-2 gap-gutter lg:grid-cols-4">
       <span className="sr-only">Loading activities…</span>
       {[0, 1, 2, 3].map((index) => (
-        <div key={index} className={`${SKELETON} aspect-[4/5]`} />
+        <div key={index} className={`${SKELETON} aspect-[4/5] lg:aspect-[4/3.6]`} />
       ))}
     </div>
   );

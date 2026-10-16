@@ -18,7 +18,6 @@ import { LAUNCH_AREA } from "@/components/landing/trip-start";
 import { tripDatesQuery, type TripDates } from "@/components/trips/trip-dates";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
-import { GlassPanel } from "@/components/ui/glass";
 import { DateRangeCalendar } from "@/components/ui/date-range-field";
 import { PillLink } from "@/components/ui/pill";
 import { StepperField } from "@/components/ui/stepper-field";
@@ -279,20 +278,14 @@ export function SearchBox({
       {guests > 1 && <input type="hidden" name="guests" value={guests} />}
 
       {hero ? (
-        // A line to fill in: go or do what, when, with whom. Each blank is a white chip on the
-        // dark glass that turns pale blue once filled. From sm Where has the first row, and When,
-        // Guests and the button the second. On a phone the lead words sit above their chips:
-        // Where on its own row, When and Guests side by side, then the button.
-        <GlassPanel
-          tone="dark"
-          className="grid grid-cols-2 gap-x-2 gap-y-3 card-edge rounded-card p-3 shadow-float sm:flex sm:flex-wrap sm:items-center sm:gap-x-4 sm:p-4 landscape-phone:gap-y-2 landscape-phone:p-2.5"
-        >
-          <label className={cn(BLANK, "col-span-2 sm:basis-full")}>
-            <span className={cn(LEAD, ROW_LEAD)}>Go or do</span>
-            <span className={cn(chipClasses(Boolean(text), panel === "where"), "min-w-0 flex-1 pr-1.5")}>
-              {input}
-              {clear}
-            </span>
+        // A white card on the hero photo (RAA-130): Where, When and Guests as fields, then Show
+        // me. On a phone Where has the first row, When and Guests share the second and the button
+        // the third; from sm they are one row, Where the widest.
+        <div className="grid max-w-[47.5rem] grid-cols-2 gap-2 card-edge rounded-[1.25rem] bg-surface p-2 text-navy shadow-float sm:flex sm:items-center fold:p-1.5 landscape-phone:p-1.5">
+          <label className={cn(heroFieldClasses(Boolean(text), panel === "where"), "col-span-2 cursor-text pr-1 sm:flex-[2]")}>
+            <span className="shrink-0 text-sm font-bold whitespace-nowrap text-navy">Go or do</span>
+            {input}
+            {clear}
           </label>
           <button
             ref={whenRef}
@@ -302,13 +295,11 @@ export function SearchBox({
             aria-controls={panel === "when" ? datesId : undefined}
             onClick={() => toggle("when")}
             data-testid="search-dates"
-            className={cn(BLANK, "group outline-none")}
+            className={cn(heroFieldClasses(Boolean(dateLabel), panel === "when"), "sm:flex-1")}
           >
-            <span className={cn(LEAD, ROW_LEAD)}>when</span>
-            <span className={chipClasses(Boolean(dateLabel), panel === "when")}>
-              <CalendarGlyph className="size-4.5 shrink-0" />
-              <span className="truncate">{dateLabel ?? "Add dates"}</span>
-            </span>
+            <CalendarGlyph className="size-4.5 shrink-0" />
+            <span className="sr-only">Dates: </span>
+            <span className="truncate">{dateLabel ?? "Add dates"}</span>
           </button>
           <button
             ref={guestsRef}
@@ -318,26 +309,22 @@ export function SearchBox({
             aria-controls={panel === "guests" ? guestsId : undefined}
             onClick={() => toggle("guests")}
             data-testid="search-guests"
-            className={cn(BLANK, "group outline-none")}
+            className={cn(heroFieldClasses(guests > 1, panel === "guests"), "sm:flex-1")}
           >
-            <span className={LEAD}>with</span>
-            <span className={chipClasses(guests > 1, panel === "guests")}>
-              <GuestsGlyph className="size-4.5 shrink-0" />
-              <span className="truncate">{guests === 1 ? "just me" : `${guests} guests`}</span>
-            </span>
+            <GuestsGlyph className="size-4.5 shrink-0" />
+            <span className="sr-only">Guests: </span>
+            <span className="truncate">{guests === 1 ? "Just me" : `${guests} guests`}</span>
           </button>
           <Button
             type="submit"
-            variant="glow"
-            size="pill"
+            arrow
             aria-label="Search"
             data-testid="search-submit"
-            className="group/go col-span-2 min-h-12 gap-2 sm:ml-auto landscape-phone:min-h-11"
+            className="col-span-2 shrink-0 landscape-phone:min-h-11"
           >
             Show me
-            <ArrowGlyph className="size-5 transition-transform duration-300 ease-calm group-hover/go:translate-x-0.5" />
           </Button>
-        </GlassPanel>
+        </div>
       ) : bar ? (
         // Where, When and Guests on one row of the light glass bar, each word beside its own white
         // field, as the hero's line reads; on a phone (inside the sheet) each word sits above its
@@ -509,25 +496,14 @@ const BAR_LABEL = "text-sm font-semibold whitespace-nowrap text-foreground";
 const BAR_FIELD =
   "flex min-h-12 w-full min-w-0 items-center gap-2 rounded-full border border-line-strong bg-surface px-4 text-left text-sm font-semibold transition-[border-color,box-shadow] duration-300 ease-calm hover:border-primary focus-visible:outline-2 focus-visible:outline-primary has-[input:focus-visible]:border-primary has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-sky-mist sm:min-h-11";
 const BAR_FIELD_OPEN = "border-primary ring-2 ring-sky-mist";
-// A blank in the hero's line: its lead word, then its chip. On a phone the word sits above.
-const BLANK = "flex min-w-0 cursor-pointer flex-col gap-1 text-left sm:flex-row sm:items-center sm:gap-2.5";
-const LEAD =
-  "px-1 text-sm font-semibold text-sky-mist sm:px-0 sm:font-display sm:text-lg sm:text-white max-sm:short:sr-only landscape-phone:sr-only";
-// From sm the word that starts each row ("Go or do", "when") shares one width, set flush right,
-// so the search field and the dates chip start in one column under each other. In em, as it
-// follows the lead's type; a min width, so a wider fallback font misaligns rather than clips.
-const ROW_LEAD = "sm:min-w-[4.5em] sm:shrink-0 sm:text-right";
-
-// The chip of a blank: white with a dashed rim while empty, pale blue once filled, ringed
-// while its panel is open. The focus ring follows the button or the input inside.
-function chipClasses(filled: boolean, open: boolean) {
+// A field of the hero's card (RAA-130): 48px, outlined in line-strong, its icon and value muted
+// until filled; blue-ringed while focused or while its panel is open.
+function heroFieldClasses(filled: boolean, open: boolean) {
   return cn(
-    "flex min-h-12 min-w-0 items-center gap-2 rounded-full border px-4 text-base transition-[background-color,border-color,box-shadow] duration-300 ease-calm sm:min-h-13 landscape-phone:min-h-11",
-    "group-focus-visible:ring-2 group-focus-visible:ring-sky-pale has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-sky-pale",
-    filled
-      ? "border-transparent bg-fern font-semibold text-navy"
-      : "border-dashed border-line-strong bg-surface font-medium text-muted group-hover:border-primary",
-    open ? "shadow-lift ring-2 ring-sky-pale" : "shadow-soft",
+    "flex min-h-12 min-w-0 items-center gap-2 rounded-control border bg-surface px-3.5 text-left text-[0.9375rem] outline-none transition-[border-color,box-shadow] duration-300 ease-calm hover:border-primary landscape-phone:min-h-11",
+    "focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-sky-mist has-[input:focus-visible]:border-primary has-[input:focus-visible]:ring-4 has-[input:focus-visible]:ring-sky-mist",
+    filled ? "font-semibold text-navy" : "font-medium text-muted",
+    open ? "border-primary ring-4 ring-sky-mist" : "border-line-strong",
   );
 }
 
