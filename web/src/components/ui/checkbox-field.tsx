@@ -13,7 +13,7 @@ export function CheckboxField({
     <label className={cn("flex items-center gap-2 text-sm font-medium", className)}>
       <input type="checkbox" className="size-4 shrink-0 rounded border-line-strong accent-primary" {...props} />
       {label}
-      {aside !== undefined && <span className="ml-auto pl-2 text-muted tabular-nums">{aside}</span>}
+      {aside !== undefined && <span className="ml-auto pl-2 nums text-muted">{aside}</span>}
     </label>
   );
 }

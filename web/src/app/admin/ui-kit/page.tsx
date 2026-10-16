@@ -70,7 +70,7 @@ export default function UiKit() {
               <div className={`h-16 border-b border-line ${swatch.className}`} />
               <CardBody pad="sm">
                 <p className="font-display font-bold">{swatch.name}</p>
-                <p className="text-xs tabular-nums text-muted">{swatch.hex}</p>
+                <p className="nums text-xs text-muted">{swatch.hex}</p>
                 <p className="mt-1 text-xs text-muted">{swatch.use}</p>
               </CardBody>
             </Card>
@@ -86,7 +86,8 @@ export default function UiKit() {
           </DisplayTitle>
           <DisplayTitle as="p">Display title</DisplayTitle>
           <SectionTitle>Section title</SectionTitle>
-          <p>Body text in Plus Jakarta Sans, the one family for headings and text.</p>
+          <p>Body text and headings in DM Sans; numbers in Manrope.</p>
+          <Price prefix="from" amount="₱1,500" unit="/ guest" />
           <p className="text-sm text-muted">Muted text for notes and secondary detail.</p>
           <a href="#" className="text-sm font-semibold text-link">
             A link →

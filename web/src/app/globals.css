@@ -317,8 +317,9 @@
   /* A day with nothing left to sell on the partner calendar (RAA-120); danger text on it is 5.9:1. */
   --color-danger-tint: #fef2f2;
   --color-warning: #b45309;
-  --font-sans: var(--font-jakarta);
-  --font-display: var(--font-jakarta);
+  /* DM Sans, then Manrope for the peso sign it lacks (RAA-127, layout.tsx). */
+  --font-sans: var(--font-dm-sans), var(--font-manrope);
+  --font-display: var(--font-dm-sans), var(--font-manrope);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -327,6 +328,13 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
   line-height: 1.65;
+}
+
+/* Numbers in Manrope (RAA-127), each digit as wide as the next, so prices, counts and totals
+   line up. A line that is mostly words keeps tabular-nums in DM Sans instead. */
+@utility nums {
+  font-family: var(--font-manrope), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Everything moves only for people who are fine with motion. A scroll-driven animation (reveal)

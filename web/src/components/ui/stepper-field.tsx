@@ -48,7 +48,7 @@ export function StepperField({
         >
           −
         </button>
-        <output aria-live="polite" className="w-8 text-center text-sm font-semibold tabular-nums">
+        <output aria-live="polite" className="nums w-8 text-center text-sm font-semibold">
           {value}
         </output>
         <button

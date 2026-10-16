@@ -57,7 +57,7 @@ export function ListingsByBusiness({
             .filter(offered)
             .map((key) => (
               <Pill key={key} on={active === key} onClick={() => setFilter(key)} data-testid={`listing-filter-${key}`}>
-                {FILTERS[key].label} <span className="tabular-nums opacity-80">{counts[key]}</span>
+                {FILTERS[key].label} <span className="nums opacity-80">{counts[key]}</span>
               </Pill>
             ))}
         </div>
@@ -180,7 +180,7 @@ function ListingRows({ listings }: { listings: PartnerListing[] }) {
                     {status.note && <span className="text-xs text-muted">{status.note}</span>}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-muted tabular-nums">{UPDATED.format(new Date(listing.updated_at))}</td>
+                <td className="nums px-4 py-3 text-muted">{UPDATED.format(new Date(listing.updated_at))}</td>
               </tr>
             );
           })}

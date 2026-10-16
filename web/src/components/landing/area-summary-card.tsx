@@ -32,7 +32,7 @@ export async function AreaSummaryCard() {
               <li key={activity.slug}>
                 <Link href={`/search?q=${encodeURIComponent(activity.name)}`} className={row}>
                   {activity.name}
-                  <span className="text-sm font-bold tabular-nums text-sky-pale">{activity.listing_count}</span>
+                  <span className="nums text-sm font-bold text-sky-pale">{activity.listing_count}</span>
                 </Link>
               </li>
             ))}

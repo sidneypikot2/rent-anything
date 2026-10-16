@@ -63,7 +63,7 @@ export function ListingPhotos({ photos, label, sample = false, count = "top", cl
       )}
       {many && (
         <>
-          <span className={cn("absolute right-2.5 rounded-full bg-scrim/60 px-2 py-0.5 text-xs font-bold tabular-nums text-white", count === "top" ? "top-2.5" : "bottom-2.5")}>
+          <span className={cn("absolute right-2.5 rounded-full bg-scrim/60 px-2 py-0.5 nums text-xs font-bold text-white", count === "top" ? "top-2.5" : "bottom-2.5")}>
             {index + 1} / {photos.length}
           </span>
           <PhotoStep direction="left" hidden={index === 0} onClick={() => step(-1)} />

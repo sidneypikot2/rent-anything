@@ -65,7 +65,7 @@ export function Price({
   return (
     <span
       className={cn(
-        "font-display text-xl font-extrabold tracking-tight tabular-nums",
+        "nums text-xl font-extrabold tracking-tight",
         onDark ? "text-white" : "text-foreground",
       )}
     >

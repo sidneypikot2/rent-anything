@@ -39,7 +39,7 @@ function Row({ label, cents, negative }: { label: string; cents: number; negativ
   return (
     <div className="flex justify-between gap-4">
       <dt className="text-muted">{label}</dt>
-      <dd className="tabular-nums">
+      <dd className="nums">
         {negative ? "−" : ""}
         {formatPeso(cents)}
       </dd>
@@ -109,7 +109,7 @@ export function StayPrice({
               <dt>
                 Total for {plural(quote.quote.nights_count, "night")}, {plural(quote.quote.guests, "guest")}
               </dt>
-              <dd className="tabular-nums" data-testid="stay-quote-total">
+              <dd className="nums" data-testid="stay-quote-total">
                 {formatPeso(quote.quote.total_cents)}
               </dd>
             </div>
