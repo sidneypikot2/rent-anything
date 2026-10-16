@@ -586,7 +586,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description active listings, location rounded */
+                /** @description a priced stay's pin carries its nightly price */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -4186,6 +4186,11 @@ export interface components {
             /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
             cover_photo_url: string | null;
             location: components["schemas"]["lat_lng"];
+            /** @enum {string} */
+            booking_type: "rental" | "stay" | "activity" | "transfer";
+            /** @description A stay's nightly price or a tour's base price, in centavos; null with no price yet or for any other category */
+            price_from_cents: number | null;
+            price_unit: components["schemas"]["price_unit"];
         };
         listing_detail: {
             id: number;
@@ -4744,6 +4749,11 @@ export interface components {
             /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
             cover_photo_url: string | null;
             location: components["schemas"]["lat_lng"];
+            /** @enum {string} */
+            booking_type: "rental" | "stay" | "activity" | "transfer";
+            /** @description A stay's nightly price or a tour's base price, in centavos; null with no price yet or for any other category */
+            price_from_cents: number | null;
+            price_unit: components["schemas"]["price_unit"];
             /** @description From the starting point's exact point, one decimal */
             distance_km: number;
         };
