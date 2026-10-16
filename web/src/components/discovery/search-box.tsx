@@ -320,7 +320,7 @@ export function SearchBox({
       ) : bar ? (
         // Where, When and Guests in one white row on the backdrop, each a label over its value;
         // on a phone (inside the sheet) stacked as fields, with Show me under them.
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-1 sm:card-edge sm:rounded-full sm:bg-surface/90 sm:p-1.5 sm:shadow-lift sm:backdrop-blur-xl">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-1 sm:card-edge sm:rounded-full sm:bg-surface/90 sm:p-2 sm:shadow-lift sm:backdrop-blur-xl">
           <label className={cn(SEGMENT, "cursor-text sm:flex-[1.5]")}>
             <span className={SEGMENT_LABEL}>Where</span>
             <span className="flex min-w-0 items-center">
@@ -487,7 +487,7 @@ const PANEL = "absolute right-0 top-full z-20 mt-2 card-edge rounded-card bg-sur
 const IN_SHEET = "max-sm:static max-sm:shadow-none";
 // One of the bar's blanks: a field on a phone, a pill-shaped segment of the row from sm.
 const SEGMENT =
-  "flex min-h-14 min-w-0 flex-1 cursor-pointer flex-col justify-center rounded-control border border-line-strong px-4 py-1.5 text-left text-sm transition-colors duration-300 ease-calm hover:bg-mist focus-visible:outline-2 focus-visible:outline-primary has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-sky-mist sm:min-h-11 sm:rounded-full sm:border-0 sm:py-1";
+  "flex min-h-14 min-w-0 flex-1 cursor-pointer flex-col justify-center rounded-control border border-line-strong px-5 py-1.5 text-left text-sm transition-colors duration-300 ease-calm hover:bg-mist focus-visible:outline-2 focus-visible:outline-primary has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-sky-mist sm:min-h-11 sm:rounded-full sm:border-0 sm:px-6 sm:py-1";
 const SEGMENT_LABEL = "text-xs font-semibold text-muted";
 // A blank in the hero's line: its lead word, then its chip. On a phone the word sits above.
 const BLANK = "flex min-w-0 cursor-pointer flex-col gap-1 text-left sm:flex-row sm:items-center sm:gap-2.5";

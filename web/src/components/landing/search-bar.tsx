@@ -44,7 +44,7 @@ export function SearchBar() {
       className="pointer-events-none sticky top-20 z-30 mt-[max(0px,calc(var(--spacing-block)-0.75rem))] px-3 sm:mt-[max(0px,calc(var(--spacing-block)-1.5rem))] sm:px-6"
     >
       {/* Holds the bar's height until the URL can be read, so the page doesn't move. */}
-      <Suspense fallback={<div className="mx-auto h-11 max-w-3xl sm:h-[3.875rem]" />}>
+      <Suspense fallback={<div className="mx-auto h-12 max-w-page px-inset sm:h-16" />}>
         <SearchBarContent pathname={pathname} />
       </Suspense>
     </div>
@@ -67,14 +67,16 @@ function SearchBarContent({ pathname }: { pathname: string }) {
   );
 
   return (
-    <div className="pointer-events-auto mx-auto max-w-3xl" data-testid="search-bar">
+    // As wide as the page's content under it (the sheet's max-w-page less its inset), so its
+    // edges line up with What to book's rail and listings.
+    <div className="pointer-events-auto mx-auto max-w-page px-inset" data-testid="search-bar">
       <div className="max-sm:hidden">{box}</div>
       <button
         type="button"
         aria-haspopup="dialog"
         onClick={() => setOpenFor(key)}
         data-testid="search-bar-pill"
-        className="flex min-h-11 w-full items-center gap-2.5 card-edge rounded-full bg-surface/90 px-4 text-left text-sm text-foreground shadow-lift backdrop-blur-xl sm:hidden"
+        className="flex min-h-12 w-full items-center gap-2.5 card-edge rounded-full bg-surface/90 px-5 text-left text-sm text-foreground shadow-lift backdrop-blur-xl sm:hidden"
       >
         <SearchGlyph className="size-4.5 shrink-0 text-primary" />
         <span className="min-w-0 truncate">
