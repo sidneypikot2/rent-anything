@@ -49,16 +49,26 @@ type Panel = "where" | "when" | "guests" | null;
 // of things to book.
 // On the home page's hero it is the page's main action: a line to fill in (go or do what,
 // when, with whom), so the trip dates and guests travel with whatever is picked, into the
-// destination page's `?from=&to=&guests=` (readTripDates). Elsewhere it is one field, and
-// keeps the dates it was given.
+// destination page's `?from=&to=&guests=` (readTripDates). `bar` is the same three blanks in
+// one row, for the search bar under the header on every other page (RAA-126), and stacked
+// in a sheet on a phone. Otherwise it is one field, and keeps the dates it was given.
+// `here`: the place the page is about. Show me with its name left as it is (or emptied) stays
+// on this page with the new dates and guests, rather than searching for the name.
 export function SearchBox({
   initialQuery = "",
   initialDates = { guests: 1 },
   hero = false,
+  bar = false,
+  here,
+  onDone,
 }: {
   initialQuery?: string;
   initialDates?: TripDates;
   hero?: boolean;
+  bar?: boolean;
+  here?: { name: string; href: string };
+  // Called once the search has been sent, so a sheet holding it can close.
+  onDone?: () => void;
 }) {
   const router = useRouter();
   const [text, setText] = useState(initialQuery);
@@ -78,7 +88,7 @@ export function SearchBox({
   const whenRef = useRef<HTMLButtonElement>(null);
   const guestsRef = useRef<HTMLButtonElement>(null);
   const open = panel === "where";
-  const room = useRoomAboveKeyboard(formRef, open);
+  const room = useRoomAboveKeyboard(formRef, open && hero);
 
   useEffect(() => {
     const timer = setTimeout(() => setQuery(text.trim()), DEBOUNCE_MS);
@@ -169,7 +179,7 @@ export function SearchBox({
       }}
       onFocus={() => {
         setPanel("where");
-        if (window.matchMedia(PHONE).matches) {
+        if (hero && window.matchMedia(PHONE).matches) {
           const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
           formRef.current?.scrollIntoView({ block: "start", behavior: smooth ? "smooth" : "auto" });
         }
@@ -191,7 +201,11 @@ export function SearchBox({
         // The browser's own clear button is unstyled; the one below replaces it.
         "min-w-0 flex-1 bg-transparent text-base text-foreground caret-primary outline-none selection:bg-fern selection:text-navy placeholder:text-muted/80 [&::-webkit-search-cancel-button]:appearance-none",
         // In the hero the label gives the field its height.
-        hero ? "w-full truncate font-semibold text-navy placeholder:font-medium placeholder:text-muted" : "min-h-12",
+        hero
+          ? "w-full truncate font-semibold text-navy placeholder:font-medium placeholder:text-muted"
+          : bar
+            ? "w-full truncate font-semibold placeholder:font-medium"
+            : "min-h-12",
       )}
     />
   );
@@ -207,7 +221,11 @@ export function SearchBox({
         setHighlight(null);
         inputRef.current?.focus();
       }}
-      className="-mx-1 grid size-10 shrink-0 place-items-center rounded-full text-muted transition-colors duration-300 ease-calm hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
+      // In the bar it sits on the value's line, so it mustn't make the row taller.
+      className={cn(
+        "-mx-1 grid shrink-0 place-items-center rounded-full text-muted transition-colors duration-300 ease-calm hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary",
+        bar ? "-my-2 size-8" : "size-10",
+      )}
     >
       <CloseGlyph className="size-4.5" />
     </button>
@@ -220,8 +238,17 @@ export function SearchBox({
       ref={formRef}
       action="/search"
       role="search"
-      className={cn("relative w-full scroll-mt-4 text-left", !hero && "max-w-xl")}
+      className={cn("relative w-full scroll-mt-4 text-left", !hero && !bar && "max-w-xl")}
       onKeyDown={onFormKeyDown}
+      onSubmit={(event) => {
+        const typed = text.trim();
+        if (here && (!typed || typed === here.name)) {
+          event.preventDefault();
+          setPanel(null);
+          router.push(`${here.href}${carry}`, { scroll: false });
+        }
+        onDone?.();
+      }}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) setPanel(null);
       }}
@@ -290,6 +317,56 @@ export function SearchBox({
             <ArrowGlyph className="size-5 transition-transform duration-300 ease-calm group-hover/go:translate-x-0.5" />
           </Button>
         </GlassPanel>
+      ) : bar ? (
+        // Where, When and Guests in one white row on the backdrop, each a label over its value;
+        // on a phone (inside the sheet) stacked as fields, with Show me under them.
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-1 sm:card-edge sm:rounded-full sm:bg-surface/90 sm:p-1.5 sm:shadow-lift sm:backdrop-blur-xl">
+          <label className={cn(SEGMENT, "cursor-text sm:flex-[1.5]")}>
+            <span className={SEGMENT_LABEL}>Where</span>
+            <span className="flex min-w-0 items-center">
+              {input}
+              {clear}
+            </span>
+          </label>
+          <span aria-hidden className="hidden h-8 w-px shrink-0 bg-line sm:block" />
+          <button
+            ref={whenRef}
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={panel === "when"}
+            aria-controls={panel === "when" ? datesId : undefined}
+            onClick={() => toggle("when")}
+            data-testid="search-dates"
+            className={cn(SEGMENT, panel === "when" && "bg-mist")}
+          >
+            <span className={SEGMENT_LABEL}>When</span>
+            <span className={cn("flex items-center gap-1.5 truncate font-semibold", !dateLabel && "font-medium text-muted")}>
+              <CalendarGlyph className="size-4 shrink-0 text-primary" />
+              <span className="truncate">{dateLabel ?? "Add dates"}</span>
+            </span>
+          </button>
+          <span aria-hidden className="hidden h-8 w-px shrink-0 bg-line sm:block" />
+          <button
+            ref={guestsRef}
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={panel === "guests"}
+            aria-controls={panel === "guests" ? guestsId : undefined}
+            onClick={() => toggle("guests")}
+            data-testid="search-guests"
+            className={cn(SEGMENT, panel === "guests" && "bg-mist")}
+          >
+            <span className={SEGMENT_LABEL}>Guests</span>
+            <span className={cn("flex items-center gap-1.5 truncate font-semibold", guests === 1 && "font-medium text-muted")}>
+              <GuestsGlyph className="size-4 shrink-0 text-primary" />
+              <span className="truncate">{guests === 1 ? "Just me" : `${guests} guests`}</span>
+            </span>
+          </button>
+          <Button type="submit" size="pill" data-testid="search-submit" className="group/go shrink-0 gap-2">
+            Show me
+            <ArrowGlyph className="size-4.5 transition-transform duration-300 ease-calm group-hover/go:translate-x-0.5" />
+          </Button>
+        </div>
       ) : (
         <div className="flex items-center gap-2 rounded-card border border-line-strong bg-surface p-1.5 pl-4 shadow-soft transition-[border-color,box-shadow] duration-300 ease-calm focus-within:border-primary focus-within:ring-4 focus-within:ring-sky-mist">
           {input}
@@ -314,7 +391,8 @@ export function SearchBox({
           className={cn(
             PANEL,
             "inset-x-0 max-h-[45vh] overflow-y-auto overscroll-contain p-2 sm:max-h-[70vh]",
-            hero && "sm:right-auto sm:w-[min(100%,34rem)]",
+            (hero || bar) && "sm:right-auto sm:w-[min(100%,34rem)]",
+            bar && IN_SHEET,
           )}
         >
           {!enabled ? (
@@ -349,7 +427,7 @@ export function SearchBox({
           aria-label="Trip dates"
           // Clicks on the calendar's padding keep focus inside the form, so it stays open.
           onMouseDown={keepFocus}
-          className={cn(PANEL, "inset-x-0 flex flex-col gap-2 p-4 sm:right-auto sm:w-88 lg:w-[40rem]")}
+          className={cn(PANEL, "inset-x-0 flex flex-col gap-2 p-4 sm:right-auto sm:w-88 lg:w-[40rem]", bar && IN_SHEET, bar && "sm:left-1/4")}
         >
           <DateRangeCalendar
             from={range.from}
@@ -379,7 +457,7 @@ export function SearchBox({
           role="dialog"
           aria-label="Guests"
           onMouseDown={keepFocus}
-          className={cn(PANEL, "inset-x-0 flex flex-col gap-3 p-4 sm:right-auto sm:w-80")}
+          className={cn(PANEL, "inset-x-0 flex flex-col gap-3 p-4 sm:right-auto sm:w-80", bar && IN_SHEET, bar && "sm:left-1/2")}
         >
           <StepperField
             label="Guests"
@@ -404,6 +482,13 @@ export function SearchBox({
 
 // The panels under the bar: suggestions, the calendar, the guests.
 const PANEL = "absolute right-0 top-full z-20 mt-2 card-edge rounded-card bg-surface text-foreground shadow-lift";
+// On a phone the bar lives in a sheet, so its panels open in the flow, under the fields,
+// where the sheet scrolls to them.
+const IN_SHEET = "max-sm:static max-sm:shadow-none";
+// One of the bar's blanks: a field on a phone, a pill-shaped segment of the row from sm.
+const SEGMENT =
+  "flex min-h-14 min-w-0 flex-1 cursor-pointer flex-col justify-center rounded-control border border-line-strong px-4 py-1.5 text-left text-sm transition-colors duration-300 ease-calm hover:bg-mist focus-visible:outline-2 focus-visible:outline-primary has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-sky-mist sm:min-h-11 sm:rounded-full sm:border-0 sm:py-1";
+const SEGMENT_LABEL = "text-xs font-semibold text-muted";
 // A blank in the hero's line: its lead word, then its chip. On a phone the word sits above.
 const BLANK = "flex min-w-0 cursor-pointer flex-col gap-1 text-left sm:flex-row sm:items-center sm:gap-2.5";
 const LEAD =

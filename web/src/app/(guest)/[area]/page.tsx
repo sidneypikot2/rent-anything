@@ -3,13 +3,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getArea, getDestinations, getExplore, type AreaCard, type AreaDetail } from "@/api/discovery";
-import { AreaTabs } from "@/components/discovery/area-tabs";
 import { countLine, LandmarkCard, ListingRow, PHOTO_CARD, PHOTO_CARD_IMAGE, withSubAreas } from "@/components/discovery/cards";
 import { ExploreSections, withoutShown } from "@/components/discovery/explore-sections";
 import { areaIcon } from "@/components/discovery/icons";
 import { ListingBrowser } from "@/components/discovery/listing-browser";
 import { listingFeatures } from "@/components/discovery/listing-features";
 import { AreaGlyph } from "@/components/discovery/tag-glyphs";
+import { CurrentPlace } from "@/components/landing/current-place";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { areaPhoto, landmarkPhoto, listingCover } from "@/components/landing/sample-photos";
@@ -85,6 +85,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
 
   return (
     <main className="flex flex-1 flex-col">
+      <CurrentPlace name={area.name} />
       <PageBanner
         photo={areaPhoto(slug, area.kind)}
         eyebrow={area.parent_name ? `${area.parent_name}, Philippines` : "Philippines"}
@@ -118,23 +119,15 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           )}
       </PageBanner>
 
-      <AreaTabs
-        sections={[
-          landmarks.length > 0 && { id: "places", label: "Places to see" },
-          listings.length > 0 && { id: "listings", label: "What to book" },
-          areas.length > 0 && { id: "inside", label: areas.length === 1 ? areas[0].name : "Inside" },
-        ].filter((tab) => tab !== false)}
-      />
-
       <PageSheet tone="clear">
-        {/* One block under the tabs, as they are one block under the banner. */}
+        {/* One block under the search bar, as it is one block under the banner. */}
         <div className="page-sections mx-auto flex w-full max-w-page flex-col gap-section pt-block pb-page-pad">
           {landmarks.length > 0 && (
             <Section id="places" surface="photo" title="Places to see">
               {/* A row to swipe on a phone, two to a row from sm, four from lg. */}
               <div className="-mx-3 grid snap-x snap-mandatory auto-cols-[80%] grid-flow-col gap-3 overflow-x-auto scroll-px-3 px-3 [scrollbar-width:none] sm:mx-0 sm:grid-flow-row sm:grid-cols-2 sm:gap-gutter sm:overflow-visible sm:px-0 lg:grid-cols-4">
                 {landmarks.map((landmark, index) => (
-                  <LandmarkCard key={landmark.slug} landmark={landmark} photo={landmarkPhoto(landmark.tags, index)} />
+                  <LandmarkCard key={landmark.slug} landmark={landmark} photo={landmarkPhoto(landmark.tags, index)} areaName={area.name} />
                 ))}
               </div>
             </Section>
@@ -156,38 +149,39 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                     id: need.id,
                     title: need.title,
                     icon: need.icon,
-                    count: need.listings.length,
-                    content: (
-                      <ul className="flex flex-col gap-3">
-                        {need.listings.map((listing, index) => {
-                          const cover = listingCover(listing, index);
-                          const photos = listing.photos.length > 0
-                            ? listing.photos.map((photo) => ({ src: photo.card_url, alt: listing.title }))
-                            : [cover];
-                          return (
-                            // A search suggestion links straight to its row (#listing-<id>).
-                            <li key={listing.id} id={`listing-${listing.id}`} className="scroll-mt-36">
-                              <ListingRow
-                                href={`/listings/${listing.id}${datesQuery}`}
-                                title={listing.title}
-                                category={listing.category}
-                                by={[`by ${listing.business.name}`, listing.units_label].filter(Boolean).join(" · ")}
-                                summary={listing.summary}
-                                photos={photos}
-                                samplePhoto={listing.photos.length === 0 && !listing.cover_photo_url}
-                                features={listingFeatures(listing)}
-                                price={
-                                  listing.price_from_cents
-                                    ? { prefix: "from", amount: formatPeso(listing.price_from_cents), unit: priceUnitText(listing.price_unit) }
-                                    : undefined
-                                }
-                                action={<AddToTripButton listing={listing} dates={dates} />}
-                              />
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    ),
+                    items: need.listings.map((listing, index) => {
+                      const cover = listingCover(listing, index);
+                      const photos = listing.photos.length > 0
+                        ? listing.photos.map((photo) => ({ src: photo.card_url, alt: listing.title }))
+                        : [cover];
+                      const features = listingFeatures(listing);
+                      const priceUnit = listing.price_from_cents ? priceUnitText(listing.price_unit) : null;
+                      return {
+                        id: listing.id,
+                        priceCents: listing.price_from_cents ?? null,
+                        priceUnit,
+                        features,
+                        content: (
+                          <ListingRow
+                            listingId={listing.id}
+                            href={`/listings/${listing.id}${datesQuery}`}
+                            title={listing.title}
+                            category={listing.category}
+                            by={[`by ${listing.business.name}`, listing.units_label].filter(Boolean).join(" · ")}
+                            summary={listing.summary}
+                            photos={photos}
+                            samplePhoto={listing.photos.length === 0 && !listing.cover_photo_url}
+                            features={features}
+                            price={
+                              listing.price_from_cents
+                                ? { prefix: "from", amount: formatPeso(listing.price_from_cents), unit: priceUnit ?? undefined }
+                                : undefined
+                            }
+                            action={<AddToTripButton listing={listing} dates={dates} />}
+                          />
+                        ),
+                      };
+                    }),
                   }))}
                 />
               </Section>

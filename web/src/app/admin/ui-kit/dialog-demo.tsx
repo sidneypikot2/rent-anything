@@ -10,6 +10,7 @@ import { Toast } from "@/components/ui/toast";
 export function DialogDemo() {
   const [open, setOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sideOpen, setSideOpen] = useState(false);
 
   return (
     <div className="flex flex-wrap gap-3">
@@ -18,6 +19,9 @@ export function DialogDemo() {
       </Button>
       <Button variant="soft" onClick={() => setSheetOpen(true)}>
         Open sheet
+      </Button>
+      <Button variant="soft" onClick={() => setSideOpen(true)}>
+        Open side panel
       </Button>
       <Dialog
         open={open}
@@ -47,6 +51,18 @@ export function DialogDemo() {
       >
         <p className="text-sm text-muted">
           placement=&quot;sheet&quot;: a step in a flow. Docked to the bottom on a phone, centred on wider screens.
+        </p>
+      </Dialog>
+      <Dialog
+        open={sideOpen}
+        onClose={() => setSideOpen(false)}
+        placement="side"
+        title="Kota Beach"
+        actions={<Button onClick={() => setSideOpen(false)}>Add to trip</Button>}
+      >
+        <p className="text-sm text-muted">
+          placement=&quot;side&quot;: the whole of something on the page, beside it. The title and close button stay at
+          the top and the actions at the foot; what&apos;s between scrolls. A click beside it closes it.
         </p>
       </Dialog>
     </div>

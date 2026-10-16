@@ -170,3 +170,18 @@ export function GridGlyph({ className }: Props) {
     />
   );
 }
+
+// Three sliders: a section's filters (RAA-126).
+export function FilterGlyph({ className }: Props) {
+  return (
+    <Glyph
+      paths={["M4 6h9", "M17 6h3", "M4 12h3", "M11 12h9", "M4 18h11", "M19 18h1", circle(15, 6, 2), circle(9, 12, 2), circle(17, 18, 2)]}
+      className={className}
+    />
+  );
+}
+
+// An i in a circle: a card's details (RAA-126).
+export function InfoGlyph({ className }: Props) {
+  return <Glyph paths={[circle(12, 12, 9), "M12 11v5", "M12 8h.01"]} className={className} />;
+}
