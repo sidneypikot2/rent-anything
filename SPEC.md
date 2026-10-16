@@ -24,8 +24,11 @@ rental ends. Escrow and payouts go through a licensed gateway — the platform n
 funds itself.
 
 **Partners** are individuals and small businesses: rental shops, tour operators, van
-operators, guesthouses and small resorts. Partners are ID-verified before they can list;
-listings are approved by an admin.
+operators, guesthouses and small resorts. Partners are ID-verified before they can list.
+There is no admin approval: a listing starts as a draft, and its partner takes it live
+(`draft` → `active`) once it is complete — a ready photo, a description, a price and, for a
+tour, a landmark on its route — and can pause or delist it and take it live again
+(`active` ⇄ `paused`, → `delisted`; RAA-115). Decided by the team in October 2026.
 
 ## Domain decisions
 
@@ -149,9 +152,9 @@ snapshotted on the booking.
 ### Trust
 
 ID verification (government ID + selfie, run by Didit) before a partner can add a listing,
-with 3 tries and then an hour's wait; partners take a complete listing live themselves, and
-pause or delist it (draft → active ⇄ paused, → delisted; RAA-115), with admin review of
-listings possible later; reviews after completion; condition photos at pickup and return;
+with 3 tries and then an hour's wait; partners take a listing live themselves once it passes
+a readiness check, and pause or delist it (RAA-115), with admin review of listings
+possible later; reviews after completion; condition photos at pickup and return;
 deposits held in-app; a partner's exact location and contact details are revealed only
 after a booking is paid (keeps deals on the platform).
 
@@ -191,7 +194,7 @@ after a booking is paid (keeps deals on the platform).
 | M2 | Areas, categories, listings | Listing CRUD, photos, attrs schema, pricing tiers, PostGIS search, area home (map + list), listing page |
 | M3 | Availability & quotes | Units, blocks, activity slots, transfer routes, the exclusion constraint, quotes, partner calendar |
 | M4 | Cart, booking & payments | Cart of trips (RAA-64 API; RAA-65 trip cleanup job; add-to-trip and cart UI; tour landmark picker), checkout of selected items, booking lifecycle, Xendit split payment + webhooks, commission, deposit, cancellation policies, payouts |
-| M5 | Trust | Listing approval (partner ID verification moved earlier: RAA-44, Didit), reviews, contact masking |
+| M5 | Trust | Reviews, contact masking (partner ID verification moved earlier: RAA-44, Didit; listings go live by the partner, behind a readiness check, not admin approval: RAA-115) |
 | M6 | Chat | Conversations per listing/booking |
 | M7 | Operations | Pickup/return checklists with photos, disputes, admin console |
 | M8 | Launch | 30–50 Bantayan Island listings seeded, production host, monitoring, terms reviewed by a lawyer |
@@ -217,4 +220,4 @@ Planned shape; the route tables below are checked against `routes.rb`.
 | `/api/v1/bookings` | a guest's bookings; partner accept/decline |
 | `/api/v1/partner/listings` | a partner's listings, units, calendar and routes |
 | `/api/v1/webhooks/xendit` | payment and payout events |
-| `/api/v1/admin/listings` | approval queue, commission per category, disputes |
+| `/api/v1/admin/listings` | commission per category, disputes |
