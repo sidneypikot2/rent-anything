@@ -378,7 +378,7 @@ paths:
         decimals (about 1 km). The exact point is revealed only after a paid booking.
       responses:
         '200':
-          description: active listings, location rounded
+          description: a priced stay's pin carries its nightly price
           content:
             application/json:
               schema:
@@ -3203,6 +3203,20 @@ components:
             when the listing has no photos
         location:
           "$ref": "#/components/schemas/lat_lng"
+        booking_type:
+          type: string
+          enum:
+          - rental
+          - stay
+          - activity
+          - transfer
+        price_from_cents:
+          type: integer
+          nullable: true
+          description: A stay's nightly price or a tour's base price, in centavos;
+            null with no price yet or for any other category
+        price_unit:
+          "$ref": "#/components/schemas/price_unit"
       required:
       - id
       - title
@@ -3210,6 +3224,9 @@ components:
       - area_slug
       - cover_photo_url
       - location
+      - booking_type
+      - price_from_cents
+      - price_unit
     listing_detail:
       type: object
       properties:
@@ -4694,6 +4711,20 @@ components:
             when the listing has no photos
         location:
           "$ref": "#/components/schemas/lat_lng"
+        booking_type:
+          type: string
+          enum:
+          - rental
+          - stay
+          - activity
+          - transfer
+        price_from_cents:
+          type: integer
+          nullable: true
+          description: A stay's nightly price or a tour's base price, in centavos;
+            null with no price yet or for any other category
+        price_unit:
+          "$ref": "#/components/schemas/price_unit"
         distance_km:
           type: number
           description: From the starting point's exact point, one decimal
@@ -4704,6 +4735,9 @@ components:
       - area_slug
       - cover_photo_url
       - location
+      - booking_type
+      - price_from_cents
+      - price_unit
       - distance_km
     explore:
       type: object

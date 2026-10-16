@@ -253,9 +253,15 @@ RSpec.configure do |config|
               category: { type: :string },
               area_slug: { type: :string },
               cover_photo_url: COVER_PHOTO_URL,
-              location: { "$ref" => "#/components/schemas/lat_lng" }
+              location: { "$ref" => "#/components/schemas/lat_lng" },
+              booking_type: { type: :string, enum: %w[rental stay activity transfer] },
+              price_from_cents: {
+                type: :integer, nullable: true,
+                description: "A stay's nightly price or a tour's base price, in centavos; null with no price yet or for any other category"
+              },
+              price_unit: { "$ref" => "#/components/schemas/price_unit" }
             },
-            required: %w[id title category area_slug cover_photo_url location]
+            required: %w[id title category area_slug cover_photo_url location booking_type price_from_cents price_unit]
           },
           # One active listing as a traveller sees it (RAA-86). Never its location or address.
           listing_detail: {
@@ -978,9 +984,15 @@ RSpec.configure do |config|
               area_slug: { type: :string },
               cover_photo_url: COVER_PHOTO_URL,
               location: { "$ref" => "#/components/schemas/lat_lng" },
+              booking_type: { type: :string, enum: %w[rental stay activity transfer] },
+              price_from_cents: {
+                type: :integer, nullable: true,
+                description: "A stay's nightly price or a tour's base price, in centavos; null with no price yet or for any other category"
+              },
+              price_unit: { "$ref" => "#/components/schemas/price_unit" },
               distance_km: { type: :number, description: "From the starting point's exact point, one decimal" }
             },
-            required: %w[id title category area_slug cover_photo_url location distance_km]
+            required: %w[id title category area_slug cover_photo_url location booking_type price_from_cents price_unit distance_km]
           },
           explore: {
             type: :object,

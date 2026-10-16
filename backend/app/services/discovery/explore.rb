@@ -160,7 +160,7 @@ module Discovery
     # --- Queries -----------------------------------------------------------------------
 
     def listings
-      scope = Listing.active.includes(:category, :area, :cover_photo)
+      scope = Listing.active.includes(*ListingPinSerializer::INCLUDES)
         .select("listings.*", distance("listings.location"))
       scope = inside_anchor? ? inside(scope, @area, "listings.location", :area_id) : within_km(scope, "listings.location")
       scope = inside(scope, @island, "listings.location", :area_id) if @island

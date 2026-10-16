@@ -28,10 +28,23 @@ RSpec.describe "Listings", type: :request do
         run_test! do |response|
           expect(response.parsed_body).to eq([
             { "id" => osmo.id, "title" => "DJI Osmo Action", "category" => "Action camera", "area_slug" => "moalboal",
-              "cover_photo_url" => nil, "location" => { "lat" => 9.93, "lng" => 123.39 } },
+              "cover_photo_url" => nil, "location" => { "lat" => 9.93, "lng" => 123.39 },
+              "booking_type" => "rental", "price_from_cents" => nil, "price_unit" => nil },
             { "id" => gopro.id, "title" => "GoPro Hero 12", "category" => "Action camera", "area_slug" => "moalboal",
-              "cover_photo_url" => nil, "location" => { "lat" => 9.95, "lng" => 123.37 } }
+              "cover_photo_url" => nil, "location" => { "lat" => 9.95, "lng" => 123.37 },
+              "booking_type" => "rental", "price_from_cents" => nil, "price_unit" => nil }
           ])
+        end
+      end
+
+      # The map's pins show a price where the listing has one, as the area page's rows do.
+      response "200", "a priced stay's pin carries its nightly price" do
+        schema type: :array, items: { "$ref" => "#/components/schemas/listing_pin" }
+        let!(:cottage) { create(:listing, :stay, area: moalboal, title: "Beach cottage") }
+
+        run_test! do |response|
+          pin = response.parsed_body.find { |row| row["id"] == cottage.id }
+          expect(pin).to include("booking_type" => "stay", "price_from_cents" => 200_000, "price_unit" => "night")
         end
       end
     end
