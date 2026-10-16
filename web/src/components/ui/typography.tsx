@@ -5,10 +5,11 @@ import { cn } from "./cn";
 // section (SectionTitle, h2), then card titles at text-lg semibold, body at text-base with
 // relaxed leading, and meta at text-sm in muted. Each step is clearly smaller than the last.
 // The bigger the title, the tighter it is set: at the hero's size the usual tracking-tight
-// leaves the extra-bold letters looking spaced out.
+// leaves the extra-bold letters looking spaced out. From sm up the hero and page titles also
+// size by the window's height (RAA-125), so a banner fits the first screen of a laptop.
 const TITLE_SIZES = {
-  page: "text-4xl leading-[1.08] tracking-tight sm:text-5xl",
-  hero: "text-[clamp(2.25rem,11vw,3rem)] leading-[1.02] tracking-[-0.035em] sm:text-7xl landscape-phone:text-4xl",
+  page: "text-4xl leading-[1.08] tracking-tight sm:text-[min(7svh,3rem)]",
+  hero: "text-[clamp(2.25rem,11vw,3rem)] leading-[1.02] tracking-[-0.035em] sm:text-[min(7.2svh,3.75rem)] landscape-phone:text-4xl",
 };
 
 // Page and section headings: the one family at extra-bold, tightly tracked (Sky & Forest).

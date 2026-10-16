@@ -5,6 +5,7 @@ import { getListing, getQuote } from "@/api/discovery";
 import { categoryIcon } from "@/components/discovery/icons";
 import { StayPrice, stayPriceLine } from "@/components/discovery/stay-price";
 import { TourFacts, tourPriceLine } from "@/components/discovery/tour-facts";
+import { CurrentPlace } from "@/components/landing/current-place";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { ListingGallery } from "@/components/discovery/listing-gallery";
@@ -49,6 +50,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
 
   return (
     <main className="flex flex-1 flex-col">
+      <CurrentPlace name={area.name} />
       <PageBanner
         // Its own cover (RAA-109); without one the banner stays on the backdrop (RAA-107).
         photo={cover && { src: cover.large_url, alt: listing.title }}

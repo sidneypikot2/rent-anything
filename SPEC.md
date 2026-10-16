@@ -120,6 +120,24 @@ areas and a tour can visit several.
   Request-to-book items go out as requests first ("Send requests"), and the traveller pays once
   partners accept, so a declined item is never charged.
 
+### Guest browsing layout
+
+Agreed with the team in October 2026 (RAA-125), from the mockup
+https://claude.ai/artifact/YAUGcz1QYwVNfbxWbrdd43 (its Proposed view is the reference; its
+colour schemes were an exploration, not adopted).
+
+- **Spots before sales.** An area page leads with its places to see, then what to book, then
+  the places inside it, with tabs under the banner to each. Travellers come to decide where
+  to go and what to do there; the things to book follow from that.
+- **More on each screen, still readable.** Banners fit the first screen, so what follows shows
+  on load. What to book sits on a pale sheet: a filter by trip need (with the trip dates) beside
+  rows that show the listing's photos to step through and what it includes (guide, seats,
+  helmets, beds, amenities, cancellation), from its own details only.
+- Buttons are pills, and Add to trip a quiet tinted one, so the many on a page don't shout.
+
+How the layout is built (surfaces, the inset line, the listing row) is in
+`.claude/rules/web-ui.md`.
+
 ### Booking lifecycle
 
 `requested → accepted → awaiting_payment → confirmed → in_progress → completed → payout_released`

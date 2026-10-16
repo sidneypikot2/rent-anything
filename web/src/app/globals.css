@@ -22,6 +22,8 @@
   /* Accent and muted text on dark glass and photos. */
   --color-sky-pale: #bae6fd;
   --color-sky-mist: #e0f2fe;
+  /* Ticks for trust points on a photo or dark glass (RAA-125): green for trust, 12:1 on navy. */
+  --color-mint: #86efac;
   /* The dark end of a photo's scrim, always used with an opacity. */
   --color-scrim: #020617;
   /* Glass: one edge and two fills for everything frosted over a photo or the header. */
@@ -43,6 +45,10 @@
   --spacing-card: 1.5rem;
   /* A page's own top and bottom padding (pages without a banner, and below one). */
   --spacing-page-pad: clamp(1.75rem, 4vw, 3rem);
+  /* The inner inset of a section's sheet (glass or paper) and of a banner's contents (RAA-125):
+     banner text, section headings and sheet contents all start on this one line, while cards
+     and frames share the outer edge. 3rem from 40rem up (below, in :root). */
+  --spacing-inset: 1.5rem;
   /* Two page widths: page for browsing, narrow for one thing (a listing, the cart, a form). */
   --container-page: 72rem;
   --container-narrow: 48rem;
@@ -72,11 +78,20 @@
   --animate-rise: rise 0.9s var(--ease-calm) both;
   --animate-float-in: float-in 0.8s var(--ease-calm) both;
   --animate-drift: drift 28s ease-in-out infinite alternate;
+  /* A side panel easing in from the right (RAA-126): from 24px in, never past the window's
+     edge, so the page never gains a sideways scroll. */
+  --animate-panel-in: panel-in 0.5s var(--ease-calm) both;
 
   @keyframes rise {
     from {
       opacity: 0;
       transform: translateY(14px);
+    }
+  }
+  @keyframes panel-in {
+    from {
+      opacity: 0;
+      transform: translateX(24px);
     }
   }
   @keyframes float-in {
@@ -111,6 +126,15 @@
    enough for sm: but too short for a stacked hero. */
 @custom-variant short (@media (max-height: 44rem));
 @custom-variant landscape-phone (@media (width >= 40rem) and (max-height: 30rem));
+/* A laptop window (under 47.5rem tall): banners tighten their gaps so they still fit the first
+   screen (RAA-125). */
+@custom-variant fold (@media (max-height: 47.5rem));
+
+:root {
+  @media (width >= 40rem) {
+    --spacing-inset: 3rem;
+  }
+}
 
 /* Arrivals one after another: stagger-1 … stagger-4 delay an animate-* by 120ms steps. */
 /* The one edge for cards, photo cards, dialogs, menus and popovers: a 1px frosted glass rim
@@ -255,6 +279,18 @@
   --secondary-hover: #1e3a8a;
   /* The keyboard focus ring: primary blue on white; focus-light turns it sky-pale on dark. */
   --focus: var(--color-primary);
+  /* How far down what sticks at the top reaches, plus 12px, for the anchor offset: the header
+     (12px in, 60px tall) and, on a page with one, the search bar stuck 8px under it (48px on a
+     phone, 63px from sm), RAA-126. SearchBar measures it once the page runs, so these only
+     hold the first paint. */
+  --chrome: 5rem;
+}
+
+:root:has([data-search-bar]) {
+  --chrome: 8.75rem;
+  @media (width >= 40rem) {
+    --chrome: 9.6875rem;
+  }
 }
 
 @theme inline {
@@ -352,20 +388,33 @@ body {
     --muted: var(--muted-ink);
     --link: var(--link-ink);
   }
-  /* Inset as the bands are (p-card, sm:p-12), less the frame's 1px border, so every section's
-     heading starts on one line. */
-  .page-sections > section:nth-of-type(even):not(.band) {
+  /* A Section's surface (RAA-125), set by its `surface` prop rather than its position, so
+     sections can be reordered: glass is the hero frame's faint glass, paper a pale sheet for
+     white cards (as PageSheet's paper), photo the bare backdrop. Glass and paper are inset by
+     --spacing-inset, less their 1px border; a photo section's header takes the same inset, so
+     every heading starts on one line while its cards keep the sheets' outer edge. Sections
+     with no surface keep the old turns (the odd ones on the photo, the even ones on glass). */
+  .page-sections > section:is([data-surface="glass"], :not([data-surface]):nth-of-type(even)):not(.band) {
     @apply glass-frame;
-    padding: calc(var(--spacing-card) - 1px);
+    padding: calc(var(--spacing-inset) - 1px);
     border-radius: var(--radius-frame);
-    @media (width >= 40rem) {
-      padding: calc(3rem - 1px);
-    }
+  }
+  .page-sections > section[data-surface="paper"] {
+    @apply card-edge bg-surface-2 shadow-float;
+    padding: calc(var(--spacing-inset) - 1px);
+    border-radius: var(--radius-frame);
+    color: var(--foreground);
+    --muted: var(--muted-ink);
+    --link: var(--link-ink);
+    --focus: var(--color-primary);
+  }
+  .page-sections > section:is([data-surface="photo"], :not([data-surface]):nth-of-type(odd)):not(.band) > header {
+    padding-inline: var(--spacing-inset);
   }
 }
 
 /* A section's eyebrow on glass or the photo: outside the layers, as it has to beat the
    text-primary utility. */
-:is(.on-glass, .page-sections) section > header .text-primary {
+:is(.on-glass, .page-sections) section:not([data-surface="paper"]) > header .text-primary {
   color: var(--color-sky-pale);
 }

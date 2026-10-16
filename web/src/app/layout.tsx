@@ -26,7 +26,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${jakarta.variable} ${geistMono.variable} h-full scroll-pt-20 antialiased`}
+      className={`${jakarta.variable} ${geistMono.variable} h-full scroll-pt-(--chrome) antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>

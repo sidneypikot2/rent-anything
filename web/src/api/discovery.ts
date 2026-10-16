@@ -18,19 +18,20 @@ export type ExplorePlace = components["schemas"]["explore_place"];
 export type ExploreRecommendation = components["schemas"]["explore_recommendation"];
 export type StayQuote = components["schemas"]["stay_quote"];
 
-export async function getDestinations(): Promise<AreaCard[]> {
+// Cached per request: the home page's hero card and its sections share one fetch (RAA-125).
+export const getDestinations = cache(async (): Promise<AreaCard[]> => {
   await connection();
   const { data, error } = await serverApiClient().GET("/api/v1/areas");
   if (error || !data) throw new Error("Couldn't load destinations");
   return data;
-}
+});
 
-export async function getActivities(): Promise<Activity[]> {
+export const getActivities = cache(async (): Promise<Activity[]> => {
   await connection();
   const { data, error } = await serverApiClient().GET("/api/v1/activities");
   if (error || !data) throw new Error("Couldn't load activities");
   return data;
-}
+});
 
 // null when there is no such area. Cached per request: the page and its metadata share
 // one call.

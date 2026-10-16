@@ -8,11 +8,9 @@ import { areaIcon, placeIcon, tagIcon } from "@/components/discovery/icons";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { listingCover } from "@/components/landing/sample-photos";
-import { SearchBox } from "@/components/discovery/search-box";
 import { readTripDates, tripDatesQuery } from "@/components/trips/trip-dates";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
-import { GlassPanel } from "@/components/ui/glass";
 import { PillLink } from "@/components/ui/pill";
 import { Section } from "@/components/ui/section";
 import { DisplayTitle } from "@/components/ui/typography";
@@ -35,13 +33,10 @@ export default async function SearchPage(props: PageProps<"/search">) {
 
   return (
     <main className="flex flex-1 flex-col">
-      <PageBanner title={<DisplayTitle>{query ? <>Results for “{query}”</> : "Search"}</DisplayTitle>}>
-        <GlassPanel className="relative z-10 w-full max-w-2xl rounded-card p-2 shadow-float">
-          <SearchBox key={query} initialQuery={query} initialDates={dates} />
-        </GlassPanel>
-      </PageBanner>
+      {/* The search bar under the header is this page's search box (RAA-126). */}
+      <PageBanner title={<DisplayTitle>{query ? <>Results for “{query}”</> : "Search"}</DisplayTitle>} />
       <PageSheet tone="clear">
-        <div className="page-sections mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-page-pad">
+        <div className="page-sections mx-auto flex w-full max-w-page flex-col gap-section py-page-pad">
         {results === null ? (
           <p className="text-muted">Type at least two letters: a destination, a landmark or an activity.</p>
         ) : (

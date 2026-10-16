@@ -3,10 +3,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getArea, getDestinations, getExplore, type AreaCard, type AreaDetail } from "@/api/discovery";
-import { countLine, LandmarkCard, ListingCard, PHOTO_CARD, PHOTO_CARD_IMAGE, withSubAreas } from "@/components/discovery/cards";
+import { countLine, LandmarkCard, ListingRow, PHOTO_CARD, PHOTO_CARD_IMAGE, withSubAreas } from "@/components/discovery/cards";
 import { ExploreSections, withoutShown } from "@/components/discovery/explore-sections";
 import { areaIcon } from "@/components/discovery/icons";
+import { ListingBrowser } from "@/components/discovery/listing-browser";
+import { listingFeatures } from "@/components/discovery/listing-features";
 import { AreaGlyph } from "@/components/discovery/tag-glyphs";
+import { CurrentPlace } from "@/components/landing/current-place";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { areaPhoto, landmarkPhoto, listingCover } from "@/components/landing/sample-photos";
@@ -15,7 +18,6 @@ import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { readTripDates, tripDatesQuery } from "@/components/trips/trip-dates";
 import { TripDatesBar } from "@/components/trips/trip-dates-bar";
 import { TripStartedBanner } from "@/components/trips/trip-started-banner";
-import { ButtonLink } from "@/components/ui/button";
 import { GlassPanel, glassClasses } from "@/components/ui/glass";
 import { cn } from "@/components/ui/cn";
 import { Section } from "@/components/ui/section";
@@ -25,13 +27,13 @@ import { priceUnitText } from "@/lib/pricing";
 
 type Listing = AreaDetail["listings"][number];
 
-// Listings grouped by what the trip needs (SPEC: the area home groups by trip need).
-// Each has an anchor, which the jump bar above the groups links to (RAA-108).
-const TRIP_NEEDS: { title: string; id: string; bookingTypes: Listing["booking_type"][] }[] = [
-  { title: "Tours & activities", id: "need-activity", bookingTypes: ["activity"] },
-  { title: "Getting there & around", id: "need-transfer", bookingTypes: ["transfer"] },
-  { title: "Rentals & gear", id: "need-rental", bookingTypes: ["rental"] },
-  { title: "Stays", id: "need-stay", bookingTypes: ["stay"] },
+// Listings grouped by what the trip needs (SPEC: the area home groups by trip need), which
+// What to book's filter offers (RAA-125). Each group keeps its anchor, and an icon for the rail.
+const TRIP_NEEDS: { title: string; id: string; icon: string; bookingTypes: Listing["booking_type"][] }[] = [
+  { title: "Tours & activities", id: "need-activity", icon: "Tour", bookingTypes: ["activity"] },
+  { title: "Getting there & around", id: "need-transfer", icon: "Van transfer", bookingTypes: ["transfer"] },
+  { title: "Rentals & gear", id: "need-rental", icon: "Motorcycle", bookingTypes: ["rental"] },
+  { title: "Stays", id: "need-stay", icon: "Hotel or cottage", bookingTypes: ["stay"] },
 ];
 
 export async function generateMetadata(props: PageProps<"/[area]">): Promise<Metadata> {
@@ -42,7 +44,9 @@ export async function generateMetadata(props: PageProps<"/[area]">): Promise<Met
 // A destination: the places to see there, everything to book, and the destinations around
 // it and often visited with it (RAA-58). Listings go into the guest's trips (RAA-66), with
 // the trip dates and guests from the URL; booking comes later (M3). Since RAA-108 the banner
-// shows the place's photo with its counts as chips, and a bar of trip needs jumps to each group.
+// shows the place's photo with its counts as chips. Since RAA-125 tabs under it lead to its
+// sections, places to see come first (spots to recommend before things to sell), and what to
+// book sits on a paper sheet: a filter rail beside rows with their photos and what they include.
 export default async function AreaPage(props: PageProps<"/[area]">) {
   const slug = (await props.params).area;
   const searchParams = await props.searchParams;
@@ -81,6 +85,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
 
   return (
     <main className="flex flex-1 flex-col">
+      <CurrentPlace name={area.name} />
       <PageBanner
         photo={areaPhoto(slug, area.kind)}
         eyebrow={area.parent_name ? `${area.parent_name}, Philippines` : "Philippines"}
@@ -112,17 +117,79 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
               ))}
             </ul>
           )}
-          {listings.length > 0 && (
-            <ButtonLink href="#listings" className="self-start">
-              See what to book <span aria-hidden>↓</span>
-            </ButtonLink>
-          )}
       </PageBanner>
 
       <PageSheet tone="clear">
-        <div className="page-sections mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-page-pad">
+        {/* One block under the search bar, as it is one block under the banner. */}
+        <div className="page-sections mx-auto flex w-full max-w-page flex-col gap-section pt-block pb-page-pad">
+          {landmarks.length > 0 && (
+            <Section id="places" surface="photo" title="Places to see">
+              {/* A row to swipe on a phone, two to a row from sm, four from lg. */}
+              <div className="-mx-3 grid snap-x snap-mandatory auto-cols-[80%] grid-flow-col gap-3 overflow-x-auto scroll-px-3 px-3 [scrollbar-width:none] sm:mx-0 sm:grid-flow-row sm:grid-cols-2 sm:gap-gutter sm:overflow-visible sm:px-0 lg:grid-cols-4">
+                {landmarks.map((landmark, index) => (
+                  <LandmarkCard key={landmark.slug} landmark={landmark} photo={landmarkPhoto(landmark.tags, index)} areaName={area.name} />
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {listings.length > 0 && (
+            <TripAddProvider>
+              <Section
+                id="listings"
+                surface="paper"
+                title="What to book"
+                intro="Tours, rides, gear and stays from local partners. Saving to a trip is free, and there's nothing to pay yet."
+              >
+                <TripStartedBanner name={area.name} show={starting} />
+                <ListingBrowser
+                  dates={<TripDatesBar key={`${dates.from}-${dates.to}-${dates.guests}`} dates={dates} rail />}
+                  empty={<p className="text-muted">Nothing here yet.</p>}
+                  groups={needs.map((need) => ({
+                    id: need.id,
+                    title: need.title,
+                    icon: need.icon,
+                    items: need.listings.map((listing, index) => {
+                      const cover = listingCover(listing, index);
+                      const photos = listing.photos.length > 0
+                        ? listing.photos.map((photo) => ({ src: photo.card_url, alt: listing.title }))
+                        : [cover];
+                      const features = listingFeatures(listing);
+                      const priceUnit = listing.price_from_cents ? priceUnitText(listing.price_unit) : null;
+                      return {
+                        id: listing.id,
+                        priceCents: listing.price_from_cents ?? null,
+                        priceUnit,
+                        features,
+                        content: (
+                          <ListingRow
+                            listingId={listing.id}
+                            href={`/listings/${listing.id}${datesQuery}`}
+                            title={listing.title}
+                            category={listing.category}
+                            by={[`by ${listing.business.name}`, listing.units_label].filter(Boolean).join(" · ")}
+                            summary={listing.summary}
+                            photos={photos}
+                            samplePhoto={listing.photos.length === 0 && !listing.cover_photo_url}
+                            features={features}
+                            price={
+                              listing.price_from_cents
+                                ? { prefix: "from", amount: formatPeso(listing.price_from_cents), unit: priceUnit ?? undefined }
+                                : undefined
+                            }
+                            action={<AddToTripButton listing={listing} dates={dates} />}
+                          />
+                        ),
+                      };
+                    }),
+                  }))}
+                />
+              </Section>
+            </TripAddProvider>
+          )}
+
           {areas.length > 0 && (
-            <Section eyebrow="Inside" title={`Destinations in ${area.name}`}>
+            <Section id="inside" surface="photo" title={`Destinations in ${area.name}`}>
               {/* One place inside gets the whole row, as a shorter card, rather than half a row. */}
               <ul className={cn("grid gap-gutter", areas.length > 1 && "sm:grid-cols-2")}>
                 {areas.map((child) => {
@@ -157,89 +224,6 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                 })}
               </ul>
             </Section>
-          )}
-
-          {landmarks.length > 0 && (
-            <Section eyebrow="Around the island" title="Places to see">
-              <div className="grid gap-gutter sm:grid-cols-2">
-                {landmarks.map((landmark, index) => (
-                  <LandmarkCard key={landmark.slug} landmark={landmark} photo={landmarkPhoto(landmark.tags, index)} />
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {listings.length > 0 && (
-            <TripAddProvider>
-              <Section
-                id="listings"
-                eyebrow="From local partners"
-                title="What to book"
-                intro="Saving to a trip is free, and there's nothing to pay yet."
-              >
-                <TripStartedBanner name={area.name} show={starting} />
-                <TripDatesBar key={`${dates.from}-${dates.to}-${dates.guests}`} dates={dates} />
-                {needs.length > 1 && (
-                  <nav
-                    aria-label="Jump to"
-                    className="-mx-1 flex gap-2 overflow-x-auto px-1 py-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible"
-                  >
-                    {needs.map((need) => (
-                      <a
-                        key={need.id}
-                        href={`#${need.id}`}
-                        className={cn(
-                          glassClasses(),
-                          "flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-semibold whitespace-nowrap hover:bg-glass-hover",
-                        )}
-                      >
-                        {need.title}
-                        <span className="rounded-full bg-aqua px-2 text-xs font-bold tabular-nums text-navy">
-                          {need.listings.length}
-                        </span>
-                      </a>
-                    ))}
-                  </nav>
-                )}
-                {needs.map((need) => {
-                  const group = need.listings;
-                  return (
-                    <div key={need.title} className="flex flex-col gap-4">
-                      <h3 id={need.id} className="scroll-mt-24 text-lg font-semibold">
-                        {need.title}
-                      </h3>
-                      <ul className="grid gap-gutter sm:grid-cols-2">
-                        {group.map((listing, index) => (
-                          // A search suggestion links straight to its card (#listing-<id>).
-                          <li key={listing.id} id={`listing-${listing.id}`} className="scroll-mt-24">
-                            <ListingCard
-                              href={`/listings/${listing.id}${datesQuery}`}
-                              title={listing.title}
-                              category={listing.category}
-                              note={[
-                                listing.category,
-                                `by ${listing.business.name}`,
-                                listing.units_label,
-                              ]
-                                .filter(Boolean)
-                                .join(" · ")}
-                              summary={listing.summary}
-                              photo={listingCover(listing, index)}
-                              price={
-                                listing.price_from_cents
-                                  ? { prefix: "from", amount: formatPeso(listing.price_from_cents), unit: priceUnitText(listing.price_unit) }
-                                  : undefined
-                              }
-                              action={<AddToTripButton listing={listing} dates={dates} />}
-                            />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                })}
-              </Section>
-            </TripAddProvider>
           )}
 
           {nearby && <ExploreSections explore={nearby} name={area.name} />}

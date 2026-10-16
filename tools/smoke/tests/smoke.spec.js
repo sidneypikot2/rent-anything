@@ -40,6 +40,8 @@ test("home page renders and reaches the API", async ({ page }) => {
 // The search box asks the API from the browser (CORS and ports), then leads to a
 // destination page rendered on the server, and on to one of its listings.
 test("search a landmark and open its destination", async ({ page }) => {
+  // Four pages and the search bar's round trip: more than the default 30s on a cold dev server.
+  test.setTimeout(60_000);
   const errors = [];
   collectErrors(page, errors);
 
@@ -54,11 +56,24 @@ test("search a landmark and open its destination", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bantayan Island");
   await expect(page.locator("#kota-beach")).toBeVisible();
 
-  // A listing's title opens its page, also rendered on the server, with its own Add to trip.
-  const listingLink = page.getByTestId("listing-link").first();
-  const listingTitle = (await listingLink.textContent()).trim();
-  await listingLink.click();
-  await expect(page).toHaveURL(/\/listings\/\d+$/);
+  // The search bar under the header names the place; new guests apply to this page (RAA-126).
+  const bar = page.getByTestId("search-bar");
+  await expect(bar.getByTestId("search-input")).toHaveValue("Bantayan Island");
+  await bar.getByTestId("search-guests").click();
+  await bar.getByTestId("search-guests-count-more").click();
+  await bar.getByTestId("search-submit").click();
+  await expect(page).toHaveURL(/\/bantayan-island\?guests=2$/);
+  await expect(bar.getByTestId("search-guests")).toContainText("2 guests");
+
+  // A listing's row opens its details in a side panel (RAA-126), which links to its page, also
+  // rendered on the server, with its own Add to trip.
+  const listingOpen = page.getByTestId("listing-open").first();
+  const listingTitle = (await listingOpen.textContent()).trim();
+  await listingOpen.click();
+  const panel = page.getByTestId("detail-panel");
+  await expect(panel.getByRole("heading", { level: 2 })).toHaveText(listingTitle);
+  await panel.getByTestId("listing-link").click();
+  await expect(page).toHaveURL(/\/listings\/\d+\?guests=2$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(listingTitle);
   await expect(page.getByTestId("add-to-trip")).toBeVisible();
 
