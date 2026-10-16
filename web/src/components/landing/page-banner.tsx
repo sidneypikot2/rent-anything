@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { cn } from "@/components/ui/cn";
 import { GlassPanel, glassClasses } from "@/components/ui/glass";
 import { DriftingPhoto } from "./drifting-photo";
-import { HEADER_PULL } from "./section-header";
 
 // `sizes` defaults to the frame's width; a photo also shown elsewhere passes that one's.
 type Photo = { src: string; alt: string; mirror?: boolean; sizes?: string };
@@ -13,9 +12,9 @@ type Photo = { src: string; alt: string; mirror?: boolean; sizes?: string };
 // Its padding is separate: on a photo (HERO_PHOTO_PAD) a phone gets a strip of clear water above
 // the contents, which a short phone gives up.
 const HERO_FRAME =
-  "gap-block max-sm:short:gap-4 landscape-phone:grid landscape-phone:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] landscape-phone:content-center landscape-phone:gap-x-8";
-const HERO_GLASS_PAD = "pb-8 pt-10 max-sm:short:pb-6 max-sm:short:pt-6 sm:pb-10 sm:pt-16 landscape-phone:py-6";
-const HERO_PHOTO_PAD = "pb-8 pt-24 max-sm:short:pb-6 max-sm:short:pt-6 sm:pb-12 sm:pt-16 landscape-phone:py-6";
+  "gap-block max-sm:short:gap-4 fold:gap-3 landscape-phone:grid landscape-phone:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] landscape-phone:content-center landscape-phone:gap-x-8";
+const HERO_GLASS_PAD = "pb-8 pt-10 max-sm:short:pb-6 max-sm:short:pt-6 sm:pb-10 sm:pt-12 fold:pt-8 landscape-phone:py-6";
+const HERO_PHOTO_PAD = "pb-8 pt-16 max-sm:short:pb-6 max-sm:short:pt-6 sm:pb-8 sm:pt-14 fold:pt-8 landscape-phone:py-6";
 
 // The top of a main page (Sky & Forest, RAA-102): the page's eyebrow, title, intro and
 // actions in white on a glass frame, over the guest pages' fixed backdrop (RAA-107).
@@ -34,6 +33,7 @@ export function PageBanner({
   hero = false,
   photo,
   frameClass,
+  aside,
 }: {
   eyebrow?: ReactNode;
   title: ReactNode;
@@ -41,6 +41,9 @@ export function PageBanner({
   hero?: boolean;
   photo?: Photo;
   frameClass?: string;
+  // A card beside the contents from lg (the home hero's destination summary, RAA-125), at the
+  // foot of the frame. Only with a photo.
+  aside?: ReactNode;
 }) {
   const contents = (
     <>
@@ -60,18 +63,18 @@ export function PageBanner({
     "*:animate-rise [&>*:nth-child(2)]:stagger-1 [&>*:nth-child(3)]:stagger-2 [&>*:nth-child(n+4)]:stagger-3";
 
   return (
-    // Pulled up under the floating header, with room at the top so the frame clears it. z-10
-    // keeps the hero search's suggestions, which open past the frame's foot, over the page
-    // sheet that follows (its glass sections are stacking contexts); the header is z-40.
-    <section className={cn("focus-light relative isolate z-10 flex px-3 pb-3 pt-20 sm:px-6 sm:pb-6 sm:pt-22", HEADER_PULL)}>
+    // Starts just under the floating header, 12px below it like the gap the header keeps from
+    // the window's edge (RAA-125), so the bar never sits on the frame. z-10 keeps the hero
+    // search's suggestions, which open past the frame's foot, over the page sheet that follows
+    // (its glass sections are stacking contexts); the header is z-40.
+    <section className="focus-light relative isolate z-10 flex px-3 pb-3 pt-3 sm:px-6 sm:pb-6">
       {photo ? (
         <div
           className={cn(
-            "card-edge relative isolate mx-auto flex w-full max-w-page flex-col justify-end rounded-frame px-5 text-white shadow-float sm:px-12",
-            // On a phone the contents set the height, so the hero's search and pills stay on the first screen.
-            hero
-              ? "sm:min-h-[min(86svh,50rem)] landscape-phone:min-h-0"
-              : "gap-6 pb-8 pt-24 sm:min-h-[min(60svh,34rem)] sm:pt-32 sm:pb-10",
+            "card-edge relative isolate mx-auto flex w-full max-w-page flex-col justify-end rounded-frame px-inset text-white shadow-float",
+            // The contents set the height, so a banner fits the first screen (RAA-125): the hero's
+            // search and pills, a page's title and counts, with room for what follows to show.
+            !hero && "gap-5 pb-7 pt-16 sm:pt-20 fold:gap-4 fold:pt-12",
             frameClass,
           )}
         >
@@ -100,19 +103,19 @@ export function PageBanner({
           </div>
           <div
             className={cn(
-              "flex flex-col",
-              hero ? cn(HERO_FRAME, HERO_PHOTO_PAD) : "gap-6",
-              stagger,
+              Boolean(aside) && "lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end lg:gap-10",
+              hero && HERO_PHOTO_PAD,
             )}
           >
-            {contents}
+            <div className={cn("flex flex-col", hero ? HERO_FRAME : "gap-5 fold:gap-4", stagger)}>{contents}</div>
+            {aside && <div className="hidden animate-rise stagger-3 lg:block">{aside}</div>}
           </div>
         </div>
       ) : (
         <GlassPanel
           tone="frame"
           className={cn(
-            "mx-auto flex w-full max-w-page flex-col rounded-frame px-5 sm:px-12",
+            "mx-auto flex w-full max-w-page flex-col rounded-frame px-inset",
             stagger,
             hero ? cn(HERO_FRAME, HERO_GLASS_PAD) : "gap-6 pb-8 pt-10 sm:pb-10 sm:pt-12",
             frameClass,

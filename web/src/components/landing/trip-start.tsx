@@ -19,7 +19,9 @@ const ROWS = {
   admin: { note: "Signed in as an admin", href: "/admin", action: "Admin console" },
 };
 
-export function TripStart({ className }: { className?: string }) {
+// `wideHidden`: from lg the hero's destination card offers the traveller's way in (RAA-125),
+// so their row steps aside there; a partner's or admin's stays.
+export function TripStart({ className, wideHidden = false }: { className?: string; wideHidden?: boolean }) {
   const session = useSession();
   const role = session?.user.role;
   const row = ROWS[role === "partner" || role === "admin" ? role : "traveller"];
@@ -28,7 +30,13 @@ export function TripStart({ className }: { className?: string }) {
   // role: they show the traveller's row, the one nearly every visitor needs, and a partner's
   // or admin's swaps in once the session has been read.
   return (
-    <div className={cn("flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2", className)}>
+    <div
+      className={cn(
+        "flex min-h-11 flex-wrap items-center gap-x-4 gap-y-2",
+        wideHidden && row === ROWS.traveller && "lg:hidden",
+        className,
+      )}
+    >
       <ButtonLink href={row.href} variant="accent" size="sm" className="group min-h-11 shrink-0 whitespace-nowrap">
         {row.action}{" "}
         <span aria-hidden className="inline-flex transition-transform duration-300 ease-calm group-hover:translate-x-1">

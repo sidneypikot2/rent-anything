@@ -14,6 +14,7 @@ import { activityPhoto, destinationPhoto } from "@/components/landing/sample-pho
 import { PlanCta } from "@/components/landing/plan-cta";
 import { BACKDROP_PHOTO } from "@/components/landing/site-backdrop";
 import { TripStart } from "@/components/landing/trip-start";
+import { AreaSummaryCard } from "@/components/landing/area-summary-card";
 import { cn } from "@/components/ui/cn";
 import { glassClasses } from "@/components/ui/glass";
 import { Section } from "@/components/ui/section";
@@ -34,6 +35,11 @@ export default function Home() {
         hero
         photo={HERO_PHOTO}
         eyebrow="Now on Bantayan Island"
+        aside={
+          <Suspense fallback={null}>
+            <AreaSummaryCard />
+          </Suspense>
+        }
         title={
           <>
             <DisplayTitle size="hero" className="text-balance">
@@ -41,7 +47,7 @@ export default function Home() {
                 in one cart.
               </span>
             </DisplayTitle>
-            <p className="max-w-lede text-base text-pretty text-sky-mist max-sm:short:text-sm sm:text-lg landscape-phone:text-sm">
+            <p className="max-w-lede text-base text-pretty sm:max-w-prose text-sky-mist max-sm:short:text-sm sm:text-lg landscape-phone:text-sm">
               Island hopping, a scooter for the week, a cottage in Santa Fe: pick them from local partners and
               keep every stop together in one trip, from the Cebu City transfer to the last boat out.
             </p>
@@ -56,7 +62,7 @@ export default function Home() {
             <SearchBox hero />
           </div>
           {/* The way in, on a phone's first screen too (RAA-80). */}
-          <TripStart />
+          <TripStart wideHidden />
         </div>
         {/* The kinds of things to book and why book here, as one group under the search. */}
         <div className="flex flex-col gap-3">
@@ -67,7 +73,7 @@ export default function Home() {
               The pills come in one after another, from the left. */}
           <nav
             aria-label="Things to book"
-            className="cascade -mx-5 -my-1 flex snap-x scroll-px-5 gap-2 [--cascade:slide-in] overflow-x-auto px-5 py-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 landscape-phone:mx-0 landscape-phone:flex-nowrap landscape-phone:overflow-x-auto landscape-phone:px-0"
+            className="cascade -mx-inset -my-1 flex snap-x scroll-px-inset gap-2 [--cascade:slide-in] overflow-x-auto px-inset py-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 landscape-phone:mx-0 landscape-phone:flex-nowrap landscape-phone:overflow-x-auto landscape-phone:px-0"
           >
             {CATEGORIES.map((category) => (
               <Link
@@ -87,7 +93,7 @@ export default function Home() {
           <ul aria-label="Why book here" className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-sky-mist">
             {HERO_TRUST.map((point) => (
               <li key={point} className="flex items-center gap-1.5">
-                <CheckGlyph className="size-4 shrink-0 text-sky-pale" />
+                <CheckGlyph className="size-4 shrink-0 text-mint" />
                 {point}
               </li>
             ))}
@@ -96,10 +102,10 @@ export default function Home() {
       </PageBanner>
 
       <PageSheet tone="clear">
-        <div className="page-sections mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-page-pad">
+        <div className="page-sections mx-auto flex w-full max-w-page flex-col gap-section py-page-pad">
           <Section
             id="destinations"
-            eyebrow="Where to"
+            surface="photo"
             title="Destinations"
             intro="Islands, towns and cities with local partners, the most to book first."
           >
@@ -110,7 +116,7 @@ export default function Home() {
 
           <Section
             id="activities"
-            eyebrow="What to do"
+            surface="glass"
             title="Browse by activity"
             intro="Start from something you love doing, and see where you can do it."
           >

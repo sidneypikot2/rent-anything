@@ -7,10 +7,6 @@ import { BRAND } from "@/lib/brand";
 
 export type Section = "guest" | "partner" | "admin";
 
-// How far a PageBanner pulls up under the floating header: its top inset (pt-3) plus the
-// bar's height (min-h-14), so the photo starts at the top of the window.
-export const HEADER_PULL = "-mt-17";
-
 const SECTION_LABELS: Record<Section, string> = {
   guest: "",
   partner: "Partners",
@@ -22,8 +18,8 @@ const SECTION_LABELS: Record<Section, string> = {
 // have separate entry points. The one exception is SectionSwitch, a floating test aid
 // shown locally and on staging only.
 // Sky & Forest (RAA-102): a floating glass bar, inset from the edges and sticky, so the page
-// shows through it as it scrolls beneath. A PageBanner slides up under it (HEADER_PULL), so
-// on those pages it floats over the photo. Partner links take their own row on a phone; on the
+// shows through it as it scrolls beneath. A PageBanner starts 12px under it (RAA-125) rather
+// than sliding beneath it, so the bar never covers the banner's frame. Partner links take their own row on a phone; on the
 // smallest phones the bar's padding tightens so the logo and the guest's account links share one.
 export function SectionHeader({ section }: { section: Section }) {
   const label = SECTION_LABELS[section];
