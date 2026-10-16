@@ -53,8 +53,12 @@ export type ButtonStyle = {
 
 function buttonClasses({ variant = "primary", size = "md", arrow = false }: ButtonStyle) {
   return cn(
-    "group/button inline-flex items-center justify-center gap-2 font-semibold",
+    "group/button relative inline-flex items-center justify-center gap-2 font-semibold",
     "transition-[background-color,border-color,box-shadow,transform,color] duration-300 ease-calm hover:-translate-y-px active:translate-y-0 active:scale-[0.98]",
+    // While lifted, a 1px strip fills the row it left, so a pointer on its bottom edge stays on
+    // it: otherwise the lift moves it off the pointer, it drops back, and it jitters forever
+    // (and Playwright's click waits on it settling).
+    "hover:after:absolute hover:after:inset-x-0 hover:after:top-full hover:after:h-px",
     "disabled:pointer-events-none disabled:opacity-50",
     VARIANTS[variant],
     SIZES[size],
