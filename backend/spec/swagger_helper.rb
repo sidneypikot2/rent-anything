@@ -799,6 +799,15 @@ RSpec.configure do |config|
             properties: { uploaded: { type: :boolean, enum: [ true ] } },
             required: %w[uploaded]
           },
+          # What a listing includes and how big it is, from its attrs (RAA-124); never a plate or
+          # serial number. Free-form like a partner's attrs, as each category has its own keys.
+          listing_details: {
+            type: :object,
+            additionalProperties: true,
+            description: "Only the keys the listing has, from: guide_included, seats, luggage (bags a transfer " \
+              "carries), route, sizes, accessories, lenses, engine_cc, helmet_included, guests (how many a stay " \
+              "sleeps), rooms ([{beds: [{type, count}]}]), bathroom, amenities, place_type"
+          },
           # What a guest gets back on cancelling (RAA-88); refunds follow it from M4.
           cancellation_policy: {
             type: :string, enum: %w[free_cancellation non_refundable seven_days fourteen_days],
@@ -920,10 +929,16 @@ RSpec.configure do |config|
                     units_label: { type: :string, description: "As in listing_detail" },
                     partner_name: { type: :string, deprecated: true, description: "As in listing_detail" },
                     price_from_cents: { type: :integer, nullable: true, description: "As in listing_detail" },
-                    price_unit: { "$ref" => "#/components/schemas/price_unit" }
+                    price_unit: { "$ref" => "#/components/schemas/price_unit" },
+                    photos: {
+                      type: :array, maxItems: 6, items: { "$ref" => "#/components/schemas/photo_urls" },
+                      description: "Its first ready photos, in the partner's order"
+                    },
+                    details: { "$ref" => "#/components/schemas/listing_details" },
+                    cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" }
                   },
                   required: %w[id title category area_slug cover_photo_url booking_type summary business units_count units_label
-                    partner_name price_from_cents price_unit]
+                    partner_name price_from_cents price_unit photos details cancellation_policy]
                 }
               }
             },

@@ -4600,6 +4600,10 @@ export interface components {
             /** @enum {boolean} */
             uploaded: true;
         };
+        /** @description Only the keys the listing has, from: guide_included, seats, luggage (bags a transfer carries), route, sizes, accessories, lenses, engine_cc, helmet_included, guests (how many a stay sleeps), rooms ([{beds: [{type, count}]}]), bathroom, amenities, place_type */
+        listing_details: {
+            [key: string]: unknown;
+        };
         /**
          * @description free_cancellation: free any time before the booking starts; non_refundable: no refund; seven_days / fourteen_days: free up to 7 / 14 days before it starts, non-refundable after
          * @enum {string}
@@ -4685,6 +4689,10 @@ export interface components {
                 /** @description As in listing_detail */
                 price_from_cents: number | null;
                 price_unit: components["schemas"]["price_unit"];
+                /** @description Its first ready photos, in the partner's order */
+                photos: components["schemas"]["photo_urls"][];
+                details: components["schemas"]["listing_details"];
+                cancellation_policy: components["schemas"]["cancellation_policy"];
             }[];
         };
         activity: {
