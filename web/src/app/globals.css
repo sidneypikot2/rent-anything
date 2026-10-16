@@ -281,7 +281,7 @@
   --focus: var(--color-primary);
   /* How far down what sticks at the top reaches, plus 12px, for the anchor offset: the header
      (12px in, 60px tall) and, on a page with one, the search bar stuck 8px under it (48px on a
-     phone, 66px from sm), RAA-126. SearchBar measures it once the page runs, so these only
+     phone, 63px from sm), RAA-126. SearchBar measures it once the page runs, so these only
      hold the first paint. */
   --chrome: 5rem;
 }
@@ -289,7 +289,7 @@
 :root:has([data-search-bar]) {
   --chrome: 8.75rem;
   @media (width >= 40rem) {
-    --chrome: 9.875rem;
+    --chrome: 9.6875rem;
   }
 }
 

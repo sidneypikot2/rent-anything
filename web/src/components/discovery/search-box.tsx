@@ -318,50 +318,46 @@ export function SearchBox({
           </Button>
         </GlassPanel>
       ) : bar ? (
-        // Where, When and Guests in one white row on the backdrop, each a label over its value;
-        // on a phone (inside the sheet) stacked as fields, with Show me under them.
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-1 sm:card-edge sm:rounded-full sm:bg-surface/90 sm:p-2 sm:shadow-lift sm:backdrop-blur-xl">
-          <label className={cn(SEGMENT, "cursor-text sm:flex-[1.5]")}>
-            <span className={SEGMENT_LABEL}>Where</span>
-            <span className="flex min-w-0 items-center">
-              {input}
-              {clear}
-            </span>
+        // Where, When and Guests on one row of the light glass bar, each word beside its own white
+        // field, as the hero's line reads; on a phone (inside the sheet) each word sits above its
+        // field, with Show me under them. A click on a word opens its field.
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 sm:card-edge sm:rounded-full sm:bg-surface/90 sm:py-2 sm:pr-2 sm:pl-6 sm:shadow-lift sm:backdrop-blur-xl">
+          <label className={cn(BAR_BLANK, "sm:flex-[1.5]")}>
+            <span className={BAR_LABEL}>Where</span>
+            <span className={cn(BAR_FIELD, "cursor-text pr-1.5", panel === "where" && BAR_FIELD_OPEN)}>{input}{clear}</span>
           </label>
-          <span aria-hidden className="hidden h-8 w-px shrink-0 bg-line sm:block" />
-          <button
-            ref={whenRef}
-            type="button"
-            aria-haspopup="dialog"
-            aria-expanded={panel === "when"}
-            aria-controls={panel === "when" ? datesId : undefined}
-            onClick={() => toggle("when")}
-            data-testid="search-dates"
-            className={cn(SEGMENT, panel === "when" && "bg-mist")}
-          >
-            <span className={SEGMENT_LABEL}>When</span>
-            <span className={cn("flex items-center gap-1.5 truncate font-semibold", !dateLabel && "font-medium text-muted")}>
+          <label className={BAR_BLANK}>
+            <span className={BAR_LABEL}>When</span>
+            <button
+              ref={whenRef}
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={panel === "when"}
+              aria-controls={panel === "when" ? datesId : undefined}
+              onClick={() => toggle("when")}
+              data-testid="search-dates"
+              className={cn(BAR_FIELD, !dateLabel && "font-medium text-muted", panel === "when" && BAR_FIELD_OPEN)}
+            >
               <CalendarGlyph className="size-4 shrink-0 text-primary" />
               <span className="truncate">{dateLabel ?? "Add dates"}</span>
-            </span>
-          </button>
-          <span aria-hidden className="hidden h-8 w-px shrink-0 bg-line sm:block" />
-          <button
-            ref={guestsRef}
-            type="button"
-            aria-haspopup="dialog"
-            aria-expanded={panel === "guests"}
-            aria-controls={panel === "guests" ? guestsId : undefined}
-            onClick={() => toggle("guests")}
-            data-testid="search-guests"
-            className={cn(SEGMENT, panel === "guests" && "bg-mist")}
-          >
-            <span className={SEGMENT_LABEL}>Guests</span>
-            <span className={cn("flex items-center gap-1.5 truncate font-semibold", guests === 1 && "font-medium text-muted")}>
+            </button>
+          </label>
+          <label className={BAR_BLANK}>
+            <span className={BAR_LABEL}>Guests</span>
+            <button
+              ref={guestsRef}
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={panel === "guests"}
+              aria-controls={panel === "guests" ? guestsId : undefined}
+              onClick={() => toggle("guests")}
+              data-testid="search-guests"
+              className={cn(BAR_FIELD, guests === 1 && "font-medium text-muted", panel === "guests" && BAR_FIELD_OPEN)}
+            >
               <GuestsGlyph className="size-4 shrink-0 text-primary" />
               <span className="truncate">{guests === 1 ? "Just me" : `${guests} guests`}</span>
-            </span>
-          </button>
+            </button>
+          </label>
           <Button type="submit" size="pill" data-testid="search-submit" className="group/go shrink-0 gap-2">
             Show me
             <ArrowGlyph className="size-4.5 transition-transform duration-300 ease-calm group-hover/go:translate-x-0.5" />
@@ -485,10 +481,13 @@ const PANEL = "absolute right-0 top-full z-20 mt-2 card-edge rounded-card bg-sur
 // On a phone the bar lives in a sheet, so its panels open in the flow, under the fields,
 // where the sheet scrolls to them.
 const IN_SHEET = "max-sm:static max-sm:shadow-none";
-// One of the bar's blanks: a field on a phone, a pill-shaped segment of the row from sm.
-const SEGMENT =
-  "flex min-h-14 min-w-0 flex-1 cursor-pointer flex-col justify-center rounded-control border border-line-strong px-5 py-1.5 text-left text-sm transition-colors duration-300 ease-calm hover:bg-mist focus-visible:outline-2 focus-visible:outline-primary has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-sky-mist sm:min-h-11 sm:rounded-full sm:border-0 sm:px-6 sm:py-1";
-const SEGMENT_LABEL = "text-xs font-semibold text-muted";
+// One of the bar's blanks: its word, then its field; on a phone the word sits above.
+const BAR_BLANK = "flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2.5";
+const BAR_LABEL = "text-sm font-semibold whitespace-nowrap text-foreground";
+// The field itself: a white pill holding the value, ringed while its panel is open.
+const BAR_FIELD =
+  "flex min-h-12 w-full min-w-0 items-center gap-2 rounded-full border border-line-strong bg-surface px-4 text-left text-sm font-semibold transition-[border-color,box-shadow] duration-300 ease-calm hover:border-primary focus-visible:outline-2 focus-visible:outline-primary has-[input:focus-visible]:border-primary has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-sky-mist sm:min-h-11";
+const BAR_FIELD_OPEN = "border-primary ring-2 ring-sky-mist";
 // A blank in the hero's line: its lead word, then its chip. On a phone the word sits above.
 const BLANK = "flex min-w-0 cursor-pointer flex-col gap-1 text-left sm:flex-row sm:items-center sm:gap-2.5";
 const LEAD =
