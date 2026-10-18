@@ -1,0 +1,34 @@
+module Api
+  module V1
+    # The signed-in guest's bookings (RAA-132): upcoming ones first by date, then past and
+    # cancelled ones, newest first; one booking; and cancelling one that hasn't
+    # started (Bookings::Cancel). Another guest's booking is a 404.
+    class BookingsController < ApplicationController
+      before_action :authenticate_user!
+      before_action -> { require_role!("guest") }
+      before_action :set_booking, only: %i[show cancel]
+
+      def index
+        bookings = current_user.bookings.includes(*BookingSerializer::ASSOCIATIONS)
+        upcoming, past = bookings.partition { |booking| booking.holding? && booking.ends_on >= Date.current }
+        ordered = upcoming.sort_by { [ _1.starts_on, _1.id ] } + past.sort_by { [ _1.starts_on, _1.id ] }.reverse
+        render json: ordered.map { BookingSerializer.call(_1) }
+      end
+
+      def show
+        render json: BookingSerializer.call(@booking)
+      end
+
+      def cancel
+        Bookings::Cancel.call(@booking, by: "guest", user: current_user, reason: params[:reason])
+        render json: BookingSerializer.call(@booking.reload)
+      end
+
+      private
+
+      def set_booking
+        @booking = current_user.bookings.includes(*BookingSerializer::ASSOCIATIONS).find(params[:id])
+      end
+    end
+  end
+end

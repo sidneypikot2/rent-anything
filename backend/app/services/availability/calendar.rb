@@ -1,7 +1,7 @@
 module Availability
   # A partner's calendar (RAA-118): every one of their listings, by business, category and
   # title, with each day from `from` to `to` (ISO dates, at most MAX_DAYS) and the blocks and
-  # confirmed bookings in that window. The web app asks for it a window at a time as the
+  # bookings holding days in that window (requests and unpaid holds too, RAA-132). The web app asks for it a window at a time as the
   # partner scrolls.
   class Calendar < ApplicationService
     include Trips::Values

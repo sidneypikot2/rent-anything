@@ -18,8 +18,10 @@ module Api
         render json: TripSerializer.reloaded(trip)
       end
 
+      # A booked item is kept (RAA-132): a 422. Its trip is locked, as a checkout locks it.
       def destroy
-        @item.destroy!
+        raise ActiveRecord::RecordInvalid, @item unless @item.trip.with_lock { @item.destroy }
+
         head :no_content
       end
 

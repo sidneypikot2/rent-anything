@@ -184,11 +184,14 @@ RSpec.describe "Partner bookings", type: :request do
     let(:id) { booking.id }
     let(:body) { { status: "cancelled" } }
 
-    patch "Cancel a booking" do
+    patch "Answer or cancel a booking" do
       tags "Partner"
       consumes "application/json"
       produces "application/json"
-      description "Partner-only (RAA-118). Cancelling frees the booking's days; a cancelled booking stays cancelled."
+      description "Partner-only (RAA-118, RAA-132). `accepted` or `declined` answers a guest's request: accepting " \
+        "takes the guest's payment (a stub that pays at once), so it ends confirmed; declining frees its days. " \
+        "`cancelled` cancels a booking that hasn't started, freeing its days and refunding a paid one in full, " \
+        "with an optional `reason`. A booking already at that status stays as it is."
       security [ { bearer: [] } ]
       parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/booking_status_body" }
 
@@ -203,13 +206,79 @@ RSpec.describe "Partner bookings", type: :request do
         end
       end
 
-      response "422", "anything but cancelling" do
+      response "200", "a request accepted: paid, so confirmed" do
+        schema "$ref" => "#/components/schemas/booking"
+
+        let(:booking) do
+          create(:booking, :checkout, listing:, status: "requested", booking_mode: "request", expires_at: 1.hour.from_now)
+        end
+        let(:body) { { status: "accepted" } }
+
+        run_test! do |response|
+          expect(response.parsed_body["status"]).to eq("confirmed")
+          expect(booking.events.pluck(:to_status, :actor)).to eq([ %w[accepted partner], %w[awaiting_payment system],
+            %w[confirmed system] ])
+          expect(booking.reload.payment).to have_attributes(status: "paid", amount_cents: booking.total_cents)
+        end
+      end
+
+      response "200", "a request declined: its days are free" do
+        schema "$ref" => "#/components/schemas/booking"
+
+        let(:booking) { create(:booking, :checkout, listing:, status: "requested", quantity: 2, expires_at: 1.hour.from_now) }
+        let(:body) { { status: "declined" } }
+
+        run_test! do |first|
+          expect(first.parsed_body["status"]).to eq("declined")
+          book(guest_name: "Ana", starts_on: booking.starts_on.iso8601, ends_on: booking.ends_on.iso8601, quantity: 2,
+            total_cents: 0)
+          expect(response).to have_http_status(:created)
+        end
+      end
+
+      response "200", "a confirmed booking cancelled by its partner: refunded in full" do
+        schema "$ref" => "#/components/schemas/booking"
+
+        let(:listing) { create(:listing, :stay, partner: user, cancellation_policy: "non_refundable") }
+        let(:booking) { create(:booking, :checkout, listing:) }
+        let(:body) { { status: "cancelled", reason: "Typhoon warning" } }
+
+        run_test! do |response|
+          expect(response.parsed_body).to include("status" => "cancelled", "cancelled_by" => "partner",
+            "refund_cents" => 400_000)
+        end
+      end
+
+      response "422", "a request answered too late has expired" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:booking) { create(:booking, :checkout, listing:, status: "requested", expires_at: 1.minute.ago) }
+        let(:body) { { status: "accepted" } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "This request has expired" ])
+          expect(booking.reload).to be_expired
+        end
+      end
+
+      response "422", "accepting a booking that isn't a request" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:booking) { create(:booking, listing:, status: "cancelled") }
+        let(:body) { { status: "accepted" } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "A booking that is cancelled can't be accepted" ])
+        end
+      end
+
+      response "422", "a status a partner can't set" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
         let(:body) { { status: "confirmed" } }
 
         run_test! do |first|
-          expect(first.parsed_body["errors"]).to eq([ "A booking can only be cancelled" ])
+          expect(first.parsed_body["errors"]).to eq([ "Status must be one of accepted, declined, cancelled" ])
           expect(booking.reload).to be_confirmed
         end
       end
@@ -235,6 +304,61 @@ RSpec.describe "Partner bookings", type: :request do
         schema "$ref" => "#/components/schemas/error"
 
         let(:Authorization) { nil }
+
+        run_test!
+      end
+    end
+  end
+
+  path "/api/v1/partner/bookings" do
+    parameter name: :Authorization, in: :header, schema: { type: :string }
+
+    get "Every booking of the partner's listings" do
+      tags "Partner"
+      produces "application/json"
+      description "Partner-only (RAA-132). Newest first, at most 200, each with its listing; `status=requested` " \
+        "lists the requests to answer."
+      security [ { bearer: [] } ]
+      parameter name: :status, in: :query, required: false, schema: { "$ref" => "#/components/schemas/booking_status" }
+
+      let(:status) { nil }
+
+      before do
+        create(:booking, listing:, guest_name: "Offline")
+        create(:booking, :checkout, listing:, status: "requested", guest_name: "Asking")
+        create(:booking, :checkout, guest_name: "Someone else's")
+      end
+
+      response "200", "all of them" do
+        schema type: :array, items: { "$ref" => "#/components/schemas/booking" }
+
+        run_test! do |response|
+          expect(response.parsed_body.pluck("guest_name")).to eq(%w[Asking Offline])
+          expect(response.parsed_body.first["listing"]).to eq("id" => listing.id, "title" => listing.title)
+        end
+      end
+
+      response "200", "the requests to answer" do
+        schema type: :array, items: { "$ref" => "#/components/schemas/booking" }
+
+        let(:status) { "requested" }
+
+        run_test! { |response| expect(response.parsed_body.pluck("guest_name")).to eq(%w[Asking]) }
+      end
+
+      response "422", "a status that doesn't exist" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:status) { "pending" }
+
+        run_test!
+      end
+
+      response "403", "a guest" do
+        schema "$ref" => "#/components/schemas/error"
+
+        let(:user) { create(:user) }
+        let(:listing) { create(:listing, :stay) }
 
         run_test!
       end

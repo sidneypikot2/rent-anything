@@ -29,8 +29,10 @@ module Api
         render json: TripSerializer.reloaded(Trips::Save.call(@trip, params.slice(*TRIP_PARAMS)))
       end
 
+      # A trip with bookings is kept (RAA-132): a 422. Locked, as a checkout locks it.
       def destroy
-        @trip.destroy!
+        raise ActiveRecord::RecordInvalid, @trip unless @trip.with_lock { @trip.destroy }
+
         head :no_content
       end
 

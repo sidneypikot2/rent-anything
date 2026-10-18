@@ -55,6 +55,7 @@ module Listings
         attrs: attrs,
         **address_attributes(@params[:address]),
         **cancellation_policy,
+        **booking_mode,
         **business_attribute
       }
     end
@@ -117,7 +118,7 @@ module Listings
     end
 
     def check_units_booked!(listing, count)
-      last = listing.bookings.confirmed.where(ends_on: Date.current..).maximum(:ends_on)
+      last = listing.bookings.holding.where(ends_on: Date.current..).maximum(:ends_on)
       return unless last
 
       ledger = Availability::Ledger.new([ listing ], Date.current, last)
@@ -246,6 +247,16 @@ module Listings
       return { cancellation_policy: value } if Listing::CANCELLATION_POLICIES.key?(value)
 
       error("Cancellation policy must be one of #{Listing::CANCELLATION_POLICIES.keys.join(', ')}")
+      {}
+    end
+
+    # Instant book or request to book (RAA-132); left out, it keeps what the listing has.
+    def booking_mode
+      value = @params[:booking_mode]
+      return {} if value.nil?
+      return { booking_mode: value } if Listing::BOOKING_MODES.key?(value)
+
+      error("Booking mode must be one of #{Listing::BOOKING_MODES.keys.join(', ')}")
       {}
     end
 

@@ -22,7 +22,8 @@ module Api
         end
 
         def update
-          booking = Bookings::ChangeStatus.call(@listing.bookings.find(params[:id]), params[:status])
+          booking = Bookings::ChangeStatus.call(@listing.bookings.find(params[:id]), current_user,
+            params.slice(:status, :reason))
           render json: PartnerCalendarSerializer.booking(booking)
         end
 

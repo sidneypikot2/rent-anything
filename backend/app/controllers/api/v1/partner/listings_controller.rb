@@ -5,7 +5,7 @@ module Api
       # and deleting one, listed by business (RAA-100). Another partner's listing is a 404.
       class ListingsController < ApplicationController
         LISTING_PARAMS = %i[
-          title description category_id address location attrs landmark_ids cancellation_policy units_count business_id
+          title description category_id address location attrs landmark_ids cancellation_policy booking_mode units_count business_id
           stay_rate fees photos tour
         ].freeze
 

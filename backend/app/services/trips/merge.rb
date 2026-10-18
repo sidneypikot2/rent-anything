@@ -19,6 +19,8 @@ module Trips
       into = @trip.user.trips.find(into_id)
       Trip.transaction do
         Trip.lock_all(@trip, into)
+        error("A trip with bookings can't be merged into another") if @trip.booked?
+        raise_errors!(@trip)
         dated = @trip.items.where.not(starts_on: nil)
         into.cover(dated.minimum(:starts_on), dated.maximum(:ends_on))
         into.save!

@@ -101,7 +101,7 @@ RSpec.describe "Partner listings", type: :request do
             "title" => "Sardine run and turtle snorkel", "status" => "draft",
             "location" => { "lat" => 9.95, "lng" => 123.37 },
             "attrs" => { "guide_included" => true, "duration_hours" => 4 }, "cancellation_policy" => "free_cancellation",
-            "units_count" => 1
+            "booking_mode" => "request", "units_count" => 1
           )
           expect(response.parsed_body["area"]).to eq("slug" => "moalboal", "name" => "Moalboal")
           expect(response.parsed_body["address"]).to eq(address.stringify_keys)
@@ -223,6 +223,14 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
+      response "201", "booked instantly, as the partner chose (RAA-132)" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        before { body[:booking_mode] = "instant" }
+
+        run_test! { |response| expect(response.parsed_body["booking_mode"]).to eq("instant") }
+      end
+
       response "201", "with the number of identical units the partner has, one row each" do
         schema "$ref" => "#/components/schemas/partner_listing"
 
@@ -312,6 +320,16 @@ RSpec.describe "Partner listings", type: :request do
         run_test! do |response|
           expect(response.parsed_body["errors"]).to include("Cancellation policy must be one of " \
             "free_cancellation, non_refundable, seven_days, fourteen_days")
+        end
+      end
+
+      response "422", "a booking mode we don't offer" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:booking_mode] = "auction" }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Booking mode must be one of instant, request")
         end
       end
 
@@ -840,6 +858,19 @@ RSpec.describe "Partner listings", type: :request do
           body.delete(:cancellation_policy)
           patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
           expect(response.parsed_body["cancellation_policy"]).to eq("fourteen_days")
+        end
+      end
+
+      response "200", "the booking mode changed when sent, kept when left out" do
+        schema "$ref" => "#/components/schemas/partner_listing"
+
+        before { body[:booking_mode] = "instant" }
+
+        run_test! do |saved|
+          expect(saved.parsed_body["booking_mode"]).to eq("instant")
+          body.delete(:booking_mode)
+          patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body["booking_mode"]).to eq("instant")
         end
       end
 
