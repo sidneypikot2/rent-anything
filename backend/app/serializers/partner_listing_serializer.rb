@@ -23,6 +23,7 @@ module PartnerListingSerializer
       location: { lat: listing.location.y, lng: listing.location.x },
       attrs: listing.attrs,
       cancellation_policy: listing.cancellation_policy,
+      booking_mode: listing.booking_mode,
       units_count: listing.units.size,
       stay_rate: PricingSerializer.stay_rate(listing.stay_rate),
       fees: PricingSerializer.fees(listing),

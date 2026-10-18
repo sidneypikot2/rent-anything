@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { Price } from "@/components/ui/typography";
+import { InstantBookBadge } from "./instant-book-badge";
 import type { Feature } from "./listing-features";
 import { StayPrice } from "./stay-price";
 import { CategoryGlyph, FeatureGlyph, TagGlyph } from "./tag-glyphs";
@@ -126,6 +127,7 @@ export function ListingPanel({
   by,
   summary,
   features,
+  instantBook = false,
 }: {
   listingId: number;
   href: string;
@@ -133,6 +135,7 @@ export function ListingPanel({
   by: string;
   summary?: string | null;
   features: Feature[];
+  instantBook?: boolean;
 }) {
   const { data: listing, isPending, isError } = useQuery({
     queryKey: ["listing", listingId],
@@ -152,6 +155,7 @@ export function ListingPanel({
           <CategoryGlyph name={category} className="size-3.5" />
           {category}
         </Badge>
+        {instantBook && <InstantBookBadge small />}
         {[listing?.area.name, by].filter(Boolean).join(" · ")}
       </p>
       {summary && <p className="text-sm break-words">{summary}</p>}

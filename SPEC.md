@@ -113,12 +113,16 @@ areas and a tour can visit several.
   edits. Booked items are never deleted. No email in M4.
 - The cart holds nothing: availability and price are re-quoted at checkout, and changed
   items are flagged.
-- **Checkout** (not designed yet; to be decided together with Xendit) takes the items the
-  guest selects from a trip and creates their bookings and one payment, split to each partner.
-  So a trip can have several checkouts, and its status (planning → partly booked → booked)
-  follows its items. Instant-book items are held for 15 minutes while payment completes.
-  Request-to-book items go out as requests first ("Send requests"), and the traveller pays once
-  partners accept, so a declined item is never charged.
+- **Checkout** (RAA-132) takes the dated items the guest selects from a trip and creates their
+  bookings, all or nothing, each re-priced and checked against the calendar as it is then. So a
+  trip can have several checkouts, and its status (planning → partly booked → booked) follows
+  its items. Instant-book items are held for 15 minutes while payment completes. Request-to-book
+  items go out as requests first ("Send requests"), which hold their dates while the partner
+  has 24 hours to answer, and the traveller pays once partners accept, so a declined item is
+  never charged. Each partner chooses per listing (`booking_mode`), and instant-book listings
+  carry a pill. Until the partner inbox and Xendit exist, requests are accepted automatically
+  (`BOOKINGS_AUTO_ACCEPT`) and payment is a stub that succeeds at once, so every checkout ends
+  confirmed; the split payment to each partner comes with Xendit.
 
 ### Guest browsing layout
 
@@ -143,8 +147,12 @@ How the layout is built (surfaces, the inset line, the listing row) is in
 `requested → accepted → awaiting_payment → confirmed → in_progress → completed → payout_released`
 
 Instant book starts at `awaiting_payment`. Side states: `declined`, `cancelled`, `expired`
-(an unpaid hold times out, via a solid_queue job), `disputed` (freezes the payout),
-`refunded`. `in_progress` starts with the pickup checklist (condition photos), `completed`
+(an unanswered request after 24 hours or an unpaid hold after 15 minutes times out, via a
+solid_queue job), `disputed` (freezes the payout), `refunded`. Built in RAA-132: everything
+up to `completed`, with `declined`, `cancelled` and `expired`; until the M7 checklists, a daily
+job starts a booking on its first day and completes it after its last. A guest's refund on
+cancelling follows the policy the booking was made under; a partner's cancel refunds in full.
+`payout_released`, `disputed` and `refunded` come with Xendit and M7. `in_progress` starts with the pickup checklist (condition photos), `completed`
 with the return checklist. One service owns the transitions (plain Ruby, no state-machine
 gem) and records each as a `booking_events` row. Prices and the commission rate are
 snapshotted on the booking.

@@ -1,21 +1,29 @@
 module Bookings
-  # What a partner can do to a booking (RAA-118): cancel it, which frees its days. Cancelling
-  # a cancelled booking changes nothing; nothing brings one back. Refunds follow the
-  # listing's cancellation policy once guests pay in the app (M4).
+  # What a partner can do to one of their bookings (RAA-118, RAA-132): accept or decline a
+  # request (Bookings::Respond), or cancel one that hasn't started (Bookings::Cancel, refunding
+  # the guest in full), with an optional reason. Moving it to the status it has changes nothing.
   class ChangeStatus < ApplicationService
-    def initialize(booking, status)
+    STATUSES = %w[accepted declined cancelled].freeze
+
+    def initialize(booking, partner, params)
       @booking = booking
-      @status = status
+      @partner = partner
+      @params = params
     end
 
     def call
-      unless @status == "cancelled"
-        @booking.errors.add(:base, "A booking can only be cancelled")
+      status = @params[:status]
+      case status
+      when "accepted", "declined"
+        return @booking if @booking.status == status
+
+        Respond.call(@booking, status, user: @partner)
+      when "cancelled"
+        Cancel.call(@booking, by: "partner", user: @partner, reason: @params[:reason])
+      else
+        @booking.errors.add(:base, "Status must be one of #{STATUSES.join(', ')}")
         raise ActiveRecord::RecordInvalid, @booking
       end
-
-      @booking.cancelled! unless @booking.cancelled?
-      @booking
     end
   end
 end

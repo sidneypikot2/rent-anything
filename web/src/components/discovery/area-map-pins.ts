@@ -20,6 +20,8 @@ export type ListingPin = {
   title: string;
   category: string;
   bookingType: string;
+  // Booked at once, without asking the partner (RAA-133): the pop-up's pill.
+  instantBook: boolean;
   // "₱1,500" and "/ night": the pin shows the amount, the pop-up both.
   price: { amount: string; unit?: string } | null;
   lat: number;
@@ -48,6 +50,7 @@ export function listingPin(listing: Explore["listings"][number], index: number, 
     title: listing.title,
     category: listing.category,
     bookingType: listing.booking_type,
+    instantBook: listing.instant_book,
     price: listing.price_from_cents
       ? { amount: formatPeso(listing.price_from_cents), unit: priceUnitText(listing.price_unit) }
       : null,

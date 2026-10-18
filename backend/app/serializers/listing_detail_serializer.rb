@@ -22,6 +22,7 @@ module ListingDetailSerializer
       summary: summary(listing),
       category: { slug: category.slug, name: category.name },
       booking_type: category.booking_type,
+      instant_book: listing.instant_book?,
       area: { slug: listing.area.slug, name: listing.area.name },
       **offered_by(listing),
       price_from_cents: PricingSerializer.price_from_cents(listing),

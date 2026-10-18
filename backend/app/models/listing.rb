@@ -23,6 +23,14 @@ class Listing < ApplicationRecord
     "fourteen_days" => { name: "14-day cancellation",
       description: "Free to cancel at least 14 days before the booking starts; non-refundable within 14 days." }
   }.freeze
+  # How guests book it (RAA-132): at once, or by asking the partner, who accepts or declines
+  # within Booking::REQUEST_TTL. Instant-book listings show a pill to guests.
+  BOOKING_MODES = {
+    "instant" => { name: "Instant book",
+      description: "Guests book and pay straight away, without waiting for you. Keep your calendar up to date." },
+    "request" => { name: "Request to book",
+      description: "Guests send a request and you accept or decline it within 24 hours. Their dates are held meanwhile." }
+  }.freeze
   # What TourSerializer reads, to preload (RAA-110).
   TOUR_ASSOCIATIONS = %i[tour_detail tour_inclusions].freeze
 
@@ -69,6 +77,7 @@ class Listing < ApplicationRecord
   validates :title, length: { maximum: 120 }
   validates :description, length: { maximum: 5000 }
   validates :cancellation_policy, inclusion: { in: CANCELLATION_POLICIES.keys }
+  validates :booking_mode, inclusion: { in: BOOKING_MODES.keys }
   # Every new listing has an address (RAA-41); ones made before it have none.
   validates :street, :city, :region, :postal_code, presence: true, on: :create
   validates :country, format: { with: /\A[A-Z]{2}\z/, message: "must be a two-letter country code" }
@@ -76,6 +85,10 @@ class Listing < ApplicationRecord
   validate :business_is_the_partners
   validate :category_is_a_leaf
   validate :attrs_match_category_schema
+
+  def instant_book?
+    booking_mode == "instant"
+  end
 
   # How many photos it can have (RAA-110): a tour's carousel takes fewer.
   def photo_limit

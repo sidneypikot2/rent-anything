@@ -220,6 +220,11 @@ export function FitGlyph({ className }: Props) {
   return <Glyph paths={["M4 9V4h5", "M20 9V4h-5", "M4 15v5h5", "M20 15v5h-5"]} className={className} />;
 }
 
+// A lightning bolt: instant book (RAA-133).
+export function BoltGlyph({ className }: Props) {
+  return <Glyph paths={["M13 3L5 13.5h6L10 21l8-10.5h-6L13 3Z"]} className={className} />;
+}
+
 // An i in a circle: a card's details (RAA-126).
 export function InfoGlyph({ className }: Props) {
   return <Glyph paths={[circle(12, 12, 9), "M12 11v5", "M12 8h.01"]} className={className} />;

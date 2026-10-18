@@ -9,6 +9,7 @@ import { GlassPanel } from "@/components/ui/glass";
 import { HeroTripLink } from "@/components/landing/hero-trip";
 import { GROUP_ICON } from "./categories";
 import { placeIcon } from "./icons";
+import { InstantBookBadge } from "./instant-book-badge";
 import type { Feature } from "./listing-features";
 import { ListingPhotos } from "./listing-photos";
 import { DetailPanelButton, LandmarkPanel, ListingPanel, PanelActions, PanelPhoto } from "./detail-panel";
@@ -361,6 +362,7 @@ export function ListingCard({
   action,
   kind,
   rowOnPhone = false,
+  instantBook = false,
 }: {
   href: string;
   title: string;
@@ -378,6 +380,7 @@ export function ListingCard({
   // A row on a phone: the photo a column on the left and the text beside it, so a short list
   // of them shows whole in a screen or so (the home page's From partners).
   rowOnPhone?: boolean;
+  instantBook?: boolean;
 }) {
   return (
     <PhotoCardFrame
@@ -436,6 +439,7 @@ export function ListingCard({
               {title}
             </HeroTripLink>
             <span className="block truncate text-sm text-sky-mist">{note}</span>
+            {instantBook && <InstantBookBadge small className="mt-1.5" />}
           </span>
         </div>
       }
@@ -471,6 +475,7 @@ export function ListingRow({
   features,
   price,
   action,
+  instantBook = false,
 }: {
   listingId: number;
   href: string;
@@ -483,6 +488,7 @@ export function ListingRow({
   features: Feature[];
   price?: ComponentProps<typeof Price>;
   action?: ReactNode;
+  instantBook?: boolean;
 }) {
   return (
     // Top-aligned, so titles start on one line across rows whatever their summaries and chips.
@@ -502,6 +508,7 @@ export function ListingRow({
                 by={by}
                 summary={summary}
                 features={features}
+                instantBook={instantBook}
               />
             }
             actions={<PanelActions price={price} action={action} />}
@@ -515,6 +522,7 @@ export function ListingRow({
             <CategoryGlyph name={category} className="size-3.5" />
             {category}
           </Badge>
+          {instantBook && <InstantBookBadge small />}
           {by}
         </p>
         <ListingRowDetails summary={summary} features={features} />

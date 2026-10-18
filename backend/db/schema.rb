@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_16_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_18_140001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -21,7 +21,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_100000) do
   # Custom types defined in this database.
   # Note that some types may not work with other database engines. Be careful if changing database.
   create_enum "booking_source", ["offline", "checkout"]
-  create_enum "booking_status", ["confirmed", "cancelled"]
+  create_enum "booking_status", ["confirmed", "cancelled", "requested", "accepted", "awaiting_payment", "in_progress", "completed", "declined", "expired"]
   create_enum "listing_status", ["draft", "active", "paused", "delisted"]
 
   create_table "areas", force: :cascade do |t|
@@ -66,6 +66,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_100000) do
     t.exclusion_constraint "listing_id WITH =, daterange(starts_on, ends_on, '[]'::text) WITH &&", using: :gist, name: "availability_blocks_no_overlap"
   end
 
+  create_table "booking_events", force: :cascade do |t|
+    t.bigint "booking_id", null: false
+    t.enum "from_status", enum_type: "booking_status"
+    t.enum "to_status", null: false, enum_type: "booking_status"
+    t.string "actor", null: false
+    t.bigint "user_id"
+    t.text "reason"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.index ["booking_id"], name: "index_booking_events_on_booking_id"
+    t.check_constraint "actor::text = ANY (ARRAY['guest'::character varying, 'partner'::character varying, 'system'::character varying]::text[])", name: "booking_events_actor_check"
+  end
+
   create_table "bookings", force: :cascade do |t|
     t.bigint "listing_id", null: false
     t.bigint "user_id"
@@ -79,12 +92,42 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_100000) do
     t.text "notes", default: "", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "reference", null: false
+    t.integer "guests"
+    t.bigint "checkout_id"
+    t.bigint "trip_item_id"
+    t.bigint "payment_id"
+    t.jsonb "price_breakdown", default: {}, null: false
+    t.integer "commission_bps", default: 0, null: false
+    t.bigint "commission_cents", default: 0, null: false
+    t.string "cancellation_policy"
+    t.string "booking_mode"
+    t.datetime "expires_at"
+    t.datetime "responded_at"
+    t.datetime "confirmed_at"
+    t.datetime "cancelled_at"
+    t.string "cancelled_by"
+    t.text "cancellation_reason"
+    t.bigint "refund_cents"
+    t.index ["checkout_id"], name: "index_bookings_on_checkout_id"
     t.index ["listing_id", "starts_on", "ends_on"], name: "index_bookings_on_listing_id_and_starts_on_and_ends_on"
+    t.index ["payment_id"], name: "index_bookings_on_payment_id"
+    t.index ["reference"], name: "index_bookings_on_reference", unique: true
+    t.index ["status", "expires_at"], name: "index_bookings_on_status_and_expires_at"
+    t.index ["trip_item_id"], name: "index_bookings_on_trip_item_id_holding", unique: true, where: "(status = ANY (ARRAY['requested'::booking_status, 'accepted'::booking_status, 'awaiting_payment'::booking_status, 'confirmed'::booking_status, 'in_progress'::booking_status, 'completed'::booking_status]))"
     t.index ["user_id"], name: "index_bookings_on_user_id"
+    t.check_constraint "booking_mode::text = ANY (ARRAY['instant'::character varying, 'request'::character varying]::text[])", name: "bookings_booking_mode_check"
+    t.check_constraint "cancelled_by::text = ANY (ARRAY['guest'::character varying, 'partner'::character varying, 'system'::character varying]::text[])", name: "bookings_cancelled_by_check"
+    t.check_constraint "char_length(cancellation_reason) <= 500", name: "bookings_cancellation_reason_check"
     t.check_constraint "char_length(guest_name::text) >= 1 AND char_length(guest_name::text) <= 80", name: "bookings_guest_name_length_check"
     t.check_constraint "char_length(notes) <= 500", name: "bookings_notes_length_check"
+    t.check_constraint "commission_bps >= 0 AND commission_bps <= 10000", name: "bookings_commission_bps_check"
+    t.check_constraint "commission_cents >= 0 AND commission_cents <= total_cents", name: "bookings_commission_check"
     t.check_constraint "ends_on >= starts_on", name: "bookings_dates_check"
+    t.check_constraint "guests >= 1 AND guests <= 100", name: "bookings_guests_check"
     t.check_constraint "quantity >= 1 AND quantity <= 100", name: "bookings_quantity_check"
+    t.check_constraint "refund_cents >= 0 AND refund_cents <= total_cents", name: "bookings_refund_check"
+    t.check_constraint "source <> 'checkout'::booking_source OR user_id IS NOT NULL AND checkout_id IS NOT NULL", name: "bookings_checkout_source_check"
     t.check_constraint "total_cents >= 0", name: "bookings_total_check"
   end
 
@@ -120,9 +163,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_100000) do
     t.text "description", default: "", null: false
     t.string "unit_name"
     t.string "unit_name_plural"
+    t.integer "commission_bps", default: 1000, null: false
     t.index ["parent_id"], name: "index_categories_on_parent_id"
     t.index ["slug"], name: "index_categories_on_slug", unique: true
     t.check_constraint "booking_type::text = ANY (ARRAY['rental'::character varying::text, 'stay'::character varying::text, 'activity'::character varying::text, 'transfer'::character varying::text])", name: "categories_booking_type_check"
+    t.check_constraint "commission_bps >= 0 AND commission_bps <= 10000", name: "categories_commission_check"
   end
 
   create_table "category_tags", primary_key: ["category_id", "tag_id"], force: :cascade do |t|
@@ -131,6 +176,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_100000) do
     t.integer "weight", limit: 2, default: 1, null: false
     t.index ["tag_id"], name: "index_category_tags_on_tag_id"
     t.check_constraint "weight >= 1 AND weight <= 3", name: "category_tags_weight_check"
+  end
+
+  create_table "checkouts", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.bigint "trip_id"
+    t.string "idempotency_key", null: false
+    t.bigint "total_cents", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["trip_id"], name: "index_checkouts_on_trip_id"
+    t.index ["user_id", "idempotency_key"], name: "index_checkouts_on_user_id_and_idempotency_key", unique: true
+    t.check_constraint "char_length(idempotency_key::text) >= 8 AND char_length(idempotency_key::text) <= 80", name: "checkouts_key_length_check"
+    t.check_constraint "total_cents >= 0", name: "checkouts_total_check"
   end
 
   create_table "destination_links", force: :cascade do |t|
@@ -282,12 +340,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_100000) do
     t.string "country", limit: 2, default: "PH", null: false
     t.string "cancellation_policy", default: "free_cancellation", null: false
     t.bigint "business_id", null: false
+    t.string "booking_mode", default: "request", null: false
     t.index ["area_id"], name: "index_listings_on_area_id"
     t.index ["business_id"], name: "index_listings_on_business_id"
     t.index ["category_id"], name: "index_listings_on_category_id"
     t.index ["location"], name: "index_listings_on_location", using: :gist
     t.index ["partner_id"], name: "index_listings_on_partner_id"
     t.index ["status"], name: "index_listings_on_status"
+    t.check_constraint "booking_mode::text = ANY (ARRAY['instant'::character varying, 'request'::character varying]::text[])", name: "listings_booking_mode_check"
     t.check_constraint "cancellation_policy::text = ANY (ARRAY['free_cancellation'::character varying::text, 'non_refundable'::character varying::text, 'seven_days'::character varying::text, 'fourteen_days'::character varying::text])", name: "listings_cancellation_policy_check"
     t.check_constraint "country::text ~ '^[A-Z]{2}$'::text", name: "listings_country_check"
     t.check_constraint "partner_role::text = 'partner'::text", name: "listings_partner_role_check"
@@ -339,6 +399,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_100000) do
     t.check_constraint "declined_count >= 0", name: "partner_verifications_declined_count_check"
     t.check_constraint "status::text = ANY (ARRAY['not_started'::character varying::text, 'in_progress'::character varying::text, 'in_review'::character varying::text, 'approved'::character varying::text, 'declined'::character varying::text, 'expired'::character varying::text])", name: "partner_verifications_status_check"
     t.check_constraint "user_role::text = 'partner'::text", name: "partner_verifications_user_role_check"
+  end
+
+  create_table "payments", force: :cascade do |t|
+    t.bigint "checkout_id", null: false
+    t.string "provider", null: false
+    t.string "status", default: "pending", null: false
+    t.bigint "amount_cents", null: false
+    t.string "provider_ref"
+    t.datetime "paid_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["checkout_id"], name: "index_payments_on_checkout_id"
+    t.check_constraint "amount_cents >= 0", name: "payments_amount_check"
+    t.check_constraint "provider::text = 'stub'::text", name: "payments_provider_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'paid'::character varying, 'failed'::character varying]::text[])", name: "payments_status_check"
   end
 
   create_table "refresh_tokens", force: :cascade do |t|
@@ -485,12 +560,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_100000) do
 
   add_foreign_key "areas", "areas", column: "parent_id"
   add_foreign_key "availability_blocks", "listings", on_delete: :cascade
+  add_foreign_key "booking_events", "bookings"
+  add_foreign_key "booking_events", "users"
+  add_foreign_key "bookings", "checkouts"
   add_foreign_key "bookings", "listings"
+  add_foreign_key "bookings", "payments"
+  add_foreign_key "bookings", "trip_items", on_delete: :nullify
   add_foreign_key "bookings", "users"
   add_foreign_key "businesses", "users", column: "partner_id"
   add_foreign_key "categories", "categories", column: "parent_id"
   add_foreign_key "category_tags", "categories"
   add_foreign_key "category_tags", "tags"
+  add_foreign_key "checkouts", "trips", on_delete: :nullify
+  add_foreign_key "checkouts", "users"
   add_foreign_key "guest_profiles", "users"
   add_foreign_key "guest_profiles", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_guest_profiles_user_role"
   add_foreign_key "landmark_tags", "landmarks"
@@ -514,6 +596,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_16_100000) do
   add_foreign_key "partner_profiles", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_partner_profiles_user_role"
   add_foreign_key "partner_verifications", "users"
   add_foreign_key "partner_verifications", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_partner_verifications_user_role"
+  add_foreign_key "payments", "checkouts"
   add_foreign_key "refresh_tokens", "users"
   add_foreign_key "stay_rates", "listings", on_delete: :cascade
   add_foreign_key "tour_details", "listings", on_delete: :cascade

@@ -142,3 +142,23 @@ export function useCancelBooking() {
     if (!data) throw saveError(error, "Couldn't cancel the booking.");
   });
 }
+
+// A guest's request answered (RAA-133): accepting takes their payment, so it ends confirmed;
+// declining frees its days.
+export function useAnswerRequest() {
+  return useCalendarMutation(
+    async ({ listingId, id, status }: { listingId: number; id: number; status: "accepted" | "declined" }) => {
+      const { data, error } = await apiClient().PATCH("/api/v1/partner/listings/{listing_id}/bookings/{id}", {
+        params: { path: { listing_id: listingId, id } },
+        body: { status },
+      });
+      if (!data) throw saveError(error, status === "accepted" ? "Couldn't accept the request." : "Couldn't decline the request.");
+    },
+  );
+}
+
+// Not yet confirmed: a request waiting for the partner, or a booking waiting for its payment.
+// It holds its days all the same.
+export function isPendingBooking(booking: CalendarBooking) {
+  return booking.status === "requested" || booking.status === "accepted" || booking.status === "awaiting_payment";
+}

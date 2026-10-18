@@ -19,6 +19,7 @@ import { useAreaMap } from "./area-map-context";
 import { BOOKING_GROUPS } from "./categories";
 import { listingPin, placePins, type AreaPin, type LandmarkInfo, type ListingPin } from "./area-map-pins";
 import { DetailPanelButton, LandmarkPanel, ListingPanel, PanelActions, PanelPhoto } from "./detail-panel";
+import { InstantBookBadge } from "./instant-book-badge";
 import {
   CategoryGlyph,
   CloseGlyph,
@@ -667,6 +668,7 @@ function MapPopup({
             by={pin.info?.by ?? ""}
             summary={pin.info?.summary}
             features={pin.info?.features ?? []}
+            instantBook={pin.instantBook}
           />
         }
         actions={<PanelActions price={price} action={action} />}
@@ -721,6 +723,7 @@ function MapPopup({
             {pin.kind === "listing" ? <CategoryGlyph name={pin.category} className="size-3.5" /> : <PlaceGlyph className="size-3.5" />}
             {pin.kind === "listing" ? pin.category : "Place to see"}
           </Badge>
+          {pin.kind === "listing" && pin.instantBook && <InstantBookBadge small />}
           {distanceKm !== undefined && <span className="font-semibold text-foreground">{distanceKm.toFixed(1)} km from your pin</span>}
         </p>
         {pin.kind === "listing" && <p className="text-xs text-muted">Approximate location</p>}

@@ -14,7 +14,7 @@ import {
 } from "./cancellation-policy";
 import { categoryLabel } from "./listing-fields";
 import { LocationPicker } from "./location-picker";
-import { NewListingPhotos } from "./new-listing-photos";
+import { NewListingPhotos, SAVED_STEPS } from "./new-listing-photos";
 import { SameAsBusinessAddress, startingAddress, startingPin, useSameAsBusinessAddress } from "./same-as-business-address";
 import {
   NEW_PRICING,
@@ -50,14 +50,13 @@ const STEPS = [
   { key: "pricing", label: "Pricing" },
   { key: "cancellation", label: "Cancellation policy" },
   { key: "units", label: UNITS_LABEL },
-  { key: "photos", label: "Photos" },
-  { key: "status", label: "Listing status" },
+  ...SAVED_STEPS,
 ];
 
 // Adding an accommodation (RAA-83), once its property type is chosen: what guests book,
 // the address, the property info for that place type (RAA-95), amenities, the title and description, the
 // pricing and fees (RAA-105), the cancellation policy (RAA-89), how many identical rooms or units it has
-// (RAA-99), then photos and, last, the listing status.
+// (RAA-99), then photos, how guests book it (RAA-133) and, last, the listing status.
 // Like ListingWizard, only the current step is on the page, every value is kept here and any
 // step already reached opens again (RAA-93); Units saves the draft and then only Photos and Listing status
 // are open (RAA-109).
@@ -76,7 +75,7 @@ export function StayWizard({
   const formRef = useRef<HTMLFormElement>(null);
   const step = STEPS[stepIndex];
   // The last step before Photos saves the listing.
-  const isLast = stepIndex === STEPS.length - 3;
+  const isLast = stepIndex === STEPS.length - SAVED_STEPS.length - 1;
   const [saved, setSaved] = useState<{ listing: PartnerListing; body: ListingBody }>();
 
   const [stay, setStay] = useState<StayValues>(NEW_STAY);

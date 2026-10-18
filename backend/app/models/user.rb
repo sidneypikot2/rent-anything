@@ -16,6 +16,9 @@ class User < ApplicationRecord
   # The businesses a partner runs (RAA-100); each listing belongs to one of them.
   has_many :businesses, foreign_key: :partner_id, inverse_of: :partner, dependent: :restrict_with_error
   has_many :trips, dependent: :destroy
+  # A guest's checkouts and bookings (RAA-132); kept, never deleted with the account.
+  has_many :checkouts, dependent: :restrict_with_error
+  has_many :bookings, dependent: :restrict_with_error
 
   enum :role, ROLES.index_with(&:itself), validate: true
 

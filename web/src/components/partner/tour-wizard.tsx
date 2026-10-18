@@ -17,7 +17,7 @@ import {
 import { categoryLabel } from "./listing-fields";
 import { LandmarkPicker } from "./landmark-picker";
 import { LocationPicker } from "./location-picker";
-import { NewListingPhotos } from "./new-listing-photos";
+import { NewListingPhotos, SAVED_STEPS } from "./new-listing-photos";
 import { SameAsBusinessAddress, startingAddress, startingPin, useSameAsBusinessAddress } from "./same-as-business-address";
 import {
   basePriceText,
@@ -50,8 +50,7 @@ const STEPS = [
   { key: "pricing", label: "Pricing" },
   { key: "cancellation", label: "Cancellation policy" },
   { key: "review", label: "Review" },
-  { key: "photos", label: "Photos" },
-  { key: "status", label: "Listing status" },
+  ...SAVED_STEPS,
 ] as const;
 
 const INTROS: Partial<Record<(typeof STEPS)[number]["key"], string>> = {
@@ -83,7 +82,7 @@ export function TourWizard({
   const formRef = useRef<HTMLFormElement>(null);
   const step = STEPS[stepIndex];
   // Review, the step before Photos, saves the listing.
-  const isLast = stepIndex === STEPS.length - 3;
+  const isLast = stepIndex === STEPS.length - SAVED_STEPS.length - 1;
   const [saved, setSaved] = useState<{ listing: PartnerListing; body: ListingBody }>();
   const extras = tourExtras(category);
 

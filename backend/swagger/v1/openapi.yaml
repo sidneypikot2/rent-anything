@@ -268,6 +268,180 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+  "/api/v1/bookings":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    get:
+      summary: The guest's bookings
+      tags:
+      - Bookings
+      description: Guest-only (RAA-132). Upcoming bookings (those holding their days,
+        pending ones too) first by date, then past, cancelled, declined and expired
+        ones, newest first.
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: upcoming first, then the rest
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/guest_booking"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/bookings/{id}":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    get:
+      summary: One of the guest's bookings, with its history
+      tags:
+      - Bookings
+      description: Guest-only (RAA-132). Another guest's booking is a 404.
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: the booking
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/guest_booking"
+        '404':
+          description: another guest's booking
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/bookings/{id}/cancel":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    post:
+      summary: Cancel one of the guest's bookings
+      tags:
+      - Bookings
+      description: Guest-only (RAA-132). Cancels a booking that hasn't started, freeing
+        its days, with what the guest gets back by the cancellation policy it was
+        booked under (refund_if_cancelled_cents said so beforehand). Refunds are recorded
+        only until payments are real.
+      security:
+      - bearer: []
+      parameters: []
+      responses:
+        '200':
+          description: 'cancelled within 7 days: no refund'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/guest_booking"
+        '422':
+          description: already under way
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another guest's booking
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/booking_cancel_body"
+  "/api/v1/checkouts":
+    post:
+      summary: Book a trip's items
+      tags:
+      - Bookings
+      description: 'Guest-only (RAA-132). Books `item_ids` of one of the guest''s
+        trips: each item is re-priced and checked against the calendar as it is now,
+        all or nothing. An instant-book listing''s booking is held for payment; a
+        request-to-book one''s is a request its partner answers within 24 hours. Both
+        hold their days at once. While requests are accepted automatically (no partner
+        inbox yet) and payment is a stub, every booking comes back confirmed. Sending
+        the same `idempotency_key` again returns the same checkout.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: a stay for more guests than a unit sleeps takes two units
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/checkout"
+        '422':
+          description: items and key of the wrong shape
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another guest's trip
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/checkout_body"
   "/api/v1/explore":
     get:
       summary: Listings, nearby destinations and recommendations for a destination
@@ -974,23 +1148,28 @@ paths:
         type: integer
       required: true
     patch:
-      summary: Cancel a booking
+      summary: Answer or cancel a booking
       tags:
       - Partner
-      description: Partner-only (RAA-118). Cancelling frees the booking's days; a
-        cancelled booking stays cancelled.
+      description: 'Partner-only (RAA-118, RAA-132). `accepted` or `declined` answers
+        a guest''s request: accepting takes the guest''s payment (a stub that pays
+        at once), so it ends confirmed; declining frees its days. `cancelled` cancels
+        a booking that hasn''t started, freeing its days and refunding a paid one
+        in full, with an optional `reason`. A booking already at that status stays
+        as it is.'
       security:
       - bearer: []
       parameters: []
       responses:
         '200':
-          description: cancelled; the days are free again
+          description: 'a confirmed booking cancelled by its partner: refunded in
+            full'
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/booking"
         '422':
-          description: anything but cancelling
+          description: a status a partner can't set
           content:
             application/json:
               schema:
@@ -1018,6 +1197,47 @@ paths:
           application/json:
             schema:
               "$ref": "#/components/schemas/booking_status_body"
+  "/api/v1/partner/bookings":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    get:
+      summary: Every booking of the partner's listings
+      tags:
+      - Partner
+      description: Partner-only (RAA-132). Newest first, at most 200, each with its
+        listing; `status=requested` lists the requests to answer.
+      security:
+      - bearer: []
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          "$ref": "#/components/schemas/booking_status"
+      responses:
+        '200':
+          description: the requests to answer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/booking"
+        '422':
+          description: a status that doesn't exist
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/partner/businesses":
     get:
       summary: The signed-in partner's businesses
@@ -3058,6 +3278,10 @@ components:
           type: string
         area_slug:
           type: string
+        instant_book:
+          type: boolean
+          description: 'Booked at once, without asking the partner (RAA-132): its
+            pill'
         cover_photo_url:
           type: string
           nullable: true
@@ -3068,6 +3292,7 @@ components:
       - title
       - category
       - area_slug
+      - instant_book
       - cover_photo_url
     trip:
       type: object
@@ -3147,6 +3372,12 @@ components:
           "$ref": "#/components/schemas/area_ref"
         listing:
           "$ref": "#/components/schemas/listing_summary"
+        booking:
+          allOf:
+          - "$ref": "#/components/schemas/booking_ref"
+          nullable: true
+          description: Its booking while one holds its days (RAA-132); a booked item
+            can't be changed or removed
       required:
       - id
       - starts_on
@@ -3155,6 +3386,7 @@ components:
       - booking_type
       - area
       - listing
+      - booking
     trip_suggestion:
       type: object
       properties:
@@ -3196,6 +3428,9 @@ components:
           type: string
         area_slug:
           type: string
+        instant_book:
+          type: boolean
+          description: Booked at once, without asking the partner (RAA-132)
         cover_photo_url:
           type: string
           nullable: true
@@ -3222,6 +3457,7 @@ components:
       - title
       - category
       - area_slug
+      - instant_book
       - cover_photo_url
       - location
       - booking_type
@@ -3236,6 +3472,9 @@ components:
           type: string
         description:
           type: string
+        instant_book:
+          type: boolean
+          description: Booked at once, without asking the partner (RAA-132)
         summary:
           type: string
           description: The description's first non-blank line, cut to 160 characters;
@@ -3310,6 +3549,7 @@ components:
       - summary
       - category
       - booking_type
+      - instant_book
       - area
       - business
       - units_count
@@ -3463,6 +3703,8 @@ components:
           description: Matches the category's attribute_schema
         cancellation_policy:
           "$ref": "#/components/schemas/cancellation_policy"
+        booking_mode:
+          "$ref": "#/components/schemas/booking_mode"
         units_count:
           type: integer
           minimum: 1
@@ -3529,6 +3771,7 @@ components:
       - location
       - attrs
       - cancellation_policy
+      - booking_mode
       - units_count
       - stay_rate
       - fees
@@ -3749,6 +3992,11 @@ components:
           - "$ref": "#/components/schemas/cancellation_policy"
           description: Left out on adding a listing, it is free_cancellation; left
             out on a change, it stays as it is
+        booking_mode:
+          allOf:
+          - "$ref": "#/components/schemas/booking_mode"
+          description: Left out on adding a listing, it is request; left out on a
+            change, it stays as it is
         business_id:
           type: integer
           description: One of the partner's businesses (RAA-100). Left out on adding
@@ -4333,9 +4581,33 @@ components:
       description: 'free_cancellation: free any time before the booking starts; non_refundable:
         no refund; seven_days / fourteen_days: free up to 7 / 14 days before it starts,
         non-refundable after'
+    booking_mode:
+      type: string
+      enum:
+      - instant
+      - request
+      description: 'instant: guests book and pay at once; request: the partner accepts
+        or declines within 24 hours, the dates held meanwhile'
     listing_options:
       type: object
       properties:
+        booking_modes:
+          type: array
+          description: Every booking mode, in the order to offer them, with its wording
+            for a partner
+          items:
+            type: object
+            properties:
+              value:
+                "$ref": "#/components/schemas/booking_mode"
+              name:
+                type: string
+              description:
+                type: string
+            required:
+            - value
+            - name
+            - description
         cancellation_policies:
           type: array
           description: Every cancellation policy, in the order to offer them, with
@@ -4412,6 +4684,7 @@ components:
       required:
       - categories
       - cancellation_policies
+      - booking_modes
       - tour_inclusions
     area:
       type: object
@@ -4523,6 +4796,9 @@ components:
                 type: string
               area_slug:
                 type: string
+              instant_book:
+                type: boolean
+                description: Booked at once, without asking the partner (RAA-132)
               cover_photo_url:
                 type: string
                 nullable: true
@@ -4571,6 +4847,7 @@ components:
             - title
             - category
             - area_slug
+            - instant_book
             - cover_photo_url
             - booking_type
             - summary
@@ -4704,6 +4981,9 @@ components:
           type: string
         area_slug:
           type: string
+        instant_book:
+          type: boolean
+          description: Booked at once, without asking the partner (RAA-132)
         cover_photo_url:
           type: string
           nullable: true
@@ -4733,6 +5013,7 @@ components:
       - title
       - category
       - area_slug
+      - instant_book
       - cover_photo_url
       - location
       - booking_type
@@ -5244,6 +5525,9 @@ components:
       properties:
         id:
           type: integer
+        reference:
+          type: string
+          description: A short code the guest and the partner can quote
         guest_name:
           type: string
         starts_on:
@@ -5257,35 +5541,307 @@ components:
         quantity:
           type: integer
           description: Units, a private tour's groups or a joiner tour's joiners
+        guests:
+          type: integer
+          nullable: true
+          description: Null for one taken offline
         status:
-          type: string
-          enum:
-          - confirmed
-          - cancelled
+          "$ref": "#/components/schemas/booking_status"
         source:
           type: string
           enum:
           - offline
           - checkout
           description: 'offline: taken by the partner outside the app'
+        booking_mode:
+          type: string
+          enum:
+          - instant
+          - request
+          nullable: true
+          description: The listing's when it was booked; null for one taken offline
         total_cents:
           type: integer
+        to_be_agreed:
+          type: boolean
+          description: 'Not priced in the app yet (rentals, transfers): settled with
+            the guest'
+        commission_cents:
+          type: integer
+          description: The platform's share of the total
+        refund_cents:
+          type: integer
+          nullable: true
+          description: What the guest got back on cancelling
+        cancelled_by:
+          type: string
+          enum:
+          - guest
+          - partner
+          - system
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a pending booking expires unless answered (a request)
+            or paid (a hold)
         notes:
           type: string
+        listing:
+          type: object
+          properties:
+            id:
+              type: integer
+            title:
+              type: string
+          required:
+          - id
+          - title
         created_at:
           type: string
           format: date-time
       required:
       - id
+      - reference
       - guest_name
       - starts_on
       - ends_on
       - quantity
+      - guests
       - status
       - source
+      - booking_mode
       - total_cents
+      - to_be_agreed
+      - commission_cents
+      - refund_cents
+      - cancelled_by
+      - expires_at
       - notes
+      - listing
       - created_at
+    booking_status:
+      type: string
+      enum:
+      - requested
+      - accepted
+      - awaiting_payment
+      - confirmed
+      - in_progress
+      - completed
+      - declined
+      - cancelled
+      - expired
+      description: requested → accepted → awaiting_payment → confirmed → in_progress
+        → completed; instant book starts at awaiting_payment. declined, cancelled
+        and expired free the days; the others hold them
+    booking_ref:
+      type: object
+      properties:
+        id:
+          type: integer
+        reference:
+          type: string
+        status:
+          "$ref": "#/components/schemas/booking_status"
+      required:
+      - id
+      - reference
+      - status
+    booking_event:
+      type: object
+      properties:
+        from_status:
+          allOf:
+          - "$ref": "#/components/schemas/booking_status"
+          nullable: true
+        to_status:
+          "$ref": "#/components/schemas/booking_status"
+        actor:
+          type: string
+          enum:
+          - guest
+          - partner
+          - system
+        reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - from_status
+      - to_status
+      - actor
+      - reason
+      - created_at
+    guest_booking:
+      type: object
+      properties:
+        id:
+          type: integer
+        reference:
+          type: string
+        status:
+          "$ref": "#/components/schemas/booking_status"
+        booking_mode:
+          type: string
+          enum:
+          - instant
+          - request
+          nullable: true
+        starts_on:
+          type: string
+          format: date
+        ends_on:
+          type: string
+          format: date
+          description: A stay's check-out; otherwise the last day
+        quantity:
+          type: integer
+        guests:
+          type: integer
+          nullable: true
+        total_cents:
+          type: integer
+        to_be_agreed:
+          type: boolean
+          description: 'Not priced in the app yet (rentals, transfers): settled with
+            the partner'
+        cancellation_policy:
+          allOf:
+          - "$ref": "#/components/schemas/cancellation_policy"
+          nullable: true
+          description: The listing's when it was booked
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        confirmed_at:
+          type: string
+          format: date-time
+          nullable: true
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+        cancelled_by:
+          type: string
+          enum:
+          - guest
+          - partner
+          - system
+          nullable: true
+        refund_cents:
+          type: integer
+          nullable: true
+        cancellable:
+          type: boolean
+          description: It hasn't started, and isn't over or cancelled
+        refund_if_cancelled_cents:
+          type: integer
+          nullable: true
+          description: What the guest would get back cancelling now, by its cancellation
+            policy; null when not cancellable
+        trip_id:
+          type: integer
+          nullable: true
+        trip_item_id:
+          type: integer
+          nullable: true
+        booking_type:
+          type: string
+          enum:
+          - rental
+          - stay
+          - activity
+          - transfer
+        area:
+          "$ref": "#/components/schemas/area_ref"
+        listing:
+          "$ref": "#/components/schemas/listing_summary"
+        created_at:
+          type: string
+          format: date-time
+        events:
+          type: array
+          items:
+            "$ref": "#/components/schemas/booking_event"
+          description: Its history, oldest first
+      required:
+      - id
+      - reference
+      - status
+      - booking_mode
+      - starts_on
+      - ends_on
+      - quantity
+      - guests
+      - total_cents
+      - to_be_agreed
+      - cancellation_policy
+      - expires_at
+      - confirmed_at
+      - cancelled_at
+      - cancelled_by
+      - refund_cents
+      - cancellable
+      - refund_if_cancelled_cents
+      - trip_id
+      - trip_item_id
+      - booking_type
+      - area
+      - listing
+      - created_at
+      - events
+    checkout_body:
+      type: object
+      properties:
+        trip_id:
+          type: integer
+        item_ids:
+          type: array
+          items:
+            type: integer
+          minItems: 1
+          maxItems: 20
+          description: The trip's items to book, each dated and not booked already
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 80
+          description: Made by the client for this checkout; sent again, it returns
+            the same checkout
+      required:
+      - trip_id
+      - item_ids
+      - idempotency_key
+    checkout:
+      type: object
+      properties:
+        id:
+          type: integer
+        trip_id:
+          type: integer
+          nullable: true
+        total_cents:
+          type: integer
+        bookings:
+          type: array
+          items:
+            "$ref": "#/components/schemas/guest_booking"
+      required:
+      - id
+      - trip_id
+      - total_cents
+      - bookings
+    booking_cancel_body:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
     offline_booking_body:
       type: object
       properties:
@@ -5323,6 +5879,14 @@ components:
         status:
           type: string
           enum:
+          - accepted
+          - declined
           - cancelled
+          description: accepted / declined answer a request; cancelled refunds the
+            guest in full
+        reason:
+          type: string
+          maxLength: 500
+          description: Why it was cancelled
       required:
       - status

@@ -178,9 +178,10 @@ RSpec.configure do |config|
               title: { type: :string },
               category: { type: :string },
               area_slug: { type: :string },
+              instant_book: { type: :boolean, description: "Booked at once, without asking the partner (RAA-132): its pill" },
               cover_photo_url: COVER_PHOTO_URL
             },
-            required: %w[id title category area_slug cover_photo_url]
+            required: %w[id title category area_slug instant_book cover_photo_url]
           },
           # A guest's trip (RAA-64): what the cart lists. Dates are both set or both null.
           trip: {
@@ -220,9 +221,13 @@ RSpec.configure do |config|
                 description: "Its listing's: rentals and stays take a range of days, the others one day"
               },
               area: { "$ref" => "#/components/schemas/area_ref" },
-              listing: { "$ref" => "#/components/schemas/listing_summary" }
+              listing: { "$ref" => "#/components/schemas/listing_summary" },
+              booking: {
+                allOf: [ { "$ref" => "#/components/schemas/booking_ref" } ], nullable: true,
+                description: "Its booking while one holds its days (RAA-132); a booked item can't be changed or removed"
+              }
             },
-            required: %w[id starts_on ends_on quantity booking_type area listing]
+            required: %w[id starts_on ends_on quantity booking_type area listing booking]
           },
           trip_suggestion: {
             type: :object,
@@ -252,6 +257,7 @@ RSpec.configure do |config|
               title: { type: :string },
               category: { type: :string },
               area_slug: { type: :string },
+              instant_book: { type: :boolean, description: "Booked at once, without asking the partner (RAA-132)" },
               cover_photo_url: COVER_PHOTO_URL,
               location: { "$ref" => "#/components/schemas/lat_lng" },
               booking_type: { type: :string, enum: %w[rental stay activity transfer] },
@@ -261,7 +267,7 @@ RSpec.configure do |config|
               },
               price_unit: { "$ref" => "#/components/schemas/price_unit" }
             },
-            required: %w[id title category area_slug cover_photo_url location booking_type price_from_cents price_unit]
+            required: %w[id title category area_slug instant_book cover_photo_url location booking_type price_from_cents price_unit]
           },
           # One active listing as a traveller sees it (RAA-86). Never its location or address.
           listing_detail: {
@@ -270,6 +276,7 @@ RSpec.configure do |config|
               id: { type: :integer },
               title: { type: :string },
               description: { type: :string },
+              instant_book: { type: :boolean, description: "Booked at once, without asking the partner (RAA-132)" },
               summary: {
                 type: :string,
                 description: "The description's first non-blank line, cut to 160 characters; empty when there is none"
@@ -309,7 +316,7 @@ RSpec.configure do |config|
                 description: "Its photos ready for guests (see partner_photo.ready), in the partner's order; the first is the cover"
               }
             },
-            required: %w[id title description summary category booking_type area business units_count units_label
+            required: %w[id title description summary category booking_type instant_book area business units_count units_label
               partner_name price_from_cents price_unit guests stay_rate fees tour photos]
           },
           # A listing photo's sizes (RAA-106), served straight from storage. A partner's photo not
@@ -398,6 +405,7 @@ RSpec.configure do |config|
               },
               attrs: { type: :object, additionalProperties: true, description: "Matches the category's attribute_schema" },
               cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" },
+              booking_mode: { "$ref" => "#/components/schemas/booking_mode" },
               units_count: { type: :integer, minimum: 1, description: "How many identical items, rooms or vehicles it has" },
               stay_rate: {
                 allOf: [ { "$ref" => "#/components/schemas/stay_rate" } ], nullable: true,
@@ -429,7 +437,7 @@ RSpec.configure do |config|
               created_at: { type: :string, format: "date-time" },
               updated_at: { type: :string, format: "date-time" }
             },
-            required: %w[id title description status live_blockers category area address location attrs cancellation_policy units_count
+            required: %w[id title description status live_blockers category area address location attrs cancellation_policy booking_mode units_count
               stay_rate fees tour business landmarks covers photos photo_limit created_at updated_at]
           },
           # A business a partner runs (RAA-100); its listings are shown under its name.
@@ -512,6 +520,10 @@ RSpec.configure do |config|
               cancellation_policy: {
                 allOf: [ { "$ref" => "#/components/schemas/cancellation_policy" } ],
                 description: "Left out on adding a listing, it is free_cancellation; left out on a change, it stays as it is"
+              },
+              booking_mode: {
+                allOf: [ { "$ref" => "#/components/schemas/booking_mode" } ],
+                description: "Left out on adding a listing, it is request; left out on a change, it stays as it is"
               },
               business_id: {
                 type: :integer,
@@ -820,9 +832,28 @@ RSpec.configure do |config|
             description: "free_cancellation: free any time before the booking starts; non_refundable: no refund; " \
               "seven_days / fourteen_days: free up to 7 / 14 days before it starts, non-refundable after"
           },
+          # How guests book a listing (RAA-132).
+          booking_mode: {
+            type: :string, enum: Listing::BOOKING_MODES.keys,
+            description: "instant: guests book and pay at once; request: the partner accepts or declines within 24 hours, " \
+              "the dates held meanwhile"
+          },
           listing_options: {
             type: :object,
             properties: {
+              booking_modes: {
+                type: :array,
+                description: "Every booking mode, in the order to offer them, with its wording for a partner",
+                items: {
+                  type: :object,
+                  properties: {
+                    value: { "$ref" => "#/components/schemas/booking_mode" },
+                    name: { type: :string },
+                    description: { type: :string }
+                  },
+                  required: %w[value name description]
+                }
+              },
               cancellation_policies: {
                 type: :array,
                 description: "Every cancellation policy, in the order to offer them, with its wording for a partner",
@@ -868,7 +899,7 @@ RSpec.configure do |config|
                 }
               }
             },
-            required: %w[categories cancellation_policies tour_inclusions]
+            required: %w[categories cancellation_policies booking_modes tour_inclusions]
           },
           area: {
             type: :object,
@@ -927,6 +958,7 @@ RSpec.configure do |config|
                     title: { type: :string },
                     category: { type: :string },
                     area_slug: { type: :string },
+                    instant_book: { type: :boolean, description: "Booked at once, without asking the partner (RAA-132)" },
                     cover_photo_url: COVER_PHOTO_URL,
                     booking_type: { type: :string, enum: %w[rental stay activity transfer] },
                     summary: { type: :string, description: "As in listing_detail" },
@@ -943,7 +975,7 @@ RSpec.configure do |config|
                     details: { "$ref" => "#/components/schemas/listing_details" },
                     cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" }
                   },
-                  required: %w[id title category area_slug cover_photo_url booking_type summary business units_count units_label
+                  required: %w[id title category area_slug instant_book cover_photo_url booking_type summary business units_count units_label
                     partner_name price_from_cents price_unit photos details cancellation_policy]
                 }
               }
@@ -982,6 +1014,7 @@ RSpec.configure do |config|
               title: { type: :string },
               category: { type: :string },
               area_slug: { type: :string },
+              instant_book: { type: :boolean, description: "Booked at once, without asking the partner (RAA-132)" },
               cover_photo_url: COVER_PHOTO_URL,
               location: { "$ref" => "#/components/schemas/lat_lng" },
               booking_type: { type: :string, enum: %w[rental stay activity transfer] },
@@ -992,7 +1025,7 @@ RSpec.configure do |config|
               price_unit: { "$ref" => "#/components/schemas/price_unit" },
               distance_km: { type: :number, description: "From the starting point's exact point, one decimal" }
             },
-            required: %w[id title category area_slug cover_photo_url location booking_type price_from_cents price_unit distance_km]
+            required: %w[id title category area_slug instant_book cover_photo_url location booking_type price_from_cents price_unit distance_km]
           },
           explore: {
             type: :object,
@@ -1260,6 +1293,7 @@ RSpec.configure do |config|
             type: :object,
             properties: {
               id: { type: :integer },
+              reference: { type: :string, description: "A short code the guest and the partner can quote" },
               guest_name: { type: :string },
               starts_on: { type: :string, format: :date },
               ends_on: {
@@ -1267,13 +1301,130 @@ RSpec.configure do |config|
                 description: "A stay's check-out (it takes the nights before); otherwise the last day it takes"
               },
               quantity: { type: :integer, description: "Units, a private tour's groups or a joiner tour's joiners" },
-              status: { type: :string, enum: Booking::STATUSES },
+              guests: { type: :integer, nullable: true, description: "Null for one taken offline" },
+              status: { "$ref" => "#/components/schemas/booking_status" },
               source: { type: :string, enum: Booking::SOURCES, description: "offline: taken by the partner outside the app" },
+              booking_mode: {
+                type: :string, enum: Booking::BOOKING_MODES, nullable: true,
+                description: "The listing's when it was booked; null for one taken offline"
+              },
               total_cents: { type: :integer },
+              to_be_agreed: { type: :boolean, description: "Not priced in the app yet (rentals, transfers): settled with the guest" },
+              commission_cents: { type: :integer, description: "The platform's share of the total" },
+              refund_cents: { type: :integer, nullable: true, description: "What the guest got back on cancelling" },
+              cancelled_by: { type: :string, enum: Booking::CANCELLED_BY, nullable: true },
+              expires_at: {
+                type: :string, format: "date-time", nullable: true,
+                description: "When a pending booking expires unless answered (a request) or paid (a hold)"
+              },
               notes: { type: :string },
+              listing: {
+                type: :object,
+                properties: { id: { type: :integer }, title: { type: :string } },
+                required: %w[id title]
+              },
               created_at: { type: :string, format: "date-time" }
             },
-            required: %w[id guest_name starts_on ends_on quantity status source total_cents notes created_at]
+            required: %w[id reference guest_name starts_on ends_on quantity guests status source booking_mode total_cents
+              to_be_agreed commission_cents refund_cents cancelled_by expires_at notes listing created_at]
+          },
+          # The booking lifecycle (RAA-132).
+          booking_status: {
+            type: :string, enum: Booking::STATUSES,
+            description: "requested → accepted → awaiting_payment → confirmed → in_progress → completed; instant book " \
+              "starts at awaiting_payment. declined, cancelled and expired free the days; the others hold them"
+          },
+          booking_ref: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              reference: { type: :string },
+              status: { "$ref" => "#/components/schemas/booking_status" }
+            },
+            required: %w[id reference status]
+          },
+          booking_event: {
+            type: :object,
+            properties: {
+              from_status: { allOf: [ { "$ref" => "#/components/schemas/booking_status" } ], nullable: true },
+              to_status: { "$ref" => "#/components/schemas/booking_status" },
+              actor: { type: :string, enum: BookingEvent::ACTORS },
+              reason: { type: :string, nullable: true },
+              created_at: { type: :string, format: "date-time" }
+            },
+            required: %w[from_status to_status actor reason created_at]
+          },
+          # A guest's booking (RAA-132). Never the listing's location.
+          guest_booking: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              reference: { type: :string },
+              status: { "$ref" => "#/components/schemas/booking_status" },
+              booking_mode: { type: :string, enum: Booking::BOOKING_MODES, nullable: true },
+              starts_on: { type: :string, format: :date },
+              ends_on: { type: :string, format: :date, description: "A stay's check-out; otherwise the last day" },
+              quantity: { type: :integer },
+              guests: { type: :integer, nullable: true },
+              total_cents: { type: :integer },
+              to_be_agreed: { type: :boolean, description: "Not priced in the app yet (rentals, transfers): settled with the partner" },
+              cancellation_policy: {
+                allOf: [ { "$ref" => "#/components/schemas/cancellation_policy" } ], nullable: true,
+                description: "The listing's when it was booked"
+              },
+              expires_at: { type: :string, format: "date-time", nullable: true },
+              confirmed_at: { type: :string, format: "date-time", nullable: true },
+              cancelled_at: { type: :string, format: "date-time", nullable: true },
+              cancelled_by: { type: :string, enum: Booking::CANCELLED_BY, nullable: true },
+              refund_cents: { type: :integer, nullable: true },
+              cancellable: { type: :boolean, description: "It hasn't started, and isn't over or cancelled" },
+              refund_if_cancelled_cents: {
+                type: :integer, nullable: true,
+                description: "What the guest would get back cancelling now, by its cancellation policy; null when not cancellable"
+              },
+              trip_id: { type: :integer, nullable: true },
+              trip_item_id: { type: :integer, nullable: true },
+              booking_type: { type: :string, enum: %w[rental stay activity transfer] },
+              area: { "$ref" => "#/components/schemas/area_ref" },
+              listing: { "$ref" => "#/components/schemas/listing_summary" },
+              created_at: { type: :string, format: "date-time" },
+              events: {
+                type: :array, items: { "$ref" => "#/components/schemas/booking_event" },
+                description: "Its history, oldest first"
+              }
+            },
+            required: %w[id reference status booking_mode starts_on ends_on quantity guests total_cents to_be_agreed
+              cancellation_policy expires_at confirmed_at cancelled_at cancelled_by refund_cents cancellable
+              refund_if_cancelled_cents trip_id trip_item_id booking_type area listing created_at events]
+          },
+          checkout_body: {
+            type: :object,
+            properties: {
+              trip_id: { type: :integer },
+              item_ids: {
+                type: :array, items: { type: :integer }, minItems: 1, maxItems: Checkouts::Create::MAX_ITEMS,
+                description: "The trip's items to book, each dated and not booked already"
+              },
+              idempotency_key: {
+                type: :string, minLength: Checkouts::Create::KEY_LENGTH.min, maxLength: Checkouts::Create::KEY_LENGTH.max,
+                description: "Made by the client for this checkout; sent again, it returns the same checkout"
+              }
+            },
+            required: %w[trip_id item_ids idempotency_key]
+          },
+          checkout: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              trip_id: { type: :integer, nullable: true },
+              total_cents: { type: :integer },
+              bookings: { type: :array, items: { "$ref" => "#/components/schemas/guest_booking" } }
+            },
+            required: %w[id trip_id total_cents bookings]
+          },
+          booking_cancel_body: {
+            type: :object,
+            properties: { reason: { type: :string, maxLength: Booking::REASON_LENGTH } }
           },
           offline_booking_body: {
             type: :object,
@@ -1289,7 +1440,13 @@ RSpec.configure do |config|
           },
           booking_status_body: {
             type: :object,
-            properties: { status: { type: :string, enum: %w[cancelled] } },
+            properties: {
+              status: {
+                type: :string, enum: Bookings::ChangeStatus::STATUSES,
+                description: "accepted / declined answer a request; cancelled refunds the guest in full"
+              },
+              reason: { type: :string, maxLength: Booking::REASON_LENGTH, description: "Why it was cancelled" }
+            },
             required: %w[status]
           }
         }

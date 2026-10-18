@@ -4,7 +4,8 @@ module Bookings
   # private tour's groups or a joiner tour's joiners; 1 to Booking::MAX_QUANTITY), total_cents (what the guest pays the
   # partner, 0 or more) and optional notes. Refused on any day it would take that is blocked
   # or hasn't `quantity` left, and for a stay shorter than the check-in day's minimum nights
-  # or longer than the listing's maximum. Checkout (M4) will make bookings itself.
+  # or longer than the listing's maximum. It is confirmed from the start; guests' own bookings
+  # come from checkout (Checkouts::Create, RAA-132).
   class CreateOffline < ApplicationService
     include Trips::Values
 
@@ -30,8 +31,10 @@ module Bookings
       Listing.transaction do
         @listing.lock!
         check_available!(from, to, quantity)
-        @listing.bookings.create!(guest_name:, starts_on: from, ends_on: to, quantity:, total_cents:, notes:,
-          source: "offline", status: "confirmed")
+        booking = @listing.bookings.create!(guest_name:, starts_on: from, ends_on: to, quantity:, total_cents:,
+          notes:, source: "offline", status: "confirmed", confirmed_at: Time.current)
+        Transition.record_start(booking, actor: "partner", user: @listing.partner)
+        booking
       end
     end
 
