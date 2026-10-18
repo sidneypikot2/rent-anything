@@ -31,6 +31,13 @@ export function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Today on the traveller's own calendar, which can be a day ahead of the API's (Manila is
+// UTC+8): for not offering a day that has passed where they are.
+export function localTodayIso() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
 export function isIsoDate(value: unknown): value is string {
   return typeof value === "string" && ISO_DATE.test(value) && !Number.isNaN(parse(value).getTime());
 }

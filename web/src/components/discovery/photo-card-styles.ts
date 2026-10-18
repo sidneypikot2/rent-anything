@@ -6,7 +6,7 @@
 // sits on glass 12px in, at the control radius (the card's 24px less the inset). The card edge's
 // frosted rim shows the backdrop around the photo.
 export const PHOTO_CARD =
-  "card-edge group relative isolate overflow-hidden rounded-card shadow-soft transition-[transform,box-shadow] duration-500 ease-calm hover:-translate-y-1 hover:shadow-lift";
+  "card-edge group relative isolate overflow-hidden rounded-card shadow-soft transition-[transform,box-shadow] duration-500 ease-calm motion-safe:hover:-translate-y-1 hover:shadow-lift";
 export const PHOTO_CARD_IMAGE = "-z-20 object-cover object-[50%_70%]";
 export const PHOTO_SCRIM = "absolute inset-0 -z-10 bg-linear-to-b from-transparent via-transparent to-scrim/55";
 

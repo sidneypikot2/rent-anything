@@ -1,12 +1,13 @@
 import Image from "next/image";
-import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 import type { Activity, AreaCard } from "@/api/discovery";
 import { Badge } from "@/components/ui/badge";
-import { Eyebrow, Price } from "@/components/ui/typography";
+import { Price } from "@/components/ui/typography";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { GlassPanel } from "@/components/ui/glass";
+import { HeroTripLink } from "@/components/landing/hero-trip";
+import { GROUP_ICON } from "./categories";
 import { placeIcon } from "./icons";
 import { InstantBookBadge } from "./instant-book-badge";
 import type { Feature } from "./listing-features";
@@ -15,7 +16,7 @@ import { DetailPanelButton, LandmarkPanel, ListingPanel, PanelActions, PanelPhot
 import { ListingRowDetails } from "./listing-row-details";
 import { PhotoCardFrame, type Photo } from "./photo-card";
 import { PHOTO_CARD, PHOTO_CARD_IMAGE, PHOTO_SCRIM, STRETCHED_LINK } from "./photo-card-styles";
-import { CategoryGlyph, TagGlyph } from "./tag-glyphs";
+import { ArrowGlyph, CategoryGlyph, TagGlyph } from "./tag-glyphs";
 import { AreaScene } from "./scenes";
 
 export { PHOTO_CARD, PHOTO_CARD_IMAGE } from "./photo-card-styles";
@@ -27,6 +28,9 @@ const KIND_LABELS: Record<string, string> = {
   province: "Province",
   region: "Region",
 };
+
+// The badge's tone on a destination's photo (RAA-130): islands and cities have their own.
+const KIND_TONES: Record<string, "island" | "city"> = { island: "island", city: "city" };
 
 // How tall a destination photo card is, the lead one and the rest; the home page's skeleton
 // takes the same, so the cards arrive where it stood.
@@ -58,12 +62,11 @@ export function groupDestinations(areas: AreaCard[]): DestinationGroup[] {
 
 type Counts = Pick<AreaCard, "landmark_count" | "listing_count">;
 
-// "8 places to see · 9 to book", leaving out a count of nothing. `across` names the area
-// when the counts include the places inside it, so the card and the area page agree.
-export function countLine({ landmark_count, listing_count }: Counts, across?: string) {
+// "8 places to see · 9 things to book", leaving out a count of nothing.
+export function countLine({ landmark_count, listing_count }: Counts) {
   return [
     landmark_count > 0 && `${landmark_count} ${landmark_count === 1 ? "place" : "places"} to see`,
-    listing_count > 0 && `${listing_count} to book${across ? ` across ${across}` : ""}`,
+    listing_count > 0 && `${listing_count} ${listing_count === 1 ? "thing" : "things"} to book`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -105,9 +108,11 @@ const ON_GLASS = {
 // (Sky & Forest, RAA-102); the API has no destination photos yet, so only the preview passes one.
 // `feature` is the lead destination's card (RAA-108): once the card itself is wide enough (a
 // container query, since the home grid gives it anything from a phone's width to the whole row)
-// the glass stands as a panel at the foot of its right side, as tall as its contents, leaving
-// most of the photo clear; narrower, it is the usual card. Otherwise the glass is at most max-w-md wide, so a
-// card with a row to itself keeps its photo rather than a strip of glass. On a photo, what there
+// the glass stands as a panel at the foot of its left side, under the section's heading and with
+// the padding of the cards beside it, so their titles and counts line up across the row, leaving
+// most of the photo clear; narrower, it is the usual card. Every card's glass, the lead's too, is at
+// most max-w-md wide, so cards side by side have the same panel and a wide card keeps its photo
+// rather than a strip of glass. On a photo, what there
 // is to do and the places inside it fold away until its info button or keyboard focus opens them
 // (RAA-126), so every destination card is one height.
 export function DestinationCard({
@@ -128,10 +133,10 @@ export function DestinationCard({
   const text = photo ? ON_GLASS : PLAIN;
   const head = (
     <>
-      <h3 className={cn("truncate font-display text-2xl leading-tight font-extrabold tracking-tight", photo && text.strong)}>
-        <Link href={`/${area.slug}`} className={STRETCHED_LINK}>
+      <h3 className={cn("line-clamp-2 font-display text-2xl leading-tight font-extrabold tracking-tight text-balance break-words", photo && text.strong)}>
+        <HeroTripLink href={`/${area.slug}`} className={STRETCHED_LINK}>
           {area.name}
-        </Link>
+        </HeroTripLink>
       </h3>
       {area.parent_name && <p className={cn("truncate text-sm", text.muted)}>{area.parent_name}, Philippines</p>}
     </>
@@ -146,11 +151,11 @@ export function DestinationCard({
       )}
       {subAreas.length > 0 && (
         <div>
-          <Eyebrow tone="inherit" className={text.muted}>Also in {area.name}</Eyebrow>
+          <p className={cn("text-sm font-semibold", text.muted)}>Also in {area.name}</p>
           <ul className="mt-1">
             {subAreas.map((sub) => (
               <li key={sub.slug}>
-                <Link
+                <HeroTripLink
                   href={`/${sub.slug}`}
                   className={cn(
                     "relative z-10 -mx-2 flex min-h-11 items-center justify-between gap-3 rounded-control px-2",
@@ -159,7 +164,7 @@ export function DestinationCard({
                 >
                   <span className={cn("font-semibold", text.strong)}>{sub.name}</span>
                   <span className={cn("text-sm tabular-nums", text.muted)}>{countLine(sub)}</span>
-                </Link>
+                </HeroTripLink>
               </li>
             ))}
           </ul>
@@ -170,12 +175,13 @@ export function DestinationCard({
   const foot = (
     <div className={cn("mt-auto flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t pt-3", text.divider)}>
       <p className={cn("text-sm text-pretty", text.muted)}>
-        {countLine(withSubAreas(area, subAreas), subAreas.length > 0 ? area.name : undefined)}
+        {/* The card's title names the area, so the counts, which include its towns, don't again. */}
+        {countLine(withSubAreas(area, subAreas))}
       </p>
       {/* What tapping the card does; the heading is the link. */}
-      <span aria-hidden className={cn("shrink-0 whitespace-nowrap text-sm font-semibold", text.link)}>
-        View destination{" "}
-        <span className="inline-flex transition-transform duration-500 ease-calm group-hover:translate-x-1">→</span>
+      <span aria-hidden className={cn("flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-semibold", text.link)}>
+        View destination
+        <ArrowGlyph className="size-4 transition-transform duration-500 ease-calm motion-safe:group-hover:translate-x-1" />
       </span>
     </div>
   );
@@ -189,9 +195,9 @@ export function DestinationCard({
         sizes={feature ? "(min-width: 72rem) 48rem, (min-width: 1024px) 67vw, 100vw" : "(min-width: 72rem) 36rem, (min-width: 640px) 50vw, 100vw"}
         height={feature ? DESTINATION_HEIGHTS.feature : DESTINATION_HEIGHTS.other}
         className={cn(feature && "@container", className)}
-        scrimClassName={cn(feature && "@xl:bg-linear-to-r @xl:via-transparent @xl:to-scrim/45")}
-        glassClassName={feature ? "@xl:ml-auto @xl:w-1/2 @xl:p-6 @4xl:w-[38%]" : "max-w-md"}
-        badge={<Badge tone="mist">{KIND_LABELS[area.kind] ?? area.kind}</Badge>}
+        scrimClassName={cn(feature && "@xl:bg-linear-to-l @xl:via-transparent @xl:to-scrim/45")}
+        glassClassName={cn(feature && "max-w-md @xl:w-1/2 @4xl:w-[38%]")}
+        badge={<Badge tone={KIND_TONES[area.kind] ?? "mist"}>{KIND_LABELS[area.kind] ?? area.kind}</Badge>}
         head={head}
         details={details || undefined}
         foot={foot}
@@ -238,18 +244,19 @@ export function DestinationCard({
 export function ActivityCard({ activity, photo }: { activity: Activity; photo?: { src: string; alt: string } }) {
   const toBook =
     activity.listing_count > 0
-      ? `${activity.listing_count} to book`
+      ? `${activity.listing_count} ${activity.listing_count === 1 ? "thing" : "things"} to book`
       : `${activity.landmark_count} ${activity.landmark_count === 1 ? "place" : "places"} to see`;
-  const where = `${activity.area_count} ${activity.area_count === 1 ? "destination" : "destinations"}`;
+  // Only once it is in more than one: "1 destination" says nothing while there is one launch area.
+  const where = activity.area_count > 1 ? `${activity.area_count} destinations` : null;
   if (photo) {
     return (
-      <Link
+      <HeroTripLink
         href={`/search?q=${encodeURIComponent(activity.name)}`}
         data-testid="activity-card"
         // Named by its words: the photo's alt would otherwise lead every card's name. A comma, not
         // the visible dot, which some screen readers read out as "middle dot".
-        aria-label={`${activity.name}: ${toBook}, ${where}`}
-        className={cn(PHOTO_CARD, "flex aspect-[4/5] flex-col justify-end p-3")}
+        aria-label={[`${activity.name}: ${toBook}`, where].filter(Boolean).join(", ")}
+        className={cn(PHOTO_CARD, "@container flex aspect-[4/5] flex-col justify-end p-2 lg:aspect-[4/3.6] lg:p-3")}
       >
         <Image
           src={photo.src}
@@ -259,20 +266,22 @@ export function ActivityCard({ activity, photo }: { activity: Activity; photo?: 
           className={PHOTO_CARD_IMAGE}
         />
         <div aria-hidden className={PHOTO_SCRIM} />
-        <GlassPanel tone="card" className="flex items-center gap-2.5 rounded-control p-2.5">
-          {/* Only from sm up: in a phone's two columns the name needs the room. */}
-          <span className="hidden size-8 shrink-0 items-center justify-center rounded-control border border-glass-edge bg-glass-fill transition-colors group-hover:bg-primary sm:flex">
-            <TagGlyph slug={activity.slug} className="size-4" />
-          </span>
-          <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="line-clamp-2 text-sm leading-tight font-semibold">{activity.name}</span>
-            <span className="flex flex-col text-sm leading-snug whitespace-nowrap text-sky-mist">
-              <span>{toBook}</span>
-              <span className="hidden sm:block">{where}</span>
-            </span>
-          </span>
+        {/* The name leads with its icon, the counts under it (RAA-130): tighter on a phone's two
+            columns, where the glass sits 8px in rather than 12px. A card narrower than 8.5rem (a
+            320px phone) drops the icon and takes the name down to text-small, so "Sightseeing" fits on
+            a line; a longer name, or a larger text size, wraps (hyphenated where the browser can)
+            rather than being cut off. */}
+        <GlassPanel tone="card" className="flex flex-col gap-0.5 rounded-control px-2.5 py-2 @max-[8.5rem]:px-2 lg:px-3 lg:py-2.5">
+          {/* A heading, as the destination and step titles are, so the grid is reachable by heading. */}
+          <h3 className="flex min-w-0 items-center gap-1.5 font-display text-control leading-tight font-extrabold tracking-tight @max-[8.5rem]:text-small lg:text-title-sm">
+            <TagGlyph slug={activity.slug} className="size-4 shrink-0 text-sky-pale @max-[8.5rem]:hidden" />
+            <span className="line-clamp-2 min-w-0 hyphens-auto break-words">{activity.name}</span>
+          </h3>
+          {/* How many destinations stays in the label: a second line on some cards would set their
+              titles higher than the rest of the row's (RAA-130). */}
+          <span className="text-small leading-snug text-sky-mist sm:whitespace-nowrap lg:text-sm">{toBook}</span>
         </GlassPanel>
-      </Link>
+      </HeroTripLink>
     );
   }
   return (
@@ -287,7 +296,7 @@ export function ActivityCard({ activity, photo }: { activity: Activity; photo?: 
       <span className="flex min-w-0 flex-col">
         <span className="font-semibold text-foreground">{activity.name}</span>
         <span className="text-sm text-muted">
-          {toBook} · {where}
+          {[toBook, where].filter(Boolean).join(" · ")}
         </span>
       </span>
     </CardLink>
@@ -347,40 +356,103 @@ export function ListingCard({
   note,
   summary,
   photo,
+  sizes,
   price,
+  unpriced,
   action,
+  kind,
+  rowOnPhone = false,
+  stacked = false,
   instantBook = false,
 }: {
   href: string;
   title: string;
   category: string;
+  // Its booking type, whose hue tints the icon that holds the photo's place (GROUP_ICON).
+  kind?: string;
   note: string;
   summary?: string | null;
-  photo: Photo;
+  // Its own cover; without one the card is the short row it becomes when a photo fails, led by
+  // its icon, never a stand-in photo of something else.
+  photo?: Photo;
+  sizes?: string;
   price?: ComponentProps<typeof Price>;
+  // Said where the price would be while the listing has none to show ("Prices per route").
+  unpriced?: string;
   action?: ReactNode;
+  // A row on a phone: the photo a column on the left and the text beside it, so a short list
+  // of them shows whole in a screen or so (the home page's From partners).
+  rowOnPhone?: boolean;
+  // From sm, the photo over the text rather than behind it, the text on the card's own navy: the
+  // partner's photo shows whole, and the card reads apart from the sample-photo cards around it
+  // (the home page's From partners, RAA-130 critique).
+  stacked?: boolean;
   instantBook?: boolean;
 }) {
   return (
     <PhotoCardFrame
       photo={photo}
+      // A partner's own photo comes from storage, which can fail or never answer: its icon holds
+      // the place, never a stand-in photo of something else. In a well and its group's hue, so a
+      // row of them waiting on storage still reads as four different things, not empty slots.
+      placeholder={
+        <span
+          className={cn(
+            "flex size-24 items-center justify-center rounded-full border border-glass-edge bg-glass-fill",
+            rowOnPhone && "max-sm:size-16",
+            kind && kind in GROUP_ICON ? GROUP_ICON[kind as keyof typeof GROUP_ICON] : "text-sky-mist",
+          )}
+        >
+          <CategoryGlyph name={category} className={cn("size-11", rowOnPhone && "max-sm:size-8")} />
+        </span>
+      }
+      // Without its photo (failed, or storage hanging past PhotoCardFrame's timeout) the card
+      // drops the photo's room and is a short row: the icon beside the title says what it is.
+      photoClassName={cn(
+        rowOnPhone && "max-sm:w-28! max-sm:h-full",
+        stacked && "sm:h-40! sm:rounded-b-control",
+        "group-data-photo-missing:hidden",
+      )}
+      className={cn(
+        rowOnPhone && "max-sm:h-auto max-sm:min-h-36 max-sm:pl-31",
+        // The text starts under the photo, and the card takes its row's height, so a row's
+        // actions line up whatever its titles.
+        stacked && "sm:h-full sm:pt-44 sm:data-photo-missing:pt-3",
+        "data-photo-missing:h-full data-photo-missing:min-h-0 data-photo-missing:justify-start data-photo-missing:pl-3",
+      )}
+      scrimClassName={cn(rowOnPhone && "max-sm:hidden", stacked && "sm:hidden")}
+      // No photo to read over, so no glass: a frame inside the navy card would be a card in a card.
+      glassClassName={cn(
+        rowOnPhone && "max-sm:border-transparent max-sm:bg-transparent max-sm:p-2",
+        stacked && "sm:border-transparent sm:bg-transparent sm:px-2 sm:pt-2 sm:pb-1 sm:backdrop-blur-none",
+        "group-data-photo-missing:border-transparent group-data-photo-missing:bg-transparent group-data-photo-missing:p-2",
+      )}
+      sizes={sizes}
       label={title}
       head={
         <div className="flex items-start gap-3">
+          {/* Narrow (under 18rem, in an @container such as the home page's row of four) the title
+              needs the room, and the line under it names the category already. */}
           <span
             aria-hidden
-            className="flex size-9 shrink-0 items-center justify-center rounded-control border border-glass-edge bg-glass-fill text-white"
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-control border border-glass-edge bg-glass-fill text-white @max-2xs:hidden",
+              // A phone's row shows the category in its photo column instead.
+              rowOnPhone && "max-sm:hidden",
+              "group-data-photo-missing:flex",
+            )}
           >
             <CategoryGlyph name={category} className="size-5" />
           </span>
           <span className="min-w-0 flex-1">
-            <Link
+            {/* On the home page it keeps the hero search's dates and guests, as its other cards do. */}
+            <HeroTripLink
               href={href}
               data-testid="listing-link"
-              className="line-clamp-2 font-semibold break-words text-white underline-offset-4 hover:underline"
+              className="line-clamp-2 font-display text-title-sm leading-snug font-extrabold tracking-tight break-words text-white underline-offset-4 hover:underline"
             >
               {title}
-            </Link>
+            </HeroTripLink>
             <span className="block truncate text-sm text-sky-mist">{note}</span>
             {instantBook && <InstantBookBadge small className="mt-1.5" />}
           </span>
@@ -388,9 +460,9 @@ export function ListingCard({
       }
       details={summary ? <p className="line-clamp-4 text-sm text-white/90">{summary}</p> : undefined}
       foot={
-        (price || action) && (
+        (price || unpriced || action) && (
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-            {price ? <Price onDark {...price} /> : <span />}
+            {price ? <Price onDark {...price} /> : unpriced ? <span className="text-sm text-sky-mist">{unpriced}</span> : <span />}
             {action}
           </div>
         )

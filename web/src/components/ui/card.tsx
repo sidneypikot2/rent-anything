@@ -6,16 +6,20 @@ import { cn } from "./cn";
 // or put media flush against its edges first. `clip={false}` lets a dropdown inside it hang over
 // its edge; media then needs its own rounded corners. `bordered={false}` drops the edge, for a
 // card that brings its own (a photo card).
+// `photo`: a card a photo fills (PhotoCardFrame), navy under it rather than white, so it doesn't
+// flash a white slab on the dark page while the photo loads.
 export function Card({
   clip = true,
   bordered = true,
+  photo = false,
   className,
   ...props
-}: { clip?: boolean; bordered?: boolean } & ComponentProps<"div">) {
+}: { clip?: boolean; bordered?: boolean; photo?: boolean } & ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "rounded-card bg-surface shadow-soft",
+        "rounded-card shadow-soft",
+        photo ? "bg-navy" : "bg-surface",
         bordered && "card-edge",
         clip && "overflow-hidden",
         className,
@@ -32,7 +36,7 @@ export function CardLink({ className, ...props }: ComponentProps<typeof Link>) {
       className={cn(
         "card-edge block rounded-card bg-surface shadow-soft",
         // It rises a little on hover, slowly, and settles back.
-        "transition-[transform,box-shadow,border-color] duration-500 ease-calm hover:-translate-y-1 hover:border-fern hover:shadow-lift",
+        "transition-[transform,box-shadow,border-color] duration-500 ease-calm motion-safe:hover:-translate-y-1 hover:border-fern hover:shadow-lift",
         className,
       )}
       {...props}

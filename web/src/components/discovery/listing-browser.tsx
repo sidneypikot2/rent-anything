@@ -49,9 +49,22 @@ function passes(item: ListingItem, filters: Filters, skipIncludes = false) {
 // beside it as pills to remove, one row of them with "+N more" for the rest.
 // On an area page with its map, the map's pins follow the group and filters shown here, a row
 // and its pin light up together, and a distance search narrows the rows to what is in range,
-// nearest first, each with how far it is.
-export function ListingBrowser({ groups, dates, empty }: { groups: ListingGroup[]; dates: ReactNode; empty: ReactNode }) {
-  const [current, setCurrent] = useState<string>("all");
+// nearest first, each with how far it is. `initial` is the group to open on (the home hero's
+// category pills, RAA-130); one the area doesn't have opens on All.
+export function ListingBrowser({
+  groups,
+  dates,
+  empty,
+  initial,
+}: {
+  groups: ListingGroup[];
+  dates: ReactNode;
+  empty: ReactNode;
+  initial?: string;
+}) {
+  const [current, setCurrent] = useState<string>(() =>
+    initial && groups.some((group) => group.id === initial) ? initial : "all",
+  );
   const [filters, setFilters] = useState<Record<string, Filters>>({});
   // The section whose filters are open, and the filters as edited there, applied on Show.
   const [editing, setEditing] = useState<{ id: string; draft: Filters } | null>(null);

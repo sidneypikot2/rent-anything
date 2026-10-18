@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { CloseGlyph } from "@/components/discovery/tag-glyphs";
+import { Button } from "./button";
 import { cn } from "./cn";
 
 const PLACEMENTS = {
@@ -98,9 +99,18 @@ export function Dialog({
         </div>
       ) : (
         <div className="flex flex-col gap-4 p-5">
-          <h2 id={titleId} className="font-display text-2xl font-extrabold tracking-tight">
-            {title}
-          </h2>
+          {/* A way out that doesn't need Escape or a tap beside it, which a sheet filling a
+              phone leaves no room for. First to take focus, so a sheet doesn't open on a field
+              and bring the keyboard up over it. On a disc, as the side panel's, so it isn't
+              read as a field's own clear button under it. */}
+          <div className="flex items-start justify-between gap-3">
+            <h2 id={titleId} className="pt-1.5 font-display text-2xl font-extrabold tracking-tight">
+              {title}
+            </h2>
+            <Button type="button" variant="quiet" size="icon" aria-label="Close" onClick={onClose} className="-mt-1 -mr-2 shrink-0 bg-surface-2">
+              <CloseGlyph className="size-5" />
+            </Button>
+          </div>
           {children}
           {actions && <div className="flex flex-wrap justify-end gap-3">{actions}</div>}
         </div>

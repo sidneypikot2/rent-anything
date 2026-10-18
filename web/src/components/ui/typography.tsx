@@ -61,7 +61,7 @@ export function Price({
   prefix?: string;
   onDark?: boolean;
 }) {
-  const small = cn("font-sans text-xs font-normal", onDark ? "text-sky-mist" : "text-muted");
+  const small = cn("font-sans text-small font-normal", onDark ? "text-sky-mist" : "text-muted");
   return (
     <span
       className={cn(

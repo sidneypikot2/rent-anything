@@ -54,6 +54,14 @@ export function useTrips(enabled: boolean) {
   return useQuery({ ...tripsQuery(userId), enabled: enabled && userId !== undefined });
 }
 
+// The trip a signed-in guest comes back to on the home page (RAA-130): their first current one,
+// as GET /trips puts dated trips first, soonest first. Undefined for anyone else, or until loaded.
+export function useContinueTrip() {
+  const isGuest = useSession()?.user.role === "guest";
+  const trips = useTrips(isGuest);
+  return isGuest ? currentTrips(trips.data)[0] : undefined;
+}
+
 // The same list, fetched now if it isn't cached: the add flow needs it before it can
 // decide whether to ask which trip.
 export function useFetchTrips() {

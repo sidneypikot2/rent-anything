@@ -29,3 +29,12 @@ export function tripDatesQuery(dates: TripDates): string {
   const query = params.toString();
   return query ? `?${query}` : "";
 }
+
+// A link with the trip dates and guests ("?from=…&to=…&guests=2", or "") added to its query,
+// before any #hash.
+export function withDates(href: string, carry: string) {
+  if (!carry) return href;
+  const hash = href.indexOf("#");
+  const [path, fragment] = hash < 0 ? [href, ""] : [href.slice(0, hash), href.slice(hash)];
+  return `${path}${path.includes("?") ? `&${carry.slice(1)}` : carry}${fragment}`;
+}

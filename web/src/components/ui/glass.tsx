@@ -10,9 +10,10 @@ const TONES = {
   // card's photo can be any partner's, and over a near-white one sky-mist text still reads at
   // 5:1 (dark's 40% leaves it near 3:1).
   card: "focus-light border-glass-edge bg-navy/65 text-white backdrop-blur-lg max-sm:backdrop-blur-none",
-  // Forest-tinted, for a trust or trip element on a photo, and the footer. White text.
-  forest:
-    "focus-light border-glass-edge bg-forest/50 text-white backdrop-blur-lg max-sm:bg-forest/75 max-sm:backdrop-blur-none",
+  // Forest-tinted, for a trust or trip element on a photo, and the footer. White text. Dense
+  // enough that sky-mist text (6.5:1) and a glass-filled pill on it (5.5:1) keep 4.5:1 over a
+  // white photo; at 75% they fell to 4.1 and 3.7 (RAA-130).
+  forest: "focus-light border-glass-edge bg-forest/90 text-white backdrop-blur-lg max-sm:backdrop-blur-none",
   // A badge or tab bar on a photo. Dark text.
   light: "border-white/60 bg-white/70 text-foreground backdrop-blur-md",
   // The faint frame inset into a full-bleed hero, holding the other panels. No blur of its

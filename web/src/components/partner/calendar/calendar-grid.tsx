@@ -272,7 +272,7 @@ function DayHeading({ date, today }: { date: string; today: string }) {
       </span>
       <span
         className={cn(
-          "mt-0.5 font-display text-[0.9375rem] font-extrabold",
+          "mt-0.5 font-display text-control font-extrabold",
           isToday && "rounded-control bg-primary px-2 text-white",
         )}
         aria-current={isToday ? "date" : undefined}
@@ -456,7 +456,7 @@ function BookingBar({
       style={{ left, width }}
       className={cn(
         "absolute bottom-1.5 z-[1] h-6 truncate rounded-full px-2.5 text-left text-[0.6875rem] leading-6 font-semibold shadow-soft",
-        "transition-transform duration-300 ease-calm hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-primary",
+        "transition-transform duration-300 ease-calm motion-safe:hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-primary",
         pending ? "border border-dashed border-navy/40 bg-aqua text-navy" : over ? "bg-muted text-white" : "bg-emerald text-white",
       )}
     >

@@ -18,7 +18,7 @@ export function ListingGallery({ title, photos }: { title: string; photos: Photo
               href={photo.large_url}
               target="_blank"
               rel="noopener"
-              className="card-edge relative block aspect-[4/3] overflow-hidden rounded-control shadow-soft transition-transform duration-500 ease-calm hover:-translate-y-1"
+              className="card-edge relative block aspect-[4/3] overflow-hidden rounded-control shadow-soft transition-transform duration-500 ease-calm motion-safe:hover:-translate-y-1"
             >
               <Image
                 src={photo.card_url}

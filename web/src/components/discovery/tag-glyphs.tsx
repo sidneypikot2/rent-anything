@@ -16,6 +16,7 @@ const SNORKEL = [
 ];
 const BICYCLE = [circle(6, 16, 3.5), circle(18, 16, 3.5), "M6 16l4-7h5l3 7", "M10 9l2 7", "M13 6h3"];
 const HUT = ["M3 11l9-7 9 7", "M5 10v10h14V10", "M10 20v-5h4v5"];
+const BUILDING = ["M5 21V4h14v17", "M3 21h18", "M9 8h2", "M13 8h2", "M9 12h2", "M13 12h2", "M10 21v-4h4v4"];
 
 const TAGS: Record<string, string[]> = {
   sightseeing: [circle(12, 12, 9), "M15.5 8.5l-2 5-5 2 2-5Z"],
@@ -52,6 +53,14 @@ const CATEGORIES: Record<string, string[]> = {
   Tour: SAILBOAT,
   Camera: CAMERA,
   "Hotel or cottage": HUT,
+  "Cottage or bungalow": HUT,
+  Villa: HUT,
+  House: HUT,
+  Resort: HUT,
+  Hotel: BUILDING,
+  Hostel: BUILDING,
+  "Guest house": BUILDING,
+  Apartment: BUILDING,
   Motorcycle: [circle(5, 17, 3), circle(19, 17, 3), "M5 17l4-6h5l3 6", "M12 11l-1-4h3", "M14 11h4"],
   "Action camera": ["M4 8h11v9H4Z", "M15 11l5-2v7l-5-2", circle(9.5, 12.5, 2)],
   "Snorkel gear": SNORKEL,
@@ -219,4 +228,10 @@ export function BoltGlyph({ className }: Props) {
 // An i in a circle: a card's details (RAA-126).
 export function InfoGlyph({ className }: Props) {
   return <Glyph paths={[circle(12, 12, 9), "M12 11v5", "M12 8h.01"]} className={className} />;
+}
+
+// A chevron pointing down: something that opens below or in a sheet (the hero's search summary,
+// More activities).
+export function ChevronGlyph({ direction = "down", className }: { direction?: "down" | "up" } & Props) {
+  return <Glyph paths={[direction === "down" ? "M6 9l6 6 6-6" : "M6 15l6-6 6 6"]} className={className} />;
 }

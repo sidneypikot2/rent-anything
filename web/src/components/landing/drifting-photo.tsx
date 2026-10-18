@@ -7,7 +7,20 @@ import { isApiPhoto } from "./sample-photos";
 
 // A banner's photo, slowly drifting (animate-drift), and paused once the banner scrolls out of
 // sight, so a long page isn't animating a photo nobody can see. It picks up where it stopped.
-export function DriftingPhoto({ src, alt, sizes, className }: { src: string; alt: string; sizes: string; className?: string }) {
+// `placeholder`: a tiny data URL of the photo, blurred until it arrives.
+export function DriftingPhoto({
+  src,
+  alt,
+  sizes,
+  placeholder,
+  className,
+}: {
+  src: string;
+  alt: string;
+  sizes: string;
+  placeholder?: `data:image/${string}`;
+  className?: string;
+}) {
   const ref = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
@@ -29,6 +42,7 @@ export function DriftingPhoto({ src, alt, sizes, className }: { src: string; alt
       preload
       unoptimized={isApiPhoto(src)}
       sizes={sizes}
+      placeholder={placeholder}
       className={cn("motion-safe:animate-drift", className)}
     />
   );

@@ -1,28 +1,29 @@
 "use client";
 
+import Image from "next/image";
+import { formatDateRange } from "@/components/trips/format";
+import { withDates } from "@/components/trips/trip-dates";
 import { ButtonLink } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
-import { SectionTitle } from "@/components/ui/typography";
-import { REGISTER_PATHS } from "@/lib/auth/paths";
+import { useContinueTrip } from "@/components/trips/use-trips";
 import { useSession } from "@/lib/auth/session";
+import { LAUNCH_AREA, START_TRIP, startTripHref, tripHref } from "./launch-area";
+import { useHeroTrip } from "./hero-trip";
+import { BAND_PHOTO } from "./sample-photos";
 
-// The home page's closing band (RAA-73). Signed out it asks for an account; a guest already
-// has one and is sent to their trips. Partners and admins have no cart, so since RAA-78 they
+// The home page's closing band (RAA-73). Signed out it ends where the hero began, on starting a
+// trip (the account comes with the first thing added, TripAddProvider), as it does for a guest
+// with no trip planning; a guest with one is sent back to it by name, as the hero's Continue your
+// trip is (RAA-130), so the page's first and last actions agree. Partners and admins have no cart, so since RAA-78 they
 // are sent to their own work instead.
 // The session lives in localStorage, so until it has been read the signed-out band holds the
 // place, hidden: no one sees the wrong band first, and the page doesn't grow when it arrives.
 const BANDS = {
   signedOut: {
-    title: "Start planning your trip",
-    body: "Save tours, rides, gear and stays from local partners to trips that span every place you visit. A free account keeps them all in one cart.",
-    href: REGISTER_PATHS.guest,
-    action: "Create an account",
-  },
-  guest: {
-    title: "Pick up where you left off",
-    body: "Your trips and everything you've saved to them are in your cart.",
-    href: "/cart",
-    action: "Go to your trips",
+    title: `Start with ${LAUNCH_AREA.name}`,
+    body: "Find the boat, the bike and the bed as you go, and change a date or add a stop whenever plans move.",
+    href: startTripHref(LAUNCH_AREA.slug),
+    action: START_TRIP.action,
   },
   partner: {
     title: "What travellers can book from you",
@@ -40,22 +41,52 @@ const BANDS = {
 
 export function PlanCta() {
   const session = useSession();
-  const band = BANDS[session ? session.user.role : "signedOut"];
+  const role = session?.user.role;
+  const continuing = useContinueTrip();
+  // Starting a trip here keeps the dates and guests picked in the hero's search.
+  const { carry } = useHeroTrip();
+  const band =
+    role === "partner" || role === "admin"
+      ? BANDS[role]
+      : continuing
+        ? continueBand(continuing)
+        : { ...BANDS.signedOut, href: withDates(BANDS.signedOut.href, carry) };
 
+  // A forest band over a photo (RAA-130): green marks trips, the button on it stays blue.
   return (
     <section
       className={cn(
-        "band reveal flex flex-col items-start gap-6 rounded-frame bg-navy p-card text-white sm:flex-row sm:items-center sm:justify-between sm:p-12",
+        "band reveal card-edge relative isolate flex flex-col items-start gap-5 overflow-hidden rounded-frame px-inset py-7 text-white sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:py-10",
         session === undefined && "invisible",
       )}
     >
+      <Image src={BAND_PHOTO} alt="" fill sizes="(min-width: 72rem) 72rem, 100vw" className="-z-20 object-cover" />
+      <div aria-hidden className="absolute inset-0 -z-10 bg-forest/92" />
       <div>
-        <SectionTitle>{band.title}</SectionTitle>
-        <p className="mt-2 max-w-lede text-pretty text-on-dark">{band.body}</p>
+        {/* Smaller than a section title (RAA-130): a closing line, not a section. */}
+        <h2 className="font-display text-band leading-[1.1] font-extrabold tracking-tight text-balance">
+          {band.title}
+        </h2>
+        <p className="mt-2 max-w-lede text-pretty text-sky-mist">{band.body}</p>
       </div>
-      <ButtonLink href={band.href} variant="accent" className="shrink-0 sm:whitespace-nowrap">
+      <ButtonLink href={band.href} arrow className="shrink-0 sm:whitespace-nowrap">
         {band.action}
       </ButtonLink>
     </section>
   );
+}
+
+// Named as the guest's trip, with its dates, so a trip named after its place ("Bantayan Island")
+// doesn't read as a band about the place.
+function continueBand(trip: NonNullable<ReturnType<typeof useContinueTrip>>) {
+  const count = trip.items.length;
+  const saved = count === 0 ? "Nothing saved yet" : count === 1 ? "1 thing saved" : `${count} things saved`;
+  const dates = formatDateRange(trip.starts_on, trip.ends_on);
+  const when = dates && !trip.name.includes(dates) ? `${dates} · ` : "";
+  return {
+    title: `Your trip: ${trip.name}`,
+    body: `${when}${saved}. Change a date, add a stop, or keep browsing above.`,
+    href: tripHref(trip.id),
+    action: "Open your trip",
+  };
 }

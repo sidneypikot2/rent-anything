@@ -10,7 +10,7 @@ import type { Section } from "@/components/landing/section-header";
 
 // The header's account links. Signed in, guests and partners get their account menu
 // (guests also Trips; Profile, Settings, Sign out) and admins their name and "Sign out". Signed out,
-// "Sign in" and "Create an account" show in the guest section only (partner and admin
+// "Sign in" and "Sign up" show in the guest section only (partner and admin
 // pages show their own form), and not on /login or /register, where the card already is
 // that form.
 export function AccountNav({ section }: { section: Section }) {
@@ -33,11 +33,11 @@ export function AccountNav({ section }: { section: Section }) {
         <Link
           href={REGISTER_PATHS.guest}
           data-testid="nav-register"
-          className="tap-target flex min-h-9 items-center rounded-full bg-white px-3 font-bold whitespace-nowrap text-navy hover:bg-sky-mist sm:px-4"
+          // Lit glass rather than a white pill: brighter than Sign in, but not the brightest thing
+          // on a page whose main action is its blue button.
+          className="tap-target flex min-h-9 items-center rounded-full bg-glass-hover px-3 font-bold whitespace-nowrap text-white hover:text-sky-pale sm:px-4"
         >
-          {/* Short on a phone, so the bar stays one row. */}
-          <span className="sm:hidden">Sign up</span>
-          <span className="hidden sm:inline">Create an account</span>
+          Sign up
         </Link>
       </span>
     ) : null;

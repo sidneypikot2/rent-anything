@@ -5,17 +5,19 @@ import { DriftingPhoto } from "./drifting-photo";
 import { SearchBar } from "./search-bar";
 
 // `sizes` defaults to the frame's width; a photo also shown elsewhere passes that one's.
-type Photo = { src: string; alt: string; mirror?: boolean; sizes?: string };
+type Photo = { src: string; alt: string; mirror?: boolean; sizes?: string; placeholder?: `data:image/${string}` };
 
 // The home hero's frame. A short phone tightens it so the search and the way in stay on the
 // first screen; a phone on its side has no height for a stack, so the title takes the left
 // column and the hero's actions the right.
-// Its padding is separate: on a photo (HERO_PHOTO_PAD) a phone gets a strip of clear water above
-// the contents, which a short phone gives up.
+// Its padding is separate: on a photo (HERO_PHOTO_PAD) it gets a strip of clear water above
+// the contents, deeper on a desktop, which a short phone gives up. A short phone is under
+// `fold`'s height too, and `fold` comes later in the stylesheet, so the short top padding is
+// marked important to win.
 const HERO_FRAME =
-  "gap-block max-sm:short:gap-4 fold:gap-3 landscape-phone:grid landscape-phone:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] landscape-phone:content-center landscape-phone:gap-x-8";
-const HERO_GLASS_PAD = "pb-8 pt-10 max-sm:short:pb-6 max-sm:short:pt-6 sm:pb-10 sm:pt-12 fold:pt-8 landscape-phone:py-6";
-const HERO_PHOTO_PAD = "pb-8 pt-16 max-sm:short:pb-6 max-sm:short:pt-6 sm:pb-8 sm:pt-14 fold:pt-8 landscape-phone:py-6";
+  "gap-block max-sm:short:gap-3 fold:gap-3 landscape-phone:grid landscape-phone:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] landscape-phone:content-center landscape-phone:gap-x-8";
+const HERO_GLASS_PAD = "pb-8 pt-10 max-sm:short:pb-6 max-sm:short:pt-6! sm:pb-10 sm:pt-12 fold:pt-8 landscape-phone:py-6";
+const HERO_PHOTO_PAD = "pb-8 pt-16 max-sm:short:pb-5 max-sm:short:pt-5! sm:py-12 lg:pt-28 fold:py-8 landscape-phone:py-6";
 
 // The top of a main page (Sky & Forest, RAA-102): the page's eyebrow, title, intro and
 // actions in white on a glass frame, over the guest pages' fixed backdrop (RAA-107).
@@ -44,8 +46,8 @@ export function PageBanner({
   hero?: boolean;
   photo?: Photo;
   frameClass?: string;
-  // A card beside the contents from lg (the home hero's destination summary, RAA-125), at the
-  // foot of the frame. Only with a photo.
+  // A card beside the contents from xl (the home hero's example trip, RAA-125), at the foot of
+  // the frame: at lg it would squeeze the search beside it. Only with a photo.
   aside?: ReactNode;
   search?: boolean;
 }) {
@@ -53,7 +55,14 @@ export function PageBanner({
     <>
       <div className={cn("flex max-w-prose flex-col gap-4 text-white", hero && "max-sm:short:gap-3 landscape-phone:row-span-2 landscape-phone:gap-3")}>
         {eyebrow && (
-          <span className={cn(glassClasses("dark"), "self-start rounded-full px-3.5 py-1.5 text-sm font-semibold")}>
+          // A mint dot leads it, as on the trust ticks (RAA-130): something is live here.
+          <span
+            className={cn(
+              glassClasses("dark"),
+              "flex items-center gap-2 self-start rounded-full px-3.5 py-1.5 text-sm font-semibold",
+            )}
+          >
+            <span aria-hidden className="size-2 shrink-0 rounded-full bg-mint" />
             {eyebrow}
           </span>
         )}
@@ -78,29 +87,41 @@ export function PageBanner({
         <div
           className={cn(
             "card-edge relative isolate mx-auto flex w-full max-w-page flex-col justify-end rounded-frame px-inset text-white shadow-float",
-            // The contents set the height, so a banner fits the first screen (RAA-125): the hero's
-            // search and pills, a page's title and counts, with room for what follows to show.
-            !hero && "gap-5 pb-7 pt-16 sm:pt-20 fold:gap-4 fold:pt-12",
+            // The contents set a page's banner's height, so it fits the first screen with room for
+            // what follows to show (RAA-125), and so does the hero's on a phone, where the
+            // spare height of a full screen would all sit over the title. From sm the hero fills
+            // the first screen, from under the header (72px) to its own margin (24px), so the page
+            // opens on the place alone; taller contents still grow it. On a tablet its contents
+            // sit at the foot, under the photo; from lg, with the example trip beside them, they
+            // sit in the middle, so a tall window's spare height is shared above and below them
+            // rather than all left over the title. A centred stack on a portrait tablet floats
+            // over an empty foot. From lg the frame stops at 38rem, a little over its contents, so
+            // a full-screen desktop window doesn't leave wide bands of empty photo around them.
+            hero
+              ? "sm:min-h-[calc(100svh-6.75rem)] lg:min-h-[min(calc(100svh-6.75rem),38rem)] lg:justify-center"
+              : "gap-5 pb-7 pt-16 sm:pt-20 fold:gap-4 fold:pt-12",
             frameClass,
           )}
         >
           {/* The photo and its scrim are clipped on their own layer, not the frame, so the
-              hero search's suggestions can open past the frame's foot. */}
+              hero search's suggestions can open past the frame's foot. The hero's photo keeps its
+              top, the boats and open water, and crops the rocks at its foot. */}
           <div className="absolute inset-0 -z-10 overflow-hidden rounded-[inherit]">
             <DriftingPhoto
               src={photo.src}
               alt={photo.alt}
+              placeholder={photo.placeholder}
               sizes={photo.sizes ?? "(min-width: 72rem) 72rem, 100vw"}
-              className={cn("-z-20 object-cover", photo.mirror && "-scale-x-100")}
+              className={cn("-z-20 object-cover", hero && "object-top", photo.mirror && "-scale-x-100")}
             />
             {hero ? (
-              // A strip of clear water above the contents on a phone; a short one has no strip, so
-              // the title starts near the top and the scrim stays dense up there. From sm up the
-              // contents sit at the bottom left, under a scrim dense enough for sky-mist text that
-              // fades out towards the top, so the water is clear above them too.
+              // Clear water above the contents below lg; a short phone has no strip, so the title
+              // starts near the top and the scrim stays dense up there. From lg the contents sit on
+              // the left, under a scrim dense enough for sky-mist text that fades out towards the
+              // right and the top, so the boats show beside them and the water above.
               <div
                 aria-hidden
-                className="absolute inset-0 -z-10 bg-linear-to-t from-scrim/90 via-scrim/78 via-72% to-scrim/10 max-sm:short:to-scrim/60 sm:bg-linear-to-r sm:from-scrim/90 sm:via-scrim/76 sm:via-52% sm:to-scrim/0 sm:mask-t-from-65% sm:mask-t-to-100% landscape-phone:from-scrim/90 landscape-phone:via-scrim/82 landscape-phone:to-scrim/70 landscape-phone:mask-none"
+                className="absolute inset-0 -z-10 bg-linear-to-t from-scrim/90 via-scrim/78 via-72% to-scrim/10 max-sm:short:to-scrim/60 lg:bg-linear-to-r lg:from-scrim/90 lg:via-scrim/76 lg:via-52% lg:to-scrim/0 lg:mask-t-from-65% lg:mask-t-to-100% landscape-phone:from-scrim/90 landscape-phone:via-scrim/82 landscape-phone:to-scrim/70 landscape-phone:mask-none"
               />
             ) : (
               // Darkest at the foot, where the text is; the top of the photo stays clear.
@@ -109,12 +130,12 @@ export function PageBanner({
           </div>
           <div
             className={cn(
-              Boolean(aside) && "lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end lg:gap-10",
+              Boolean(aside) && "xl:grid xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-end xl:gap-10",
               hero && HERO_PHOTO_PAD,
             )}
           >
             <div className={cn("flex flex-col", hero ? HERO_FRAME : "gap-5 fold:gap-4", stagger)}>{contents}</div>
-            {aside && <div className="hidden animate-rise stagger-3 lg:block">{aside}</div>}
+            {aside && <div className="hidden animate-rise stagger-3 xl:block">{aside}</div>}
           </div>
         </div>
       ) : (
