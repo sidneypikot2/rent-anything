@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { GROUP_ICON } from "@/components/discovery/categories";
 import { CategoryGlyph, CheckGlyph } from "@/components/discovery/tag-glyphs";
 import { cn } from "@/components/ui/cn";
@@ -26,15 +27,16 @@ const STEPS = [
 // passes an ID check before adding a listing (Listings::Create) — the sample partners seeded
 // before that check weren't, so it doesn't promise "every" — partners publish their own listings,
 // with no review, and nothing can be paid yet. Not "the island": the page offers cities too.
+// A phone shows the titles alone, so each title is true without its body (PRODUCT.md's wording).
 const TRUST: { title: string; body: string }[] = [
   {
-    title: "ID checks for partners",
+    title: "Partners pass an ID check before listing",
     body: "A partner verifies their ID before adding something new to book.",
   },
   { title: "Straight from local partners", body: "Rental shops, tour operators and guesthouses list here themselves." },
   {
-    title: "Plan first, pay nothing",
-    body: "Save a whole trip for free. You'll pay only when you book, once booking opens.",
+    title: "Saving a trip is free",
+    body: "Nothing to pay while you plan. You'll pay only when you book, once booking opens.",
   },
 ];
 
@@ -112,7 +114,39 @@ export function HowItWorks() {
 }
 
 // The hero's aside from xl (`compact`, tighter for its 20rem column), and How it works' below it.
+// A guest with a trip planning sees their own in the hero's place instead (HeroAside).
 export function ExampleTrip({ compact = false, className }: { compact?: boolean; className?: string }) {
+  return (
+    <TripCard
+      compact={compact}
+      className={className}
+      title={`${LAUNCH_AREA.name} long weekend`}
+      details="3 nights · 2 guests"
+      items={EXAMPLE_ITEMS.map((item) => ({ ...item, key: item.name }))}
+      caption="An example trip. Yours fills in as you add to it."
+    />
+  );
+}
+
+export type TripCardItem = { key: string | number; name: string; meta: string; when: string; icon: string; group: keyof typeof GROUP_ICON };
+
+// A trip as a card: its title and size, then its items on one rail, first stop to last, and a
+// caption at its foot.
+export function TripCard({
+  compact = false,
+  className,
+  title,
+  details,
+  items,
+  caption,
+}: {
+  compact?: boolean;
+  className?: string;
+  title: string;
+  details: string;
+  items: TripCardItem[];
+  caption: ReactNode;
+}) {
   return (
     <figure className={cn("m-0", className)}>
       {/* In the hero it rests (shadow-soft) beside the search, which floats: the search is the
@@ -120,15 +154,15 @@ export function ExampleTrip({ compact = false, className }: { compact?: boolean;
       <GlassPanel tone="card" className={cn("flex flex-col rounded-card", compact ? "gap-3 p-5 shadow-soft" : "gap-4 p-5 shadow-float sm:p-card")}>
         <div className="min-w-0">
           <p className={cn("font-display font-extrabold tracking-tight", compact ? "text-lg leading-snug" : "text-xl")}>
-            {LAUNCH_AREA.name} long weekend
+            {title}
           </p>
-          <p className="text-sm text-sky-mist">3 nights · 2 guests</p>
+          <p className="text-sm text-sky-mist">{details}</p>
         </div>
         {/* The items hang on one rail through their icons, first stop to last, so the card reads as
             a trip in order rather than a list of purchases. */}
         <ul className={cn("flex flex-col border-t border-glass-edge", compact ? "pt-1" : "pt-2")}>
-          {EXAMPLE_ITEMS.map((item) => (
-            <li key={item.name} className={cn("group flex items-stretch", compact ? "gap-2.5" : "gap-3")}>
+          {items.map((item) => (
+            <li key={item.key} className={cn("group flex items-stretch", compact ? "gap-2.5" : "gap-3")}>
               <span aria-hidden className="flex shrink-0 flex-col items-center">
                 <span className={cn("w-px flex-1 bg-sky-mist/40 group-first:invisible", compact ? "min-h-2 fold:min-h-1.5" : "min-h-2.5")} />
                 <span className={cn("grid shrink-0 place-items-center rounded-control border border-glass-edge bg-navy/40", compact ? "size-10" : "size-11")}>
@@ -137,7 +171,7 @@ export function ExampleTrip({ compact = false, className }: { compact?: boolean;
                 <span className={cn("w-px flex-1 bg-sky-mist/40 group-last:invisible", compact ? "min-h-2 fold:min-h-1.5" : "min-h-2.5")} />
               </span>
               <span className="flex min-w-0 flex-1 flex-col justify-center">
-                <span className="leading-snug font-semibold text-pretty">{item.name}</span>
+                <span className={cn("leading-snug font-semibold text-pretty", compact && "line-clamp-2")}>{item.name}</span>
                 {/* A laptop's short window drops it from the hero's card, which would otherwise stand
                     taller than the title and search beside it and push into the photo's top. */}
                 {/* A phone keeps only the transfers' routes: the other lines name the kind, which
@@ -159,7 +193,7 @@ export function ExampleTrip({ compact = false, className }: { compact?: boolean;
         {/* At the card's foot, not as a label over its title (the example reads as one) nor on a
             chip of its own under it, which looked like a button. */}
         <figcaption className={cn("border-t border-glass-edge text-sm text-sky-mist", compact ? "pt-2.5" : "pt-3")}>
-          An example trip. Yours fills in as you add to it.
+          {caption}
         </figcaption>
       </GlassPanel>
     </figure>

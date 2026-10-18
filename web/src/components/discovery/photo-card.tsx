@@ -27,6 +27,7 @@ const PHOTO_TIMEOUT = 8000;
 // The title's link should stretch over the card (`STRETCHED_LINK`), so the whole card opens it.
 // `placeholder` sits on the navy under the photo while it loads, and stays if the photo fails
 // or storage never answers, so a card never shows a bare slab — nor another thing's photo.
+// No `photo` at all (a listing without one of its own) is missing from the start.
 // A photo still loading after PHOTO_TIMEOUT counts as missing: the card says so with
 // `data-photo-missing`, so a caller can lay it out without the photo (a listing's card becomes
 // a row), and takes the photo back if it arrives after all.
@@ -46,7 +47,7 @@ export function PhotoCardFrame({
   className,
   ...props
 }: {
-  photo: Photo;
+  photo?: Photo;
   placeholder?: ReactNode;
   // Places the photo and the placeholder (a listing's row on a phone keeps them to a column).
   photoClassName?: string;
@@ -65,13 +66,15 @@ export function PhotoCardFrame({
   className?: string;
 } & Omit<ComponentProps<"div">, "children">) {
   const [open, setOpen] = useState(false);
-  const [photoState, setPhotoState] = useState<"loading" | "loaded" | "missing">("loading");
+  const [photoState, setPhotoState] = useState<"loading" | "loaded" | "missing">(photo ? "loading" : "missing");
   const failed = photoState === "missing";
   const id = useId();
+  const src = photo?.src;
   useEffect(() => {
+    if (!src) return;
     const timer = window.setTimeout(() => setPhotoState((state) => (state === "loading" ? "missing" : state)), PHOTO_TIMEOUT);
     return () => window.clearTimeout(timer);
-  }, [photo.src]);
+  }, [src]);
   return (
     <Card
       bordered={false}
@@ -90,16 +93,18 @@ export function PhotoCardFrame({
         </div>
       )}
       {/* Kept mounted while missing on a timeout, so a slow photo can still arrive; an error drops it. */}
-      <Image
-        src={photo.src}
-        alt={photo.alt}
-        fill
-        unoptimized={isApiPhoto(photo.src)}
-        sizes={sizes}
-        onLoad={() => setPhotoState("loaded")}
-        onError={() => setPhotoState("missing")}
-        className={cn(PHOTO_CARD_IMAGE, photoClassName, failed && "hidden")}
-      />
+      {photo && (
+        <Image
+          src={photo.src}
+          alt={photo.alt}
+          fill
+          unoptimized={isApiPhoto(photo.src)}
+          sizes={sizes}
+          onLoad={() => setPhotoState("loaded")}
+          onError={() => setPhotoState("missing")}
+          className={cn(PHOTO_CARD_IMAGE, photoClassName, failed && "hidden")}
+        />
+      )}
       <div aria-hidden className={cn(PHOTO_SCRIM, scrimClassName)} />
       {badge && <div className="absolute left-3 top-3">{badge}</div>}
       <GlassPanel tone="card" className={cn("flex max-h-full flex-col gap-3 overflow-hidden rounded-control p-5", glassClassName)}>

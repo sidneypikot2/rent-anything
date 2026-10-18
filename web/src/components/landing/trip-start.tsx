@@ -59,9 +59,11 @@ export function TripStart() {
           Adds go to your trip <span className="font-semibold text-white">{continuing.name}</span>
           {dates && !continuing.name.includes(dates) && `, ${dates}`}
           {count > 0 && ` (${count === 1 ? "1 thing saved" : `${count} things saved`})`}.{" "}
+          {/* Inline in the sentence, so its tap target (44px) reaches past the line rather than
+              growing it. */}
           <Link
             href={tripHref(continuing.id)}
-            className="font-semibold text-white underline underline-offset-4 hover:text-sky-pale"
+            className="relative font-semibold text-white underline underline-offset-4 after:absolute after:-inset-x-2 after:-inset-y-3 after:content-[''] hover:text-sky-pale"
           >
             Open it
           </Link>

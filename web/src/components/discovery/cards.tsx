@@ -362,6 +362,7 @@ export function ListingCard({
   action,
   kind,
   rowOnPhone = false,
+  stacked = false,
   instantBook = false,
 }: {
   href: string;
@@ -371,7 +372,9 @@ export function ListingCard({
   kind?: string;
   note: string;
   summary?: string | null;
-  photo: Photo;
+  // Its own cover; without one the card is the short row it becomes when a photo fails, led by
+  // its icon, never a stand-in photo of something else.
+  photo?: Photo;
   sizes?: string;
   price?: ComponentProps<typeof Price>;
   // Said where the price would be while the listing has none to show ("Prices per route").
@@ -380,6 +383,10 @@ export function ListingCard({
   // A row on a phone: the photo a column on the left and the text beside it, so a short list
   // of them shows whole in a screen or so (the home page's From partners).
   rowOnPhone?: boolean;
+  // From sm, the photo over the text rather than behind it, the text on the card's own navy: the
+  // partner's photo shows whole, and the card reads apart from the sample-photo cards around it
+  // (the home page's From partners, RAA-130 critique).
+  stacked?: boolean;
   instantBook?: boolean;
 }) {
   return (
@@ -401,15 +408,23 @@ export function ListingCard({
       }
       // Without its photo (failed, or storage hanging past PhotoCardFrame's timeout) the card
       // drops the photo's room and is a short row: the icon beside the title says what it is.
-      photoClassName={cn(rowOnPhone && "max-sm:w-28! max-sm:h-full", "group-data-photo-missing:hidden")}
+      photoClassName={cn(
+        rowOnPhone && "max-sm:w-28! max-sm:h-full",
+        stacked && "sm:h-40! sm:rounded-b-control",
+        "group-data-photo-missing:hidden",
+      )}
       className={cn(
         rowOnPhone && "max-sm:h-auto max-sm:min-h-36 max-sm:pl-31",
+        // The text starts under the photo, and the card takes its row's height, so a row's
+        // actions line up whatever its titles.
+        stacked && "sm:h-full sm:pt-44 sm:data-photo-missing:pt-3",
         "data-photo-missing:h-full data-photo-missing:min-h-0 data-photo-missing:justify-start data-photo-missing:pl-3",
       )}
-      scrimClassName={cn(rowOnPhone && "max-sm:hidden")}
+      scrimClassName={cn(rowOnPhone && "max-sm:hidden", stacked && "sm:hidden")}
       // No photo to read over, so no glass: a frame inside the navy card would be a card in a card.
       glassClassName={cn(
         rowOnPhone && "max-sm:border-transparent max-sm:bg-transparent max-sm:p-2",
+        stacked && "sm:border-transparent sm:bg-transparent sm:px-2 sm:pt-2 sm:pb-1 sm:backdrop-blur-none",
         "group-data-photo-missing:border-transparent group-data-photo-missing:bg-transparent group-data-photo-missing:p-2",
       )}
       sizes={sizes}

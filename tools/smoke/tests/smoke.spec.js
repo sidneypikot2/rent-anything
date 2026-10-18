@@ -30,8 +30,9 @@ test("home page renders and reaches the API", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bantayan Island");
   await expect(page.getByTestId("nav-signin")).toBeVisible();
   await expect(page.getByTestId("nav-register")).toHaveAttribute("href", "/register");
-  // Rendered on the server from the API (the sample destinations, RAA-33).
-  await expect(page.getByTestId("destination-card").first()).toBeVisible();
+  // Rendered on the server from the API (the sample destinations, RAA-33): those beyond the
+  // launch area, as links while there are few, as cards once there are more.
+  await expect(page.getByTestId(/^destination-(card|link)$/).first()).toBeVisible();
   await expect(page.getByTestId("activity-card").first()).toBeVisible();
 
   expect(errors).toEqual([]);

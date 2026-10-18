@@ -1,23 +1,26 @@
 import { Suspense } from "react";
 import { getActivities, getDestinations, getExplore, type Activity, type ExploreListing } from "@/api/discovery";
-import { ActivityCard, DESTINATION_HEIGHTS, DestinationCard, ListingCard, groupDestinations } from "@/components/discovery/cards";
+import { ActivityCard, DestinationCard, ListingCard, countLine, groupDestinations, withSubAreas } from "@/components/discovery/cards";
+import { ArrowGlyph, PlaceGlyph } from "@/components/discovery/tag-glyphs";
 import { slugWords } from "@/components/discovery/categories";
 import { LoadFailed } from "@/components/discovery/load-failed";
 import { ShowMore } from "@/components/discovery/show-more";
 import { HeroAddToTrip } from "@/components/landing/hero-add-to-trip";
+import { HeroAside } from "@/components/landing/hero-aside";
 import { HeroCategories } from "@/components/landing/hero-categories";
 import { HeroSearch } from "@/components/landing/hero-search";
-import { HeroTrip } from "@/components/landing/hero-trip";
+import { HeroTrip, HeroTripLink } from "@/components/landing/hero-trip";
 import { ExampleTrip, HowItWorks } from "@/components/landing/how-it-works";
 import { LAUNCH_AREA } from "@/components/landing/launch-area";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
-import { activityPhoto, destinationPhoto, listingCover } from "@/components/landing/sample-photos";
+import { activityPhoto, destinationPhoto } from "@/components/landing/sample-photos";
 import { PlanCta } from "@/components/landing/plan-cta";
 import { BACKDROP_PHOTO } from "@/components/landing/site-backdrop";
 import { TripStart } from "@/components/landing/trip-start";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { cn } from "@/components/ui/cn";
+import { glassClasses } from "@/components/ui/glass";
 import { Section } from "@/components/ui/section";
 import { DisplayTitle } from "@/components/ui/typography";
 import { formatPeso } from "@/lib/money";
@@ -44,7 +47,11 @@ export default function Home() {
           <PageBanner
             hero
             photo={HERO_PHOTO}
-            aside={<ExampleTrip compact />}
+            aside={
+              <HeroAside>
+                <ExampleTrip compact />
+              </HeroAside>
+            }
             title={
               <>
                 <DisplayTitle size="hero" className="text-balance">
@@ -93,16 +100,12 @@ export default function Home() {
               <Section
                 id="destinations"
                 surface="photo"
-                title="Destinations"
-                intro="Islands, towns and cities where local partners list what you can book."
+                title={`Beyond ${LAUNCH_AREA.name}`}
+                intro="Other places where local partners list what you can book."
               >
-                <div className="flex flex-col gap-3">
-                  <Suspense fallback={<DestinationsSkeleton />}>
-                    <Destinations />
-                  </Suspense>
-                  {/* A caption, not the intro: the intro says what destinations are. */}
-                  <p className="text-sm text-sky-mist">Destination and activity photos are samples for now.</p>
-                </div>
+                <Suspense fallback={<DestinationsSkeleton />}>
+                  <Destinations />
+                </Suspense>
               </Section>
 
               <Section
@@ -111,9 +114,13 @@ export default function Home() {
                 title="Browse by activity"
                 intro="Start from something you love doing, and see where you can do it."
               >
-                <Suspense fallback={<ActivitiesSkeleton />}>
-                  <Activities />
-                </Suspense>
+                <div className="flex flex-col gap-3">
+                  <Suspense fallback={<ActivitiesSkeleton />}>
+                    <Activities />
+                  </Suspense>
+                  {/* A caption, not the intro: the intro says what the section is for. */}
+                  <p className="text-sm text-sky-mist">Activity photos are samples for now.</p>
+                </div>
               </Section>
 
               <PlanCta />
@@ -136,48 +143,71 @@ async function Destinations() {
     return null;
   });
   if (!destinations) return <LoadFailed what="destinations" />;
-  const groups = groupDestinations(destinations);
+  // The page is the launch area's already (its hero, its partners' listings), so this section is
+  // the places beyond it (RAA-130 critique): depth in one area first.
+  const groups = groupDestinations(destinations).filter(({ area }) => area.slug !== LAUNCH_AREA.slug);
   if (groups.length === 0) {
-    return <p className="text-muted">Destinations appear here as partners list them. Try the search above.</p>;
+    return <p className="text-muted">More destinations appear here as partners list them. Try the search above.</p>;
+  }
+  // A few are a row of links, each with what it has to book: photo cards for one or two would be
+  // the page's largest block, on sample photos, for its least important choice.
+  if (groups.length <= COMPACT_DESTINATIONS) {
+    return (
+      <ul className="cascade flex flex-wrap gap-3">
+        {groups.map(({ area, subAreas }) => (
+          <li key={area.slug}>
+            <HeroTripLink
+              href={`/${area.slug}`}
+              data-testid="destination-link"
+              className={cn(
+                glassClasses("dark"),
+                "group flex min-h-11 items-center gap-2 rounded-full py-2 pr-4 pl-3 hover:bg-navy/60",
+              )}
+            >
+              <PlaceGlyph className="size-4.5 shrink-0 text-sky-pale" />
+              <span className="font-semibold text-white">{area.name}</span>
+              <span className="text-sm text-sky-mist tabular-nums">{countLine(withSubAreas(area, subAreas))}</span>
+              <ArrowGlyph className="size-4 shrink-0 text-sky-pale transition-transform duration-500 ease-calm motion-safe:group-hover:translate-x-0.5" />
+            </HeroTripLink>
+          </li>
+        ))}
+      </ul>
+    );
   }
   // The one with the most to book leads (RAA-108), on the larger card; the rest share its grid,
-  // so no destination gets a row to itself. Three or fewer are one row of equal cards instead
-  // (RAA-130): a lead card over so few would make the short list the page's largest block. They
-  // ease in over the skeleton, in reading order.
-  const lead = groups.length > COMPACT_DESTINATIONS;
+  // so no destination gets a row to itself. They ease in over the skeleton, in reading order.
   return (
-    <div className="cascade grid gap-gutter sm:grid-cols-2 lg:grid-cols-6">
-      {groups.map(({ area, subAreas }, index) => (
-        <DestinationCard
-          key={area.slug}
-          feature={lead && index === 0}
-          area={area}
-          subAreas={subAreas}
-          photo={destinationPhoto(index, area.kind)}
-          className={destinationSpan(index, groups.length)}
-        />
-      ))}
+    <div className="flex flex-col gap-3">
+      <div className="cascade grid gap-gutter sm:grid-cols-2 lg:grid-cols-6">
+        {groups.map(({ area, subAreas }, index) => (
+          <DestinationCard
+            key={area.slug}
+            feature={index === 0}
+            area={area}
+            subAreas={subAreas}
+            photo={destinationPhoto(index, area.kind)}
+            className={destinationSpan(index, groups.length)}
+          />
+        ))}
+      </div>
+      <p className="text-sm text-sky-mist">Destination photos are samples for now.</p>
     </div>
   );
 }
 
 const COMPACT_DESTINATIONS = 3;
 
-// Where each destination card sits, so every row is full. From `sm` there are two columns: the
-// lead spans both when the rest pair off, otherwise it shares its row. Three or fewer (no lead
-// card, RAA-130) share one row from `lg`: two halves or three thirds. With more, the `lg` grid has
-// six: the lead takes four and two rows, with the next two stacked beside it; the rest go three
-// to a row, the last row two wider ones when three won't divide them. Four in all are rows of two
-// equal halves. A card sharing the lead's row takes the lead's height, so the row leaves no hole
-// under it; from `lg`, the two beside the lead keep theirs.
+// Where each destination card sits (more than COMPACT_DESTINATIONS of them), so every row is
+// full. From `sm` there are two columns: the lead spans both when the rest pair off, otherwise it
+// shares its row. The `lg` grid has six: the lead takes four and two rows, with the next two
+// stacked beside it; the rest go three to a row, the last row two wider ones when three won't
+// divide them. Four in all are rows of two equal halves. A card sharing the lead's row takes the
+// lead's height, so the row leaves no hole under it; from `lg`, the two beside the lead keep theirs.
 function destinationSpan(index: number, count: number) {
   const sm = index === 0 && count % 2 === 1 && "sm:col-span-2";
-  if (count === 1) return cn(sm, "lg:col-span-6");
-  if (count === 2) return "lg:col-span-3";
-  if (count === 3) return cn(sm, "lg:col-span-2");
   if (index === 1 && count % 2 === 0) return cn("sm:h-auto", count <= 4 ? "lg:col-span-3" : "lg:col-span-2 lg:h-80");
   if (count <= 4 && count % 2 === 0) return cn(sm, "lg:col-span-3");
-  if (index === 0) return cn(sm, "lg:col-span-4", count >= 3 && "lg:row-span-2");
+  if (index === 0) return cn(sm, "lg:col-span-4 lg:row-span-2");
   if (index <= 2) return "lg:col-span-2";
   const tail = count - 3;
   const fromEnd = count - index;
@@ -210,7 +240,7 @@ async function PartnerListings() {
   const names = new Map(areas.map((area) => [area.slug, area.name]));
   return (
     <ul className="cascade grid gap-3 sm:grid-cols-2 sm:gap-gutter xl:grid-cols-4">
-      {listings.map((listing, index) => {
+      {listings.map((listing) => {
         const unit = listing.price_from_cents ? priceUnitText(listing.price_unit) : undefined;
         return (
           <li key={listing.id} className="@container">
@@ -226,7 +256,7 @@ async function PartnerListings() {
                   ? listing.category
                   : (names.get(listing.area_slug) ?? slugWords(listing.area_slug))
               }
-              photo={listingCover(listing, index)}
+              photo={listing.cover_photo_url ? { src: listing.cover_photo_url, alt: listing.title } : undefined}
               sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 7rem"
               price={
                 listing.price_from_cents
@@ -237,6 +267,7 @@ async function PartnerListings() {
               action={<HeroAddToTrip listing={listing} />}
               instantBook={listing.instant_book}
               rowOnPhone
+              stacked
             />
           </li>
         );
@@ -319,13 +350,12 @@ function ActivityGrid({ activities, from = 0 }: { activities: Activity[]; from?:
 // Faint glass, as the partner pages' skeletons: a white block would flash on the dark page.
 const SKELETON = "rounded-card bg-glass-fill motion-safe:animate-pulse";
 
+// As the few destinations' row of links, the usual case while partners list in few places.
 function DestinationsSkeleton() {
   return (
-    <div role="status" aria-busy className="grid gap-gutter sm:grid-cols-2 lg:grid-cols-6">
+    <div role="status" aria-busy className="flex flex-wrap gap-3">
       <span className="sr-only">Loading destinations…</span>
-      <div className={cn(SKELETON, DESTINATION_HEIGHTS.feature, "sm:col-span-2 lg:col-span-4 lg:row-span-2")} />
-      <div className={cn(SKELETON, DESTINATION_HEIGHTS.other, "hidden sm:block lg:col-span-2")} />
-      <div className={cn(SKELETON, DESTINATION_HEIGHTS.other, "hidden sm:block lg:col-span-2")} />
+      <div className={cn(SKELETON, "h-11 w-64 rounded-full")} />
     </div>
   );
 }
