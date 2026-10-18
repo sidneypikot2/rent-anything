@@ -20,7 +20,7 @@ module PartnerCalendarSerializer
       price_unit: PricingSerializer.price_unit(listing),
       days: (from..to).map { |date| ledger.day(listing, date) },
       blocks: ledger.blocks(listing).map { block(_1) },
-      bookings: ledger.bookings(listing).map { booking(_1) }
+      bookings: ledger.bookings(listing).map { booking(_1, listing) }
     }
   end
 
@@ -30,10 +30,10 @@ module PartnerCalendarSerializer
 
   # A booking as its partner sees it: a pending one (Booking::PENDING) holds its days until it
   # is answered, paid or expires at expires_at. commission_cents is the platform's share.
-  def self.booking(booking)
+  def self.booking(booking, listing = booking.listing)
     booking.slice(:id, :reference, :guest_name, :starts_on, :ends_on, :quantity, :guests, :status, :source,
       :booking_mode, :total_cents, :commission_cents, :refund_cents, :cancelled_by, :expires_at, :notes,
       :created_at).symbolize_keys.merge(to_be_agreed: booking.price_breakdown["to_be_agreed"] == true,
-        listing: { id: booking.listing.id, title: booking.listing.title })
+        listing: { id: listing.id, title: listing.title })
   end
 end
