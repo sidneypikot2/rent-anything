@@ -235,6 +235,7 @@ async function PartnerListings() {
               }
               unpriced={PRICED_BY[listing.booking_type]}
               action={<HeroAddToTrip listing={listing} />}
+              instantBook={listing.instant_book}
               rowOnPhone
             />
           </li>
