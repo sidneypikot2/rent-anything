@@ -129,6 +129,7 @@ function Results({ results, carry }: { results: SearchResults; carry: string }) 
                   category={listing.category}
                   note={listingNote(listing, results)}
                   photo={listingCover(listing, index)}
+                  instantBook={listing.instant_book}
                 />
               </li>
             ))}

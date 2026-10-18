@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getListing, getQuote } from "@/api/discovery";
 import { categoryIcon } from "@/components/discovery/icons";
+import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
 import { StayPrice, stayPriceLine } from "@/components/discovery/stay-price";
 import { TourFacts, tourPriceLine } from "@/components/discovery/tour-facts";
 import { CurrentPlace } from "@/components/landing/current-place";
@@ -68,6 +69,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
             <p className="text-sky-mist">
               by {listing.business.name} · {listing.units_label}
             </p>
+            {listing.instant_book && <InstantBookBadge className="w-fit" />}
             {rate && (
               <p data-testid="listing-price" className="font-semibold text-white">
                 {stayPriceLine(rate, listing.guests)}

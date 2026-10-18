@@ -53,6 +53,7 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
     changes.push(`${UNITS_LABEL}: ${listing.units_count} → ${body.units_count}`);
   }
   if (body.cancellation_policy) compare("Cancellation policy", listing.cancellation_policy, body.cancellation_policy);
+  if (body.booking_mode) compare("Booking", listing.booking_mode, body.booking_mode);
   if (body.photos && body.photos.join(",") !== listing.photos.map((photo) => photo.id).join(",")) {
     changes.push("Photo order");
   }

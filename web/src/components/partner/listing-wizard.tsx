@@ -24,7 +24,7 @@ import {
 } from "./cancellation-policy";
 import { LandmarkPicker } from "./landmark-picker";
 import { LocationPicker } from "./location-picker";
-import { NewListingPhotos } from "./new-listing-photos";
+import { NewListingPhotos, SAVED_STEPS } from "./new-listing-photos";
 import { SameAsBusinessAddress, startingAddress, startingPin, useSameAsBusinessAddress } from "./same-as-business-address";
 import type { PartnerBusiness } from "./use-partner-businesses";
 import { useCreateListing, type ListingBody, type ListingCategory, type PartnerListing } from "./use-partner-listings";
@@ -34,16 +34,16 @@ import { ChangeCategoryLink, WizardCancel } from "./wizard-cancel";
 import { WizardActions, WizardLayout, WizardNext, WizardTitle } from "./wizard-steps";
 import type { PartnerLandmark } from "./use-partner-landmarks";
 
-type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "photos" | "status" | "cancellation" | "units";
+type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "cancellation" | "units" | (typeof SAVED_STEPS)[number]["key"];
 
 // Adding a listing of the chosen category (RAA-50), one step at a time: Basic, Location,
 // Route (the landmarks a tour visits, RAA-70), the category's
 // own details (skipped when it has none; a vehicle's make, model, engine and color, RAA-89),
 // the cancellation policy (RAA-89), how many identical units it has (RAA-99) and,
-// then photos and the listing status. Only the current step is on the page, so the browser's required checks
+// then photos, how guests book it (RAA-133) and the listing status. Only the current step is on the page, so the browser's required checks
 // cover just that step; every value is kept here, so going back loses nothing, and any step
 // already reached opens again (RAA-93). Units saves the listing as a draft, since a photo
-// needs a listing to belong to (RAA-109); then only Photos and Listing status are
+// needs a listing to belong to (RAA-109); then only Photos, Booking and Listing status are
 // open (NewListingPhotos).
 // Accommodation has its own steps (StayWizard).
 export function ListingWizard({
@@ -67,15 +67,14 @@ export function ListingWizard({
     ...(vehicle ? [{ key: "vehicle" as const, label: "Vehicle details" }] : []),
     { key: "cancellation", label: "Cancellation policy" },
     { key: "units", label: UNITS_LABEL },
-    { key: "photos", label: "Photos" },
-  { key: "status", label: "Listing status" },
+    ...SAVED_STEPS,
   ];
   const [stepIndex, setStepIndex] = useState(0);
   const [reached, setReached] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
   const step = steps[stepIndex];
   // The last step before Photos saves the listing.
-  const isLast = stepIndex === steps.length - 3;
+  const isLast = stepIndex === steps.length - SAVED_STEPS.length - 1;
   const [saved, setSaved] = useState<{ listing: PartnerListing; body: ListingBody }>();
 
   const [title, setTitle] = useState("");

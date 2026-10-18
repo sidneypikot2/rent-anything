@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import { formatPeso } from "@/lib/money";
-import type { CalendarBlock, CalendarBooking, CalendarDay, CalendarListing } from "../use-partner-calendar";
+import { isPendingBooking, type CalendarBlock, type CalendarBooking, type CalendarDay, type CalendarListing } from "../use-partner-calendar";
 import {
   bookingSpan,
   dayOfMonth,
@@ -446,6 +446,7 @@ function BookingBar({
   const left = daysBetween(first, span.first) * DAY_W + (stay ? DAY_W / 2 : 0) + 3;
   const width = Math.max(span.count * DAY_W - 6, 24);
   const over = booking.ends_on < today;
+  const pending = isPendingBooking(booking);
   return (
     <button
       type="button"
@@ -454,11 +455,12 @@ function BookingBar({
       data-testid="calendar-booking"
       style={{ left, width }}
       className={cn(
-        "absolute bottom-1.5 z-[1] h-6 truncate rounded-full px-2.5 text-left text-[0.6875rem] leading-6 font-semibold text-white shadow-soft",
+        "absolute bottom-1.5 z-[1] h-6 truncate rounded-full px-2.5 text-left text-[0.6875rem] leading-6 font-semibold shadow-soft",
         "transition-transform duration-300 ease-calm hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-primary",
-        over ? "bg-muted" : "bg-emerald",
+        pending ? "border border-dashed border-navy/40 bg-aqua text-navy" : over ? "bg-muted text-white" : "bg-emerald text-white",
       )}
     >
+      {booking.status === "requested" && "Request · "}
       {booking.guest_name}
       {booking.quantity > 1 && ` ×${booking.quantity}`} · {formatPeso(booking.total_cents)}
     </button>
@@ -470,6 +472,9 @@ function Legend() {
     <ul className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
       <li className="flex items-center gap-1.5">
         <span className="h-3 w-6 rounded-full bg-emerald" /> Booking
+      </li>
+      <li className="flex items-center gap-1.5">
+        <span className="h-3 w-6 rounded-full border border-dashed border-navy/40 bg-aqua" /> Pending
       </li>
       <li className="flex items-center gap-1.5">
         <span className="h-1.5 w-6 overflow-hidden rounded-full bg-sky-mist">

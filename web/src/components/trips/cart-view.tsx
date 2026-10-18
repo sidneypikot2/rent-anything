@@ -5,6 +5,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Toast } from "@/components/ui/toast";
+import { CheckoutSheet } from "@/components/bookings/checkout-sheet";
 import { EditTripSheet, type EditFocus } from "./edit-trip-sheet";
 import { formatDateRange, itemCount } from "./format";
 import { ItemDateSheet } from "./item-date-sheet";
@@ -28,10 +29,12 @@ type Open =
   | { kind: "delete"; trip: Trip }
   | { kind: "move"; trip: Trip; item: TripItem }
   | { kind: "redate"; trip: Trip; item: TripItem }
-  | { kind: "remove"; trip: Trip; item: TripItem };
+  | { kind: "remove"; trip: Trip; item: TripItem }
+  | { kind: "checkout"; trip: Trip; items: TripItem[] };
 
 // The cart (screens 6 and 7): every trip the guest has, each with its items, and the
-// sheets that fix a wrong suggestion — move an item, re-date it, merge two trips. One trip
+// sheets that fix a wrong suggestion — move an item, re-date it, merge two trips — and book
+// its items (CheckoutSheet, RAA-133). One trip
 // is open at first: `expandTripId` (from "View trip"), or the first.
 export function CartView({ expandTripId }: { expandTripId?: number }) {
   const trips = useTrips(true);
@@ -75,6 +78,7 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
     moveItem: (trip, item) => setOpen({ kind: "move", trip, item }),
     redateItem: (trip, item) => setOpen({ kind: "redate", trip, item }),
     removeItem: (trip, item) => setOpen({ kind: "remove", trip, item }),
+    checkout: (trip, items) => setOpen({ kind: "checkout", trip, items }),
   };
 
   if (trips.isPending) {
@@ -256,6 +260,8 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
           )}
         </Dialog>
       )}
+
+      {open?.kind === "checkout" && <CheckoutSheet trip={open.trip} items={open.items} onClose={() => setOpen(null)} />}
 
       <Toast data-testid="cart-toast" message={notice?.text ?? null} id={notice?.id} onDismiss={dismissNotice} />
     </>
