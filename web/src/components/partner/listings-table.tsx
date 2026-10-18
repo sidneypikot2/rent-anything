@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
@@ -132,7 +133,8 @@ function ListingRows({ listings }: { listings: PartnerListing[] }) {
                   {status.label}
                 </Badge>
               </div>
-              <p className="text-sm text-muted">
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+                {listing.booking_mode === "instant" && <InstantBookBadge small />}
                 {listing.category.name} · {listing.area.name} · Updated {UPDATED.format(new Date(listing.updated_at))}
               </p>
             </li>
@@ -171,7 +173,10 @@ function ListingRows({ listings }: { listings: PartnerListing[] }) {
                   >
                     {listing.title}
                   </Link>
-                  <span className="block truncate text-xs text-muted">{listing.category.name}</span>
+                  <span className="flex items-center gap-2 truncate text-xs text-muted">
+                    {listing.category.name}
+                    {listing.booking_mode === "instant" && <InstantBookBadge small />}
+                  </span>
                 </td>
                 <td className="truncate px-4 py-3 text-muted">{listing.area.name}</td>
                 <td className="px-4 py-3">

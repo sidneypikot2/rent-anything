@@ -5,11 +5,13 @@ import { useState } from "react";
 import { ArrowGlyph } from "@/components/discovery/tag-glyphs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BookingModeChoice, type BookingMode } from "./booking-mode";
 import { ListingPhotos, orderedPhotos } from "./listing-photos";
 import { STATUS } from "./listing-status";
 import { LiveBlockers } from "./listing-status-section";
 import {
   useChangeListingStatus,
+  useListingOptions,
   usePartnerListing,
   useUpdateListing,
   type ListingBody,
@@ -17,11 +19,19 @@ import {
 } from "./use-partner-listings";
 import { WizardActions, WizardLayout, WizardTitle } from "./wizard-steps";
 
-// The add-listing wizards' last two steps, once the step before has saved the draft
-// (RAA-109): Photos, which go to a listing that exists, then Listing status (RAA-115).
-// Earlier steps are closed by then; the listing is changed on its edit page. Both steps are
-// kept here, above the layout, so the photos' new order survives going between them. A new
-// order is saved with the body the wizard sent, the photos' ids added. The status step ends
+// The steps every add-listing wizard ends with, after the one that saves the draft.
+export const SAVED_STEPS = [
+  { key: "photos", label: "Photos" },
+  { key: "booking", label: "Booking" },
+  { key: "status", label: "Listing status" },
+] as const;
+
+// The add-listing wizards' last three steps, once the step before has saved the draft
+// (RAA-109): Photos, which go to a listing that exists, then Booking, how guests book it
+// (instant book or request to book, RAA-133), then Listing status (RAA-115). Earlier steps
+// are closed by then; the listing is changed on its edit page. The steps are kept here, above
+// the layout, so the photos' new order and the booking mode survive going between them. Both
+// are saved with the body the wizard sent when the partner finishes. The status step ends
 // with Save as draft or Go live, which is greyed out, saying why, while the listing lacks what
 // going live needs (a ready photo among them, so it opens up once one is uploaded and sized).
 // Either opens the new listing.
@@ -38,9 +48,14 @@ export function NewListingPhotos({
   const live = usePartnerListing(listing.id);
   const update = useUpdateListing(listing.id);
   const changeStatus = useChangeListingStatus(listing.id);
-  const photosStep = steps.length - 2;
+  const photosStep = steps.length - SAVED_STEPS.length;
+  const bookingStep = photosStep + 1;
+  const statusStep = photosStep + 2;
+  const options = useListingOptions();
   const [current, setCurrent] = useState(photosStep);
+  const [reached, setReached] = useState(photosStep);
   const [order, setOrder] = useState<number[]>();
+  const [mode, setMode] = useState<BookingMode>(listing.booking_mode);
   const [busy, setBusy] = useState(false);
   const saved = live.data ?? listing;
   const photos = saved.photos;
@@ -49,15 +64,23 @@ export function NewListingPhotos({
   const saving = update.isPending || changeStatus.isPending;
   const error = update.error ?? changeStatus.error;
 
+  function goTo(step: number) {
+    setCurrent(step);
+    setReached((before) => Math.max(before, step));
+  }
+
   function finish(goLive: boolean) {
     const done = () => router.push(`/partner/listings/${listing.id}`);
     const next = goLive ? () => changeStatus.mutate("active", { onSuccess: done }) : done;
-    if (!order) return next();
-    update.mutate({ ...body, photos: orderedPhotos(photos, order).map((photo) => photo.id) }, { onSuccess: next });
+    if (!order && mode === saved.booking_mode) return next();
+    update.mutate(
+      { ...body, booking_mode: mode, ...(order ? { photos: orderedPhotos(photos, order).map((photo) => photo.id) } : {}) },
+      { onSuccess: next },
+    );
   }
 
   return (
-    <WizardLayout steps={[...steps]} current={current} reached={photosStep + 1} onSelect={setCurrent} locked>
+    <WizardLayout steps={[...steps]} current={current} reached={reached} onSelect={goTo} locked>
       {current === photosStep ? (
         <div className="flex w-full flex-col gap-6">
           <div data-testid="listing-step-photos" className="flex flex-col gap-4">
@@ -70,9 +93,33 @@ export function NewListingPhotos({
           </div>
           <WizardActions
             next={
-              <Button type="button" variant="glow" size="pill" onClick={() => setCurrent(photosStep + 1)} disabled={busy} data-testid="listing-photos-next">
+              <Button type="button" variant="glow" size="pill" onClick={() => goTo(bookingStep)} disabled={busy} data-testid="listing-photos-next">
                 {busy ? "Uploading…" : "Next"}
                 {!busy && <ArrowGlyph className="size-4" />}
+              </Button>
+            }
+          />
+        </div>
+      ) : current === bookingStep ? (
+        <div className="flex w-full flex-col gap-6">
+          <div data-testid="listing-step-booking" className="flex flex-col gap-4">
+            <WizardTitle as="h2">Booking</WizardTitle>
+            <p className="text-sm text-muted">
+              Instant-book listings carry an Instant book tag for guests, and are often booked more. You can change this
+              later from the listing.
+            </p>
+            {options.data ? (
+              <BookingModeChoice modes={options.data.booking_modes} value={mode} onChange={setMode} />
+            ) : (
+              <div aria-hidden className="h-40 animate-pulse rounded-card bg-mist" />
+            )}
+          </div>
+          <WizardActions
+            onBack={() => setCurrent(photosStep)}
+            next={
+              <Button type="button" variant="glow" size="pill" onClick={() => goTo(statusStep)} data-testid="listing-booking-next">
+                Next
+                <ArrowGlyph className="size-4" />
               </Button>
             }
           />
@@ -103,7 +150,7 @@ export function NewListingPhotos({
             />
           </div>
           <WizardActions
-            onBack={() => setCurrent(photosStep)}
+            onBack={() => setCurrent(bookingStep)}
             next={
               <>
                 <Button type="button" variant="glass" size="pill" onClick={() => finish(false)} disabled={saving} data-testid="listing-save-draft">

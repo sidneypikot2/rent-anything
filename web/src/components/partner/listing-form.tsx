@@ -12,6 +12,7 @@ import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
 import { TextareaField } from "@/components/ui/textarea-field";
 import type { LatLng } from "@/lib/map";
+import { BookingModeChoice, type BookingMode } from "./booking-mode";
 import { CancellationPolicyChoice, type CancellationPolicy } from "./cancellation-policy";
 import { listingChanges } from "./listing-changes";
 import {
@@ -77,7 +78,7 @@ import { TickGlyph } from "@/components/discovery/tag-glyphs";
 
 // Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
 // visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
-// vehicle's, RAA-89), an accommodation's pricing and fees (RAA-105), the cancellation policy
+// vehicle's, RAA-89), an accommodation's pricing and fees (RAA-105), how guests book it (RAA-133), the cancellation policy
 // (RAA-89), how many identical units it has (RAA-99), its photos (RAA-109) and, last, its status, changed
 // straight away behind Change status rather than with Save (RAA-115). A tour has
 // the TourWizard's sections instead of details and units (RAA-111). Saving first shows what changed and asks to confirm. Adding one is the stepped
@@ -105,6 +106,7 @@ export function ListingForm({
   const [tour, setTour] = useState<TourValues>(() => toTourValues(listing));
   const [tourProblems, setTourProblems] = useState<TourErrors>();
   const [policy, setPolicy] = useState<CancellationPolicy>(listing.cancellation_policy);
+  const [bookingMode, setBookingMode] = useState<BookingMode>(listing.booking_mode);
   const [units, setUnits] = useState(listing.units_count);
   const address = usePhAddress(listing.address);
   const [location, setLocation] = useState<LatLng | null>(listing.location);
@@ -157,6 +159,7 @@ export function ListingForm({
           ? toVehicleAttrs(vehicleValues, savedAsVehicle ? listing.attrs : {})
           : toAttrs(fields, attrValues),
       cancellation_policy: policy,
+      booking_mode: bookingMode,
       // A tour has no units: groups a day stand in for them (RAA-111).
       units_count: tourCategory ? 1 : units,
       landmark_ids: visitsLandmarks ? landmarks.map((landmark) => landmark.id) : [],
@@ -245,6 +248,7 @@ export function ListingForm({
     ...(vehicleCategory ? [{ id: "vehicle", label: "Vehicle details" }] : []),
     ...(fields.length > 0 ? [{ id: "details", label: "Details" }] : []),
     { id: "cancellation", label: "Cancellation policy" },
+    { id: "booking", label: "Booking" },
     ...(!tourCategory ? [{ id: "units", label: UNITS_LABEL }] : []),
     { id: "photos", label: "Photos" },
     { id: "status", label: "Status" },
@@ -437,6 +441,10 @@ export function ListingForm({
 
         <EditSection id="cancellation" title="Cancellation policy">
           <CancellationPolicyChoice policies={options.cancellation_policies} value={policy} onChange={setPolicy} />
+        </EditSection>
+
+        <EditSection id="booking" title="Booking">
+          <BookingModeChoice modes={options.booking_modes} value={bookingMode} onChange={setBookingMode} />
         </EditSection>
 
         {!tourCategory && (

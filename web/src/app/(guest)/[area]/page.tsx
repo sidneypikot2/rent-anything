@@ -227,6 +227,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                       : undefined
                                   }
                                   action={<AddToTripButton listing={listing} dates={dates} />}
+                                  instantBook={listing.instant_book}
                                 />
                               ),
                             };

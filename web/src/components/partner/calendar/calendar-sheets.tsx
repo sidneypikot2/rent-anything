@@ -11,6 +11,7 @@ import { formatDateRange } from "@/lib/dates";
 import { formatPeso, toCents } from "@/lib/money";
 import {
   useAddBooking,
+  useAnswerRequest,
   useCancelBooking,
   useRemoveBlock,
   useSaveBlock,
@@ -20,6 +21,7 @@ import {
   type CalendarDaysBody,
   type CalendarListing,
 } from "../use-partner-calendar";
+import { BOOKING_STATUS } from "@/components/bookings/booking-status";
 import { addDays, bookingSpan, daysBetween, shortDate } from "./calendar-dates";
 import type { Selection } from "./calendar-grid";
 
@@ -379,14 +381,27 @@ export function BookingSheet({
   onDone: Done;
 }) {
   const cancel = useCancelBooking();
+  const answer = useAnswerRequest();
   const [confirming, setConfirming] = useState(false);
+  const request = booking.status === "requested";
+  const cancellable = booking.ends_on >= today && ["requested", "accepted", "awaiting_payment", "confirmed"].includes(booking.status);
   const facts: [string, string][] = [
+    ["Status", BOOKING_STATUS[booking.status].label],
+    ["Reference", booking.reference],
     ["Listing", listing.title],
     ["Dates", bookingDates(listing, booking) ?? ""],
     [capitalize(quantityNoun(listing)), String(booking.quantity)],
-    ["Total", formatPeso(booking.total_cents)],
-    ["Taken", booking.source === "offline" ? "Offline, by you" : "In the app"],
+    ...(booking.guests ? [["Guests", String(booking.guests)] as [string, string]] : []),
+    ["Total", booking.to_be_agreed ? "To be agreed with the guest" : formatPeso(booking.total_cents)],
+    ...(booking.source === "checkout" && !booking.to_be_agreed
+      ? [["Commission", formatPeso(booking.commission_cents)] as [string, string]]
+      : []),
+    ["Taken", booking.source === "offline" ? "Offline, by you" : booking.booking_mode === "instant" ? "In the app, instant book" : "In the app, on request"],
+    ...(request && booking.expires_at
+      ? [["Answer by", new Date(booking.expires_at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })] as [string, string]]
+      : []),
   ];
+  const refunds = booking.source === "checkout" && booking.status === "confirmed";
 
   return (
     <Dialog
@@ -400,10 +415,34 @@ export function BookingSheet({
           <Button variant="soft" onClick={onClose}>
             Close
           </Button>
-          {booking.ends_on >= today && (
-            <Button variant="danger" onClick={() => setConfirming(true)} data-testid="booking-cancel">
-              Cancel booking
-            </Button>
+          {request ? (
+            <>
+              <Button
+                variant="danger"
+                disabled={answer.isPending}
+                onClick={() =>
+                  answer.mutate({ listingId: listing.id, id: booking.id, status: "declined" }, { onSuccess: () => onDone("Request declined.") })
+                }
+                data-testid="booking-decline"
+              >
+                Decline
+              </Button>
+              <Button
+                disabled={answer.isPending}
+                onClick={() =>
+                  answer.mutate({ listingId: listing.id, id: booking.id, status: "accepted" }, { onSuccess: () => onDone("Request accepted.") })
+                }
+                data-testid="booking-accept"
+              >
+                {answer.isPending ? "Saving…" : "Accept"}
+              </Button>
+            </>
+          ) : (
+            cancellable && (
+              <Button variant="danger" onClick={() => setConfirming(true)} data-testid="booking-cancel">
+                Cancel booking
+              </Button>
+            )
           )}
         </>
       }
@@ -414,10 +453,15 @@ export function BookingSheet({
         ))}
         {booking.notes && <Fact term="Notes" value={booking.notes} />}
       </dl>
+      {answer.error && (
+        <p role="alert" className="text-sm text-danger">
+          {answer.error.message}
+        </p>
+      )}
       {confirming && (
         <Confirm
           title="Cancel this booking?"
-          body={`${booking.guest_name}'s ${quantityNoun(listing, booking.quantity)} ${booking.quantity === 1 ? "goes" : "go"} back on sale. This can't be undone.`}
+          body={`${booking.guest_name}'s ${quantityNoun(listing, booking.quantity)} ${booking.quantity === 1 ? "goes" : "go"} back on sale.${refunds ? " They are refunded in full." : ""} This can't be undone.`}
           action="Cancel booking"
           pending={cancel.isPending}
           error={cancel.error}

@@ -15,6 +15,13 @@ import { useTrips, type Trip } from "./use-trips";
 
 type Tab = "upcoming" | "past";
 
+// Planning until an item is booked, then partly booked or booked as its items are (RAA-133).
+function tripStatus(trip: Trip): { label: string; tone: "mist" | "aqua" | "emerald" } {
+  const booked = trip.items.filter((item) => item.booking).length;
+  if (booked === 0) return { label: "Planning", tone: "mist" };
+  return booked === trip.items.length ? { label: "Booked", tone: "emerald" } : { label: "Partly booked", tone: "aqua" };
+}
+
 // A trip is past once its last day is behind it (the UTC day, as the API counts it).
 // Undated trips are still being planned, so they're upcoming.
 function isPast(trip: Trip) {
@@ -22,8 +29,8 @@ function isPast(trip: Trip) {
 }
 
 // The Trips page (screen 8): every trip, upcoming or past, each leading to its place in
-// the cart. Status follows the items once they can be booked; until checkout exists every
-// trip is still being planned. Past trips show here only until their items are deleted.
+// the cart. Its status follows its items' bookings (tripStatus). Past trips show here only
+// until their unbooked items are deleted.
 export function TripsView() {
   const trips = useTrips(true);
   const [tab, setTab] = useState<Tab>("upcoming");
@@ -78,7 +85,9 @@ export function TripsView() {
                     >
                       {trip.name}
                     </Link>
-                    <Badge tone="mist">Planning</Badge>
+                    <Badge tone={tripStatus(trip).tone} data-testid="trip-status">
+                      {tripStatus(trip).label}
+                    </Badge>
                   </div>
                   <p className="text-sm text-muted">
                     {[
@@ -99,7 +108,11 @@ export function TripsView() {
 
       <p className="text-sm text-muted">
         The <Link href="/cart" className="text-link hover:underline">cart</Link> shows every trip you&apos;re
-        planning, with its items.
+        planning, with its items, and{" "}
+        <Link href="/trips/bookings" className="text-link hover:underline" data-testid="trips-bookings-link">
+          your bookings
+        </Link>{" "}
+        what you&apos;ve booked.
       </p>
 
       {editing && (

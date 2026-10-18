@@ -2,7 +2,7 @@
 // from the API, and the browser reaches the API through the same address and CORS setup a
 // person's browser uses. It is a smoke
 // test — one happy path through the parts everything else depends on, not feature
-// coverage. Extend it as the core path grows (checkout next).
+// coverage. Extend it as the core path grows (payments next).
 import { test, expect } from "@playwright/test";
 
 // Uncaught exceptions and console errors: a page that renders but logs errors is broken.
@@ -296,14 +296,16 @@ test("sign-up and the partner guard", async ({ page }) => {
 
 // Add to trip (RAA-66): signed out, the add is kept through sign-up and finishes back on
 // the destination page with no second tap. With a trip, the next add asks which trip, and
-// the toast leads to editing it and to the cart.
+// the toast leads to editing it and to the cart, where the item left is booked (RAA-133).
 test("add to trip through sign-up", async ({ page }) => {
   const errors = [];
   collectErrors(page, errors);
   const stamp = Date.now();
   const day = (offset) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
-  const from = day(30);
-  const to = day(32);
+  // A different stretch each run, so bookings left by earlier runs don't fill these days.
+  const offset = 30 + (Math.floor(stamp / 1000) % 240);
+  const from = day(offset);
+  const to = day(offset + 2);
 
   await page.goto(`/bantayan-island?from=${from}&to=${to}&guests=2`);
   await page.getByTestId("add-to-trip").first().click();
@@ -350,6 +352,20 @@ test("add to trip through sign-up", async ({ page }) => {
   await page.getByTestId("remove-item-confirm").click();
   await expect(trip.getByTestId("cart-item")).toHaveCount(1);
   await expect(page.getByTestId("nav-cart-count")).toHaveText("1");
+
+  // Checkout (RAA-133): the item left is ticked; booking it confirms it (requests are
+  // accepted and payment is a stub for now), and the cart then shows its booking.
+  await expect(trip.getByTestId("cart-item-pick")).toBeChecked();
+  await trip.getByTestId("cart-checkout").click();
+  const checkout = page.getByTestId("checkout-sheet");
+  await checkout.getByTestId("checkout-confirm").click();
+  await expect(checkout.getByTestId("checkout-result").getByTestId("booking-status")).toHaveText("Confirmed");
+  await checkout.getByRole("button", { name: "Done" }).click();
+  await expect(trip.getByTestId("cart-item").getByTestId("booking-status")).toHaveText("Confirmed");
+  await expect(trip.getByTestId("cart-item-pick")).toHaveCount(0);
+
+  await page.goto("/trips/bookings");
+  await expect(page.getByTestId("booking-row")).toHaveCount(1);
 
   expect(errors).toEqual([]);
 });
