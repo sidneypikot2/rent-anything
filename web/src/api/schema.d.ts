@@ -642,7 +642,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description a rental isn't priced yet: booked at ₱0, to be agreed */
+                /** @description a stay for more guests than a unit sleeps takes two units */
                 201: {
                     headers: {
                         [name: string]: unknown;
