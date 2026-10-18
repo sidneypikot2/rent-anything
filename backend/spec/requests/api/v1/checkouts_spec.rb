@@ -9,7 +9,7 @@ RSpec.describe "Checkouts", type: :request do
   let(:stay) { create(:listing, :stay, booking_mode: "instant", cancellation_policy: "seven_days") }
   # ₱1,500 a joiner, on request.
   let(:tour) { create(:listing, :tour, booking_mode: "request") }
-  let!(:stay_item) { create(:trip_item, trip:, listing: stay, starts_on: day, ends_on: day + 2, quantity: 1) }
+  let!(:stay_item) { create(:trip_item, trip:, listing: stay, starts_on: day, ends_on: day + 2, quantity: 2) }
   let!(:tour_item) { create(:trip_item, trip:, listing: tour, starts_on: day + 1, ends_on: day + 1, quantity: 2) }
   let(:item_ids) { [ stay_item.id, tour_item.id ] }
   let(:body) { { trip_id: trip.id, item_ids:, idempotency_key: "checkout-0001" } }
@@ -80,16 +80,33 @@ RSpec.describe "Checkouts", type: :request do
         end
       end
 
-      response "201", "a rental isn't priced yet: booked at ₱0, to be agreed" do
+      response "201", "a rental isn't priced yet: booked at ₱0, to be agreed, one unit for the guests" do
         schema "$ref" => "#/components/schemas/checkout"
 
         let(:rental) { create(:listing, booking_mode: "instant") }
-        let!(:rental_item) { create(:trip_item, trip:, listing: rental, starts_on: day, ends_on: day + 1) }
+        let!(:rental_item) { create(:trip_item, trip:, listing: rental, starts_on: day, ends_on: day + 1, quantity: 3) }
         let(:item_ids) { [ rental_item.id ] }
 
         run_test! do |response|
           expect(response.parsed_body["bookings"].sole).to include("total_cents" => 0, "to_be_agreed" => true,
-            "status" => "confirmed")
+            "status" => "confirmed", "quantity" => 1, "guests" => 3)
+        end
+      end
+
+      response "201", "a stay for more guests than a unit sleeps takes two units" do
+        schema "$ref" => "#/components/schemas/checkout"
+
+        let(:item_ids) { [ stay_item.id ] }
+
+        before do
+          stay.units.create!(position: 2)
+          stay_item.update!(quantity: 6)
+        end
+
+        run_test! do |response|
+          booking = response.parsed_body["bookings"].sole
+          expect(booking).to include("quantity" => 2, "guests" => 6)
+          expect(Booking.sole.price_breakdown["quantity"]).to eq(2)
         end
       end
 

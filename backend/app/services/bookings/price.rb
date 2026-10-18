@@ -2,7 +2,7 @@ module Bookings
   # What a trip item costs at checkout (RAA-132), re-quoted from the listing as it is now, in
   # centavos, with the breakdown the booking keeps:
   #
-  # - a stay: Stays::Quote for each of `quantity` units, the trip's guests spread across them
+  # - a stay: Stays::Quote for each of `quantity` units, the guests spread across them
   #   (it refuses dates that are blocked, fully booked or too short a stay);
   # - a tour: its base price per group (private) or per joiner, times quantity;
   # - a rental or transfer: not priced yet, so 0 and `to_be_agreed`, settled with the partner.

@@ -45,6 +45,23 @@ class Booking < ApplicationRecord
   # Those that may take a day from `from` to `to`; a stay's last date is its check-out.
   scope :overlapping, ->(from, to) { where(starts_on: ..to, ends_on: from..) }
 
+  # The units `guests` take of a listing (RAA-132): a joiner tour's seats, one each; a
+  # private tour's groups of up to max_guests; a stay's units, each sleeping what its attrs
+  # say (a shared room's beds, one each); anything else one unit (a van, a motorbike), as the
+  # trip item counts guests, not units.
+  def self.units_for(listing, guests)
+    units =
+      if (tour = listing.tour_detail)
+        tour.joiner? ? guests : guests.fdiv(tour.max_guests).ceil
+      elsif listing.category.accommodation?
+        sleeps = listing.attrs["guests"]
+        listing.stay_rate&.per_guest? ? guests : (sleeps.is_a?(Integer) && sleeps.positive? ? guests.fdiv(sleeps).ceil : 1)
+      else
+        1
+      end
+    units.clamp(1, MAX_QUANTITY)
+  end
+
   def self.days_for(stay, starts_on, ends_on)
     stay ? (starts_on...ends_on) : (starts_on..ends_on)
   end
