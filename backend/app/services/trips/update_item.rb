@@ -16,6 +16,7 @@ module Trips
     def call
       Trip.transaction do
         @item.lock!
+        error("A booked item can't be changed: cancel its booking first") if @item.booked?
         attributes = read_attributes
         move_to = integer_value(:move_to_trip_id, "Trip", required: true) if @params.key?(:move_to_trip_id)
         raise_errors!(@item)

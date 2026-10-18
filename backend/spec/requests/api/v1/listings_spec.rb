@@ -28,10 +28,10 @@ RSpec.describe "Listings", type: :request do
         run_test! do |response|
           expect(response.parsed_body).to eq([
             { "id" => osmo.id, "title" => "DJI Osmo Action", "category" => "Action camera", "area_slug" => "moalboal",
-              "cover_photo_url" => nil, "location" => { "lat" => 9.93, "lng" => 123.39 },
+              "instant_book" => false, "cover_photo_url" => nil, "location" => { "lat" => 9.93, "lng" => 123.39 },
               "booking_type" => "rental", "price_from_cents" => nil, "price_unit" => nil },
             { "id" => gopro.id, "title" => "GoPro Hero 12", "category" => "Action camera", "area_slug" => "moalboal",
-              "cover_photo_url" => nil, "location" => { "lat" => 9.95, "lng" => 123.37 },
+              "instant_book" => false, "cover_photo_url" => nil, "location" => { "lat" => 9.95, "lng" => 123.37 },
               "booking_type" => "rental", "price_from_cents" => nil, "price_unit" => nil }
           ])
         end

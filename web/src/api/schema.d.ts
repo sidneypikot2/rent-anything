@@ -419,6 +419,282 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/bookings": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The guest's bookings
+         * @description Guest-only (RAA-132). Upcoming bookings (those holding their days, pending ones too) first by date, then past, cancelled, declined and expired ones, newest first.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description upcoming first, then the rest */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["guest_booking"][];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/{id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * One of the guest's bookings, with its history
+         * @description Guest-only (RAA-132). Another guest's booking is a 404.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the booking */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["guest_booking"];
+                    };
+                };
+                /** @description another guest's booking */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel one of the guest's bookings
+         * @description Guest-only (RAA-132). Cancels a booking that hasn't started, freeing its days, with what the guest gets back by the cancellation policy it was booked under (refund_if_cancelled_cents said so beforehand). Refunds are recorded only until payments are real.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["booking_cancel_body"];
+                };
+            };
+            responses: {
+                /** @description cancelled within 7 days: no refund */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["guest_booking"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another guest's booking */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description already under way */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/checkouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Book a trip's items
+         * @description Guest-only (RAA-132). Books `item_ids` of one of the guest's trips: each item is re-priced and checked against the calendar as it is now, all or nothing. An instant-book listing's booking is held for payment; a request-to-book one's is a request its partner answers within 24 hours. Both hold their days at once. While requests are accepted automatically (no partner inbox yet) and payment is a stub, every booking comes back confirmed. Sending the same `idempotency_key` again returns the same checkout.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["checkout_body"];
+                };
+            };
+            responses: {
+                /** @description a rental isn't priced yet: booked at ₱0, to be agreed */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["checkout"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another guest's trip */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description items and key of the wrong shape */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/explore": {
         parameters: {
             query?: never;
@@ -1466,8 +1742,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Cancel a booking
-         * @description Partner-only (RAA-118). Cancelling frees the booking's days; a cancelled booking stays cancelled.
+         * Answer or cancel a booking
+         * @description Partner-only (RAA-118, RAA-132). `accepted` or `declined` answers a guest's request: accepting takes the guest's payment (a stub that pays at once), so it ends confirmed; declining frees its days. `cancelled` cancels a booking that hasn't started, freeing its days and refunding a paid one in full, with an optional `reason`. A booking already at that status stays as it is.
          */
         patch: {
             parameters: {
@@ -1487,7 +1763,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description cancelled; the days are free again */
+                /** @description a confirmed booking cancelled by its partner: refunded in full */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1523,7 +1799,7 @@ export interface paths {
                         "application/json": components["schemas"]["error"];
                     };
                 };
-                /** @description anything but cancelling */
+                /** @description a status a partner can't set */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -1534,6 +1810,69 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/v1/partner/bookings": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every booking of the partner's listings
+         * @description Partner-only (RAA-132). Newest first, at most 200, each with its listing; `status=requested` lists the requests to answer.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    status?: components["schemas"]["booking_status"];
+                };
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the requests to answer */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["booking"][];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a status that doesn't exist */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/partner/businesses": {
@@ -4121,6 +4460,8 @@ export interface components {
             title: string;
             category: string;
             area_slug: string;
+            /** @description Booked at once, without asking the partner (RAA-132): its pill */
+            instant_book: boolean;
             /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
             cover_photo_url: string | null;
         };
@@ -4164,6 +4505,8 @@ export interface components {
             booking_type: "rental" | "stay" | "activity" | "transfer";
             area: components["schemas"]["area_ref"];
             listing: components["schemas"]["listing_summary"];
+            /** @description Its booking while one holds its days (RAA-132); a booked item can't be changed or removed */
+            booking: components["schemas"]["booking_ref"] | null;
         };
         trip_suggestion: {
             /** @description The trip to preselect; null means "New trip" */
@@ -4183,6 +4526,8 @@ export interface components {
             title: string;
             category: string;
             area_slug: string;
+            /** @description Booked at once, without asking the partner (RAA-132) */
+            instant_book: boolean;
             /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
             cover_photo_url: string | null;
             location: components["schemas"]["lat_lng"];
@@ -4196,6 +4541,8 @@ export interface components {
             id: number;
             title: string;
             description: string;
+            /** @description Booked at once, without asking the partner (RAA-132) */
+            instant_book: boolean;
             /** @description The description's first non-blank line, cut to 160 characters; empty when there is none */
             summary: string;
             category: {
@@ -4286,6 +4633,7 @@ export interface components {
                 [key: string]: unknown;
             };
             cancellation_policy: components["schemas"]["cancellation_policy"];
+            booking_mode: components["schemas"]["booking_mode"];
             /** @description How many identical items, rooms or vehicles it has */
             units_count: number;
             /** @description Accommodation's nightly pricing; null for any other category */
@@ -4392,6 +4740,8 @@ export interface components {
             };
             /** @description Left out on adding a listing, it is free_cancellation; left out on a change, it stays as it is */
             cancellation_policy?: components["schemas"]["cancellation_policy"];
+            /** @description Left out on adding a listing, it is request; left out on a change, it stays as it is */
+            booking_mode?: components["schemas"]["booking_mode"];
             /** @description One of the partner's businesses (RAA-100). Left out on adding a listing, it is the partner's only business, and required when they have several; left out on a change, it stays */
             business_id?: number;
             /** @description How many identical items, rooms or vehicles it has. Left out on adding a listing, it is 1; left out on a change, it stays as it is */
@@ -4614,7 +4964,18 @@ export interface components {
          * @enum {string}
          */
         cancellation_policy: "free_cancellation" | "non_refundable" | "seven_days" | "fourteen_days";
+        /**
+         * @description instant: guests book and pay at once; request: the partner accepts or declines within 24 hours, the dates held meanwhile
+         * @enum {string}
+         */
+        booking_mode: "instant" | "request";
         listing_options: {
+            /** @description Every booking mode, in the order to offer them, with its wording for a partner */
+            booking_modes: {
+                value: components["schemas"]["booking_mode"];
+                name: string;
+                description: string;
+            }[];
             /** @description Every cancellation policy, in the order to offer them, with its wording for a partner */
             cancellation_policies: {
                 value: components["schemas"]["cancellation_policy"];
@@ -4676,6 +5037,8 @@ export interface components {
                 title: string;
                 category: string;
                 area_slug: string;
+                /** @description Booked at once, without asking the partner (RAA-132) */
+                instant_book: boolean;
                 /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
                 cover_photo_url: string | null;
                 /** @enum {string} */
@@ -4746,6 +5109,8 @@ export interface components {
             title: string;
             category: string;
             area_slug: string;
+            /** @description Booked at once, without asking the partner (RAA-132) */
+            instant_book: boolean;
             /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
             cover_photo_url: string | null;
             location: components["schemas"]["lat_lng"];
@@ -4954,6 +5319,8 @@ export interface components {
         };
         booking: {
             id: number;
+            /** @description A short code the guest and the partner can quote */
+            reference: string;
             guest_name: string;
             /** Format: date */
             starts_on: string;
@@ -4964,17 +5331,119 @@ export interface components {
             ends_on: string;
             /** @description Units, a private tour's groups or a joiner tour's joiners */
             quantity: number;
-            /** @enum {string} */
-            status: "confirmed" | "cancelled";
+            /** @description Null for one taken offline */
+            guests: number | null;
+            status: components["schemas"]["booking_status"];
             /**
              * @description offline: taken by the partner outside the app
              * @enum {string}
              */
             source: "offline" | "checkout";
+            /**
+             * @description The listing's when it was booked; null for one taken offline
+             * @enum {string|null}
+             */
+            booking_mode: "instant" | "request" | null;
             total_cents: number;
+            /** @description Not priced in the app yet (rentals, transfers): settled with the guest */
+            to_be_agreed: boolean;
+            /** @description The platform's share of the total */
+            commission_cents: number;
+            /** @description What the guest got back on cancelling */
+            refund_cents: number | null;
+            /** @enum {string|null} */
+            cancelled_by: "guest" | "partner" | "system" | null;
+            /**
+             * Format: date-time
+             * @description When a pending booking expires unless answered (a request) or paid (a hold)
+             */
+            expires_at: string | null;
             notes: string;
+            listing: {
+                id: number;
+                title: string;
+            };
             /** Format: date-time */
             created_at: string;
+        };
+        /**
+         * @description requested → accepted → awaiting_payment → confirmed → in_progress → completed; instant book starts at awaiting_payment. declined, cancelled and expired free the days; the others hold them
+         * @enum {string}
+         */
+        booking_status: "requested" | "accepted" | "awaiting_payment" | "confirmed" | "in_progress" | "completed" | "declined" | "cancelled" | "expired";
+        booking_ref: {
+            id: number;
+            reference: string;
+            status: components["schemas"]["booking_status"];
+        };
+        booking_event: {
+            from_status: components["schemas"]["booking_status"] | null;
+            to_status: components["schemas"]["booking_status"];
+            /** @enum {string} */
+            actor: "guest" | "partner" | "system";
+            reason: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        guest_booking: {
+            id: number;
+            reference: string;
+            status: components["schemas"]["booking_status"];
+            /** @enum {string|null} */
+            booking_mode: "instant" | "request" | null;
+            /** Format: date */
+            starts_on: string;
+            /**
+             * Format: date
+             * @description A stay's check-out; otherwise the last day
+             */
+            ends_on: string;
+            quantity: number;
+            guests: number | null;
+            total_cents: number;
+            /** @description Not priced in the app yet (rentals, transfers): settled with the partner */
+            to_be_agreed: boolean;
+            /** @description The listing's when it was booked */
+            cancellation_policy: components["schemas"]["cancellation_policy"] | null;
+            /** Format: date-time */
+            expires_at: string | null;
+            /** Format: date-time */
+            confirmed_at: string | null;
+            /** Format: date-time */
+            cancelled_at: string | null;
+            /** @enum {string|null} */
+            cancelled_by: "guest" | "partner" | "system" | null;
+            refund_cents: number | null;
+            /** @description It hasn't started, and isn't over or cancelled */
+            cancellable: boolean;
+            /** @description What the guest would get back cancelling now, by its cancellation policy; null when not cancellable */
+            refund_if_cancelled_cents: number | null;
+            trip_id: number | null;
+            trip_item_id: number | null;
+            /** @enum {string} */
+            booking_type: "rental" | "stay" | "activity" | "transfer";
+            area: components["schemas"]["area_ref"];
+            listing: components["schemas"]["listing_summary"];
+            /** Format: date-time */
+            created_at: string;
+            /** @description Its history, oldest first */
+            events: components["schemas"]["booking_event"][];
+        };
+        checkout_body: {
+            trip_id: number;
+            /** @description The trip's items to book, each dated and not booked already */
+            item_ids: number[];
+            /** @description Made by the client for this checkout; sent again, it returns the same checkout */
+            idempotency_key: string;
+        };
+        checkout: {
+            id: number;
+            trip_id: number | null;
+            total_cents: number;
+            bookings: components["schemas"]["guest_booking"][];
+        };
+        booking_cancel_body: {
+            reason?: string;
         };
         offline_booking_body: {
             guest_name: string;
@@ -4994,8 +5463,13 @@ export interface components {
             notes?: string;
         };
         booking_status_body: {
-            /** @enum {string} */
-            status: "cancelled";
+            /**
+             * @description accepted / declined answer a request; cancelled refunds the guest in full
+             * @enum {string}
+             */
+            status: "accepted" | "declined" | "cancelled";
+            /** @description Why it was cancelled */
+            reason?: string;
         };
     };
     responses: never;

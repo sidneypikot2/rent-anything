@@ -1,7 +1,7 @@
 # A guest's trip (RAA-64): a named group of items from any area, which is what the cart
 # shows. Its dates, when set, always cover its dated items: adding or re-dating an item
-# extends them (#cover). Status (planning, partly booked, booked) comes with checkout;
-# until then every item is unbooked.
+# extends them (#cover). Its items are booked through checkout (RAA-132); a trip with a
+# booked item isn't deleted, and its booked items stay as they are.
 class Trip < ApplicationRecord
   include DateRange
 
@@ -14,6 +14,7 @@ class Trip < ApplicationRecord
   validate :user_is_a_guest
   validate :dates_cover_items, if: :dates_changed?
   after_save { @covering = false }
+  before_destroy :keep_if_booked, prepend: true
 
   # Days a trip shows its deletion notice in the cart before Trips::Cleanup deletes its
   # unbooked items (decision 10). The notice starts the day after a trip ends.
@@ -28,7 +29,7 @@ class Trip < ApplicationRecord
   scope :in_cart, -> { where(ends_on: ended_cutoff..).or(where(ends_on: nil, updated_at: undated_cutoff..)) }
   # The rest: what Trips::Cleanup deletes.
   scope :due_for_cleanup, -> { where(ends_on: ...ended_cutoff).or(where(ends_on: nil, updated_at: ...undated_cutoff)) }
-  scope :with_items, -> { includes(items: { listing: %i[area category cover_photo] }) }
+  scope :with_items, -> { includes(items: [ :booking, { listing: %i[area category cover_photo] } ]) }
 
   # The cart keeps a trip that ended on or after this date (#deletes_on is still to come)...
   def self.ended_cutoff(today = Date.current)
@@ -69,7 +70,18 @@ class Trip < ApplicationRecord
     self.ends_on = [ ends_on, to ].compact.max
   end
 
+  def booked?
+    items.booked.exists?
+  end
+
   private
+
+  def keep_if_booked
+    return unless booked?
+
+    errors.add(:base, "A trip with bookings can't be deleted: cancel them first")
+    throw :abort
+  end
 
   def user_is_a_guest
     errors.add(:user, "must be a guest") if user && !user.guest?

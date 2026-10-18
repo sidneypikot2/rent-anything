@@ -1,7 +1,9 @@
 module Availability
   # What a partner's calendar holds for some listings over some days (RAA-118), read in one
   # query per table: each day's price, units on sale, units booked and left, minimum stay and
-  # block. Preload each listing's category, units, stay_rate and tour_detail.
+  # block. Preload each listing's category, units, stay_rate and tour_detail. Every booking that
+  # holds its days counts as booked (Booking::HOLDING, RAA-132): a request and an unpaid hold
+  # take them as a confirmed booking does, so nothing is sold twice while they wait.
   #
   # - Capacity is a joiner tour's seats a day (its groups filled to max_guests, RAA-119), a
   #   private tour's groups a day, otherwise its units; a day's units_available can lower it,
@@ -32,7 +34,7 @@ module Availability
       ids = @listings.keys
       @days = ListingDay.where(listing_id: ids, date: from..to).index_by { [ _1.listing_id, _1.date ] }
       @blocks = AvailabilityBlock.where(listing_id: ids).overlapping(from, to).order(:starts_on).group_by(&:listing_id)
-      @bookings = Booking.confirmed.where(listing_id: ids).overlapping(from, to).order(:starts_on, :id)
+      @bookings = Booking.holding.where(listing_id: ids).overlapping(from, to).order(:starts_on, :id)
         .group_by(&:listing_id)
       @booked = Hash.new(0)
       @bookings.each_value { |bookings| bookings.each { count(_1, from, to) } }

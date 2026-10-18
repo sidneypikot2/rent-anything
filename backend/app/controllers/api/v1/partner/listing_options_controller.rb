@@ -3,7 +3,7 @@ module Api
     module Partner
       # What the add-listing form offers (RAA-41): bookable categories, each with the JSON
       # Schema its attrs must match, and what it means (RAA-82), and the cancellation policies a
-      # listing can have (RAA-88), and what a tour can include (RAA-110). The area isn't chosen: it follows from the map pin.
+      # listing can have (RAA-88), how guests book it (RAA-132), and what a tour can include (RAA-110). The area isn't chosen: it follows from the map pin.
       class ListingOptionsController < ApplicationController
         before_action :authenticate_user!
         before_action -> { require_role!("partner") }
@@ -18,6 +18,7 @@ module Api
                 attribute_schema: category.attribute_schema }
             end,
             cancellation_policies: Listing::CANCELLATION_POLICIES.map { |value, policy| { value:, **policy } },
+            booking_modes: Listing::BOOKING_MODES.map { |value, mode| { value:, **mode } },
             tour_inclusions: TourInclusion::KINDS.map { |kind, options| { kind:, options: } }
           }
         end

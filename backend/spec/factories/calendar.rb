@@ -20,5 +20,30 @@ FactoryBot.define do
     quantity { 1 }
     source { "offline" }
     total_cents { 400_000 }
+
+    # A guest's, from checkout (RAA-132), confirmed and paid unless a status says otherwise.
+    trait :checkout do
+      source { "checkout" }
+      user factory: :user
+      checkout { association(:checkout, user:) }
+      guests { 2 }
+      booking_mode { listing.booking_mode }
+      cancellation_policy { listing.cancellation_policy }
+      payment { status.in?(%w[confirmed in_progress completed]) ? association(:payment, checkout:, amount_cents: total_cents) : nil }
+    end
+  end
+
+  factory :checkout do
+    user
+    sequence(:idempotency_key) { |n| "checkout-key-#{n}" }
+    total_cents { 400_000 }
+  end
+
+  factory :payment do
+    checkout
+    provider { "stub" }
+    status { "paid" }
+    amount_cents { 400_000 }
+    paid_at { Time.current }
   end
 end
