@@ -87,7 +87,7 @@ module Checkouts
         raise_errors!(Checkout.new)
 
         listings = Listing.where(id: items.map(&:listing_id)).includes(*ASSOCIATIONS).order(:id).lock.index_by(&:id)
-        priced = items.sort_by { [ _1.starts_on, _1.id ] }.map { |item| price(item, listings.fetch(item.listing_id), trip) }
+        priced = items.sort_by { [ _1.starts_on, _1.id ] }.map { |item| price(item, listings.fetch(item.listing_id)) }
         raise_errors!(Checkout.new)
 
         checkout = @user.checkouts.create!(trip:, idempotency_key: key, total_cents: priced.sum { _1[:total_cents] })
@@ -108,12 +108,15 @@ module Checkouts
       end
     end
 
-    def price(item, listing, trip)
+    # A trip item's quantity is its guests; the units they take come from the listing
+    # (Booking.units_for).
+    def price(item, listing)
       return error("#{listing.title} isn't available to book any more") || { total_cents: 0 } unless listing.active?
 
-      price = Bookings::Price.call(listing, starts_on: item.starts_on, ends_on: item.ends_on, quantity: item.quantity,
-        guests: [ trip.guests, item.quantity ].max)
-      price.merge(item:, listing:)
+      units = Booking.units_for(listing, item.quantity)
+      price = Bookings::Price.call(listing, starts_on: item.starts_on, ends_on: item.ends_on, quantity: units,
+        guests: item.quantity)
+      price.merge(item:, listing:, units:)
     rescue ActiveRecord::RecordInvalid => e
       e.record.errors.full_messages.each { error("#{listing.title}: #{_1}") }
       { total_cents: 0, item:, listing: }
@@ -126,13 +129,13 @@ module Checkouts
       listing = line[:listing]
       stay = listing.category.accommodation?
       ledger = Availability::Ledger.new([ listing ], item.starts_on, item.ends_on)
-      refusal = ledger.refusal(listing, Booking.days_for(stay, item.starts_on, item.ends_on), item.quantity)
+      refusal = ledger.refusal(listing, Booking.days_for(stay, item.starts_on, item.ends_on), line[:units])
       return error("#{listing.title}: #{refusal}") if refusal
 
       instant = listing.booking_mode == "instant"
       booking = listing.bookings.create!(
         source: "checkout", checkout:, user: @user, trip_item: item, guest_name: guest_name,
-        starts_on: item.starts_on, ends_on: item.ends_on, quantity: item.quantity, guests: guests(checkout, item),
+        starts_on: item.starts_on, ends_on: item.ends_on, quantity: line[:units], guests: item.quantity.clamp(1, Booking::MAX_QUANTITY),
         status: instant ? "awaiting_payment" : "requested", expires_at: expires_at(instant, item),
         total_cents: line[:total_cents], price_breakdown: line[:breakdown],
         commission_bps: listing.category.commission_bps,
@@ -140,10 +143,6 @@ module Checkouts
         cancellation_policy: listing.cancellation_policy, booking_mode: listing.booking_mode
       )
       Bookings::Transition.record_start(booking, actor: "guest", user: @user)
-    end
-
-    def guests(checkout, item)
-      [ checkout.trip.guests, item.quantity ].max.clamp(1, Booking::MAX_QUANTITY)
     end
 
     def expires_at(instant, item)
