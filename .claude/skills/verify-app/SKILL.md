@@ -53,10 +53,11 @@ change.
 
 ## 2. Test data
 
-Once sign-up exists (M1), test accounts come from the development seeds
-(`docker compose exec -T -e RAILS_ENV=development backend bin/rails db:seed`): a guest, a
-partner with a listing, and an admin. The seed file is the source of truth for
-their emails and password. Use these, never the user's real accounts. If the seeds don't
+Test accounts come from the development seeds
+(`docker compose exec -T -e RAILS_ENV=development backend bin/rails db:seed`): `guest@example.com`
+and every sample partner, each owning live sample listings (RAA-132; there is no seeded admin
+yet). The last block of `backend/db/seeds.rb` is the source of truth for their emails and
+password (`DEV_PASSWORD`). Use these, never the user's real accounts. If the seeds don't
 cover what you need to verify, say so rather than creating data by hand.
 
 `docker compose exec` needs `-e RAILS_ENV=development`: the backend service sets it inline
