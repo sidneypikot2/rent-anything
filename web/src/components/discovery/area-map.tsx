@@ -16,6 +16,7 @@ import { cn } from "@/components/ui/cn";
 import { Price } from "@/components/ui/typography";
 import { circlePolygon, fromLngLat, MAP_STYLE_URL, setMapWorker, toLngLat, type LatLng } from "@/lib/map";
 import { useAreaMap } from "./area-map-context";
+import { BOOKING_GROUPS } from "./categories";
 import { listingPin, placePins, type AreaPin, type LandmarkInfo, type ListingPin } from "./area-map-pins";
 import { DetailPanelButton, LandmarkPanel, ListingPanel, PanelActions, PanelPhoto } from "./detail-panel";
 import {
@@ -54,12 +55,7 @@ const DOT_COLOR: Record<string, string> = {
   stay: "bg-pin-stay",
   place: "bg-navy",
 };
-const GROUP_NAMES: [string, string][] = [
-  ["activity", "Tours & activities"],
-  ["transfer", "Getting there & around"],
-  ["rental", "Rentals & gear"],
-  ["stay", "Stays"],
-];
+const GROUP_NAMES = BOOKING_GROUPS.map(({ group, title }) => [group, title] as const);
 
 function themeColor(name: string): string | undefined {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || undefined;
@@ -593,7 +589,7 @@ function PinButton({
       aria-pressed={open}
       data-testid="map-pin"
       className={cn(
-        "relative mb-1.5 flex h-8 items-center gap-1.5 rounded-full border-2 border-surface text-[13px] font-bold whitespace-nowrap text-white tabular-nums shadow-lift transition-transform duration-300 ease-calm",
+        "relative mb-1.5 flex h-8 items-center gap-1.5 rounded-full border-2 border-surface text-small font-bold whitespace-nowrap text-white tabular-nums shadow-lift transition-transform duration-300 ease-calm",
         "after:absolute after:-bottom-1.5 after:left-1/2 after:size-2.5 after:-translate-x-1/2 after:rotate-45 after:border-r-2 after:border-b-2 after:border-surface after:content-['']",
         color,
         pin.kind === "place" ? "w-8 justify-center" : pin.price ? "pr-3 pl-2" : "px-1.5",
@@ -619,7 +615,7 @@ function StackButton({ pins, lit, onOpen }: { pins: ListingPin[]; lit: boolean; 
       aria-label={`${pins.length} listings here: show them`}
       data-testid="map-stack"
       className={cn(
-        "mb-1 flex h-9 items-center gap-1.5 rounded-full border-2 border-surface bg-navy pr-3 pl-1.5 text-[13px] font-extrabold text-white shadow-lift transition-shadow duration-300 ease-calm",
+        "mb-1 flex h-9 items-center gap-1.5 rounded-full border-2 border-surface bg-navy pr-3 pl-1.5 text-small font-extrabold text-white shadow-lift transition-shadow duration-300 ease-calm",
         lit && "ring-4 ring-sky-pale",
       )}
     >

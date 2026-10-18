@@ -3,6 +3,7 @@
 import { useId, useState, type ReactNode } from "react";
 import { cn } from "@/components/ui/cn";
 import { glassClasses } from "@/components/ui/glass";
+import { ChevronGlyph } from "./tag-glyphs";
 
 // More of a list behind a button that stays below it, so opening it never moves the button
 // out from under the pointer (a <details> summary has to come first). `glass` draws the button
@@ -33,13 +34,15 @@ export function ShowMore({
         aria-controls={id}
         onClick={() => setOpen(!open)}
         className={cn(
-          "inline-flex min-h-11 items-center self-start rounded-full font-semibold",
+          "inline-flex min-h-11 items-center gap-1.5 self-start rounded-full font-semibold",
           glass
             ? cn(glassClasses("dark"), "px-4 text-sm font-bold text-white hover:bg-glass-hover active:scale-[0.97]")
             : "-mx-1 px-1 text-link",
         )}
       >
         {open ? less : more}
+        {/* It opens in place, above it, so the chevron says which way the list goes. */}
+        <ChevronGlyph direction={open ? "up" : "down"} className="size-4 shrink-0" />
       </button>
     </>
   );

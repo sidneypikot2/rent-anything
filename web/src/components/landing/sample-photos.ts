@@ -4,13 +4,16 @@
 
 type Photo = { src: string; alt: string };
 
+const COTTAGES: Photo = { src: "/images/samples/cottages.jpg", alt: "Sample photo: bamboo cottages under coconut trees" };
+
 // The first leads the home page's destinations on its widest card, so it is a landscape one;
-// the portrait island suits the tall card beside it.
+// the portrait island suits the tall card beside it. The boat is island hopping's, further down
+// the same page, so it comes last here rather than leading.
 const DESTINATION_PHOTOS: Photo[] = [
-  { src: "/images/samples/wooden-boat.jpg", alt: "Sample photo: a boat on the water at sunset" },
+  COTTAGES,
   { src: "/images/samples/island.jpg", alt: "Sample photo: a green island in clear water" },
   { src: "/images/samples/snorkeling.jpg", alt: "Sample photo: snorkelling in clear blue water" },
-  { src: "/images/samples/cottages.jpg", alt: "Sample photo: bamboo cottages under coconut trees" },
+  { src: "/images/samples/wooden-boat.jpg", alt: "Sample photo: a boat on the water at sunset" },
 ];
 
 const SCOOTERS: Photo = { src: "/images/samples/scooters.jpg", alt: "Sample photo: scooters parked by the road" };
@@ -20,7 +23,8 @@ const PHOTOS_BY_KIND: Record<string, Photo[]> = { city: [SCOOTERS] };
 
 // By tag slug, for the activities the seed data has.
 const ACTIVITY_PHOTOS: Record<string, Photo> = {
-  sightseeing: { src: "/images/samples/viewpoint.jpg", alt: "Sample photo: an island seen from a mountain top" },
+  // Bantayan is flat, so not the mountain-top view: a low green island, as the area's own.
+  sightseeing: { src: "/images/samples/island.jpg", alt: "Sample photo: a green island in clear water" },
   snorkelling: { src: "/images/samples/snorkeling.jpg", alt: "Sample photo: snorkelling in clear blue water" },
   "island-hopping": { src: "/images/samples/wooden-boat.jpg", alt: "Sample photo: a boat on the water at sunset" },
   photography: { src: "/images/samples/photography.jpg", alt: "Sample photo: a man in the sea holding a camera" },
@@ -51,7 +55,8 @@ export function activityPhoto(slug: string, index: number): Photo {
 // By listing category name, as the API sends it.
 const CATEGORY_PHOTOS: Record<string, Photo> = {
   Tour: ACTIVITY_PHOTOS["island-hopping"],
-  "Hotel or cottage": DESTINATION_PHOTOS[3],
+  "Hotel or cottage": COTTAGES,
+  "Cottage or bungalow": COTTAGES,
   Motorcycle: SCOOTERS,
   "Snorkel gear": ACTIVITY_PHOTOS.snorkelling,
   Camera: ACTIVITY_PHOTOS.photography,

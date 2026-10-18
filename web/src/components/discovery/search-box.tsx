@@ -14,28 +14,42 @@ import {
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
-import { LAUNCH_AREA } from "@/components/landing/trip-start";
-import { tripDatesQuery, type TripDates } from "@/components/trips/trip-dates";
+import { useHeroTripReport } from "@/components/landing/hero-trip";
+import { LAUNCH_AREA, START_TRIP, continueTripHref, startTripHref } from "@/components/landing/launch-area";
+import { readTripDates, tripDatesQuery, withDates, type TripDates } from "@/components/trips/trip-dates";
+import { useContinueTrip } from "@/components/trips/use-trips";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import { DateRangeCalendar } from "@/components/ui/date-range-field";
-import { PillLink } from "@/components/ui/pill";
+import { Pill, PillLink } from "@/components/ui/pill";
 import { StepperField } from "@/components/ui/stepper-field";
-import type { SearchResults } from "@/api/discovery";
-import { formatDateRange, todayIso } from "@/lib/dates";
-import { CATEGORIES, categoryHref, listingNote } from "./categories";
+import type { AreaCard, SearchResults } from "@/api/discovery";
+import { useSession } from "@/lib/auth/session";
+import { formatDateRange, localTodayIso, todayIso } from "@/lib/dates";
+import { countLine, groupDestinations, withSubAreas } from "./cards";
+import { TRIP_ORDER_GROUPS, listingNote } from "./categories";
 import { areaIcon, categoryIcon, placeIcon, tagIcon } from "./icons";
-import { ArrowGlyph, CalendarGlyph, CategoryGlyph, CloseGlyph, GuestsGlyph, SearchGlyph } from "./tag-glyphs";
+import { ArrowGlyph, CategoryGlyph, CloseGlyph, SearchGlyph } from "./tag-glyphs";
 
 const MIN_LENGTH = 2;
 const DEBOUNCE_MS = 250;
 // Below `sm` the on-screen keyboard takes half the screen: the search moves to the top of
 // the screen on focus, and the suggestions get the height left above the keyboard.
-const PHONE = "(max-width: 639px)";
+const PHONE = "(max-width: 749px)";
 // From `lg` the hero's calendar shows two months side by side.
 const WIDE = "(min-width: 64rem)";
 const MIN_PANEL_PX = 160;
+// About how tall the calendar and the guests open under the hero's card, with their margin.
+const WHEN_PANEL_PX = 440;
+const GUESTS_PANEL_PX = 300;
 const MAX_GUESTS = 50;
+// The guests panel's shortcuts. A barkada is a group of friends, which the label says for a visitor.
+const GROUP_SIZES = [
+  { label: "Just me", count: 1 },
+  { label: "Couple", count: 2 },
+  { label: "Family of 4", count: 4 },
+  { label: "Barkada (8 friends)", count: 8 },
+];
 
 type Panel = "where" | "when" | "guests" | null;
 
@@ -44,13 +58,22 @@ type Panel = "where" | "when" | "guests" | null;
 // explains a query that is too short. The suggestions follow the ARIA combobox pattern (as
 // ComboboxField does, RAA-75): arrow keys move through them, Enter picks the highlighted one,
 // Escape closes the list. Picking a suggestion opens nothing yet: it fills Where and moves on
-// to the dates, then the guests, and Show me goes to the picked place with them. Before anything is typed it offers where we launch and the kinds
-// of things to book.
-// On the home page's hero it is the page's main action: a line to fill in (go or do what,
-// when, with whom), so the trip dates and guests travel with whatever is picked, into the
-// destination page's `?from=&to=&guests=` (readTripDates). `bar` is the same three blanks in
-// one row, for the search bar under the header on every other page (RAA-126), and stacked
-// in a sheet on a phone. Otherwise it is one field, and keeps the dates it was given.
+// to the dates, then the guests, and the button goes to the picked place with them. Before anything
+// is typed it offers the destinations (RAA-130): Where answers where, and the hero's shortcuts
+// under it (HeroCategories) are the one way to the kinds of things to book.
+// On the home page's hero it is the page's main action, starting a trip: Where opens on the
+// launch area, already picked, so a visitor only adds dates and guests and presses Start your
+// trip, which lands on that destination's things to book with the trip-started banner (RAA-80)
+// and the dates and guests in its `?from=&to=&guests=` (readTripDates). Another destination
+// starts a trip there, and so does a thing to book, on its own row of its destination; anything
+// else picked or typed is a search, and the button says so.
+// Partners and admins have no cart, so for them the hero's button is always a search. The hero
+// tells the rest of it (HeroTrip) the dates, guests and destination, for the category pills, and whether the
+// button starts a trip, for the note under it. `bar` is the same three blanks as stops on a
+// route, for the search bar under the header on every other page (RAA-126): across from sm,
+// down a sheet on a phone. Otherwise it is one field, and keeps the dates it was given.
+// `sheet`: the hero's search in the sheet a phone opens from its pill (HeroSearch), its panels
+// in the flow as the bar's are there.
 // `here`: the place the page is about. Show me with its name left as it is (or emptied) stays
 // on this page with the new dates and guests, rather than searching for the name.
 export function SearchBox({
@@ -58,6 +81,7 @@ export function SearchBox({
   initialDates = { guests: 1 },
   hero = false,
   bar = false,
+  sheet = false,
   here,
   onDone,
 }: {
@@ -65,18 +89,19 @@ export function SearchBox({
   initialDates?: TripDates;
   hero?: boolean;
   bar?: boolean;
+  sheet?: boolean;
   here?: { name: string; href: string };
   // Called once the search has been sent, so a sheet holding it can close.
   onDone?: () => void;
 }) {
   const router = useRouter();
-  const [text, setText] = useState(initialQuery);
+  const [text, setText] = useState(hero ? LAUNCH_AREA.name : initialQuery);
   const [query, setQuery] = useState("");
   const [panel, setPanel] = useState<Panel>(null);
   const [range, setRange] = useState({ from: initialDates.from ?? "", to: initialDates.to ?? "" });
   const [guests, setGuests] = useState(initialDates.guests);
   // The suggestion picked for Where; typing again drops it.
-  const [picked, setPicked] = useState<Item | null>(null);
+  const [picked, setPicked] = useState<Item | null>(hero ? LAUNCH_ITEM : null);
   const [twoMonths, setTwoMonths] = useState(false);
   // The highlighted suggestion, tied to the list it was picked in: new results start with
   // nothing highlighted, so the highlight never points at another item or past the list.
@@ -89,19 +114,46 @@ export function SearchBox({
   const whenRef = useRef<HTMLButtonElement>(null);
   const guestsRef = useRef<HTMLButtonElement>(null);
   const open = panel === "where";
-  const room = useRoomAboveKeyboard(formRef, open && hero);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setQuery(text.trim()), DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [text]);
+  const room = useRoomAboveKeyboard(formRef, open && hero && !sheet);
+  // Where the panels open in the flow, under their stops, on a phone.
+  const inFlow = bar || sheet;
 
   // Only a complete range travels; a half-picked one is dropped, as readTripDates would.
   const dates: TripDates = range.from && range.to ? { ...range, guests } : { guests };
   const carry = tripDatesQuery(dates);
 
+  // A guest with a trip planning (RAA-130): the hero goes on with it, its dates and guests filled
+  // in once the trips arrive, unless some were picked first. A trip already under way starts
+  // today, by the traveller's own day as well as the API's, so the range never opens on a day
+  // that has passed; one that has ended fills none (readTripDates).
+  const continuing = useContinueTrip();
+  // Set while rendering, once (React's "adjusting state when a prop changes"), not in an effect.
+  const [seeded, setSeeded] = useState(false);
+  if (hero && continuing && !seeded) {
+    setSeeded(true);
+    if (!range.from && guests === initialDates.guests) {
+      const own = readTripDates({
+        from: continuing.starts_on ? latestDay(continuing.starts_on, todayIso(), localTodayIso()) : undefined,
+        to: continuing.ends_on ?? undefined,
+        guests: String(continuing.guests),
+      });
+      setRange({ from: own.from ?? "", to: own.to ?? "" });
+      setGuests(own.guests);
+    }
+  }
+
+  // Where still holds the suggestion it was filled with (the hero's launch area from the start),
+  // so it offers the popular list again rather than searching for that name.
+  const settled = picked !== null && text === picked.title;
+  // A settled name is never the query: the hero opens on the launch area's, and searching for
+  // it would answer the first key typed over it with results for the old name.
+  useEffect(() => {
+    if (settled) return;
+    const timer = setTimeout(() => setQuery(text.trim()), DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [text, settled]);
   // Characters, not UTF-16 units, to match the API's count (an emoji is one).
-  const enabled = [...query].length >= MIN_LENGTH;
+  const enabled = !settled && [...query].length >= MIN_LENGTH;
   const { data, isError, refetch } = useQuery({
     queryKey: ["search", query],
     queryFn: async () => {
@@ -113,15 +165,28 @@ export function SearchBox({
     staleTime: 60_000,
   });
 
+  // The destinations Where offers before anything is typed, fetched once it first opens; until
+  // they come, the launch area alone.
+  const { data: areas } = useQuery({
+    queryKey: ["areas"],
+    queryFn: async () => {
+      const { data, error } = await apiClient().GET("/api/v1/areas");
+      if (error || !data) throw new Error("Couldn't load destinations");
+      return data;
+    },
+    enabled: open,
+    staleTime: 5 * 60_000,
+  });
+
   const empty = data !== undefined && Object.values(data).every((group) => group.length === 0);
   // Hrefs without the dates: they are added when Show me is pressed, so dates picked after the
   // place still travel.
   const items = useMemo(
-    () => (!enabled ? popularItems() : data ? suggestionItems(data, query) : []),
-    [enabled, data, query],
+    () => (!enabled ? popularItems(areas) : data ? suggestionItems(data, query) : []),
+    [enabled, data, query, areas],
   );
   // While a query waits for the debounce, the list it replaces stays shut rather than flicker.
-  const typing = !enabled && [...text.trim()].length >= MIN_LENGTH;
+  const typing = !settled && !enabled && [...text.trim()].length >= MIN_LENGTH;
   const expanded = open && !typing;
   // The keys only move through a list that is on screen.
   const listed = expanded && (!enabled || (!isError && data !== undefined && !empty));
@@ -142,6 +207,7 @@ export function SearchBox({
     if (item.group) setText(item.title);
     setHighlight(null);
     setTwoMonths(window.matchMedia(WIDE).matches);
+    makeRoom("when");
     setPanel("when");
     whenRef.current?.focus();
   }
@@ -158,7 +224,7 @@ export function SearchBox({
       event.preventDefault();
       choose(items[active]);
     } else if (event.key === "Escape" && expanded) {
-      // Close the list first; the browser's own clear of a search field waits for the next Escape.
+      // Close the list first; the next Escape closes the sheet holding it, if any.
       event.preventDefault();
       setPanel(null);
       setHighlight(null);
@@ -175,14 +241,34 @@ export function SearchBox({
 
   function toggle(next: "when" | "guests") {
     if (next === "when") setTwoMonths(window.matchMedia(WIDE).matches);
+    if (panel !== next) makeRoom(next);
     setPanel(panel === next ? null : next);
+  }
+
+  // The hero's calendar and guests open under its card, which on a laptop's short window sits
+  // near the foot of the screen: rather than let the focused day scroll the page just enough to
+  // slide the card under the header, the page first moves up by what the panel lacks, at once,
+  // and never so far that the card's top passes under the header (html's scroll-pt), so as
+  // much of the title as fits stays in view.
+  function makeRoom(next: "when" | "guests") {
+    const form = formRef.current;
+    if (!hero || inFlow || !form) return;
+    const need = next === "when" ? WHEN_PANEL_PX : GUESTS_PANEL_PX;
+    const rect = form.getBoundingClientRect();
+    const short = need - (window.innerHeight - rect.bottom);
+    if (short <= 0) return;
+    const chrome = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+    window.scrollBy({ top: Math.min(short, rect.top - chrome), behavior: "instant" });
   }
 
   const input = (
     <input
       ref={inputRef}
       name="q"
-      type="search"
+      // A text field, not type="search": a search field clears itself on Escape, which in the
+      // phone's sheet emptied Where on the way to closing it. The keyboard still offers Search.
+      type="text"
+      enterKeyHint="search"
       role="combobox"
       value={text}
       onChange={(event) => {
@@ -193,13 +279,15 @@ export function SearchBox({
       }}
       onFocus={() => {
         setPanel("where");
-        if (hero && window.matchMedia(PHONE).matches) {
+        if (hero && !sheet && window.matchMedia(PHONE).matches) {
           const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
           formRef.current?.scrollIntoView({ block: "start", behavior: smooth ? "smooth" : "auto" });
         }
       }}
       onKeyDown={onKeyDown}
-      placeholder={hero ? "Bantayan, island hopping…" : "A place or activity"}
+      // The hero's Where left empty starts a trip at the launch area, and its placeholder says so,
+      // rather than the field quietly refilling itself.
+      placeholder={hero ? LAUNCH_AREA.name : "A place or activity"}
       aria-label={
         hero
           ? "Where to go or what to do: search destinations, landmarks and activities"
@@ -212,14 +300,11 @@ export function SearchBox({
       autoComplete="off"
       data-testid="search-input"
       className={cn(
-        // The browser's own clear button is unstyled; the one below replaces it.
-        "min-w-0 flex-1 bg-transparent text-base text-foreground caret-primary outline-none selection:bg-fern selection:text-navy placeholder:text-muted/80 [&::-webkit-search-cancel-button]:appearance-none",
-        // In the hero the label gives the field its height.
-        hero
-          ? "w-full truncate font-semibold text-navy placeholder:font-medium placeholder:text-muted"
-          : bar
-            ? "w-full truncate font-semibold placeholder:font-medium"
-            : "min-h-12",
+        "min-w-0 flex-1 bg-transparent text-base text-foreground caret-primary outline-none selection:bg-fern selection:text-navy placeholder:text-muted/80",
+        // On the route the stop gives the field its height.
+        hero || bar
+          ? "w-full truncate text-title-sm font-bold text-navy placeholder:font-medium placeholder:text-muted"
+          : "min-h-12",
       )}
     />
   );
@@ -236,10 +321,10 @@ export function SearchBox({
         setHighlight(null);
         inputRef.current?.focus();
       }}
-      // In the bar it sits on the value's line, so it mustn't make the row taller.
+      // On the route it sits on the value's line, so it mustn't make the stop taller.
       className={cn(
         "-mx-1 grid shrink-0 place-items-center rounded-full text-muted transition-colors duration-300 ease-calm hover:bg-surface hover:text-primary focus-visible:outline-2 focus-visible:outline-primary",
-        bar ? "-my-2 size-8" : "size-10",
+        hero || bar ? "-my-3 size-11" : "size-11",
       )}
     >
       <CloseGlyph className="size-4.5" />
@@ -247,17 +332,149 @@ export function SearchBox({
   );
 
   const dateLabel = range.from && range.to ? formatDateRange(range.from, range.to) : null;
+  // Which of the bar's stops are answered, for its route.
+  const whereSet = Boolean(text.trim());
+  const dateSet = Boolean(dateLabel);
+  // The hero starts a trip at a picked destination or thing to book, or at the launch area when
+  // Where is empty (its placeholder says so).
+  const role = useSession()?.user.role;
+  const traveller = role !== "partner" && role !== "admin";
+  const startHref =
+    hero && traveller ? (picked ? picked.trip : !text.trim() ? startTripHref(LAUNCH_AREA.slug) : undefined) : undefined;
+  const tripHref = startHref && continuing ? continueTripHref(startHref) : startHref;
+  const report = useHeroTripReport();
+  const trip = tripHref ?? null;
+  // The destination the pills open: the one picked in Where, whoever is signed in, as browsing
+  // needs no cart; anything else (nothing, a landmark, a search) leaves them on the launch area.
+  const areaSlug = picked?.area ?? LAUNCH_AREA.slug;
+  const areaName = picked?.area ? picked.title : LAUNCH_AREA.name;
+  useEffect(() => {
+    report?.({ carry, trip, area: { slug: areaSlug, name: areaName }, where: text.trim() });
+  }, [report, carry, trip, areaSlug, areaName, text]);
+
+  const suggestionsPanel = expanded && (
+    <div
+      data-testid="search-suggestions"
+      // Keeps focus in the input while a suggestion is clicked: Safari doesn't focus a
+      // clicked button, so the form's blur would close the panel before the click lands.
+      onMouseDown={(event) => event.preventDefault()}
+      // On a phone, only as tall as the room above the on-screen keyboard.
+      style={room === null ? undefined : { maxHeight: Math.max(room, MIN_PANEL_PX) }}
+      // Its own text colour, as the hero around it is glass.
+      className={cn(
+        PANEL,
+        "inset-x-0 max-h-[45vh] overflow-y-auto overscroll-contain p-2 search:max-h-[70vh]",
+        // Under the bar's Where, which takes part of its row; the hero's Where spans the card,
+        // and so does its list, covering the shortcuts under it rather than ending among them.
+        bar && "search:right-auto search:w-[min(100%,34rem)]",
+        inFlow && cn(IN_SHEET, "max-search:order-2"),
+      )}
+    >
+      {!enabled ? (
+        <Suggestions id={listId} items={items} active={active} optionId={optionId} query="" onChoose={choose} />
+      ) : isError ? (
+        <p role="status" className="p-3 text-sm text-muted">
+          Search isn&apos;t available right now.{" "}
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="font-semibold text-link underline underline-offset-2"
+          >
+            Try again
+          </button>
+        </p>
+      ) : !data ? (
+        <p role="status" className="p-3 text-sm text-muted">
+          Searching…
+        </p>
+      ) : empty ? (
+        <NoMatches query={query} carry={carry} />
+      ) : (
+        <Suggestions id={listId} items={items} active={active} optionId={optionId} query={query} onChoose={choose} />
+      )}
+    </div>
+  );
+
+  const whenPanel = panel === "when" && (
+    <div
+      id={datesId}
+      role="dialog"
+      aria-label="Trip dates"
+      // Clicks on the calendar's padding keep focus inside the form, so it stays open.
+      onMouseDown={keepFocus}
+      className={cn(PANEL, "inset-x-0 flex flex-col gap-2 p-4 search:right-auto search:w-88 lg:w-[40rem]", inFlow && cn(IN_SHEET, "max-search:order-4"), bar && "search:left-1/4")}
+    >
+      <DateRangeCalendar
+        from={range.from}
+        to={range.to}
+        onChange={setRange}
+        min={todayIso()}
+        months={twoMonths ? 2 : 1}
+        onComplete={() => {
+          // Dates picked: on to the guests, as the bar reads.
+          makeRoom("guests");
+          setPanel("guests");
+          guestsRef.current?.focus();
+        }}
+      />
+      <PanelActions
+        onClear={range.from ? () => setRange({ from: "", to: "" }) : undefined}
+        onDone={() => {
+          setPanel(null);
+          whenRef.current?.focus();
+        }}
+      />
+    </div>
+  );
+
+  const guestsPanel = panel === "guests" && (
+    <div
+      id={guestsId}
+      role="dialog"
+      aria-label="Guests"
+      onMouseDown={keepFocus}
+      className={cn(PANEL, "inset-x-0 flex flex-col gap-3 p-4 search:right-auto search:left-1/2 search:w-108", inFlow && cn(IN_SHEET, "max-search:order-6"))}
+    >
+      <StepperField
+        label="Guests"
+        hint={guests >= MAX_GUESTS ? `${MAX_GUESTS} is the most one search takes` : "Everyone on the trip, kids too"}
+        value={guests}
+        onChange={setGuests}
+        min={1}
+        max={MAX_GUESTS}
+        data-testid="search-guests-count"
+      />
+      {/* Common group sizes, one tap each; the stepper shows and fine-tunes the count. */}
+      <div role="group" aria-label="Group size" className="flex flex-wrap gap-2">
+        {GROUP_SIZES.map((size) => (
+          <Pill key={size.count} on={guests === size.count} onClick={() => setGuests(size.count)}>
+            {size.label}
+          </Pill>
+        ))}
+      </div>
+      <PanelActions
+        onDone={() => {
+          setPanel(null);
+          guestsRef.current?.focus();
+        }}
+      />
+    </div>
+  );
 
   return (
     <form
       ref={formRef}
       action="/search"
       role="search"
-      className={cn("relative w-full scroll-mt-4 text-left", !hero && !bar && "max-w-xl")}
+      className={cn("relative w-full text-left", !hero && "scroll-mt-4", !hero && !bar && "max-w-xl")}
       onKeyDown={onFormKeyDown}
       onSubmit={(event) => {
         const typed = text.trim();
-        if (picked) {
+        if (tripHref) {
+          event.preventDefault();
+          setPanel(null);
+          router.push(withDates(tripHref, carry));
+        } else if (picked) {
           event.preventDefault();
           setPanel(null);
           router.push(withDates(picked.href, carry));
@@ -269,7 +486,8 @@ export function SearchBox({
         onDone?.();
       }}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setPanel(null);
+        if (event.currentTarget.contains(event.relatedTarget)) return;
+        setPanel(null);
       }}
     >
       {/* What the GET form sends with the query, so Enter and the results page keep them too. */}
@@ -277,15 +495,30 @@ export function SearchBox({
       {dates.to && <input type="hidden" name="to" value={dates.to} />}
       {guests > 1 && <input type="hidden" name="guests" value={guests} />}
 
-      {hero ? (
-        // A white card on the hero photo (RAA-130): Where, When and Guests as fields, then Show
-        // me. On a phone Where has the first row, When and Guests share the second and the button
-        // the third; from sm they are one row, Where the widest.
-        <div className="grid max-w-[47.5rem] grid-cols-2 gap-2 card-edge rounded-[1.25rem] bg-surface p-2 text-navy shadow-float sm:flex sm:items-center fold:p-1.5 landscape-phone:p-1.5">
-          <label className={cn(heroFieldClasses(Boolean(text), panel === "where"), "col-span-2 cursor-text pr-1 sm:flex-[2]")}>
-            <span className="shrink-0 text-sm font-bold whitespace-nowrap text-navy">Go or do</span>
-            {input}
-            {clear}
+      {hero || bar ? (
+        // The route (Search Bar Directions, A2): Where, When and Guests are stops on a dashed
+        // path, like a route on the area map. A stop's dot fills once it is answered, the path
+        // between two answered stops turns solid, and a missing one asks in blue ("Add dates +").
+        // The button sits at the path's end. From sm it runs across a white card; on a phone it
+        // runs down: on the hero's card (RAA-130), its panels under the card, and in the bar's
+        // sheet, each stop's panel opening under it. A phone on its side keeps the row.
+        <div
+          className={cn(
+            "flex flex-col search:flex-row search:items-stretch search:card-edge search:rounded-card search:bg-surface search:pt-4 search:pr-2.5 search:pb-2.5 search:pl-6",
+            hero && !sheet
+              ? "card-edge rounded-card bg-surface p-5 pb-4 text-navy shadow-float search:shadow-float landscape-phone:pt-3 landscape-phone:pb-2"
+              : hero
+                ? "text-navy"
+                : "search:shadow-lift",
+          )}
+        >
+          <label className={cn(STOP, "cursor-text max-search:order-1 search:flex-[1.5]")}>
+            <RouteMark set={whereSet} open={panel === "where"} traced={whereSet && dateSet} />
+            <span className={STOP_LABEL}>Where</span>
+            <span className="flex min-w-0 items-center gap-1">
+              {input}
+              {clear}
+            </span>
           </label>
           <button
             ref={whenRef}
@@ -295,11 +528,11 @@ export function SearchBox({
             aria-controls={panel === "when" ? datesId : undefined}
             onClick={() => toggle("when")}
             data-testid="search-dates"
-            className={cn(heroFieldClasses(Boolean(dateLabel), panel === "when"), "sm:flex-1")}
+            className={cn(STOP, "group/stop max-search:order-3")}
           >
-            <CalendarGlyph className="size-4.5 shrink-0" />
-            <span className="sr-only">Dates: </span>
-            <span className="truncate">{dateLabel ?? "Add dates"}</span>
+            <RouteMark set={dateSet} open={panel === "when"} traced={dateSet} />
+            <span className={STOP_LABEL}>When</span>
+            <span className={cn(STOP_VALUE, !dateSet && STOP_EMPTY)}>{dateLabel ?? "Add dates"}</span>
           </button>
           <button
             ref={guestsRef}
@@ -309,67 +542,43 @@ export function SearchBox({
             aria-controls={panel === "guests" ? guestsId : undefined}
             onClick={() => toggle("guests")}
             data-testid="search-guests"
-            className={cn(heroFieldClasses(guests > 1, panel === "guests"), "sm:flex-1")}
+            className={cn(STOP, "group/stop max-search:order-5")}
           >
-            <GuestsGlyph className="size-4.5 shrink-0" />
-            <span className="sr-only">Guests: </span>
-            <span className="truncate">{guests === 1 ? "Just me" : `${guests} guests`}</span>
+            {/* Guests always holds an answer (Just me), so the path to Show me is solid once
+                the stops before it are. */}
+            <RouteMark set open={panel === "guests"} traced={whereSet && dateSet} last />
+            <span className={STOP_LABEL}>Guests</span>
+            <span className={STOP_VALUE}>{guests === 1 ? "Just me" : `${guests} guests`}</span>
           </button>
-          <Button
-            type="submit"
-            arrow
-            aria-label="Search"
-            data-testid="search-submit"
-            className="col-span-2 shrink-0 landscape-phone:min-h-11"
-          >
-            Show me
-          </Button>
-        </div>
-      ) : bar ? (
-        // Where, When and Guests on one row of the light glass bar, each word beside its own white
-        // field, as the hero's line reads; on a phone (inside the sheet) each word sits above its
-        // field, with Show me under them. A click on a word opens its field.
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 sm:card-edge sm:rounded-full sm:bg-surface/90 sm:py-2 sm:pr-2 sm:pl-6 sm:shadow-lift sm:backdrop-blur-xl">
-          <label className={cn(BAR_BLANK, "sm:flex-[1.5]")}>
-            <span className={BAR_LABEL}>Where</span>
-            <span className={cn(BAR_FIELD, "cursor-text pr-1.5", panel === "where" && BAR_FIELD_OPEN)}>{input}{clear}</span>
-          </label>
-          <label className={BAR_BLANK}>
-            <span className={BAR_LABEL}>When</span>
-            <button
-              ref={whenRef}
-              type="button"
-              aria-haspopup="dialog"
-              aria-expanded={panel === "when"}
-              aria-controls={panel === "when" ? datesId : undefined}
-              onClick={() => toggle("when")}
-              data-testid="search-dates"
-              className={cn(BAR_FIELD, !dateLabel && "font-medium text-muted", panel === "when" && BAR_FIELD_OPEN)}
+          {inFlow && (
+            <>
+              {suggestionsPanel}
+              {whenPanel}
+              {guestsPanel}
+            </>
+          )}
+          {hero ? (
+            <Button type="submit" arrow data-testid="search-submit" className="shrink-0 max-search:order-7 max-search:mt-1 search:self-center">
+              {/* Both labels hold the button's width, so the stops beside it don't jump when
+                  typing over the destination turns Start your trip into Search. */}
+              <span className="grid justify-items-center">
+                <span className={cn("col-start-1 row-start-1", !tripHref && "invisible")}>
+                  {continuing ? START_TRIP.continueAction : START_TRIP.action}
+                </span>
+                <span className={cn("col-start-1 row-start-1", tripHref && "invisible")}>Search</span>
+              </span>
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              size="pill"
+              data-testid="search-submit"
+              className="group/go shrink-0 gap-2 max-search:order-7 max-search:mt-1 search:self-center"
             >
-              <CalendarGlyph className="size-4 shrink-0 text-primary" />
-              <span className="truncate">{dateLabel ?? "Add dates"}</span>
-            </button>
-          </label>
-          <label className={BAR_BLANK}>
-            <span className={BAR_LABEL}>Guests</span>
-            <button
-              ref={guestsRef}
-              type="button"
-              aria-haspopup="dialog"
-              aria-expanded={panel === "guests"}
-              aria-controls={panel === "guests" ? guestsId : undefined}
-              onClick={() => toggle("guests")}
-              data-testid="search-guests"
-              className={cn(BAR_FIELD, guests === 1 && "font-medium text-muted", panel === "guests" && BAR_FIELD_OPEN)}
-            >
-              <GuestsGlyph className="size-4 shrink-0 text-primary" />
-              <span className="truncate">{guests === 1 ? "Just me" : `${guests} guests`}</span>
-            </button>
-          </label>
-          <Button type="submit" size="pill" data-testid="search-submit" className="group/go shrink-0 gap-2">
-            Show me
-            <ArrowGlyph className="size-4.5 transition-transform duration-300 ease-calm group-hover/go:translate-x-0.5" />
-          </Button>
+              Show me
+              <ArrowGlyph className="size-4.5 transition-transform duration-300 ease-calm motion-safe:group-hover/go:translate-x-0.5" />
+            </Button>
+          )}
         </div>
       ) : (
         <div className="flex items-center gap-2 rounded-card border border-line-strong bg-surface p-1.5 pl-4 shadow-soft transition-[border-color,box-shadow] duration-300 ease-calm focus-within:border-primary focus-within:ring-4 focus-within:ring-sky-mist">
@@ -383,127 +592,59 @@ export function SearchBox({
         </div>
       )}
 
-      {expanded && (
-        <div
-          data-testid="search-suggestions"
-          // Keeps focus in the input while a suggestion is clicked: Safari doesn't focus a
-          // clicked button, so the form's blur would close the panel before the click lands.
-          onMouseDown={(event) => event.preventDefault()}
-          // On a phone, only as tall as the room above the on-screen keyboard.
-          style={room === null ? undefined : { maxHeight: Math.max(room, MIN_PANEL_PX) }}
-          // Its own text colour, as the hero around it is glass.
-          className={cn(
-            PANEL,
-            "inset-x-0 max-h-[45vh] overflow-y-auto overscroll-contain p-2 sm:max-h-[70vh]",
-            (hero || bar) && "sm:right-auto sm:w-[min(100%,34rem)]",
-            bar && IN_SHEET,
-          )}
-        >
-          {!enabled ? (
-            <Suggestions id={listId} items={items} active={active} optionId={optionId} query="" onChoose={choose} />
-          ) : isError ? (
-            <p role="status" className="p-3 text-sm text-muted">
-              Search isn&apos;t available right now.{" "}
-              <button
-                type="button"
-                onClick={() => refetch()}
-                className="font-semibold text-link underline underline-offset-2"
-              >
-                Try again
-              </button>
-            </p>
-          ) : !data ? (
-            <p role="status" className="p-3 text-sm text-muted">
-              Searching…
-            </p>
-          ) : empty ? (
-            <NoMatches query={query} carry={carry} />
-          ) : (
-            <Suggestions id={listId} items={items} active={active} optionId={optionId} query={query} onChoose={choose} />
-          )}
-        </div>
-      )}
-
-      {panel === "when" && (
-        <div
-          id={datesId}
-          role="dialog"
-          aria-label="Trip dates"
-          // Clicks on the calendar's padding keep focus inside the form, so it stays open.
-          onMouseDown={keepFocus}
-          className={cn(PANEL, "inset-x-0 flex flex-col gap-2 p-4 sm:right-auto sm:w-88 lg:w-[40rem]", bar && IN_SHEET, bar && "sm:left-1/4")}
-        >
-          <DateRangeCalendar
-            from={range.from}
-            to={range.to}
-            onChange={setRange}
-            min={todayIso()}
-            months={twoMonths ? 2 : 1}
-            onComplete={() => {
-              // Dates picked: on to the guests, as the bar reads.
-              setPanel("guests");
-              guestsRef.current?.focus();
-            }}
-          />
-          <PanelActions
-            onClear={range.from ? () => setRange({ from: "", to: "" }) : undefined}
-            onDone={() => {
-              setPanel(null);
-              whenRef.current?.focus();
-            }}
-          />
-        </div>
-      )}
-
-      {panel === "guests" && (
-        <div
-          id={guestsId}
-          role="dialog"
-          aria-label="Guests"
-          onMouseDown={keepFocus}
-          className={cn(PANEL, "inset-x-0 flex flex-col gap-3 p-4 sm:right-auto sm:w-80", bar && IN_SHEET, bar && "sm:left-1/2")}
-        >
-          <StepperField
-            label="Guests"
-            hint="Everyone on the trip, kids too"
-            value={guests}
-            onChange={setGuests}
-            min={1}
-            max={MAX_GUESTS}
-            data-testid="search-guests-count"
-          />
-          <PanelActions
-            onDone={() => {
-              setPanel(null);
-              guestsRef.current?.focus();
-            }}
-          />
-        </div>
+      {!inFlow && (
+        <>
+          {suggestionsPanel}
+          {whenPanel}
+          {guestsPanel}
+        </>
       )}
     </form>
   );
 }
 
-// The panels under the bar: suggestions, the calendar, the guests.
+// The panels under the route: suggestions, the calendar, the guests.
 const PANEL = "absolute right-0 top-full z-20 mt-2 card-edge rounded-card bg-surface text-foreground shadow-lift";
 // On a phone the bar lives in a sheet, so its panels open in the flow, under the fields,
 // where the sheet scrolls to them.
-const IN_SHEET = "max-sm:static max-sm:shadow-none";
-// One of the bar's blanks: its word, then its field; on a phone the word sits above.
-const BAR_BLANK = "flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2.5";
-const BAR_LABEL = "text-sm font-semibold whitespace-nowrap text-foreground";
-// The field itself: a white pill holding the value, ringed while its panel is open.
-const BAR_FIELD =
-  "flex min-h-12 w-full min-w-0 items-center gap-2 rounded-full border border-line-strong bg-surface px-4 text-left text-sm font-semibold transition-[border-color,box-shadow] duration-300 ease-calm hover:border-primary focus-visible:outline-2 focus-visible:outline-primary has-[input:focus-visible]:border-primary has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-sky-mist sm:min-h-11";
-const BAR_FIELD_OPEN = "border-primary ring-2 ring-sky-mist";
-// A field of the hero's card (RAA-130): 48px, outlined in line-strong, its icon and value muted
-// until filled; blue-ringed while focused or while its panel is open.
-function heroFieldClasses(filled: boolean, open: boolean) {
-  return cn(
-    "flex min-h-12 min-w-0 items-center gap-2 rounded-control border bg-surface px-3.5 text-left text-[0.9375rem] outline-none transition-[border-color,box-shadow] duration-300 ease-calm hover:border-primary landscape-phone:min-h-11",
-    "focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-sky-mist has-[input:focus-visible]:border-primary has-[input:focus-visible]:ring-4 has-[input:focus-visible]:ring-sky-mist",
-    filled ? "font-semibold text-navy" : "font-medium text-muted",
-    open ? "border-primary ring-4 ring-sky-mist" : "border-line-strong",
+const IN_SHEET = "max-search:static max-search:shadow-none";
+// A stop on the bar's route: its dot and path (RouteMark), its word, then its value. Across from
+// sm, the dot sits over the word and the path runs right to the next stop; down on a phone, the
+// dot sits beside the word and the path runs down to the next.
+const STOP =
+  "relative flex min-w-0 flex-col gap-px text-left focus-visible:outline-none max-search:pb-4 max-search:pl-7.5 search:flex-1 search:pt-8 search:pr-4 search:pb-2";
+const STOP_LABEL = "text-small font-bold text-muted";
+const STOP_VALUE =
+  "truncate text-title-sm font-bold text-navy underline-offset-4 decoration-2 group-focus-visible/stop:underline group-focus-visible/stop:decoration-primary";
+// What a stop still needs, in blue, with a plus: "Add dates +".
+const STOP_EMPTY = "text-primary after:content-['_+']";
+
+// A stop's dot, and the path from it to the next stop (or, for the last, to Show me): dashed
+// until both ends are answered, then solid navy. The open stop's dot is blue and ringed.
+function RouteMark({ set, open, traced, last = false }: { set: boolean; open: boolean; traced: boolean; last?: boolean }) {
+  return (
+    <>
+      <span
+        aria-hidden
+        className={cn(
+          "absolute left-0 size-4 rounded-full border-2 transition-[background-color,border-color,box-shadow] duration-300 ease-calm max-search:top-0.5 search:top-1",
+          open
+            ? "border-primary bg-primary ring-4 ring-sky-mist"
+            : set
+              ? "border-navy bg-navy"
+              : "border-line-strong bg-surface",
+        )}
+      />
+      <span
+        aria-hidden
+        className={cn(
+          "absolute transition-colors duration-300 ease-calm max-search:top-6 max-search:bottom-0 max-search:left-1.75 max-search:border-l-2 search:top-2.75 search:right-2 search:left-6 search:border-t-2",
+          traced ? "border-solid border-navy" : "border-dashed border-line-strong",
+          // On a phone the last stop's path would run into the button.
+          last && "max-search:hidden",
+        )}
+      />
+    </>
   );
 }
 
@@ -526,19 +667,20 @@ function keepFocus(event: MouseEvent) {
   event.preventDefault();
 }
 
-// Nothing found is not a dead end: the kinds of things to book are one tap away.
+// Nothing found is not a dead end: the launch area's kinds of things to book are one tap away,
+// named and ordered as the hero's shortcuts (TRIP_ORDER_GROUPS).
 function NoMatches({ query, carry }: { query: string; carry: string }) {
   return (
     <div className="flex flex-col gap-3 p-3">
       <p role="status" className="text-sm text-muted">
-        Nothing matches “{query}” yet. Try one of these:
+        Nothing matches “{query}” yet. Browse {LAUNCH_AREA.name} instead:
       </p>
       <ul className="flex flex-wrap gap-2">
-        {CATEGORIES.map((category) => (
-          <li key={category.label}>
-            <PillLink href={withDates(categoryHref(category.query), carry)}>
-              <CategoryGlyph name={category.icon} className="size-4.5 shrink-0 text-primary" />
-              {category.label}
+        {TRIP_ORDER_GROUPS.map((group) => (
+          <li key={group.id}>
+            <PillLink href={withDates(`/${LAUNCH_AREA.slug}?show=${group.id}#listings`, carry)}>
+              <CategoryGlyph name={group.icon} className="size-4.5 shrink-0 text-primary" />
+              {group.short}
             </PillLink>
           </li>
         ))}
@@ -574,34 +716,34 @@ function useRoomAboveKeyboard(ref: RefObject<HTMLFormElement | null>, active: bo
   return room;
 }
 
-// A link with the trip dates and guests ("?from=…&to=…&guests=2", or "") added to its query,
-// before any #hash.
-function withDates(href: string, carry: string) {
-  if (!carry) return href;
-  const hash = href.indexOf("#");
-  const [path, fragment] = hash < 0 ? [href, ""] : [href.slice(0, hash), href.slice(hash)];
-  return `${path}${path.includes("?") ? `&${carry.slice(1)}` : carry}${fragment}`;
-}
+// `area`: a destination's slug, so the hero's shortcuts can open it. `trip`: where the hero's
+// button starts a trip with it picked: a destination's things to book, or a thing to book's own
+// row on its destination's page.
+type Item = { group: string; href: string; icon: ReactNode; title: string; note?: string; area?: string; trip?: string };
 
-type Item = { group: string; href: string; icon: ReactNode; title: string; note?: string };
+const LAUNCH_ITEM: Item = {
+  group: "Destinations",
+  href: `/${LAUNCH_AREA.slug}`,
+  icon: areaIcon(LAUNCH_AREA.kind),
+  title: LAUNCH_AREA.name,
+  note: "Beaches, island hopping and local partners",
+  area: LAUNCH_AREA.slug,
+  trip: startTripHref(LAUNCH_AREA.slug),
+};
 
-// Before anything is typed: where we launch and the kinds of things to book.
-function popularItems(): Item[] {
-  return [
-    {
-      group: "Where we launch",
-      href: `/${LAUNCH_AREA.slug}`,
-      icon: areaIcon(LAUNCH_AREA.kind),
-      title: LAUNCH_AREA.name,
-      note: "Beaches, island hopping and local partners",
-    },
-    ...CATEGORIES.map((category) => ({
-      group: "Things to book",
-      href: categoryHref(category.query),
-      icon: categoryIcon(category.icon),
-      title: category.label,
-    })),
-  ];
+// Before anything is typed: the destinations, as the home page's cards group them (a town in its
+// island's), most to book first; the launch area alone until they have loaded.
+function popularItems(areas: AreaCard[] | undefined): Item[] {
+  if (!areas?.length) return [LAUNCH_ITEM];
+  return groupDestinations(areas).map(({ area, subAreas }) => ({
+    group: "Destinations",
+    href: `/${area.slug}`,
+    icon: areaIcon(area.kind),
+    title: area.name,
+    note: countLine(withSubAreas(area, subAreas)) || area.parent_name || undefined,
+    area: area.slug,
+    trip: startTripHref(area.slug),
+  }));
 }
 
 // Every suggestion in display order, ending with "See all results", so the arrow keys and
@@ -614,6 +756,8 @@ function suggestionItems(results: SearchResults, query: string): Item[] {
       icon: areaIcon(area.kind),
       title: area.name,
       note: area.parent_name ?? undefined,
+      area: area.slug,
+      trip: startTripHref(area.slug),
     })),
     ...results.landmarks.map((landmark) => ({
       group: "Landmarks",
@@ -636,6 +780,7 @@ function suggestionItems(results: SearchResults, query: string): Item[] {
       icon: categoryIcon(listing.category),
       title: listing.title,
       note: listingNote(listing, results),
+      trip: `/${listing.area_slug}?start=trip#listing-${listing.id}`,
     })),
     {
       group: "",
@@ -688,7 +833,7 @@ function Suggestions({
           className={cn(!group && "mt-1.5 border-t border-line pt-1.5")}
         >
           {group && (
-            <li role="presentation" className="px-3 pb-1.5 pt-3 text-xs font-bold text-muted">
+            <li role="presentation" className="px-3 pb-1.5 pt-3 text-small font-bold text-muted">
               {group}
             </li>
           )}
@@ -727,7 +872,7 @@ function Suggestions({
                     <span className={cn("block truncate", item.group && "font-medium text-foreground")}>
                       {item.group ? <Matched title={item.title} query={query} /> : item.title}
                     </span>
-                    {item.note && <span className="block truncate text-xs text-muted">{item.note}</span>}
+                    {item.note && <span className="block truncate text-small text-muted">{item.note}</span>}
                   </span>
                 </button>
               </li>
@@ -737,4 +882,9 @@ function Suggestions({
       ))}
     </div>
   );
+}
+
+// The latest of some "YYYY-MM-DD" days, which sort as text.
+function latestDay(...days: string[]) {
+  return days.reduce((latest, day) => (day > latest ? day : latest));
 }

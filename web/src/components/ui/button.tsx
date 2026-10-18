@@ -33,28 +33,28 @@ const SIZES = {
   sm: "rounded-full px-4 py-2 text-sm",
   // The small look with a 44px touch target, for an action a traveller taps on a phone (RAA-85).
   touch: "min-h-11 rounded-full px-4 py-2 text-sm",
-  md: "min-h-12 rounded-full px-6 py-3 text-[0.9375rem]",
+  md: "min-h-12 rounded-full px-6 py-3 text-control",
   // A round 44px button holding one icon; give it an aria-label.
   icon: "size-11 rounded-full",
   // The same, larger, for the one main action in a tall bar (the home page's search):
   // 48px, 56px from sm.
   "icon-lg": "size-12 rounded-full sm:size-14",
   // The md height as a pill.
-  pill: "min-h-11 rounded-full px-5 py-2.5 text-[0.9375rem]",
+  pill: "min-h-11 rounded-full px-5 py-2.5 text-control",
 };
 
 export type ButtonStyle = {
   variant?: keyof typeof VARIANTS;
   size?: keyof typeof SIZES;
   // A trailing arrow in its own round well, which nudges forward on hover: for a button that
-  // takes you somewhere (Show me, Plan your trip).
+  // takes you somewhere (Show me, Start your trip).
   arrow?: boolean;
 };
 
 function buttonClasses({ variant = "primary", size = "md", arrow = false }: ButtonStyle) {
   return cn(
     "group/button relative inline-flex items-center justify-center gap-2 font-semibold",
-    "transition-[background-color,border-color,box-shadow,transform,color] duration-300 ease-calm hover:-translate-y-px active:translate-y-0 active:scale-[0.98]",
+    "transition-[background-color,border-color,box-shadow,transform,color] duration-300 ease-calm motion-safe:hover:-translate-y-px active:translate-y-0 active:scale-[0.98]",
     // While lifted, a 1px strip fills the row it left, so a pointer on its bottom edge stays on
     // it: otherwise the lift moves it off the pointer, it drops back, and it jitters forever
     // (and Playwright's click waits on it settling).
@@ -70,7 +70,7 @@ function Arrow() {
   return (
     <span
       aria-hidden
-      className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/18 transition-transform duration-300 ease-calm group-hover/button:translate-x-0.5"
+      className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/18 transition-transform duration-300 ease-calm motion-safe:group-hover/button:translate-x-0.5"
     >
       <ArrowGlyph className="size-4" />
     </span>

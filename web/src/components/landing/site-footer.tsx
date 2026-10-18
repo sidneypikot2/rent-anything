@@ -1,13 +1,8 @@
-import Link from "next/link";
 import { GlassPanel } from "@/components/ui/glass";
 import { TAGLINE } from "@/lib/brand";
+import { FooterNav } from "./footer-nav";
+import { LAUNCH_AREA } from "./launch-area";
 import { Logo } from "./logo";
-
-const LINKS = [
-  { href: "/#destinations", label: "Destinations" },
-  { href: "/#activities", label: "Activities" },
-  { href: "/partner/register", label: "List with us" },
-];
 
 // The guest footer: a few links and the line about what we are, on glass over the guest
 // pages' fixed backdrop (Sky & Forest, RAA-102; RAA-107).
@@ -20,18 +15,10 @@ export function SiteFooter() {
           <p className="font-display font-semibold text-sky-mist">{TAGLINE}</p>
         </div>
         <GlassPanel tone="forest" className="flex flex-col gap-4 rounded-card p-card text-sm sm:min-w-80">
-          <nav aria-label="Footer" className="flex flex-wrap gap-2">
-            {LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="flex min-h-11 items-center rounded-full border border-glass-edge bg-glass-fill px-4 font-medium hover:bg-glass-hover"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-          <p className="text-pretty text-sky-mist">Local partners · starting on Bantayan Island, Cebu</p>
+          {/* Two to a row on a phone, the partners' link under them across both, so the three
+              pills read as a set rather than wrapping one short. */}
+          <FooterNav />
+          <p className="text-pretty text-sky-mist">Local partners · starting on {LAUNCH_AREA.name}, {LAUNCH_AREA.region}</p>
         </GlassPanel>
       </div>
     </footer>

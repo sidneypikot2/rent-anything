@@ -6,19 +6,20 @@ import { getArea, getDestinations, getExplore, type AreaCard, type AreaDetail } 
 import { AreaMapProvider, MapHoverTarget } from "@/components/discovery/area-map-context";
 import { AreaMapLayout } from "@/components/discovery/area-map-layout";
 import { listingPin, placeKey, placePins, type LandmarkInfo, type ListingPanelInfo } from "@/components/discovery/area-map-pins";
+import { BOOKING_GROUPS } from "@/components/discovery/categories";
 import { countLine, LandmarkCard, ListingRow, PHOTO_CARD, PHOTO_CARD_IMAGE, withSubAreas } from "@/components/discovery/cards";
 import { ExploreSections, withoutShown } from "@/components/discovery/explore-sections";
 import { areaIcon } from "@/components/discovery/icons";
 import { ListingBrowser } from "@/components/discovery/listing-browser";
 import { listingFeatures } from "@/components/discovery/listing-features";
-import { AreaGlyph } from "@/components/discovery/tag-glyphs";
+import { AreaGlyph, PlaceGlyph } from "@/components/discovery/tag-glyphs";
 import { CurrentPlace } from "@/components/landing/current-place";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { areaPhoto, landmarkPhoto, listingCover } from "@/components/landing/sample-photos";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
-import { readTripDates, tripDatesQuery } from "@/components/trips/trip-dates";
+import { readTripDates, tripDatesQuery, withDates } from "@/components/trips/trip-dates";
 import { TripDatesBar } from "@/components/trips/trip-dates-bar";
 import { TripStartedBanner } from "@/components/trips/trip-started-banner";
 import { GlassPanel, glassClasses } from "@/components/ui/glass";
@@ -32,12 +33,13 @@ type Listing = AreaDetail["listings"][number];
 
 // Listings grouped by what the trip needs (SPEC: the area home groups by trip need), which
 // What to book's filter offers (RAA-125). Each group keeps its anchor, and an icon for the rail.
-const TRIP_NEEDS: { title: string; id: string; icon: string; bookingType: Listing["booking_type"] }[] = [
-  { title: "Tours & activities", id: "need-activity", icon: "Tour", bookingType: "activity" },
-  { title: "Getting there & around", id: "need-transfer", icon: "Van transfer", bookingType: "transfer" },
-  { title: "Rentals & gear", id: "need-rental", icon: "Motorcycle", bookingType: "rental" },
-  { title: "Stays", id: "need-stay", icon: "Hotel or cottage", bookingType: "stay" },
-];
+const TRIP_NEEDS = BOOKING_GROUPS.map(({ group, id, title, short, icon }) => ({
+  title,
+  short,
+  id,
+  icon,
+  bookingType: group satisfies Listing["booking_type"],
+}));
 
 export async function generateMetadata(props: PageProps<"/[area]">): Promise<Metadata> {
   const detail = await getArea((await props.params).area);
@@ -60,6 +62,8 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   const datesQuery = tripDatesQuery(dates);
   // Arrived from the home page's "Start your trip" (RAA-80).
   const starting = searchParams.start === "trip";
+  // Arrived from one of the home hero's category pills (RAA-130): What to book opens on that group.
+  const show = typeof searchParams.show === "string" ? searchParams.show : undefined;
   const [detail, explore, destinations] = await Promise.all([
     getArea(slug),
     getExplore({ area: slug }),
@@ -187,10 +191,22 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                       id="listings"
                       surface="paper"
                       title="What to book"
-                      intro="Tours, rides, gear and stays from local partners. Saving to a trip is free, and there's nothing to pay yet."
+                      intro="Tours, transfers, rentals and stays from local partners. Saving to a trip is free, and there's nothing to pay yet."
                     >
                       <TripStartedBanner name={area.name} show={starting} />
+                      {/* Arrived from the home page, straight down to here: past the banner's
+                          chips, so what the places inside this one add is said again, or a
+                          shortcut that finds one tour here reads as all there is (RAA-130). */}
+                      {(show || starting) && counts && counts.more.length > 0 && (
+                        <MoreInside
+                          group={TRIP_NEEDS.find((need) => need.id === show)}
+                          here={needs.find((need) => need.id === show)?.listings.length ?? listings.length}
+                          more={counts.more}
+                          datesQuery={datesQuery}
+                        />
+                      )}
                       <ListingBrowser
+                        initial={show}
                         dates={<TripDatesBar key={`${dates.from}-${dates.to}-${dates.guests}`} dates={dates} rail />}
                         empty={<p className="text-muted">Nothing here yet.</p>}
                         groups={needs.map((need) => ({
@@ -285,6 +301,43 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
         </AreaMapProvider>
       </PageSheet>
     </main>
+  );
+}
+
+// "Tours: 1 here. 14 more to book in Santa Fe →": what this place has, of the
+// group the visitor came for when they came for one, by the shortcut's own word, and a link to each place inside it with
+// more, opening on the same group with the same dates. Their counts are everything to book there,
+// as the API counts no group per place.
+function MoreInside({
+  group,
+  here,
+  more,
+  datesQuery,
+}: {
+  group: (typeof TRIP_NEEDS)[number] | undefined;
+  here: number;
+  more: ReturnType<typeof areaCounts>["more"];
+  datesQuery: string;
+}) {
+  const lead = group
+    ? here > 0
+      ? `${group.short}: ${here} here.`
+      : `No ${group.short.toLowerCase()} here yet.`
+    : `${here} to book here.`;
+  return (
+    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted" data-testid="more-inside">
+      <PlaceGlyph className="size-4 shrink-0 text-primary" />
+      <span>{lead}</span>
+      {more.map(({ area, listingCount }) => (
+        <Link
+          key={area.slug}
+          href={withDates(`/${area.slug}${group ? `?show=${group.id}` : ""}#listings`, datesQuery)}
+          className="font-semibold text-link underline-offset-4 hover:underline"
+        >
+          {listingCount} more to book in {area.name} <span aria-hidden>→</span>
+        </Link>
+      ))}
+    </p>
   );
 }
 

@@ -7,6 +7,8 @@ import { Eyebrow, SectionTitle } from "./typography";
 // `section` step apart in their page (gap-section). It eases up as it scrolls into view.
 // In a .page-sections page, `surface` says what it sits on (RAA-125): the bare photo, the
 // faint glass or paper (a pale sheet, for a section of white cards); globals.css draws them.
+// An anchor to it (/#destinations) clears the header through html's scroll padding
+// (--chrome) alone: a scroll margin here would add to it.
 export function Section({
   id,
   testId,
@@ -29,7 +31,7 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section id={id} data-testid={testId} data-surface={surface} className={cn("reveal flex scroll-mt-28 flex-col gap-block", className)}>
+    <section id={id} data-testid={testId} data-surface={surface} className={cn("reveal flex flex-col gap-block", className)}>
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="flex max-w-prose flex-col gap-2">
           {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}

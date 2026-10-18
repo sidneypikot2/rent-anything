@@ -82,6 +82,17 @@
   /* The small phones (320px wide) get max-xs: tweaks, so the header bar and the search keep
      to one row there. */
   --breakpoint-xs: 22.5rem;
+  /* The search: the one-line pill and the stacked sheet under this width, the route card from it. */
+  --breakpoint-search: 46.875rem;
+
+  /* Type: the steps between Tailwind's own sizes. small = badges, pin labels and card meta
+     (13px); control = buttons and fields (15px); title-sm = a small card's title (17px); band =
+     the closing band's title, smaller than a section title. They set no line height, so the
+     text keeps its parent's or its own leading-*. */
+  --text-small: 0.8125rem;
+  --text-control: 0.9375rem;
+  --text-title-sm: 1.0625rem;
+  --text-band: clamp(1.5rem, 4vw, 1.875rem);
 
   /* Radius: four sizes. An inner surface's radius is its container's minus the inset between
      them (a glass panel 12px inside a 24px card is 12px), so nested corners stay parallel. */
@@ -105,6 +116,14 @@
      edge, so the page never gains a sideways scroll. */
   --animate-panel-in: panel-in 0.5s var(--ease-calm) both;
 
+  /* A section's heading after a footer link brings you there: it settles 2px into place, just
+     enough for the eye to find where it landed. */
+  --animate-land: land 0.6s var(--ease-calm) both;
+  @keyframes land {
+    from {
+      transform: translateY(2px);
+    }
+  }
   @keyframes rise {
     from {
       opacity: 0;
@@ -355,8 +374,8 @@ body {
 /* Everything moves only for people who are fine with motion. A scroll-driven animation (reveal)
    ignores a duration, so it goes back on the document's timeline to end at once, and no delay
    (stagger, cascade, the hero's unveil) keeps anything hidden. Transitions keep their colour
-   and shadow fades, which don't move anything, so hover and focus still ease; a lift or a
-   slide happens at once. */
+   and shadow fades, which don't move anything, so hover and focus still ease. A hover lift or
+   nudge is `motion-safe:` where it is set, as an instant one would still jump. */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
@@ -380,9 +399,25 @@ body {
     outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
+  /* Selected text and the caret in the palette rather than the browser's blue: navy on
+     sky-mist reads on white and on dark glass alike. */
+  ::selection {
+    background: var(--color-sky-mist);
+    color: var(--color-navy);
+  }
+  :where(input, textarea) {
+    caret-color: var(--color-primary);
+  }
   /* A white surface brings the blue ring back, wherever it sits. */
   :where(.bg-surface, .bg-surface-2, .bg-background, .bg-mist) {
     --focus: var(--color-primary);
+  }
+  /* A modal Dialog holds the page still behind it: a native <dialog> traps focus but not the
+     scroll, so a swipe on its backdrop would carry the page away under an open sheet. The
+     gutter stays, so the page doesn't shift sideways as its scrollbar goes. */
+  html:has(dialog:modal) {
+    overflow: hidden;
+    scrollbar-gutter: stable;
   }
 }
 
@@ -414,9 +449,11 @@ body {
   /* A Section's surface (RAA-125), set by its `surface` prop rather than its position, so
      sections can be reordered: glass is the hero frame's faint glass, paper a pale sheet for
      white cards (as PageSheet's paper), photo the bare backdrop. Glass and paper are inset by
-     --spacing-inset, less their 1px border; a photo section's header takes the same inset, so
-     every heading starts on one line while its cards keep the sheets' outer edge. Sections
-     with no surface keep the old turns (the odd ones on the photo, the even ones on glass). */
+     --spacing-inset, less their 1px border. A photo section takes the same inset, heading and
+     cards together, so every heading starts on the hero text's line and sits over its own
+     cards, and a photo section's cards line up with a glass section's; only the frames (the
+     hero, the sheets, the closing band) reach the outer edge. Sections with no surface keep the
+     old turns (the odd ones on the photo, the even ones on glass). */
   .page-sections > section:is([data-surface="glass"], :not([data-surface]):nth-of-type(even)):not(.band) {
     @apply glass-frame;
     padding: calc(var(--spacing-inset) - 1px);
@@ -431,8 +468,13 @@ body {
     --link: var(--link-ink);
     --focus: var(--color-primary);
   }
-  .page-sections > section:is([data-surface="photo"], :not([data-surface]):nth-of-type(odd)):not(.band) > header {
+  .page-sections > section:is([data-surface="photo"], :not([data-surface]):nth-of-type(odd)):not(.band) {
     padding-inline: var(--spacing-inset);
+  }
+  /* The guest home's photo sections go wider: their headings and cards start at the frames'
+     edge rather than on the inset line. */
+  .page-sections.photo-flush > section[data-surface="photo"] {
+    padding-inline: 0;
   }
 }
 
