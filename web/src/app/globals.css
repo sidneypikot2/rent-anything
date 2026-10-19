@@ -186,6 +186,12 @@
   @apply border border-card-edge bg-clip-padding ring-1 ring-card-outline;
 }
 
+/* A card on a white sheet (the cart, RAA-135), where the frosted rim doesn't show: a solid
+   line instead. */
+@utility card-edge-line {
+  @apply border border-line bg-clip-padding;
+}
+
 /* A blocked day on the partner calendar (RAA-120): fine diagonal lines in line. */
 @utility bg-hatch {
   background-image: repeating-linear-gradient(135deg, transparent 0 6px, var(--line) 6px 8px);

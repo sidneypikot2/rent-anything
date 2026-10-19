@@ -115,7 +115,7 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
     <>
 
       {list.length === 0 ? (
-        <Card data-testid="cart-empty">
+        <Card edge="line" data-testid="cart-empty">
           <CardBody pad="lg" className="flex flex-col items-start gap-3">
             <p className="font-semibold">No trips yet</p>
             <p className="text-sm text-muted">

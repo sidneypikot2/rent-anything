@@ -91,7 +91,7 @@ export function TripDetails({ trip, actions }: { trip: Trip; actions: TripAction
       </div>
 
       {trip.items.length === 0 ? (
-        <Card>
+        <Card edge="line">
           <p className="p-card text-sm text-muted">Nothing in this trip yet. Add tours, rentals or stays from a destination.</p>
         </Card>
       ) : (
@@ -110,7 +110,7 @@ export function TripDetails({ trip, actions }: { trip: Trip; actions: TripAction
       )}
 
       {canBook.length > 0 && (
-        <Card className="flex flex-wrap items-center justify-between gap-3 px-card py-4 lg:sticky lg:bottom-3">
+        <Card edge="line" className="flex flex-wrap items-center justify-between gap-3 px-card py-4 lg:sticky lg:bottom-3">
           <p className="text-sm text-muted">
             {picked.length} of {itemCount(canBook.length)} ticked · each goes to its partner as a request
           </p>
@@ -153,7 +153,8 @@ function ItemCard({
     <li data-testid="cart-item">
       <Card
         clip={false}
-        className="relative flex items-start gap-4 p-3 transition-shadow duration-300 ease-calm hover:shadow-lift sm:p-4"
+        edge="line"
+        className="relative flex items-start gap-4 p-3 transition-[border-color,box-shadow] duration-300 ease-calm hover:border-line-2 hover:shadow-lift sm:p-4"
       >
         {picked !== undefined && (
           <input

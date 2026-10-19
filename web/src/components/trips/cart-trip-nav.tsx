@@ -41,9 +41,9 @@ export function CartTripNav({
                 aria-current={current ? "page" : undefined}
                 data-testid="cart-trip-tab"
                 className={cn(
-                  "card-edge flex w-56 flex-col items-start gap-0.5 rounded-card px-4 py-3 text-left shadow-soft lg:w-full",
-                  "transition-[background-color,box-shadow,color] duration-300 ease-calm",
-                  current ? "bg-forest text-white shadow-lift" : "bg-surface hover:shadow-lift",
+                  "flex w-56 flex-col items-start gap-0.5 rounded-card px-4 py-3 text-left shadow-soft lg:w-full",
+                  "transition-[background-color,border-color,box-shadow,color] duration-300 ease-calm",
+                  current ? "border border-forest bg-forest text-white shadow-lift" : "card-edge-line bg-surface hover:border-line-2 hover:shadow-lift",
                 )}
               >
                 <span className="w-full truncate font-semibold">{trip.name}</span>

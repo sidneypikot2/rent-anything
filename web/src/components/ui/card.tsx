@@ -5,22 +5,24 @@ import { cn } from "./cn";
 // A white panel: the frosted card edge (globals.css) and the soft shadow. Pad it with CardBody,
 // or put media flush against its edges first. `clip={false}` lets a dropdown inside it hang over
 // its edge; media then needs its own rounded corners. `bordered={false}` drops the edge, for a
-// card that brings its own (a photo card).
+// card that brings its own (a photo card). `edge="line"` is a solid line edge, for cards on a
+// white sheet (the cart), where the frosted rim doesn't show.
 // `photo`: a card a photo fills (PhotoCardFrame), navy under it rather than white, so it doesn't
 // flash a white slab on the dark page while the photo loads.
 export function Card({
   clip = true,
   bordered = true,
   photo = false,
+  edge = "glass",
   className,
   ...props
-}: { clip?: boolean; bordered?: boolean; photo?: boolean } & ComponentProps<"div">) {
+}: { clip?: boolean; bordered?: boolean; photo?: boolean; edge?: "glass" | "line" } & ComponentProps<"div">) {
   return (
     <div
       className={cn(
         "rounded-card shadow-soft",
         photo ? "bg-navy" : "bg-surface",
-        bordered && "card-edge",
+        bordered && (edge === "line" ? "card-edge-line" : "card-edge"),
         clip && "overflow-hidden",
         className,
       )}
