@@ -1382,6 +1382,11 @@ RSpec.configure do |config|
                 type: :integer, nullable: true,
                 description: "What the guest would get back cancelling now, by its cancellation policy; null when not cancellable"
               },
+              free_cancellation_until: {
+                type: :string, format: :date, nullable: true,
+                description: "The last day the guest can cancel for a full refund, by its cancellation policy (RAA-135); " \
+                  "null when the policy refunds nothing"
+              },
               trip_id: { type: :integer, nullable: true },
               trip_item_id: { type: :integer, nullable: true },
               booking_type: { type: :string, enum: %w[rental stay activity transfer] },
@@ -1395,7 +1400,7 @@ RSpec.configure do |config|
             },
             required: %w[id reference status booking_mode starts_on ends_on quantity guests total_cents to_be_agreed
               cancellation_policy expires_at confirmed_at cancelled_at cancelled_by refund_cents cancellable
-              refund_if_cancelled_cents trip_id trip_item_id booking_type area listing created_at events]
+              refund_if_cancelled_cents free_cancellation_until trip_id trip_item_id booking_type area listing created_at events]
           },
           checkout_body: {
             type: :object,
