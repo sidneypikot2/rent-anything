@@ -12,6 +12,9 @@ module Availability
   #   Saturday nights) or a tour's base price; null while the listing has none (rentals and
   #   transfers aren't priced yet).
   # - A stay's minimum nights apply to stays checking in that day.
+  #
+  # `except` leaves one booking out, for a booking being changed (Bookings::Change): its own
+  # days are free to it.
   class Ledger
     def self.capacity(listing)
       return listing.units.size unless listing.category.tour?
@@ -29,13 +32,14 @@ module Availability
       listing.tour_detail&.joiner? ? "seats" : "groups"
     end
 
-    def initialize(listings, from, to)
+    def initialize(listings, from, to, except: nil)
       @listings = listings.index_by(&:id)
       ids = @listings.keys
       @days = ListingDay.where(listing_id: ids, date: from..to).index_by { [ _1.listing_id, _1.date ] }
       @blocks = AvailabilityBlock.where(listing_id: ids).overlapping(from, to).order(:starts_on).group_by(&:listing_id)
-      @bookings = Booking.holding.where(listing_id: ids).overlapping(from, to).order(:starts_on, :id)
-        .group_by(&:listing_id)
+      bookings = Booking.holding.where(listing_id: ids).overlapping(from, to)
+      bookings = bookings.where.not(id: except.id) if except
+      @bookings = bookings.order(:starts_on, :id).group_by(&:listing_id)
       @booked = Hash.new(0)
       @bookings.each_value { |bookings| bookings.each { count(_1, from, to) } }
     end

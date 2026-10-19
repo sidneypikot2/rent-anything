@@ -3,7 +3,10 @@ module Payments
   # their total, and each booking held for payment moves to confirmed. It stands in for
   # Xendit's split payment (SPEC.md, Payments) until that is built, which will confirm them from
   # its webhook instead. Bookings no longer held for payment (expired, cancelled meanwhile) are
-  # left alone. Returns the payment, or nil when there was nothing to pay for.
+  # left alone. A booking paid already (a guest changed it and its partner accepted the change,
+  # RAA-134) is confirmed on that payment, with no second charge; the difference in price is
+  # settled once payments are real. Returns the payment, or nil when there was nothing to pay
+  # for.
   class Stub < ApplicationService
     def initialize(checkout, bookings)
       @checkout = checkout
@@ -13,6 +16,10 @@ module Payments
     def call
       Booking.transaction do
         held = @bookings.sort_by(&:id).each(&:lock!).select(&:awaiting_payment?)
+        paid, held = held.partition(&:payment_id)
+        paid.each do |booking|
+          Bookings::Transition.call(booking, "confirmed", actor: "system", metadata: { payment_id: booking.payment_id })
+        end
         next nil if held.empty?
 
         payment = @checkout.payments.create!(provider: "stub", status: "paid", amount_cents: held.sum(&:total_cents),

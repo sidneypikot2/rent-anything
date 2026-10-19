@@ -27,6 +27,7 @@ module BookingSerializer
       refund_cents: booking.refund_cents,
       cancellable: CANCELLABLE.include?(booking.status),
       refund_if_cancelled_cents: CANCELLABLE.include?(booking.status) ? Bookings::Cancel.refund_cents(booking, by: "guest") : nil,
+      free_cancellation_until: Bookings::Cancel.free_until(booking),
       trip_id: booking.checkout&.trip_id,
       trip_item_id: booking.trip_item_id,
       booking_type: listing.category.booking_type,

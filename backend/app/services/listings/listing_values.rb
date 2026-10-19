@@ -250,13 +250,14 @@ module Listings
       {}
     end
 
-    # Instant book or request to book (RAA-132); left out, it keeps what the listing has.
+    # How guests book it (RAA-132): only request to book is offered (RAA-134). Left out, it keeps
+    # what the listing has.
     def booking_mode
       value = @params[:booking_mode]
       return {} if value.nil?
-      return { booking_mode: value } if Listing::BOOKING_MODES.key?(value)
+      return { booking_mode: value } if Listing::OFFERED_BOOKING_MODES.key?(value)
 
-      error("Booking mode must be one of #{Listing::BOOKING_MODES.keys.join(', ')}")
+      error("Booking mode must be one of #{Listing::OFFERED_BOOKING_MODES.keys.join(', ')}")
       {}
     end
 

@@ -1,12 +1,13 @@
 module Api
   module V1
     # The signed-in guest's bookings (RAA-132): upcoming ones first by date, then past and
-    # cancelled ones, newest first; one booking; and cancelling one that hasn't
+    # cancelled ones, newest first; one booking; changing one, which sends it back to the
+    # partner as a request (Bookings::Change, RAA-134); and cancelling one that hasn't
     # started (Bookings::Cancel). Another guest's booking is a 404.
     class BookingsController < ApplicationController
       before_action :authenticate_user!
       before_action -> { require_role!("guest") }
-      before_action :set_booking, only: %i[show cancel]
+      before_action :set_booking, only: %i[show update cancel]
 
       def index
         bookings = current_user.bookings.includes(*BookingSerializer::ASSOCIATIONS)
@@ -17,6 +18,11 @@ module Api
 
       def show
         render json: BookingSerializer.call(@booking)
+      end
+
+      def update
+        Bookings::Change.call(@booking, user: current_user, params: params.slice(:starts_on, :ends_on, :guests))
+        render json: BookingSerializer.call(@booking.reload)
       end
 
       def cancel

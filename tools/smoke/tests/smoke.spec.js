@@ -354,15 +354,15 @@ test("add to trip through sign-up", async ({ page }) => {
   await expect(trip.getByTestId("cart-item")).toHaveCount(1);
   await expect(page.getByTestId("nav-cart-count")).toHaveText("1");
 
-  // Checkout (RAA-133): the item left is ticked; booking it confirms it (requests are
-  // accepted and payment is a stub for now), and the cart then shows its booking.
+  // Checkout (RAA-133): the item left is ticked; sending it makes a request that waits for its
+  // partner (RAA-134), and the cart then shows its booking.
   await expect(trip.getByTestId("cart-item-pick")).toBeChecked();
   await trip.getByTestId("cart-checkout").click();
   const checkout = page.getByTestId("checkout-sheet");
   await checkout.getByTestId("checkout-confirm").click();
-  await expect(checkout.getByTestId("checkout-result").getByTestId("booking-status")).toHaveText("Confirmed");
+  await expect(checkout.getByTestId("checkout-result").getByTestId("booking-status")).toHaveText("Request sent");
   await checkout.getByRole("button", { name: "Done" }).click();
-  await expect(trip.getByTestId("cart-item").getByTestId("booking-status")).toHaveText("Confirmed");
+  await expect(trip.getByTestId("cart-item").getByTestId("booking-status")).toHaveText("Request sent");
   await expect(trip.getByTestId("cart-item-pick")).toHaveCount(0);
 
   await page.goto("/trips/bookings");

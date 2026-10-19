@@ -7,10 +7,12 @@ module Bookings
   # - a tour: its base price per group (private) or per joiner, times quantity;
   # - a rental or transfer: not priced yet, so 0 and `to_be_agreed`, settled with the partner.
   #
-  # Preload the listing's category, units, stay_rate, tour_detail and fees.
+  # Preload the listing's category, units, stay_rate, tour_detail and fees. `except_booking` is
+  # a booking being re-priced for new dates (Bookings::Change), whose own nights stay free to it.
   class Price < ApplicationService
-    def initialize(listing, starts_on:, ends_on:, quantity:, guests:)
+    def initialize(listing, starts_on:, ends_on:, quantity:, guests:, except_booking: nil)
       @listing = listing
+      @except_booking = except_booking
       @starts_on = starts_on
       @ends_on = ends_on
       @quantity = quantity
@@ -33,7 +35,8 @@ module Bookings
 
     def stay
       guests_per_unit = (@guests + @quantity - 1) / @quantity
-      quote = Stays::Quote.call(@listing, starts_on: @starts_on, ends_on: @ends_on, guests: guests_per_unit)
+      quote = Stays::Quote.call(@listing, starts_on: @starts_on, ends_on: @ends_on, guests: guests_per_unit,
+        except_booking: @except_booking)
       { total_cents: quote[:total_cents] * @quantity,
         breakdown: { kind: "stay", quantity: @quantity, unit_total_cents: quote[:total_cents],
                      quote: quote.except(:starts_on, :ends_on).merge(nights: quote[:nights].map { _1.merge(date: _1[:date].iso8601) }) } }

@@ -35,7 +35,7 @@ RSpec.describe "Partner listing options", type: :request do
           )
           expect(response.parsed_body["cancellation_policies"].first).to include("name" => "Free cancellation")
           expect(response.parsed_body["booking_modes"].pluck("value", "name")).to eq(
-            [ [ "instant", "Instant book" ], [ "request", "Request to book" ] ]
+            [ [ "request", "Request to book" ] ]
           )
         end
       end

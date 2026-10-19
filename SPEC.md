@@ -119,10 +119,12 @@ areas and a tour can visit several.
   its items. Instant-book items are held for 15 minutes while payment completes. Request-to-book
   items go out as requests first ("Send requests"), which hold their dates while the partner
   has 24 hours to answer, and the traveller pays once partners accept, so a declined item is
-  never charged. Each partner chooses per listing (`booking_mode`), and instant-book listings
-  carry a pill. Until the partner inbox and Xendit exist, requests are accepted automatically
-  (`BOOKINGS_AUTO_ACCEPT`) and payment is a stub that succeeds at once, so every checkout ends
-  confirmed; the split payment to each partner comes with Xendit.
+  never charged. Since RAA-134 every listing is request to book (`booking_mode` stays, for
+  when partners can choose again), and requests wait for the partner's answer in the partner
+  calendar (`BOOKINGS_AUTO_ACCEPT` off). A traveller can change a booking's dates or guests
+  from the cart: the change goes back to the partner as a request, holding the new dates until
+  they answer. Payment is a stub that succeeds once a request is accepted; the split payment to
+  each partner comes with Xendit.
 
 ### Guest browsing layout
 

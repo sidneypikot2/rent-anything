@@ -42,9 +42,10 @@ Rails.application.routes.draw do
         post :merge, on: :member
       end
       resources :trip_items, only: %i[create update destroy]
-      # Booking a trip's items, and the guest's bookings (RAA-132). Guest-only.
+      # Booking a trip's items, and the guest's bookings (RAA-132), which a guest can change
+      # (RAA-134). Guest-only.
       resources :checkouts, only: :create
-      resources :bookings, only: %i[index show] do
+      resources :bookings, only: %i[index show update] do
         post :cancel, on: :member
       end
 

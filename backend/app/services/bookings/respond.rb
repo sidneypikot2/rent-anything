@@ -3,7 +3,8 @@ module Bookings
   # payment, which the stub takes at once (Payments::Stub), so it ends confirmed; "declined"
   # frees its days. A request past its answer-by time has expired instead, and saying so is a
   # 422. `actor` is "system" when requests are accepted automatically (Bookings.auto_accept?),
-  # until partners have an inbox.
+  # until partners have an inbox. Declining a booking paid already (one its guest changed,
+  # RAA-134) records its whole payment as refunded.
   class Respond < ApplicationService
     DECISIONS = %w[accepted declined].freeze
 
@@ -21,7 +22,7 @@ module Bookings
         @booking.lock!
         next expire! if @booking.requested? && @booking.expires_at&.past?
 
-        Transition.call(@booking, @decision, actor: @actor, user: @user)
+        Transition.call(@booking, @decision, actor: @actor, user: @user, attributes: refund)
         Transition.call(@booking, "awaiting_payment", actor: "system") if @decision == "accepted"
         false
       end
@@ -32,6 +33,10 @@ module Bookings
     end
 
     private
+
+    def refund
+      @decision == "declined" && @booking.payment_id ? { refund_cents: @booking.total_cents } : {}
+    end
 
     def expire!
       Transition.call(@booking, "expired", actor: "system", reason: "Not answered in time")

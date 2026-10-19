@@ -223,12 +223,14 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
-      response "201", "booked instantly, as the partner chose (RAA-132)" do
-        schema "$ref" => "#/components/schemas/partner_listing"
+      response "422", "instant book, which isn't offered (RAA-134)" do
+        schema "$ref" => "#/components/schemas/validation_errors"
 
         before { body[:booking_mode] = "instant" }
 
-        run_test! { |response| expect(response.parsed_body["booking_mode"]).to eq("instant") }
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Booking mode must be one of request")
+        end
       end
 
       response "201", "with the number of identical units the partner has, one row each" do
@@ -329,7 +331,7 @@ RSpec.describe "Partner listings", type: :request do
         before { body[:booking_mode] = "auction" }
 
         run_test! do |response|
-          expect(response.parsed_body["errors"]).to include("Booking mode must be one of instant, request")
+          expect(response.parsed_body["errors"]).to include("Booking mode must be one of request")
         end
       end
 
@@ -864,13 +866,16 @@ RSpec.describe "Partner listings", type: :request do
       response "200", "the booking mode changed when sent, kept when left out" do
         schema "$ref" => "#/components/schemas/partner_listing"
 
-        before { body[:booking_mode] = "instant" }
+        before do
+          listing.update!(booking_mode: "instant")
+          body[:booking_mode] = "request"
+        end
 
         run_test! do |saved|
-          expect(saved.parsed_body["booking_mode"]).to eq("instant")
+          expect(saved.parsed_body["booking_mode"]).to eq("request")
           body.delete(:booking_mode)
           patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
-          expect(response.parsed_body["booking_mode"]).to eq("instant")
+          expect(response.parsed_body["booking_mode"]).to eq("request")
         end
       end
 

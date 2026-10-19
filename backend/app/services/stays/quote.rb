@@ -13,9 +13,11 @@ module Stays
   #
   # A night that is blocked or fully booked on the calendar is refused, and so is a stay
   # shorter than the minimum nights set for its check-in day. A refusal is a RecordInvalid.
+  # `except_booking` is a booking being changed, whose own nights don't count against it.
   class Quote < ApplicationService
-    def initialize(listing, starts_on:, ends_on:, guests:, fee_ids: [])
+    def initialize(listing, starts_on:, ends_on:, guests:, fee_ids: [], except_booking: nil)
       @listing = listing
+      @except_booking = except_booking
       @rate = listing.stay_rate
       @starts_on = starts_on
       @ends_on = ends_on
@@ -25,7 +27,7 @@ module Stays
     end
 
     def call
-      @ledger = Availability::Ledger.new([ @listing ], @starts_on, @ends_on) if @ends_on > @starts_on
+      @ledger = Availability::Ledger.new([ @listing ], @starts_on, @ends_on, except: @except_booking) if @ends_on > @starts_on
       check!
       nights = (@starts_on...@ends_on).map { |date| night(date) }
       nightly_subtotal = nights.sum { _1[:price_cents] } * (@rate.per_guest? ? @guests : 1)
