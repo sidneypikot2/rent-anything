@@ -11,9 +11,10 @@ module Bookings
   class Transition < ApplicationService
     ALLOWED = {
       "requested" => %w[accepted declined cancelled expired],
-      "accepted" => %w[awaiting_payment cancelled expired],
-      "awaiting_payment" => %w[confirmed cancelled expired],
-      "confirmed" => %w[in_progress completed cancelled],
+      # Back to requested: the guest changed it (Bookings::Change), so the partner answers again.
+      "accepted" => %w[awaiting_payment cancelled expired requested],
+      "awaiting_payment" => %w[confirmed cancelled expired requested],
+      "confirmed" => %w[in_progress completed cancelled requested],
       "in_progress" => %w[completed],
       "completed" => [],
       "declined" => [],
@@ -22,7 +23,7 @@ module Bookings
     }.freeze
     # How a refusal names the move.
     VERBS = {
-      "accepted" => "accepted", "awaiting_payment" => "held for payment", "confirmed" => "confirmed",
+      "requested" => "changed", "accepted" => "accepted", "awaiting_payment" => "held for payment", "confirmed" => "confirmed",
       "in_progress" => "started", "completed" => "completed", "declined" => "declined",
       "cancelled" => "cancelled", "expired" => "expired"
     }.freeze
@@ -65,6 +66,7 @@ module Bookings
     def times
       now = Time.current
       case @to
+      when "requested" then { responded_at: nil, confirmed_at: nil }
       when "accepted", "declined" then { responded_at: now, expires_at: nil }
       when "awaiting_payment" then { expires_at: now + Booking::PAYMENT_TTL }
       when "confirmed" then { confirmed_at: now, expires_at: nil }

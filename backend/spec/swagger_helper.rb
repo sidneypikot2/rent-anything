@@ -1426,6 +1426,15 @@ RSpec.configure do |config|
             type: :object,
             properties: { reason: { type: :string, maxLength: Booking::REASON_LENGTH } }
           },
+          # A guest's change to a booking (RAA-134); a key left out keeps what the booking has.
+          booking_change_body: {
+            type: :object,
+            properties: {
+              starts_on: { type: :string, format: :date, description: "Today or later; a stay's check-in" },
+              ends_on: { type: :string, format: :date, description: "A stay's check-out; otherwise the last day" },
+              guests: { type: :integer, minimum: 1, maximum: Bookings::Change::MAX_GUESTS }
+            }
+          },
           offline_booking_body: {
             type: :object,
             properties: {

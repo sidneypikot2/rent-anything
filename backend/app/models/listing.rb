@@ -31,6 +31,9 @@ class Listing < ApplicationRecord
     "request" => { name: "Request to book",
       description: "Guests send a request and you accept or decline it within 24 hours. Their dates are held meanwhile." }
   }.freeze
+  # What a partner can pick (RAA-134): every listing is request to book, so a partner answers
+  # every booking. Instant book stays a mode a listing can have, for when it is offered again.
+  OFFERED_BOOKING_MODES = BOOKING_MODES.slice("request").freeze
   # What TourSerializer reads, to preload (RAA-110).
   TOUR_ASSOCIATIONS = %i[tour_detail tour_inclusions].freeze
 

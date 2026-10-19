@@ -335,6 +335,49 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+    patch:
+      summary: Change one of the guest's bookings
+      tags:
+      - Bookings
+      description: 'Guest-only (RAA-134). New dates or guests for a booking that holds
+        its days and hasn''t started (requested, accepted, awaiting_payment or confirmed);
+        a key left out keeps what it has. It is re-priced and checked against the
+        calendar, its own days left free to it, and goes back to the partner as a
+        request: requested, holding its new days until the partner answers. Its trip
+        item takes the same dates and guests.'
+      security:
+      - bearer: []
+      parameters: []
+      responses:
+        '200':
+          description: 'changed: a request again, over days it partly held already'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/guest_booking"
+        '422':
+          description: guests not a number
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another guest's booking
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/booking_change_body"
   "/api/v1/bookings/{id}/cancel":
     parameters:
     - name: Authorization
@@ -396,8 +439,8 @@ paths:
         trips: each item is re-priced and checked against the calendar as it is now,
         all or nothing. An instant-book listing''s booking is held for payment; a
         request-to-book one''s is a request its partner answers within 24 hours. Both
-        hold their days at once. While requests are accepted automatically (no partner
-        inbox yet) and payment is a stub, every booking comes back confirmed. Sending
+        hold their days at once. Requests wait for their partner''s answer (RAA-134);
+        payment is a stub, so a booking held for payment comes back confirmed. Sending
         the same `idempotency_key` again returns the same checkout.'
       security:
       - bearer: []
@@ -5842,6 +5885,21 @@ components:
         reason:
           type: string
           maxLength: 500
+    booking_change_body:
+      type: object
+      properties:
+        starts_on:
+          type: string
+          format: date
+          description: Today or later; a stay's check-in
+        ends_on:
+          type: string
+          format: date
+          description: A stay's check-out; otherwise the last day
+        guests:
+          type: integer
+          minimum: 1
+          maximum: 99
     offline_booking_body:
       type: object
       properties:

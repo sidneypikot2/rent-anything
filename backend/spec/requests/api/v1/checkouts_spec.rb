@@ -26,14 +26,16 @@ RSpec.describe "Checkouts", type: :request do
       description "Guest-only (RAA-132). Books `item_ids` of one of the guest's trips: each item is re-priced and " \
         "checked against the calendar as it is now, all or nothing. An instant-book listing's booking is held for " \
         "payment; a request-to-book one's is a request its partner answers within 24 hours. Both hold their days " \
-        "at once. While requests are accepted automatically (no partner inbox yet) and payment is a stub, every " \
-        "booking comes back confirmed. Sending the same `idempotency_key` again returns the same checkout."
+        "at once. Requests wait for their partner's answer (RAA-134); payment is a stub, so a booking held for " \
+        "payment comes back confirmed. Sending the same `idempotency_key` again returns the same checkout."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
       parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/checkout_body" }
 
-      response "201", "both booked: the instant one paid, the request accepted then paid" do
+      response "201", "both booked while auto-accept is on: the instant one paid, the request accepted then paid" do
         schema "$ref" => "#/components/schemas/checkout"
+
+        before { allow(Bookings).to receive(:auto_accept?).and_return(true) }
 
         run_test! do |response|
           checkout = response.parsed_body
@@ -55,10 +57,8 @@ RSpec.describe "Checkouts", type: :request do
         end
       end
 
-      response "201", "a request waits for its partner while auto-accept is off, its days held" do
+      response "201", "a request waits for its partner (auto-accept is off), its days held" do
         schema "$ref" => "#/components/schemas/checkout"
-
-        before { allow(Bookings).to receive(:auto_accept?).and_return(false) }
 
         run_test! do |response|
           expect(response.parsed_body["bookings"].pluck("status")).to eq(%w[confirmed requested])
@@ -206,7 +206,7 @@ RSpec.describe "Checkouts", type: :request do
 
     it "shows its booking in the cart, and can be booked again once that is cancelled" do
       get "/api/v1/trips/#{trip.id}", headers: { "Authorization" => Authorization() }
-      expect(response.parsed_body["items"].pluck("booking").pluck("status")).to eq(%w[confirmed confirmed])
+      expect(response.parsed_body["items"].pluck("booking").pluck("status")).to eq(%w[confirmed requested])
 
       Bookings::Cancel.call(stay_item.booking, by: "guest", user:)
       check_out(item_ids: [ stay_item.id ], idempotency_key: "checkout-0002")

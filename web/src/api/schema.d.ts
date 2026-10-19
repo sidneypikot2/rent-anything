@@ -533,7 +533,65 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Change one of the guest's bookings
+         * @description Guest-only (RAA-134). New dates or guests for a booking that holds its days and hasn't started (requested, accepted, awaiting_payment or confirmed); a key left out keeps what it has. It is re-priced and checked against the calendar, its own days left free to it, and goes back to the partner as a request: requested, holding its new days until the partner answers. Its trip item takes the same dates and guests.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["booking_change_body"];
+                };
+            };
+            responses: {
+                /** @description changed: a request again, over days it partly held already */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["guest_booking"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another guest's booking */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description guests not a number */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/bookings/{id}/cancel": {
@@ -625,7 +683,7 @@ export interface paths {
         put?: never;
         /**
          * Book a trip's items
-         * @description Guest-only (RAA-132). Books `item_ids` of one of the guest's trips: each item is re-priced and checked against the calendar as it is now, all or nothing. An instant-book listing's booking is held for payment; a request-to-book one's is a request its partner answers within 24 hours. Both hold their days at once. While requests are accepted automatically (no partner inbox yet) and payment is a stub, every booking comes back confirmed. Sending the same `idempotency_key` again returns the same checkout.
+         * @description Guest-only (RAA-132). Books `item_ids` of one of the guest's trips: each item is re-priced and checked against the calendar as it is now, all or nothing. An instant-book listing's booking is held for payment; a request-to-book one's is a request its partner answers within 24 hours. Both hold their days at once. Requests wait for their partner's answer (RAA-134); payment is a stub, so a booking held for payment comes back confirmed. Sending the same `idempotency_key` again returns the same checkout.
          */
         post: {
             parameters: {
@@ -5444,6 +5502,19 @@ export interface components {
         };
         booking_cancel_body: {
             reason?: string;
+        };
+        booking_change_body: {
+            /**
+             * Format: date
+             * @description Today or later; a stay's check-in
+             */
+            starts_on?: string;
+            /**
+             * Format: date
+             * @description A stay's check-out; otherwise the last day
+             */
+            ends_on?: string;
+            guests?: number;
         };
         offline_booking_body: {
             guest_name: string;
