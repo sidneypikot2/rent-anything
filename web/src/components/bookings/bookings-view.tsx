@@ -143,7 +143,8 @@ function BookingCard({ booking, onCancel }: { booking: GuestBooking; onCancel: (
   );
 }
 
-function CancelDialog({
+// Also opened from the cart's item panel (RAA-135).
+export function CancelDialog({
   booking,
   onClose,
   onCancelled,

@@ -19,6 +19,8 @@ type Props = {
   // What the ⋯ button is for, for screen readers: "Actions for Island hopping".
   label: string;
   items: MenuItem[];
+  // "dark" for a ⋯ on a forest or navy surface (the cart's trip header).
+  tone?: "light" | "dark";
   "data-testid"?: string;
 };
 
@@ -27,7 +29,7 @@ const ITEM = "block w-full px-4 py-2 text-left hover:bg-surface-2";
 // A ⋯ button opening a short list of actions on one thing (an item, a trip). A plain
 // disclosure like the account menu, not an ARIA menu widget: it closes on Escape, on a
 // click outside it and once an action is picked.
-export function Menu({ label, items, "data-testid": testId }: Props) {
+export function Menu({ label, items, tone = "light", "data-testid": testId }: Props) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -62,8 +64,10 @@ export function Menu({ label, items, "data-testid": testId }: Props) {
         data-testid={testId}
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex size-9 items-center justify-center rounded-control text-xl leading-none text-muted transition-colors hover:bg-surface-2 hover:text-primary",
-          open && "bg-surface-2 text-primary",
+          "flex size-9 items-center justify-center rounded-control text-xl leading-none transition-colors",
+          tone === "dark"
+            ? cn("text-sky-mist hover:bg-glass-hover hover:text-white", open && "bg-glass-hover text-white")
+            : cn("text-muted hover:bg-surface-2 hover:text-primary", open && "bg-surface-2 text-primary"),
         )}
       >
         ⋯

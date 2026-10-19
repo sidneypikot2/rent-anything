@@ -19,6 +19,17 @@ export function BookingModeChoice({
   value: BookingMode;
   onChange: (value: BookingMode) => void;
 }) {
+  // Only one offered (request to book, RAA-134): nothing to choose, so say how it works.
+  if (modes.length === 1) {
+    const [mode] = modes;
+    return (
+      <div data-testid="listing-booking-mode" className="flex flex-col gap-1 rounded-control bg-surface-2 px-4 py-3">
+        <p className="text-sm font-semibold">How guests book it: {mode.name}</p>
+        <p className="text-sm text-muted">{mode.description}</p>
+      </div>
+    );
+  }
+
   return (
     <ChoiceCards
       legend="How guests book it"

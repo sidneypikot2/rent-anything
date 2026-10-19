@@ -1,16 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Toast } from "@/components/ui/toast";
+import { CancelDialog } from "@/components/bookings/bookings-view";
+import { ChangeBookingSheet } from "@/components/bookings/change-booking-sheet";
 import { CheckoutSheet } from "@/components/bookings/checkout-sheet";
+import type { GuestBooking } from "@/components/bookings/use-bookings";
+import { CartItemPanel } from "./cart-item-panel";
+import { CartTripNav } from "./cart-trip-nav";
 import { EditTripSheet, type EditFocus } from "./edit-trip-sheet";
 import { formatDateRange, itemCount } from "./format";
 import { ItemDateSheet } from "./item-date-sheet";
 import { PickTripSheet } from "./pick-trip-sheet";
-import { TripGroup, type TripActions } from "./trip-group";
+import { TripDetails, type TripActions } from "./trip-details";
 import {
   currentTrips,
   useDeleteTrip,
@@ -22,8 +27,12 @@ import {
   type TripItem,
 } from "./use-trips";
 
-// The sheet or dialog open over the cart, if any.
+// The sheet, dialog or panel open over the cart, if any. The item panel keeps ids, so it shows
+// the item as the cart last loaded it.
 type Open =
+  | { kind: "item"; tripId: number; itemId: number }
+  | { kind: "change"; item: TripItem; booking: GuestBooking }
+  | { kind: "cancel"; booking: GuestBooking }
   | { kind: "edit"; trip: Trip; focus: EditFocus }
   | { kind: "merge"; trip: Trip }
   | { kind: "delete"; trip: Trip }
@@ -32,13 +41,15 @@ type Open =
   | { kind: "remove"; trip: Trip; item: TripItem }
   | { kind: "checkout"; trip: Trip; items: TripItem[] };
 
-// The cart (screens 6 and 7): every trip the guest has, each with its items, and the
-// sheets that fix a wrong suggestion — move an item, re-date it, merge two trips — and book
-// its items (CheckoutSheet, RAA-133). One trip
-// is open at first: `expandTripId` (from "View trip"), or the first.
+// The cart (screens 6 and 7, laid out again in RAA-135): the guest's trips in a column (a row
+// of chips on a phone) beside the one picked, with its items. An item opens its panel, with
+// the listing and its booking, which can be edited (sent to the partner again) or cancelled.
+// The sheets fix a wrong suggestion — move an item, re-date it, merge two trips — and book
+// items (CheckoutSheet, RAA-133). The trip shown at first is `expandTripId` (from "View trip"),
+// or the first; picking another keeps it in `?trip=`.
 export function CartView({ expandTripId }: { expandTripId?: number }) {
   const trips = useTrips(true);
-  const [toggled, setToggled] = useState<Record<number, boolean>>({});
+  const [selectedId, setSelectedId] = useState(expandTripId);
   const [open, setOpen] = useState<Open | null>(null);
   const [notice, setNotice] = useState<{ id: number; text: string } | null>(null);
   const moveItem = useUpdateTripItem();
@@ -65,13 +76,14 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
     show(text);
   }
 
-  // "View trip" lands here with the trip open; bring it into view once it has loaded.
-  const loaded = trips.isSuccess;
-  useEffect(() => {
-    if (loaded && expandTripId) document.getElementById(`trip-${expandTripId}`)?.scrollIntoView({ block: "start" });
-  }, [loaded, expandTripId]);
+  // A trip picked here stays in the URL, so a reload or Back keeps it, without a server round trip.
+  function select(trip: Trip) {
+    setSelectedId(trip.id);
+    window.history.replaceState(null, "", `?trip=${trip.id}`);
+  }
 
   const actions: TripActions = {
+    open: (trip, item) => setOpen({ kind: "item", tripId: trip.id, itemId: item.id }),
     edit: (trip, focus = "name") => setOpen({ kind: "edit", trip, focus }),
     merge: (trip) => setOpen({ kind: "merge", trip }),
     remove: (trip) => setOpen({ kind: "delete", trip }),
@@ -93,8 +105,11 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
   }
 
   const list = trips.data;
-  const firstOpenId = list.some((trip) => trip.id === expandTripId) ? expandTripId : list[0]?.id;
+  // A trip merged away or deleted falls back to the first.
+  const selected = list.find((trip) => trip.id === selectedId) ?? list[0];
   const others = (trip: Trip) => currentTrips(list).filter((other) => other.id !== trip.id);
+  const panelTrip = open?.kind === "item" ? list.find((trip) => trip.id === open.tripId) : undefined;
+  const panelItem = open?.kind === "item" ? panelTrip?.items.find((item) => item.id === open.itemId) : undefined;
 
   return (
     <>
@@ -112,19 +127,38 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
           </CardBody>
         </Card>
       ) : (
-        <div className="flex flex-col gap-4">
-          {list.map((trip) => (
-            <TripGroup
-              key={trip.id}
-              trip={trip}
-              open={toggled[trip.id] ?? trip.id === firstOpenId}
-              onToggle={() =>
-                setToggled((before) => ({ ...before, [trip.id]: !(before[trip.id] ?? trip.id === firstOpenId) }))
-              }
-              actions={actions}
-            />
-          ))}
+        <div className="grid gap-gutter lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start">
+          <CartTripNav trips={list} selectedId={selected?.id} onSelect={select} />
+          {selected && <TripDetails key={selected.id} trip={selected} actions={actions} />}
         </div>
+      )}
+
+      {panelTrip && panelItem && (
+        <CartItemPanel
+          trip={panelTrip}
+          item={panelItem}
+          actions={actions}
+          onEditBooking={(booking) => setOpen({ kind: "change", item: panelItem, booking })}
+          onCancelBooking={(booking) => setOpen({ kind: "cancel", booking })}
+          onClose={close}
+        />
+      )}
+
+      {open?.kind === "change" && (
+        <ChangeBookingSheet
+          item={open.item}
+          booking={open.booking}
+          onClose={close}
+          onSent={(booking) => done(`Change sent to the partner · ${booking.listing.title}`)}
+        />
+      )}
+
+      {open?.kind === "cancel" && (
+        <CancelDialog
+          booking={open.booking}
+          onClose={close}
+          onCancelled={(booking) => done(`Cancelled ${booking.listing.title}`)}
+        />
       )}
 
       {open?.kind === "edit" && (
@@ -182,7 +216,7 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
               { id: open.trip.id, intoTripId: into.id },
               {
                 onSuccess: (trip) => {
-                  setToggled((before) => ({ ...before, [trip.id]: true }));
+                  select(trip);
                   done(`Merged into ${trip.name}`);
                 },
               },
