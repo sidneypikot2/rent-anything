@@ -116,7 +116,9 @@ script/smoke                              # web changes, or backend changes the 
 
 Both must pass before step 5; paste the failing output rather than describing it if they
 don't. When a task changes what `script/smoke` walks through (see `tools/smoke/tests/`),
-update the test in the same PR. When it changes an endpoint, regenerate the API contract
+update the test in the same PR — a backend-only one too: the smoke drives the web app
+against the API, so a status or flow it asserts that the backend changes (RAA-134's
+checkout) fails CI on the backend PR, not on the frontend one that follows. When it changes an endpoint, regenerate the API contract
 (`script/check-api --write`) and commit both generated files.
 
 Run `script/check` and `script/smoke` in the background (`run_in_background`) and carry
