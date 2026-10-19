@@ -56,11 +56,19 @@ export function TripDetails({ trip, actions }: { trip: Trip; actions: TripAction
   }
 
   return (
-    <section id={`trip-${trip.id}`} aria-labelledby={`trip-${trip.id}-name`} data-testid="cart-trip" className="flex min-w-0 flex-col gap-4">
+    <section
+      id={`trip-${trip.id}`}
+      aria-labelledby={`trip-${trip.id}-name`}
+      data-testid="cart-trip"
+      className="flex min-w-0 flex-col gap-4"
+    >
       <div className="card-edge rounded-card bg-forest text-white shadow-soft">
         <div className="flex items-start gap-3 p-card">
           <div className="min-w-0 flex-1">
-            <h2 id={`trip-${trip.id}-name`} className="font-display text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">
+            <h2
+              id={`trip-${trip.id}-name`}
+              className="font-display text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl"
+            >
               {trip.name}
             </h2>
             <p className="mt-1 text-sm text-sky-mist">
@@ -74,14 +82,23 @@ export function TripDetails({ trip, actions }: { trip: Trip; actions: TripAction
             tone="dark"
             data-testid="cart-trip-menu"
             items={[
-              { label: "Rename or change dates", onSelect: () => actions.edit(trip), "data-testid": "trip-action-edit" },
+              {
+                label: "Rename or change dates",
+                onSelect: () => actions.edit(trip),
+                "data-testid": "trip-action-edit",
+              },
               {
                 label: "Merge with another trip",
                 detail: "Moves every item into it",
                 onSelect: () => actions.merge(trip),
                 "data-testid": "trip-action-merge",
               },
-              { label: "Delete trip", danger: true, onSelect: () => actions.remove(trip), "data-testid": "trip-action-delete" },
+              {
+                label: "Delete trip",
+                danger: true,
+                onSelect: () => actions.remove(trip),
+                "data-testid": "trip-action-delete",
+              },
             ]}
           />
         </div>
@@ -92,7 +109,9 @@ export function TripDetails({ trip, actions }: { trip: Trip; actions: TripAction
 
       {trip.items.length === 0 ? (
         <Card edge="line">
-          <p className="p-card text-sm text-muted">Nothing in this trip yet. Add tours, rentals or stays from a destination.</p>
+          <p className="p-card text-sm text-muted">
+            Nothing in this trip yet. Add tours, rentals or stays from a destination.
+          </p>
         </Card>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -110,7 +129,10 @@ export function TripDetails({ trip, actions }: { trip: Trip; actions: TripAction
       )}
 
       {canBook.length > 0 && (
-        <Card edge="line" className="flex flex-wrap items-center justify-between gap-3 px-card py-4 lg:sticky lg:bottom-3">
+        <Card
+          edge="line"
+          className="flex flex-wrap items-center justify-between gap-3 px-card py-4 lg:sticky lg:bottom-3"
+        >
           <p className="text-sm text-muted">
             {picked.length} of {itemCount(canBook.length)} ticked · each goes to its partner as a request
           </p>
@@ -154,7 +176,7 @@ function ItemCard({
       <Card
         clip={false}
         edge="line"
-        className="relative flex items-start gap-4 p-3 transition-[border-color,box-shadow] duration-300 ease-calm hover:border-line-2 hover:shadow-lift sm:p-4"
+        className="relative flex items-center gap-3 p-2.5 transition-[border-color,box-shadow] duration-300 ease-calm hover:border-line-2 hover:shadow-lift sm:px-3"
       >
         {picked !== undefined && (
           <input
@@ -163,49 +185,57 @@ function ItemCard({
             onChange={onPick}
             aria-label={`Book ${item.listing.title}`}
             data-testid="cart-item-pick"
-            className="relative z-10 mt-1 size-5 shrink-0 rounded border-line-strong accent-primary"
+            className="relative z-10 size-5 shrink-0 rounded border-line-strong accent-primary"
           />
         )}
-        <div className="size-20 shrink-0 overflow-hidden rounded-control bg-mist sm:size-24">
+        <div className="size-16 shrink-0 overflow-hidden rounded-control bg-mist">
           {photo ? (
             <Image
               src={photo}
               alt=""
-              width={192}
-              height={192}
+              width={128}
+              height={128}
               unoptimized={isApiPhoto(photo)}
               className="size-full object-cover"
             />
           ) : (
             <span className="flex size-full items-center justify-center text-primary">
-              <CategoryGlyph name={item.listing.category} className="size-8" />
+              <CategoryGlyph name={item.listing.category} className="size-7" />
             </span>
           )}
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <button
-            type="button"
-            aria-haspopup="dialog"
-            onClick={() => actions.open(trip, item)}
-            data-testid="cart-item-open"
-            className="text-left text-title-sm font-semibold leading-snug outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] hover:text-primary focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-(--focus)"
-          >
-            {item.listing.title}
-          </button>
-          <p className="text-sm text-muted">{[item.listing.category, item.area.name, guestCount(item.quantity)].join(" · ")}</p>
-          {dates ? (
-            <p className="text-sm">{dates}</p>
-          ) : (
+        <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <button
               type="button"
-              onClick={() => actions.redateItem(trip, item)}
-              className="relative z-10 w-fit text-sm font-semibold text-warning hover:underline"
+              aria-haspopup="dialog"
+              onClick={() => actions.open(trip, item)}
+              data-testid="cart-item-open"
+              className="truncate text-left font-semibold leading-snug outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] hover:text-primary focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-(--focus)"
             >
-              Pick a date to book
+              {item.listing.title}
             </button>
-          )}
+            <p className="flex flex-wrap items-center gap-x-1 text-sm text-muted">
+              {/* What and where only from sm: a phone keeps the row to guests and dates. */}
+              <span className="hidden sm:inline">
+                {item.listing.category} · {item.area.name} ·
+              </span>
+              <span>{guestCount(item.quantity)} ·</span>
+              {dates ? (
+                <span className="text-foreground">{dates}</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => actions.redateItem(trip, item)}
+                  className="relative z-10 font-semibold text-warning hover:underline"
+                >
+                  Pick a date to book
+                </button>
+              )}
+            </p>
+          </div>
           {booking && (
-            <p className="mt-1 flex flex-wrap items-center gap-1.5">
+            <p className="flex shrink-0 items-center gap-1.5 whitespace-nowrap sm:flex-col sm:items-end sm:gap-0.5">
               <BookingStatusBadge status={booking.status} small />
               <span className="text-xs text-muted">{booking.reference}</span>
             </p>
@@ -217,11 +247,30 @@ function ItemCard({
             data-testid="cart-item-menu"
             items={
               booking
-                ? [{ label: "View booking", onSelect: () => actions.open(trip, item), "data-testid": "item-action-booking" }]
+                ? [
+                    {
+                      label: "View booking",
+                      onSelect: () => actions.open(trip, item),
+                      "data-testid": "item-action-booking",
+                    },
+                  ]
                 : [
-                    { label: "Move to another trip", onSelect: () => actions.moveItem(trip, item), "data-testid": "item-action-move" },
-                    { label: "Change date", onSelect: () => actions.redateItem(trip, item), "data-testid": "item-action-date" },
-                    { label: "Remove", danger: true, onSelect: () => actions.removeItem(trip, item), "data-testid": "item-action-remove" },
+                    {
+                      label: "Move to another trip",
+                      onSelect: () => actions.moveItem(trip, item),
+                      "data-testid": "item-action-move",
+                    },
+                    {
+                      label: "Change date",
+                      onSelect: () => actions.redateItem(trip, item),
+                      "data-testid": "item-action-date",
+                    },
+                    {
+                      label: "Remove",
+                      danger: true,
+                      onSelect: () => actions.removeItem(trip, item),
+                      "data-testid": "item-action-remove",
+                    },
                   ]
             }
           />
