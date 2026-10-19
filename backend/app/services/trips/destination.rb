@@ -33,7 +33,20 @@ module Trips
     # "Bantayan Island · Nov 12–15"; the destination alone without dates. A long place name
     # is shortened so the name fits a trip's 80 characters.
     def self.trip_name(area, starts_on, ends_on)
-      place = self.for(area)&.name || area.name
+      with_dates(self.for(area)&.name || area.name, starts_on, ends_on)
+    end
+
+    # A trip name made by #trip_name, moved to the trip's new dates (RAA-137): "Bantayan
+    # Island · Oct 22" becomes "Bantayan Island · Oct 21–24". Nil for a name that doesn't end
+    # with the old dates, which the guest typed (or there were none to tell it by).
+    def self.redated(name, (was_from, was_to), (from, to))
+      suffix = was_from && " · #{dates(was_from, was_to)}"
+      return unless suffix && name.end_with?(suffix)
+
+      with_dates(name.delete_suffix(suffix), from, to)
+    end
+
+    def self.with_dates(place, starts_on, ends_on)
       return place.truncate(NAME_LENGTH) unless starts_on
 
       suffix = " · #{dates(starts_on, ends_on)}"

@@ -13,6 +13,7 @@ class Trip < ApplicationRecord
   validates :guests, numericality: { only_integer: true, in: 1..50 }
   validate :user_is_a_guest
   validate :dates_cover_items, if: :dates_changed?
+  before_save :follow_dates_in_name, if: -> { dates_changed? && !name_changed? }
   after_save { @covering = false }
   before_destroy :keep_if_booked, prepend: true
 
@@ -89,6 +90,13 @@ class Trip < ApplicationRecord
 
   def dates_are_not_past
     super unless @covering
+  end
+
+  # A name made from the destination and dates keeps saying the trip's dates, whichever way
+  # they change (an item extending them, Edit trip, a merge); a typed name is left alone.
+  def follow_dates_in_name
+    redated = Trips::Destination.redated(name, [ starts_on_was, ends_on_was ], [ starts_on, ends_on ])
+    self.name = redated if redated
   end
 
   def dates_cover_items
