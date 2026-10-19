@@ -11,17 +11,10 @@ import { TextareaField } from "@/components/ui/textarea-field";
 import { Toast } from "@/components/ui/toast";
 import { formatPeso } from "@/lib/money";
 import { BookingStatusBadge } from "./booking-status";
+import { CANCELLATION_POLICY } from "./cancellation";
 import { useBookings, useCancelBooking, type GuestBooking } from "./use-bookings";
 
 type Tab = "upcoming" | "past";
-
-// The policy a booking was made under, as the cancel dialog explains a refund.
-const POLICY: Record<string, string> = {
-  free_cancellation: "Free cancellation until the day before it starts.",
-  seven_days: "Free cancellation until 7 days before it starts.",
-  fourteen_days: "Free cancellation until 14 days before it starts.",
-  non_refundable: "Non-refundable.",
-};
 
 // Upcoming: still holding its days and not over. The API lists those first.
 function isUpcoming(booking: GuestBooking) {
@@ -120,8 +113,9 @@ function BookingCard({ booking, onCancel }: { booking: GuestBooking; onCancel: (
         </p>
         {waiting && (
           <p className="text-sm">
-            The partner answers by {new Date(booking.expires_at!).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}.
-            Your dates are held until then.
+            The partner answers by{" "}
+            {new Date(booking.expires_at!).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })}. Your
+            dates are held until then.
           </p>
         )}
         {booking.status === "cancelled" && booking.refund_cents !== null && (
@@ -175,7 +169,9 @@ export function CancelDialog({
             variant="danger"
             data-testid="booking-cancel-confirm"
             disabled={cancel.isPending}
-            onClick={() => cancel.mutate({ id: booking.id, reason: reason.trim() || undefined }, { onSuccess: onCancelled })}
+            onClick={() =>
+              cancel.mutate({ id: booking.id, reason: reason.trim() || undefined }, { onSuccess: onCancelled })
+            }
           >
             {cancel.isPending ? "Cancelling…" : "Cancel booking"}
           </Button>
@@ -188,10 +184,18 @@ export function CancelDialog({
       {paid && (
         <p className="text-sm font-semibold" data-testid="booking-cancel-refund">
           {refund ? `You get back ${formatPeso(refund)}.` : "You get nothing back."}{" "}
-          {booking.cancellation_policy && <span className="font-normal text-muted">{POLICY[booking.cancellation_policy]}</span>}
+          {booking.cancellation_policy && (
+            <span className="font-normal text-muted">{CANCELLATION_POLICY[booking.cancellation_policy]?.rule}</span>
+          )}
         </p>
       )}
-      <TextareaField label="Reason (optional)" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} rows={2} />
+      <TextareaField
+        label="Reason (optional)"
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+        maxLength={500}
+        rows={2}
+      />
       {cancel.error && (
         <p role="alert" className="text-sm text-danger">
           {cancel.error.message}
