@@ -30,6 +30,10 @@ services:
         value: "1"
       - key: RAILS_MAX_THREADS
         value: "3"
+      # Accept booking requests the moment they are made, until partners answer them in the app
+      # (RAA-134 turned the default off). A guest's change to a booking always waits.
+      - key: BOOKINGS_AUTO_ACCEPT
+        value: "true"
       - key: RAILS_MASTER_KEY
         sync: false
       # Neon, direct (not -pooler) connection strings: PgBouncer's transaction mode breaks
