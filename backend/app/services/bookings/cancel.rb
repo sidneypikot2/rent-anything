@@ -18,14 +18,19 @@ module Bookings
       return 0 unless booking.payment
       return booking.total_cents if by == "partner"
 
-      days = FREE_UNTIL[booking.cancellation_policy]
-      return 0 if days.nil?
+      # By the (UTC) date, as the booking's dates are.
+      last_free_day = free_until(booking)
+      last_free_day && at.utc.to_date <= last_free_day ? booking.total_cents : 0
+    end
 
-      # By the (UTC) date, as the booking's dates are: free until the day before it starts, or
-      # until the day 7 / 14 days before it.
-      today = at.utc.to_date
-      free = days.zero? ? today < booking.starts_on : today <= booking.starts_on - days
-      free ? booking.total_cents : 0
+    # The last day a guest can cancel for a full refund, by the policy the booking was made under
+    # (RAA-135): the day before it starts for free_cancellation, the day 7 / 14 days before it for
+    # seven_days / fourteen_days. Nil when the policy refunds nothing, or for an offline booking.
+    def self.free_until(booking)
+      return nil if booking.source_offline?
+
+      days = FREE_UNTIL[booking.cancellation_policy]
+      days && booking.starts_on - [ days, 1 ].max
     end
 
     def initialize(booking, by:, user:, reason: nil)

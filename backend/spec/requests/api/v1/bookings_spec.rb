@@ -78,6 +78,8 @@ RSpec.describe "Bookings", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body["events"].pluck("to_status")).to eq(%w[awaiting_payment confirmed])
+          # Booked under seven_days: free to cancel until 7 days before it starts.
+          expect(response.parsed_body["free_cancellation_until"]).to eq((booking.starts_on - 7).iso8601)
         end
       end
 

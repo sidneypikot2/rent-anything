@@ -5787,6 +5787,12 @@ components:
           nullable: true
           description: What the guest would get back cancelling now, by its cancellation
             policy; null when not cancellable
+        free_cancellation_until:
+          type: string
+          format: date
+          nullable: true
+          description: The last day the guest can cancel for a full refund, by its
+            cancellation policy (RAA-135); null when the policy refunds nothing
         trip_id:
           type: integer
           nullable: true
@@ -5831,6 +5837,7 @@ components:
       - refund_cents
       - cancellable
       - refund_if_cancelled_cents
+      - free_cancellation_until
       - trip_id
       - trip_item_id
       - booking_type

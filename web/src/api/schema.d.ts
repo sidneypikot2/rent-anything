@@ -5476,6 +5476,11 @@ export interface components {
             cancellable: boolean;
             /** @description What the guest would get back cancelling now, by its cancellation policy; null when not cancellable */
             refund_if_cancelled_cents: number | null;
+            /**
+             * Format: date
+             * @description The last day the guest can cancel for a full refund, by its cancellation policy (RAA-135); null when the policy refunds nothing
+             */
+            free_cancellation_until: string | null;
             trip_id: number | null;
             trip_item_id: number | null;
             /** @enum {string} */
