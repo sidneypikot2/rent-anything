@@ -12,7 +12,7 @@ export function DeletionBanner({ trip, onChangeDates }: { trip: Trip; onChangeDa
     <div
       role="status"
       data-testid="trip-deletion-banner"
-      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-control border border-warning bg-surface-2 px-3 py-2 text-sm"
+      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-control border border-warning bg-surface-2 px-3 py-2 text-sm text-foreground"
     >
       <span>
         <span className="font-semibold">Nothing booked</span> · deletes on {formatDay(trip.deletes_on)}

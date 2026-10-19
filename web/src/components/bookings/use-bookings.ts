@@ -39,6 +39,39 @@ export function useBookings() {
   });
 }
 
+// One of the guest's bookings with its history (GET /bookings/:id), for the cart's item panel.
+export function useBooking(id: number | undefined) {
+  const userId = useSession()?.user.id;
+  return useQuery({
+    queryKey: [...bookingsKey(userId), id],
+    queryFn: async () => {
+      const { data } = await apiClient().GET("/api/v1/bookings/{id}", { params: { path: { id: id! } } });
+      if (!data) throw new Error("Couldn't load this booking. Try again.");
+      return data;
+    },
+    enabled: userId !== undefined && id !== undefined,
+  });
+}
+
+export type BookingChanges = { starts_on: string; ends_on: string; guests: number };
+
+// PATCH /bookings/:id (RAA-134): new dates or guests. The booking goes back to its partner as
+// a request, holding the new dates until they answer; its trip item follows.
+export function useChangeBooking() {
+  const invalidate = useInvalidateBookings();
+  return useMutation({
+    mutationFn: async ({ id, changes }: { id: number; changes: BookingChanges }) => {
+      const { data, error } = await apiClient().PATCH("/api/v1/bookings/{id}", {
+        params: { path: { id } },
+        body: changes,
+      });
+      if (!data) throw tripError(error, "Couldn't send the change. Try again.");
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
 export type CheckoutRequest = { tripId: number; itemIds: number[]; idempotencyKey: string };
 
 // POST /checkouts: books the trip's items, all or nothing. The key is made once per

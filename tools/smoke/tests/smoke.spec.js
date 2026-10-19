@@ -340,13 +340,16 @@ test("add to trip through sign-up", async ({ page }) => {
   await edit.getByTestId("edit-trip-save").click();
   await expect(toast).toContainText(`Saved Smoke trip ${stamp}`);
 
-  // The cart (RAA-68): the header counts both items, View trip opens the trip, and an
-  // item can be removed.
+  // The cart (RAA-68, RAA-135): the header counts both items, View trip shows the trip, picked
+  // in the trips beside it, and an item can be removed.
   await expect(page.getByTestId("nav-cart-count")).toHaveText("2");
   await toast.getByTestId("trip-toast-view").click();
   await expect(page).toHaveURL(/\/cart\?trip=\d+$/);
+  await expect(page.getByTestId("cart-trip-tab").filter({ hasText: `Smoke trip ${stamp}` })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
   const trip = page.getByTestId("cart-trip").filter({ hasText: `Smoke trip ${stamp}` });
-  await expect(trip.getByTestId("cart-trip-toggle")).toHaveAttribute("aria-expanded", "true");
   await expect(trip.getByTestId("cart-item")).toHaveCount(2);
   await trip.getByTestId("cart-item-menu").first().click();
   await trip.getByTestId("item-action-remove").click();
@@ -364,6 +367,16 @@ test("add to trip through sign-up", async ({ page }) => {
   await checkout.getByRole("button", { name: "Done" }).click();
   await expect(trip.getByTestId("cart-item").getByTestId("booking-status")).toHaveText("Request sent");
   await expect(trip.getByTestId("cart-item-pick")).toHaveCount(0);
+
+  // The item's panel (RAA-135) shows its booking, and editing it sends the change to the partner.
+  await trip.getByTestId("cart-item-open").click();
+  const panel = page.getByTestId("cart-item-panel");
+  await expect(panel.getByTestId("item-panel-booking").getByTestId("booking-status")).toHaveText("Request sent");
+  await panel.getByTestId("item-panel-edit").click();
+  const change = page.getByTestId("change-booking-sheet");
+  await change.getByTestId("change-booking-guests-less").click();
+  await change.getByTestId("change-booking-send").click();
+  await expect(page.getByTestId("cart-toast")).toContainText("Change sent to the partner");
 
   await page.goto("/trips/bookings");
   await expect(page.getByTestId("booking-row")).toHaveCount(1);

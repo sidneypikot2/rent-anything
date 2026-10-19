@@ -9,8 +9,8 @@ export const metadata: Metadata = {
   title: "Cart",
 };
 
-// The cart: the guest's trips with their items (RAA-68). `?trip=<id>` opens that trip, as
-// "View trip" in the add-to-trip toast does.
+// The cart: the guest's trips beside the one picked, with its items (RAA-68, RAA-135).
+// `?trip=<id>` shows that trip, as "View trip" in the add-to-trip toast does.
 export default async function Cart(props: PageProps<"/cart">) {
   const trip = Number((await props.searchParams).trip);
   return (
@@ -20,8 +20,8 @@ export default async function Cart(props: PageProps<"/cart">) {
           All trips
         </ButtonLink>
       </PageBanner>
-      <PageSheet>
-        <div className="mx-auto flex w-full max-w-narrow flex-col gap-6 px-gutter py-page-pad">
+      <PageSheet tone="paper">
+        <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-gutter py-page-pad">
           <CartView expandTripId={Number.isInteger(trip) && trip > 0 ? trip : undefined} />
         </div>
       </PageSheet>

@@ -105,8 +105,7 @@ export function NewListingPhotos({
           <div data-testid="listing-step-booking" className="flex flex-col gap-4">
             <WizardTitle as="h2">Booking</WizardTitle>
             <p className="text-sm text-muted">
-              Instant-book listings carry an Instant book tag for guests, and are often booked more. You can change this
-              later from the listing.
+              Every booking comes to you as a request first, so you decide before anything is confirmed.
             </p>
             {options.data ? (
               <BookingModeChoice modes={options.data.booking_modes} value={mode} onChange={setMode} />
