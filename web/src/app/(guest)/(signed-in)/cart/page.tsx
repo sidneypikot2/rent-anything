@@ -15,13 +15,13 @@ export default async function Cart(props: PageProps<"/cart">) {
   const trip = Number((await props.searchParams).trip);
   return (
     <main data-testid="cart" className="flex flex-1 flex-col">
-      <PageBanner title={<DisplayTitle>Your trips</DisplayTitle>} search={false}>
-        <ButtonLink href="/trips" variant="soft" size="sm" className="self-start">
+      <PageBanner title={<DisplayTitle size="compact">Your trips</DisplayTitle>} search={false} compact>
+        <ButtonLink href="/trips" variant="soft" size="sm">
           All trips
         </ButtonLink>
       </PageBanner>
       <PageSheet tone="paper">
-        <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-gutter py-page-pad">
+        <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-gutter pb-page-pad pt-6">
           <CartView expandTripId={Number.isInteger(trip) && trip > 0 ? trip : undefined} />
         </div>
       </PageSheet>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { BoltGlyph } from "@/components/discovery/tag-glyphs";
 import { formatDateRange } from "@/components/trips/format";
 import type { Trip, TripItem } from "@/components/trips/use-trips";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { formatPeso } from "@/lib/money";
 import { BookingStatusBadge } from "./booking-status";
@@ -42,14 +42,9 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
       data-testid="checkout-sheet"
       actions={
         result ? (
-          <>
-            <Button type="button" variant="soft" onClick={onClose}>
-              Done
-            </Button>
-            <ButtonLink href="/trips/bookings" data-testid="checkout-view-bookings">
-              View bookings
-            </ButtonLink>
-          </>
+          <Button type="button" onClick={onClose}>
+            Done
+          </Button>
         ) : (
           <>
             <Button type="button" variant="soft" onClick={close} disabled={checkout.isPending}>

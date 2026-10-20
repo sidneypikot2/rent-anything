@@ -13,7 +13,6 @@ type MenuSection = "guest" | "partner";
 const LINKS: Record<MenuSection, { href: string; label: string; testId: string }[]> = {
   guest: [
     { href: "/trips", label: "Trips", testId: "nav-menu-trips" },
-    { href: "/trips/bookings", label: "Bookings", testId: "nav-menu-bookings" },
     { href: "/profile", label: "Profile", testId: "nav-menu-profile" },
     { href: "/settings", label: "Settings", testId: "nav-menu-settings" },
   ],

@@ -10,7 +10,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { formatPeso } from "@/lib/money";
 import { formatDateRange, formatDay, guestCount, todayIso } from "./format";
 import { bookable, type TripActions } from "./trip-details";
-import type { Trip, TripItem } from "./use-trips";
+import { itemProblem, itemQuote, useTripQuote, type Trip, type TripItem } from "./use-trips";
 
 // A booking that holds its days and hasn't started can be changed (Bookings::Change, RAA-134).
 const CHANGEABLE = new Set(["requested", "accepted", "awaiting_payment", "confirmed"]);
@@ -25,14 +25,18 @@ function when(iso: string) {
 
 // One item of a trip, opened from the cart (RAA-135), in the side panel: its booking first when
 // it has one (status, reference, dates, guests, total, the partner's answer-by time, history),
-// then the listing (ListingPanel, as on the area page). The foot edits or cancels the booking,
-// or, unbooked, re-dates, removes or sends the item; each opens its own sheet over the cart.
+// then the listing (ListingPanel, as on the area page). Unbooked, it says what the item would
+// cost now, the cancellation terms it would be booked under, and what stands in the way
+// (RAA-140). The foot edits or cancels the booking, or, unbooked, re-dates, removes or sends
+// the item; each opens its own sheet over the cart. On the Trips page a past booking offers
+// Book again (`onBookAgain`), which adds the listing to a trip the usual way.
 export function CartItemPanel({
   trip,
   item,
   actions,
   onEditBooking,
   onCancelBooking,
+  onBookAgain,
   onClose,
 }: {
   trip: Trip;
@@ -40,14 +44,28 @@ export function CartItemPanel({
   actions: TripActions;
   onEditBooking: (booking: GuestBooking) => void;
   onCancelBooking: (booking: GuestBooking) => void;
+  onBookAgain?: (item: TripItem) => void;
   onClose: () => void;
 }) {
   const booking = useBooking(item.booking?.id);
+  const quote = useTripQuote(trip.id);
   const photo = item.listing.cover_photo_url;
   const details = booking.data;
+  const line = itemQuote(quote.data, item);
+  const problem = itemProblem(item, line);
+  const over = details && (details.status === "completed" || details.ends_on < todayIso());
 
   let foot: ReactNode;
-  if (item.booking) {
+  if (item.booking && onBookAgain && over) {
+    foot = (
+      <>
+        <span />
+        <Button type="button" onClick={() => onBookAgain(item)} data-testid="item-panel-book-again">
+          Book again
+        </Button>
+      </>
+    );
+  } else if (item.booking) {
     foot = details && (canChange(details) || details.cancellable) && (
       <>
         {details.cancellable ? (
@@ -84,7 +102,7 @@ export function CartItemPanel({
           >
             {item.starts_on ? "Change date" : "Pick a date"}
           </Button>
-          {bookable(item) && (
+          {bookable(item) && !problem && (
             <Button type="button" onClick={() => actions.checkout(trip, [item])} data-testid="item-panel-book">
               Send request
             </Button>
@@ -117,6 +135,12 @@ export function CartItemPanel({
           <p className="text-sm">
             {[formatDateRange(item.starts_on, item.ends_on) ?? "No date yet", guestCount(item.quantity)].join(" · ")}
           </p>
+          {problem && (
+            <p className="text-sm font-semibold text-warning" data-testid="item-panel-problem">
+              {problem}
+            </p>
+          )}
+          <ItemTerms item={item} totalCents={problem ? null : (line?.total_cents ?? null)} toBeAgreed={line?.to_be_agreed} />
           <p className="text-sm text-muted">
             Not booked yet. Sending it asks the partner, who has 24 hours to accept; your dates are held meanwhile.
           </p>
@@ -130,6 +154,37 @@ export function CartItemPanel({
         features={[]}
       />
     </Dialog>
+  );
+}
+
+// What booking an unbooked item now would cost and on what terms: the quote's price and the
+// listing's cancellation policy (RAA-140). The price is checked again at checkout.
+function ItemTerms({
+  item,
+  totalCents,
+  toBeAgreed,
+}: {
+  item: TripItem;
+  totalCents: number | null;
+  toBeAgreed: boolean | undefined;
+}) {
+  const policy = CANCELLATION_POLICY[item.cancellation_policy];
+  const rows: [string, ReactNode][] = [];
+  if (totalCents !== null) {
+    rows.push([
+      "Price now",
+      <span key="price" className="font-semibold tabular-nums" data-testid="item-panel-price">
+        {toBeAgreed ? "To be agreed with the partner" : formatPeso(totalCents)}
+      </span>,
+    ]);
+  }
+  if (policy) rows.push(["Cancellation", policy.name]);
+  if (rows.length === 0) return null;
+  return (
+    <>
+      <Rows rows={rows} />
+      {policy && <p className="text-xs text-muted">{policy.rule}</p>}
+    </>
   );
 }
 
