@@ -7,11 +7,17 @@ module Api
 
       before_action :authenticate_user!
       before_action -> { require_role!("guest") }
-      before_action :set_trip, only: %i[show update destroy merge]
+      before_action :set_trip, only: %i[show update destroy merge copy quote]
 
+      # The cart, or with view=booked the Trips page (RAA-139).
       def index
-        trips = current_user.trips.in_cart.with_items
-          .order(Arel.sql("trips.starts_on ASC NULLS LAST"), updated_at: :desc)
+        trips =
+          case params[:view]
+          when nil then current_user.trips.in_cart.order(Arel.sql("trips.starts_on ASC NULLS LAST"), updated_at: :desc)
+          when "booked" then current_user.trips.with_bookings.order(Arel.sql("trips.starts_on DESC NULLS LAST"), :id)
+          else return render json: { errors: [ "View must be booked, or left out" ] }, status: :unprocessable_content
+          end
+        trips = trips.with_items
         destinations = TripSerializer.destination_cache
         render json: trips.map { |trip| TripSerializer.call(trip, destinations:) }
       end
@@ -38,6 +44,15 @@ module Api
 
       def merge
         render json: TripSerializer.reloaded(Trips::Merge.call(@trip, params.slice(:into_trip_id)))
+      end
+
+      def copy
+        copied = Trips::Copy.call(@trip, params.slice(:name, :starts_on, :guests))
+        render json: { trip: TripSerializer.reloaded(copied[:trip]), skipped: copied[:skipped] }, status: :created
+      end
+
+      def quote
+        render json: Trips::Quote.call(@trip)
       end
 
       def suggestion

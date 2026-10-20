@@ -225,9 +225,37 @@ RSpec.configure do |config|
               booking: {
                 allOf: [ { "$ref" => "#/components/schemas/booking_ref" } ], nullable: true,
                 description: "Its booking while one holds its days (RAA-132); a booked item can't be changed or removed"
+              },
+              cancellation_policy: {
+                type: :string, enum: %w[free_cancellation seven_days fourteen_days non_refundable],
+                description: "The listing's, which a booking made now would be under (RAA-139)"
+              },
+              listing_active: { type: :boolean, description: "False once the listing is paused or delisted: it can't be booked" }
+            },
+            required: %w[id starts_on ends_on quantity booking_type area listing booking cancellation_policy listing_active]
+          },
+          # What a trip's items would cost if booked now (RAA-139, GET /trips/:id/quote).
+          trip_quote: {
+            type: :object,
+            properties: {
+              trip_id: { type: :integer },
+              total_cents: { type: :integer, description: "The items without a problem, booked ones at their booking's total" },
+              to_be_agreed_count: { type: :integer, description: "Items priced with the partner, counted as ₱0 in the total" },
+              items: {
+                type: :array,
+                items: {
+                  type: :object,
+                  properties: {
+                    trip_item_id: { type: :integer },
+                    total_cents: { type: :integer, nullable: true, description: "Null with a problem" },
+                    to_be_agreed: { type: :boolean, description: "A rental or transfer: priced with the partner" },
+                    problem: { type: :string, nullable: true, description: "Why it can't be booked as it is" }
+                  },
+                  required: %w[trip_item_id total_cents to_be_agreed problem]
+                }
               }
             },
-            required: %w[id starts_on ends_on quantity booking_type area listing booking]
+            required: %w[trip_id total_cents to_be_agreed_count items]
           },
           trip_suggestion: {
             type: :object,

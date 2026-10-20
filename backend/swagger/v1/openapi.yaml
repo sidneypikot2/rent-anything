@@ -2757,7 +2757,8 @@ paths:
         with its items. A trip that has ended, or an undated one with no edits for
         60 days, shows a deletion notice for 7 days; then a daily job deletes its
         unbooked items. Dated trips come first, soonest first; then undated ones,
-        most recently edited first.'
+        most recently edited first. `view=booked` lists instead every trip with a
+        booked item, whenever it was (the Trips page, RAA-139), latest first.'
       security:
       - bearer: []
       parameters:
@@ -2765,6 +2766,13 @@ paths:
         in: header
         schema:
           type: string
+      - name: view
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - booked
       responses:
         '200':
           description: the guest's trips, up to 7 days after they end
@@ -2774,6 +2782,12 @@ paths:
                 type: array
                 items:
                   "$ref": "#/components/schemas/trip"
+        '422':
+          description: a view that isn't one
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
         '403':
           description: a partner
           content:
@@ -3042,6 +3056,119 @@ paths:
                   type: integer
               required:
               - into_trip_id
+  "/api/v1/trips/{id}/copy":
+    post:
+      summary: Plan a trip again, from one of the guest's trips
+      tags:
+      - Trips
+      description: 'Guest-only (RAA-139). A new trip with this trip''s items, each
+        moved by as many days as `starts_on` is from this trip''s start, with the
+        same guests. Nothing is booked: the items go in the cart. `starts_on` is required
+        for a dated trip and can''t be in the past; `name` defaults to this trip''s
+        name with "again", `guests` to its guests. An item whose listing can''t be
+        booked any more is left out and listed in `skipped`.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      - name: id
+        in: path
+        schema:
+          type: integer
+        required: true
+      responses:
+        '201':
+          description: the new trip, and the items left out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trip:
+                    "$ref": "#/components/schemas/trip"
+                  skipped:
+                    type: array
+                    description: Items whose listing can't be booked any more
+                    items:
+                      type: object
+                      properties:
+                        listing_id:
+                          type: integer
+                        title:
+                          type: string
+                        reason:
+                          type: string
+                      required:
+                      - listing_id
+                      - title
+                      - reason
+                required:
+                - trip
+                - skipped
+        '422':
+          description: no start date for a dated trip, or one in the past
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another guest's trip
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                starts_on:
+                  type: string
+                  format: date
+                guests:
+                  type: integer
+  "/api/v1/trips/{id}/quote":
+    get:
+      summary: What a trip's items would cost now
+      tags:
+      - Trips
+      description: Guest-only (RAA-139). Each item priced as checkout would price
+        it now, and checked against the listing's calendar; a booked item gives its
+        booking's total. `problem` says why an item can't be booked as it is (no date,
+        dates passed or taken, listing off), and such an item has no price. `total_cents`
+        adds up the items without a problem; rentals and transfers are priced with
+        the partner (`to_be_agreed`) and count ₱0.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      - name: id
+        in: path
+        schema:
+          type: integer
+        required: true
+      responses:
+        '200':
+          description: each item's price or problem, and the total
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/trip_quote"
+        '404':
+          description: another guest's trip
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/webhooks/didit":
     post:
       summary: Didit reports a change to an ID check
@@ -3421,6 +3548,18 @@ components:
           nullable: true
           description: Its booking while one holds its days (RAA-132); a booked item
             can't be changed or removed
+        cancellation_policy:
+          type: string
+          enum:
+          - free_cancellation
+          - seven_days
+          - fourteen_days
+          - non_refundable
+          description: The listing's, which a booking made now would be under (RAA-139)
+        listing_active:
+          type: boolean
+          description: 'False once the listing is paused or delisted: it can''t be
+            booked'
       required:
       - id
       - starts_on
@@ -3430,6 +3569,48 @@ components:
       - area
       - listing
       - booking
+      - cancellation_policy
+      - listing_active
+    trip_quote:
+      type: object
+      properties:
+        trip_id:
+          type: integer
+        total_cents:
+          type: integer
+          description: The items without a problem, booked ones at their booking's
+            total
+        to_be_agreed_count:
+          type: integer
+          description: Items priced with the partner, counted as ₱0 in the total
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              trip_item_id:
+                type: integer
+              total_cents:
+                type: integer
+                nullable: true
+                description: Null with a problem
+              to_be_agreed:
+                type: boolean
+                description: 'A rental or transfer: priced with the partner'
+              problem:
+                type: string
+                nullable: true
+                description: Why it can't be booked as it is
+            required:
+            - trip_item_id
+            - total_cents
+            - to_be_agreed
+            - problem
+      required:
+      - trip_id
+      - total_cents
+      - to_be_agreed_count
+      - items
     trip_suggestion:
       type: object
       properties:
