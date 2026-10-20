@@ -46,8 +46,13 @@ export function TripItinerary({ trip, onOpen }: { trip: Trip; onOpen: (item: Tri
                 ) : (
                   <ul className="flex flex-col gap-1">
                     {day.entries.map(({ item, role }) => (
-                      <li key={item.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                        <span className="w-24 shrink-0 text-muted">{ROLE_LABEL[role]}</span>
+                      // The same columns on every row, so the pills line up whatever the title; on a
+                      // phone the pill goes under the title, which keeps the width.
+                      <li
+                        key={item.id}
+                        className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1 text-sm sm:grid-cols-[6rem_minmax(0,1fr)_auto]"
+                      >
+                        <span className="text-muted">{ROLE_LABEL[role]}</span>
                         <button
                           type="button"
                           aria-haspopup="dialog"
@@ -56,7 +61,11 @@ export function TripItinerary({ trip, onOpen }: { trip: Trip; onOpen: (item: Tri
                         >
                           {item.listing.title}
                         </button>
-                        {item.booking && <BookingStatusBadge status={item.booking.status} small />}
+                        {item.booking && (
+                          <span className="col-start-2 justify-self-start sm:col-start-3 sm:justify-self-end">
+                            <BookingStatusBadge status={item.booking.status} small />
+                          </span>
+                        )}
                       </li>
                     ))}
                   </ul>
