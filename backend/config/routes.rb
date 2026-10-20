@@ -52,8 +52,10 @@ Rails.application.routes.draw do
         post :cancel, on: :member
       end
 
-      # Admin-only (RAA-60): the search-term and destination-link queues.
+      # Admin-only (RAA-60): the search-term and destination-link queues; and every partner's
+      # bookings, whose requests the team answers on partners' behalf (RAA-141).
       namespace :admin do
+        resources :bookings, only: %i[index update]
         resource :search_term_queue, only: :show
         resources :search_terms, only: :create
         resources :link_suggestions, only: :index

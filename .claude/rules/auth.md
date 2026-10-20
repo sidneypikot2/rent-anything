@@ -10,7 +10,7 @@ paths:
 
 # Auth and roles (RAA-23)
 
-**One `users` table, role fixed by the entry point.** `role` is `guest`, `partner` or `admin` (CHECK constraint). The client sends the role of the page it is on (`/login` and `/register` → `guest`, `/partner/login` and `/partner/register` → `partner`, `/admin` → `admin`), never one the user picks. Sign-up and Google/Facebook accept only `guest` and `partner` (`User::SELF_SERVE_ROLES`); admins are never self-made.
+**One `users` table, role fixed by the entry point.** `role` is `guest`, `partner` or `admin` (CHECK constraint). The client sends the role of the page it is on (`/login` and `/register` → `guest`, `/partner/login` and `/partner/register` → `partner`, `/admin` → `admin`), never one the user picks. Sign-up and Google/Facebook accept only `guest` and `partner` (`User::SELF_SERVE_ROLES`); admins are never self-made. `bin/rails admin:grant EMAIL=… [PASSWORD=…]` (`Auth::GrantAdmin`, RAA-141) makes one as a separate user with the same email — not a role change, which the composite foreign keys to `users (id, role)` (profiles, OAuth identities, listings) refuse for anyone who has them.
 
 **Email is unique per role** (RAA-29): unique `(email, role)`, and the validation is scoped to `role`. One person can have a guest account and a partner account with the same address, each with its own password, and they are separate users. Every sign-in looks up `(email, role)` for the page's role, so on another role's page that account just isn't found: a 401, never a 403, and never converted. Anything that finds a user by email must also scope it to a role.
 
