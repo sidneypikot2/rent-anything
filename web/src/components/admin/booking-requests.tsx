@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
 import { CANCELLATION_POLICY } from "@/components/bookings/cancellation";
 import { daysBetween, formatDateRange, guestCount } from "@/components/trips/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
+import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { Pill } from "@/components/ui/pill";
 import { TextareaField } from "@/components/ui/textarea-field";
@@ -34,12 +35,14 @@ function when(iso: string) {
 }
 
 // Every partner's booking requests (RAA-142): for launch the team answers them on partners'
-// behalf. Requests come soonest to expire first; chips switch to other statuses. Each row says
-// what is booked, for which partner, by whom and how to reach both, with Accept and Decline on
-// a request. Partners can still answer their own, so an answer can come back already given.
+// behalf. Requests come soonest to expire first; chips switch to other statuses. A row says
+// what is booked, for which partner, by whom and when, with Accept and Decline on a request;
+// clicking it opens the complete details (contacts, money, notes) in a side panel. Partners can
+// still answer their own, so an answer can come back already given.
 // Dense on purpose: it is a work screen for the team, not a page for travellers.
 export function BookingRequests() {
   const [filter, setFilter] = useState<AdminBookingFilter>("requested");
+  const [viewing, setViewing] = useState<AdminBooking | null>(null);
   const [declining, setDeclining] = useState<AdminBooking | null>(null);
   const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
   const requests = useAdminBookings("requested");
@@ -53,6 +56,7 @@ export function BookingRequests() {
         : `Accepted ${booking.reference} for ${booking.partner.business}: it's confirmed.`;
     setToast((last) => ({ id: (last?.id ?? 0) + 1, message }));
     setDeclining(null);
+    setViewing(null);
   }
 
   function rowProps(booking: AdminBooking): RowProps {
@@ -65,6 +69,11 @@ export function BookingRequests() {
         setDeclining(booking);
       },
     };
+  }
+
+  function open(booking: AdminBooking) {
+    answer.reset();
+    setViewing(booking);
   }
 
   return (
@@ -85,7 +94,7 @@ export function BookingRequests() {
         ))}
       </div>
 
-      {answer.error && !declining && (
+      {answer.error && !declining && !viewing && (
         <p role="alert" className="text-sm font-semibold text-danger" data-testid="admin-booking-error">
           {answer.error.message}
         </p>
@@ -111,7 +120,15 @@ export function BookingRequests() {
           </CardBody>
         </Card>
       ) : (
-        <BookingTable bookings={bookings.data} rowProps={rowProps} />
+        <BookingTable bookings={bookings.data} rowProps={rowProps} onOpen={open} />
+      )}
+
+      {viewing && (
+        <BookingPanel
+          {...rowProps(viewing)}
+          error={declining ? undefined : answer.error?.message}
+          onClose={() => setViewing(null)}
+        />
       )}
 
       {declining && (
@@ -143,8 +160,8 @@ function runLength(booking: AdminBooking) {
   return null;
 }
 
-// What a row shows beyond its listing and people: the days by type, the party, the money and
-// the time that matters now (when a request must be answered, else when it was).
+// What a booking shows beyond its listing and people: the days by type, the party, the money
+// and the time that matters now (when a request must be answered, else when it was).
 function details(booking: AdminBooking) {
   const dates = formatDateRange(booking.starts_on, booking.ends_on) ?? booking.starts_on;
   const units = `${booking.quantity} ${booking.quantity === 1 ? "unit" : "units"}`;
@@ -160,12 +177,21 @@ function details(booking: AdminBooking) {
   return { dates, party, total, policy, timing };
 }
 
+function kindAndArea(booking: AdminBooking) {
+  return [booking.booking_type && BOOKING_TYPES[booking.booking_type], booking.listing.area].filter(Boolean).join(" · ");
+}
+
+function travellerName(booking: AdminBooking) {
+  return booking.traveller?.name ?? booking.guest_name;
+}
+
 type RowProps = { booking: AdminBooking; busy: boolean; onAccept: () => void; onDecline: () => void };
 
+// The answer buttons: a click on them answers, and doesn't also open the row's panel.
 function Actions({ booking, busy, onAccept, onDecline }: RowProps) {
   if (booking.status !== "requested") return null;
   return (
-    <div className="flex gap-1.5">
+    <div className="flex gap-1.5" onClick={(event) => event.stopPropagation()}>
       <Button size="sm" onClick={onAccept} disabled={busy} data-testid="admin-booking-accept">
         {busy ? "Accepting…" : "Accept"}
       </Button>
@@ -176,67 +202,61 @@ function Actions({ booking, busy, onAccept, onDecline }: RowProps) {
   );
 }
 
-function partnerContact(booking: AdminBooking) {
-  const { partner } = booking;
-  return <Contact name={partner.business} lines={[partner.name, partner.phone, partner.email]} testId="admin-booking-partner" />;
-}
-
-function travellerContact(booking: AdminBooking) {
-  const { traveller } = booking;
+// A row's title, a button so the keyboard can open its panel too; a click anywhere on the row
+// does the same.
+function OpenButton({ booking, onOpen }: { booking: AdminBooking; onOpen: (booking: AdminBooking) => void }) {
   return (
-    <Contact
-      name={traveller?.name ?? booking.guest_name}
-      lines={traveller ? [traveller.phone, traveller.email] : ["Taken offline"]}
-      testId="admin-booking-traveller"
-    />
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpen(booking);
+      }}
+      title={booking.listing.title}
+      className="max-w-full min-w-0 truncate text-left font-medium hover:underline focus-visible:underline focus-visible:outline-none"
+      data-testid="admin-booking-open"
+    >
+      {booking.listing.title}
+    </button>
   );
 }
 
-function Contact({ name, lines, testId }: { name: string | null; lines: (string | null)[]; testId: string }) {
-  return (
-    <div className="flex min-w-0 flex-col" data-testid={testId}>
-      <span className="truncate font-medium">{name ?? "—"}</span>
-      {lines
-        .filter((line): line is string => Boolean(line))
-        .map((line) => (
-          <span key={line} className="truncate text-xs text-muted" title={line}>
-            {line}
-          </span>
-        ))}
-    </div>
-  );
-}
+const CELL = "px-3 py-2 align-middle";
+const ROW = "cursor-pointer transition-colors duration-300 ease-calm hover:bg-surface-2";
 
-const CELL = "px-3 py-2 align-top";
-
-// One row per booking from xl, with every column the answer needs, and a compact list below it
-// (the partner listings table's pattern).
-function BookingTable({ bookings, rowProps }: { bookings: AdminBooking[]; rowProps: (booking: AdminBooking) => RowProps }) {
+// One line per booking from xl, a short list below it (the partner listings table's pattern):
+// only what picks a request out; the rest is in its panel.
+function BookingTable({
+  bookings,
+  rowProps,
+  onOpen,
+}: {
+  bookings: AdminBooking[];
+  rowProps: (booking: AdminBooking) => RowProps;
+  onOpen: (booking: AdminBooking) => void;
+}) {
   return (
     <Card edge="line" data-testid="admin-bookings">
       <ul className="divide-y divide-line xl:hidden">
         {bookings.map((booking) => {
-          const { dates, party, total, timing } = details(booking);
+          const { dates, total, timing } = details(booking);
           return (
-            <li key={booking.id} data-testid="admin-booking" className="flex flex-col gap-2 px-4 py-3 text-sm">
-              <div className="flex flex-wrap items-center gap-1.5">
+            <li
+              key={booking.id}
+              data-testid="admin-booking"
+              onClick={() => onOpen(booking)}
+              className={cn(ROW, "flex flex-col gap-1 px-4 py-2.5 text-sm")}
+            >
+              <div className="flex items-center gap-2">
                 <BookingStatusBadge status={booking.status} small />
-                {booking.booking_type && (
-                  <span className="text-xs font-semibold text-muted">{BOOKING_TYPES[booking.booking_type]}</span>
-                )}
-                <span className="ml-auto text-xs text-muted tabular-nums">{booking.reference}</span>
+                <span className="flex min-w-0 flex-1">
+                  <OpenButton booking={booking} onOpen={onOpen} />
+                </span>
+                <span className="shrink-0 font-medium tabular-nums">{total}</span>
               </div>
-              <p className="font-semibold">
-                {booking.listing.title} <span className="font-normal text-muted">· {booking.listing.area}</span>
+              <p className="truncate text-xs text-muted">
+                {booking.partner.business} · {travellerName(booking)} · {dates}
               </p>
-              <p className="text-muted">
-                {dates} · {party} · <span className="font-medium text-foreground">{total}</span>
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                {partnerContact(booking)}
-                {travellerContact(booking)}
-              </div>
-              {booking.notes && <p className="text-xs text-muted italic">“{booking.notes}”</p>}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs text-muted">
                   {timing.label} {when(timing.at)}
@@ -251,16 +271,16 @@ function BookingTable({ bookings, rowProps }: { bookings: AdminBooking[]; rowPro
         <colgroup>
           <col className="w-32" />
           <col />
-          <col className="w-48" />
           <col className="w-44" />
           <col className="w-36" />
-          <col className="w-28" />
           <col className="w-32" />
-          <col className="w-52" />
+          <col className="w-24" />
+          <col className="w-36" />
+          <col className="w-48" />
         </colgroup>
         <thead className="border-b border-line bg-surface-2 text-xs text-muted">
           <tr>
-            <th scope="col" className="px-3 py-2 font-semibold">Booking</th>
+            <th scope="col" className="px-3 py-2 font-semibold">Status</th>
             <th scope="col" className="px-3 py-2 font-semibold">Listing</th>
             <th scope="col" className="px-3 py-2 font-semibold">Partner</th>
             <th scope="col" className="px-3 py-2 font-semibold">Traveller</th>
@@ -274,58 +294,33 @@ function BookingTable({ bookings, rowProps }: { bookings: AdminBooking[]; rowPro
         </thead>
         <tbody>
           {bookings.map((booking) => {
-            const { dates, party, total, policy, timing } = details(booking);
+            const { dates, total, timing } = details(booking);
             return (
               <tr
                 key={booking.id}
                 data-testid="admin-booking"
-                className="border-b border-line transition-colors duration-300 ease-calm last:border-0 hover:bg-surface-2"
+                onClick={() => onOpen(booking)}
+                className={cn(ROW, "border-b border-line last:border-0")}
               >
                 <td className={CELL}>
-                  <div className="flex flex-col items-start gap-1 whitespace-nowrap">
-                    <BookingStatusBadge status={booking.status} small />
-                    <span className="text-xs text-muted tabular-nums">{booking.reference}</span>
-                  </div>
+                  <span className="whitespace-nowrap"><BookingStatusBadge status={booking.status} small /></span>
                 </td>
                 <td className={CELL}>
-                  <div className="flex min-w-0 flex-col">
-                    <span className="truncate font-medium" title={booking.listing.title}>
-                      {booking.listing.title}
-                    </span>
-                    <span className="truncate text-xs text-muted">
-                      {[booking.booking_type && BOOKING_TYPES[booking.booking_type], booking.listing.area]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                    {booking.notes && (
-                      <span className="truncate text-xs text-muted italic" title={booking.notes}>
-                        “{booking.notes}”
-                      </span>
-                    )}
+                  <div className="flex min-w-0 items-baseline gap-2">
+                    <OpenButton booking={booking} onOpen={onOpen} />
+                    <span className="min-w-0 flex-1 basis-0 truncate text-xs text-muted">{kindAndArea(booking)}</span>
                   </div>
                 </td>
-                <td className={CELL}>{partnerContact(booking)}</td>
-                <td className={CELL}>{travellerContact(booking)}</td>
-                <td className={CELL}>
-                  <div className="flex flex-col">
-                    <span>{dates}</span>
-                    <span className="text-xs text-muted">{party}</span>
-                  </div>
+                <td className={cn(CELL, "truncate")} title={booking.partner.business}>
+                  {booking.partner.business}
                 </td>
-                <td className={CELL}>
-                  <div className="flex min-w-0 flex-col tabular-nums">
-                    <span className="font-medium">{total}</span>
-                    <span className="text-xs text-muted">{formatPeso(booking.commission_cents)} fee</span>
-                    {policy && <span className="truncate text-xs text-muted">{policy}</span>}
-                  </div>
+                <td className={cn(CELL, "truncate")}>{travellerName(booking) ?? "—"}</td>
+                <td className={cn(CELL, "truncate")}>{dates}</td>
+                <td className={cn(CELL, "font-medium tabular-nums")}>{total}</td>
+                <td className={cn(CELL, "truncate text-xs")}>
+                  <span title={timing.label}>{booking.status === "requested" ? `By ${when(timing.at)}` : when(timing.at)}</span>
                 </td>
-                <td className={CELL}>
-                  <div className="flex flex-col text-xs">
-                    <span className="text-muted">{timing.label}</span>
-                    <span>{when(timing.at)}</span>
-                  </div>
-                </td>
-                <td className={CELL}>
+                <td className={cn(CELL, "py-1.5")}>
                   <Actions {...rowProps(booking)} />
                 </td>
               </tr>
@@ -334,6 +329,138 @@ function BookingTable({ bookings, rowProps }: { bookings: AdminBooking[]; rowPro
         </tbody>
       </table>
     </Card>
+  );
+}
+
+function Phone({ number }: { number: string | null }) {
+  return number ? (
+    <a href={`tel:${number}`} className="text-link hover:underline">
+      {number}
+    </a>
+  ) : null;
+}
+
+function Email({ address }: { address: string }) {
+  return (
+    <a href={`mailto:${address}`} className="text-link hover:underline">
+      {address}
+    </a>
+  );
+}
+
+// A booking's complete details in a side panel (the cart item panel's pattern, RAA-126): what
+// is booked, the money, both people with how to reach them, the notes and its times, with
+// Accept and Decline pinned at the foot while it is a request.
+function BookingPanel({ error, onClose, ...row }: RowProps & { error: string | undefined; onClose: () => void }) {
+  const { booking } = row;
+  const { dates, party, total, policy, timing } = details(booking);
+  const { partner, traveller } = booking;
+  return (
+    <Dialog
+      open
+      placement="side"
+      onClose={onClose}
+      title={booking.listing.title}
+      data-testid="admin-booking-panel"
+      actions={
+        booking.status === "requested" ? (
+          <>
+            <span className="text-xs text-muted">
+              {timing.label} {when(timing.at)}
+            </span>
+            <Actions {...row} />
+          </>
+        ) : undefined
+      }
+    >
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <BookingStatusBadge status={booking.status} small />
+        <span className="text-muted">{kindAndArea(booking)}</span>
+        <span className="ml-auto text-xs text-muted tabular-nums">{booking.reference}</span>
+      </div>
+
+      <PanelSection title="Booking">
+        <Row label="Dates">{dates}</Row>
+        <Row label="Party">{party}</Row>
+        <Row label="How">
+          {booking.source === "offline"
+            ? "Taken offline"
+            : booking.booking_mode === "instant"
+              ? "Instant book"
+              : "Request to book"}
+        </Row>
+        {policy && <Row label="Cancellation">{policy}</Row>}
+      </PanelSection>
+
+      <PanelSection title="Money">
+        <Row label="Total">{total}</Row>
+        <Row label="Platform fee">{formatPeso(booking.commission_cents)}</Row>
+        {booking.refund_cents != null && <Row label="Refund">{formatPeso(booking.refund_cents)}</Row>}
+      </PanelSection>
+
+      <PanelSection title="Partner" testId="admin-booking-partner">
+        <Row label="Business">{partner.business}</Row>
+        <Row label="Name">{partner.name}</Row>
+        <Row label="Phone">
+          <Phone number={partner.phone} />
+        </Row>
+        <Row label="Email">
+          <Email address={partner.email} />
+        </Row>
+      </PanelSection>
+
+      <PanelSection title="Traveller" testId="admin-booking-traveller">
+        <Row label="Name">{travellerName(booking)}</Row>
+        {traveller ? (
+          <>
+            <Row label="Phone">
+              <Phone number={traveller.phone} />
+            </Row>
+            <Row label="Email">
+              <Email address={traveller.email} />
+            </Row>
+          </>
+        ) : (
+          <Row label="Contact">Taken offline</Row>
+        )}
+      </PanelSection>
+
+      {booking.notes && (
+        <PanelSection title="Notes">
+          <p className="text-sm whitespace-pre-line">{booking.notes}</p>
+        </PanelSection>
+      )}
+
+      <PanelSection title="Times">
+        <Row label="Booked">{when(booking.created_at)}</Row>
+        {booking.status === "requested" && booking.expires_at && <Row label="Answer by">{when(booking.expires_at)}</Row>}
+        {booking.responded_at && <Row label="Answered">{when(booking.responded_at)}</Row>}
+      </PanelSection>
+
+      {error && (
+        <p role="alert" className="text-sm font-semibold text-danger" data-testid="admin-booking-error">
+          {error}
+        </p>
+      )}
+    </Dialog>
+  );
+}
+
+function PanelSection({ title, testId, children }: { title: string; testId?: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-1.5 border-t border-line pt-3" data-testid={testId}>
+      <h3 className="text-xs font-semibold text-muted">{title}</h3>
+      <dl className="flex flex-col gap-1 text-sm">{children}</dl>
+    </section>
+  );
+}
+
+function Row({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-[7rem_1fr] gap-3">
+      <dt className="text-muted">{label}</dt>
+      <dd className="min-w-0 break-words">{children || "—"}</dd>
+    </div>
   );
 }
 
@@ -386,7 +513,7 @@ function DeclineDialog({
         rows={2}
       />
       {error && (
-        <p role="alert" className="text-sm text-danger">
+        <p role="alert" className="text-sm font-semibold text-danger">
           {error}
         </p>
       )}
