@@ -1,6 +1,7 @@
 # A guest's trip with its items in date order, undated last (the `trip` schema in
 # spec/swagger_helper.rb). destinations are the places its items are in (Trips::Destination),
-# in item order. Each item has its booking while one holds its days (RAA-132). Pass one cache when serializing several trips: each area's destination
+# in item order. Each item has its booking while one holds its days (RAA-132), and the
+# listing's cancellation policy and whether it can still be booked (RAA-139). Pass one cache when serializing several trips: each area's destination
 # walks the area tree.
 module TripSerializer
   def self.call(trip, destinations: destination_cache)
@@ -35,7 +36,9 @@ module TripSerializer
       booking_type: item.listing.category.booking_type,
       area: { slug: item.listing.area.slug, name: item.listing.area.name },
       listing: ListingSummarySerializer.call(item.listing),
-      booking: BookingSerializer.brief(item.booking)
+      booking: BookingSerializer.brief(item.booking),
+      cancellation_policy: item.listing.cancellation_policy,
+      listing_active: item.listing.active?
     }
   end
   private_class_method :item

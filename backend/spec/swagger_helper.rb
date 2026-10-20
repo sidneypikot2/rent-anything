@@ -225,9 +225,37 @@ RSpec.configure do |config|
               booking: {
                 allOf: [ { "$ref" => "#/components/schemas/booking_ref" } ], nullable: true,
                 description: "Its booking while one holds its days (RAA-132); a booked item can't be changed or removed"
+              },
+              cancellation_policy: {
+                type: :string, enum: %w[free_cancellation seven_days fourteen_days non_refundable],
+                description: "The listing's, which a booking made now would be under (RAA-139)"
+              },
+              listing_active: { type: :boolean, description: "False once the listing is paused or delisted: it can't be booked" }
+            },
+            required: %w[id starts_on ends_on quantity booking_type area listing booking cancellation_policy listing_active]
+          },
+          # What a trip's items would cost if booked now (RAA-139, GET /trips/:id/quote).
+          trip_quote: {
+            type: :object,
+            properties: {
+              trip_id: { type: :integer },
+              total_cents: { type: :integer, description: "The items without a problem, booked ones at their booking's total" },
+              to_be_agreed_count: { type: :integer, description: "Items priced with the partner, counted as ₱0 in the total" },
+              items: {
+                type: :array,
+                items: {
+                  type: :object,
+                  properties: {
+                    trip_item_id: { type: :integer },
+                    total_cents: { type: :integer, nullable: true, description: "Null with a problem" },
+                    to_be_agreed: { type: :boolean, description: "A rental or transfer: priced with the partner" },
+                    problem: { type: :string, nullable: true, description: "Why it can't be booked as it is" }
+                  },
+                  required: %w[trip_item_id total_cents to_be_agreed problem]
+                }
               }
             },
-            required: %w[id starts_on ends_on quantity booking_type area listing booking]
+            required: %w[trip_id total_cents to_be_agreed_count items]
           },
           trip_suggestion: {
             type: :object,
@@ -1355,6 +1383,71 @@ RSpec.configure do |config|
             required: %w[from_status to_status actor reason created_at]
           },
           # A guest's booking (RAA-132). Never the listing's location.
+          # A booking as the team sees it when answering for its partner (RAA-141).
+          admin_booking: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              reference: { type: :string },
+              guest_name: { type: :string },
+              starts_on: { type: :string, format: :date },
+              ends_on: {
+                type: :string, format: :date,
+                description: "A stay's check-out (it takes the nights before); otherwise the last day it takes"
+              },
+              quantity: { type: :integer, description: "Units, a private tour's groups or a joiner tour's joiners" },
+              guests: { type: :integer, nullable: true, description: "Null for one taken offline" },
+              status: { "$ref" => "#/components/schemas/booking_status" },
+              source: { type: :string, enum: Booking::SOURCES, description: "offline: taken by the partner outside the app" },
+              booking_mode: { type: :string, enum: Booking::BOOKING_MODES, nullable: true },
+              booking_type: { type: :string, enum: Category::BOOKING_TYPES, nullable: true },
+              total_cents: { type: :integer },
+              to_be_agreed: { type: :boolean, description: "Not priced in the app yet (rentals, transfers): settled with the guest" },
+              commission_cents: { type: :integer, description: "The platform's share of the total" },
+              refund_cents: { type: :integer, nullable: true },
+              cancelled_by: { type: :string, enum: Booking::CANCELLED_BY, nullable: true },
+              cancellation_policy: {
+                allOf: [ { "$ref" => "#/components/schemas/cancellation_policy" } ], nullable: true,
+                description: "The listing's when it was booked"
+              },
+              expires_at: {
+                type: :string, format: "date-time", nullable: true,
+                description: "When a request expires unless answered, or an unpaid hold unless paid"
+              },
+              responded_at: { type: :string, format: "date-time", nullable: true },
+              notes: { type: :string, nullable: true },
+              listing: {
+                type: :object,
+                properties: { id: { type: :integer }, title: { type: :string }, area: { type: :string } },
+                required: %w[id title area]
+              },
+              partner: {
+                type: :object,
+                properties: {
+                  id: { type: :integer },
+                  name: { type: :string, nullable: true },
+                  email: { type: :string },
+                  phone: { type: :string, nullable: true },
+                  business: { type: :string, description: "The listing's business, the name travellers see" }
+                },
+                required: %w[id name email phone business]
+              },
+              traveller: {
+                type: :object, nullable: true, description: "Null for one taken offline (see guest_name)",
+                properties: {
+                  id: { type: :integer },
+                  name: { type: :string, nullable: true },
+                  email: { type: :string },
+                  phone: { type: :string, nullable: true }
+                },
+                required: %w[id name email phone]
+              },
+              created_at: { type: :string, format: "date-time" }
+            },
+            required: %w[id reference guest_name starts_on ends_on quantity guests status source booking_mode booking_type
+              total_cents to_be_agreed commission_cents refund_cents cancelled_by cancellation_policy expires_at
+              responded_at notes listing partner traveller created_at]
+          },
           guest_booking: {
             type: :object,
             properties: {

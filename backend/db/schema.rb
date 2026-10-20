@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_19_090000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_20_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -76,7 +76,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_090000) do
     t.jsonb "metadata", default: {}, null: false
     t.datetime "created_at", null: false
     t.index ["booking_id"], name: "index_booking_events_on_booking_id"
-    t.check_constraint "actor::text = ANY (ARRAY['guest'::character varying, 'partner'::character varying, 'system'::character varying]::text[])", name: "booking_events_actor_check"
+    t.check_constraint "actor::text = ANY (ARRAY['guest'::character varying, 'partner'::character varying, 'system'::character varying, 'admin'::character varying]::text[])", name: "booking_events_actor_check"
   end
 
   create_table "bookings", force: :cascade do |t|

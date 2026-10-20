@@ -11,6 +11,7 @@ export function DialogDemo() {
   const [open, setOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sideOpen, setSideOpen] = useState(false);
+  const [overlayOpen, setOverlayOpen] = useState(false);
 
   return (
     <div className="flex flex-wrap gap-3">
@@ -22,6 +23,9 @@ export function DialogDemo() {
       </Button>
       <Button variant="soft" onClick={() => setSideOpen(true)}>
         Open side panel
+      </Button>
+      <Button variant="soft" onClick={() => setOverlayOpen(true)}>
+        Open overlay
       </Button>
       <Dialog
         open={open}
@@ -63,6 +67,23 @@ export function DialogDemo() {
         <p className="text-sm text-muted">
           placement=&quot;side&quot;: the whole of something on the page, beside it. The title and close button stay at
           the top and the actions at the foot; what&apos;s between scrolls. A click beside it closes it.
+        </p>
+      </Dialog>
+      <Dialog
+        open={overlayOpen}
+        onClose={() => setOverlayOpen(false)}
+        placement="overlay"
+        title="Island hopping tour"
+        actions={
+          <>
+            <span className="text-xs text-muted">Answer by tomorrow, 9:00</span>
+            <Button onClick={() => setOverlayOpen(false)}>Accept</Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted">
+          placement=&quot;overlay&quot;: the whole of a record on a work screen, centred and wider. The title stays at
+          the top and the actions at the foot; what&apos;s between scrolls.
         </p>
       </Dialog>
     </div>

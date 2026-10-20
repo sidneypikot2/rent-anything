@@ -40,6 +40,9 @@ Rails.application.routes.draw do
       resources :trips, only: %i[index show create update destroy] do
         get :suggestion, on: :collection
         post :merge, on: :member
+        # Plan a trip again, and what its items would cost now (RAA-139).
+        post :copy, on: :member
+        get :quote, on: :member
       end
       resources :trip_items, only: %i[create update destroy]
       # Booking a trip's items, and the guest's bookings (RAA-132), which a guest can change
@@ -49,8 +52,10 @@ Rails.application.routes.draw do
         post :cancel, on: :member
       end
 
-      # Admin-only (RAA-60): the search-term and destination-link queues.
+      # Admin-only (RAA-60): the search-term and destination-link queues; and every partner's
+      # bookings, whose requests the team answers on partners' behalf (RAA-141).
       namespace :admin do
+        resources :bookings, only: %i[index update]
         resource :search_term_queue, only: :show
         resources :search_terms, only: :create
         resources :link_suggestions, only: :index

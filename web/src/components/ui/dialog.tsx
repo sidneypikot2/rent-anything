@@ -14,6 +14,9 @@ const PLACEMENTS = {
   // the title under it with the details, `actions` pinned at the foot and what's between
   // scrolling; the close button floats at the top right.
   side: "my-3 mr-3 ml-auto h-[calc(100dvh-1.5rem)] max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-md rounded-card",
+  // Centred and wider, for the whole of a record on a work screen: the title and close button
+  // stay at the top and `actions` at the foot, and what's between scrolls.
+  overlay: "m-auto max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] max-w-2xl overflow-hidden rounded-card",
 };
 
 type Props = {
@@ -27,7 +30,7 @@ type Props = {
   // inside its own form leaves them out.
   actions?: ReactNode;
   // "sheet" for a step in a flow (choosing, editing) rather than a confirmation; "side" for
-  // the details of something on the page, beside it.
+  // the details of something on the page, beside it; "overlay" for a record's details over it.
   placement?: keyof typeof PLACEMENTS;
   "data-testid"?: string;
 };
@@ -54,6 +57,21 @@ export function Dialog({
     if (open && !dialog.open) dialog.showModal();
     if (!open && dialog.open) dialog.close();
   }, [open]);
+
+  // A way out that doesn't need Escape or a tap beside it, which a sheet filling a phone leaves
+  // no room for. First to take focus, so a sheet doesn't open on a field and bring the keyboard
+  // up over it. On a disc, as the side panel's, so it isn't read as a field's own clear button
+  // under it.
+  const header = (
+    <div className="flex items-start justify-between gap-3">
+      <h2 id={titleId} className="pt-1.5 font-display text-2xl font-extrabold tracking-tight break-words">
+        {title}
+      </h2>
+      <Button type="button" variant="quiet" size="icon" aria-label="Close" onClick={onClose} className="-mt-1 -mr-2 shrink-0 bg-surface-2">
+        <CloseGlyph className="size-5" />
+      </Button>
+    </div>
+  );
 
   return (
     <dialog
@@ -97,20 +115,17 @@ export function Dialog({
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3">{actions}</div>
           )}
         </div>
+      ) : placement === "overlay" ? (
+        <div className="flex max-h-[calc(100dvh-3rem)] flex-col">
+          <div className="border-b border-line px-5 pt-5 pb-4">{header}</div>
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-5 *:shrink-0">{children}</div>
+          {actions && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3">{actions}</div>
+          )}
+        </div>
       ) : (
         <div className="flex flex-col gap-4 p-5">
-          {/* A way out that doesn't need Escape or a tap beside it, which a sheet filling a
-              phone leaves no room for. First to take focus, so a sheet doesn't open on a field
-              and bring the keyboard up over it. On a disc, as the side panel's, so it isn't
-              read as a field's own clear button under it. */}
-          <div className="flex items-start justify-between gap-3">
-            <h2 id={titleId} className="pt-1.5 font-display text-2xl font-extrabold tracking-tight">
-              {title}
-            </h2>
-            <Button type="button" variant="quiet" size="icon" aria-label="Close" onClick={onClose} className="-mt-1 -mr-2 shrink-0 bg-surface-2">
-              <CloseGlyph className="size-5" />
-            </Button>
-          </div>
+          {header}
           {children}
           {actions && <div className="flex flex-wrap justify-end gap-3">{actions}</div>}
         </div>

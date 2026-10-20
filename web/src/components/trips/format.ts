@@ -2,7 +2,7 @@ import { formatDateRange } from "@/lib/dates";
 import type { Trip } from "./use-trips";
 
 // The date helpers live in lib/dates.ts, shared with the DateRangeField primitive.
-export { formatDateRange, isIsoDate, todayIso } from "@/lib/dates";
+export { addDays, daysBetween, formatDateRange, isIsoDate, todayIso } from "@/lib/dates";
 
 function plural(count: number, one: string, many: string) {
   return `${count} ${count === 1 ? one : many}`;
