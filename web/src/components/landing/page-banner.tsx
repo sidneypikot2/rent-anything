@@ -29,7 +29,9 @@ const HERO_PHOTO_PAD = "pb-8 pt-16 max-sm:short:pb-5 max-sm:short:pt-5! sm:py-12
 // text is, the foot on a phone and the left from sm up, so the boats show on the right. `mirror`
 // flips a photo whose open side is on the wrong side for the text; it is the `scale` property,
 // so it composes with the drift's transform. `search={false}` leaves out the search bar under it,
-// for a page that isn't about finding a place (the cart).
+// for a page that isn't about finding a place (the cart). `compact` is a work page's banner (the
+// cart, Trips, Bookings): no photo, the title and its actions on one short row, so the page's
+// own content starts in the first screen.
 export function PageBanner({
   eyebrow,
   title,
@@ -39,6 +41,7 @@ export function PageBanner({
   frameClass,
   aside,
   search = true,
+  compact = false,
 }: {
   eyebrow?: ReactNode;
   title: ReactNode;
@@ -50,6 +53,7 @@ export function PageBanner({
   // the frame: at lg it would squeeze the search beside it. Only with a photo.
   aside?: ReactNode;
   search?: boolean;
+  compact?: boolean;
 }) {
   const contents = (
     <>
@@ -82,7 +86,7 @@ export function PageBanner({
     // (its glass sections are stacking contexts); the header is z-40. Every banner but the
     // hero, which holds the search itself, has the search bar under it (RAA-126).
     <>
-    <section className="focus-light relative isolate z-10 flex px-3 pb-3 pt-3 sm:px-6 sm:pb-6">
+    <section className={cn("focus-light relative isolate z-10 flex px-3 pb-3 pt-3 sm:px-6", compact ? "sm:pb-4" : "sm:pb-6")}>
       {photo ? (
         <div
           className={cn(
@@ -144,7 +148,11 @@ export function PageBanner({
           className={cn(
             "mx-auto flex w-full max-w-page flex-col rounded-frame px-inset",
             stagger,
-            hero ? cn(HERO_FRAME, HERO_GLASS_PAD) : "gap-6 pb-8 pt-10 sm:pb-10 sm:pt-12",
+            hero
+              ? cn(HERO_FRAME, HERO_GLASS_PAD)
+              : compact
+                ? "flex-row flex-wrap items-center justify-between gap-3 py-4 sm:py-6"
+                : "gap-6 pb-8 pt-10 sm:pb-10 sm:pt-12",
             frameClass,
           )}
         >

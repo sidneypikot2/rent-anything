@@ -14,13 +14,13 @@ export const metadata: Metadata = {
 export default function Bookings() {
   return (
     <main data-testid="bookings" className="flex flex-1 flex-col">
-      <PageBanner title={<DisplayTitle>Bookings</DisplayTitle>} search={false}>
-        <ButtonLink href="/trips" variant="soft" size="sm" className="self-start">
+      <PageBanner title={<DisplayTitle size="compact">Bookings</DisplayTitle>} search={false} compact>
+        <ButtonLink href="/trips" variant="soft" size="sm">
           All trips
         </ButtonLink>
       </PageBanner>
       <PageSheet>
-        <div className="mx-auto flex w-full max-w-narrow flex-col gap-6 px-gutter py-page-pad">
+        <div className="mx-auto flex w-full max-w-narrow flex-col gap-6 px-gutter pb-page-pad pt-6">
           <BookingsView />
         </div>
       </PageSheet>

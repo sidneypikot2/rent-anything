@@ -15,7 +15,7 @@ export default async function Trips(props: PageProps<"/trips">) {
   const trip = Number((await props.searchParams).trip);
   return (
     <main data-testid="trips" className="flex flex-1 flex-col">
-      <PageBanner title={<DisplayTitle>Trips</DisplayTitle>} search={false}>
+      <PageBanner title={<DisplayTitle size="compact">Trips</DisplayTitle>} search={false} compact>
         <div className="flex flex-wrap gap-2">
           <ButtonLink href="/cart" variant="soft" size="sm">
             Cart
@@ -26,7 +26,7 @@ export default async function Trips(props: PageProps<"/trips">) {
         </div>
       </PageBanner>
       <PageSheet tone="paper">
-        <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-gutter py-page-pad">
+        <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-gutter pb-page-pad pt-6">
           <TripsView expandTripId={Number.isInteger(trip) && trip > 0 ? trip : undefined} />
         </div>
       </PageSheet>

@@ -138,13 +138,15 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
       id={`trip-${trip.id}`}
       aria-labelledby={`trip-${trip.id}-name`}
       data-testid="cart-trip"
-      className="flex min-w-0 flex-col gap-4"
+      className="flex min-w-0 flex-col gap-3"
     >
       <div className="card-edge rounded-card bg-forest text-white shadow-soft">
-        <div className="flex items-start gap-3 p-card">
-          <div className="min-w-0 flex-1">
+        {/* One grid, so a past trip's Plan this trip again sits beside the menu from sm and
+            under the details, full width, on a phone, without a second copy of the button. */}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-3 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+          <div className="col-start-1 row-start-1 min-w-0">
             {!cart && (
-              <p className="mb-2 flex flex-wrap items-center gap-2">
+              <p className="mb-1.5 flex flex-wrap items-center gap-2">
                 <Badge tone={phase === "past" ? "mist" : "emerald"} data-testid="trip-status">
                   {phase === "past" ? pastOutcome(trip) : phase === "now" ? "Happening now" : "Booked"}
                 </Badge>
@@ -155,15 +157,16 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
             )}
             <h2
               id={`trip-${trip.id}-name`}
-              className="font-display text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl"
+              className="line-clamp-2 font-display text-xl font-extrabold leading-tight tracking-tight sm:text-2xl"
             >
               {trip.name}
             </h2>
-            <p className="mt-1 text-sm text-sky-mist">
-              {[dates, guestCount(trip.guests), itemCount(shown.length)].join(" · ")}
+            <p className="mt-0.5 text-sm text-sky-mist">
+              {[dates, guestCount(trip.guests), itemCount(shown.length), trip.destinations.join(", ")]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
-            {trip.destinations.length > 0 && <p className="text-sm text-sky-mist">{trip.destinations.join(", ")}</p>}
-            <p className="mt-2 flex flex-wrap gap-x-3 text-small font-semibold">
+            <p className="mt-1 flex flex-wrap gap-x-3 text-small font-semibold empty:hidden">
               {cart && progress && <span className="text-mint">{progress}</span>}
               {quote.data && quote.data.items.length > 0 && (
                 <span className="text-white" data-testid="trip-total">
@@ -176,17 +179,24 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
               )}
             </p>
           </div>
-          <Menu label={`Actions for ${trip.name}`} tone="dark" data-testid="cart-trip-menu" items={menu} />
-        </div>
-        {!cart && phase === "past" && (
-          <div className="px-card pb-4">
-            <Button type="button" variant="tint" size="sm" onClick={() => actions.recreate(trip)} data-testid="trip-recreate">
+          {!cart && phase === "past" && (
+            <Button
+              type="button"
+              variant="tint"
+              size="sm"
+              onClick={() => actions.recreate(trip)}
+              data-testid="trip-recreate"
+              className="col-span-2 row-start-2 w-full sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:w-auto"
+            >
               Plan this trip again
             </Button>
+          )}
+          <div className="col-start-2 row-start-1 sm:col-start-3">
+            <Menu label={`Actions for ${trip.name}`} tone="dark" data-testid="cart-trip-menu" items={menu} />
           </div>
-        )}
+        </div>
         {cart && (
-          <div className="px-card pb-4 empty:hidden">
+          <div className="px-5 pb-3 empty:hidden">
             <DeletionBanner trip={trip} onChangeDates={() => actions.edit(trip, "dates")} />
           </div>
         )}
@@ -404,7 +414,7 @@ function ItemCard({
               </p>
             )}
           </div>
-          <p className="flex shrink-0 items-center gap-1.5 whitespace-nowrap sm:flex-col sm:items-end sm:gap-0.5">
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 whitespace-nowrap sm:shrink-0 sm:flex-col sm:flex-nowrap sm:items-end sm:gap-0.5">
             {booking && <BookingStatusBadge status={booking.status} small />}
             {!problem && <ItemPrice quote={quote} quoting={quoting} />}
             {booking && <span className="text-xs text-muted">{booking.reference}</span>}
