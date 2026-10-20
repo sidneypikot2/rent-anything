@@ -9,7 +9,7 @@ import { DASHBOARD_PATHS, LOGIN_PATHS } from "@/lib/auth/paths";
 import { clearSession, useSession } from "@/lib/auth/session";
 import { BRAND } from "@/lib/brand";
 
-type GuardedRole = "guest" | "partner";
+type GuardedRole = "guest" | "partner" | "admin";
 
 class GuardError extends Error {
   constructor(readonly status: number) {
@@ -18,7 +18,7 @@ class GuardError extends Error {
 }
 
 // Asks the API who this is: partners through the partner-only endpoint (403 for anyone
-// else), guests through /me plus a role check.
+// else), guests and admins through /me plus a role check.
 async function confirmRole(role: GuardedRole) {
   if (role === "partner") {
     const { data, response } = await apiClient().GET("/api/v1/partner/me");
@@ -34,7 +34,8 @@ async function confirmRole(role: GuardedRole) {
 // Pages for one role: signed out → that role's login, another role → its own dashboard.
 // The page renders only once the API confirms the role, which is also what keeps the
 // data safe if this client check is bypassed. Guest pages live in
-// src/app/(guest)/(signed-in)/, partner pages in src/app/partner/(protected)/.
+// src/app/(guest)/(signed-in)/, partner pages in src/app/partner/(protected)/, admin pages
+// in src/app/admin/(console)/.
 export function RoleGuard({ role, children }: { role: GuardedRole; children: ReactNode }) {
   const router = useRouter();
   const session = useSession();

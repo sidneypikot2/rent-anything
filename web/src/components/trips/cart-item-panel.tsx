@@ -208,8 +208,12 @@ function day(iso: string) {
 }
 
 // A booking's days as its type reads them: a stay's check-in and check-out, a rental's first
-// and last day, anything else its day.
-function dateRows(booking: GuestBooking): [string, string][] {
+// and last day, anything else its day. Also the admin's booking requests (RAA-142).
+export function dateRows(booking: {
+  booking_type?: string | null;
+  starts_on: string;
+  ends_on: string;
+}): [string, string][] {
   if (booking.booking_type === "stay") {
     return [
       ["Check-in", day(booking.starts_on)],
