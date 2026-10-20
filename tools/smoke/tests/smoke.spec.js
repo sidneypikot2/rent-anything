@@ -380,17 +380,28 @@ test("add to trip through sign-up", async ({ page }) => {
   await change.getByTestId("change-booking-send").click();
   await expect(page.getByTestId("cart-toast")).toContainText("Change sent to the partner");
 
-  // The Trips page (RAA-140) lists the booked trip as upcoming, with its booking, day by day too.
+  // Find more opens the trip's destinations, each a link to its page.
+  await trip.getByTestId("cart-find-more").click();
+  const findMore = page.getByTestId("find-more-sheet");
+  await expect(findMore.getByTestId("find-more-area").first()).toHaveAttribute("href", /^\/[a-z0-9-]+(\?|$)/);
+  await page.keyboard.press("Escape");
+  await expect(findMore).toHaveCount(0);
+
+  // The Trips page (RAA-140) lists the booked trip as upcoming, day by day, then its booking.
   await page.goto("/trips");
   await expect(page.getByTestId("trip-group").first()).toHaveText("Upcoming");
   const booked = page.getByTestId("cart-trip").filter({ hasText: `Smoke trip ${stamp}` });
   await expect(booked.getByTestId("trip-status")).toHaveText("Booked");
-  await expect(booked.getByTestId("cart-item").getByTestId("booking-status")).toHaveText("Request sent");
-  await booked.getByTestId("trip-view-days").click();
   await expect(booked.getByTestId("itinerary-day").first()).toBeVisible();
+  await booked.getByTestId("trip-view-items").click();
+  await expect(booked.getByTestId("cart-item").getByTestId("booking-status")).toHaveText("Request sent");
 
-  await page.goto("/trips/bookings");
-  await expect(page.getByTestId("booking-row")).toHaveCount(1);
+  // Past and cancelled is a switch over the sidebar; nothing is past or cancelled yet.
+  await page.getByTestId("trips-tab-past").click();
+  await expect(page.getByTestId("past-bookings-empty")).toBeVisible();
+  await expect(booked).toHaveCount(0);
+  await page.getByTestId("trips-tab-upcoming").click();
+  await expect(booked).toBeVisible();
 
   expect(errors).toEqual([]);
 });

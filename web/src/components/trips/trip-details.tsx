@@ -34,6 +34,8 @@ export type TripActions = {
   removeItem: (trip: Trip, item: TripItem) => void;
   checkout: (trip: Trip, items: TripItem[]) => void;
   recreate: (trip: Trip) => void;
+  // More for the trip from its destinations or a search (the cart's Find more).
+  findMore: (trip: Trip) => void;
 };
 
 // The cart edits and books a trip; the Trips page shows what was booked.
@@ -71,11 +73,11 @@ function pickedTotal(quote: TripQuote | undefined, items: TripItem[]) {
 // item that can be booked is ticked at first; the foot sends the ticked ones, and a booked
 // item shows its booking's status instead of a tick. Prices and problems come from the
 // trip's quote (RAA-140): an item that can't be booked as it is says why and can't be ticked.
-// On the Trips page (`mode="trips"`) it shows only the booked items, when the trip is, and
-// offers to plan it again.
+// On the Trips page (`mode="trips"`) it shows only the booked items, day by day at first, when
+// the trip is, and offers to plan it again.
 export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; actions: TripActions; mode?: TripMode }) {
   const [unpicked, setUnpicked] = useState<ReadonlySet<number>>(new Set());
-  const [view, setView] = useState<"items" | "days">("items");
+  const [view, setView] = useState<"items" | "days">(mode === "cart" ? "items" : "days");
   const quote = useTripQuote(trip.id);
   const dates = formatDateRange(trip.starts_on, trip.ends_on) ?? "No dates yet";
   const progress = bookingProgress(trip);
@@ -191,6 +193,18 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
               Plan this trip again
             </Button>
           )}
+          {cart && (
+            <Button
+              type="button"
+              variant="tint"
+              size="sm"
+              onClick={() => actions.findMore(trip)}
+              data-testid="cart-find-more"
+              className="col-span-2 row-start-2 w-full sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:w-auto"
+            >
+              Find more
+            </Button>
+          )}
           <div className="col-start-2 row-start-1 sm:col-start-3">
             <Menu label={`Actions for ${trip.name}`} tone="dark" data-testid="cart-trip-menu" items={menu} />
           </div>
@@ -215,9 +229,14 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
 
       {shown.length === 0 ? (
         <Card edge="line">
-          <p className="p-card text-sm text-muted">
-            Nothing in this trip yet. Add tours, rentals or stays from a destination.
-          </p>
+          <div className="flex flex-col items-start gap-3 p-card">
+            <p className="text-sm text-muted">Nothing in this trip yet. Add tours, rentals or stays from a destination.</p>
+            {cart && (
+              <Button type="button" size="sm" onClick={() => actions.findMore(trip)}>
+                Find something to add
+              </Button>
+            )}
+          </div>
         </Card>
       ) : view === "days" ? (
         <TripItinerary trip={shownTrip} onOpen={(item) => actions.open(trip, item)} />

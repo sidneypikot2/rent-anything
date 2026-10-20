@@ -5,13 +5,14 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Toast } from "@/components/ui/toast";
-import { CancelDialog } from "@/components/bookings/bookings-view";
+import { CancelDialog } from "@/components/bookings/cancel-dialog";
 import { ChangeBookingSheet } from "@/components/bookings/change-booking-sheet";
 import { CheckoutSheet } from "@/components/bookings/checkout-sheet";
 import type { GuestBooking } from "@/components/bookings/use-bookings";
 import { CartItemPanel } from "./cart-item-panel";
 import { CartTripNav } from "./cart-trip-nav";
 import { EditTripSheet, type EditFocus } from "./edit-trip-sheet";
+import { FindMoreSheet } from "./find-more-sheet";
 import { formatDateRange, itemCount } from "./format";
 import { ItemDateSheet } from "./item-date-sheet";
 import { PickTripSheet } from "./pick-trip-sheet";
@@ -41,7 +42,8 @@ type Open =
   | { kind: "redate"; trip: Trip; item: TripItem }
   | { kind: "remove"; trip: Trip; item: TripItem }
   | { kind: "checkout"; trip: Trip; items: TripItem[] }
-  | { kind: "recreate"; trip: Trip };
+  | { kind: "recreate"; trip: Trip }
+  | { kind: "find"; trip: Trip };
 
 // The cart (screens 6 and 7, laid out again in RAA-135): the guest's trips in a column (a row
 // of chips on a phone) beside the one picked, with its items. An item opens its panel, with
@@ -94,6 +96,7 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
     removeItem: (trip, item) => setOpen({ kind: "remove", trip, item }),
     checkout: (trip, items) => setOpen({ kind: "checkout", trip, items }),
     recreate: (trip) => setOpen({ kind: "recreate", trip }),
+    findMore: (trip) => setOpen({ kind: "find", trip }),
   };
 
   if (trips.isPending) {
@@ -163,6 +166,8 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
           onCancelled={(booking) => done(`Cancelled ${booking.listing.title}`)}
         />
       )}
+
+      {open?.kind === "find" && <FindMoreSheet trip={open.trip} onClose={close} />}
 
       {open?.kind === "edit" && (
         <EditTripSheet

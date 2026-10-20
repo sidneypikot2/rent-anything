@@ -2,11 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
-import { CancelDialog } from "@/components/bookings/bookings-view";
+import { CancelDialog } from "@/components/bookings/cancel-dialog";
 import { ChangeBookingSheet } from "@/components/bookings/change-booking-sheet";
+import { PastBookings } from "@/components/bookings/past-bookings";
 import type { GuestBooking } from "@/components/bookings/use-bookings";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
+import { Pill } from "@/components/ui/pill";
 import { Toast } from "@/components/ui/toast";
 import { CartItemPanel } from "./cart-item-panel";
 import { CartTripNav, type TripGroup } from "./cart-trip-nav";
@@ -37,15 +39,21 @@ function bookedCount(trip: Trip) {
   return trip.items.filter((item) => item.booking).length;
 }
 
-// Happening now first, then what's coming (soonest first), then what's over (latest first).
-function groupTrips(trips: Trip[]): TripGroup[] {
+type Tab = "upcoming" | "past";
+
+// The upcoming tab: happening now first, then what's coming (soonest first). The past one: what's
+// over (latest first, as the API sends them).
+function groupTrips(trips: Trip[], tab: Tab): TripGroup[] {
   const by = (phase: string) => trips.filter((trip) => tripPhase(trip) === phase);
   const soonest = (a: Trip, b: Trip) => (a.starts_on ?? "9999").localeCompare(b.starts_on ?? "9999");
-  return [
-    { label: "Happening now", trips: by("now") },
-    { label: "Upcoming", trips: by("upcoming").sort(soonest) },
-    { label: "Past", trips: by("past") },
-  ].filter((group) => group.trips.length > 0);
+  const groups =
+    tab === "past"
+      ? [{ label: "Past", trips: by("past") }]
+      : [
+          { label: "Happening now", trips: by("now") },
+          { label: "Upcoming", trips: by("upcoming").sort(soonest) },
+        ];
+  return groups.filter((group) => group.trips.length > 0);
 }
 
 // The Trips page (screen 8, laid out like the cart in RAA-140): every trip with a booking, in
@@ -53,7 +61,9 @@ function groupTrips(trips: Trip[]): TripGroup[] {
 // "trips" mode: its booked items, when it is, what it was booked for). An item opens its
 // panel with the booking, which can be changed or cancelled before it starts; a past one can
 // be booked again (the add-to-trip flow). Any trip can be planned again into the cart
-// (RecreateTripSheet). Trips still being planned are the cart's.
+// (RecreateTripSheet). Trips still being planned are the cart's. A switch over the sidebar
+// shows the upcoming trips or the past ones, the past with the cancelled bookings no trip holds
+// any more (PastBookings) under them; the sidebar lists trips only.
 export function TripsView({ expandTripId }: { expandTripId?: number }) {
   return (
     <TripAddProvider>
@@ -67,12 +77,19 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
   const { add } = useTripAdd();
   const router = useRouter();
   const [selectedId, setSelectedId] = useState(expandTripId);
+  const [tab, setTab] = useState<Tab | null>(null);
   const [open, setOpen] = useState<Open | null>(null);
   const [notice, setNotice] = useState<{ id: number; text: string } | null>(null);
 
   const show = useCallback((text: string) => setNotice({ id: Date.now(), text }), []);
   const dismissNotice = useCallback(() => setNotice(null), []);
   const close = () => setOpen(null);
+
+  function switchTo(next: Tab) {
+    setTab(next);
+    setSelectedId(undefined);
+    window.history.replaceState(null, "", window.location.pathname);
+  }
 
   function select(trip: Trip) {
     setSelectedId(trip.id);
@@ -94,6 +111,7 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
     redateItem: none,
     removeItem: none,
     checkout: none,
+    findMore: none,
   };
 
   if (trips.isPending) return <p className="text-sm text-muted">Loading your trips…</p>;
@@ -105,18 +123,48 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
     );
   }
 
-  const groups = groupTrips(trips.data);
+  // Until the switch is used, the tab is the one holding the trip from `?trip=`.
+  const linked = trips.data.find((trip) => trip.id === expandTripId);
+  const shownTab = tab ?? (linked && tripPhase(linked) === "past" ? "past" : "upcoming");
+  const groups = groupTrips(trips.data, shownTab);
   const ordered = groups.flatMap((group) => group.trips);
   const selected = ordered.find((trip) => trip.id === selectedId) ?? ordered[0];
-  const panelTrip = open?.kind === "item" ? ordered.find((trip) => trip.id === open.tripId) : undefined;
+  const panelTrip = open?.kind === "item" ? trips.data.find((trip) => trip.id === open.tripId) : undefined;
   const panelItem = open?.kind === "item" ? panelTrip?.items.find((item) => item.id === open.itemId) : undefined;
 
   return (
     <>
-      {ordered.length === 0 ? (
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Show trips">
+        <Pill on={shownTab === "upcoming"} onClick={() => switchTo("upcoming")} data-testid="trips-tab-upcoming">
+          Upcoming
+        </Pill>
+        <Pill on={shownTab === "past"} onClick={() => switchTo("past")} data-testid="trips-tab-past">
+          Past and cancelled
+        </Pill>
+      </div>
+
+      {ordered.length > 0 ? (
+        <div className="grid gap-gutter lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start">
+          <CartTripNav
+            groups={groups}
+            selectedId={selected?.id}
+            onSelect={select}
+            detail={tabDetail}
+            label={shownTab === "past" ? "Your past trips" : "Your upcoming trips"}
+            grouped
+            count={bookedCount}
+          />
+          <div className="flex min-w-0 flex-col gap-section">
+            {selected && <TripDetails key={selected.id} trip={selected} actions={actions} mode="trips" />}
+            {shownTab === "past" && <PastBookings />}
+          </div>
+        </div>
+      ) : shownTab === "past" ? (
+        <PastBookings />
+      ) : (
         <Card edge="line" data-testid="trips-empty">
           <CardBody pad="lg" className="flex flex-col items-start gap-3">
-            <p className="font-semibold">No booked trips yet</p>
+            <p className="font-semibold">{trips.data.length === 0 ? "No booked trips yet" : "No upcoming trips"}</p>
             <p className="text-sm text-muted">
               Trips show here once something in them is booked. Your cart has the trips you&apos;re still planning.
             </p>
@@ -130,11 +178,6 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
             </div>
           </CardBody>
         </Card>
-      ) : (
-        <div className="grid gap-gutter lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start">
-          <CartTripNav groups={groups} selectedId={selected?.id} onSelect={select} detail={tabDetail} label="Your booked trips" grouped count={bookedCount} />
-          {selected && <TripDetails key={selected.id} trip={selected} actions={actions} mode="trips" />}
-        </div>
       )}
 
       {panelTrip && panelItem && (

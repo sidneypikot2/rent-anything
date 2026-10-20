@@ -16,6 +16,15 @@ export function bookingProgress(trip: Trip) {
   return [booked > 0 && `${booked} booked`, waiting > 0 && `${waiting} waiting`].filter(Boolean).join(" · ");
 }
 
+// One entry in the sidebar, forest while picked.
+function tabClasses(current: boolean) {
+  return cn(
+    "flex min-h-11 w-52 flex-col items-start rounded-card px-3.5 py-2.5 text-left shadow-soft lg:w-full",
+    "transition-[background-color,border-color,box-shadow,color] duration-300 ease-calm",
+    current ? "border border-forest bg-forest text-white shadow-lift" : "card-edge-line bg-surface hover:border-line-2 hover:shadow-lift",
+  );
+}
+
 export type TripGroup = { label: string; trips: Trip[] };
 
 // The cart's trips (RAA-135), to pick the one shown beside them: from lg a sticky column under
@@ -76,11 +85,7 @@ export function CartTripNav({
                     onClick={() => onSelect(trip)}
                     aria-current={current ? "page" : undefined}
                     data-testid="cart-trip-tab"
-                    className={cn(
-                      "flex min-h-11 w-52 flex-col items-start rounded-card px-3.5 py-2.5 text-left shadow-soft lg:w-full",
-                      "transition-[background-color,border-color,box-shadow,color] duration-300 ease-calm",
-                      current ? "border border-forest bg-forest text-white shadow-lift" : "card-edge-line bg-surface hover:border-line-2 hover:shadow-lift",
-                    )}
+                    className={tabClasses(current)}
                   >
                     <span className="w-full truncate font-semibold">{trip.name}</span>
                     <span className={cn("text-sm", current ? "text-sky-mist" : "text-muted")}>

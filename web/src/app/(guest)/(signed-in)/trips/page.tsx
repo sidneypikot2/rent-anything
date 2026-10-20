@@ -16,14 +16,9 @@ export default async function Trips(props: PageProps<"/trips">) {
   return (
     <main data-testid="trips" className="flex flex-1 flex-col">
       <PageBanner title={<DisplayTitle size="compact">Trips</DisplayTitle>} search={false} compact>
-        <div className="flex flex-wrap gap-2">
-          <ButtonLink href="/cart" variant="soft" size="sm">
-            Cart
-          </ButtonLink>
-          <ButtonLink href="/trips/bookings" variant="soft" size="sm" data-testid="trips-bookings-link">
-            All bookings
-          </ButtonLink>
-        </div>
+        <ButtonLink href="/cart" variant="soft" size="sm" className="self-start">
+          Cart
+        </ButtonLink>
       </PageBanner>
       <PageSheet tone="paper">
         <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-gutter pb-page-pad pt-6">
