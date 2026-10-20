@@ -14,6 +14,9 @@ function collectErrors(page, errors) {
   page.on("console", (message) => {
     if (message.type() !== "error") return;
     if (message.text().startsWith("Failed to load resource") && isGoogle(message.location().url)) return;
+    // Google Sign-In knows only port 8100: a worktree stack (8100+N) logs this on every page with
+    // its button. CI runs on 8100, where it never shows.
+    if (message.text().includes("The given origin is not allowed for the given client ID")) return;
     errors.push(`console: ${message.text()}`);
   });
 }
