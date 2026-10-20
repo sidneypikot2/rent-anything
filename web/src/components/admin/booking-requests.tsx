@@ -348,9 +348,9 @@ function Email({ address }: { address: string }) {
   );
 }
 
-// A booking's complete details in a side panel (the cart item panel's pattern, RAA-126): what
-// is booked, the money, both people with how to reach them, the notes and its times, with
-// Accept and Decline pinned at the foot while it is a request.
+// A booking's complete details in a centred overlay: what is booked, the money, both people
+// with how to reach them, the notes and its times, with Accept and Decline pinned at the foot
+// while it is a request. Booking and Money, then Partner and Traveller, side by side from sm.
 function BookingPanel({ error, onClose, ...row }: RowProps & { error: string | undefined; onClose: () => void }) {
   const { booking } = row;
   const { dates, party, total, policy, timing } = details(booking);
@@ -358,7 +358,7 @@ function BookingPanel({ error, onClose, ...row }: RowProps & { error: string | u
   return (
     <Dialog
       open
-      placement="side"
+      placement="overlay"
       onClose={onClose}
       title={booking.listing.title}
       data-testid="admin-booking-panel"
@@ -379,51 +379,53 @@ function BookingPanel({ error, onClose, ...row }: RowProps & { error: string | u
         <span className="ml-auto text-xs text-muted tabular-nums">{booking.reference}</span>
       </div>
 
-      <PanelSection title="Booking">
-        <Row label="Dates">{dates}</Row>
-        <Row label="Party">{party}</Row>
-        <Row label="How">
-          {booking.source === "offline"
-            ? "Taken offline"
-            : booking.booking_mode === "instant"
-              ? "Instant book"
-              : "Request to book"}
-        </Row>
-        {policy && <Row label="Cancellation">{policy}</Row>}
-      </PanelSection>
+      <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+        <PanelSection title="Booking">
+          <Row label="Dates">{dates}</Row>
+          <Row label="Party">{party}</Row>
+          <Row label="How">
+            {booking.source === "offline"
+              ? "Taken offline"
+              : booking.booking_mode === "instant"
+                ? "Instant book"
+                : "Request to book"}
+          </Row>
+          {policy && <Row label="Cancellation">{policy}</Row>}
+        </PanelSection>
 
-      <PanelSection title="Money">
-        <Row label="Total">{total}</Row>
-        <Row label="Platform fee">{formatPeso(booking.commission_cents)}</Row>
-        {booking.refund_cents != null && <Row label="Refund">{formatPeso(booking.refund_cents)}</Row>}
-      </PanelSection>
+        <PanelSection title="Money">
+          <Row label="Total">{total}</Row>
+          <Row label="Platform fee">{formatPeso(booking.commission_cents)}</Row>
+          {booking.refund_cents != null && <Row label="Refund">{formatPeso(booking.refund_cents)}</Row>}
+        </PanelSection>
 
-      <PanelSection title="Partner" testId="admin-booking-partner">
-        <Row label="Business">{partner.business}</Row>
-        <Row label="Name">{partner.name}</Row>
-        <Row label="Phone">
-          <Phone number={partner.phone} />
-        </Row>
-        <Row label="Email">
-          <Email address={partner.email} />
-        </Row>
-      </PanelSection>
+        <PanelSection title="Partner" testId="admin-booking-partner">
+          <Row label="Business">{partner.business}</Row>
+          <Row label="Name">{partner.name}</Row>
+          <Row label="Phone">
+            <Phone number={partner.phone} />
+          </Row>
+          <Row label="Email">
+            <Email address={partner.email} />
+          </Row>
+        </PanelSection>
 
-      <PanelSection title="Traveller" testId="admin-booking-traveller">
-        <Row label="Name">{travellerName(booking)}</Row>
-        {traveller ? (
-          <>
-            <Row label="Phone">
-              <Phone number={traveller.phone} />
-            </Row>
-            <Row label="Email">
-              <Email address={traveller.email} />
-            </Row>
-          </>
-        ) : (
-          <Row label="Contact">Taken offline</Row>
-        )}
-      </PanelSection>
+        <PanelSection title="Traveller" testId="admin-booking-traveller">
+          <Row label="Name">{travellerName(booking)}</Row>
+          {traveller ? (
+            <>
+              <Row label="Phone">
+                <Phone number={traveller.phone} />
+              </Row>
+              <Row label="Email">
+                <Email address={traveller.email} />
+              </Row>
+            </>
+          ) : (
+            <Row label="Contact">Taken offline</Row>
+          )}
+        </PanelSection>
+      </div>
 
       {booking.notes && (
         <PanelSection title="Notes">
