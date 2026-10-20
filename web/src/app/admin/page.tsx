@@ -20,7 +20,7 @@ export default function AdminHome() {
             UI kit
           </ButtonLink>
         </div>
-        <p className="max-w-lede text-on-dark">
+        <p className="max-w-lede text-muted">
           For the team: answer travellers&apos; booking requests on partners&apos; behalf.
         </p>
       </div>

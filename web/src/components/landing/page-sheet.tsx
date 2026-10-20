@@ -8,8 +8,8 @@ import { glassClasses } from "@/components/ui/glass";
 // Sections that take turns on the bare photo and on frosted glass, after the banner's own turn
 // (.page-sections, globals.css). Inset like
 // the banner's frame so the two line up; it fills the rest of the page, so the footer stays at
-// the bottom. "paper" is a white sheet with dark text, for the partner pages, which are
-// work screens rather than browsing (RAA-120). `wide` lets what's inside go past the page width,
+// the bottom. "paper" is a white sheet with dark text, for the partner and admin pages, which
+// are work screens rather than browsing (RAA-120, RAA-142). `wide` lets what's inside go past the page width,
 // for an area page with its map beside the sections, which sets its own width.
 export function PageSheet({
   children,
