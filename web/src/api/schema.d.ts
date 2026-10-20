@@ -3987,11 +3987,13 @@ export interface paths {
         };
         /**
          * The signed-in guest's trips
-         * @description Guest-only. The cart: every trip whose `deletes_on` hasn't come, with its items. A trip that has ended, or an undated one with no edits for 60 days, shows a deletion notice for 7 days; then a daily job deletes its unbooked items. Dated trips come first, soonest first; then undated ones, most recently edited first.
+         * @description Guest-only. The cart: every trip whose `deletes_on` hasn't come, with its items. A trip that has ended, or an undated one with no edits for 60 days, shows a deletion notice for 7 days; then a daily job deletes its unbooked items. Dated trips come first, soonest first; then undated ones, most recently edited first. `view=booked` lists instead every trip with a booked item, whenever it was (the Trips page, RAA-139), latest first.
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    view?: "booked";
+                };
                 header?: {
                     Authorization?: string;
                 };
@@ -4025,6 +4027,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a view that isn't one */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
                     };
                 };
             };
@@ -4357,6 +4368,136 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/trips/{id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan a trip again, from one of the guest's trips
+         * @description Guest-only (RAA-139). A new trip with this trip's items, each moved by as many days as `starts_on` is from this trip's start, with the same guests. Nothing is booked: the items go in the cart. `starts_on` is required for a dated trip and can't be in the past; `name` defaults to this trip's name with "again", `guests` to its guests. An item whose listing can't be booked any more is left out and listed in `skipped`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        name?: string;
+                        /** Format: date */
+                        starts_on?: string;
+                        guests?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description the new trip, and the items left out */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            trip: components["schemas"]["trip"];
+                            /** @description Items whose listing can't be booked any more */
+                            skipped: {
+                                listing_id: number;
+                                title: string;
+                                reason: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description another guest's trip */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description no start date for a dated trip, or one in the past */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trips/{id}/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a trip's items would cost now
+         * @description Guest-only (RAA-139). Each item priced as checkout would price it now, and checked against the listing's calendar; a booked item gives its booking's total. `problem` says why an item can't be booked as it is (no date, dates passed or taken, listing off), and such an item has no price. `total_cents` adds up the items without a problem; rentals and transfers are priced with the partner (`to_be_agreed`) and count ₱0.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description each item's price or problem, and the total */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip_quote"];
+                    };
+                };
+                /** @description another guest's trip */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks/didit": {
         parameters: {
             query?: never;
@@ -4565,6 +4706,29 @@ export interface components {
             listing: components["schemas"]["listing_summary"];
             /** @description Its booking while one holds its days (RAA-132); a booked item can't be changed or removed */
             booking: components["schemas"]["booking_ref"] | null;
+            /**
+             * @description The listing's, which a booking made now would be under (RAA-139)
+             * @enum {string}
+             */
+            cancellation_policy: "free_cancellation" | "seven_days" | "fourteen_days" | "non_refundable";
+            /** @description False once the listing is paused or delisted: it can't be booked */
+            listing_active: boolean;
+        };
+        trip_quote: {
+            trip_id: number;
+            /** @description The items without a problem, booked ones at their booking's total */
+            total_cents: number;
+            /** @description Items priced with the partner, counted as ₱0 in the total */
+            to_be_agreed_count: number;
+            items: {
+                trip_item_id: number;
+                /** @description Null with a problem */
+                total_cents: number | null;
+                /** @description A rental or transfer: priced with the partner */
+                to_be_agreed: boolean;
+                /** @description Why it can't be booked as it is */
+                problem: string | null;
+            }[];
         };
         trip_suggestion: {
             /** @description The trip to preselect; null means "New trip" */

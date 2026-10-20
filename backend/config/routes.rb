@@ -40,6 +40,9 @@ Rails.application.routes.draw do
       resources :trips, only: %i[index show create update destroy] do
         get :suggestion, on: :collection
         post :merge, on: :member
+        # Plan a trip again, and what its items would cost now (RAA-139).
+        post :copy, on: :member
+        get :quote, on: :member
       end
       resources :trip_items, only: %i[create update destroy]
       # Booking a trip's items, and the guest's bookings (RAA-132), which a guest can change

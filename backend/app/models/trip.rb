@@ -29,6 +29,8 @@ class Trip < ApplicationRecord
   scope :in_cart, -> { where(ends_on: ended_cutoff..).or(where(ends_on: nil, updated_at: undated_cutoff..)) }
   # The rest: what Trips::Cleanup deletes.
   scope :due_for_cleanup, -> { where(ends_on: ...ended_cutoff).or(where(ends_on: nil, updated_at: ...undated_cutoff)) }
+  # The Trips page (RAA-139): trips with a booked item, which Trips::Cleanup keeps.
+  scope :with_bookings, -> { where(TripItem.booked.where("trip_items.trip_id = trips.id").arel.exists) }
   scope :with_items, -> { includes(items: [ :booking, { listing: %i[area category cover_photo] } ]) }
 
   # The cart keeps a trip that ended on or after this date (#deletes_on is still to come)...
