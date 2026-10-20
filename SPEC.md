@@ -81,7 +81,7 @@ row lock on the slot. Partners block dates with `availability_blocks`.
 
 - `/` is for guests (travellers, signed in or not). A sign-up there creates a **guest**.
 - `/partner` is for partners (suppliers). A sign-up there creates a **partner**.
-- `/admin` is for the team. Sign-in only; admin accounts are never self-made.
+- `/admin` is for the team. Sign-in only; admin accounts are never self-made: `bin/rails admin:grant EMAIL=…` makes one (RAA-141).
 - `partner` and `admin` are reserved: no area may use them as its slug.
 
 ### Area-first browsing, a cart of trips
@@ -121,7 +121,8 @@ areas and a tour can visit several.
   has 24 hours to answer, and the traveller pays once partners accept, so a declined item is
   never charged. Since RAA-134 every listing is request to book (`booking_mode` stays, for
   when partners can choose again), and requests wait for the partner's answer in the partner
-  calendar (`BOOKINGS_AUTO_ACCEPT` off). A traveller can change a booking's dates or guests
+  calendar (`BOOKINGS_AUTO_ACCEPT` off). For launch the team also answers them on partners'
+  behalf from `/admin` (RAA-141, recorded with actor `admin`); whichever answers first wins. A traveller can change a booking's dates or guests
   from the cart: the change goes back to the partner as a request, holding the new dates until
   they answer. Payment is a stub that succeeds once a request is accepted; the split payment to
   each partner comes with Xendit.

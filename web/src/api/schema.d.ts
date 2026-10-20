@@ -43,6 +43,170 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/bookings": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every partner's bookings, for the team to answer
+         * @description Admin-only (RAA-141). The team answers booking requests on partners' behalf. `status` picks one status (default `requested`: soonest to expire first) or `all` (newest first); at most 200. Each comes with its listing and booking type, its partner and business, and its traveller's contact details.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "requested" | "accepted" | "awaiting_payment" | "confirmed" | "in_progress" | "completed" | "declined" | "cancelled" | "expired" | "all";
+                };
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description one status */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_booking"][];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a status that doesn't exist */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/bookings/{id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Accept or decline a request on its partner's behalf
+         * @description Admin-only (RAA-141). `accepted` takes the guest's payment (a stub that pays at once), so it ends confirmed; `declined` frees its days. Recorded as the team's answer (actor `admin`), with an optional `reason`. A request past its answer-by time has expired, and one already answered can't be answered again.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "accepted" | "declined";
+                        /** @description Why, up to 500 characters; kept on the booking's history */
+                        reason?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description declined, with a reason */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_booking"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description the booking's own partner, at the admin endpoint */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description no such booking */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a reason that isn't text */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/v1/admin/destination_links": {
         parameters: {
             query?: never;
@@ -5602,8 +5766,74 @@ export interface components {
             from_status: components["schemas"]["booking_status"] | null;
             to_status: components["schemas"]["booking_status"];
             /** @enum {string} */
-            actor: "guest" | "partner" | "system";
+            actor: "guest" | "partner" | "admin" | "system";
             reason: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        admin_booking: {
+            id: number;
+            reference: string;
+            guest_name: string;
+            /** Format: date */
+            starts_on: string;
+            /**
+             * Format: date
+             * @description A stay's check-out (it takes the nights before); otherwise the last day it takes
+             */
+            ends_on: string;
+            /** @description Units, a private tour's groups or a joiner tour's joiners */
+            quantity: number;
+            /** @description Null for one taken offline */
+            guests: number | null;
+            status: components["schemas"]["booking_status"];
+            /**
+             * @description offline: taken by the partner outside the app
+             * @enum {string}
+             */
+            source: "offline" | "checkout";
+            /** @enum {string|null} */
+            booking_mode: "instant" | "request" | null;
+            /** @enum {string|null} */
+            booking_type: "rental" | "stay" | "activity" | "transfer" | null;
+            total_cents: number;
+            /** @description Not priced in the app yet (rentals, transfers): settled with the guest */
+            to_be_agreed: boolean;
+            /** @description The platform's share of the total */
+            commission_cents: number;
+            refund_cents: number | null;
+            /** @enum {string|null} */
+            cancelled_by: "guest" | "partner" | "system" | null;
+            /** @description The listing's when it was booked */
+            cancellation_policy: components["schemas"]["cancellation_policy"] | null;
+            /**
+             * Format: date-time
+             * @description When a request expires unless answered, or an unpaid hold unless paid
+             */
+            expires_at: string | null;
+            /** Format: date-time */
+            responded_at: string | null;
+            notes: string | null;
+            listing: {
+                id: number;
+                title: string;
+                area: string;
+            };
+            partner: {
+                id: number;
+                name: string | null;
+                email: string;
+                phone: string | null;
+                /** @description The listing's business, the name travellers see */
+                business: string;
+            };
+            /** @description Null for one taken offline (see guest_name) */
+            traveller: {
+                id: number;
+                name: string | null;
+                email: string;
+                phone: string | null;
+            } | null;
             /** Format: date-time */
             created_at: string;
         };
