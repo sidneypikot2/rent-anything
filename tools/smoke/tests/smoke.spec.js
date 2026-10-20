@@ -396,10 +396,12 @@ test("add to trip through sign-up", async ({ page }) => {
   await booked.getByTestId("trip-view-items").click();
   await expect(booked.getByTestId("cart-item").getByTestId("booking-status")).toHaveText("Request sent");
 
-  // Past and cancelled is a switch over the sidebar; nothing is past or cancelled yet.
+  // Past and Cancelled are tabs over the sidebar; nothing is past or cancelled yet.
   await page.getByTestId("trips-tab-past").click();
-  await expect(page.getByTestId("past-bookings-empty")).toBeVisible();
+  await expect(page.getByTestId("trips-past-empty")).toBeVisible();
   await expect(booked).toHaveCount(0);
+  await page.getByTestId("trips-tab-cancelled").click();
+  await expect(page.getByTestId("past-bookings-empty")).toBeVisible();
   await page.getByTestId("trips-tab-upcoming").click();
   await expect(booked).toBeVisible();
 

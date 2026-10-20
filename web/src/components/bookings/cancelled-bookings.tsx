@@ -11,9 +11,9 @@ import { useBookings, type GuestBooking } from "./use-bookings";
 // one keeps its item and shows with its past trip.
 const LET_GO = new Set(["cancelled", "declined", "expired"]);
 
-// The bookings no trip holds, under the Trips page's past trips (RAA-133 listed them on their
-// own page before).
-export function PastBookings() {
+// The bookings no trip holds, the Trips page's Cancelled tab (RAA-133 listed them on their own
+// page before).
+export function CancelledBookings() {
   const bookings = useBookings();
   const list = (bookings.data ?? []).filter((booking) => LET_GO.has(booking.status));
 
@@ -27,11 +27,8 @@ export function PastBookings() {
   }
 
   return (
-    <section aria-labelledby="past-bookings-title" data-testid="past-bookings" className="flex min-w-0 flex-col gap-3">
-      <h2 id="past-bookings-title" className="font-display text-xl font-extrabold tracking-tight sm:text-2xl">
-        Cancelled bookings
-      </h2>
-      <p className="-mt-1 text-sm text-muted">Cancelled, declined and expired bookings no longer belong to a trip.</p>
+    <section aria-label="Cancelled bookings" data-testid="past-bookings" className="flex min-w-0 flex-col gap-3">
+      <p className="text-sm text-muted">Cancelled, declined and expired bookings no longer belong to a trip.</p>
       {list.length === 0 ? (
         <Card edge="line" data-testid="past-bookings-empty">
           <p className="p-card text-sm text-muted">No cancelled bookings.</p>

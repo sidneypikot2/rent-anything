@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { CancelDialog } from "@/components/bookings/cancel-dialog";
 import { ChangeBookingSheet } from "@/components/bookings/change-booking-sheet";
-import { PastBookings } from "@/components/bookings/past-bookings";
+import { CancelledBookings } from "@/components/bookings/cancelled-bookings";
 import type { GuestBooking } from "@/components/bookings/use-bookings";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
@@ -39,11 +39,11 @@ function bookedCount(trip: Trip) {
   return trip.items.filter((item) => item.booking).length;
 }
 
-type Tab = "upcoming" | "past";
+type Tab = "upcoming" | "past" | "cancelled";
 
 // The upcoming tab: happening now first, then what's coming (soonest first). The past one: what's
 // over (latest first, as the API sends them).
-function groupTrips(trips: Trip[], tab: Tab): TripGroup[] {
+function groupTrips(trips: Trip[], tab: "upcoming" | "past"): TripGroup[] {
   const by = (phase: string) => trips.filter((trip) => tripPhase(trip) === phase);
   const soonest = (a: Trip, b: Trip) => (a.starts_on ?? "9999").localeCompare(b.starts_on ?? "9999");
   const groups =
@@ -62,8 +62,8 @@ function groupTrips(trips: Trip[], tab: Tab): TripGroup[] {
 // panel with the booking, which can be changed or cancelled before it starts; a past one can
 // be booked again (the add-to-trip flow). Any trip can be planned again into the cart
 // (RecreateTripSheet). Trips still being planned are the cart's. A switch over the sidebar
-// shows the upcoming trips or the past ones, the past with the cancelled bookings no trip holds
-// any more (PastBookings) under them; the sidebar lists trips only.
+// shows the upcoming trips, the past ones, or the cancelled bookings no trip holds any more
+// (CancelledBookings); the sidebar lists trips only.
 export function TripsView({ expandTripId }: { expandTripId?: number }) {
   return (
     <TripAddProvider>
@@ -126,7 +126,7 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
   // Until the switch is used, the tab is the one holding the trip from `?trip=`.
   const linked = trips.data.find((trip) => trip.id === expandTripId);
   const shownTab = tab ?? (linked && tripPhase(linked) === "past" ? "past" : "upcoming");
-  const groups = groupTrips(trips.data, shownTab);
+  const groups = shownTab === "cancelled" ? [] : groupTrips(trips.data, shownTab);
   const ordered = groups.flatMap((group) => group.trips);
   const selected = ordered.find((trip) => trip.id === selectedId) ?? ordered[0];
   const panelTrip = open?.kind === "item" ? trips.data.find((trip) => trip.id === open.tripId) : undefined;
@@ -139,7 +139,10 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
           Upcoming
         </Pill>
         <Pill on={shownTab === "past"} onClick={() => switchTo("past")} data-testid="trips-tab-past">
-          Past and cancelled
+          Past
+        </Pill>
+        <Pill on={shownTab === "cancelled"} onClick={() => switchTo("cancelled")} data-testid="trips-tab-cancelled">
+          Cancelled
         </Pill>
       </div>
 
@@ -154,13 +157,14 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
             grouped
             count={bookedCount}
           />
-          <div className="flex min-w-0 flex-col gap-section">
-            {selected && <TripDetails key={selected.id} trip={selected} actions={actions} mode="trips" />}
-            {shownTab === "past" && <PastBookings />}
-          </div>
+          {selected && <TripDetails key={selected.id} trip={selected} actions={actions} mode="trips" />}
         </div>
+      ) : shownTab === "cancelled" ? (
+        <CancelledBookings />
       ) : shownTab === "past" ? (
-        <PastBookings />
+        <Card edge="line" data-testid="trips-past-empty">
+          <p className="p-card text-sm text-muted">No past trips yet. A booked trip moves here once it&apos;s over.</p>
+        </Card>
       ) : (
         <Card edge="line" data-testid="trips-empty">
           <CardBody pad="lg" className="flex flex-col items-start gap-3">
