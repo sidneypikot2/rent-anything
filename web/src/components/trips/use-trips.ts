@@ -9,6 +9,8 @@ import { useSession } from "@/lib/auth/session";
 export type Trip = components["schemas"]["trip"];
 export type TripItem = components["schemas"]["trip_item"];
 export type TripSuggestion = components["schemas"]["trip_suggestion"];
+export type TripQuote = components["schemas"]["trip_quote"];
+export type ItemQuote = TripQuote["items"][number];
 
 // What the guest is adding: a listing with the dates and guests it was picked for.
 export type AddRequest = {
@@ -52,6 +54,68 @@ function tripsQuery(userId: number | undefined) {
 export function useTrips(enabled: boolean) {
   const userId = useSession()?.user.id;
   return useQuery({ ...tripsQuery(userId), enabled: enabled && userId !== undefined });
+}
+
+// The Trips page's trips (RAA-140): every one with a booked item, whenever it was, latest
+// first. Under the cart's key, so whatever refreshes the cart refreshes these too.
+export function useBookedTrips() {
+  const userId = useSession()?.user.id;
+  return useQuery({
+    queryKey: [...tripsKey(userId), "booked"],
+    queryFn: async () => {
+      const { data } = await apiClient().GET("/api/v1/trips", { params: { query: { view: "booked" } } });
+      if (!data) throw new Error("Couldn't load your trips. Try again.");
+      return data;
+    },
+    enabled: userId !== undefined,
+  });
+}
+
+// What a trip's items would cost if booked now, and what stands in the way (GET
+// /trips/:id/quote, RAA-139). Under the cart's key, so it is quoted again after any change.
+export function useTripQuote(tripId: number) {
+  const userId = useSession()?.user.id;
+  return useQuery({
+    queryKey: [...tripsKey(userId), "quote", tripId],
+    queryFn: async () => {
+      const { data } = await apiClient().GET("/api/v1/trips/{id}/quote", { params: { path: { id: tripId } } });
+      if (!data) throw new Error("Couldn't price this trip.");
+      return data;
+    },
+    enabled: userId !== undefined,
+  });
+}
+
+// The quote of one item, by id, once the trip's quote has loaded.
+export function itemQuote(quote: TripQuote | undefined, item: TripItem) {
+  return quote?.items.find((line) => line.trip_item_id === item.id);
+}
+
+// Why an item can't be booked as it is: its listing is off (from the trip itself, so it
+// shows before the quote), or the quote's problem. A booked item has none.
+export function itemProblem(item: TripItem, quote: ItemQuote | undefined) {
+  if (item.booking) return null;
+  if (!item.listing_active) return "Isn't available to book any more";
+  return quote?.problem ?? null;
+}
+
+export type CopyChanges = { name: string; guests: number; starts_on?: string };
+
+// POST /trips/:id/copy: the trip again from a new start date (RAA-139), nothing booked.
+// Answers with the new trip and the items left out.
+export function useCopyTrip() {
+  const invalidate = useInvalidateTrips();
+  return useMutation({
+    mutationFn: async ({ id, changes }: { id: number; changes: CopyChanges }) => {
+      const { data, error } = await apiClient().POST("/api/v1/trips/{id}/copy", {
+        params: { path: { id } },
+        body: changes,
+      });
+      if (!data) throw tripError(error, "Couldn't plan the trip again. Try again.");
+      return data;
+    },
+    onSuccess: invalidate,
+  });
 }
 
 // The trip a signed-in guest comes back to on the home page (RAA-130): their first current one,

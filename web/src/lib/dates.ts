@@ -41,3 +41,15 @@ export function localTodayIso() {
 export function isIsoDate(value: unknown): value is string {
   return typeof value === "string" && ISO_DATE.test(value) && !Number.isNaN(parse(value).getTime());
 }
+
+// "2026-11-12" moved by `days`, still a calendar day.
+export function addDays(iso: string, days: number) {
+  const date = parse(iso);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+// Whole days from `from` to `to`: 1 from Nov 12 to Nov 13, negative when `to` is earlier.
+export function daysBetween(from: string, to: string) {
+  return Math.round((parse(to).getTime() - parse(from).getTime()) / 86_400_000);
+}

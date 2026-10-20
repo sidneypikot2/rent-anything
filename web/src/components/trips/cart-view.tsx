@@ -15,6 +15,7 @@ import { EditTripSheet, type EditFocus } from "./edit-trip-sheet";
 import { formatDateRange, itemCount } from "./format";
 import { ItemDateSheet } from "./item-date-sheet";
 import { PickTripSheet } from "./pick-trip-sheet";
+import { RecreateTripSheet, recreatedNotice } from "./recreate-trip-sheet";
 import { TripDetails, type TripActions } from "./trip-details";
 import {
   currentTrips,
@@ -39,7 +40,8 @@ type Open =
   | { kind: "move"; trip: Trip; item: TripItem }
   | { kind: "redate"; trip: Trip; item: TripItem }
   | { kind: "remove"; trip: Trip; item: TripItem }
-  | { kind: "checkout"; trip: Trip; items: TripItem[] };
+  | { kind: "checkout"; trip: Trip; items: TripItem[] }
+  | { kind: "recreate"; trip: Trip };
 
 // The cart (screens 6 and 7, laid out again in RAA-135): the guest's trips in a column (a row
 // of chips on a phone) beside the one picked, with its items. An item opens its panel, with
@@ -91,6 +93,7 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
     redateItem: (trip, item) => setOpen({ kind: "redate", trip, item }),
     removeItem: (trip, item) => setOpen({ kind: "remove", trip, item }),
     checkout: (trip, items) => setOpen({ kind: "checkout", trip, items }),
+    recreate: (trip) => setOpen({ kind: "recreate", trip }),
   };
 
   if (trips.isPending) {
@@ -128,7 +131,7 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
         </Card>
       ) : (
         <div className="grid gap-gutter lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start">
-          <CartTripNav trips={list} selectedId={selected?.id} onSelect={select} />
+          <CartTripNav groups={[{ label: "Your trips", trips: list }]} selectedId={selected?.id} onSelect={select} />
           {selected && <TripDetails key={selected.id} trip={selected} actions={actions} />}
         </div>
       )}
@@ -293,6 +296,17 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
             </p>
           )}
         </Dialog>
+      )}
+
+      {open?.kind === "recreate" && (
+        <RecreateTripSheet
+          trip={open.trip}
+          onClose={close}
+          onCopied={(copied) => {
+            select(copied.trip);
+            done(recreatedNotice(copied));
+          }}
+        />
       )}
 
       {open?.kind === "checkout" && <CheckoutSheet trip={open.trip} items={open.items} onClose={() => setOpen(null)} />}

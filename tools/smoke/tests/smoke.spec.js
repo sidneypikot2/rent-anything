@@ -299,6 +299,8 @@ test("sign-up and the partner guard", async ({ page }) => {
 // the destination page with no second tap. With a trip, the next add asks which trip, and
 // the toast leads to editing it and to the cart, where the item left is booked (RAA-133).
 test("add to trip through sign-up", async ({ page }) => {
+  // Sign-up, the add, the cart, checkout and the Trips page: more than the default 30s.
+  test.setTimeout(60_000);
   const errors = [];
   collectErrors(page, errors);
   const stamp = Date.now();
@@ -377,6 +379,15 @@ test("add to trip through sign-up", async ({ page }) => {
   await change.getByTestId("change-booking-guests-less").click();
   await change.getByTestId("change-booking-send").click();
   await expect(page.getByTestId("cart-toast")).toContainText("Change sent to the partner");
+
+  // The Trips page (RAA-140) lists the booked trip as upcoming, with its booking, day by day too.
+  await page.goto("/trips");
+  await expect(page.getByTestId("trip-group").first()).toHaveText("Upcoming");
+  const booked = page.getByTestId("cart-trip").filter({ hasText: `Smoke trip ${stamp}` });
+  await expect(booked.getByTestId("trip-status")).toHaveText("Booked");
+  await expect(booked.getByTestId("cart-item").getByTestId("booking-status")).toHaveText("Request sent");
+  await booked.getByTestId("trip-view-days").click();
+  await expect(booked.getByTestId("itinerary-day").first()).toBeVisible();
 
   await page.goto("/trips/bookings");
   await expect(page.getByTestId("booking-row")).toHaveCount(1);
