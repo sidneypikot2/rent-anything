@@ -235,3 +235,17 @@ export function InfoGlyph({ className }: Props) {
 export function ChevronGlyph({ direction = "down", className }: { direction?: "down" | "up" } & Props) {
   return <Glyph paths={[direction === "down" ? "M6 9l6 6 6-6" : "M6 15l6-6 6 6"]} className={className} />;
 }
+
+// Where a partner's payouts go (RAA-146): a bank's columns, and a wallet for GCash and Maya.
+export function BankGlyph({ className }: Props) {
+  return <Glyph paths={["M3 9l9-5 9 5", "M4 9h16", "M6 9v8", "M10 9v8", "M14 9v8", "M18 9v8", "M3 20h18"]} className={className} />;
+}
+
+export function WalletGlyph({ className }: Props) {
+  return (
+    <Glyph
+      paths={["M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4Z", "M4 7l11-3v3", "M15 12h5v4h-5a2 2 0 0 1 0-4Z"]}
+      className={className}
+    />
+  );
+}
