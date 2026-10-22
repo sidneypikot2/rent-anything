@@ -226,6 +226,27 @@ function BusinessPayoutRow({ business, accounts }: { business: PartnerBusiness; 
   const update = useUpdateBusiness(business.id);
   const refetchAccounts = useRefetchPayoutAccounts();
   const current = business.payout_account?.id;
+  // The account picked in the select, waiting for the partner to confirm it (null clears the
+  // business's account). The select keeps showing the saved one until then.
+  const [picked, setPicked] = useState<{ account: PayoutAccount | null } | null>(null);
+
+  function closeConfirm() {
+    update.reset();
+    setPicked(null);
+  }
+
+  function confirm() {
+    if (!picked) return;
+    update.mutate(
+      { name: business.name, payout_account_id: picked.account?.id ?? null },
+      {
+        onSuccess: () => {
+          setPicked(null);
+          return refetchAccounts();
+        },
+      },
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:gap-6" data-testid="business-payout">
@@ -240,14 +261,11 @@ function BusinessPayoutRow({ business, accounts }: { business: PartnerBusiness; 
             aria-label={`${business.name} pays out to`}
             value={current ?? ""}
             disabled={update.isPending || accounts.length === 0}
-            onChange={(event) =>
-              update.mutate(
-                { name: business.name, payout_account_id: event.target.value ? Number(event.target.value) : null },
-                { onSuccess: refetchAccounts },
-              )
-            }
-            hint={accounts.length === 0 ? "Add a payout account first." : update.isPending ? "Saving…" : undefined}
-            error={update.error?.message}
+            onChange={(event) => {
+              const id = Number(event.target.value);
+              setPicked({ account: accounts.find((account) => account.id === id) ?? null });
+            }}
+            hint={accounts.length === 0 ? "Add a payout account first." : undefined}
             options={[
               { value: "", label: "Not set" },
               ...accounts.map((account) => ({ value: String(account.id), label: account.label })),
@@ -256,6 +274,46 @@ function BusinessPayoutRow({ business, accounts }: { business: PartnerBusiness; 
           />
         </FieldLook>
       </div>
+      <Dialog
+        open={picked !== null}
+        onClose={closeConfirm}
+        title={picked?.account ? "Change payout account?" : "Remove payout account?"}
+        data-testid="business-payout-confirm"
+        actions={
+          <>
+            <Button variant="soft" onClick={closeConfirm}>
+              Cancel
+            </Button>
+            <Button
+              variant={picked?.account ? "primary" : "danger"}
+              disabled={update.isPending}
+              onClick={confirm}
+              data-testid="business-payout-confirm-save"
+            >
+              {update.isPending ? "Saving…" : picked?.account ? "Confirm" : "Remove"}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-muted">
+          {picked?.account ? (
+            <>
+              Payouts for <strong className="text-foreground">{business.name}</strong> will go to{" "}
+              <strong className="text-foreground">{picked.account.label}</strong> ({picked.account.account_name}).
+            </>
+          ) : (
+            <>
+              <strong className="text-foreground">{business.name}</strong> will have no payout account, so its payouts
+              can&apos;t be sent until you pick one.
+            </>
+          )}
+        </p>
+        {update.error && (
+          <p role="alert" className="text-sm text-danger">
+            {update.error.message}
+          </p>
+        )}
+      </Dialog>
     </div>
   );
 }
