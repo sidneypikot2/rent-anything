@@ -2304,7 +2304,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description an address and pin given to a business that had none */
+                /** @description the payout account cleared with null; left out, it stays */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -3255,6 +3255,320 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/v1/partner/payout_accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in partner's payout accounts
+         * @description Partner-only. Where the partner's payouts can go (RAA-145) — bank accounts, GCash and Maya — oldest first, each with the businesses paid out to it. Only the last four digits of a number are returned.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description only the partner's own accounts, with the businesses that use them */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["payout_account"][];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add a payout account
+         * @description Partner-only. `kind`, `account_name` and `account_number` are required, and `bank_code` for a bank account (the banks are in payout options). A bank account number is 6 to 20 digits; an e-wallet's is a Philippine mobile number. The number is stored encrypted.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["payout_account_body"];
+                };
+            };
+            responses: {
+                /** @description a Maya account by its +63 number, with no bank */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["payout_account"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description missing or wrong-typed values */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/payout_accounts/{id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a payout account
+         * @description Partner-only. Refused while one of the partner's businesses gets payouts there. Another partner's account is a 404.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description another partner's account */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a business still gets payouts there */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Change a payout account
+         * @description Partner-only. The same rules as adding one; what is left out is kept, except that changing `kind` needs a new `account_number` (and `bank_code` for a bank). Another partner's account is a 404.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["payout_account_body"];
+                };
+            };
+            responses: {
+                /** @description switched from a bank to GCash, which drops the bank */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["payout_account"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's account */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description switched to GCash without a new number */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/partner/payout_options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the payout account form offers
+         * @description Partner-only. The kinds of payout account (bank, GCash, Maya) and the banks a bank account can be at.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the kinds and banks */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["payout_options"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/partner/profile": {
@@ -5053,6 +5367,15 @@ export interface components {
             /** @description The map pin; null on a business made before pins, until the partner sets it */
             location: components["schemas"]["lat_lng"] | null;
             listings_count: number;
+            /** @description Where its payouts go (RAA-145); null until the partner picks one of their payout accounts */
+            payout_account: {
+                id: number;
+                /** @enum {string} */
+                kind: "bank" | "gcash" | "maya";
+                /** @example BDO Unibank •••• 1234 */
+                label: string;
+                account_number_last4: string;
+            } | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -5079,6 +5402,56 @@ export interface components {
                 lat: number;
                 lng: number;
             };
+            /** @description One of the partner's payout accounts (RAA-145); null clears it, left out it stays */
+            payout_account_id?: number | null;
+        };
+        payout_account: {
+            id: number;
+            /** @enum {string} */
+            kind: "bank" | "gcash" | "maya";
+            /** @description The bank's code; null for an e-wallet */
+            bank_code: string | null;
+            bank_name: string | null;
+            account_name: string;
+            account_number_last4: string;
+            /** @example GCash •••• 4567 */
+            label: string;
+            /** @description The partner's businesses paid out here, by name */
+            businesses: {
+                id: number;
+                name: string;
+            }[];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        payout_account_body: {
+            /**
+             * @description Required on a new account
+             * @enum {string}
+             */
+            kind?: "bank" | "gcash" | "maya";
+            /**
+             * @description Required for a bank account (from payout options); ignored for an e-wallet
+             * @enum {string}
+             */
+            bank_code?: "PH_AUB" | "PH_BDO" | "PH_BPI" | "PH_CBC" | "PH_EWB" | "PH_LBP" | "PH_MET" | "PH_PNB" | "PH_PSB" | "PH_RCBC" | "PH_SEC" | "PH_UBP";
+            /** @description The name on the account */
+            account_name?: string;
+            /** @description A bank account's 6 to 20 digits, or an e-wallet's mobile number (09171234567 or +639171234567); spaces and dashes are ignored. Required when the kind changes */
+            account_number?: string;
+        };
+        payout_options: {
+            kinds: {
+                /** @enum {string} */
+                value: "bank" | "gcash" | "maya";
+                label: string;
+            }[];
+            banks: {
+                code: string;
+                name: string;
+            }[];
         };
         partner_landmark: {
             id: number;

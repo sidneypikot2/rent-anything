@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_20_090000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_22_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -23,6 +23,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_090000) do
   create_enum "booking_source", ["offline", "checkout"]
   create_enum "booking_status", ["confirmed", "cancelled", "requested", "accepted", "awaiting_payment", "in_progress", "completed", "declined", "expired"]
   create_enum "listing_status", ["draft", "active", "paused", "delisted"]
+  create_enum "payout_account_kind", ["bank", "gcash", "maya"]
 
   create_table "areas", force: :cascade do |t|
     t.bigint "parent_id"
@@ -144,10 +145,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_090000) do
     t.geography "location", limit: {srid: 4326, type: "st_point", geographic: true}
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "payout_account_id"
     t.index "partner_id, lower((name)::text)", name: "index_businesses_on_partner_id_and_lower_name", unique: true
     t.index ["id", "partner_id"], name: "index_businesses_on_id_and_partner_id", unique: true
     t.index ["location"], name: "index_businesses_on_location", using: :gist
     t.index ["partner_id"], name: "index_businesses_on_partner_id"
+    t.index ["payout_account_id"], name: "index_businesses_on_payout_account_id"
     t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 80", name: "businesses_name_length_check"
     t.check_constraint "country::text ~ '^[A-Z]{2}$'::text", name: "businesses_country_check"
   end
@@ -416,6 +419,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_090000) do
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'paid'::character varying, 'failed'::character varying]::text[])", name: "payments_status_check"
   end
 
+  create_table "payout_accounts", force: :cascade do |t|
+    t.bigint "partner_id", null: false
+    t.enum "kind", null: false, enum_type: "payout_account_kind"
+    t.string "bank_code"
+    t.string "account_name", null: false
+    t.text "account_number", null: false
+    t.string "account_number_last4", limit: 4, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["id", "partner_id"], name: "index_payout_accounts_on_id_and_partner_id", unique: true
+    t.index ["partner_id"], name: "index_payout_accounts_on_partner_id"
+    t.check_constraint "(kind = 'bank'::payout_account_kind) = (bank_code IS NOT NULL)", name: "payout_accounts_bank_code_check"
+    t.check_constraint "account_number_last4::text ~ '^[0-9]{4}$'::text", name: "payout_accounts_last4_check"
+    t.check_constraint "char_length(account_name::text) >= 1 AND char_length(account_name::text) <= 100", name: "payout_accounts_account_name_length_check"
+  end
+
   create_table "refresh_tokens", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "token_digest", null: false
@@ -567,6 +586,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_090000) do
   add_foreign_key "bookings", "payments"
   add_foreign_key "bookings", "trip_items", on_delete: :nullify
   add_foreign_key "bookings", "users"
+  add_foreign_key "businesses", "payout_accounts"
+  add_foreign_key "businesses", "payout_accounts", column: ["payout_account_id", "partner_id"], primary_key: ["id", "partner_id"], name: "fk_businesses_payout_account_partner"
   add_foreign_key "businesses", "users", column: "partner_id"
   add_foreign_key "categories", "categories", column: "parent_id"
   add_foreign_key "category_tags", "categories"
@@ -597,6 +618,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_090000) do
   add_foreign_key "partner_verifications", "users"
   add_foreign_key "partner_verifications", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_partner_verifications_user_role"
   add_foreign_key "payments", "checkouts"
+  add_foreign_key "payout_accounts", "users", column: "partner_id"
   add_foreign_key "refresh_tokens", "users"
   add_foreign_key "stay_rates", "listings", on_delete: :cascade
   add_foreign_key "tour_details", "listings", on_delete: :cascade

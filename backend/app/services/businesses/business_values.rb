@@ -4,7 +4,8 @@ module Businesses
   # businesses, ignoring case. The description is optional and kept when left out. The
   # address and the map pin, which a new listing can copy, are required on a new business;
   # on a change each is kept when left out, so a business made before them (the RAA-100
-  # backfill) can be given them later.
+  # backfill) can be given them later. The payout account (RAA-145) is optional, kept when left
+  # out, and null clears it.
   module BusinessValues
     include RequestValues
 
@@ -24,7 +25,17 @@ module Businesses
       if business.new_record? || @params.key?(:location)
         attributes[:location] = point_from(@params[:location])
       end
+      attributes[:payout_account] = payout_account_from(business, @params[:payout_account_id]) if @params.key?(:payout_account_id)
       attributes
+    end
+
+    # One of the partner's payout accounts (RAA-145), or null for none.
+    def payout_account_from(business, id)
+      return nil if id.nil?
+
+      account = business.partner.payout_accounts.find_by(id:) if id.is_a?(Integer)
+      @errors << "Payout account must be one of your payout accounts" unless account
+      account
     end
 
     def save_business!(business)

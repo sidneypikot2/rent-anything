@@ -1547,7 +1547,7 @@ paths:
       parameters: []
       responses:
         '200':
-          description: an address and pin given to a business that had none
+          description: the payout account cleared with null; left out, it stays
           content:
             application/json:
               schema:
@@ -2188,6 +2188,197 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/partner/payout_accounts":
+    get:
+      summary: The signed-in partner's payout accounts
+      tags:
+      - Partner
+      description: Partner-only. Where the partner's payouts can go (RAA-145) — bank
+        accounts, GCash and Maya — oldest first, each with the businesses paid out
+        to it. Only the last four digits of a number are returned.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: only the partner's own accounts, with the businesses that use
+            them
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/payout_account"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    post:
+      summary: Add a payout account
+      tags:
+      - Partner
+      description: Partner-only. `kind`, `account_name` and `account_number` are required,
+        and `bank_code` for a bank account (the banks are in payout options). A bank
+        account number is 6 to 20 digits; an e-wallet's is a Philippine mobile number.
+        The number is stored encrypted.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: a Maya account by its +63 number, with no bank
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/payout_account"
+        '422':
+          description: missing or wrong-typed values
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/payout_account_body"
+  "/api/v1/partner/payout_accounts/{id}":
+    parameters:
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    patch:
+      summary: Change a payout account
+      tags:
+      - Partner
+      description: Partner-only. The same rules as adding one; what is left out is
+        kept, except that changing `kind` needs a new `account_number` (and `bank_code`
+        for a bank). Another partner's account is a 404.
+      security:
+      - bearer: []
+      parameters: []
+      responses:
+        '200':
+          description: switched from a bank to GCash, which drops the bank
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/payout_account"
+        '422':
+          description: switched to GCash without a new number
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another partner's account
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/payout_account_body"
+    delete:
+      summary: Delete a payout account
+      tags:
+      - Partner
+      description: Partner-only. Refused while one of the partner's businesses gets
+        payouts there. Another partner's account is a 404.
+      security:
+      - bearer: []
+      responses:
+        '204':
+          description: deleted
+        '422':
+          description: a business still gets payouts there
+        '404':
+          description: another partner's account
+        '403':
+          description: a guest
+        '401':
+          description: signed out
+  "/api/v1/partner/payout_options":
+    get:
+      summary: What the payout account form offers
+      tags:
+      - Partner
+      description: Partner-only. The kinds of payout account (bank, GCash, Maya) and
+        the banks a bank account can be at.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the kinds and banks
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/payout_options"
         '403':
           description: a guest
           content:
@@ -4156,6 +4347,30 @@ components:
             partner sets it
         listings_count:
           type: integer
+        payout_account:
+          type: object
+          nullable: true
+          description: Where its payouts go (RAA-145); null until the partner picks
+            one of their payout accounts
+          properties:
+            id:
+              type: integer
+            kind:
+              type: string
+              enum:
+              - bank
+              - gcash
+              - maya
+            label:
+              type: string
+              example: BDO Unibank •••• 1234
+            account_number_last4:
+              type: string
+          required:
+          - id
+          - kind
+          - label
+          - account_number_last4
         created_at:
           type: string
           format: date-time
@@ -4169,6 +4384,7 @@ components:
       - address
       - location
       - listings_count
+      - payout_account
       - created_at
       - updated_at
     business_body:
@@ -4222,8 +4438,138 @@ components:
           - lat
           - lng
           description: Required on a new business; left out on a change, it stays
+        payout_account_id:
+          type: integer
+          nullable: true
+          description: One of the partner's payout accounts (RAA-145); null clears
+            it, left out it stays
       required:
       - name
+    payout_account:
+      type: object
+      properties:
+        id:
+          type: integer
+        kind:
+          type: string
+          enum:
+          - bank
+          - gcash
+          - maya
+        bank_code:
+          type: string
+          nullable: true
+          description: The bank's code; null for an e-wallet
+        bank_name:
+          type: string
+          nullable: true
+        account_name:
+          type: string
+        account_number_last4:
+          type: string
+        label:
+          type: string
+          example: GCash •••• 4567
+        businesses:
+          type: array
+          description: The partner's businesses paid out here, by name
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+            required:
+            - id
+            - name
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - kind
+      - bank_code
+      - bank_name
+      - account_name
+      - account_number_last4
+      - label
+      - businesses
+      - created_at
+      - updated_at
+    payout_account_body:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - bank
+          - gcash
+          - maya
+          description: Required on a new account
+        bank_code:
+          type: string
+          enum:
+          - PH_AUB
+          - PH_BDO
+          - PH_BPI
+          - PH_CBC
+          - PH_EWB
+          - PH_LBP
+          - PH_MET
+          - PH_PNB
+          - PH_PSB
+          - PH_RCBC
+          - PH_SEC
+          - PH_UBP
+          description: Required for a bank account (from payout options); ignored
+            for an e-wallet
+        account_name:
+          type: string
+          maxLength: 100
+          description: The name on the account
+        account_number:
+          type: string
+          description: A bank account's 6 to 20 digits, or an e-wallet's mobile number
+            (09171234567 or +639171234567); spaces and dashes are ignored. Required
+            when the kind changes
+    payout_options:
+      type: object
+      properties:
+        kinds:
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+                enum:
+                - bank
+                - gcash
+                - maya
+              label:
+                type: string
+            required:
+            - value
+            - label
+        banks:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              name:
+                type: string
+            required:
+            - code
+            - name
+      required:
+      - kinds
+      - banks
     partner_landmark:
       type: object
       properties:

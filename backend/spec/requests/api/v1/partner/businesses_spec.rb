@@ -254,6 +254,44 @@ RSpec.describe "Partner businesses", type: :request do
         end
       end
 
+      response "200", "one of the partner's payout accounts picked" do
+        schema "$ref" => "#/components/schemas/partner_business"
+
+        let(:account) { create(:payout_account, partner: user, account_number: "001234567890") }
+        let(:body) { { name: "Basilia Guest House", payout_account_id: account.id } }
+
+        run_test! do |response|
+          expect(response.parsed_body["payout_account"]).to eq(
+            "id" => account.id, "kind" => "bank", "label" => "BDO Unibank •••• 7890", "account_number_last4" => "7890"
+          )
+          expect(business.reload.payout_account).to eq(account)
+        end
+      end
+
+      response "200", "the payout account cleared with null; left out, it stays" do
+        schema "$ref" => "#/components/schemas/partner_business"
+
+        let(:body) { { name: "Basilia Guest House", payout_account_id: nil } }
+
+        before { business.update!(payout_account: create(:payout_account, partner: user)) }
+
+        run_test! do |response|
+          expect(response.parsed_body["payout_account"]).to be_nil
+          expect(business.reload.payout_account).to be_nil
+        end
+      end
+
+      response "422", "another partner's payout account, or not an id" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:body) { { name: "Basilia Guest House", payout_account_id: create(:payout_account).id } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Payout account must be one of your payout accounts")
+          expect(business.reload.payout_account).to be_nil
+        end
+      end
+
       response "422", "an address sent incomplete" do
         schema "$ref" => "#/components/schemas/validation_errors"
         let(:body) { { name: "Basilia Beach Rooms", address: address.except(:street) } }
