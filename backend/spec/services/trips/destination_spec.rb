@@ -57,4 +57,36 @@ RSpec.describe Trips::Destination do
       expect(described_class.trip_name(santa_fe, nil, nil)).to eq("Bantayan Island")
     end
   end
+
+  describe ".for_places" do
+    let(:from) { Date.new(2026, 10, 22) }
+    let(:to) { Date.new(2026, 10, 27) }
+
+    before { [ santa_fe, cebu_city ] }
+
+    it "names every place a dated trip is in, before its dates" do
+      expect(described_class.for_places("Bantayan Island · Oct 22–27", [ "Bantayan Island", "Cebu City" ], from, to))
+        .to eq("Bantayan Island · Cebu City · Oct 22–27")
+    end
+
+    it "drops a place the trip no longer has" do
+      expect(described_class.for_places("Bantayan Island · Cebu City · Oct 22–27", [ "Cebu City" ], from, to))
+        .to eq("Cebu City · Oct 22–27")
+    end
+
+    it "renames an undated trip" do
+      expect(described_class.for_places("Bantayan Island", [ "Bantayan Island", "Cebu City" ], nil, nil))
+        .to eq("Bantayan Island · Cebu City")
+    end
+
+    it "leaves a name the guest typed" do
+      expect(described_class.for_places("Summer with Ana · Oct 22–27", [ "Bantayan Island", "Cebu City" ], from, to))
+        .to be_nil
+    end
+
+    it "is nil when the places haven't changed or the trip is empty" do
+      expect(described_class.for_places("Bantayan Island · Oct 22–27", [ "Bantayan Island" ], from, to)).to be_nil
+      expect(described_class.for_places("Bantayan Island · Oct 22–27", [], from, to)).to be_nil
+    end
+  end
 end
