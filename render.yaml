@@ -76,3 +76,11 @@ services:
         sync: false
       - key: R2_PUBLIC_URL
         sync: false
+      # Active Record Encryption (RAA-145: payout account numbers). Set once from
+      # `bin/rails db:encryption:init`; changing them makes the saved numbers unreadable.
+      - key: ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY
+        sync: false
+      - key: ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY
+        sync: false
+      - key: ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT
+        sync: false

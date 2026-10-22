@@ -16,6 +16,13 @@ module PartnerBusinessSerializer
       },
       location: business.location && { lat: business.location.y, lng: business.location.x },
       listings_count: business.listings_count,
+      # Where its payouts go (RAA-145), or null until the partner picks an account.
+      payout_account: business.payout_account && {
+        id: business.payout_account.id,
+        kind: business.payout_account.kind,
+        label: business.payout_account.label,
+        account_number_last4: business.payout_account.account_number_last4
+      },
       created_at: business.created_at,
       updated_at: business.updated_at
     }

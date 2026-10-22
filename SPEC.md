@@ -21,7 +21,8 @@ one area with the categories tourists already search for, prove bookings, then e
 **Money**: the guest pays everything in-app; the platform keeps a commission per booking
 (rate set per category), holds the security deposit, and pays the partner out after the
 rental ends. Escrow and payouts go through a licensed gateway — the platform never holds
-funds itself.
+funds itself. A partner saves payout accounts (a bank, GCash or Maya) and picks one for each
+business, so two businesses can pay out to different accounts (RAA-145).
 
 **Partners** are individuals and small businesses: rental shops, tour operators, van
 operators, guesthouses and small resorts. Partners are ID-verified before they can list.
