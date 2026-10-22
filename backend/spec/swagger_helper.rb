@@ -481,10 +481,21 @@ RSpec.configure do |config|
                 description: "The map pin; null on a business made before pins, until the partner sets it"
               },
               listings_count: { type: :integer },
+              payout_account: {
+                type: :object, nullable: true,
+                description: "Where its payouts go (RAA-145); null until the partner picks one of their payout accounts",
+                properties: {
+                  id: { type: :integer },
+                  kind: { type: :string, enum: PayoutAccount::KINDS.keys },
+                  label: { type: :string, example: "BDO Unibank •••• 1234" },
+                  account_number_last4: { type: :string }
+                },
+                required: %w[id kind label account_number_last4]
+              },
               created_at: { type: :string, format: "date-time" },
               updated_at: { type: :string, format: "date-time" }
             },
-            required: %w[id name description address location listings_count created_at updated_at]
+            required: %w[id name description address location listings_count payout_account created_at updated_at]
           },
           business_body: {
             type: :object,
@@ -492,9 +503,76 @@ RSpec.configure do |config|
               name: { type: :string, maxLength: 80, description: "Unique among the partner's businesses, ignoring case" },
               description: { type: :string, maxLength: 2000, description: "Optional; left out on a change, it stays" },
               address: ADDRESS_BODY.merge(description: "Required on a new business; left out on a change, it stays"),
-              location: LOCATION_BODY.merge(description: "Required on a new business; left out on a change, it stays")
+              location: LOCATION_BODY.merge(description: "Required on a new business; left out on a change, it stays"),
+              payout_account_id: {
+                type: :integer, nullable: true,
+                description: "One of the partner's payout accounts (RAA-145); null clears it, left out it stays"
+              }
             },
             required: %w[name]
+          },
+          # A partner's payout account (RAA-145). The full account number never leaves the API.
+          payout_account: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              kind: { type: :string, enum: PayoutAccount::KINDS.keys },
+              bank_code: { type: :string, nullable: true, description: "The bank's code; null for an e-wallet" },
+              bank_name: { type: :string, nullable: true },
+              account_name: { type: :string },
+              account_number_last4: { type: :string },
+              label: { type: :string, example: "GCash •••• 4567" },
+              businesses: {
+                type: :array, description: "The partner's businesses paid out here, by name",
+                items: {
+                  type: :object,
+                  properties: { id: { type: :integer }, name: { type: :string } },
+                  required: %w[id name]
+                }
+              },
+              created_at: { type: :string, format: "date-time" },
+              updated_at: { type: :string, format: "date-time" }
+            },
+            required: %w[id kind bank_code bank_name account_name account_number_last4 label businesses created_at
+                         updated_at]
+          },
+          payout_account_body: {
+            type: :object,
+            properties: {
+              kind: { type: :string, enum: PayoutAccount::KINDS.keys, description: "Required on a new account" },
+              bank_code: {
+                type: :string, enum: PayoutAccount::BANKS.keys,
+                description: "Required for a bank account (from payout options); ignored for an e-wallet"
+              },
+              account_name: { type: :string, maxLength: 100, description: "The name on the account" },
+              account_number: {
+                type: :string,
+                description: "A bank account's 6 to 20 digits, or an e-wallet's mobile number (09171234567 or " \
+                  "+639171234567); spaces and dashes are ignored. Required when the kind changes"
+              }
+            }
+          },
+          payout_options: {
+            type: :object,
+            properties: {
+              kinds: {
+                type: :array,
+                items: {
+                  type: :object,
+                  properties: { value: { type: :string, enum: PayoutAccount::KINDS.keys }, label: { type: :string } },
+                  required: %w[value label]
+                }
+              },
+              banks: {
+                type: :array,
+                items: {
+                  type: :object,
+                  properties: { code: { type: :string }, name: { type: :string } },
+                  required: %w[code name]
+                }
+              }
+            },
+            required: %w[kinds banks]
           },
           # A published landmark in the partner's tour landmark picker, with its destination.
           partner_landmark: {
