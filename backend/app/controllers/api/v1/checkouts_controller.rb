@@ -2,7 +2,7 @@ module Api
   module V1
     # Booking some of the signed-in guest's trip items (RAA-132, Checkouts::Create): one
     # booking per item, answered with the checkout and its bookings as they ended up (with
-    # auto-accept and the stub payment, confirmed). Another guest's trip is a 404.
+    # auto-accept, held for payment). Another guest's trip is a 404.
     class CheckoutsController < ApplicationController
       before_action :authenticate_user!
       before_action -> { require_role!("guest") }

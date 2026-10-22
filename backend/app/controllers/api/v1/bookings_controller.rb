@@ -2,8 +2,9 @@ module Api
   module V1
     # The signed-in guest's bookings (RAA-132): upcoming ones first by date, then past and
     # cancelled ones, newest first; one booking; changing one, which sends it back to the
-    # partner as a request (Bookings::Change, RAA-134); and cancelling one that hasn't
-    # started (Bookings::Cancel). Another guest's booking is a 404.
+    # partner as a request (Bookings::Change, RAA-134); cancelling one that hasn't started
+    # (Bookings::Cancel); and paying for those held for payment (Payments::Pay, RAA-143).
+    # Another guest's booking is a 404.
     class BookingsController < ApplicationController
       before_action :authenticate_user!
       before_action -> { require_role!("guest") }
@@ -28,6 +29,11 @@ module Api
       def cancel
         Bookings::Cancel.call(@booking, by: "guest", user: current_user, reason: params[:reason])
         render json: BookingSerializer.call(@booking.reload)
+      end
+
+      def pay
+        bookings = Payments::Pay.call(current_user, params[:booking_ids])
+        render json: bookings.map { BookingSerializer.call(_1) }
       end
 
       private

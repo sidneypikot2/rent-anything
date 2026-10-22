@@ -1367,9 +1367,15 @@ RSpec.configure do |config|
             properties: {
               id: { type: :integer },
               reference: { type: :string },
-              status: { "$ref" => "#/components/schemas/booking_status" }
+              status: { "$ref" => "#/components/schemas/booking_status" },
+              total_cents: { type: :integer, description: "What it was booked for, in centavos" },
+              to_be_agreed: { type: :boolean, description: "Priced with the partner: total_cents is 0" },
+              expires_at: {
+                type: :string, format: "date-time", nullable: true,
+                description: "Answer-by time of a request, pay-by time of one awaiting payment (RAA-143)"
+              }
             },
-            required: %w[id reference status]
+            required: %w[id reference status total_cents to_be_agreed expires_at]
           },
           booking_event: {
             type: :object,
@@ -1519,6 +1525,12 @@ RSpec.configure do |config|
               bookings: { type: :array, items: { "$ref" => "#/components/schemas/guest_booking" } }
             },
             required: %w[id trip_id total_cents bookings]
+          },
+          # The bookings a guest pays for at once (RAA-143).
+          booking_pay_body: {
+            type: :object,
+            required: %w[booking_ids],
+            properties: { booking_ids: { type: :array, items: { type: :integer }, minItems: 1 } }
           },
           booking_cancel_body: {
             type: :object,

@@ -26,13 +26,13 @@ RSpec.describe "Checkouts", type: :request do
       description "Guest-only (RAA-132). Books `item_ids` of one of the guest's trips: each item is re-priced and " \
         "checked against the calendar as it is now, all or nothing. An instant-book listing's booking is held for " \
         "payment; a request-to-book one's is a request its partner answers within 24 hours. Both hold their days " \
-        "at once. Requests wait for their partner's answer (RAA-134); payment is a stub, so a booking held for " \
-        "payment comes back confirmed. Sending the same `idempotency_key` again returns the same checkout."
+        "at once. Requests wait for their partner's answer (RAA-134). Nothing is paid here: the guest pays for " \
+        "bookings held for payment afterwards (POST /bookings/pay, RAA-143). Sending the same `idempotency_key` again returns the same checkout."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
       parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/checkout_body" }
 
-      response "201", "both booked while auto-accept is on: the instant one paid, the request accepted then paid" do
+      response "201", "both booked while auto-accept is on: the instant one and the accepted request held for payment" do
         schema "$ref" => "#/components/schemas/checkout"
 
         before { allow(Bookings).to receive(:auto_accept?).and_return(true) }
@@ -41,18 +41,18 @@ RSpec.describe "Checkouts", type: :request do
           checkout = response.parsed_body
           expect(checkout["total_cents"]).to eq(400_000 + 300_000)
           expect(checkout["bookings"].pluck("listing").pluck("id", "instant_book")).to eq([ [ stay.id, true ], [ tour.id, false ] ])
-          expect(checkout["bookings"].pluck("status")).to eq(%w[confirmed confirmed])
+          expect(checkout["bookings"].pluck("status")).to eq(%w[awaiting_payment awaiting_payment])
           expect(checkout["bookings"].first).to include("guests" => 2, "cancellation_policy" => "seven_days",
-            "booking_mode" => "instant", "refund_if_cancelled_cents" => 400_000, "trip_id" => trip.id)
+            "booking_mode" => "instant", "trip_id" => trip.id)
 
           stay_booking, tour_booking = Booking.order(:starts_on).to_a
-          expect(stay_booking.events.pluck(:from_status, :to_status, :actor)).to eq(
-            [ [ nil, "awaiting_payment", "guest" ], [ "awaiting_payment", "confirmed", "system" ] ]
-          )
-          expect(tour_booking.events.pluck(:to_status)).to eq(%w[requested accepted awaiting_payment confirmed])
+          expect(stay_booking.events.pluck(:from_status, :to_status, :actor)).to eq([ [ nil, "awaiting_payment", "guest" ] ])
+          expect(tour_booking.events.pluck(:to_status)).to eq(%w[requested accepted awaiting_payment])
+          expect(stay_booking.expires_at).to be_within(1.minute).of(Booking::PAYMENT_TTL.from_now)
+          expect(tour_booking.expires_at).to be_within(1.minute).of(Booking::ACCEPTED_PAYMENT_TTL.from_now)
           expect(stay_booking).to have_attributes(guest_name: "Ana Reyes", source: "checkout", commission_bps: 1000,
             commission_cents: 40_000, trip_item: stay_item)
-          expect(Payment.sole).to have_attributes(status: "paid", amount_cents: 700_000)
+          expect(Payment.count).to eq(0)
           expect(stay_item.reload).to be_booked
         end
       end
@@ -61,7 +61,7 @@ RSpec.describe "Checkouts", type: :request do
         schema "$ref" => "#/components/schemas/checkout"
 
         run_test! do |response|
-          expect(response.parsed_body["bookings"].pluck("status")).to eq(%w[confirmed requested])
+          expect(response.parsed_body["bookings"].pluck("status")).to eq(%w[awaiting_payment requested])
           request = Booking.requested.sole
           expect(request.expires_at).to be_within(1.minute).of(24.hours.from_now)
           ledger = Availability::Ledger.new([ tour ], day + 1, day + 1)
@@ -89,7 +89,7 @@ RSpec.describe "Checkouts", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body["bookings"].sole).to include("total_cents" => 0, "to_be_agreed" => true,
-            "status" => "confirmed", "quantity" => 1, "guests" => 3)
+            "status" => "awaiting_payment", "quantity" => 1, "guests" => 3)
         end
       end
 
@@ -206,7 +206,7 @@ RSpec.describe "Checkouts", type: :request do
 
     it "shows its booking in the cart, and can be booked again once that is cancelled" do
       get "/api/v1/trips/#{trip.id}", headers: { "Authorization" => Authorization() }
-      expect(response.parsed_body["items"].pluck("booking").pluck("status")).to eq(%w[confirmed requested])
+      expect(response.parsed_body["items"].pluck("booking").pluck("status")).to eq(%w[awaiting_payment requested])
 
       Bookings::Cancel.call(stay_item.booking, by: "guest", user:)
       check_out(item_ids: [ stay_item.id ], idempotency_key: "checkout-0002")

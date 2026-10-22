@@ -100,8 +100,8 @@ RSpec.describe "Admin bookings", type: :request do
       tags "Admin"
       consumes "application/json"
       produces "application/json"
-      description "Admin-only (RAA-141). `accepted` takes the guest's payment (a stub that pays at once), so it ends " \
-        "confirmed; `declined` frees its days. Recorded as the team's answer (actor `admin`), with an optional " \
+      description "Admin-only (RAA-141). `accepted` holds it for the guest's payment (awaiting_payment, RAA-143) " \
+        "until they pay or its pay-by time passes; `declined` frees its days. Recorded as the team's answer (actor `admin`), with an optional " \
         "`reason`. A request past its answer-by time has expired, and one already answered can't be answered again."
       security [ { bearer: [] } ]
       parameter name: :body, in: :body, schema: {
@@ -119,13 +119,14 @@ RSpec.describe "Admin bookings", type: :request do
       let(:id) { booking.id }
       let(:body) { { status: "accepted" } }
 
-      response "200", "accepted: paid, so confirmed, and recorded as the team's" do
+      response "200", "accepted: held for the guest's payment, and recorded as the team's" do
         schema "$ref" => "#/components/schemas/admin_booking"
 
         run_test! do |response|
-          expect(response.parsed_body["status"]).to eq("confirmed")
+          expect(response.parsed_body["status"]).to eq("awaiting_payment")
           expect(booking.events.pluck(:to_status, :actor, :user_id)).to eq([ [ "accepted", "admin", user.id ],
-            [ "awaiting_payment", "system", nil ], [ "confirmed", "system", nil ] ])
+            [ "awaiting_payment", "system", nil ] ])
+          expect(booking.reload.payment).to be_nil
         end
       end
 

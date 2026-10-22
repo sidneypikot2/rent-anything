@@ -13,10 +13,12 @@ import { TextareaField } from "@/components/ui/textarea-field";
 import { Toast } from "@/components/ui/toast";
 import { DisplayTitle } from "@/components/ui/typography";
 import { formatPeso } from "@/lib/money";
+import { bookingsCsv, downloadCsv } from "./bookings-csv";
 import { useAdminBookings, useAnswerBooking, type AdminBooking, type AdminBookingFilter } from "./use-admin-bookings";
 
 const FILTERS: { key: AdminBookingFilter; label: string }[] = [
   { key: "requested", label: "Requests" },
+  { key: "awaiting_payment", label: "Awaiting payment" },
   { key: "confirmed", label: "Confirmed" },
   { key: "declined", label: "Declined" },
   { key: "expired", label: "Expired" },
@@ -30,6 +32,11 @@ const BOOKING_TYPES: Record<string, string> = {
   transfer: "Transfer",
 };
 
+// Today in Manila, for an export's file name.
+function today() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+}
+
 function when(iso: string) {
   return new Date(iso).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
@@ -38,7 +45,8 @@ function when(iso: string) {
 // behalf. Requests come soonest to expire first; chips switch to other statuses. A row says
 // what is booked, for which partner, by whom and when, with Accept and Decline on a request;
 // clicking it opens the complete details (contacts, money, notes) in a side panel. Partners can
-// still answer their own, so an answer can come back already given.
+// still answer their own, so an answer can come back already given. Export CSV downloads the
+// list the chip shows.
 // Dense on purpose: it is a work screen for the team, not a page for travellers.
 export function BookingRequests() {
   const [filter, setFilter] = useState<AdminBookingFilter>("requested");
@@ -53,7 +61,7 @@ export function BookingRequests() {
     const message =
       booking.status === "declined"
         ? `Declined ${booking.reference} for ${booking.partner.business}.`
-        : `Accepted ${booking.reference} for ${booking.partner.business}: it's confirmed.`;
+        : `Accepted ${booking.reference} for ${booking.partner.business}: waiting for the guest to pay.`;
     setToast((last) => ({ id: (last?.id ?? 0) + 1, message }));
     setDeclining(null);
     setViewing(null);
@@ -83,15 +91,26 @@ export function BookingRequests() {
         <p className="text-sm text-muted">Answered on the partner&apos;s behalf; unanswered requests expire.</p>
       </div>
 
-      <div role="group" aria-label="Show" className="flex flex-wrap gap-2" data-testid="admin-booking-filters">
-        {FILTERS.map(({ key, label }) => (
-          <Pill key={key} on={filter === key} onClick={() => setFilter(key)} data-testid={`admin-booking-filter-${key}`}>
-            {label}
-            {key === "requested" && requests.data && (
-              <span className="ml-1 tabular-nums opacity-80">{requests.data.length}</span>
-            )}
-          </Pill>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div role="group" aria-label="Show" className="flex flex-wrap gap-2" data-testid="admin-booking-filters">
+          {FILTERS.map(({ key, label }) => (
+            <Pill key={key} on={filter === key} onClick={() => setFilter(key)} data-testid={`admin-booking-filter-${key}`}>
+              {label}
+              {key === "requested" && requests.data && (
+                <span className="ml-1 tabular-nums opacity-80">{requests.data.length}</span>
+              )}
+            </Pill>
+          ))}
+        </div>
+        <Button
+          size="sm"
+          variant="soft"
+          disabled={!bookings.data?.length}
+          onClick={() => bookings.data && downloadCsv(`bookings-${filter}-${today()}.csv`, bookingsCsv(bookings.data))}
+          data-testid="admin-bookings-export"
+        >
+          Export CSV
+        </Button>
       </div>
 
       {answer.error && !declining && !viewing && (
@@ -161,7 +180,8 @@ function runLength(booking: AdminBooking) {
 }
 
 // What a booking shows beyond its listing and people: the days by type, the party, the money
-// and the time that matters now (when a request must be answered, else when it was).
+// and the time that matters now (when a request must be answered or an accepted one paid for,
+// else when it was answered).
 function details(booking: AdminBooking) {
   const dates = formatDateRange(booking.starts_on, booking.ends_on) ?? booking.starts_on;
   const units = `${booking.quantity} ${booking.quantity === 1 ? "unit" : "units"}`;
@@ -171,7 +191,9 @@ function details(booking: AdminBooking) {
   const timing =
     booking.status === "requested" && booking.expires_at
       ? { label: "Answer by", at: booking.expires_at }
-      : booking.responded_at
+      : booking.status === "awaiting_payment" && booking.expires_at
+        ? { label: "Pay by", at: booking.expires_at }
+        : booking.responded_at
         ? { label: "Answered", at: booking.responded_at }
         : { label: "Booked", at: booking.created_at };
   return { dates, party, total, policy, timing };
@@ -269,13 +291,13 @@ function BookingTable({
       </ul>
       <table className="hidden w-full table-fixed text-left text-sm xl:table">
         <colgroup>
-          <col className="w-32" />
+          <col className="w-40" />
           <col />
-          <col className="w-44" />
+          <col className="w-36" />
           <col className="w-36" />
           <col className="w-32" />
-          <col className="w-24" />
-          <col className="w-36" />
+          <col className="w-32" />
+          <col className="w-40" />
           <col className="w-48" />
         </colgroup>
         <thead className="border-b border-line bg-surface-2 text-xs text-muted">
@@ -318,7 +340,9 @@ function BookingTable({
                 <td className={cn(CELL, "truncate")}>{dates}</td>
                 <td className={cn(CELL, "font-medium tabular-nums")}>{total}</td>
                 <td className={cn(CELL, "truncate text-xs")}>
-                  <span title={timing.label}>{booking.status === "requested" ? `By ${when(timing.at)}` : when(timing.at)}</span>
+                  <span title={timing.label}>
+                    {timing.label === "Answer by" || timing.label === "Pay by" ? `By ${when(timing.at)}` : when(timing.at)}
+                  </span>
                 </td>
                 <td className={cn(CELL, "py-1.5")}>
                   <Actions {...rowProps(booking)} />
@@ -437,6 +461,9 @@ function BookingPanel({ error, onClose, ...row }: RowProps & { error: string | u
         <Row label="Booked">{when(booking.created_at)}</Row>
         {booking.status === "requested" && booking.expires_at && <Row label="Answer by">{when(booking.expires_at)}</Row>}
         {booking.responded_at && <Row label="Answered">{when(booking.responded_at)}</Row>}
+        {booking.status === "awaiting_payment" && booking.expires_at && (
+          <Row label="Pay by">{when(booking.expires_at)}</Row>
+        )}
       </PanelSection>
 
       {error && (

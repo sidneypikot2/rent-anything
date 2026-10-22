@@ -124,8 +124,9 @@ areas and a tour can visit several.
   calendar (`BOOKINGS_AUTO_ACCEPT` off). For launch the team also answers them on partners'
   behalf from `/admin` (RAA-141, recorded with actor `admin`); whichever answers first wins. A traveller can change a booking's dates or guests
   from the cart: the change goes back to the partner as a request, holding the new dates until
-  they answer. Payment is a stub that succeeds once a request is accepted; the split payment to
-  each partner comes with Xendit.
+  they answer. An accepted request waits for the traveller's payment (24 hours, or until it starts),
+  which they make from the cart; it is confirmed once paid (RAA-143). Payment is a stub until the
+  split payment to each partner comes with Xendit.
 
 ### Guest browsing layout
 

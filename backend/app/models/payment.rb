@@ -1,5 +1,5 @@
-# What a guest pays for some bookings of one checkout (RAA-132): the instant ones when they
-# check out, a request once its partner accepts. The provider is a stub that pays at once
+# What a guest pays for some bookings of one checkout (RAA-132): those held for payment, which
+# they pay for from the cart (Payments::Pay, RAA-143). The provider is a stub that pays at once
 # (Payments::Stub) until Xendit's split payments replace it (SPEC.md, Payments).
 class Payment < ApplicationRecord
   PROVIDERS = %w[stub].freeze

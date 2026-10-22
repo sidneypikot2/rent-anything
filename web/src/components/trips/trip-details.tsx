@@ -6,6 +6,7 @@ import { useState } from "react";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
 import { CANCELLATION_POLICY } from "@/components/bookings/cancellation";
 import { checkoutLabel } from "@/components/bookings/checkout-sheet";
+import { payable, payBy, payTotal } from "@/components/bookings/pay-sheet";
 import { CategoryGlyph } from "@/components/discovery/tag-glyphs";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,8 @@ export type TripActions = {
   redateItem: (trip: Trip, item: TripItem) => void;
   removeItem: (trip: Trip, item: TripItem) => void;
   checkout: (trip: Trip, items: TripItem[]) => void;
+  // Pays for items whose booking its partner accepted (RAA-143).
+  pay: (trip: Trip, items: TripItem[]) => void;
   recreate: (trip: Trip) => void;
   // More for the trip from its destinations or a search (the cart's Find more).
   findMore: (trip: Trip) => void;
@@ -73,10 +76,14 @@ function pickedTotal(quote: TripQuote | undefined, items: TripItem[]) {
 // item that can be booked is ticked at first; the foot sends the ticked ones, and a booked
 // item shows its booking's status instead of a tick. Prices and problems come from the
 // trip's quote (RAA-140): an item that can't be booked as it is says why and can't be ticked.
+// Paying (RAA-143): an item whose booking its partner accepted is ticked too, apart from those
+// to send, and a second foot pays for the ticked ones. In the cart the items are grouped by
+// where their booking stands (groupItems), each foot inside its group; an empty group is hidden.
 // On the Trips page (`mode="trips"`) it shows only the booked items, day by day at first, when
 // the trip is, and offers to plan it again.
 export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; actions: TripActions; mode?: TripMode }) {
   const [unpicked, setUnpicked] = useState<ReadonlySet<number>>(new Set());
+  const [unpaid, setUnpaid] = useState<ReadonlySet<number>>(new Set());
   const [view, setView] = useState<"items" | "days">(mode === "cart" ? "items" : "days");
   const quote = useTripQuote(trip.id);
   const dates = formatDateRange(trip.starts_on, trip.ends_on) ?? "No dates yet";
@@ -89,16 +96,95 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
   const canBook = cart ? trip.items.filter((item) => bookable(item) && !problem(item)) : [];
   const picked = canBook.filter((item) => !unpicked.has(item.id));
   const pickedPrice = pickedTotal(quote.data, picked);
+  const canPay = cart ? trip.items.filter(payable) : [];
+  const toPay = canPay.filter((item) => !unpaid.has(item.id));
+  const toPayBy = payBy(toPay);
   const shownTrip = cart ? trip : { ...trip, items: shown };
 
   function toggle(item: TripItem) {
-    setUnpicked((before) => {
+    (payable(item) ? setUnpaid : setUnpicked)((before) => {
       const next = new Set(before);
       if (next.has(item.id)) next.delete(item.id);
       else next.add(item.id);
       return next;
     });
   }
+
+  function card(item: TripItem) {
+    return (
+      <ItemCard
+        key={item.id}
+        trip={trip}
+        item={item}
+        actions={actions}
+        mode={mode}
+        quote={itemQuote(quote.data, item)}
+        quoting={quote.isPending}
+        problem={problem(item)}
+        picked={
+          canBook.includes(item) ? !unpicked.has(item.id) : canPay.includes(item) ? !unpaid.has(item.id) : undefined
+        }
+        onPick={() => toggle(item)}
+      />
+    );
+  }
+
+  // The feet of the cart's groups: sending the ticked items, paying for the ticked accepted ones.
+  const sendFoot = canBook.length > 0 && (
+    <Card
+      edge="line"
+      className="flex flex-wrap items-center justify-between gap-3 px-card py-4"
+    >
+      <div className="text-sm">
+        <p className="text-muted">
+          {picked.length} of {itemCount(canBook.length)} ticked · each goes to its partner as a request
+        </p>
+        {picked.length > 0 && pickedPrice && (
+          <p className="font-semibold" data-testid="cart-picked-total">
+            {pickedPrice} · you pay once the partner accepts
+          </p>
+        )}
+      </div>
+      <Button
+        type="button"
+        size="pill"
+        disabled={picked.length === 0}
+        onClick={() => actions.checkout(trip, picked)}
+        data-testid="cart-checkout"
+      >
+        {picked.length > 0 ? checkoutLabel(picked) : "Send requests"}
+      </Button>
+    </Card>
+  );
+
+  const payFoot = canPay.length > 0 && (
+    <Card
+      edge="line"
+      className="flex flex-wrap items-center justify-between gap-3 px-card py-4"
+      data-testid="cart-pay-bar"
+    >
+      <div className="text-sm">
+        <p className="text-muted">
+          {toPay.length} of {itemCount(canPay.length)} accepted ticked · pay to confirm
+        </p>
+        {toPay.length > 0 && (
+          <p className="font-semibold" data-testid="cart-pay-total">
+            {payTotal(toPay)}
+            {toPayBy && ` · pay by ${toPayBy}`}
+          </p>
+        )}
+      </div>
+      <Button
+        type="button"
+        size="pill"
+        disabled={toPay.length === 0}
+        onClick={() => actions.pay(trip, toPay)}
+        data-testid="cart-pay"
+      >
+        Pay
+      </Button>
+    </Card>
+  );
 
   const menu = cart
     ? [
@@ -240,23 +326,29 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
         </Card>
       ) : view === "days" ? (
         <TripItinerary trip={shownTrip} onOpen={(item) => actions.open(trip, item)} />
+      ) : cart ? (
+        <div className="flex flex-col gap-section">
+          {groupItems(shown).map(
+            (group) =>
+              group.items.length > 0 && (
+                <section
+                  key={group.key}
+                  aria-labelledby={`trip-${trip.id}-${group.key}`}
+                  data-testid={`cart-section-${group.key}`}
+                  className="flex flex-col gap-3"
+                >
+                  <h3 id={`trip-${trip.id}-${group.key}`} className="text-sm font-semibold">
+                    {group.title} <span className="font-normal text-muted">· {group.items.length}</span>
+                  </h3>
+                  <ul className="flex flex-col gap-3">{group.items.map(card)}</ul>
+                  {group.key === "unbooked" && sendFoot}
+                  {group.key === "payment" && payFoot}
+                </section>
+              ),
+          )}
+        </div>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {shown.map((item) => (
-            <ItemCard
-              key={item.id}
-              trip={trip}
-              item={item}
-              actions={actions}
-              mode={mode}
-              quote={itemQuote(quote.data, item)}
-              quoting={quote.isPending}
-              problem={problem(item)}
-              picked={canBook.includes(item) ? !unpicked.has(item.id) : undefined}
-              onPick={() => toggle(item)}
-            />
-          ))}
-        </ul>
+        <ul className="flex flex-col gap-3">{shown.map(card)}</ul>
       )}
 
       {!cart && unbooked > 0 && phase !== "past" && (
@@ -268,34 +360,27 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
         </p>
       )}
 
-      {canBook.length > 0 && (
-        <Card
-          edge="line"
-          className="flex flex-wrap items-center justify-between gap-3 px-card py-4 lg:sticky lg:bottom-3"
-        >
-          <div className="text-sm">
-            <p className="text-muted">
-              {picked.length} of {itemCount(canBook.length)} ticked · each goes to its partner as a request
-            </p>
-            {picked.length > 0 && pickedPrice && (
-              <p className="font-semibold" data-testid="cart-picked-total">
-                {pickedPrice} · nothing is charged until the partner accepts
-              </p>
-            )}
-          </div>
-          <Button
-            type="button"
-            size="pill"
-            disabled={picked.length === 0}
-            onClick={() => actions.checkout(trip, picked)}
-            data-testid="cart-checkout"
-          >
-            {picked.length > 0 ? checkoutLabel(picked) : "Send requests"}
-          </Button>
-        </Card>
-      )}
     </section>
   );
+}
+
+// A cart trip's items by where their booking stands, in the order the cart shows them.
+function groupItems(items: TripItem[]) {
+  const status = (item: TripItem) => item.booking?.status;
+  return [
+    { key: "unbooked", title: "Not booked yet", items: items.filter((item) => !item.booking) },
+    { key: "payment", title: "Awaiting payment", items: items.filter(payable) },
+    {
+      key: "waiting",
+      title: "Waiting for the partner",
+      items: items.filter((item) => status(item) === "requested" || status(item) === "accepted"),
+    },
+    {
+      key: "booked",
+      title: "Booked",
+      items: items.filter((item) => item.booking && !payable(item) && !["requested", "accepted"].includes(status(item)!)),
+    },
+  ];
 }
 
 function bookedLines(quote: TripQuote, items: TripItem[]) {
@@ -367,8 +452,8 @@ function ItemCard({
             type="checkbox"
             checked={picked}
             onChange={onPick}
-            aria-label={`Book ${item.listing.title}`}
-            data-testid="cart-item-pick"
+            aria-label={`${payable(item) ? "Pay for" : "Book"} ${item.listing.title}`}
+            data-testid={payable(item) ? "cart-item-pay-pick" : "cart-item-pick"}
             className="relative z-10 size-5 shrink-0 rounded border-line-strong accent-primary"
           />
         )}

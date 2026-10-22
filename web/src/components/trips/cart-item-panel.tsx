@@ -3,6 +3,7 @@
 import { Fragment, type ReactNode } from "react";
 import { BOOKING_STATUS, BookingStatusBadge } from "@/components/bookings/booking-status";
 import { CANCELLATION_POLICY } from "@/components/bookings/cancellation";
+import { payable } from "@/components/bookings/pay-sheet";
 import { useBooking, type GuestBooking } from "@/components/bookings/use-bookings";
 import { ListingPanel, PanelPhoto } from "@/components/discovery/detail-panel";
 import { Button } from "@/components/ui/button";
@@ -75,11 +76,23 @@ export function CartItemPanel({
         ) : (
           <span />
         )}
-        {canChange(details) && (
-          <Button type="button" onClick={() => onEditBooking(details)} data-testid="item-panel-edit">
-            Edit booking
-          </Button>
-        )}
+        <span className="flex flex-wrap gap-2">
+          {canChange(details) && (
+            <Button
+              type="button"
+              variant={payable(item) ? "soft" : "primary"}
+              onClick={() => onEditBooking(details)}
+              data-testid="item-panel-edit"
+            >
+              Edit booking
+            </Button>
+          )}
+          {payable(item) && (
+            <Button type="button" onClick={() => actions.pay(trip, [item])} data-testid="item-panel-pay">
+              Pay
+            </Button>
+          )}
+        </span>
       </>
     );
   } else {
@@ -287,6 +300,11 @@ function BookingDetails({ booking }: { booking: GuestBooking }) {
       {booking.status === "requested" && booking.expires_at && (
         <p className="text-sm">
           Waiting for the partner, who answers by {when(booking.expires_at)}. Your dates are held until then.
+        </p>
+      )}
+      {booking.status === "awaiting_payment" && booking.expires_at && (
+        <p className="text-sm font-semibold" data-testid="item-panel-pay-by">
+          Accepted by the partner. Pay by {when(booking.expires_at)} to confirm it; your dates are held until then.
         </p>
       )}
 
