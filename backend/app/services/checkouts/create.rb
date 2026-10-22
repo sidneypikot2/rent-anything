@@ -14,8 +14,8 @@ module Checkouts
   # - a request-to-book listing's is a request (requested, Booking::REQUEST_TTL or its start).
   #
   # Both hold their days from the moment they are made. Afterwards requests are accepted at
-  # once while Bookings.auto_accept? is on, and the stub payment confirms whatever is held for
-  # payment. Returns the checkout.
+  # once while Bookings.auto_accept? is on; the guest pays for what is held for payment
+  # afterwards (Payments::Pay, RAA-143). Returns the checkout.
   class Create < ApplicationService
     include Trips::Values
 
@@ -154,8 +154,8 @@ module Checkouts
       (@user.name.presence || @user.email).first(Booking::GUEST_NAME_LENGTH)
     end
 
-    # Outside the booking transaction, as a real payment would be: accept the requests (while
-    # auto-accept is on), then pay once for everything held for payment.
+    # Outside the booking transaction: accept the requests while auto-accept is on. Nothing is
+    # paid here; the guest pays for what is held for payment from the cart (Payments::Pay).
     def settle(checkout)
       if Bookings.auto_accept?
         checkout.bookings.requested.each do |booking|
@@ -163,7 +163,6 @@ module Checkouts
           Bookings::Transition.call(booking, "awaiting_payment", actor: "system")
         end
       end
-      Payments::Stub.call(checkout, checkout.bookings.reload.awaiting_payment.to_a)
       checkout.reload
     end
   end

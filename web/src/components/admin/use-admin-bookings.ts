@@ -23,8 +23,8 @@ export function useAdminBookings(status: AdminBookingFilter) {
   });
 }
 
-// The team's answer to a request on its partner's behalf: accepting takes the guest's payment
-// (a stub), so it ends confirmed; declining frees its days. Either way the lists are stale.
+// The team's answer to a request on its partner's behalf: accepting holds it for the guest's
+// payment (awaiting_payment, RAA-143); declining frees its days. Either way the lists are stale.
 export function useAnswerBooking() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import { CancelDialog } from "@/components/bookings/cancel-dialog";
 import { ChangeBookingSheet } from "@/components/bookings/change-booking-sheet";
 import { CancelledBookings } from "@/components/bookings/cancelled-bookings";
+import { PaySheet } from "@/components/bookings/pay-sheet";
 import type { GuestBooking } from "@/components/bookings/use-bookings";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
@@ -25,6 +26,7 @@ type Open =
   | { kind: "change"; item: TripItem; booking: GuestBooking }
   | { kind: "cancel"; booking: GuestBooking }
   | { kind: "recreate"; trip: Trip }
+  | { kind: "pay"; trip: Trip; items: TripItem[] }
   | { kind: "new" };
 
 // Nothing on the Trips page edits a trip's items: those are the cart's.
@@ -111,6 +113,7 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
     redateItem: none,
     removeItem: none,
     checkout: none,
+    pay: (trip, items) => setOpen({ kind: "pay", trip, items }),
     findMore: none,
   };
 
@@ -212,6 +215,8 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
           onSent={(booking) => done(`Change sent to the partner · ${booking.listing.title}`)}
         />
       )}
+
+      {open?.kind === "pay" && <PaySheet trip={open.trip} items={open.items} onClose={close} />}
 
       {open?.kind === "cancel" && (
         <CancelDialog

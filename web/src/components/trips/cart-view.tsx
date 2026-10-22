@@ -8,6 +8,7 @@ import { Toast } from "@/components/ui/toast";
 import { CancelDialog } from "@/components/bookings/cancel-dialog";
 import { ChangeBookingSheet } from "@/components/bookings/change-booking-sheet";
 import { CheckoutSheet } from "@/components/bookings/checkout-sheet";
+import { PaySheet } from "@/components/bookings/pay-sheet";
 import type { GuestBooking } from "@/components/bookings/use-bookings";
 import { CartItemPanel } from "./cart-item-panel";
 import { CartTripNav } from "./cart-trip-nav";
@@ -42,6 +43,7 @@ type Open =
   | { kind: "redate"; trip: Trip; item: TripItem }
   | { kind: "remove"; trip: Trip; item: TripItem }
   | { kind: "checkout"; trip: Trip; items: TripItem[] }
+  | { kind: "pay"; trip: Trip; items: TripItem[] }
   | { kind: "recreate"; trip: Trip }
   | { kind: "find"; trip: Trip };
 
@@ -95,6 +97,7 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
     redateItem: (trip, item) => setOpen({ kind: "redate", trip, item }),
     removeItem: (trip, item) => setOpen({ kind: "remove", trip, item }),
     checkout: (trip, items) => setOpen({ kind: "checkout", trip, items }),
+    pay: (trip, items) => setOpen({ kind: "pay", trip, items }),
     recreate: (trip) => setOpen({ kind: "recreate", trip }),
     findMore: (trip) => setOpen({ kind: "find", trip }),
   };
@@ -315,6 +318,7 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
       )}
 
       {open?.kind === "checkout" && <CheckoutSheet trip={open.trip} items={open.items} onClose={() => setOpen(null)} />}
+      {open?.kind === "pay" && <PaySheet trip={open.trip} items={open.items} onClose={() => setOpen(null)} />}
 
       <Toast data-testid="cart-toast" message={notice?.text ?? null} id={notice?.id} onDismiss={dismissNotice} />
     </>

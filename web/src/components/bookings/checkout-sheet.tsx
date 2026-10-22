@@ -98,8 +98,8 @@ function Picked({ items }: { items: TripItem[] }) {
         ))}
       </ul>
       <p className="text-sm text-muted">
-        Each price is worked out from the listing&apos;s calendar when you send it. You&apos;ll see each answer in your cart.
-        Payments aren&apos;t live yet, so nothing is charged.
+        Each price is worked out from the listing&apos;s calendar when you send it. You&apos;ll see each answer in your cart,
+        and pay there once a partner accepts. Payments aren&apos;t live yet, so nothing is charged.
       </p>
     </div>
   );

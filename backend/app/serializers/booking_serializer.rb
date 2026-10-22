@@ -43,8 +43,11 @@ module BookingSerializer
       created_at: event.created_at }
   end
 
-  # What a trip item shows of its booking.
+  # What a trip item shows of its booking: with what it costs and its pay-by time, so the cart
+  # can offer to pay for one held for payment (RAA-143).
   def self.brief(booking)
-    booking && { id: booking.id, reference: booking.reference, status: booking.status }
+    booking && { id: booking.id, reference: booking.reference, status: booking.status,
+                 total_cents: booking.total_cents, to_be_agreed: booking.price_breakdown["to_be_agreed"] == true,
+                 expires_at: booking.expires_at }
   end
 end

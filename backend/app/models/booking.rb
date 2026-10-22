@@ -25,9 +25,11 @@ class Booking < ApplicationRecord
   NOTES_LENGTH = 500
   REASON_LENGTH = 500
   MAX_QUANTITY = 100
-  # How long a partner has to answer a request, and a guest to pay for a hold.
+  # How long a partner has to answer a request, and a guest to pay for an instant hold. An
+  # accepted request gives the guest a day to pay, or until the day it starts (RAA-143).
   REQUEST_TTL = 24.hours
   PAYMENT_TTL = 15.minutes
+  ACCEPTED_PAYMENT_TTL = 24.hours
 
   belongs_to :listing, inverse_of: :bookings
   belongs_to :user, optional: true

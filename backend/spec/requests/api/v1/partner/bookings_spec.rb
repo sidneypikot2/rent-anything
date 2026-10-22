@@ -189,7 +189,7 @@ RSpec.describe "Partner bookings", type: :request do
       consumes "application/json"
       produces "application/json"
       description "Partner-only (RAA-118, RAA-132). `accepted` or `declined` answers a guest's request: accepting " \
-        "takes the guest's payment (a stub that pays at once), so it ends confirmed; declining frees its days. " \
+        "holds it for the guest's payment (awaiting_payment, RAA-143); declining frees its days. " \
         "`cancelled` cancels a booking that hasn't started, freeing its days and refunding a paid one in full, " \
         "with an optional `reason`. A booking already at that status stays as it is."
       security [ { bearer: [] } ]
@@ -206,7 +206,7 @@ RSpec.describe "Partner bookings", type: :request do
         end
       end
 
-      response "200", "a request accepted: paid, so confirmed" do
+      response "200", "a request accepted: held for the guest's payment" do
         schema "$ref" => "#/components/schemas/booking"
 
         let(:booking) do
@@ -215,10 +215,9 @@ RSpec.describe "Partner bookings", type: :request do
         let(:body) { { status: "accepted" } }
 
         run_test! do |response|
-          expect(response.parsed_body["status"]).to eq("confirmed")
-          expect(booking.events.pluck(:to_status, :actor)).to eq([ %w[accepted partner], %w[awaiting_payment system],
-            %w[confirmed system] ])
-          expect(booking.reload.payment).to have_attributes(status: "paid", amount_cents: booking.total_cents)
+          expect(response.parsed_body["status"]).to eq("awaiting_payment")
+          expect(booking.events.pluck(:to_status, :actor)).to eq([ %w[accepted partner], %w[awaiting_payment system] ])
+          expect(booking.reload.payment).to be_nil
         end
       end
 

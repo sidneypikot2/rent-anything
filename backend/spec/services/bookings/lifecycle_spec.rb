@@ -1,6 +1,8 @@
 require "rails_helper"
 
 RSpec.describe "The booking lifecycle" do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:today) { Date.current }
   let(:listing) { create(:listing, :stay) }
 
@@ -13,10 +15,29 @@ RSpec.describe "The booking lifecycle" do
 
       expect(booking).to be_awaiting_payment
       expect(booking.responded_at).to be_present
-      expect(booking.expires_at).to be_within(1.minute).of(15.minutes.from_now)
+      expect(booking.expires_at).to be_future
       expect(booking.events.pluck(:from_status, :to_status, :actor)).to eq(
         [ %w[requested accepted partner], %w[accepted awaiting_payment system] ]
       )
+    end
+
+    it "gives an accepted request a day to be paid, or until the day it starts" do
+      booking.update!(starts_on: today + 10, ends_on: today + 12)
+      Bookings::Transition.call(booking, "accepted", actor: "partner", user: listing.partner)
+      Bookings::Transition.call(booking, "awaiting_payment", actor: "system")
+      expect(booking.expires_at).to be_within(1.minute).of(Booking::ACCEPTED_PAYMENT_TTL.from_now)
+
+      soon = create(:booking, :checkout, listing:, status: "accepted", starts_on: today + 1, ends_on: today + 2)
+      travel_to(soon.starts_on.in_time_zone("UTC").beginning_of_day - 3.hours) do
+        Bookings::Transition.call(soon, "awaiting_payment", actor: "system")
+        expect(soon.expires_at).to eq(soon.starts_on.in_time_zone("UTC").beginning_of_day)
+      end
+    end
+
+    it "never gives an accepted request less time to pay than an instant hold" do
+      soon = create(:booking, :checkout, listing:, status: "accepted", starts_on: today, ends_on: today + 1)
+      Bookings::Transition.call(soon, "awaiting_payment", actor: "system")
+      expect(soon.expires_at).to be_within(1.minute).of(Booking::PAYMENT_TTL.from_now)
     end
 
     it "refuses a move the lifecycle doesn't allow, and changes nothing" do

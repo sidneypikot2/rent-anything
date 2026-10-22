@@ -54,7 +54,7 @@ module Bookings
         next @booking if from == @to
 
         refuse!(from) unless self.class.allowed?(from, @to)
-        @booking.update!(status: @to, **times, **@attributes)
+        @booking.update!(status: @to, **times(from), **@attributes)
         @booking.events.create!(from_status: from, to_status: @to, actor: @actor, user: @user, reason: @reason,
           metadata: @metadata)
         @booking
@@ -63,17 +63,26 @@ module Bookings
 
     private
 
-    def times
+    def times(from)
       now = Time.current
       case @to
       when "requested" then { responded_at: nil, confirmed_at: nil }
       when "accepted", "declined" then { responded_at: now, expires_at: nil }
-      when "awaiting_payment" then { expires_at: now + Booking::PAYMENT_TTL }
+      when "awaiting_payment" then { expires_at: pay_by(from, now) }
       when "confirmed" then { confirmed_at: now, expires_at: nil }
       when "cancelled" then { cancelled_at: now, expires_at: nil }
       when "expired" then { expires_at: [ @booking.expires_at, now ].compact.min }
       else {}
       end
+    end
+
+    # An accepted request is paid for within a day, by the start of its first day at the latest,
+    # but never with less time than an instant hold gets.
+    def pay_by(from, now)
+      hold = now + Booking::PAYMENT_TTL
+      return hold unless from == "accepted"
+
+      [ [ now + Booking::ACCEPTED_PAYMENT_TTL, @booking.starts_on.in_time_zone("UTC").beginning_of_day ].min, hold ].max
     end
 
     def refuse!(from)

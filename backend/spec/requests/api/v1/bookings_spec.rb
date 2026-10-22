@@ -169,6 +169,89 @@ RSpec.describe "Bookings", type: :request do
     end
   end
 
+  path "/api/v1/bookings/pay" do
+    parameter name: :Authorization, in: :header, schema: { type: :string }
+
+    post "Pay for the guest's accepted bookings" do
+      tags "Bookings"
+      consumes "application/json"
+      produces "application/json"
+      description "Guest-only (RAA-143). Pays for bookings held for payment (awaiting_payment: accepted by their " \
+        "partner, or instant) and confirms them, with one payment per checkout they came from. Every booking " \
+        "must be the guest's and still held, or nothing is paid. Payment is a stub until Xendit replaces it."
+      security [ { bearer: [] } ]
+      parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/booking_pay_body" }
+
+      let(:held) { guest_booking(status: "awaiting_payment", expires_at: 1.hour.from_now) }
+      let(:other_checkout) do
+        guest_booking(status: "awaiting_payment", expires_at: 1.hour.from_now, starts_on: today + 5, ends_on: today + 6)
+      end
+      let(:body) { { booking_ids: [ held.id, other_checkout.id ] } }
+
+      response "200", "paid and confirmed, one payment per checkout" do
+        schema type: :array, items: { "$ref" => "#/components/schemas/guest_booking" }
+
+        run_test! do |response|
+          expect(response.parsed_body.pluck("status")).to eq(%w[confirmed confirmed])
+          expect(Payment.where(status: "paid").pluck(:checkout_id)).to contain_exactly(held.checkout_id,
+            other_checkout.checkout_id)
+          expect(held.reload.payment).to have_attributes(amount_cents: held.total_cents)
+        end
+      end
+
+      response "422", "one is not held for payment" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:requested) { guest_booking(status: "requested", starts_on: today + 5, ends_on: today + 6) }
+        let(:body) { { booking_ids: [ held.id, requested.id ] } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "A booking that is requested can't be paid for" ])
+          expect(held.reload).to be_awaiting_payment
+          expect(Payment.count).to eq(0)
+        end
+      end
+
+      response "422", "past its pay-by time" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:held) { guest_booking(status: "awaiting_payment", expires_at: 1.minute.ago) }
+        let(:body) { { booking_ids: [ held.id ] } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "This booking wasn't paid for in time" ])
+          expect(held.reload).to be_expired
+        end
+      end
+
+      response "422", "no bookings" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:body) { { booking_ids: [] } }
+
+        run_test!
+      end
+
+      response "404", "another guest's booking" do
+        schema "$ref" => "#/components/schemas/error"
+
+        let(:theirs) { create(:booking, :checkout, listing:, status: "awaiting_payment", expires_at: 1.hour.from_now) }
+        let(:body) { { booking_ids: [ held.id, theirs.id ] } }
+
+        run_test! { expect(theirs.reload).to be_awaiting_payment }
+      end
+
+      response "401", "signed out" do
+        schema "$ref" => "#/components/schemas/error"
+
+        let(:Authorization) { nil }
+        let(:body) { { booking_ids: [] } }
+
+        run_test!
+      end
+    end
+  end
+
   path "/api/v1/bookings/{id}/cancel" do
     parameter name: :Authorization, in: :header, schema: { type: :string }
     parameter name: :id, in: :path, schema: { type: :integer }

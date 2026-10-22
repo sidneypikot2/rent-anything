@@ -97,11 +97,11 @@ paths:
       summary: Accept or decline a request on its partner's behalf
       tags:
       - Admin
-      description: Admin-only (RAA-141). `accepted` takes the guest's payment (a stub
-        that pays at once), so it ends confirmed; `declined` frees its days. Recorded
-        as the team's answer (actor `admin`), with an optional `reason`. A request
-        past its answer-by time has expired, and one already answered can't be answered
-        again.
+      description: Admin-only (RAA-141). `accepted` holds it for the guest's payment
+        (awaiting_payment, RAA-143) until they pay or its pay-by time passes; `declined`
+        frees its days. Recorded as the team's answer (actor `admin`), with an optional
+        `reason`. A request past its answer-by time has expired, and one already answered
+        can't be answered again.
       security:
       - bearer: []
       parameters: []
@@ -508,6 +508,55 @@ paths:
           application/json:
             schema:
               "$ref": "#/components/schemas/booking_change_body"
+  "/api/v1/bookings/pay":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    post:
+      summary: Pay for the guest's accepted bookings
+      tags:
+      - Bookings
+      description: 'Guest-only (RAA-143). Pays for bookings held for payment (awaiting_payment:
+        accepted by their partner, or instant) and confirms them, with one payment
+        per checkout they came from. Every booking must be the guest''s and still
+        held, or nothing is paid. Payment is a stub until Xendit replaces it.'
+      security:
+      - bearer: []
+      parameters: []
+      responses:
+        '200':
+          description: paid and confirmed, one payment per checkout
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/guest_booking"
+        '422':
+          description: no bookings
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another guest's booking
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/booking_pay_body"
   "/api/v1/bookings/{id}/cancel":
     parameters:
     - name: Authorization
@@ -569,9 +618,10 @@ paths:
         trips: each item is re-priced and checked against the calendar as it is now,
         all or nothing. An instant-book listing''s booking is held for payment; a
         request-to-book one''s is a request its partner answers within 24 hours. Both
-        hold their days at once. Requests wait for their partner''s answer (RAA-134);
-        payment is a stub, so a booking held for payment comes back confirmed. Sending
-        the same `idempotency_key` again returns the same checkout.'
+        hold their days at once. Requests wait for their partner''s answer (RAA-134).
+        Nothing is paid here: the guest pays for bookings held for payment afterwards
+        (POST /bookings/pay, RAA-143). Sending the same `idempotency_key` again returns
+        the same checkout.'
       security:
       - bearer: []
       parameters:
@@ -1325,11 +1375,10 @@ paths:
       tags:
       - Partner
       description: 'Partner-only (RAA-118, RAA-132). `accepted` or `declined` answers
-        a guest''s request: accepting takes the guest''s payment (a stub that pays
-        at once), so it ends confirmed; declining frees its days. `cancelled` cancels
-        a booking that hasn''t started, freeing its days and refunding a paid one
-        in full, with an optional `reason`. A booking already at that status stays
-        as it is.'
+        a guest''s request: accepting holds it for the guest''s payment (awaiting_payment,
+        RAA-143); declining frees its days. `cancelled` cancels a booking that hasn''t
+        started, freeing its days and refunding a paid one in full, with an optional
+        `reason`. A booking already at that status stays as it is.'
       security:
       - bearer: []
       parameters: []
@@ -6345,10 +6394,25 @@ components:
           type: string
         status:
           "$ref": "#/components/schemas/booking_status"
+        total_cents:
+          type: integer
+          description: What it was booked for, in centavos
+        to_be_agreed:
+          type: boolean
+          description: 'Priced with the partner: total_cents is 0'
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Answer-by time of a request, pay-by time of one awaiting payment
+            (RAA-143)
       required:
       - id
       - reference
       - status
+      - total_cents
+      - to_be_agreed
+      - expires_at
     booking_event:
       type: object
       properties:
@@ -6710,6 +6774,16 @@ components:
       - trip_id
       - total_cents
       - bookings
+    booking_pay_body:
+      type: object
+      required:
+      - booking_ids
+      properties:
+        booking_ids:
+          type: array
+          items:
+            type: integer
+          minItems: 1
     booking_cancel_body:
       type: object
       properties:

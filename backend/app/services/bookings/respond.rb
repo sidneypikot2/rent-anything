@@ -1,7 +1,8 @@
 module Bookings
   # A partner's answer to a booking request (RAA-132): "accepted" holds it for the guest's
-  # payment, which the stub takes at once (Payments::Stub), so it ends confirmed; "declined"
-  # frees its days. A request past its answer-by time has expired instead, and saying so is a
+  # payment (awaiting_payment), which they make from the cart (Payments::Pay, RAA-143), unless
+  # it is paid already (one its guest changed), when it is confirmed again on that payment;
+  # "declined" frees its days. A request past its answer-by time has expired instead, and saying so is a
   # 422. `actor` is "system" when requests are accepted automatically (Bookings.auto_accept?),
   # until partners have an inbox, and "admin" when the team answers on the partner's behalf
   # (RAA-141), with an optional reason kept on the booking's history. Declining a booking paid already (one its guest changed,
@@ -31,7 +32,7 @@ module Bookings
       end
       refuse!("This request has expired") if expired
 
-      Payments::Stub.call(@booking.checkout, [ @booking ]) if @booking.awaiting_payment?
+      Payments::Stub.call(@booking.checkout, [ @booking ]) if @booking.awaiting_payment? && @booking.payment_id
       @booking.reload
     end
 

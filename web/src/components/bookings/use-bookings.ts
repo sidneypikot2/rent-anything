@@ -91,6 +91,20 @@ export function useCheckout() {
   });
 }
 
+// POST /bookings/pay (RAA-143): pays for bookings held for payment, all or nothing, and
+// confirms them. Payment is a stub until Xendit, so nothing is charged.
+export function usePayBookings() {
+  const invalidate = useInvalidateBookings();
+  return useMutation({
+    mutationFn: async (bookingIds: number[]) => {
+      const { data, error } = await apiClient().POST("/api/v1/bookings/pay", { body: { booking_ids: bookingIds } });
+      if (!data) throw tripError(error, "Couldn't pay for those. Try again.");
+      return data;
+    },
+    onSuccess: invalidate,
+  });
+}
+
 // POST /bookings/:id/cancel, with an optional reason.
 export function useCancelBooking() {
   const invalidate = useInvalidateBookings();

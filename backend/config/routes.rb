@@ -46,9 +46,10 @@ Rails.application.routes.draw do
       end
       resources :trip_items, only: %i[create update destroy]
       # Booking a trip's items, and the guest's bookings (RAA-132), which a guest can change
-      # (RAA-134). Guest-only.
+      # (RAA-134) and pay for once accepted (RAA-143). Guest-only.
       resources :checkouts, only: :create
       resources :bookings, only: %i[index show update] do
+        post :pay, on: :collection
         post :cancel, on: :member
       end
 

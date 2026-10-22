@@ -44,7 +44,8 @@ RSpec.describe "Trips", type: :request do
         run_test! do |response|
           body = response.parsed_body
           expect(body.pluck("name")).to eq([ "Bantayan", "Camotes" ])
-          expect(body.last["items"].first["booking"]).to include("status" => "completed")
+          expect(body.last["items"].first["booking"]).to include("status" => "completed", "total_cents" => 400_000,
+            "to_be_agreed" => false, "expires_at" => nil)
         end
       end
 

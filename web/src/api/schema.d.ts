@@ -134,7 +134,7 @@ export interface paths {
         head?: never;
         /**
          * Accept or decline a request on its partner's behalf
-         * @description Admin-only (RAA-141). `accepted` takes the guest's payment (a stub that pays at once), so it ends confirmed; `declined` frees its days. Recorded as the team's answer (actor `admin`), with an optional `reason`. A request past its answer-by time has expired, and one already answered can't be answered again.
+         * @description Admin-only (RAA-141). `accepted` holds it for the guest's payment (awaiting_payment, RAA-143) until they pay or its pay-by time passes; `declined` frees its days. Recorded as the team's answer (actor `admin`), with an optional `reason`. A request past its answer-by time has expired, and one already answered can't be answered again.
          */
         patch: {
             parameters: {
@@ -758,6 +758,80 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/bookings/pay": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pay for the guest's accepted bookings
+         * @description Guest-only (RAA-143). Pays for bookings held for payment (awaiting_payment: accepted by their partner, or instant) and confirms them, with one payment per checkout they came from. Every booking must be the guest's and still held, or nothing is paid. Payment is a stub until Xendit replaces it.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["booking_pay_body"];
+                };
+            };
+            responses: {
+                /** @description paid and confirmed, one payment per checkout */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["guest_booking"][];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another guest's booking */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description no bookings */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/bookings/{id}/cancel": {
         parameters: {
             query?: never;
@@ -847,7 +921,7 @@ export interface paths {
         put?: never;
         /**
          * Book a trip's items
-         * @description Guest-only (RAA-132). Books `item_ids` of one of the guest's trips: each item is re-priced and checked against the calendar as it is now, all or nothing. An instant-book listing's booking is held for payment; a request-to-book one's is a request its partner answers within 24 hours. Both hold their days at once. Requests wait for their partner's answer (RAA-134); payment is a stub, so a booking held for payment comes back confirmed. Sending the same `idempotency_key` again returns the same checkout.
+         * @description Guest-only (RAA-132). Books `item_ids` of one of the guest's trips: each item is re-priced and checked against the calendar as it is now, all or nothing. An instant-book listing's booking is held for payment; a request-to-book one's is a request its partner answers within 24 hours. Both hold their days at once. Requests wait for their partner's answer (RAA-134). Nothing is paid here: the guest pays for bookings held for payment afterwards (POST /bookings/pay, RAA-143). Sending the same `idempotency_key` again returns the same checkout.
          */
         post: {
             parameters: {
@@ -1965,7 +2039,7 @@ export interface paths {
         head?: never;
         /**
          * Answer or cancel a booking
-         * @description Partner-only (RAA-118, RAA-132). `accepted` or `declined` answers a guest's request: accepting takes the guest's payment (a stub that pays at once), so it ends confirmed; declining frees its days. `cancelled` cancels a booking that hasn't started, freeing its days and refunding a paid one in full, with an optional `reason`. A booking already at that status stays as it is.
+         * @description Partner-only (RAA-118, RAA-132). `accepted` or `declined` answers a guest's request: accepting holds it for the guest's payment (awaiting_payment, RAA-143); declining frees its days. `cancelled` cancels a booking that hasn't started, freeing its days and refunding a paid one in full, with an optional `reason`. A booking already at that status stays as it is.
          */
         patch: {
             parameters: {
@@ -6134,6 +6208,15 @@ export interface components {
             id: number;
             reference: string;
             status: components["schemas"]["booking_status"];
+            /** @description What it was booked for, in centavos */
+            total_cents: number;
+            /** @description Priced with the partner: total_cents is 0 */
+            to_be_agreed: boolean;
+            /**
+             * Format: date-time
+             * @description Answer-by time of a request, pay-by time of one awaiting payment (RAA-143)
+             */
+            expires_at: string | null;
         };
         booking_event: {
             from_status: components["schemas"]["booking_status"] | null;
@@ -6271,6 +6354,9 @@ export interface components {
             trip_id: number | null;
             total_cents: number;
             bookings: components["schemas"]["guest_booking"][];
+        };
+        booking_pay_body: {
+            booking_ids: number[];
         };
         booking_cancel_body: {
             reason?: string;
