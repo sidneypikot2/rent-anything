@@ -7,17 +7,21 @@ import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { GlassPanel } from "@/components/ui/glass";
 import { HeroTripLink } from "@/components/landing/hero-trip";
+import { isApiPhoto } from "@/components/landing/sample-photos";
+import { InTripBadge } from "@/components/trips/in-trip-badge";
+import type { TripDates } from "@/components/trips/trip-dates";
 import { GROUP_ICON } from "./categories";
 import { placeIcon } from "./icons";
 import { InstantBookBadge } from "./instant-book-badge";
+import type { LandmarkVisit } from "./area-map-pins";
 import type { Feature } from "./listing-features";
 import { ListingPhotos } from "./listing-photos";
 import { DetailPanelButton, LandmarkPanel, ListingPanel, PanelActions, PanelPhoto } from "./detail-panel";
 import { ListingRowDetails } from "./listing-row-details";
-import { PhotoCardFrame, type Photo } from "./photo-card";
+import { PhotoCardFrame, SamplePhotoTag, type Photo } from "./photo-card";
 import { PHOTO_CARD, PHOTO_CARD_IMAGE, PHOTO_SCRIM, STRETCHED_LINK } from "./photo-card-styles";
-import { ArrowGlyph, CategoryGlyph, TagGlyph } from "./tag-glyphs";
-import { AreaScene } from "./scenes";
+import { ArrowGlyph, CategoryGlyph, PlaceGlyph, TagGlyph } from "./tag-glyphs";
+import { AreaScene, PlaceScene } from "./scenes";
 
 export { PHOTO_CARD, PHOTO_CARD_IMAGE } from "./photo-card-styles";
 
@@ -56,32 +60,31 @@ export function groupDestinations(areas: AreaCard[]): DestinationGroup[] {
   const groups = areas
     .filter((area) => root(area) === area)
     .map((area) => ({ area, subAreas: areas.filter((sub) => sub !== area && root(sub) === area) }));
-  const toBook = ({ area, subAreas }: DestinationGroup) => withSubAreas(area, subAreas).listing_count;
+  const toBook = ({ area }: DestinationGroup) => area.to_book_count;
   return groups.sort((a, b) => toBook(b) - toBook(a));
 }
 
-type Counts = Pick<AreaCard, "landmark_count" | "listing_count">;
+type Counts = Pick<AreaCard, "landmark_count" | "to_book_count">;
 
-// "8 places to see · 9 things to book", leaving out a count of nothing.
-export function countLine({ landmark_count, listing_count }: Counts) {
+// "8 places to see · 10 to book", leaving out a count of nothing. "To book" is what the place's
+// own page counts (`to_book_count`: a partner's offers in one kind of thing, the places inside
+// it included), so the number a guest picks a destination by is the one its banner shows.
+export function countLine({ landmark_count, to_book_count }: Counts) {
   return [
     landmark_count > 0 && `${landmark_count} ${landmark_count === 1 ? "place" : "places"} to see`,
-    listing_count > 0 && `${listing_count} ${listing_count === 1 ? "thing" : "things"} to book`,
+    to_book_count > 0 && `${to_book_count} to book`,
   ]
     .filter(Boolean)
     .join(" · ");
 }
 
 // A destination's counts including the places listed inside it, so the island's card
-// doesn't show fewer things to book than one of its towns.
+// doesn't show fewer places to see than one of its towns. Its to_book_count has them already.
 export function withSubAreas(area: AreaCard, subAreas: AreaCard[]): Counts {
-  return subAreas.reduce(
-    (sum, sub) => ({
-      landmark_count: sum.landmark_count + sub.landmark_count,
-      listing_count: sum.listing_count + sub.listing_count,
-    }),
-    { landmark_count: area.landmark_count, listing_count: area.listing_count },
-  );
+  return {
+    landmark_count: subAreas.reduce((sum, sub) => sum + sub.landmark_count, area.landmark_count),
+    to_book_count: area.to_book_count,
+  };
 }
 
 // Text colours for a destination card on white, or on frosted glass over its photo.
@@ -309,15 +312,27 @@ export function ActivityCard({ activity, photo }: { activity: Activity; photo?: 
 export function LandmarkCard({
   landmark,
   photo,
+  visits,
   areaName,
+  reach,
 }: {
   landmark: { slug: string; name: string; description: string; tags: { slug: string; name: string }[] };
-  photo: Photo;
+  // A stand-in that fits it, or none (landmarkPhotos), when its icon holds the photo's place.
+  photo: Photo | null;
+  // The rows on the page that go there: the card's foot links to the first.
+  visits?: LandmarkVisit[];
   areaName: string;
+  // With no tour going there, how to get there yourself (ReachYourself) in the foot instead.
+  reach?: ReactNode;
 }) {
+  const goes = visits && visits.length > 0 ? visitsLine(visits) : null;
   return (
     <PhotoCardFrame
-      photo={photo}
+      photo={photo ?? undefined}
+      // No fitting photo: a drawn scene from its tags where the photo would be, as a destination
+      // card without one has, rather than a lone pin on navy beside the photo cards.
+      placeholder={photo ? <PlaceGlyph className="size-12" /> : <PlaceScene tags={landmark.tags} />}
+      badge={photo && !isApiPhoto(photo.src) ? <SamplePhotoTag /> : undefined}
       label={landmark.name}
       id={landmark.slug}
       data-testid="landmark"
@@ -331,7 +346,7 @@ export function LandmarkCard({
             <DetailPanelButton
               title={landmark.name}
               media={<PanelPhoto photo={photo} />}
-              panel={<LandmarkPanel landmark={landmark} areaName={areaName} />}
+              panel={<LandmarkPanel landmark={{ ...landmark, visits }} areaName={areaName} />}
               className="truncate"
             >
               {landmark.name}
@@ -342,8 +357,32 @@ export function LandmarkCard({
           )}
         </>
       }
+      foot={
+        goes && visits ? (
+          // A plain anchor: the row is on this page, and What to book shows it whatever section is
+          // picked (it listens for the hash). Above the title's stretched button.
+          <a
+            href={`#listing-${visits[0].id}`}
+            className="relative z-10 -my-1 flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold text-sky-pale underline-offset-4 hover:underline"
+          >
+            {goes} <ArrowGlyph className="size-4" />
+          </a>
+        ) : (
+          (reach ?? (
+            // The same height as the link, so its glass sits level with its neighbours'.
+            <span className="-my-1 flex min-h-11 items-center text-sm text-sky-mist">No tours go here yet</span>
+          ))
+        )
+      }
     />
   );
+}
+
+// "2 tours go here", or "activities" once they aren't all tours.
+function visitsLine(visits: LandmarkVisit[]) {
+  const tours = visits.every((visit) => visit.category === "Tour");
+  if (visits.length === 1) return tours ? "1 tour goes here" : "1 activity goes here";
+  return `${visits.length} ${tours ? "tours" : "activities"} go here`;
 }
 
 // A thing to book: its category's icon, the title linking to the listing and a note line at
@@ -377,7 +416,7 @@ export function ListingCard({
   photo?: Photo;
   sizes?: string;
   price?: ComponentProps<typeof Price>;
-  // Said where the price would be while the listing has none to show ("Prices per route").
+  // Said where the price would be while the listing has none to show (pricedByText).
   unpriced?: string;
   action?: ReactNode;
   // A row on a phone: the photo a column on the left and the text beside it, so a short list
@@ -486,11 +525,15 @@ export function ListingRow({
   by,
   summary,
   photos,
-  samplePhoto = false,
   features,
   price,
+  unpriced,
   action,
+  panelAction = action,
   instantBook = false,
+  dates,
+  sameTitle = 1,
+  operator,
 }: {
   listingId: number;
   href: string;
@@ -498,23 +541,32 @@ export function ListingRow({
   category: string;
   by: string;
   summary?: string | null;
+  // Empty for a listing with none of its own: its category icon shows instead.
   photos: Photo[];
-  samplePhoto?: boolean;
   features: Feature[];
   price?: ComponentProps<typeof Price>;
+  // How it is priced while it has no price (pricedByText).
+  unpriced?: string;
   action?: ReactNode;
+  // The action in its side panel's foot, where it is the one action (a prominent Add to trip).
+  panelAction?: ReactNode;
   instantBook?: boolean;
+  dates?: TripDates;
+  // How many rows in its section share its title (counting itself; 1 for none), so who offers it
+  // (`operator`) follows the title, where the eye compares them, with how many partners do.
+  sameTitle?: number;
+  operator?: string;
 }) {
   return (
     // Top-aligned, so titles start on one line across rows whatever their summaries and chips.
     <Card className="relative grid gap-4 p-3 @sm:grid-cols-[10rem_minmax(0,1fr)] @2xl:grid-cols-[19rem_minmax(0,1fr)_auto] @2xl:items-start @2xl:gap-5">
-      <ListingPhotos photos={photos} label={title} sample={samplePhoto} className="z-10 aspect-[16/10] @sm:aspect-square @2xl:aspect-[4/3]" />
+      <ListingPhotos photos={photos} label={title} category={category} className="z-10 aspect-[16/10] @sm:aspect-square @2xl:aspect-[4/3]" />
       <div className="flex min-w-0 flex-col gap-2 px-1 @sm:px-0">
         <h3 className="text-lg leading-snug font-semibold text-balance">
           <DetailPanelButton
             data-testid="listing-open"
             title={title}
-            media={<ListingPhotos photos={photos} label={title} sample={samplePhoto} count="bottom" className="aspect-[4/3]" />}
+            media={<ListingPhotos photos={photos} label={title} category={category} count="bottom" className="aspect-[4/3]" />}
             panel={
               <ListingPanel
                 listingId={listingId}
@@ -524,32 +576,46 @@ export function ListingRow({
                 summary={summary}
                 features={features}
                 instantBook={instantBook}
+                dates={dates}
+                unpriced={price ? undefined : unpriced}
               />
             }
-            actions={<PanelActions price={price} action={action} />}
+            actions={<PanelActions price={price} unpriced={unpriced} action={panelAction} />}
             className="underline-offset-4 hover:underline"
           >
             {title}
           </DetailPanelButton>
         </h3>
+        {/* Two rows with one title: who offers it, right under it, is what tells them apart. */}
+        {sameTitle > 1 && operator && (
+          <p className="-mt-1.5 text-sm text-muted">
+            <span className="font-semibold text-foreground">{operator}</span> · one of {sameTitle} partners offering this
+          </p>
+        )}
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+          <InTripBadge listingId={listingId} />
           <Badge tone="mist" className="min-h-6 px-2.5 text-xs">
             <CategoryGlyph name={category} className="size-3.5" />
             {category}
           </Badge>
           {instantBook && <InstantBookBadge small />}
-          {by}
+          <span>{sameTitle > 1 && operator ? withoutOperator(by, operator) : by}</span>
         </p>
         <ListingRowDetails summary={summary} features={features} />
       </div>
       {(price || action) && (
         <div className="relative z-10 flex items-center justify-between gap-3 border-t border-line px-1 pt-3 @sm:col-span-2 @2xl:col-span-1 @2xl:flex-col @2xl:items-end @2xl:justify-start @2xl:border-0 @2xl:px-0 @2xl:pt-1">
-          {/* No price yet for rentals and transfers (only stays and tours are priced), so nothing
-              is promised here. */}
-          {price ? <Price {...price} /> : <span />}
+          {/* No price yet for rentals and transfers (only stays and tours are priced): it says how
+              they are priced instead, so the empty slot doesn't read as a hidden cost. */}
+          {price ? <Price {...price} /> : unpriced ? <span className="text-sm text-pretty text-muted @2xl:max-w-36 @2xl:text-right">{unpriced}</span> : <span />}
           {action}
         </div>
       )}
     </Card>
   );
+}
+
+// The by-line without "by <operator>", when the operator has its own line under the title.
+function withoutOperator(by: string, operator: string) {
+  return by.split(" · ").filter((part) => part !== `by ${operator}`).join(" · ");
 }

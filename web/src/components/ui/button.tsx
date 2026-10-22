@@ -47,7 +47,7 @@ export type ButtonStyle = {
   variant?: keyof typeof VARIANTS;
   size?: keyof typeof SIZES;
   // A trailing arrow in its own round well, which nudges forward on hover: for a button that
-  // takes you somewhere (Show me, Start your trip).
+  // takes you somewhere (Search, Start your trip).
   arrow?: boolean;
 };
 

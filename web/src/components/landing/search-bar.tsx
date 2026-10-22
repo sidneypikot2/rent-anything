@@ -1,35 +1,46 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { SearchBox } from "@/components/discovery/search-box";
-import { ChevronGlyph, SearchGlyph } from "@/components/discovery/tag-glyphs";
+import { ChevronGlyph, GuestsGlyph, SearchGlyph } from "@/components/discovery/tag-glyphs";
 import { readTripDates } from "@/components/trips/trip-dates";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { formatDateRange } from "@/lib/dates";
-import { useCurrentPlace } from "./current-place";
+import { SearchHere, useCurrentPlace, usePageSearching, useRegisterEditSearch } from "./current-place";
+import { guestsLabel } from "@/components/trips/format";
 
-// The search under every guest page's banner but the home hero, which holds it itself
-// (RAA-126): where, when and with whom, filled in from the page, so a guest can change their
-// mind from anywhere. It scrolls up with the page until it meets the header, then sticks 8px
-// under it; `--chrome` (globals.css) is how far down that reaches, for the anchor offset. From
-// sm it is one row; on a phone a pill that opens the same search in a sheet.
+// Every guest page's banner but the home hero (which holds the search itself) and the cart's
+// says the page has a search (RAA-126). The search itself is in the header (`HeaderSearch`):
+// this only marks the page, for CSS (`data-search-bar`, so the server's render already shows
+// it) and for the header once the page runs.
 export function SearchBar() {
+  return (
+    <>
+      <span data-search-bar hidden />
+      <SearchHere />
+    </>
+  );
+}
+
+// The search in the guest header, on a page with one: a pill saying where, when and with whom,
+// filled in from the page, so a guest can change their mind from anywhere without a form
+// between the banner and the page. From the `search` breakpoint it sits between the logo and the
+// cart and opens the one-row search as a panel under the header; on a phone it is the header's
+// second row and opens the same search in a sheet. CSS shows it (globals.css), so the first
+// paint has it. It measures the header for `--chrome`, how far down what sticks at the top
+// reaches plus 12px, for anchors and anything sticking under it.
+export function HeaderSearch() {
   const pathname = usePathname();
   const ref = useRef<HTMLDivElement>(null);
 
-  // `--chrome` from the bar as it is (fonts, a long place), not just the estimate in
-  // globals.css that holds it until now: where it sticks, its height and 12px.
   useEffect(() => {
-    const bar = ref.current;
-    if (!bar) return;
+    const header = ref.current?.closest("header");
+    if (!header) return;
     const root = document.documentElement;
-    const observer = new ResizeObserver(() => {
-      const top = parseFloat(getComputedStyle(bar).top) || 0;
-      root.style.setProperty("--chrome", `${top + bar.offsetHeight + 12}px`);
-    });
-    observer.observe(bar);
+    const observer = new ResizeObserver(() => root.style.setProperty("--chrome", `${header.offsetHeight + 12}px`));
+    observer.observe(header);
     return () => {
       observer.disconnect();
       root.style.removeProperty("--chrome");
@@ -37,46 +48,116 @@ export function SearchBar() {
   }, []);
 
   return (
-    // One block from the banner and from the first section (the sheet's pt-block), less the
-    // banner's own foot padding. The strip beside the bar lets clicks through.
     <div
       ref={ref}
-      data-search-bar
-      className="pointer-events-none sticky top-20 z-30 mt-[max(0px,calc(var(--spacing-block)-0.75rem))] px-3 sm:mt-[max(0px,calc(var(--spacing-block)-1.5rem))] sm:px-6"
+      data-header-search
+      data-testid="search-bar"
+      className="min-w-0 max-search:order-last max-search:basis-full search:flex-1"
     >
-      {/* Holds the bar's height until the URL can be read, so the page doesn't move. */}
-      <Suspense fallback={<div className="mx-auto h-12 max-w-page px-inset search:h-16" />}>
-        <SearchBarContent pathname={pathname} />
+      {/* Holds the pill's height until the URL can be read, so the header doesn't move. */}
+      <Suspense fallback={<div className="h-12 w-full search:h-11 search:max-w-xl" />}>
+        <HeaderSearchContent pathname={pathname} />
       </Suspense>
     </div>
   );
 }
 
-function SearchBarContent({ pathname }: { pathname: string }) {
+// How far the page scrolls after the panel is opened before it closes.
+const REFOLD_PX = 160;
+
+function HeaderSearchContent({ pathname }: { pathname: string }) {
   const params = useSearchParams();
   const place = useCurrentPlace();
+  const searching = usePageSearching();
   const dates = readTripDates(Object.fromEntries(params));
   const onSearch = pathname === "/search";
-  const query = onSearch ? (params.get("q") ?? "").trim() : (place ?? "");
-  const here = !onSearch && place ? { name: place, href: pathname } : undefined;
-  // Whatever the bar was opened for; a new page or new dates close the sheet and refill the bar.
-  const key = `${pathname}?${params.toString()}|${place ?? ""}`;
-  const [openFor, setOpenFor] = useState<string | null>(null);
-  const open = openFor === key;
-  const dateLabel = formatDateRange(dates.from, dates.to);
-  const guestsLabel = dates.guests === 1 ? "1 guest" : `${dates.guests} guests`;
+  // Where keeps naming the place on its own pages, even after a search there (`?q=`, which What
+  // to book says back); on /search it holds what was searched.
+  const query = onSearch ? (params.get("q") ?? "").trim() : (place?.name ?? "");
+  const here = !onSearch && place ? { name: place.name, href: pathname, area: `/${place.slug}` } : undefined;
+  // Whatever the search was opened for; a new page or new dates close it and refill the pill.
+  const key = `${pathname}?${params.toString()}|${place?.name ?? ""}`;
+  // Open for this search: as the panel under the header (`wide`) or a phone's sheet, from scroll `y`.
+  const [opened, setOpened] = useState<{ key: string; wide: boolean; y: number } | null>(null);
+  const open = opened?.key === key ? opened : null;
+  const close = useCallback(() => setOpened(null), []);
+  // A page asking for a stop (the area page's trip line): the search opens on it.
+  // It holds for the search it was made in: new dates or another page drop it.
+  const [request, setRequest] = useState<{ panel: "where" | "when" | "guests"; n: number; key: string }>();
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const pillRef = useRef<HTMLButtonElement>(null);
+
+  function openOn(panel?: "where" | "when" | "guests") {
+    const wide = window.matchMedia(SEARCH_ROW).matches;
+    // The panel starts in Where; a phone's sheet opens as it is unless a page asked for a stop.
+    const stop = panel ?? (wide ? "where" : undefined);
+    if (stop) setRequest((last) => ({ panel: stop, n: (last?.n ?? 0) + 1, key }));
+    setOpened({ key, wide, y: window.scrollY });
+  }
+  useRegisterEditSearch(openOn, searching);
+
+  // The panel closes on a click outside it, Escape, or once the page has scrolled on (unless
+  // something in it has focus: a calendar, the guests).
+  const panelOpen = Boolean(open?.wide);
+  const openedY = open?.y ?? 0;
+  useEffect(() => {
+    if (!panelOpen) return;
+    const wrap = wrapRef.current;
+    const onPointer = (event: PointerEvent) => {
+      if (!wrap?.contains(event.target as Node)) close();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      close();
+      pillRef.current?.focus();
+    };
+    const onScroll = () => {
+      if (Math.abs(window.scrollY - openedY) < REFOLD_PX || wrap?.contains(document.activeElement)) return;
+      close();
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [panelOpen, openedY, close]);
+
   const box = (
-    <SearchBox key={key} bar initialQuery={query} initialDates={dates} here={here} onDone={() => setOpenFor(null)} />
+    <SearchBox
+      key={key}
+      bar
+      initialQuery={query}
+      initialDates={dates}
+      here={here}
+      request={request?.key === key ? request : undefined}
+      onDone={close}
+    />
   );
 
   return (
-    // As wide as the page's content under it (the sheet's max-w-page less its inset), so its
-    // edges line up with What to book's rail and listings.
-    <div className="pointer-events-auto mx-auto max-w-page px-inset" data-testid="search-bar">
-      <div className="max-search:hidden">{box}</div>
-      <SearchPill where={query} dateLabel={dateLabel} guestsLabel={guestsLabel} onClick={() => setOpenFor(key)} />
-      {open && (
-        <Dialog open placement="sheet" title="Search" onClose={() => setOpenFor(null)}>
+    <div ref={wrapRef} className="mx-auto w-full search:max-w-xl">
+      <SearchPill
+        ref={pillRef}
+        where={query}
+        dateLabel={formatDateRange(dates.from, dates.to)}
+        guestsLabel={guestsLabel(dates.guests)}
+        expanded={panelOpen}
+        onClick={() => (open ? close() : openOn())}
+        always
+        className="search:min-h-11 search:py-1"
+      />
+      {/* Under the header, as wide as it, so the row lines up with the page's content. White
+          inside: the header's text and focus ring are for navy. */}
+      {open?.wide && (
+        <div data-testid="search-panel" className="absolute inset-x-0 top-full mt-2 text-foreground [--focus:var(--color-primary)]">
+          {box}
+        </div>
+      )}
+      {open && !open.wide && (
+        <Dialog open placement="sheet" title="Search" onClose={close}>
           {box}
         </Dialog>
       )}
@@ -84,9 +165,12 @@ function SearchBarContent({ pathname }: { pathname: string }) {
   );
 }
 
-// The route folded to one line, for a phone: the place, the dates and, where there's room, the
-// guests as joined stops, and the search's round button. It opens the search in a sheet,
-// here and in the home hero. `summary` (the hero's) drops the round button, as the hero has a
+// Where the search is one row rather than a sheet (globals.css's `search` breakpoint).
+const SEARCH_ROW = "(min-width: 46.875rem)";
+
+// The route folded to one line: the place, the dates and, where there's room, the guests as
+// joined stops, and the search's round button. It opens the search, in the header and in the
+// home hero (on a phone). `summary` (the hero's) drops the round button, as the hero has a
 // button of its own under it, and ends on a chevron that says it opens.
 export function SearchPill({
   where,
@@ -94,8 +178,18 @@ export function SearchPill({
   guestsLabel,
   onClick,
   summary = false,
+  always = false,
+  expanded,
+  className,
+  ref,
 }: {
   summary?: boolean;
+  // Shown at every width (the header's), not only under the search breakpoint.
+  always?: boolean;
+  // Set when the pill opens a panel in place (the header's, from the search breakpoint).
+  expanded?: boolean;
+  className?: string;
+  ref?: Ref<HTMLButtonElement>;
   where: string;
   dateLabel: string | null | undefined;
   guestsLabel: string;
@@ -123,14 +217,18 @@ export function SearchPill({
 
   return (
     <button
+      ref={ref}
       type="button"
       aria-haspopup="dialog"
+      aria-expanded={expanded}
       aria-label={`Edit search: ${where || "where to"}, ${dateLabel ?? "no dates yet"}, ${guestsLabel}`}
       onClick={onClick}
       data-testid="search-bar-pill"
       className={cn(
-        "flex min-h-12 w-full items-center gap-3 card-edge rounded-full bg-surface/90 py-1.5 pl-4 text-left text-sm font-semibold text-navy shadow-lift backdrop-blur-xl search:hidden",
+        "flex min-h-12 w-full items-center gap-3 card-edge rounded-full bg-surface/90 py-1.5 pl-4 text-left text-sm font-semibold text-navy shadow-lift backdrop-blur-xl",
+        !always && "search:hidden",
         summary ? "pr-3" : "pr-1.5",
+        className,
       )}
     >
       <span ref={rowRef} className="relative flex min-w-0 flex-1 items-center">
@@ -139,16 +237,24 @@ export function SearchPill({
         </MiniStop>
         <MiniPath traced={Boolean(where && dateLabel)} />
         <MiniStop set={Boolean(dateLabel)} className="shrink-0">
-          {/* The hero's summary only shows what was picked, so it doesn't ask in blue as the bar does. */}
-          {dateLabel ?? (summary ? "Any dates" : <span className="text-primary">Add dates +</span>)}
+          {/* The same words as the route's empty stop; the hero's summary doesn't ask in blue, as its
+              own button under it is the action. */}
+          {dateLabel ?? (summary ? "Add dates" : <span className="text-primary">Add dates +</span>)}
         </MiniStop>
-        {/* Out of the row while it doesn't fit, but still measured. */}
+        {/* Out of the row while it doesn't fit, but still measured; in its place the count alone,
+            with the guests icon, so the search never loses who's going. */}
         <span className={cn("flex items-center", guestsFit ? "flex-1" : "invisible absolute")}>
           <MiniPath traced={Boolean(dateLabel)} />
           <MiniStop set className="shrink-0">
             {guestsLabel}
           </MiniStop>
         </span>
+        {!guestsFit && (
+          <span aria-hidden className="flex shrink-0 items-center gap-1 pl-2 whitespace-nowrap">
+            <GuestsGlyph className="size-4 text-muted" />
+            {guestsLabel.match(/\d+/)?.[0] ?? "1"}
+          </span>
+        )}
       </span>
       {summary ? (
         <ChevronGlyph className="size-4 shrink-0 text-muted" />

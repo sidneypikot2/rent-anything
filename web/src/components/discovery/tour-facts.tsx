@@ -4,7 +4,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { Price } from "@/components/ui/typography";
 import { feeText, priceUnitText } from "@/lib/pricing";
 import { formatPeso } from "@/lib/money";
-import { durationText, groupText, inclusionText, tourTypeLabel } from "@/lib/tours";
+import { durationText, groupText, guestTourTypeLabel, inclusionText } from "@/lib/tours";
 
 type Tour = NonNullable<ListingDetail["tour"]>;
 
@@ -16,25 +16,30 @@ export function tourPriceLine(tour: Tour) {
 
 // What a guest needs to know about a tour (RAA-111): private or joiner, the group, how long,
 // what's included (or, on a private tour, the add-ons a group can pick) and the price. Booking and its totals come with M3.
-export function TourFacts({ listing, tour }: { listing: ListingDetail; tour: Tour }) {
+// `head={false}` leaves out the price and the kind, which a side panel already shows (its foot
+// and its chips).
+export function TourFacts({ listing, tour, head = true }: { listing: ListingDetail; tour: Tour; head?: boolean }) {
   const privateTour = tour.tour_type === "private";
   const fees = listing.fees.filter((fee) => fee.required);
   const facts: [string, string][] = [
-    ["Group", groupText(tour.min_guests, tour.max_guests)],
+    // A shared (joiner) tour's group is everyone on it, not the guest's own party.
+    ["Group", privateTour ? groupText(tour.min_guests, tour.max_guests) : `${groupText(tour.min_guests, tour.max_guests)}, shared with other travellers`],
     ["Duration", durationText(tour.duration_value, tour.duration_unit)],
   ];
 
   return (
     <Card data-testid="tour-facts">
       <CardBody pad="lg" className="flex flex-col gap-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {tour.base_price_cents ? (
-            <Price prefix="from" amount={formatPeso(tour.base_price_cents)} unit={priceUnitText(tour.price_unit)} />
-          ) : (
-            <span className="text-sm text-muted">No price yet</span>
-          )}
-          <Badge tone={privateTour ? "aqua" : "emerald"}>{tourTypeLabel(tour.tour_type)}</Badge>
-        </div>
+        {head && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {tour.base_price_cents ? (
+              <Price prefix="from" amount={formatPeso(tour.base_price_cents)} unit={priceUnitText(tour.price_unit)} />
+            ) : (
+              <span className="text-sm text-muted">No price yet</span>
+            )}
+            <Badge tone={privateTour ? "aqua" : "emerald"}>{guestTourTypeLabel(tour.tour_type)}</Badge>
+          </div>
+        )}
 
         <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[7rem_1fr]">
           {facts.map(([term, value]) => (

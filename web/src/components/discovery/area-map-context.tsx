@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { cn } from "@/components/ui/cn";
 
 export { listingKey, placeKey } from "./area-map-pins";
@@ -9,11 +9,12 @@ export { listingKey, placeKey } from "./area-map-pins";
 // (from either side), the pin whose pop-up is open, whether the map is shown, what What to book
 // is showing (its group and the rows its filters hide), and, while searching by distance, how
 // far each listing is from the guest's pin. A pin's key is `listing-<id>` or `place-<slug>`.
-export type MapView = { bookingType: string | null; hidden: number[] };
+export type MapView = { group: string | null; hidden: number[] };
 
 type AreaMapState = {
-  hover: string | null;
-  setHover: (key: string | null) => void;
+  // The pins lit by a pointer: one pin, or a business card's pins.
+  hover: string[];
+  setHover: (key: string | string[] | null) => void;
   selected: string | null;
   setSelected: (key: string | null) => void;
   mapOn: boolean;
@@ -26,15 +27,68 @@ type AreaMapState = {
 
 const AreaMapContext = createContext<AreaMapState | null>(null);
 
+// The map starts off, so the rows get the page's width; a guest who turns it on keeps it on
+// from page to page (this browser only). Off on the server and until hydration; where storage is
+// blocked the choice lasts as long as the page.
+const MAP_ON_KEY = "area-map-on";
+const mapOnListeners = new Set<() => void>();
+let mapOnFallback = false;
+
+function subscribeMapOn(listener: () => void) {
+  mapOnListeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    mapOnListeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
+function readMapOn() {
+  try {
+    const stored = localStorage.getItem(MAP_ON_KEY);
+    return stored === null ? mapOnFallback : stored === "1";
+  } catch {
+    return mapOnFallback;
+  }
+}
+
+function setMapOn(on: boolean) {
+  mapOnFallback = on;
+  try {
+    localStorage.setItem(MAP_ON_KEY, on ? "1" : "0");
+  } catch {}
+  mapOnListeners.forEach((listener) => listener());
+}
+
+// Turning the map on or off reflows the sections (narrower beside it, wider without), which
+// would leave the guest somewhere else on the page: the first row or section still in view keeps
+// its place on screen across the change.
+function keepingPlace(on: boolean) {
+  // A row or a section's heading block first; a whole section only when neither is in view.
+  const inView = (selector: string) =>
+    [...document.querySelectorAll<HTMLElement>(selector)].find((element) => element.getBoundingClientRect().bottom > 160);
+  const anchor = inView('[id^="listing-"], [id$="-top"]') ?? inView("main section[id]");
+  const top = anchor?.getBoundingClientRect().top;
+  setMapOn(on);
+  if (!anchor || top === undefined) return;
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => window.scrollBy({ top: anchor.getBoundingClientRect().top - top, behavior: "instant" })),
+  );
+}
+
 export function AreaMapProvider({ children }: { children: ReactNode }) {
-  const [hover, setHover] = useState<string | null>(null);
+  const [hover, setHoverKeys] = useState<string[]>([]);
+  const setHover = useCallback(
+    (key: string | string[] | null) => setHoverKeys(key === null ? [] : Array.isArray(key) ? key : [key]),
+    [],
+  );
   const [selected, setSelected] = useState<string | null>(null);
-  const [mapOn, setMapOn] = useState(true);
-  const [view, setView] = useState<MapView>({ bookingType: null, hidden: [] });
+  const mapOn = useSyncExternalStore(subscribeMapOn, readMapOn, () => false);
+  const [view, setView] = useState<MapView>({ group: null, hidden: [] });
   const [near, setNear] = useState<Map<number, number> | null>(null);
   const value = useMemo(
-    () => ({ hover, setHover, selected, setSelected, mapOn, setMapOn, view, setView, near, setNear }),
-    [hover, selected, mapOn, view, near],
+    () => ({ hover, setHover, selected, setSelected, mapOn, setMapOn: keepingPlace, view, setView, near, setNear }),
+    [hover, setHover, selected, mapOn, view, near],
   );
   return <AreaMapContext.Provider value={value}>{children}</AreaMapContext.Provider>;
 }
@@ -44,15 +98,30 @@ export function useAreaMap() {
   return useContext(AreaMapContext);
 }
 
-// A card or row that lights up its pin while the pointer is on it, and is ringed while its pin
-// is hovered or open on the map.
-export function MapHoverTarget({ pin, children, className }: { pin: string; children: ReactNode; className?: string }) {
+// Whether the map is beside the sections (set by AreaMapLayout: the map on, with pins to show),
+// which folds What to book's rail into a bar over its rows from lg.
+export const BesideMapContext = createContext(false);
+
+export function useBesideMap() {
+  return useContext(BesideMapContext);
+}
+
+// A mouse on a screen that can hover: a finger scrolling or tapping fires pointer events too
+// (some as "mouse"), which left a card ringed on a phone.
+function hovering(event: { pointerType: string }) {
+  return event.pointerType === "mouse" && window.matchMedia("(hover: hover)").matches;
+}
+
+// A card or row that lights up its pins while the pointer is on it (a business card has one per
+// listing), and is ringed while one of them is hovered or open on the map.
+export function MapHoverTarget({ pin, children, className }: { pin: string | string[]; children: ReactNode; className?: string }) {
   const map = useAreaMap();
-  const lit = Boolean(map && (map.hover === pin || map.selected === pin));
+  const pins = Array.isArray(pin) ? pin : [pin];
+  const lit = Boolean(map && pins.some((key) => map.hover.includes(key) || map.selected === key));
   return (
     <div
-      onPointerEnter={() => map?.setHover(pin)}
-      onPointerLeave={() => map?.hover === pin && map.setHover(null)}
+      onPointerEnter={(event) => hovering(event) && map?.setHover(pins)}
+      onPointerLeave={(event) => hovering(event) && map?.hover.some((key) => pins.includes(key)) && map.setHover(null)}
       data-map-lit={lit || undefined}
       className={cn("rounded-card transition-shadow duration-300 ease-calm", lit && "ring-2 ring-primary ring-offset-2 ring-offset-transparent", className)}
     >
@@ -62,12 +131,13 @@ export function MapHoverTarget({ pin, children, className }: { pin: string; chil
 }
 
 // The rail's switch for the map beside the sections (from lg, where there is room for both).
+// With the map on, the rail folds into a bar over the rows and the map's own Hide map turns it off.
 export function MapSwitch() {
   const map = useAreaMap();
   if (!map) return null;
   return (
     <div className="hidden flex-col gap-2 rounded-card bg-surface p-4 card-edge shadow-soft lg:flex">
-      <label className="flex cursor-pointer items-center justify-between gap-3 text-sm font-semibold">
+      <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm font-semibold">
         Show map
         <button
           type="button"

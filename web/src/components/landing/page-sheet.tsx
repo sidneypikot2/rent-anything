@@ -9,8 +9,8 @@ import { glassClasses } from "@/components/ui/glass";
 // (.page-sections, globals.css). Inset like
 // the banner's frame so the two line up; it fills the rest of the page, so the footer stays at
 // the bottom. "paper" is a white sheet with dark text, for the partner and admin pages, which
-// are work screens rather than browsing (RAA-120, RAA-142). `wide` lets what's inside go past the page width,
-// for an area page with its map beside the sections, which sets its own width.
+// are work screens rather than browsing (RAA-120, RAA-142). `wide` lets what's inside go past
+// the page width, for the admin console's dense tables.
 export function PageSheet({
   children,
   tone = "sheet",

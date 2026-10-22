@@ -36,7 +36,7 @@ const TRUST: { title: string; body: string }[] = [
   { title: "Straight from local partners", body: "Rental shops, tour operators and guesthouses list here themselves." },
   {
     title: "Saving a trip is free",
-    body: "Nothing to pay while you plan. You'll pay only when you book, once booking opens.",
+    body: "Nothing to pay while you plan. When you're ready, send requests to the partners; nothing is paid in the app yet.",
   },
 ];
 

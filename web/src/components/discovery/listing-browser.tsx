@@ -1,32 +1,69 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { formatPeso } from "@/lib/money";
-import { listingKey, MapHoverTarget, MapSwitch, useAreaMap } from "./area-map-context";
+import { useTripHere } from "@/components/trips/use-trip-here";
+import { ShownOffersContext } from "./business-row";
+import { BOOKING_GROUPS } from "./categories";
+import { listingKey, MapHoverTarget, MapSwitch, useAreaMap, useBesideMap } from "./area-map-context";
 import type { Feature } from "./listing-features";
 import { CategoryGlyph, CloseGlyph, FilterGlyph, GridGlyph } from "./tag-glyphs";
+import { focusDock } from "./floating-dock";
 import { useFitRows } from "./use-fit-rows";
 
-// A row as the filters see it: its "from" price (null while it has none) and the chips it
-// shows. `content` is the row itself, rendered on the server.
-export type ListingItem = { id: number; priceCents: number | null; priceUnit?: string | null; features: Feature[]; content: ReactNode };
-// `bookingType` tells the area map which pins the group's rows are.
-export type ListingGroup = { id: string; title: string; icon: string; bookingType?: string; items: ListingItem[] };
+// A listing as the filters see it: its "from" price (null while it has none) and the chips it shows.
+// `text`: what a search on the page matches (title, kind, partner, place, summary).
+export type ListingOffer = {
+  id: number;
+  priceCents: number | null;
+  priceUnit?: string | null;
+  features: Feature[];
+  text?: string;
+};
+// A row: a business with its listings in the group (the team's business-first list). `key` is
+// its anchor, unique on the page; `content` is the card itself, rendered on the server, which
+// shows only the listings the filters leave (ShownOffersContext).
+export type ListingItem = { key: string; offers: ListingOffer[]; content: ReactNode };
+// `group` (a listing's `group`) tells the area map which pins the group's rows are.
+// `note`: a line under the section's title, once for all its rows (how unpriced ones are priced).
+export type ListingGroup = { id: string; title: string; icon: string; group?: string; note?: string; items: ListingItem[] };
 
 type Filters = { free: boolean; min: string; max: string; includes: string[] };
 const NO_FILTERS: Filters = { free: false, min: "", max: "", includes: [] };
 // Includes listed before "Show all".
 const FIRST_INCLUDES = 6;
+// Rows a section shows under "All" before its "Show all N": the page stays short enough to reach
+// the places to see below it, on a phone too, and the section's own chip shows the rest.
+const FIRST_ROWS = 3;
+
+// A typed price as whole pesos, never below zero ("-5" and "12.5" become "0" and "12").
+const wholePesos = (value: string) => (value === "" ? "" : String(Math.max(0, Math.floor(Number(value)) || 0)));
+
+// A search typed on the page (`?q=`): every word somewhere in the listing's text, a plural
+// matching its singular ("scooters" finds a scooter).
+function matcher(query: string | undefined) {
+  const words = (query ?? "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => (word.length > 3 && word.endsWith("s") ? word.slice(0, -1) : word));
+  if (words.length === 0) return null;
+  return (offer: ListingOffer) => {
+    const text = (offer.text ?? "").toLowerCase();
+    return words.every((word) => text.includes(word));
+  };
+}
 
 const setCount = (filters: Filters) =>
   Number(filters.free) + Number(Boolean(filters.min || filters.max)) + filters.includes.length;
 
-function passes(item: ListingItem, filters: Filters, skipIncludes = false) {
+function passes(item: ListingOffer, filters: Filters, skipIncludes = false) {
   if (filters.free && !item.features.some((feature) => feature.trust)) return false;
   const min = Number(filters.min) || 0;
   const max = Number(filters.max) || 0;
@@ -41,8 +78,9 @@ function passes(item: ListingItem, filters: Filters, skipIncludes = false) {
 }
 
 // What to book on an area page (RAA-125): the sections beside the listings. From lg it is a
-// rail on the left that stays in view under the search bar, the trip dates over the sections
-// with their counts; on a phone the dates come first, then the sections as a row of chips.
+// rail on the left that stays in view under the header, the sections with their counts and
+// the map's switch (the trip and its dates lead the page above it, AreaHero); on a phone the
+// sections are a row of chips.
 // "All" shows every section under its title; a section shows just its own, still titled.
 // Filters belong to one section (RAA-126), so a price set for a motorbike never hides a
 // cottage: each title has a filter button opening them in a modal, and what is set shows
@@ -50,74 +88,182 @@ function passes(item: ListingItem, filters: Filters, skipIncludes = false) {
 // On an area page with its map, the map's pins follow the group and filters shown here, a row
 // and its pin light up together, and a distance search narrows the rows to what is in range,
 // nearest first, each with how far it is. `initial` is the group to open on (the home hero's
-// category pills, RAA-130); one the area doesn't have opens on All.
+// category pills, RAA-130); one the area doesn't have opens on All, and says so. Under All each
+// section shows its first rows and a "Show all N" that picks it. On a phone the chips stick under
+// the search bar, so another section is always a tap away; so they do from lg while the map is
+// beside the sections, where a rail would leave the rows too narrow to read.
+// `query`: a search typed on this page's search bar (`?q=`), which narrows every section to the
+// listings matching it and says so, with Clear search (`clearHref`) and a search of every place.
+// `placeName` names the place in those lines.
 export function ListingBrowser({
   groups,
-  dates,
   empty,
   initial,
+  query,
+  placeName,
+  clearHref,
+  tripPlaces = [],
 }: {
   groups: ListingGroup[];
-  dates: ReactNode;
   empty: ReactNode;
   initial?: string;
+  query?: string;
+  placeName?: string;
+  clearHref?: string;
+  // The page's place and the places inside it: a section the guest's trip already has something
+  // from here goes to the end, in the rail and the sections, so what the trip still lacks leads.
+  tripPlaces?: string[];
 }) {
+  const { has } = useTripHere(tripPlaces);
+  const inTrip = (group: ListingGroup) => Boolean(group.group && has.has(group.group));
+  // What the trip lacks leads, Stays first among it (as on the trip card), then what it has.
+  const lacking = groups.filter((group) => !inTrip(group));
+  const ordered = [
+    ...lacking.filter((group) => group.group === "stay"),
+    ...lacking.filter((group) => group.group !== "stay"),
+    ...groups.filter(inTrip),
+  ];
   const [current, setCurrent] = useState<string>(() =>
     initial && groups.some((group) => group.id === initial) ? initial : "all",
   );
+  const matches = matcher(query);
+  const asked = Boolean(query || initial);
+  // Passes the page's search and a section's filters.
+  const shows = (offer: ListingOffer, filters: Filters) => (!matches || matches(offer)) && passes(offer, filters);
+  // The home hero's shortcut to a group this place has nothing in.
+  const missing = initial && !groups.some((group) => group.id === initial)
+    ? BOOKING_GROUPS.find((group) => group.id === initial)
+    : undefined;
   const [filters, setFilters] = useState<Record<string, Filters>>({});
   // The section whose filters are open, and the filters as edited there, applied on Show.
   const [editing, setEditing] = useState<{ id: string; draft: Filters } | null>(null);
+  // A link to a section (#need-<group>) picks it and scrolls to it. A link to a row
+  // (#listing-<id>: a place to see's "1 tour goes here") shows it even while
+  // another section is picked, or past its section's first rows under All, then scrolls to it
+  // once it is in the page. "Show all N" scrolls to the section it picks the same way.
+  // A new object each time, so revealing the same row twice scrolls twice.
+  const [reveal, setReveal] = useState<{ id: string } | null>(null);
+  // The picked chip in view in a phone's sideways row (a shortcut can pick one past its edge),
+  // scrolling the row only, never the page.
+  const chipsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const row = chipsRef.current;
+    const chip = row?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!row || !chip || row.scrollWidth <= row.clientWidth) return;
+    row.scrollLeft = chip.offsetLeft - (row.clientWidth - chip.offsetWidth) / 2;
+  }, [current]);
+  useEffect(() => {
+    const follow = () => {
+      // Arrived from a search or a category (`?q=`, `?show=`): What to book itself, once the page has
+      // laid out, rather than the browser's own jump, which the banner's late layout throws off.
+      if (window.location.hash === "#listings") {
+        if (asked) setReveal({ id: "listings" });
+        return;
+      }
+      // A link to a section (#need-stay: the trip card's "A place to stay") picks it.
+      const picked = groups.find((each) => `#${each.id}` === window.location.hash);
+      if (picked) {
+        setCurrent(picked.id);
+        setReveal({ id: `${picked.id}-top` });
+        return;
+      }
+      const id = Number(/^#listing-(\d+)$/.exec(window.location.hash)?.[1]);
+      const holds = (item: ListingItem) => item.offers.some((offer) => offer.id === id);
+      const group = id ? groups.find((each) => each.items.some(holds)) : undefined;
+      if (!group) return;
+      const index = group.items.findIndex(holds);
+      const early = index < FIRST_ROWS;
+      setCurrent((was) => (was === group.id || (was === "all" && early) ? was : group.id));
+      setReveal({ id: group.items[index].key });
+    };
+    follow();
+    window.addEventListener("hashchange", follow);
+    return () => window.removeEventListener("hashchange", follow);
+  }, [groups, asked]);
+  useEffect(() => {
+    if (reveal === null) return;
+    document.getElementById(reveal.id)?.scrollIntoView({ block: "start" });
+  }, [reveal]);
   const filtersOf = (id: string) => filters[id] ?? NO_FILTERS;
   const setFiltersOf = (id: string, next: Filters) => setFilters((all) => ({ ...all, [id]: next }));
   const map = useAreaMap();
   const near = map?.near ?? null;
-  const filtered = (group: ListingGroup) => group.items.filter((item) => passes(item, filtersOf(group.id)));
+  const rail = !useBesideMap();
+  // A business's listings the group's filters leave, and, in a distance search, only those in range.
+  const kept = (group: ListingGroup, item: ListingItem) =>
+    item.offers.filter((offer) => shows(offer, filtersOf(group.id)) && (!near || near.has(offer.id)));
+  // How far a business is: its nearest listing in range.
+  const distance = (group: ListingGroup, item: ListingItem) => Math.min(...kept(group, item).map((offer) => near?.get(offer.id) ?? 0));
+  const filtered = (group: ListingGroup) =>
+    group.items.filter((item) => item.offers.some((offer) => shows(offer, filtersOf(group.id))));
   const visible = (group: ListingGroup) =>
     near
-      ? filtered(group)
-          .filter((item) => near.has(item.id))
-          .sort((a, b) => (near.get(a.id) ?? 0) - (near.get(b.id) ?? 0))
+      ? group.items
+          .filter((item) => kept(group, item).length > 0)
+          .sort((a, b) => distance(group, a) - distance(group, b))
       : filtered(group);
 
   // Tell the map what is showing: the picked group's pins, without the rows its filters hide.
   const setView = map?.setView;
-  const bookingType = groups.find((group) => group.id === current)?.bookingType ?? null;
+  const shownGroup = groups.find((group) => group.id === current)?.group ?? null;
   const hiddenIds = groups
     .flatMap((group) => {
-      const kept = new Set(filtered(group).map((item) => item.id));
-      return group.items.filter((item) => !kept.has(item.id)).map((item) => item.id);
+      const offers = group.items.flatMap((item) => item.offers);
+      return offers.filter((offer) => !shows(offer, filtersOf(group.id))).map((offer) => offer.id);
     })
     .join(",");
   useEffect(() => {
-    setView?.({ bookingType, hidden: hiddenIds ? hiddenIds.split(",").map(Number) : [] });
-  }, [setView, bookingType, hiddenIds]);
+    setView?.({ group: shownGroup, hidden: hiddenIds ? hiddenIds.split(",").map(Number) : [] });
+  }, [setView, shownGroup, hiddenIds]);
 
   const total = groups.reduce((sum, group) => sum + visible(group).length, 0);
-  const options = [{ id: "all", title: "All", icon: "", count: total, set: 0 }, ...groups.map((group) => ({
-    id: group.id,
-    title: group.title,
-    icon: group.icon,
-    count: visible(group).length,
-    set: setCount(filtersOf(group.id)),
-  }))];
-  const shown = current === "all" ? groups : groups.filter((group) => group.id === current);
+  // Under a search, only the sections it found something in (and the one picked).
+  const options = [
+    { id: "all", title: "All", icon: "", count: total, set: 0 },
+    ...ordered
+      .map((group) => ({
+        id: group.id,
+        title: group.title,
+        icon: group.icon,
+        count: visible(group).length,
+        set: setCount(filtersOf(group.id)),
+      }))
+      .filter((option) => !matches || option.count > 0 || option.id === current),
+  ];
+  // Under a search, All keeps to the sections with a match.
+  const shown =
+    current === "all"
+      ? ordered.filter((group) => !matches || visible(group).length > 0)
+      : groups.filter((group) => group.id === current);
+  // Arrived on a section from the home page's shortcuts: said once, with the way back to All.
+  const opened = initial && current === initial ? groups.find((group) => group.id === initial) : undefined;
   const editingGroup = editing && groups.find((group) => group.id === editing.id);
   const openFilters = (id: string) => setEditing({ id, draft: filtersOf(id) });
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-6">
+    <div className={cn("relative grid gap-5", rail && "lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-6")}>
+      <DockSkipLink />
       {/* Under the stuck search bar, scrolling on its own if the window is short. */}
+      {/* Below lg its contents join the grid, so the chips can stick for the whole list. */}
       <aside
         aria-label="Filter what to book"
-        className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-(--chrome) lg:max-h-[calc(100dvh-var(--chrome)-1rem)] lg:overflow-y-auto lg:overscroll-contain lg:pb-1"
+        className={cn(
+          "contents min-w-0 flex-col gap-4",
+          rail && "lg:sticky lg:flex lg:top-(--chrome) lg:max-h-[calc(100dvh-var(--chrome)-1rem)] lg:overflow-y-auto lg:overscroll-contain lg:pb-1",
+        )}
       >
-        {dates}
         {groups.length > 1 && (
           <div
+            ref={chipsRef}
             role="group"
             aria-label="Show"
-            className="-mx-1 flex gap-1.5 overflow-x-auto px-1 py-0.5 [scrollbar-width:none] lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:rounded-card lg:bg-surface lg:p-2 lg:card-edge lg:shadow-soft"
+            className={cn(
+              // Stuck under the header (which holds the search). On a phone its background reaches
+              // up under the header's foot (z-35, under the header's z-40), so no row shows through
+              // the 12px between them.
+              "sticky top-(--chrome) z-20 -mx-inset -my-2 flex gap-1.5 overflow-x-auto bg-surface-2 px-inset py-2 [scrollbar-width:none] max-search:top-[calc(var(--chrome)_-_1.25rem)] max-search:-mt-5 max-search:z-35 max-search:pt-5",
+              rail && "lg:static lg:mx-0 lg:my-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:rounded-card lg:bg-surface lg:p-2 lg:card-edge lg:shadow-soft",
+            )}
           >
             {options.map((option) => {
               const on = option.id === current;
@@ -131,16 +277,17 @@ export function ListingBrowser({
                     "flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-semibold whitespace-nowrap transition-colors duration-300 ease-calm",
                     // In the rail: a row with the count in its own right-aligned column, and a long
                     // name wrapping beside its icon rather than pushing the count out.
-                    "lg:grid lg:grid-cols-[1.75rem_minmax(0,1fr)_2.5ch] lg:gap-2.5 lg:rounded-control lg:border-0 lg:px-2.5 lg:py-2 lg:text-left lg:whitespace-normal",
+                    rail && "lg:grid lg:grid-cols-[1.75rem_minmax(0,1fr)_2.5ch] lg:gap-2.5 lg:rounded-control lg:border-0 lg:px-2.5 lg:py-2 lg:text-left lg:whitespace-normal",
                     on
-                      ? "border-navy bg-navy text-white lg:bg-mist lg:text-primary"
-                      : "border-line bg-surface text-foreground hover:border-line-strong lg:hover:bg-surface-2",
+                      ? cn("border-navy bg-navy text-white", rail && "lg:bg-mist lg:text-primary")
+                      : cn("border-line bg-surface text-foreground hover:border-line-strong", rail && "lg:hover:bg-surface-2"),
                   )}
                 >
                   <span
                     aria-hidden
                     className={cn(
-                      "hidden size-7 items-center justify-center rounded-lg lg:flex",
+                      "hidden size-7 items-center justify-center rounded-lg",
+                      rail && "lg:flex",
                       on ? "bg-surface text-primary" : "bg-mist text-primary",
                     )}
                   >
@@ -149,28 +296,61 @@ export function ListingBrowser({
                   <span>
                     {option.title}
                     {option.set > 0 && (
-                      <span className={cn("ml-1.5 text-xs font-medium", on ? "lg:text-primary" : "text-link")}>
+                      <span className={cn("ml-1.5 text-xs font-medium", on ? rail && "lg:text-primary" : "text-link")}>
                         · {option.set} {option.set === 1 ? "filter" : "filters"}
                       </span>
                     )}
                   </span>
-                  <span className={cn("tabular-nums lg:text-right", on ? "lg:text-primary" : "text-muted")}>{option.count}</span>
+                  <span className={cn("tabular-nums", rail && "lg:text-right", on ? rail && "lg:text-primary" : "text-muted")}>{option.count}</span>
                 </button>
               );
             })}
+            {/* A fade at the row's right edge while it scrolls, so a cut-off chip reads as more. */}
+            <span
+              aria-hidden
+              className={cn("pointer-events-none sticky -right-inset -ml-1.5 w-12 shrink-0 bg-linear-to-l from-surface-2 from-30% to-transparent", rail && "lg:hidden")}
+            />
           </div>
         )}
-        <MapSwitch />
+        {/* Beside the map, the map's own Hide map turns it off. */}
+        {rail && <MapSwitch />}
       </aside>
       <div className="flex min-w-0 flex-col gap-8">
+        {missing && current === "all" && (
+          <p role="status" className="text-sm text-muted">
+            Nothing in {missing.title} here yet, so here is everything else.
+          </p>
+        )}
+        {query && (
+          <SearchedLine
+            query={query}
+            count={total}
+            placeName={placeName}
+            clearHref={clearHref}
+          />
+        )}
+        {!query && opened && (
+          <p role="status" data-testid="opened-group" className="flex flex-wrap items-center gap-x-3 text-sm text-muted">
+            <span>
+              Showing <span className="font-semibold text-foreground">{opened.title}</span>
+              {placeName && <> on {placeName}</>}
+            </span>
+            <TextButton onClick={() => setCurrent("all")} className="min-h-11">
+              Show everything
+            </TextButton>
+          </p>
+        )}
         {shown.length === 0
-          ? empty
+          ? !matches && empty
           : shown.map((group) => {
-              const rows = visible(group);
+              const all = visible(group);
+              // A distance search lists everything in range, nearest first.
+              // A search's matches show whole: they are few, and the point of the search.
+              const rows = current === "all" && !near && !matches ? all.slice(0, FIRST_ROWS) : all;
               const set = setCount(filtersOf(group.id));
               const clear = () => setFiltersOf(group.id, NO_FILTERS);
               return (
-                <div key={group.id} className="flex flex-col gap-3">
+                <div key={group.id} id={`${group.id}-top`} className="flex scroll-mt-(--chrome) flex-col gap-3">
                   {/* On a phone the pills take a row of their own under the title. */}
                   <div className="flex min-w-0 flex-wrap items-center gap-2.5 sm:flex-nowrap">
                     <h3 id={group.id} className="scroll-mt-36 shrink-0 text-lg font-semibold">
@@ -206,27 +386,54 @@ export function ListingBrowser({
                       </>
                     )}
                   </div>
+                  {group.note && <p className="-mt-1 text-sm text-pretty text-muted">{group.note}</p>}
                   {rows.length > 0 ? (
                     <ul className="flex flex-col gap-3">
                       {rows.map((item) => (
                         // A search suggestion links straight to its row (#listing-<id>).
                         // A container, so the row lays itself out by its own width: beside the map
                         // it is narrower than the window says.
-                        <li key={item.id} id={`listing-${item.id}`} className="@container scroll-mt-36">
-                          {near?.has(item.id) && (
-                            <p className="mb-1.5 px-1 text-sm font-semibold text-primary">{near.get(item.id)?.toFixed(1)} km from your pin</p>
+                        <li key={item.key} id={item.key} className="@container scroll-mt-36">
+                          {near && (
+                            <p className="mb-1.5 px-1 text-sm font-semibold text-primary">{distance(group, item).toFixed(1)} km from your pin</p>
                           )}
-                          <MapHoverTarget pin={listingKey(item.id)}>{item.content}</MapHoverTarget>
+                          <MapHoverTarget pin={item.offers.map((offer) => listingKey(offer.id))}>
+                            <ShownOffersContext.Provider value={new Set(kept(group, item).map((offer) => offer.id))}>
+                              {item.content}
+                            </ShownOffersContext.Provider>
+                          </MapHoverTarget>
                         </li>
                       ))}
                     </ul>
-                  ) : (
+                  ) : null}
+                  {rows.length < all.length && (
+                    <Button
+                      type="button"
+                      variant="soft"
+                      size="touch"
+                      arrow
+                      onClick={() => {
+                        setCurrent(group.id);
+                        setReveal({ id: `${group.id}-top` });
+                      }}
+                      className="self-start"
+                    >
+                      Show all {all.length} in {group.title}
+                    </Button>
+                  )}
+                  {all.length === 0 && (
                     <p className="rounded-card bg-surface p-4 text-sm text-muted card-edge">
                       {near && filtered(group).length > 0 ? (
                         "Nothing in this section is within that distance of your pin."
                       ) : (
                         <>
-                          Nothing here matches these filters. <TextButton onClick={clear} />
+                          {set > 0 ? (
+                            <>
+                              Nothing here matches these filters. <TextButton onClick={clear} />
+                            </>
+                          ) : (
+                            <>Nothing in {group.title} matches “{query}”.</>
+                          )}
                         </>
                       )}
                     </p>
@@ -257,8 +464,8 @@ export function ListingBrowser({
                   setEditing(null);
                 }}
               >
-                Show {editingGroup.items.filter((item) => passes(item, editing.draft)).length}{" "}
-                {editingGroup.items.filter((item) => passes(item, editing.draft)).length === 1 ? "result" : "results"}
+                Show {matching(editingGroup, editing.draft, matches)}{" "}
+                {matching(editingGroup, editing.draft, matches) === 1 ? "result" : "results"}
               </Button>
             </>
           }
@@ -266,6 +473,69 @@ export function ListingBrowser({
           <FilterPanel group={editingGroup} filters={editing.draft} onChange={(draft) => setEditing({ ...editing, draft })} />
         </Dialog>
       )}
+    </div>
+  );
+}
+
+
+// How many businesses in a group have a listing the filters (and the page's search) leave.
+function matching(group: ListingGroup, filters: Filters, matches: ((offer: ListingOffer) => boolean) | null) {
+  return group.items.filter((item) => item.offers.some((offer) => (!matches || matches(offer)) && passes(offer, filters)))
+    .length;
+}
+
+// A search typed on the page, said back: how many matched here, Clear search, and the same search
+// in every place, which is where a place with nothing for it sends the guest.
+function SearchedLine({
+  query,
+  count,
+  placeName,
+  clearHref,
+}: {
+  query: string;
+  count: number;
+  placeName?: string;
+  clearHref?: string;
+}) {
+  const where = placeName ? ` on ${placeName}` : "";
+  const everywhere = `/search?q=${encodeURIComponent(query)}`;
+  return (
+    <div
+      role="status"
+      data-testid="searched-line"
+      className={cn(
+        "flex flex-col gap-2 rounded-card p-4 text-sm card-edge sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4",
+        count > 0 ? "bg-mist" : "bg-surface",
+      )}
+    >
+      <p className="min-w-0 flex-1 text-pretty text-foreground">
+        {count > 0 ? (
+          <>
+            <span className="font-semibold">
+              {count} {count === 1 ? "match" : "matches"} for “{query}”
+            </span>
+            {where}
+          </>
+        ) : (
+          <>
+            <span className="font-semibold">Nothing{where} matches “{query}” yet.</span> Other places may have it.
+          </>
+        )}
+      </p>
+      <span className="flex flex-wrap items-center gap-x-4">
+        <Link href={everywhere} className="flex min-h-11 items-center font-semibold text-link underline-offset-4 hover:underline">
+          Search all places
+        </Link>
+        {clearHref && (
+          <Link
+            href={clearHref}
+            scroll={false}
+            className="flex min-h-11 items-center font-semibold text-link underline-offset-4 hover:underline"
+          >
+            Clear search
+          </Link>
+        )}
+      </span>
     </div>
   );
 }
@@ -290,14 +560,16 @@ function FilterPanel({
   onChange: (next: Filters) => void;
 }) {
   const [allIncludes, setAllIncludes] = useState(false);
-  const prices = group.items.flatMap((item) => (item.priceCents === null ? [] : [item.priceCents]));
-  const units = [...new Set(group.items.flatMap((item) => (item.priceUnit ? [item.priceUnit] : [])))];
-  const unpriced = group.items.some((item) => item.priceCents === null);
-  const free = group.items.filter((item) => item.features.some((feature) => feature.trust)).length;
+  // Its listings, counted one by one: a price or an include belongs to a listing, not a business.
+  const offers = group.items.flatMap((item) => item.offers);
+  const prices = offers.flatMap((item) => (item.priceCents === null ? [] : [item.priceCents]));
+  const units = [...new Set(offers.flatMap((item) => (item.priceUnit ? [item.priceUnit] : [])))];
+  const unpriced = offers.some((item) => item.priceCents === null);
+  const free = offers.filter((item) => item.features.some((feature) => feature.trust)).length;
 
   // What the rows include, counted among the rows the other filters leave; one already ticked
   // stays listed even when nothing left has it.
-  const pool = group.items.filter((item) => passes(item, filters, true));
+  const pool = offers.filter((offer) => passes(offer, filters, true));
   const counts = new Map<string, number>();
   for (const item of pool)
     for (const feature of item.features) if (!feature.trust) counts.set(feature.label, (counts.get(feature.label) ?? 0) + 1);
@@ -331,7 +603,7 @@ function FilterPanel({
               step={100}
               placeholder={formatPeso(Math.min(...prices))}
               value={filters.min}
-              onChange={(event) => onChange({ ...filters, min: event.target.value })}
+              onChange={(event) => onChange({ ...filters, min: wholePesos(event.target.value) })}
             />
             <Field
               label="Max"
@@ -341,9 +613,12 @@ function FilterPanel({
               step={100}
               placeholder={formatPeso(Math.max(...prices))}
               value={filters.max}
-              onChange={(event) => onChange({ ...filters, max: event.target.value })}
+              onChange={(event) => onChange({ ...filters, max: wholePesos(event.target.value) })}
             />
           </div>
+          {Number(filters.min) > 0 && Number(filters.max) > 0 && Number(filters.min) > Number(filters.max) && (
+            <p role="alert" className="text-xs text-danger">The lowest price is above the highest, so nothing matches. Lower Min or raise Max.</p>
+          )}
           {unpriced && (filters.min || filters.max) && (
             <p className="text-xs text-muted">Ones without a price yet are hidden while a price is set.</p>
           )}
@@ -422,7 +697,8 @@ function FilterMarkers({
               type="button"
               aria-label={`Remove ${marker.label}`}
               onClick={marker.remove}
-              className="flex size-6 items-center justify-center rounded-full hover:bg-surface"
+              // A 24px circle with a 44px-tall hit area, so the pill stays slim on a phone.
+              className="relative flex size-6 items-center justify-center rounded-full before:absolute before:-inset-x-1.5 before:-inset-y-2.5 hover:bg-surface"
             >
               <CloseGlyph className="size-3.5" />
             </button>
@@ -434,12 +710,31 @@ function FilterMarkers({
           <button
             type="button"
             onClick={onMore}
-            className="flex min-h-8 items-center rounded-full border border-line bg-surface px-3 text-xs font-semibold whitespace-nowrap hover:border-line-strong"
+            className="relative flex min-h-8 items-center rounded-full border border-line bg-surface px-3 text-xs font-semibold whitespace-nowrap before:absolute before:inset-x-0 before:-inset-y-1.5 hover:border-line-strong"
           >
             +{hidden} more
           </button>
         </li>
       )}
     </ul>
+  );
+}
+
+// For the keyboard, first in What to book: the floating dock (the trip checklist, the phone's
+// Map) is last on the page, after the footer. Hidden until focused, like Skip to content, and
+// then shown where it is, over What to book's first row, not at the window's corner. On an
+// area page only (the map's provider), where the dock is.
+function DockSkipLink() {
+  if (!useAreaMap()) return null;
+  return (
+    <a
+      href="#floating-dock"
+      onClick={(event) => {
+        if (focusDock()) event.preventDefault();
+      }}
+      className="focus-light sr-only rounded-full bg-white font-bold text-navy shadow-lift focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-30 focus:px-5 focus:py-3"
+    >
+      Skip to your plan
+    </a>
   );
 }

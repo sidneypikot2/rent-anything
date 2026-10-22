@@ -36,6 +36,11 @@ export function tourTypeLabel(type: TourType) {
   return type === "private" ? "Private tour" : "Joiner tour";
 }
 
+// The same for guests: "joiner" is the trade's word, and a visitor from abroad may not know it.
+export function guestTourTypeLabel(type: TourType) {
+  return type === "private" ? "Private tour" : "Shared tour";
+}
+
 // "2 to 8 guests", "Up to 6 guests".
 export function groupText(min: number, max: number) {
   if (min === max) return plural(max, "guest");
