@@ -4,6 +4,7 @@ paths:
   - "backend/app/services/payout_accounts/**"
   - "backend/app/controllers/api/v1/partner/payout_*"
   - "backend/app/serializers/payout_account_serializer.rb"
+  - "web/src/components/partner/*payout*"
 ---
 
 # Payout accounts (RAA-145)
@@ -13,3 +14,5 @@ paths:
 **The account number is a secret**: `encrypts :account_number` (Active Record Encryption, the first use in this repo) and only `account_number_last4` (and `label`, built from it) ever leave the API. Never add the number to a serializer, a log line or an error message; request logs filter `account_number` (`config/initializers/filter_parameter_logging.rb`). The keys come from `ACTIVE_RECORD_ENCRYPTION_*` on Render (`render.yaml`); development and test set fixed keys in their environment files. Changing the keys on Render makes the saved numbers unreadable.
 
 **Values**: a bank account names its bank by Xendit's Philippine payout channel code (`PayoutAccount::BANKS`, served by `GET partner/payout_options`) and has 6–20 digits; an e-wallet has no bank and a mobile number stored as `09XXXXXXXXX` (`+63` is read as `0`). Only some of the bank codes were confirmed in Xendit's docs: check the list against Xendit's channel list when payouts are built (M4).
+
+**Web** (RAA-146): Settings → Payouts on `/partner/settings` (`PayoutSettings`, `src/components/partner/payout-settings.tsx`) lists the accounts (`usePayoutAccounts`), adds and edits one in `PayoutAccountSheet`, and picks each business's account with a select that saves through `useUpdateBusiness` (the body needs the business's `name`). Each account lists the businesses it pays, so a business change refetches the accounts (`useRefetchPayoutAccounts`) and an account change refetches the businesses. On an edit the number field starts blank and is kept when left so — the browser never has it — unless the kind changes. Delete is disabled while a business uses the account.
