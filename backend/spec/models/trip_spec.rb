@@ -47,4 +47,48 @@ RSpec.describe Trip do
       expect(described_class.current).to contain_exactly(fresh)
     end
   end
+
+  describe "an auto-named trip's name (RAA-137)" do
+    let(:from) { Date.new(Date.current.year + 1, 3, 12) }
+    let(:trip) { create(:trip, name: "Bantayan Island · Mar 12–15", starts_on: from, ends_on: from + 3) }
+
+    it "follows the trip's dates" do
+      trip.update!(ends_on: from + 5)
+      expect(trip.reload.name).to eq("Bantayan Island · Mar 12–17")
+
+      trip.update!(starts_on: from - 13)
+      expect(trip.reload.name).to eq("Bantayan Island · Feb 27 – Mar 17")
+    end
+
+    it "follows them when an item extends the trip" do
+      day = (from + 6).iso8601
+      Trips::AddItem.call(trip.user,
+        { listing_id: create(:listing).id, trip_id: trip.id, starts_on: day, ends_on: day }.with_indifferent_access)
+
+      expect(trip.reload.name).to eq("Bantayan Island · Mar 12–18")
+    end
+
+    it "loses its dates when the trip has none" do
+      trip.update!(starts_on: nil, ends_on: nil)
+      expect(trip.reload.name).to eq("Bantayan Island")
+    end
+
+    it "is kept when the guest typed it, or changed it with the dates" do
+      typed = create(:trip, name: "Barkada summer", starts_on: from, ends_on: from + 3)
+      typed.update!(ends_on: from + 5)
+      expect(typed.reload.name).to eq("Barkada summer")
+
+      trip.update!(name: "Our trip · Mar 12–15", ends_on: from + 5)
+      expect(trip.reload.name).to eq("Our trip · Mar 12–15")
+    end
+
+    it "stays within 80 characters" do
+      place = "A" * 66
+      long = create(:trip, name: "#{place} · Mar 12–15", starts_on: from, ends_on: from + 3)
+      long.update!(starts_on: from - 13)
+
+      suffix = " · Feb 27 – Mar 15"
+      expect(long.reload.name).to eq(place.truncate(80 - suffix.length) + suffix)
+    end
+  end
 end

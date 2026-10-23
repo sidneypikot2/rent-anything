@@ -23,12 +23,15 @@ module Trips
 
         trip = move_to ? @item.trip.user.trips.find(move_to) : @item.trip
         Trip.lock_all(@item.trip, trip)
+        moved_from = @item.trip
         # Moved out of the trip it was added to: the suggestion, if taken, was wrong.
         attributes[:followed_suggestion] = false if trip != @item.trip
         @item.assign_attributes(attributes.merge(trip:))
         trip.cover(@item.starts_on, @item.ends_on)
         trip.save!
         @item.save!
+        # A move takes a place from one trip to another; a re-date can change their order.
+        [ moved_from, trip ].uniq.each(&:follow_places_in_name!)
         trip
       end
     end

@@ -10,6 +10,13 @@ COVER_PHOTO_URL = {
   description: "The cover photo, sized for a card (about 800 by 600); null when the listing has no photos"
 }.freeze
 
+# Where guests find a listing (Category#guest_group): its booking type, except gear.
+LISTING_GROUP = {
+  type: :string, enum: %w[activity transfer rental stay gear],
+  description: "Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a " \
+    "vehicle rental: its own section, never a trip's \"Getting around\""
+}.freeze
+
 # What explore (RAA-56) says about a destination, nearby or recommended.
 EXPLORE_PLACE = {
   type: { type: :string, enum: %w[area landmark] },
@@ -177,11 +184,12 @@ RSpec.configure do |config|
               id: { type: :integer },
               title: { type: :string },
               category: { type: :string },
+              group: LISTING_GROUP,
               area_slug: { type: :string },
               instant_book: { type: :boolean, description: "Booked at once, without asking the partner (RAA-132): its pill" },
               cover_photo_url: COVER_PHOTO_URL
             },
-            required: %w[id title category area_slug instant_book cover_photo_url]
+            required: %w[id title category group area_slug instant_book cover_photo_url]
           },
           # A guest's trip (RAA-64): what the cart lists. Dates are both set or both null.
           trip: {
@@ -216,15 +224,32 @@ RSpec.configure do |config|
               starts_on: { type: :string, format: :date, nullable: true },
               ends_on: { type: :string, format: :date, nullable: true, description: "Null with starts_on: not bookable until it has a date" },
               quantity: { type: :integer },
+              sleeps: {
+                type: :integer, nullable: true,
+                description: "A stay: the most guests it sleeps, all its units together (a shared room's beds); " \
+                  "null for anything else, or a stay that doesn't say"
+              },
               booking_type: {
                 type: :string, enum: %w[rental stay activity transfer],
                 description: "Its listing's: rentals and stays take a range of days, the others one day"
               },
               area: { "$ref" => "#/components/schemas/area_ref" },
+              destination: {
+                allOf: [ { "$ref" => "#/components/schemas/area_ref" } ], nullable: true,
+                description: "Where it is, as the trip's destinations say it: the published island its listing's area is on, " \
+                  "otherwise its town or city. The cart lists a trip's items under it when the trip goes to more than one"
+              },
               listing: { "$ref" => "#/components/schemas/listing_summary" },
               booking: {
                 allOf: [ { "$ref" => "#/components/schemas/booking_ref" } ], nullable: true,
                 description: "Its booking while one holds its days (RAA-132); a booked item can't be changed or removed"
+              },
+              unavailable: {
+                type: :string, nullable: true,
+                description: "Why its listing can't have it on its days still ahead: a day blocked or with nothing left " \
+                  "(\"Nov 18 is fully booked\", " \
+                  "\"No longer offered\"), checked against the partner's calendar; null when it can, or when it is " \
+                  "booked, undated or past. The item stays in the trip: the guest picks another or new dates"
               },
               cancellation_policy: {
                 type: :string, enum: %w[free_cancellation seven_days fourteen_days non_refundable],
@@ -232,7 +257,7 @@ RSpec.configure do |config|
               },
               listing_active: { type: :boolean, description: "False once the listing is paused or delisted: it can't be booked" }
             },
-            required: %w[id starts_on ends_on quantity booking_type area listing booking cancellation_policy listing_active]
+            required: %w[id starts_on ends_on quantity sleeps booking_type area destination listing booking unavailable cancellation_policy listing_active]
           },
           # What a trip's items would cost if booked now (RAA-139, GET /trips/:id/quote).
           trip_quote: {
@@ -284,6 +309,7 @@ RSpec.configure do |config|
               id: { type: :integer },
               title: { type: :string },
               category: { type: :string },
+              group: LISTING_GROUP,
               area_slug: { type: :string },
               instant_book: { type: :boolean, description: "Booked at once, without asking the partner (RAA-132)" },
               cover_photo_url: COVER_PHOTO_URL,
@@ -295,7 +321,7 @@ RSpec.configure do |config|
               },
               price_unit: { "$ref" => "#/components/schemas/price_unit" }
             },
-            required: %w[id title category area_slug instant_book cover_photo_url location booking_type price_from_cents price_unit]
+            required: %w[id title category group area_slug instant_book cover_photo_url location booking_type price_from_cents price_unit]
           },
           # One active listing as a traveller sees it (RAA-86). Never its location or address.
           listing_detail: {
@@ -344,13 +370,14 @@ RSpec.configure do |config|
                 allOf: [ { "$ref" => "#/components/schemas/guest_tour" } ], nullable: true,
                 description: "A tour's details and the days it runs; null for any other category"
               },
+              details: { "$ref" => "#/components/schemas/listing_details" },
               photos: {
                 type: :array, items: { "$ref" => "#/components/schemas/photo_urls" },
                 description: "Its photos ready for guests (see partner_photo.ready), in the partner's order; the first is the cover"
               }
             },
             required: %w[id title description summary category booking_type instant_book area business units_count units_label
-              partner_name price_from_cents price_unit guests stay_rate vehicle_rate fees tour photos]
+              partner_name price_from_cents price_unit guests stay_rate vehicle_rate fees tour details photos]
           },
           # A listing photo's sizes (RAA-106), served straight from storage. A partner's photo not
           # ready yet (partner_photo) gives the original for both.
@@ -384,8 +411,9 @@ RSpec.configure do |config|
           # The business offering a listing, as a guest sees it (RAA-100).
           business_ref: {
             type: :object,
-            properties: { name: { type: :string } },
-            required: %w[name]
+            description: "Who offers it; an area page groups its rows by business (names are unique per partner only)",
+            properties: { id: { type: :integer }, name: { type: :string } },
+            required: %w[id name]
           },
           # A published landmark on a guest's map, exact location included: it's a public place.
           landmark_pin: {
@@ -1109,9 +1137,13 @@ RSpec.configure do |config|
               parent_slug: { type: :string, nullable: true },
               landmark_count: { type: :integer },
               listing_count: { type: :integer },
+              to_book_count: {
+                type: :integer,
+                description: "What the area's page counts to book: one per business per guest group, the areas inside it included"
+              },
               activities: { type: :array, items: { "$ref" => "#/components/schemas/tag" } }
             },
-            required: %w[slug name kind parent_name parent_slug landmark_count listing_count activities]
+            required: %w[slug name kind parent_name parent_slug landmark_count listing_count to_book_count activities]
           },
           area_detail: {
             type: :object,
@@ -1130,12 +1162,17 @@ RSpec.configure do |config|
                     slug: { type: :string },
                     name: { type: :string },
                     description: { type: :string },
-                    tags: { type: :array, items: { "$ref" => "#/components/schemas/tag" } }
+                    tags: { type: :array, items: { "$ref" => "#/components/schemas/tag" } },
+                    visited_by: {
+                      type: :array, items: { type: :integer },
+                      description: "The ids of the active listings that visit it, from the listings here"
+                    }
                   },
-                  required: %w[slug name description tags]
+                  required: %w[slug name description tags visited_by]
                 }
               },
               listings: {
+                description: "What to book here and in the published places inside it, however deep",
                 type: :array,
                 items: {
                   type: :object,
@@ -1144,7 +1181,9 @@ RSpec.configure do |config|
                     id: { type: :integer },
                     title: { type: :string },
                     category: { type: :string },
+                    group: LISTING_GROUP,
                     area_slug: { type: :string },
+                    area_name: { type: :string, description: "Its own place: this area or one inside it" },
                     instant_book: { type: :boolean, description: "Booked at once, without asking the partner (RAA-132)" },
                     cover_photo_url: COVER_PHOTO_URL,
                     booking_type: { type: :string, enum: %w[rental stay activity transfer] },
@@ -1160,10 +1199,19 @@ RSpec.configure do |config|
                       description: "Its first ready photos, in the partner's order"
                     },
                     details: { "$ref" => "#/components/schemas/listing_details" },
+                    tour: {
+                      type: :object, nullable: true, description: "A tour's kind and the group it takes; null for anything else",
+                      properties: {
+                        tour_type: { "$ref" => "#/components/schemas/tour_type" },
+                        min_guests: { type: :integer, minimum: 1 },
+                        max_guests: { type: :integer, minimum: 1 }
+                      },
+                      required: %w[tour_type min_guests max_guests]
+                    },
                     cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" }
                   },
-                  required: %w[id title category area_slug instant_book cover_photo_url booking_type summary business units_count units_label
-                    partner_name price_from_cents price_unit photos details cancellation_policy]
+                  required: %w[id title category group area_slug area_name instant_book cover_photo_url booking_type summary business units_count units_label
+                    partner_name price_from_cents price_unit photos details tour cancellation_policy]
                 }
               }
             },
@@ -1200,6 +1248,7 @@ RSpec.configure do |config|
               id: { type: :integer },
               title: { type: :string },
               category: { type: :string },
+              group: LISTING_GROUP,
               area_slug: { type: :string },
               instant_book: { type: :boolean, description: "Booked at once, without asking the partner (RAA-132)" },
               cover_photo_url: COVER_PHOTO_URL,
@@ -1212,7 +1261,7 @@ RSpec.configure do |config|
               price_unit: { "$ref" => "#/components/schemas/price_unit" },
               distance_km: { type: :number, description: "From the starting point's exact point, one decimal" }
             },
-            required: %w[id title category area_slug instant_book cover_photo_url location booking_type price_from_cents price_unit distance_km]
+            required: %w[id title category group area_slug instant_book cover_photo_url location booking_type price_from_cents price_unit distance_km]
           },
           explore: {
             type: :object,

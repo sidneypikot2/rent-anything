@@ -102,6 +102,17 @@ class Listing < ApplicationRecord
     booking_mode == "instant"
   end
 
+  # Accommodation: the most guests it sleeps, every unit together, as Booking.units_for fills
+  # them (a shared room's beds, one guest each; otherwise the guests each unit sleeps). Nil for
+  # anything else, or a stay that doesn't say. Reads category and units.
+  def sleeps
+    return unless category.accommodation?
+    return units.size if attrs["place_type"] == "shared_room"
+
+    per_unit = attrs["guests"]
+    per_unit * units.size if per_unit.is_a?(Integer) && per_unit.positive?
+  end
+
   # How many photos it can have (RAA-110): a tour's carousel takes fewer.
   def photo_limit
     category&.tour? ? ListingPhoto::MAX_PER_TOUR : ListingPhoto::MAX_PER_LISTING

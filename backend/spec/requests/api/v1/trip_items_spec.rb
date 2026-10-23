@@ -14,7 +14,8 @@ RSpec.describe "Trip items", type: :request do
       consumes "application/json"
       produces "application/json"
       description "Guest-only. Adds the listing to `trip_id`, or, without one, to a new trip named after the " \
-        "destination and dates (\"Bantayan Island · Nov 12–15\") with `quantity` guests. The trip's dates grow " \
+        "destination and dates (\"Bantayan Island · Nov 12–15\"), or `trip_name` if the guest typed one, with " \
+        "`quantity` guests. The trip's dates grow " \
         "to cover the item's. Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an " \
         "undated item can't be checked out until it has one. `quantity` is 1 to 99, default 1. Answers with " \
         "the trip."
@@ -27,7 +28,12 @@ RSpec.describe "Trip items", type: :request do
           starts_on: { type: :string, format: :date, nullable: true },
           ends_on: { type: :string, format: :date, nullable: true },
           quantity: { type: :integer },
-          trip_id: { type: :integer, nullable: true, description: "Omit or null for a new trip" }
+          trip_id: { type: :integer, nullable: true, description: "Omit or null for a new trip" },
+          trip_name: {
+            type: :string, nullable: true,
+            description: "A new trip's name, up to 80 characters; blank or omitted names it after the destination " \
+              "and dates. Ignored with trip_id"
+          }
         },
         required: %w[listing_id]
       }
@@ -45,14 +51,48 @@ RSpec.describe "Trip items", type: :request do
         end
       end
 
-      response "201", "an add to an existing trip extends its dates" do
+      response "201", "a new trip the guest named" do
         schema "$ref" => "#/components/schemas/trip"
-        let(:trip) { create(:trip, user:, starts_on: day, ends_on: day + 3) }
-        let(:body) { { listing_id: tour.id, starts_on: (day + 5).iso8601, ends_on: (day + 5).iso8601, trip_id: trip.id } }
+        let(:body) { { listing_id: tour.id, starts_on: day.iso8601, ends_on: day.iso8601, trip_name: "  Barkada weekend " } }
+
+        run_test! { |response| expect(response.parsed_body["name"]).to eq("Barkada weekend") }
+      end
+
+      response "201", "a blank trip name falls back to the destination and dates" do
+        schema "$ref" => "#/components/schemas/trip"
+        let(:body) { { listing_id: tour.id, starts_on: day.iso8601, ends_on: day.iso8601, trip_name: "  " } }
 
         run_test! do |response|
-          expect(response.parsed_body).to include("id" => trip.id, "ends_on" => (day + 5).iso8601)
+          expect(response.parsed_body["name"]).to eq("Bantayan Island · #{Trips::Destination.dates(day, day)}")
+        end
+      end
+
+      response "201", "an add to an existing trip extends its dates" do
+        schema "$ref" => "#/components/schemas/trip"
+        # A name of the guest's own, which stays as dates change; the factory's could match the
+        # generated one on some days and follow them.
+        let(:trip) { create(:trip, user:, name: "Family trip", starts_on: day, ends_on: day + 3) }
+        let(:body) do
+          { listing_id: tour.id, starts_on: (day + 5).iso8601, ends_on: (day + 5).iso8601, trip_id: trip.id, trip_name: "Ignored" }
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body).to include("id" => trip.id, "ends_on" => (day + 5).iso8601, "name" => trip.name)
           expect(response.parsed_body["items"].size).to eq(1)
+        end
+      end
+
+      response "201", "an add from another place names it in the trip's name" do
+        schema "$ref" => "#/components/schemas/trip"
+        let(:range) { Trips::Destination.dates(day, day + 3) }
+        let(:trip) { create(:trip, user:, name: "Bantayan Island · #{range}", starts_on: day, ends_on: day + 3) }
+        let(:city_tour) { create(:listing, area: create(:area, kind: "city", name: "Cebu City"), title: "Cebu City tour") }
+        let(:body) { { listing_id: city_tour.id, starts_on: (day + 2).iso8601, ends_on: (day + 2).iso8601, trip_id: trip.id } }
+
+        before { create(:trip_item, trip:, listing: tour, starts_on: day, ends_on: day) }
+
+        run_test! do |response|
+          expect(response.parsed_body["name"]).to eq("Bantayan Island · Cebu City · #{range}")
         end
       end
 
@@ -85,6 +125,12 @@ RSpec.describe "Trip items", type: :request do
           let(:body) { { listing_id: tour.id, quantity: "2" } }
 
           run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Quantity must be a whole number" ]) }
+        end
+
+        context "with a trip name over 80 characters" do
+          let(:body) { { listing_id: tour.id, trip_name: "x" * 81 } }
+
+          run_test! { expect(Trip.count).to eq(0) }
         end
 
         context "with too many" do
@@ -197,6 +243,25 @@ RSpec.describe "Trip items", type: :request do
       tags "Trips"
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
+
+      response "204", "removed; a place the trip no longer has leaves its name" do
+        let(:range) { Trips::Destination.dates(day, day + 3) }
+        let(:trip) { create(:trip, user:, name: "Bantayan Island · Cebu City · #{range}", starts_on: day, ends_on: day + 3) }
+        let(:city_tour) { create(:listing, area: create(:area, kind: "city", name: "Cebu City")) }
+
+        before { create(:trip_item, trip:, listing: city_tour, starts_on: day + 1, ends_on: day + 1) }
+
+        run_test! { expect(trip.reload.name).to eq("Cebu City · #{range}") }
+      end
+
+      response "204", "removed; a name the guest typed stays" do
+        let(:trip) { create(:trip, user:, name: "Ana's birthday", starts_on: day, ends_on: day + 3) }
+        let(:city_tour) { create(:listing, area: create(:area, kind: "city", name: "Cebu City")) }
+
+        before { create(:trip_item, trip:, listing: city_tour, starts_on: day + 1, ends_on: day + 1) }
+
+        run_test! { expect(trip.reload.name).to eq("Ana's birthday") }
+      end
 
       response "204", "removed; the trip stays" do
         run_test! do

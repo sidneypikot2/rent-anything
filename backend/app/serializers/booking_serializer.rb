@@ -4,7 +4,7 @@
 # comes with the payment flow's reveal rule (SPEC.md, Trust). Preload ASSOCIATIONS.
 module BookingSerializer
   CANCELLABLE = %w[requested accepted awaiting_payment confirmed].freeze
-  ASSOCIATIONS = [ :checkout, :events, { listing: %i[area category cover_photo] } ].freeze
+  ASSOCIATIONS = [ :checkout, :events, { listing: [ :area, { category: :parent }, :cover_photo ] } ].freeze
 
   def self.call(booking)
     listing = booking.listing
