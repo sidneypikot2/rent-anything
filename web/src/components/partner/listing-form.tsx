@@ -223,8 +223,8 @@ export function ListingForm({
       setPriceErrors(pricingErrors(pricing));
       return;
     }
-    if (vehicleCategory && vehiclePricingErrors(vehiclePricing)) {
-      setVehiclePriceErrors(vehiclePricingErrors(vehiclePricing));
+    if (vehicleCategory && vehiclePricingErrors(vehiclePricing, vehicleValues.amenities)) {
+      setVehiclePriceErrors(vehiclePricingErrors(vehiclePricing, vehicleValues.amenities));
       return;
     }
     if (tourCategory && tourErrors(tour)) {
@@ -471,6 +471,7 @@ export function ListingForm({
                   setVehiclePriceErrors(undefined);
                 }}
                 errors={vehiclePriceErrors}
+                included={vehicleValues.amenities}
               />
             </EditSection>
           </>

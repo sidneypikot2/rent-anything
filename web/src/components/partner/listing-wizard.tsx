@@ -113,8 +113,8 @@ export function ListingWizard({
   // The current step's checks: the browser's required fields, then the map pin or the pricing's rules.
   function stepIsValid() {
     if (!formRef.current?.reportValidity()) return false;
-    if (step.key === "pricing" && vehiclePricingErrors(pricing)) {
-      setPriceErrors(vehiclePricingErrors(pricing));
+    if (step.key === "pricing" && vehiclePricingErrors(pricing, vehicleValues.amenities)) {
+      setPriceErrors(vehiclePricingErrors(pricing, vehicleValues.amenities));
       return false;
     }
     if (step.key === "location" && !location) {
@@ -246,6 +246,7 @@ export function ListingWizard({
                 setPriceErrors(undefined);
               }}
               errors={priceErrors}
+              included={vehicleValues.amenities}
             />
           )}
 

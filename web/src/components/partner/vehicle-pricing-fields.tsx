@@ -1,6 +1,8 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { components } from "@/api/schema";
+import { VEHICLE_AMENITY_LABELS } from "@/components/listings/vehicle-labels";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
@@ -132,7 +134,8 @@ export type VehiclePricingErrors = Partial<
 
 // What the pricing still needs before it can be saved, or undefined when nothing. The same
 // rules as VehicleRate, so a mistake shows here rather than as a 422.
-export function vehiclePricingErrors(values: VehiclePricingValues): VehiclePricingErrors | undefined {
+// The vehicle's ticked inclusions (`included`) can't also be charged as fees.
+export function vehiclePricingErrors(values: VehiclePricingValues, included: string[]): VehiclePricingErrors | undefined {
   const errors: VehiclePricingErrors = {};
   const daily = toCents(values.daily);
   if (!daily) errors.daily = "Set a daily price above ₱0";
@@ -170,7 +173,7 @@ export function vehiclePricingErrors(values: VehiclePricingValues): VehiclePrici
     else if (km === undefined) errors.excessKmFee = "Needs a daily km limit";
   }
 
-  const fees = feesError(values.fees);
+  const fees = feesError(values.fees) ?? includedFeeError(values.fees, included);
   if (fees) errors.fees = fees;
 
   return Object.keys(errors).length > 0 ? errors : undefined;
@@ -187,6 +190,31 @@ const FEE_PRESETS: { label: string; fee: Partial<FeeValues> }[] = [
   { label: "Out-of-area delivery", fee: { name: "Out-of-area delivery", chargedPer: "booking", required: false } },
   { label: "Insurance add-on", fee: { name: "Insurance add-on", chargedPer: "day", required: false } },
 ];
+
+// The fee names that mean an inclusion: its own label, and the preset that charges for it.
+const INCLUDED_FEE_NAMES: Record<string, string[]> = {
+  passenger_helmet: ["Passenger helmet"],
+  full_tank: ["Fuel refill"],
+  insurance: ["Insurance add-on"],
+};
+
+function includedFeeNames(amenity: string) {
+  return [VEHICLE_AMENITY_LABELS[amenity], ...(INCLUDED_FEE_NAMES[amenity] ?? [])]
+    .filter(Boolean)
+    .map((name) => name.toLowerCase());
+}
+
+// The inclusion this fee name charges for, if it's ticked.
+function includedBy(name: string, included: string[]) {
+  const key = name.trim().toLowerCase();
+  return included.find((amenity) => includedFeeNames(amenity).includes(key));
+}
+
+function includedFeeError(fees: FeeValues[], included: string[]) {
+  const amenity = fees.map((fee) => includedBy(fee.name, included)).find(Boolean);
+  if (!amenity) return undefined;
+  return `${VEHICLE_AMENITY_LABELS[amenity]} is ticked as coming with the vehicle: remove this fee, or untick it there`;
+}
 
 const SERVICES: { value: Service; label: string }[] = [
   { value: "none", label: "Not offered" },
@@ -207,16 +235,20 @@ export function VehiclePricingFields({
   values,
   onChange,
   errors,
+  included,
 }: {
   values: VehiclePricingValues;
   onChange: (values: VehiclePricingValues) => void;
   errors?: VehiclePricingErrors;
+  included: string[];
 }) {
   const set = (patch: Partial<VehiclePricingValues>) => onChange({ ...values, ...patch });
   const money = { type: "number", min: 0, step: "0.01", inputMode: "decimal" } as const;
   const count = { type: "number", step: 1, inputMode: "numeric" } as const;
   const presets = FEE_PRESETS.filter(
-    (preset) => !values.fees.some((fee) => fee.name.trim().toLowerCase() === preset.fee.name?.toLowerCase()),
+    (preset) =>
+      !includedBy(preset.fee.name ?? "", included) &&
+      !values.fees.some((fee) => fee.name.trim().toLowerCase() === preset.fee.name?.toLowerCase()),
   );
   const weeklyHint = perDay(values.weekly, WEEK_DAYS);
   const monthlyHint = perDay(values.monthly, MONTH_DAYS);
@@ -227,97 +259,125 @@ export function VehiclePricingFields({
         Guests see these prices on your listing. You confirm the final price with them when you accept a booking.
       </p>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label="Daily price (₱)"
-          name="daily_price"
-          required
-          {...money}
-          min={0.01}
-          value={values.daily}
-          onChange={(event) => set({ daily: event.target.value })}
-          error={errors?.daily}
-          hint="For 24 hours."
-          data-testid="pricing-daily"
-        />
-        <Field
-          label="Minimum rental (days)"
-          name="min_rental_days"
-          required
-          {...count}
-          min={1}
-          max={MAX_DAYS}
-          value={values.minDays}
-          onChange={(event) => set({ minDays: event.target.value })}
-          error={errors?.minDays}
-        />
-        <Field
-          label="Half-day price (₱, optional)"
-          name="half_day_price"
-          {...money}
-          min={0.01}
-          value={values.halfDay}
-          onChange={(event) => set({ halfDay: event.target.value })}
-          error={errors?.halfDay}
-          hint="Less than the daily price. Empty: not offered."
-          data-testid="pricing-half-day"
-        />
-        <Field
-          label="Half day (hours)"
-          name="half_day_hours"
-          {...count}
-          min={HALF_DAY_HOURS.min}
-          max={HALF_DAY_HOURS.max}
-          value={values.halfDayHours}
-          onChange={(event) => set({ halfDayHours: event.target.value })}
-          error={errors?.halfDayHours}
-        />
-        <Field
-          label="Hourly price (₱, optional)"
-          name="hourly_price"
-          {...money}
-          min={0.01}
-          value={values.hourly}
-          onChange={(event) => set({ hourly: event.target.value })}
-          error={errors?.hourly}
-          hint="Empty: not rented by the hour."
-        />
-        <Field
-          label="Security deposit (₱)"
-          name="security_deposit"
-          {...money}
-          value={values.deposit}
-          onChange={(event) => set({ deposit: event.target.value })}
-          error={errors?.deposit}
-          hint="Refundable, held at pick-up. Empty: none."
-        />
-        <Field
-          label="Weekly price (₱, optional)"
-          name="weekly_price"
-          {...money}
-          min={0.01}
-          value={values.weekly}
-          onChange={(event) => set({ weekly: event.target.value })}
-          error={errors?.weekly}
-          hint={weeklyHint ?? `The total for ${WEEK_DAYS} days.`}
-        />
-        <Field
-          label="Monthly price (₱, optional)"
-          name="monthly_price"
-          {...money}
-          min={0.01}
-          value={values.monthly}
-          onChange={(event) => set({ monthly: event.target.value })}
-          error={errors?.monthly}
-          hint={monthlyHint ?? `The total for ${MONTH_DAYS} days.`}
-        />
-      </div>
+      <PricingGroup title="Rental rates">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Daily price (₱)"
+            name="daily_price"
+            required
+            {...money}
+            min={0.01}
+            value={values.daily}
+            onChange={(event) => set({ daily: event.target.value })}
+            error={errors?.daily}
+            hint="For 24 hours."
+            data-testid="pricing-daily"
+          />
+          <Field
+            label="Hourly price (₱, optional)"
+            name="hourly_price"
+            {...money}
+            min={0.01}
+            value={values.hourly}
+            onChange={(event) => set({ hourly: event.target.value })}
+            error={errors?.hourly}
+            hint="Empty: not rented by the hour."
+          />
+          <Field
+            label="Half-day price (₱, optional)"
+            name="half_day_price"
+            {...money}
+            min={0.01}
+            value={values.halfDay}
+            onChange={(event) => set({ halfDay: event.target.value })}
+            error={errors?.halfDay}
+            hint="Less than the daily price. Empty: not offered."
+            data-testid="pricing-half-day"
+          />
+          <Field
+            label="Half day (hours)"
+            name="half_day_hours"
+            {...count}
+            min={HALF_DAY_HOURS.min}
+            max={HALF_DAY_HOURS.max}
+            value={values.halfDayHours}
+            onChange={(event) => set({ halfDayHours: event.target.value })}
+            error={errors?.halfDayHours}
+          />
+          <Field
+            label="Weekly price (₱, optional)"
+            name="weekly_price"
+            {...money}
+            min={0.01}
+            value={values.weekly}
+            onChange={(event) => set({ weekly: event.target.value })}
+            error={errors?.weekly}
+            hint={weeklyHint ?? `The total for ${WEEK_DAYS} days.`}
+          />
+          <Field
+            label="Monthly price (₱, optional)"
+            name="monthly_price"
+            {...money}
+            min={0.01}
+            value={values.monthly}
+            onChange={(event) => set({ monthly: event.target.value })}
+            error={errors?.monthly}
+            hint={monthlyHint ?? `The total for ${MONTH_DAYS} days.`}
+          />
+        </div>
+      </PricingGroup>
 
-      <fieldset className="flex flex-col gap-4" data-testid="pricing-delivery">
-        <legend className="mb-1 text-sm font-semibold">Delivery and pick-up</legend>
+      <PricingGroup title="Deposit and limits">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Security deposit (₱)"
+            name="security_deposit"
+            {...money}
+            value={values.deposit}
+            onChange={(event) => set({ deposit: event.target.value })}
+            error={errors?.deposit}
+            hint="Refundable, held at pick-up. Empty: none."
+          />
+          <Field
+            label="Minimum rental (days)"
+            name="min_rental_days"
+            required
+            {...count}
+            min={1}
+            max={MAX_DAYS}
+            value={values.minDays}
+            onChange={(event) => set({ minDays: event.target.value })}
+            error={errors?.minDays}
+          />
+          <Field
+            label="Km limit per day (optional)"
+            name="km_limit_per_day"
+            {...count}
+            min={1}
+            max={MAX_KM}
+            value={values.kmLimit}
+            onChange={(event) => set({ kmLimit: event.target.value })}
+            error={errors?.kmLimit}
+            hint="Empty: unlimited."
+          />
+          <Field
+            label="Fee per extra km (₱, optional)"
+            name="excess_km_fee"
+            {...money}
+            value={values.excessKmFee}
+            onChange={(event) => set({ excessKmFee: event.target.value })}
+            error={errors?.excessKmFee}
+            disabled={!values.kmLimit.trim()}
+            hint="Above the daily limit."
+          />
+        </div>
+      </PricingGroup>
+
+      <PricingGroup title="Delivery and pick-up" data-testid="pricing-delivery">
         <div className="grid gap-4 sm:grid-cols-2">
           <ServiceFields
             label="Delivery to the guest"
+            feeLabel="Delivery fee (₱)"
             name="delivery"
             choice={values.delivery}
             fee={values.deliveryFee}
@@ -326,6 +386,7 @@ export function VehiclePricingFields({
           />
           <ServiceFields
             label="Pick-up from the guest at the end"
+            feeLabel="Pick-up fee (₱)"
             name="return_pickup"
             choice={values.pickup}
             fee={values.pickupFee}
@@ -333,31 +394,7 @@ export function VehiclePricingFields({
             onChange={(pickup, pickupFee) => set({ pickup, pickupFee })}
           />
         </div>
-      </fieldset>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label="Km limit per day (optional)"
-          name="km_limit_per_day"
-          {...count}
-          min={1}
-          max={MAX_KM}
-          value={values.kmLimit}
-          onChange={(event) => set({ kmLimit: event.target.value })}
-          error={errors?.kmLimit}
-          hint="Empty: unlimited."
-        />
-        <Field
-          label="Fee per extra km (₱, optional)"
-          name="excess_km_fee"
-          {...money}
-          value={values.excessKmFee}
-          onChange={(event) => set({ excessKmFee: event.target.value })}
-          error={errors?.excessKmFee}
-          disabled={!values.kmLimit.trim()}
-          hint="Above the daily limit."
-        />
-      </div>
+      </PricingGroup>
 
       <div className="flex flex-col gap-3">
         <FeeFields
@@ -390,8 +427,20 @@ export function VehiclePricingFields({
   );
 }
 
+// A headed group of pricing fields.
+function PricingGroup({ title, children, ...props }: { title: string; children: ReactNode; "data-testid"?: string }) {
+  return (
+    <fieldset className="flex flex-col" {...props}>
+      <legend className="mb-3 text-sm font-semibold">{title}</legend>
+      {children}
+    </fieldset>
+  );
+}
+
+// A service's choice, with its fee beside it when it's charged. Both services' rows line up.
 function ServiceFields({
   label,
+  feeLabel,
   name,
   choice,
   fee,
@@ -399,6 +448,7 @@ function ServiceFields({
   onChange,
 }: {
   label: string;
+  feeLabel: string;
   name: string;
   choice: Service;
   fee: string;
@@ -406,7 +456,7 @@ function ServiceFields({
   onChange: (choice: Service, fee: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-3">
+    <>
       <SelectField
         label={label}
         name={name}
@@ -415,9 +465,9 @@ function ServiceFields({
         options={SERVICES}
         data-testid={`pricing-${name}`}
       />
-      {choice === "fee" && (
+      {choice === "fee" ? (
         <Field
-          label="Fee (₱)"
+          label={feeLabel}
           name={`${name}_fee`}
           required
           type="number"
@@ -429,7 +479,9 @@ function ServiceFields({
           error={error}
           data-testid={`pricing-${name}-fee`}
         />
+      ) : (
+        <div aria-hidden className="max-sm:hidden" />
       )}
-    </div>
+    </>
   );
 }
