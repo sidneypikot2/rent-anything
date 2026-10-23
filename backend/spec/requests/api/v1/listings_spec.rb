@@ -27,10 +27,10 @@ RSpec.describe "Listings", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body).to eq([
-            { "id" => osmo.id, "title" => "DJI Osmo Action", "category" => "Action camera", "area_slug" => "moalboal",
+            { "id" => osmo.id, "title" => "DJI Osmo Action", "category" => "Action camera", "group" => "rental", "area_slug" => "moalboal",
               "instant_book" => false, "cover_photo_url" => nil, "location" => { "lat" => 9.93, "lng" => 123.39 },
               "booking_type" => "rental", "price_from_cents" => nil, "price_unit" => nil },
-            { "id" => gopro.id, "title" => "GoPro Hero 12", "category" => "Action camera", "area_slug" => "moalboal",
+            { "id" => gopro.id, "title" => "GoPro Hero 12", "category" => "Action camera", "group" => "rental", "area_slug" => "moalboal",
               "instant_book" => false, "cover_photo_url" => nil, "location" => { "lat" => 9.95, "lng" => 123.37 },
               "booking_type" => "rental", "price_from_cents" => nil, "price_unit" => nil }
           ])
@@ -72,7 +72,7 @@ RSpec.describe "Listings", type: :request do
           expect(json).to include(
             "id" => id, "title" => "Sardine run snorkel", "booking_type" => "activity",
             "category" => { "slug" => "tour", "name" => "Tour" }, "area" => { "slug" => "moalboal", "name" => "Moalboal" },
-            "business" => { "name" => "Moalboal Gear Rentals" }, "units_count" => 1, "units_label" => "1 unit",
+            "business" => { "id" => Listing.find(id).business_id, "name" => "Moalboal Gear Rentals" }, "units_count" => 1, "units_label" => "1 unit",
             "partner_name" => "Moalboal Gear Rentals"
           )
           expect(json["description"]).to end_with("\nFins included.")
@@ -93,6 +93,23 @@ RSpec.describe "Listings", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body).to include("units_count" => 3, "units_label" => "3 cameras", "summary" => "")
+        end
+      end
+
+      # A van's seats, so adding it to a trip can say when a group needs more than one van.
+      response "200", "the details a guest may see, never an identifier" do
+        schema "$ref" => "#/components/schemas/listing_detail"
+        let(:van) do
+          create(:category, slug: "van-transfer", name: "Van transfer", booking_type: "transfer",
+            unit_name: "van", unit_name_plural: "vans")
+        end
+        let(:id) do
+          create(:listing, area: moalboal, category: van, title: "Port to town van",
+            attrs: { "seats" => 12, "luggage" => 10, "route" => "Port to town", "plate_no" => "GAB 1234" }).id
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["details"]).to eq("seats" => 12, "luggage" => 10, "route" => "Port to town")
         end
       end
 

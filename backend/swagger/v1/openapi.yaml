@@ -387,7 +387,7 @@ paths:
       responses:
         '200':
           description: a province lists the areas under it that have something to
-            book
+            book, and everything to book in them
           content:
             application/json:
               schema:
@@ -2976,11 +2976,11 @@ paths:
       tags:
       - Trips
       description: 'Guest-only. Adds the listing to `trip_id`, or, without one, to
-        a new trip named after the destination and dates ("Bantayan Island · Nov 12–15")
-        with `quantity` guests. The trip''s dates grow to cover the item''s. Dates
-        are optional, both or neither, `YYYY-MM-DD` and not in the past: an undated
-        item can''t be checked out until it has one. `quantity` is 1 to 99, default
-        1. Answers with the trip.'
+        a new trip named after the destination and dates ("Bantayan Island · Nov 12–15"),
+        or `trip_name` if the guest typed one, with `quantity` guests. The trip''s
+        dates grow to cover the item''s. Dates are optional, both or neither, `YYYY-MM-DD`
+        and not in the past: an undated item can''t be checked out until it has one.
+        `quantity` is 1 to 99, default 1. Answers with the trip.'
       security:
       - bearer: []
       parameters:
@@ -3041,6 +3041,11 @@ paths:
                   type: integer
                   nullable: true
                   description: Omit or null for a new trip
+                trip_name:
+                  type: string
+                  nullable: true
+                  description: A new trip's name, up to 80 characters; blank or omitted
+                    names it after the destination and dates. Ignored with trip_id
               required:
               - listing_id
   "/api/v1/trip_items/{id}":
@@ -3145,7 +3150,7 @@ paths:
           - booked
       responses:
         '200':
-          description: the guest's trips, up to 7 days after they end
+          description: each stay item with the guests it sleeps, all its units together
           content:
             application/json:
               schema:
@@ -3314,9 +3319,12 @@ paths:
       summary: Rename a trip or change its dates or guests
       tags:
       - Trips
-      description: Guest-only. Only the keys sent change; a date not sent keeps its
-        value. Null dates make the trip undated. The dates must still cover every
-        dated item's dates.
+      description: 'Guest-only. Only the keys sent change; a date not sent keeps its
+        value. Null dates make the trip undated. Unbooked items follow: one that spanned
+        the whole trip takes the new dates, one the new dates no longer reach becomes
+        undated, and one for the whole group takes the new guests; each item''s `unavailable`
+        then says whether its listing can still have it. Booked items stay as they
+        are, and the dates must still cover them.'
       security:
       - bearer: []
       parameters:
@@ -3326,13 +3334,14 @@ paths:
           type: string
       responses:
         '200':
-          description: the changed trip
+          description: new dates and guests, which a whole-trip item follows onto
+            a day its listing is booked
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/trip"
         '422':
-          description: dates that no longer cover an item
+          description: dates that no longer cover a booked item
           content:
             application/json:
               schema:
@@ -3816,6 +3825,17 @@ components:
           type: string
         category:
           type: string
+        group:
+          type: string
+          enum:
+          - activity
+          - transfer
+          - rental
+          - stay
+          - gear
+          description: 'Where guests find it: its booking type, except gear (cameras,
+            snorkel sets), which isn''t a vehicle rental: its own section, never a
+            trip''s "Getting around"'
         area_slug:
           type: string
         instant_book:
@@ -3831,6 +3851,7 @@ components:
       - id
       - title
       - category
+      - group
       - area_slug
       - instant_book
       - cover_photo_url
@@ -3899,6 +3920,12 @@ components:
           description: 'Null with starts_on: not bookable until it has a date'
         quantity:
           type: integer
+        sleeps:
+          type: integer
+          nullable: true
+          description: 'A stay: the most guests it sleeps, all its units together
+            (a shared room''s beds); null for anything else, or a stay that doesn''t
+            say'
         booking_type:
           type: string
           enum:
@@ -3910,6 +3937,13 @@ components:
             others one day'
         area:
           "$ref": "#/components/schemas/area_ref"
+        destination:
+          allOf:
+          - "$ref": "#/components/schemas/area_ref"
+          nullable: true
+          description: 'Where it is, as the trip''s destinations say it: the published
+            island its listing''s area is on, otherwise its town or city. The cart
+            lists a trip''s items under it when the trip goes to more than one'
         listing:
           "$ref": "#/components/schemas/listing_summary"
         booking:
@@ -3918,6 +3952,14 @@ components:
           nullable: true
           description: Its booking while one holds its days (RAA-132); a booked item
             can't be changed or removed
+        unavailable:
+          type: string
+          nullable: true
+          description: 'Why its listing can''t have it on its days still ahead: a
+            day blocked or with nothing left ("Nov 18 is fully booked", "No longer
+            offered"), checked against the partner''s calendar; null when it can,
+            or when it is booked, undated or past. The item stays in the trip: the
+            guest picks another or new dates'
         cancellation_policy:
           type: string
           enum:
@@ -3935,10 +3977,13 @@ components:
       - starts_on
       - ends_on
       - quantity
+      - sleeps
       - booking_type
       - area
+      - destination
       - listing
       - booking
+      - unavailable
       - cancellation_policy
       - listing_active
     trip_quote:
@@ -4020,6 +4065,17 @@ components:
           type: string
         category:
           type: string
+        group:
+          type: string
+          enum:
+          - activity
+          - transfer
+          - rental
+          - stay
+          - gear
+          description: 'Where guests find it: its booking type, except gear (cameras,
+            snorkel sets), which isn''t a vehicle rental: its own section, never a
+            trip''s "Getting around"'
         area_slug:
           type: string
         instant_book:
@@ -4050,6 +4106,7 @@ components:
       - id
       - title
       - category
+      - group
       - area_slug
       - instant_book
       - cover_photo_url
@@ -4130,6 +4187,8 @@ components:
           - "$ref": "#/components/schemas/guest_tour"
           nullable: true
           description: A tour's details and the days it runs; null for any other category
+        details:
+          "$ref": "#/components/schemas/listing_details"
         photos:
           type: array
           items:
@@ -4155,6 +4214,7 @@ components:
       - stay_rate
       - fees
       - tour
+      - details
       - photos
     photo_urls:
       type: object
@@ -4195,10 +4255,15 @@ components:
       - large_url
     business_ref:
       type: object
+      description: Who offers it; an area page groups its rows by business (names
+        are unique per partner only)
       properties:
+        id:
+          type: integer
         name:
           type: string
       required:
+      - id
       - name
     landmark_pin:
       type: object
@@ -5487,6 +5552,10 @@ components:
           type: integer
         listing_count:
           type: integer
+        to_book_count:
+          type: integer
+          description: 'What the area''s page counts to book: one per business per
+            guest group, the areas inside it included'
         activities:
           type: array
           items:
@@ -5499,6 +5568,7 @@ components:
       - parent_slug
       - landmark_count
       - listing_count
+      - to_book_count
       - activities
     area_detail:
       type: object
@@ -5525,12 +5595,21 @@ components:
                 type: array
                 items:
                   "$ref": "#/components/schemas/tag"
+              visited_by:
+                type: array
+                items:
+                  type: integer
+                description: The ids of the active listings that visit it, from the
+                  listings here
             required:
             - slug
             - name
             - description
             - tags
+            - visited_by
         listings:
+          description: What to book here and in the published places inside it, however
+            deep
           type: array
           items:
             type: object
@@ -5543,8 +5622,22 @@ components:
                 type: string
               category:
                 type: string
+              group:
+                type: string
+                enum:
+                - activity
+                - transfer
+                - rental
+                - stay
+                - gear
+                description: 'Where guests find it: its booking type, except gear
+                  (cameras, snorkel sets), which isn''t a vehicle rental: its own
+                  section, never a trip''s "Getting around"'
               area_slug:
                 type: string
+              area_name:
+                type: string
+                description: 'Its own place: this area or one inside it'
               instant_book:
                 type: boolean
                 description: Booked at once, without asking the partner (RAA-132)
@@ -5589,13 +5682,33 @@ components:
                 description: Its first ready photos, in the partner's order
               details:
                 "$ref": "#/components/schemas/listing_details"
+              tour:
+                type: object
+                nullable: true
+                description: A tour's kind and the group it takes; null for anything
+                  else
+                properties:
+                  tour_type:
+                    "$ref": "#/components/schemas/tour_type"
+                  min_guests:
+                    type: integer
+                    minimum: 1
+                  max_guests:
+                    type: integer
+                    minimum: 1
+                required:
+                - tour_type
+                - min_guests
+                - max_guests
               cancellation_policy:
                 "$ref": "#/components/schemas/cancellation_policy"
             required:
             - id
             - title
             - category
+            - group
             - area_slug
+            - area_name
             - instant_book
             - cover_photo_url
             - booking_type
@@ -5608,6 +5721,7 @@ components:
             - price_unit
             - photos
             - details
+            - tour
             - cancellation_policy
       required:
       - area
@@ -5728,6 +5842,17 @@ components:
           type: string
         category:
           type: string
+        group:
+          type: string
+          enum:
+          - activity
+          - transfer
+          - rental
+          - stay
+          - gear
+          description: 'Where guests find it: its booking type, except gear (cameras,
+            snorkel sets), which isn''t a vehicle rental: its own section, never a
+            trip''s "Getting around"'
         area_slug:
           type: string
         instant_book:
@@ -5761,6 +5886,7 @@ components:
       - id
       - title
       - category
+      - group
       - area_slug
       - instant_book
       - cover_photo_url

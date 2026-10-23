@@ -27,6 +27,7 @@ module Trips
         @trip.items.update_all(trip_id: into.id, updated_at: Time.current)
         @trip.destroy!
         into.touch
+        into.follow_places_in_name!
       end
       into
     end
