@@ -27,6 +27,9 @@ services:
     env_file: ./backend.env
     environment:
       RAILS_ENV: production
+      # The image was built without these gem groups (deploy-staging.yml); Bundler has to be
+      # told again at runtime, or it looks for them and Rails won't boot.
+      BUNDLE_WITHOUT: development:test
       SOLID_QUEUE_IN_PUMA: "1"
       RAILS_MAX_THREADS: "3"
       # Fewer malloc arenas: keeps Ruby's memory down on the 1 GB instance.
