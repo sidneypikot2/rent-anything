@@ -27,7 +27,14 @@ own work is fine (step 5 uses it).
 ## 1. Confirm the merge
 
 `gh pr view <PR> --json state,mergedAt,headRefName`. If the PR isn't `MERGED`, stop and
-say so — nothing below runs on an open PR.
+say so — nothing below runs on an open PR. With no `PR:` line, find it by the branch:
+`gh pr list --state all --head <branch>`.
+
+One exception: a PR that is `CLOSED` because a merged PR carried its commits (a paired
+backend ticket whose frontend branch built on it — RAA-149 landed through #153). It counts
+as merged once `git fetch` and `git merge-base --is-ancestor <sha> origin/staging` pass
+for every non-merge commit of it (`gh pr view <PR> --json commits`). Say which PR carried
+it, and expect step 4's `-d` to refuse the branch.
 
 ## 2. Ticket
 
@@ -72,7 +79,9 @@ so a stale local `staging` makes it refuse a branch that is merged:
    from this checkout, so it should normally sit on an up-to-date `staging`.)
 3. Delete the merged local branch: `git branch -d <branch>` (`-d`, not `-D`). If git still
    says it isn't merged, stop and report; when the checkout couldn't be updated in
-   step 2, leave the branch and say so.
+   step 2, leave the branch and say so. A branch that landed through another PR (step 1)
+   always refuses — its merges of `staging` never reach `staging`. Once step 1's check has
+   passed, give the user `git branch -D <branch>` to run; the guard blocks it here.
 
 ## 5. Lessons
 

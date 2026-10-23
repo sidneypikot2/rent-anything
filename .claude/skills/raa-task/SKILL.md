@@ -61,7 +61,8 @@ added, and why), and non-obvious gotchas. Go back and enrich the description onc
 details firm up during implementation — even on a ticket that is already Done.
 
 End the description with the task's state, and keep it current as the steps happen — a
-later session (or `/raa-finish`) has nothing else to find these by:
+later session (or `/raa-finish`) has nothing else to find these by. This holds for a
+ticket created alongside its pair (a backend and a frontend half) too: each gets its own lines.
 
 ```
 Branch: <branch name>
@@ -100,6 +101,8 @@ when the changes look like this task's.
   (`EnterWorktree` with `path`), run `script/worktree-env` and carry on there.
 - **Builds on an unmerged PR**: create a worktree from that branch
   (`git worktree add .claude/worktrees/<name> -b <branch> <base-branch>`) and say so in the PR.
+  Merge the base PR first. If this PR ends up carrying it instead, close the base PR with a
+  comment naming this one, and put this PR in the base ticket's `PR:` line.
 - **Cloud session**: the VM is already an isolated checkout; rename its branch (see above).
 
 Record the branch in the ticket's state lines.
