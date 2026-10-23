@@ -36,8 +36,16 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-export function useChosenTrip(): ChosenTrip {
-  const raw = useSyncExternalStore(subscribe, read, () => null);
+function parse(raw: string | null): ChosenTrip {
   if (raw === "new") return "new";
   return raw && /^\d+$/.test(raw) ? Number(raw) : null;
+}
+
+export function useChosenTrip(): ChosenTrip {
+  return parse(useSyncExternalStore(subscribe, read, () => null));
+}
+
+// The choice as it is now, for code outside rendering (an add that starts after sign-in).
+export function readChosenTrip(): ChosenTrip {
+  return parse(read());
 }

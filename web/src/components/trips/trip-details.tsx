@@ -589,7 +589,7 @@ function ItemCard({
                       "data-testid": "item-action-move",
                     },
                     {
-                      label: "Change date",
+                      label: "Change dates or guests",
                       onSelect: () => actions.redateItem(trip, item),
                       "data-testid": "item-action-date",
                     },

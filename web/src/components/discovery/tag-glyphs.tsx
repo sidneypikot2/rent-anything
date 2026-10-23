@@ -124,6 +124,11 @@ export function SearchGlyph({ className }: Props) {
   return <Glyph paths={[circle(11, 11, 6.5), "M20 20l-4.4-4.4"]} className={className} />;
 }
 
+// A pencil: a summary that opens to be changed (the hero's search pill on a phone).
+export function PencilGlyph({ className }: Props) {
+  return <Glyph paths={["M4 20h4L19 9l-4-4L4 16v4Z", "M13.5 6.5l4 4"]} className={className} />;
+}
+
 export function CloseGlyph({ className }: Props) {
   return <Glyph paths={["M6 6l12 12", "M18 6L6 18"]} className={className} />;
 }

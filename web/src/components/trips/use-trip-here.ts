@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "@/lib/auth/session";
-import { useChosenTrip } from "./chosen-trip";
+import { useChosenTrip, type ChosenTrip } from "./chosen-trip";
 import { currentTrips, useTrips, type Trip } from "./use-trips";
 
 // The guest's trip on this place's page: the one they chose to work on (on the home page, or
@@ -11,6 +11,14 @@ import { currentTrips, useTrips, type Trip } from "./use-trips";
 // holds here, which What to book moves to the end; an item its listing can't have
 // (`unavailable`) doesn't count. `places` are the page's place and the places inside it. Signed
 // out, or not a guest, there is no trip.
+// The trip a place's page shows and adds to (see useTripHere), from the guest's current trips:
+// undefined for none, or when they picked a new trip.
+export function tripHere(current: Trip[], chosen: ChosenTrip, places: string[]) {
+  if (chosen === "new") return undefined;
+  const here = (each: Trip) => each.items.some((item) => places.includes(item.area.slug));
+  return current.find((each) => each.id === chosen) ?? current.find(here);
+}
+
 export function useTripHere(places: string[]) {
   const session = useSession();
   const isGuest = session?.user.role === "guest";
@@ -18,8 +26,7 @@ export function useTripHere(places: string[]) {
   const current = currentTrips(trips.data);
   // "New" from the home page's Start your trip: no trip yet, until its first add.
   const chosen = useChosenTrip();
-  const here = (each: Trip) => each.items.some((item) => places.includes(item.area.slug));
-  const trip = chosen === "new" ? undefined : (current.find((each) => each.id === chosen) ?? current.find(here));
+  const trip = tripHere(current, chosen, places);
   const has = new Set<string>(
     trip?.items
       .filter((item) => places.includes(item.area.slug) && !item.unavailable)

@@ -3,7 +3,7 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { SearchBox } from "@/components/discovery/search-box";
-import { ChevronGlyph, GuestsGlyph, SearchGlyph } from "@/components/discovery/tag-glyphs";
+import { GuestsGlyph, PencilGlyph, SearchGlyph } from "@/components/discovery/tag-glyphs";
 import { readTripDates } from "@/components/trips/trip-dates";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
@@ -239,7 +239,7 @@ export function SearchPill({
         <MiniStop set={Boolean(dateLabel)} className="shrink-0">
           {/* The same words as the route's empty stop; the hero's summary doesn't ask in blue, as its
               own button under it is the action. */}
-          {dateLabel ?? (summary ? "Add dates" : <span className="text-primary">Add dates +</span>)}
+          {dateLabel ?? (summary ? "Add dates" : <span className="text-secondary">Add dates +</span>)}
         </MiniStop>
         {/* Out of the row while it doesn't fit, but still measured; in its place the count alone,
             with the guests icon, so the search never loses who's going. */}
@@ -257,7 +257,9 @@ export function SearchPill({
         )}
       </span>
       {summary ? (
-        <ChevronGlyph className="size-4 shrink-0 text-muted" />
+        // A pencil in blue says the summary opens to be changed, so it doesn't read as a caption;
+        // no word beside it, which would cut the place's name short.
+        <PencilGlyph className="size-4 shrink-0 text-primary" />
       ) : (
         <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-white">
           <SearchGlyph className="size-4" />

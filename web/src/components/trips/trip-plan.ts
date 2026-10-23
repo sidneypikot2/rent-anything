@@ -1,0 +1,82 @@
+import { itinerary, type ItineraryDay, type ItineraryRole } from "./itinerary";
+import { isIdea, type PlanGap } from "./trip-missing";
+import type { Trip, TripItem } from "./use-trips";
+
+// The trip's gaps (planGaps) laid out day by day, for the "Your plan" panel. What spans the trip
+// (a stay's nights, a rental) shows once, in a whole-trip strip, with the nights the trip lacks a
+// stay for; the days show only what happens on them (pick up, return, check-in and out, tours)
+// and what that day lacks. A missing transfer is the Getting here row's. What fits no day
+// (undated items, an item off its dates) is listed apart, and the ideas (isIdea: a ride, things
+// to do, places to see) last, never as gaps.
+// Null for an undated trip: it keeps the plain list.
+export type PlanDay = ItineraryDay & { gaps: PlanGap[]; free: boolean };
+export type Throughout = { item: TripItem; from: string; to: string };
+export type TripPlan = {
+  days: PlanDay[];
+  throughout: Throughout[];
+  wholeGaps: PlanGap[];
+  apart: PlanGap[];
+  ideas: PlanGap[];
+  hasTransfer: boolean;
+  needsTransfer: boolean;
+};
+
+// Roles that only say an item runs through a day: shown once in the whole-trip strip instead.
+const RUNNING: ItineraryRole[] = ["rental", "night"];
+
+export function tripPlan(trip: Trip, gaps: PlanGap[]): TripPlan | null {
+  // An item its listing can't have isn't ticked on any day: its gap row says so instead.
+  const days = itinerary({ ...trip, items: trip.items.filter((item) => !item.unavailable) });
+  if (!days || days.length === 0) return null;
+  // Items running through at least one day, from their first day to their last.
+  const running = new Set(
+    days.flatMap((day) => day.entries.filter((entry) => RUNNING.includes(entry.role)).map((entry) => entry.item.id)),
+  );
+  const throughout = new Map<number, Throughout>();
+  for (const day of days)
+    for (const entry of day.entries) {
+      if (!running.has(entry.item.id)) continue;
+      const known = throughout.get(entry.item.id);
+      if (known) known.to = day.date;
+      else throughout.set(entry.item.id, { item: entry.item, from: day.date, to: day.date });
+    }
+  const plan: PlanDay[] = days.map((day) => ({
+    ...day,
+    entries: day.entries.filter((entry) => !RUNNING.includes(entry.role)),
+    gaps: [],
+    // Nothing to do booked that day: a stay or a rental running through it doesn't fill it.
+    free: !day.entries.some((entry) => entry.item.booking_type !== "stay" && entry.item.booking_type !== "rental"),
+  }));
+  const wholeGaps: PlanGap[] = [];
+  const apart: PlanGap[] = [];
+  const ideas: PlanGap[] = [];
+  let needsTransfer = false;
+  for (const gap of gaps) {
+    if (isIdea(gap)) ideas.push(gap);
+    else if (gap.kind === "need") needsTransfer = true;
+    else if (gap.kind === "stay") wholeGaps.push(gap);
+    else if (gap.kind === "tour-guests" || gap.kind === "unavailable") {
+      const day = plan.find((each) => each.date === gap.item.starts_on);
+      if (day) day.gaps.push(gap);
+      else apart.push(gap);
+    } else apart.push(gap);
+  }
+  const hasTransfer = trip.items.some((item) => item.booking_type === "transfer" && !item.unavailable);
+  return { days: plan, throughout: [...throughout.values()], wholeGaps, apart, ideas, hasTransfer, needsTransfer };
+}
+
+// The plan's days as rows: free middle days in a run with nothing on them share one row
+// ("Days 3–4"), so an empty stretch reads as one gap, not a list of blanks.
+export function dayRows(days: PlanDay[]) {
+  const last = days.length - 1;
+  const blank = (index: number) =>
+    index > 0 && index < last && days[index].free && days[index].entries.length === 0 && days[index].gaps.length === 0;
+  const rows: { start: number; days: PlanDay[] }[] = [];
+  days.forEach((day, index) => {
+    const previous = rows[rows.length - 1];
+    if (previous && blank(index) && blank(previous.start + previous.days.length - 1) && previous.start + previous.days.length === index)
+      previous.days.push(day);
+    else rows.push({ start: index, days: [day] });
+  });
+  return rows;
+}

@@ -33,7 +33,7 @@ import { countLine, groupDestinations, withSubAreas } from "./cards";
 import { NoMatches } from "./no-matches";
 import { listingNote } from "./categories";
 import { areaIcon, categoryIcon, placeIcon, tagIcon } from "./icons";
-import { ArrowGlyph, CloseGlyph, SearchGlyph } from "./tag-glyphs";
+import { ArrowGlyph, ChevronGlyph, CloseGlyph, SearchGlyph } from "./tag-glyphs";
 import { guestsLabel, thingCount } from "@/components/trips/format";
 
 const MIN_LENGTH = 2;
@@ -622,7 +622,7 @@ export function SearchBox({
                 : "search:shadow-lift",
           )}
         >
-          <label className={cn(STOP, "cursor-text max-search:order-1 search:flex-[1.5]")}>
+          <label className={cn(STOP, "cursor-text max-search:order-1 search:flex-[1.5]", panel === "where" && STOP_ON)}>
             <RouteMark set={whereSet} open={panel === "where"} traced={whereSet && dateSet} />
             {/* It takes a place or a thing ("scooter"), which a typed Search looks for in the place. */}
             <span className={STOP_LABEL}>Where or what</span>
@@ -639,11 +639,14 @@ export function SearchBox({
             aria-controls={panel === "when" ? datesId : undefined}
             onClick={() => toggle("when")}
             data-testid="search-dates"
-            className={cn(STOP, "group/stop max-search:order-3")}
+            className={cn(STOP, "cursor-pointer max-search:order-3", panel === "when" && STOP_ON)}
           >
             <RouteMark set={dateSet} open={panel === "when"} traced={dateSet} />
             <span className={STOP_LABEL}>When</span>
-            <span className={cn(STOP_VALUE, !dateSet && STOP_EMPTY)}>{dateLabel ?? "Add dates"}</span>
+            <span className="flex min-w-0 items-center gap-1">
+              <span className={cn(STOP_VALUE, !dateSet && STOP_EMPTY)}>{dateLabel ?? "Add dates"}</span>
+              <ChevronGlyph direction={panel === "when" ? "up" : "down"} className={STOP_CHEVRON} />
+            </span>
           </button>
           <button
             ref={guestsRef}
@@ -653,13 +656,16 @@ export function SearchBox({
             aria-controls={panel === "guests" ? guestsId : undefined}
             onClick={() => toggle("guests")}
             data-testid="search-guests"
-            className={cn(STOP, "group/stop max-search:order-5")}
+            className={cn(STOP, "cursor-pointer max-search:order-5", panel === "guests" && STOP_ON)}
           >
             {/* Guests always holds an answer (Just me), so the path to Search is solid once
                 the stops before it are. */}
             <RouteMark set open={panel === "guests"} traced={whereSet && dateSet} last />
             <span className={STOP_LABEL}>Guests</span>
-            <span className={STOP_VALUE}>{guestsLabel(guests)}</span>
+            <span className="flex min-w-0 items-center gap-1">
+              <span className={STOP_VALUE}>{guestsLabel(guests)}</span>
+              <ChevronGlyph direction={panel === "guests" ? "up" : "down"} className={STOP_CHEVRON} />
+            </span>
           </button>
           {inFlow && (
             <>
@@ -762,8 +768,14 @@ const IN_SHEET = "max-search:static max-search:shadow-none";
 // A stop on the bar's route: its dot and path (RouteMark), its word, then its value. Across from
 // sm, the dot sits over the word and the path runs right to the next stop; down on a phone, the
 // dot sits beside the word and the path runs down to the next.
+// Each stop is a control, so it tints like a field on hover, on focus and while its panel is open
+// (STOP_ON), behind its dot and words.
 const STOP =
-  "relative flex min-w-0 flex-col gap-px text-left focus-visible:outline-none max-search:pb-4 max-search:pl-7.5 search:flex-1 search:pt-8 search:pr-4 search:pb-2";
+  "group/stop relative isolate flex min-w-0 flex-col gap-px text-left focus-visible:outline-none max-search:pb-4 max-search:pl-7.5 search:flex-1 search:pt-8 search:pr-4 search:pb-2 before:absolute before:-inset-x-2 before:inset-y-0 before:-z-10 before:rounded-control before:bg-mist before:opacity-0 before:transition-opacity before:duration-300 before:ease-calm hover:before:opacity-100 focus-visible:before:opacity-100 focus-within:before:opacity-100";
+const STOP_ON = "before:opacity-100";
+// The chevron after a stop's value, saying it opens; it turns up while open.
+const STOP_CHEVRON =
+  "size-4 shrink-0 text-muted transition-colors duration-300 ease-calm group-hover/stop:text-primary";
 const STOP_LABEL = "text-small font-bold text-muted";
 const STOP_VALUE =
   "truncate text-title-sm font-bold text-navy underline-offset-4 decoration-2 group-focus-visible/stop:underline group-focus-visible/stop:decoration-primary";

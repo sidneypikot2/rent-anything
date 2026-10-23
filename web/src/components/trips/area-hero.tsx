@@ -12,12 +12,15 @@ import { isApiPhoto, listingCover } from "@/components/landing/sample-photos";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
 import { cn } from "@/components/ui/cn";
 import { glassClasses } from "@/components/ui/glass";
+import { ArrowGlyph, ListGlyph } from "@/components/discovery/tag-glyphs";
 import { formatDateRange } from "@/lib/dates";
 import { chooseTrip } from "./chosen-trip";
 import { HereItemsSheet } from "./here-items-sheet";
 import { guestsLabel, thingCount } from "./format";
 import { tripOwnQuery } from "./trip-dates";
-import { missingAnchor, missingHere, missingText } from "./trip-missing";
+import { missingAnchor, missingHere, missingText, planGaps, stillMissing, type PlanGap, type Sight } from "./trip-missing";
+import { openPlan } from "./plan-open";
+import { TripPlan } from "./trip-plan-panel";
 import { bookable } from "./trip-details";
 import { tripPlaces, type TripPlace } from "./trip-places";
 import { useTripHere } from "./use-trip-here";
@@ -31,7 +34,9 @@ import type { Trip, TripItem } from "./use-trips";
 // with something here, or chose one to work on, it is TripNotice, whose Checkout opens it in the
 // cart ("View trip" once all of it is booked). A guest with trips switches which one they work on
 // here (Switch trip, TripChoiceSheet): the page takes that trip's dates and guests, and the add
-// sheet preselects it.
+// sheet preselects it. A trip shown on a page opened with no dates or guests (a bare link, the
+// home's place cards) puts its own in the URL the same way, so the header's search, prices and
+// the add sheet all start from the trip rather than "Add dates · Just me".
 // A trip with something here leads the banner instead, under a small line naming the place.
 // One banner at every width: on a phone or a short window (COMPACT) the trip's line is one slim
 // row, so the first screen still reaches What to book. The search is the header's (HeaderSearch).
@@ -43,6 +48,7 @@ export function AreaHero({
   areaName,
   places,
   offered,
+  sights = [],
   starting = false,
 }: {
   banner: { photo: ComponentProps<typeof PageBanner>["photo"]; eyebrow: string; title: ReactNode };
@@ -53,6 +59,8 @@ export function AreaHero({
   places: string[];
   // The groups the place has listings in, so the trip's "still missing" asks only for those.
   offered: string[];
+  // The places to see here and the listings that go to each, for the plan's "Not on any of your tours yet".
+  sights?: Sight[];
   starting?: boolean;
 }) {
   const edit = useEditSearch();
@@ -83,6 +91,17 @@ export function AreaHero({
       onClose={() => setSwitching(false)}
     />
   );
+
+  // The shown trip's own dates and guests, into a URL that has none (see above). Dates the guest
+  // set in the header's search stay theirs.
+  const ownQuery = trip && !(isGuest && trips.isPending) ? tripOwnQuery(trip) : "";
+  useEffect(() => {
+    if (!ownQuery) return;
+    const params = new URLSearchParams(window.location.search);
+    if (["from", "to", "guests"].some((key) => params.has(key))) return;
+    new URLSearchParams(ownQuery).forEach((value, key) => params.set(key, value));
+    router.replace(`${pathname}?${params}${window.location.hash}`, { scroll: false });
+  }, [ownQuery, pathname, router]);
 
   const [fresh] = useState(starting);
   useEffect(() => {
@@ -119,6 +138,10 @@ export function AreaHero({
   // Trips to choose from with none shown: a guest who has trips, none with something here (or
   // who chose a new one).
   const choosable = isGuest && !loading && !trip && current.length > 0;
+  // The trip's guide (TripPlan), opened from the trip's row, What to book's first chip, or the wide card.
+  const plan = !loading && trip && (
+    <TripPlan trip={trip} places={places} offered={offered} sights={sights} placeName={areaName} />
+  );
   const notice = (lead: boolean) =>
     trip && (
       <TripNotice
@@ -154,6 +177,7 @@ export function AreaHero({
         {notice(true)}
         {chips}
         {sheet}
+        {plan}
       </PageBanner>
     );
   return (
@@ -219,6 +243,33 @@ export function AreaHero({
           )}
         </div>
       )}
+      {/* Compact, no trip yet (signed out, none, loading): one slim row saying how the trip starts,
+          down to What to book, so a phone's first screen has the trip and its next step. */}
+      {!choosable && !(!loading && trip) && (
+        <a
+          href="#listings"
+          data-testid="trip-lead-compact"
+          className={cn(
+            glassClasses("forest"),
+            COMPACT_ONLY,
+            "min-h-11 items-center justify-between gap-3 rounded-card py-1.5 pr-4 pl-3 text-left text-sm",
+          )}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <span aria-hidden className="size-2 shrink-0 rounded-full bg-sky-pale" />
+            <span className="flex min-w-0 flex-col leading-tight">
+              <span className="truncate font-semibold">Start your trip here</span>
+              <span className="truncate text-small text-sky-mist">Saving it is free</span>
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-1.5 font-semibold">
+            What to book
+            <span aria-hidden className="text-sky-pale">
+              ↓
+            </span>
+          </span>
+        </a>
+      )}
       {/* Compact, with trips but none shown: one slim row to choose one, as the lead does. */}
       {choosable && (
         <button
@@ -242,6 +293,7 @@ export function AreaHero({
         </button>
       )}
       {sheet}
+      {plan}
     </PageBanner>
   );
 }
@@ -289,10 +341,13 @@ function TripNotice({
   const tripHere = tripPlaces(trip);
   const dated = tripOwnQuery(trip);
   const missing = missingHere(trip, places, offered);
+  // The phone row's count: the plan button's (stillMissing), so the two never disagree.
+  const toSort = stillMissing(planGaps(trip, places, offered, []));
   const hereItems = trip.items.filter((item) => places.includes(item.area.slug));
   const items = hereItems.length;
-  // What it has here, by name, for a phone's chip: "Honda Click 125 + 1 more".
-  const hereNames = items > 0 ? `${hereItems[0].listing.title}${items > 1 ? ` + ${items - 1} more` : ""}` : undefined;
+  // What it has here, for a phone's chip: the one thing by name, or how many ("2 things here"),
+  // so it matches the cart's count rather than cutting a second name off.
+  const hereNames = items === 1 ? hereItems[0].listing.title : items > 1 ? `${thingCount(items)} here` : undefined;
   // A trip only in this place: its chip would repeat the banner's name, so the rows of what it
   // has here open the edit sheet instead and the chips start with "+ Another place".
   const onlyHere = tripHere.every((place) => places.includes(place.slug));
@@ -303,6 +358,10 @@ function TripNotice({
   const hereOnly = items > 0 ? `${thingCount(items)} here` : "nothing here yet";
   const here = total > items ? `${thingCount(total)} · ${items > 0 ? `${items} here` : "none here yet"}` : hereOnly;
   const range = formatDateRange(trip.starts_on, trip.ends_on);
+  // An auto-named trip ("Bantayan Island · Nov 10–14") goes by its dates on the phone row: the
+  // banner already names the place, and truncated on the end the dates were what got cut.
+  const autoNamed = Boolean(range && trip.name.endsWith(` · ${range}`));
+  const shortName = autoNamed && range ? range : trip.name;
   // The rows name what it has here, so the count stays only to share a trip out between places.
   const parts = [
     !(range && trip.name.includes(range)) && (range ?? "No dates yet"),
@@ -328,7 +387,8 @@ function TripNotice({
         data-testid="trip-notice"
         className={cn(
           glassClasses("forest"),
-          "flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-card px-4 py-3 sm:px-5",
+          // As wide as what it holds, so Checkout sits by the trip rather than across the banner.
+          "flex w-fit max-w-full flex-wrap items-center justify-between gap-x-10 gap-y-2 rounded-card px-4 py-3 sm:px-5",
           WIDE_ONLY,
         )}
       >
@@ -397,6 +457,20 @@ function TripNotice({
           >
             {open}
           </Link>
+          <button
+            type="button"
+            onClick={openPlan}
+            aria-haspopup="dialog"
+            data-testid="trip-plan-open-wide"
+            aria-label={toSort.length > 0 ? `Your plan: ${toSort.length} missing` : undefined}
+            className="flex min-h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold text-sky-pale transition-colors duration-300 ease-calm hover:bg-glass-hover hover:text-white"
+          >
+            <ListGlyph className="size-4" />
+            Your plan
+            {toSort.length > 0 && (
+              <span className="rounded-full bg-warning-tint px-2 py-0.5 text-xs text-navy tabular-nums">{toSort.length}</span>
+            )}
+          </button>
           {onSwitch && (
             <button
               type="button"
@@ -409,44 +483,49 @@ function TripNotice({
           )}
         </div>
       </div>
-      <div className={cn(glassClasses("forest"), COMPACT_ONLY, "min-h-11 items-center rounded-card text-sm")}>
-        <Link
-          href={href}
-          aria-label={`${toBook ? "Checkout" : "View your trip"}: ${trip.name}`}
-          data-testid="trip-notice-compact"
-          className={cn(
-            "flex min-h-11 min-w-0 flex-1 items-center justify-between gap-3 py-1 pl-3",
-            onSwitch ? "pr-2" : "pr-4",
-          )}
+      {/* Compact: the row is the way into the plan (TripPlan), what it lacks on its second line;
+          Checkout (or View, beside Switch) is its own button on the right. */}
+      <div className={cn(glassClasses("forest"), COMPACT_ONLY, "min-h-11 items-stretch rounded-card text-sm")}>
+        <button
+          type="button"
+          onClick={openPlan}
+          aria-haspopup="dialog"
+          aria-label={`Your plan: ${trip.name}${toSort.length > 0 ? `, ${toSort.length} missing` : ""}`}
+          data-testid="trip-plan-open"
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-l-card py-1 pr-2 pl-3 text-left transition-colors duration-300 ease-calm hover:bg-glass-hover"
         >
-          <span className="flex min-w-0 items-center gap-2">
-            <span
-              aria-hidden
-              className={cn("size-2 shrink-0 rounded-full", missing.length > 0 ? "bg-warning-tint" : "bg-mint")}
-            />
-            {/* Its name, as a guest with trips may switch here, then what it lacks, when anything,
-                rather than its count here: a phone has room for one. */}
-            <span className="flex min-w-0 flex-col leading-tight">
-              <span className="truncate font-semibold">{trip.name}</span>
-              <span className="truncate text-small text-sky-mist">
-                {missing.length > 0
-                  ? `Needs ${missing.length === 1 ? missingNoun(missing[0]) : `${missing.length} things`}`
-                  : here}
+          <span
+            aria-hidden
+            className={cn("size-2 shrink-0 rounded-full", toSort.length > 0 ? "bg-warning-tint" : "bg-mint")}
+          />
+          {/* Its name, as a guest with trips may switch here, then what it lacks, when anything,
+              rather than its count here: a phone has room for one. */}
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate font-semibold">{shortName}</span>
+            <span className="flex min-w-0 items-center gap-1 text-small text-sky-mist">
+              <span className="truncate">
+                {toSort.length === 1 ? `Needs ${missingNoun(toSort[0])}` : toSort.length > 1 ? `${toSort.length} missing` : "Your plan"}
               </span>
+              <ArrowGlyph className="size-3 shrink-0 text-sky-pale" />
             </span>
           </span>
-          <span className="flex shrink-0 items-center gap-2 font-semibold">
-            {onSwitch ? (
-              <>
-                View
-                <span aria-hidden className="text-sky-pale">
-                  →
-                </span>
-              </>
-            ) : (
-              open
-            )}
-          </span>
+        </button>
+        <Link
+          href={href}
+          aria-label={`${toBook && !onSwitch ? "Checkout" : "View your trip"}: ${trip.name}`}
+          data-testid="trip-notice-compact"
+          className="flex min-h-11 shrink-0 items-center gap-2 border-l border-glass-edge px-4 font-semibold transition-colors duration-300 ease-calm hover:bg-glass-hover"
+        >
+          {onSwitch ? (
+            <>
+              View
+              <span aria-hidden className="text-sky-pale">
+                →
+              </span>
+            </>
+          ) : (
+            open
+          )}
         </Link>
         {onSwitch && (
           <button
@@ -519,7 +598,7 @@ function HereItemRows({ items, tripHref: href, onEdit }: { items: TripItem[]; tr
                 aria-haspopup="dialog"
                 onClick={onEdit}
                 data-testid="trip-here-edit"
-                className="flex min-h-9 shrink-0 items-center rounded-full border border-glass-edge px-3.5 text-sm font-semibold text-white transition-colors duration-300 ease-calm hover:bg-glass-hover"
+                className="tap-target flex min-h-9 shrink-0 items-center rounded-full border border-glass-edge px-3.5 text-sm font-semibold text-white transition-colors duration-300 ease-calm hover:bg-glass-hover"
               >
                 Edit<span className="sr-only"> {item.listing.title}</span>
               </button>
@@ -562,14 +641,14 @@ function PlaceChips({
   className?: string;
   "data-testid"?: string;
 }) {
-  const chip = "flex min-h-9 shrink-0 items-center gap-2 rounded-full border px-3 text-sm whitespace-nowrap";
+  const chip = "tap-target flex min-h-9 shrink-0 items-center gap-2 rounded-full border px-3 text-sm whitespace-nowrap";
   return (
     <ul aria-label="Places in this trip" data-testid={testId} className={cn("flex items-center gap-2", className)}>
       {list.map((place) => {
         const here = places.includes(place.slug);
         const label =
           here && hereLabel ? (
-            hereLabel
+            <span className="max-w-56 truncate">{hereLabel}</span>
           ) : (
             <>
               {place.name}
@@ -634,5 +713,18 @@ function PlaceChips({
   );
 }
 
-// A gap in a word or two, for the compact row: "a stay", "a transfer".
-const missingNoun = (gap: { kind: string }) => (gap.kind === "transfer" ? "a transfer" : "a stay");
+// A gap in a word or two, for the compact row: "a stay", "a transfer", "a date".
+function missingNoun(gap: PlanGap) {
+  switch (gap.kind) {
+    case "stay":
+      return gap.short ? "more beds" : "a stay";
+    case "undated":
+      return "a date";
+    case "unavailable":
+      return "another option";
+    case "tour-guests":
+      return "a tour for more";
+    default:
+      return "a transfer";
+  }
+}

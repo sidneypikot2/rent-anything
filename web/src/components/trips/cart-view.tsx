@@ -15,7 +15,7 @@ import { CartTripNav } from "./cart-trip-nav";
 import { EditTripSheet, type EditFocus } from "./edit-trip-sheet";
 import { FindMoreSheet } from "./find-more-sheet";
 import { formatDateRange, itemCount } from "./format";
-import { ItemDateSheet } from "./item-date-sheet";
+import { ItemEditSheet } from "./item-edit-sheet";
 import { PickTripSheet } from "./pick-trip-sheet";
 import { RecreateTripSheet, recreatedNotice } from "./recreate-trip-sheet";
 import { TripDetails, type TripActions } from "./trip-details";
@@ -182,13 +182,13 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
       )}
 
       {open?.kind === "redate" && (
-        <ItemDateSheet
+        <ItemEditSheet
           trip={open.trip}
           item={open.item}
           onClose={close}
           onSaved={(trip) => {
             const dates = formatDateRange(trip.starts_on, trip.ends_on);
-            done(dates ? `Date changed · ${trip.name} is ${dates}` : "Date changed");
+            done(dates ? `Saved · ${trip.name} is ${dates}` : "Saved");
           }}
         />
       )}

@@ -352,6 +352,7 @@ test("add to trip through sign-up", async ({ page }) => {
   // Every add is confirmed in the add sheet, the first one too: it starts a new trip.
   const firstAdd = page.getByTestId("which-trip-sheet");
   await expect(firstAdd.getByTestId("add-sheet-listing")).toBeVisible();
+  await expect(firstAdd.getByTestId("add-sheet-trip")).toContainText("Starts a new trip");
   await firstAdd.getByTestId("which-trip-add").click();
   await expect(firstAdd).toHaveCount(0);
   const toast = page.getByTestId("trip-toast");
@@ -360,10 +361,10 @@ test("add to trip through sign-up", async ({ page }) => {
   // The place's page stays the place's, saying the guest has a trip here; View trip opens it in the cart.
   await expect(page.getByTestId("trip-notice-open")).toHaveAttribute("href", /^\/cart\?trip=\d+$/);
 
-  // The guest has a trip now, so the next add asks which, with that trip suggested.
+  // On a place's page the next add goes to the trip the banner shows, with no trip to pick.
   await page.getByTestId("add-to-trip").nth(1).click();
   const whichTrip = page.getByTestId("which-trip-sheet");
-  await expect(whichTrip.getByText("Suggested")).toBeVisible();
+  await expect(whichTrip.getByTestId("add-sheet-trip")).toContainText("Adding to Bantayan Island");
   await whichTrip.getByTestId("which-trip-add").click();
   await expect(whichTrip).toHaveCount(0);
   await expect(toast).toContainText("Added to Bantayan Island");

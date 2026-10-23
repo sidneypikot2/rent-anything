@@ -113,7 +113,7 @@ export function CartItemPanel({
             onClick={() => actions.redateItem(trip, item)}
             data-testid="item-panel-date"
           >
-            {item.starts_on ? "Change date" : "Pick a date"}
+            {item.starts_on ? "Edit dates or guests" : "Pick a date"}
           </Button>
           {bookable(item) && !problem && (
             <Button type="button" onClick={() => actions.checkout(trip, [item])} data-testid="item-panel-book">

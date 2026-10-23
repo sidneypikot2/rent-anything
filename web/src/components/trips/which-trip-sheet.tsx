@@ -11,8 +11,9 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { StepperField } from "@/components/ui/stepper-field";
 import { chooseTrip, useChosenTrip } from "./chosen-trip";
-import { formatDateRange, itemCount, noNightError, todayIso, tripDetails } from "./format";
+import { formatDateRange, guestLimitHint, itemCount, noNightError, todayIso, tripDetails } from "./format";
 import { bedsBooked } from "./beds";
+import { sameItem } from "./trip-missing";
 import { TripOption } from "./trip-option";
 import {
   useAddTripItem,
@@ -27,6 +28,8 @@ type Props = {
   request: AddRequest;
   // The guest's current trips; none starts a new one.
   trips: Trip[];
+  // A place's page: the trip the add goes to, or "new" to start one; no choosing in the sheet.
+  target?: Trip | "new";
   onClose: () => void;
   // The trip the item went to, and the same trip before the add when it already existed.
   onAdded: (trip: Trip, before?: Trip) => void;
@@ -53,11 +56,11 @@ function unitWords(preview: AddPreview, fallback: string) {
 }
 
 // When the group won't fit in one vehicle: a transfer books one (Booking.units_for), so the
-// guest needs more than one booking, or more than this partner has.
+// add is set to its seats and the rest need another booking, or more than this partner has.
 function vehicleNote(preview: AddPreview, seats: number, guests: number) {
   const needed = Math.ceil(guests / seats);
   const { one, many } = unitWords(preview, "vehicle");
-  const short = `${guests} guests won't fit in one ${one}: it seats ${seats}.`;
+  const short = `One ${one} seats ${seats}, so this is set to ${seats} of your ${guests} guests.`;
   // The partner has too few for the group: another transfer covers the rest.
   if (preview.unitsCount !== undefined && preview.unitsCount < needed) {
     const has = preview.unitsCount === 1 ? `only one ${one}` : `only ${preview.unitsCount} ${many}`;
@@ -82,15 +85,18 @@ function stayNote(preview: AddPreview, sleeps: number, guests: number) {
   return `${short} They're booked together when you check out, and the price covers all ${needed}.`;
 }
 
-// The most guests one add can hold: a tour's group, or a stay's rooms all together (not a
-// shared room's, whose guests take a bed each). The sheet starts at it when the trip has more.
+// The most guests one add can hold, as the trip item's `max_guests` says it: a tour's group,
+// a stay's rooms all together (a shared room's beds, a guest each), or the seats of the one
+// vehicle a transfer books. The sheet starts at it when the trip has more, and + stops there.
 export function guestCap(preview: AddPreview | undefined) {
   if (preview?.tourGuests) return preview.tourGuests.max;
-  if (preview?.sleeps && !preview.sharedRoom && preview.unitsCount) return preview.sleeps * preview.unitsCount;
+  if (preview?.sleeps && preview.unitsCount) return preview.sharedRoom ? preview.unitsCount : preview.sleeps * preview.unitsCount;
+  if (preview?.seats) return preview.seats;
   return null;
 }
 
 const guestWord = (count: number) => (count === 1 ? "guest" : "guests");
+const guestsWord = (count: number) => `${count} ${guestWord(count)}`;
 
 type Note = { text: string; tone: "info" | "warning" };
 
@@ -101,11 +107,6 @@ function capacityNote(preview: AddPreview | undefined, guests: number, wanted: n
   const cap = guestCap(preview);
   const tour = preview.tourGuests;
   if (tour) {
-    if (guests > tour.max)
-      return {
-        tone: "warning",
-        text: `This tour takes up to ${tour.max} guests. Add another tour for the other ${guests - tour.max}.`,
-      };
     if (guests < tour.min) return { tone: "warning", text: `This tour runs for at least ${tour.min} guests.` };
     if (wanted > guests && guests === tour.max) {
       const left = wanted - guests;
@@ -116,8 +117,8 @@ function capacityNote(preview: AddPreview | undefined, guests: number, wanted: n
     }
     return null;
   }
-  if (preview.seats && guests > preview.seats)
-    return { tone: "warning", text: vehicleNote(preview, preview.seats, guests) };
+  if (preview.seats && wanted > guests && guests === preview.seats)
+    return { tone: "info", text: vehicleNote(preview, preview.seats, wanted) };
   // Guests the trip has no bed for yet on these nights: the needs column's "n more guests".
   const unhoused = Math.max(wanted - booked, 0);
   if (preview.sleeps && booked > 0 && wanted > guests) {
@@ -177,8 +178,9 @@ function ListingPreview({ title, preview }: { title: string; preview?: AddPrevie
 
 // The add sheet (screen 4): every add is confirmed here, with the listing, its dates and
 // guests. With trips, the server's suggestion comes first and is preselected; "New trip" is
-// always there. With none, the add starts one.
-export function WhichTripSheet({ request, trips, onClose, onAdded }: Props) {
+// always there. With none, the add starts one. With a `target` (a place's page) the trip is
+// fixed: the sheet names it, or offers a name for the new one.
+export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Props) {
   const [{ from: startsOn, to: endsOn }, setDates] = useState({
     from: request.startsOn ?? "",
     to: request.endsOn ?? "",
@@ -190,7 +192,8 @@ export function WhichTripSheet({ request, trips, onClose, onAdded }: Props) {
   const chosen = useChosenTrip();
   const preferred: Choice | null =
     chosen === "new" || (typeof chosen === "number" && trips.some((trip) => trip.id === chosen)) ? chosen : null;
-  const [picked, setPicked] = useState<Choice | null>(preferred);
+  const fixed: Choice | null = target === undefined ? null : target === "new" ? "new" : target.id;
+  const [picked, setPicked] = useState<Choice | null>(fixed ?? preferred);
   // A new trip's name, if the guest gives one; blank keeps the server's (destination and dates).
   const [tripName, setTripName] = useState("");
   const addItem = useAddTripItem();
@@ -201,7 +204,13 @@ export function WhichTripSheet({ request, trips, onClose, onAdded }: Props) {
   const datesValid = Boolean(startsOn) === Boolean(itemEnds) && !noNight;
   const dated = datesValid && startsOn ? { startsOn, endsOn: itemEnds } : { startsOn: undefined, endsOn: undefined };
 
-  const suggestion = useTripSuggestion(request.listingId, dated.startsOn, dated.endsOn, datesValid);
+  // The new trip's name to show, and a suggestion to preselect when the guest picks.
+  const suggestion = useTripSuggestion(
+    request.listingId,
+    dated.startsOn,
+    dated.endsOn,
+    datesValid && (fixed === null || fixed === "new"),
+  );
   const suggested = suggestion.data?.trip ?? null;
   const choice: Choice | null = picked ?? (suggestion.data ? (suggested?.id ?? "new") : null);
 
@@ -234,9 +243,9 @@ export function WhichTripSheet({ request, trips, onClose, onAdded }: Props) {
       { request: { ...request, ...dated, quantity: quantityNumber }, tripId, tripName },
       {
         onSuccess: (trip) => {
-          // Once a trip was chosen, the one this went to is the one being worked on, so a new
-          // trip's later adds go to it too.
-          if (chosen !== null) chooseTrip(trip.id);
+          // Once a trip was chosen (always, on a place's page), the one this went to is the one
+          // being worked on, so a new trip's later adds go to it too.
+          if (chosen !== null || fixed !== null) chooseTrip(trip.id);
           onAdded(
             trip,
             trips.find((existing) => existing.id === tripId),
@@ -247,15 +256,20 @@ export function WhichTripSheet({ request, trips, onClose, onAdded }: Props) {
   }
 
   const when = formatDateRange(dated.startsOn, dated.endsOn);
+  // The picked trip already holds this listing on these days: said before a second one goes in,
+  // as a double tap or a forgotten add would otherwise book it twice. Adding again stays allowed
+  // (a second room, a second van).
+  const already = pickedTrip ? sameItem(pickedTrip, request.listingId, dated.startsOn, dated.endsOn) : undefined;
   const capacity = quantityValid ? capacityNote(request.preview, quantityNumber, request.quantity, booked) : null;
 
   return (
     <Dialog open onClose={onClose} placement="sheet" title="Add to trip" data-testid="which-trip-sheet">
       <form onSubmit={submit} className="flex flex-col gap-4">
         <ListingPreview title={request.title} preview={request.preview} />
-        {/* The fields under it already say the dates and guests; only a missing date needs a word. */}
+        {/* The fields under it already say the dates and guests; only a missing date needs a word,
+            a quiet one, as adding it undated is allowed. */}
         {!when && (
-          <p className="text-sm font-semibold text-warning" data-testid="add-sheet-when">
+          <p className="text-sm text-muted" data-testid="add-sheet-when">
             No date yet: pick one, or add it now and set one later
           </p>
         )}
@@ -269,7 +283,7 @@ export function WhichTripSheet({ request, trips, onClose, onAdded }: Props) {
             to={endsOn}
             onChange={(dates) => {
               setDates(dates);
-              setPicked(preferred);
+              setPicked(fixed ?? preferred);
             }}
             clearable
             inline
@@ -280,15 +294,28 @@ export function WhichTripSheet({ request, trips, onClose, onAdded }: Props) {
           <div className="col-span-2 sm:col-span-1 sm:pt-1">
             <StepperField
               label="Guests"
+              hint={guestLimitHint(guestCap(request.preview))}
               value={quantityNumber}
               onChange={(value) => setQuantity(String(value))}
               min={1}
-              max={99}
+              max={guestCap(request.preview) ?? 99}
               data-testid="which-trip-guests"
             />
           </div>
         </fieldset>
 
+        {already && (
+          <div role="status" data-testid="add-sheet-already" className="rounded-control border border-warning/30 bg-warning/10 px-3 py-2.5 text-sm">
+            <p className="font-semibold text-warning">
+              Already in this trip
+              {formatDateRange(already.starts_on, already.ends_on) ? ` for ${formatDateRange(already.starts_on, already.ends_on)}` : ""}
+            </p>
+            <p className="mt-0.5 text-foreground">
+              It&apos;s there for {guestsWord(already.quantity)}. Adding it again books it twice
+              {request.bookingType === "stay" ? ", as a second room." : "."}
+            </p>
+          </div>
+        )}
         {capacity && (
           <div
             role="status"
@@ -302,44 +329,77 @@ export function WhichTripSheet({ request, trips, onClose, onAdded }: Props) {
           </div>
         )}
 
-        <fieldset disabled={addItem.isPending} className="flex max-h-[40dvh] flex-col gap-2 overflow-y-auto">
-          <legend className="mb-1 text-sm font-semibold">{trips.length > 0 ? "Which trip" : "Trip"}</legend>
-          {ordered.map((trip) => (
+        {fixed !== null ? (
+          <div className="flex flex-col gap-2" data-testid="add-sheet-trip">
+            <p className="text-sm">
+              {typeof target === "object" ? (
+                <>
+                  Adding to <span className="font-semibold">{target.name}</span>
+                  <span className="block text-muted">{tripDetails(target)}</span>
+                </>
+              ) : (
+                <>
+                  Starts a new trip
+                  {suggestion.data?.new_trip_name && (
+                    <span className="block text-muted">{suggestion.data.new_trip_name}</span>
+                  )}
+                </>
+              )}
+            </p>
+            {fixed === "new" && (
+              <Field
+                label="Trip name (optional)"
+                name="trip_name"
+                value={tripName}
+                maxLength={80}
+                placeholder={suggestion.data?.new_trip_name}
+                hint="Leave it blank to name it after the place and dates."
+                disabled={addItem.isPending}
+                data-testid="which-trip-name"
+                onChange={(event) => setTripName(event.target.value)}
+              />
+            )}
+          </div>
+        ) : (
+          <fieldset disabled={addItem.isPending} className="flex max-h-[40dvh] flex-col gap-2 overflow-y-auto">
+            <legend className="mb-1 text-sm font-semibold">{trips.length > 0 ? "Which trip" : "Trip"}</legend>
+            {ordered.map((trip) => (
+              <TripOption
+                key={trip.id}
+                checked={choice === trip.id}
+                onSelect={() => setPicked(trip.id)}
+                title={trip.name}
+                detail={
+                  trip.id === suggested?.id && suggestion.data
+                    ? `${suggestedReason(suggestion.data, dated.startsOn, dated.endsOn)} · ${itemCount(trip.items.length)}`
+                    : tripDetails(trip)
+                }
+                suggested={trip.id === suggested?.id}
+              />
+            ))}
             <TripOption
-              key={trip.id}
-              checked={choice === trip.id}
-              onSelect={() => setPicked(trip.id)}
-              title={trip.name}
-              detail={
-                trip.id === suggested?.id && suggestion.data
-                  ? `${suggestedReason(suggestion.data, dated.startsOn, dated.endsOn)} · ${itemCount(trip.items.length)}`
-                  : tripDetails(trip)
-              }
-              suggested={trip.id === suggested?.id}
+              checked={choice === "new"}
+              onSelect={() => setPicked("new")}
+              title="+ New trip"
+              detail={suggestion.data?.new_trip_name ?? "Named after the destination and dates"}
+              suggested={suggestion.data !== undefined && suggested === null}
             />
-          ))}
-          <TripOption
-            checked={choice === "new"}
-            onSelect={() => setPicked("new")}
-            title="+ New trip"
-            detail={suggestion.data?.new_trip_name ?? "Named after the destination and dates"}
-            suggested={suggestion.data !== undefined && suggested === null}
-          />
-          {choice === "new" && (
-            <Field
-              label="Trip name (optional)"
-              name="trip_name"
-              value={tripName}
-              maxLength={80}
-              placeholder={suggestion.data?.new_trip_name}
-              hint="Leave it blank to name it after the place and dates."
-              data-testid="which-trip-name"
-              onChange={(event) => setTripName(event.target.value)}
-            />
-          )}
-        </fieldset>
+            {choice === "new" && (
+              <Field
+                label="Trip name (optional)"
+                name="trip_name"
+                value={tripName}
+                maxLength={80}
+                placeholder={suggestion.data?.new_trip_name}
+                hint="Leave it blank to name it after the place and dates."
+                data-testid="which-trip-name"
+                onChange={(event) => setTripName(event.target.value)}
+              />
+            )}
+          </fieldset>
+        )}
 
-        {(addItem.error || suggestion.error) && (
+        {(addItem.error || (fixed === null && suggestion.error)) && (
           <p role="alert" className="text-sm text-danger">
             {addItem.error?.message ?? "Couldn't suggest a trip. Pick one, or try again."}
           </p>
@@ -355,7 +415,7 @@ export function WhichTripSheet({ request, trips, onClose, onAdded }: Props) {
             data-testid="which-trip-add"
             disabled={addItem.isPending || choice === null || !datesValid || !quantityValid}
           >
-            {addItem.isPending ? "Adding…" : "Add to trip"}
+            {addItem.isPending ? "Adding…" : already ? (request.bookingType === "stay" ? "Add another room" : "Add it again") : "Add to trip"}
           </Button>
         </div>
       </form>
