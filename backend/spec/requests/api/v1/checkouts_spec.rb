@@ -140,13 +140,13 @@ RSpec.describe "Checkouts", type: :request do
       response "422", "an undated item, one booked already and an unknown key" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
-        let!(:undated) { create(:trip_item, trip:, listing: create(:listing, title: "Kayak"), starts_on: nil, ends_on: nil) }
+        let!(:undated) { create(:trip_item, trip:, listing: create(:listing, title: "Sea kayak rental"), starts_on: nil, ends_on: nil) }
         let(:item_ids) { [ undated.id, tour_item.id ] }
 
         before { create(:booking, :checkout, listing: tour, trip_item: tour_item, status: "confirmed") }
 
         run_test! do |response|
-          expect(response.parsed_body["errors"]).to contain_exactly("Kayak: pick dates before booking it",
+          expect(response.parsed_body["errors"]).to contain_exactly("Sea kayak rental: pick dates before booking it",
             "Virgin Island hopping is already booked")
         end
       end

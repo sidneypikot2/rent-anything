@@ -4,7 +4,7 @@ RSpec.describe "Partner listing status", type: :request do
   let(:user) { create(:user, :partner, :id_verified) }
   let(:Authorization) { bearer_for(user) }
   let(:status) { "draft" }
-  let(:listing) { create(:listing, partner: user, status:, description: "Waterproof to 10 m.") }
+  let(:listing) { create(:listing, partner: user, status:, description: "Waterproof to 10 m, with a spare battery, a floating grip and a chest mount.") }
   let(:listing_id) { listing.id }
   let(:body) { { status: "active" } }
 
@@ -71,7 +71,7 @@ RSpec.describe "Partner listing status", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body["errors"]).to eq(
-            [ "To go live it needs a photo, a description, a price, and a landmark on its route" ]
+            [ "To go live it needs a photo, a description of at least 50 characters, a price, and a landmark on its route" ]
           )
           expect(listing.reload).to be_draft
         end
@@ -106,7 +106,7 @@ RSpec.describe "Partner listing status", type: :request do
       response "404", "another partner's listing" do
         schema "$ref" => "#/components/schemas/error"
 
-        let(:listing) { create(:listing, status: "draft", description: "Waterproof to 10 m.") }
+        let(:listing) { create(:listing, status: "draft", description: "Waterproof to 10 m, with a spare battery, a floating grip and a chest mount.") }
 
         run_test! { expect(listing.reload).to be_draft }
       end

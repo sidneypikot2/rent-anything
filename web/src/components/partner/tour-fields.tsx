@@ -436,7 +436,7 @@ function exampleLine(values: TourValues) {
     parts.push(`${formatPeso(base)} × ${guests}`);
     total = base * guests;
   }
-  for (const fee of exampleFees(values.fees, { booking: 1, night: nights, guest: guests, guest_night: guests * nights, unit: 1 })) {
+  for (const fee of exampleFees(values.fees, { booking: 1, night: nights, guest: guests, guest_night: guests * nights, unit: 1, day: 0, hour: 0 })) {
     parts.push(fee.label);
     total += fee.cents;
   }

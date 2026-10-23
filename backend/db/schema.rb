@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_22_090000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_23_090001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -285,7 +285,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_22_090000) do
     t.check_constraint "\"position\" >= 1", name: "listing_fees_position_check"
     t.check_constraint "amount_cents >= 0", name: "listing_fees_amount_check"
     t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 60", name: "listing_fees_name_length_check"
-    t.check_constraint "charged_per::text = ANY (ARRAY['booking'::character varying::text, 'night'::character varying::text, 'guest'::character varying::text, 'guest_night'::character varying::text, 'unit'::character varying::text])", name: "listing_fees_charged_per_check"
+    t.check_constraint "charged_per::text = ANY (ARRAY['booking'::character varying, 'night'::character varying, 'guest'::character varying, 'guest_night'::character varying, 'unit'::character varying, 'day'::character varying, 'hour'::character varying]::text[])", name: "listing_fees_charged_per_check"
   end
 
   create_table "listing_landmarks", primary_key: ["listing_id", "landmark_id"], force: :cascade do |t|
@@ -577,6 +577,37 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_22_090000) do
     t.check_constraint "role::text = ANY (ARRAY['guest'::character varying::text, 'partner'::character varying::text, 'admin'::character varying::text])", name: "users_role_check"
   end
 
+  create_table "vehicle_rates", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.bigint "daily_price_cents", default: 0, null: false
+    t.bigint "half_day_price_cents"
+    t.integer "half_day_hours", default: 4, null: false
+    t.bigint "hourly_price_cents"
+    t.bigint "weekly_price_cents"
+    t.bigint "monthly_price_cents"
+    t.bigint "security_deposit_cents", default: 0, null: false
+    t.bigint "delivery_fee_cents"
+    t.bigint "return_pickup_fee_cents"
+    t.integer "min_rental_days", default: 1, null: false
+    t.integer "km_limit_per_day"
+    t.bigint "excess_km_fee_cents"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["listing_id"], name: "index_vehicle_rates_on_listing_id", unique: true
+    t.check_constraint "daily_price_cents >= 0", name: "vehicle_rates_daily_price_check"
+    t.check_constraint "delivery_fee_cents >= 0", name: "vehicle_rates_delivery_fee_check"
+    t.check_constraint "excess_km_fee_cents >= 0", name: "vehicle_rates_excess_km_fee_check"
+    t.check_constraint "half_day_hours >= 2 AND half_day_hours <= 12", name: "vehicle_rates_half_day_hours_check"
+    t.check_constraint "half_day_price_cents > 0", name: "vehicle_rates_half_day_price_check"
+    t.check_constraint "hourly_price_cents > 0", name: "vehicle_rates_hourly_price_check"
+    t.check_constraint "km_limit_per_day >= 1 AND km_limit_per_day <= 2000", name: "vehicle_rates_km_limit_check"
+    t.check_constraint "min_rental_days >= 1 AND min_rental_days <= 365", name: "vehicle_rates_min_rental_days_check"
+    t.check_constraint "monthly_price_cents > 0", name: "vehicle_rates_monthly_price_check"
+    t.check_constraint "return_pickup_fee_cents >= 0", name: "vehicle_rates_return_pickup_fee_check"
+    t.check_constraint "security_deposit_cents >= 0", name: "vehicle_rates_security_deposit_check"
+    t.check_constraint "weekly_price_cents > 0", name: "vehicle_rates_weekly_price_check"
+  end
+
   add_foreign_key "areas", "areas", column: "parent_id"
   add_foreign_key "availability_blocks", "listings", on_delete: :cascade
   add_foreign_key "booking_events", "bookings"
@@ -626,6 +657,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_22_090000) do
   add_foreign_key "trip_items", "listings", on_delete: :cascade
   add_foreign_key "trip_items", "trips", on_delete: :cascade
   add_foreign_key "trips", "users"
+  add_foreign_key "vehicle_rates", "listings", on_delete: :cascade
 
   create_view "search_terms", materialized: true, sql_definition: <<-SQL
       WITH RECURSIVE area_tree(ancestor_id, area_id) AS (

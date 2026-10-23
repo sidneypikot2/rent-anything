@@ -59,6 +59,19 @@ FactoryBot.define do
       end
       initialize_with { Category.find_or_initialize_by(slug: "tour") }
     end
+
+    # A motorcycle (RAA-149): a vehicle rental, whose listings have a vehicle rate. There is
+    # only one.
+    trait :motorcycle do
+      slug { "motorcycle" }
+      name { "Motorcycle" }
+      booking_type { "rental" }
+      attribute_schema do
+        require Rails.root.join("db/migrate/20261023090001_add_vehicle_transmission_and_amenities").to_s
+        AddVehicleTransmissionAndAmenities::VEHICLE_SCHEMA
+      end
+      initialize_with { Category.find_or_initialize_by(slug: "motorcycle") }
+    end
   end
 
   factory :listing do
@@ -93,6 +106,15 @@ FactoryBot.define do
       after(:create) { |listing, context| create(:stay_rate, listing:) if context.with_rate && !listing.stay_rate }
     end
 
+    # A Honda Click 125 at ₱500 a day (RAA-149).
+    trait :vehicle do
+      category factory: %i[category motorcycle]
+      title { "Honda Click 125 scooter" }
+      attrs { { "make" => "Honda", "model" => "Click 125", "engine_cc" => 125, "transmission" => "automatic" } }
+      transient { with_rate { true } }
+      after(:create) { |listing, context| create(:vehicle_rate, listing:) if context.with_rate && !listing.vehicle_rate }
+    end
+
     # A daily joiner tour for 2 to 12 guests, 4 hours, at ₱1,500 a head (RAA-110).
     trait :tour do
       category factory: %i[category tour]
@@ -118,6 +140,11 @@ FactoryBot.define do
     listing { association(:listing, :stay, with_rate: false) }
     nightly_price_cents { 200_000 }
     base_guests { 2 }
+  end
+
+  factory :vehicle_rate do
+    listing { association(:listing, :vehicle, with_rate: false) }
+    daily_price_cents { 50_000 }
   end
 
   factory :listing_fee do

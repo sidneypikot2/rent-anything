@@ -1,9 +1,9 @@
 # A listing on a guest's map (the `listing_pin` schema in spec/swagger_helper.rb): the
 # summary plus its location rounded to two decimals, about 1 km, its booking type (the pin's
 # colour) and its price once it has one (the pin's label). The exact point is revealed only
-# after a paid booking. Preload category, stay_rate and tour_detail.
+# after a paid booking. Preload category, stay_rate, vehicle_rate and tour_detail.
 module ListingPinSerializer
-  INCLUDES = %i[category area cover_photo stay_rate tour_detail].freeze
+  INCLUDES = %i[category area cover_photo stay_rate vehicle_rate tour_detail].freeze
 
   def self.call(listing)
     ListingSummarySerializer.call(listing).merge(

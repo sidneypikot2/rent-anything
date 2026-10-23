@@ -56,9 +56,29 @@ RSpec.describe Listing do
     expect { listing.update_column(:status, "pending") }.to raise_error(ActiveRecord::StatementInvalid, /listing_status/)
   end
 
+  describe "title and description (RAA-149)" do
+    it "keeps a title to 10–80 characters and a description to 2,000" do
+      expect(build(:listing, title: "Click 125!")).to be_valid
+      expect(build(:listing, title: "Click 125").tap(&:validate).errors[:title]).to include("is too short (minimum is 10 characters)")
+      expect(build(:listing, title: "a" * 81).tap(&:validate).errors[:title]).to include("is too long (maximum is 80 characters)")
+      expect(build(:listing, description: "a" * 2001).tap(&:validate).errors[:description])
+        .to include("is too long (maximum is 2000 characters)")
+    end
+
+    it "lets a listing made before the limits keep its long title and description until they are changed" do
+      listing = create(:listing)
+      listing.update_columns(title: "a" * 120, description: "a" * 5000)
+
+      expect(listing.reload.update(status: "paused")).to be(true)
+      expect(listing.update(title: "b" * 120)).to be(false)
+    end
+  end
+
   describe "#live_blockers (RAA-115)" do
+    let(:description) { "Waterproof to 10 m, with a spare battery, a floating grip and a chest mount." }
+
     it "is empty for a rental with a description and a ready photo" do
-      listing = create(:listing, description: "Waterproof to 10 m.")
+      listing = create(:listing, description:)
       create_photo(listing)
       expect(listing.reload.live_blockers).to eq([])
     end
@@ -69,19 +89,29 @@ RSpec.describe Listing do
       expect(listing.reload.live_blockers).to eq(%w[photo description])
     end
 
-    it "asks a stay or a tour for a price above 0" do
-      stay = create(:listing, :stay, description: "By the sea.")
+    it "asks for a description of at least 50 characters (RAA-149)" do
+      listing = create(:listing, description: "Waterproof to 10 m.")
+      create_photo(listing)
+      expect(listing.reload.live_blockers).to eq(%w[description])
+      expect(Listing::LIVE_BLOCKERS["description"]).to eq("a description of at least 50 characters")
+    end
+
+    it "asks a stay, a tour or a vehicle for a price above 0" do
+      stay = create(:listing, :stay, description:)
       stay.stay_rate.update_column(:nightly_price_cents, 0)
-      tour = create(:listing, :tour, description: "Four islands.")
+      tour = create(:listing, :tour, description:)
       tour.tour_detail.update_column(:base_price_cents, 0)
       tour.landmark_visits.create!(landmark: create(:landmark))
-      [ stay, tour ].each { create_photo(_1) }
+      vehicle = create(:listing, :vehicle, description:)
+      vehicle.vehicle_rate.update_column(:daily_price_cents, 0)
+      [ stay, tour, vehicle ].each { create_photo(_1) }
       expect(stay.reload.live_blockers).to eq(%w[price])
       expect(tour.reload.live_blockers).to eq(%w[price])
+      expect(vehicle.reload.live_blockers).to eq(%w[price])
     end
 
     it "asks an activity for a landmark on its route" do
-      tour = create(:listing, :tour, description: "Four islands.")
+      tour = create(:listing, :tour, description:)
       create_photo(tour)
       expect(tour.reload.live_blockers).to eq(%w[route])
     end

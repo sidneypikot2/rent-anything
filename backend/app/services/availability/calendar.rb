@@ -7,7 +7,7 @@ module Availability
     include Trips::Values
 
     MAX_DAYS = 92
-    ASSOCIATIONS = %i[business category units stay_rate tour_detail].freeze
+    ASSOCIATIONS = %i[business category units stay_rate vehicle_rate tour_detail].freeze
 
     def initialize(partner, params)
       @partner = partner

@@ -134,7 +134,7 @@ function exampleLine(values: PricingValues, perGuest: boolean, sleeps: number) {
     parts.push(`${extraGuests} extra ${extraGuests === 1 ? "guest" : "guests"} × ${formatPeso(extraFee)} × ${nights}`);
     total += extraGuests * extraFee * nights;
   }
-  for (const fee of exampleFees(values.fees, { booking: 1, night: nights, guest: guests, guest_night: guests * nights, unit: 1 })) {
+  for (const fee of exampleFees(values.fees, { booking: 1, night: nights, guest: guests, guest_night: guests * nights, unit: 1, day: 0, hour: 0 })) {
     parts.push(fee.label);
     total += fee.cents;
   }

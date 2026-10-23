@@ -9,7 +9,7 @@ class Listing < ApplicationRecord
   # how a message names it.
   LIVE_BLOCKERS = {
     "photo" => "a photo",
-    "description" => "a description",
+    "description" => "a description of at least 50 characters",
     "price" => "a price",
     "route" => "a landmark on its route"
   }.freeze
@@ -34,6 +34,11 @@ class Listing < ApplicationRecord
   # What a partner can pick (RAA-134): every listing is request to book, so a partner answers
   # every booking. Instant book stays a mode a listing can have, for when it is offered again.
   OFFERED_BOOKING_MODES = BOOKING_MODES.slice("request").freeze
+  # How long a title and a description can be (RAA-149), and how long a description must be
+  # to go live.
+  TITLE_LENGTH = 10..80
+  DESCRIPTION_MAX = 2000
+  LIVE_DESCRIPTION_MIN = 50
   # What TourSerializer reads, to preload (RAA-110).
   TOUR_ASSOCIATIONS = %i[tour_detail tour_inclusions].freeze
 
@@ -53,6 +58,8 @@ class Listing < ApplicationRecord
   has_many :units, -> { order(:position) }, class_name: "ListingUnit", dependent: :delete_all, inverse_of: :listing
   # Accommodation's nightly pricing (RAA-104); every accommodation listing has one.
   has_one :stay_rate, dependent: :delete, inverse_of: :listing
+  # A vehicle rental's pricing (RAA-149); every vehicle listing has one.
+  has_one :vehicle_rate, dependent: :delete, inverse_of: :listing
   # Extra charges, for any category (RAA-104); the foreign keys cascade too.
   has_many :fees, -> { order(:position) }, class_name: "ListingFee", dependent: :delete_all, inverse_of: :listing
   # A tour's type, group size and price (RAA-110); every tour has one. What it includes comes
@@ -77,8 +84,10 @@ class Listing < ApplicationRecord
   before_destroy :keep_if_booked, prepend: true
 
   validates :title, :location, presence: true
-  validates :title, length: { maximum: 120 }
-  validates :description, length: { maximum: 5000 }
+  # Checked when they change (RAA-149), so a listing made under the old 120 / 5,000 limits
+  # still saves until its partner edits them.
+  validates :title, length: { in: TITLE_LENGTH }, if: :title_changed?
+  validates :description, length: { maximum: DESCRIPTION_MAX }, if: :description_changed?
   validates :cancellation_policy, inclusion: { in: CANCELLATION_POLICIES.keys }
   validates :booking_mode, inclusion: { in: BOOKING_MODES.keys }
   # Every new listing has an address (RAA-41); ones made before it have none.
@@ -98,13 +107,14 @@ class Listing < ApplicationRecord
     category&.tour? ? ListingPhoto::MAX_PER_TOUR : ListingPhoto::MAX_PER_LISTING
   end
 
-  # What it still lacks to go live (LIVE_BLOCKERS' keys): a ready photo, a description, a
-  # price for a stay or a tour (the others aren't priced yet), and a landmark on an
-  # activity's route. Reads photos, stay_rate, tour_detail and visited_landmarks.
+  # What it still lacks to go live (LIVE_BLOCKERS' keys): a ready photo, a description of
+  # LIVE_DESCRIPTION_MIN characters, a price for a stay, a tour or a vehicle (the others
+  # aren't priced yet), and a landmark on an activity's route. Reads photos, stay_rate,
+  # tour_detail, vehicle_rate and visited_landmarks.
   def live_blockers
     [
       ("photo" unless photos.any?(&:ready?)),
-      ("description" if description.blank?),
+      ("description" if description.strip.length < LIVE_DESCRIPTION_MIN),
       ("price" if needs_price?),
       ("route" if category.activity? && visited_landmarks.empty?)
     ].compact
@@ -131,7 +141,8 @@ class Listing < ApplicationRecord
 
   def needs_price?
     (category.accommodation? && !stay_rate&.nightly_price_cents&.positive?) ||
-      (category.tour? && !tour_detail&.base_price_cents&.positive?)
+      (category.tour? && !tour_detail&.base_price_cents&.positive?) ||
+      (category.vehicle? && !vehicle_rate&.priced?)
   end
 
   def partner_is_a_partner

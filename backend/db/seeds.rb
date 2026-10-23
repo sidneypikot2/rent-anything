@@ -71,6 +71,13 @@ unless Rails.env.test?
       RemoveUnfocusedCategories.new.migrate(:up)
     end
 
+    # Vehicles' transmission and amenities (RAA-149), loaded the same way. It needs the
+    # vehicle types above.
+    unless Category.where(slug: "motorcycle").where("attribute_schema -> 'properties' ? 'transmission'").exists?
+      require Rails.root.join("db/migrate/20261023090001_add_vehicle_transmission_and_amenities").to_s
+      AddVehicleTransmissionAndAmenities.new.migrate(:up)
+    end
+
     CreateBusinesses.backfill(connection)
     AddUnitNamesToCategories.fill(connection)
     connection.change_column_null :listings, :business_id, false
@@ -86,6 +93,10 @@ unless Rails.env.test?
   # Every accommodation listing has a stay rate (RAA-104), zero until its partner sets one.
   require Rails.root.join("db/migrate/20261014000001_create_stay_rates").to_s
   CreateStayRates.backfill(ActiveRecord::Base.connection)
+
+  # Every vehicle listing has a vehicle rate (RAA-149), zero until its partner sets one.
+  require Rails.root.join("db/migrate/20261023090000_create_vehicle_rates").to_s
+  CreateVehicleRates.backfill(ActiveRecord::Base.connection)
 
   # Every tour has tour details (RAA-110): the sample tours become joiner tours, with no price
   # until their partners set one, and the tour category gets its RAA-117 attrs schema.
