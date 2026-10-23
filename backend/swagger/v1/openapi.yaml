@@ -5260,7 +5260,8 @@ components:
           type: integer
           minimum: 1
           nullable: true
-          description: The driver, per day; null when self-drive
+          description: A driver per day when the guest can choose one (either); otherwise
+            null
       required:
       - daily_price_cents
       - half_day_price_cents
@@ -5280,8 +5281,9 @@ components:
       type: object
       description: A half day costs less than a day and an hour less than a half day
         (or a day); a week at most 7 days and a month at most 30 at the daily price.
-        A fee per km above the limit needs a limit. A driver needs a driver fee, and
-        a motorcycle is self-drive only. Optional fields left out take their defaults.
+        A fee per km above the limit needs a limit. A choice of driver (either) needs
+        a driver fee, and a motorcycle is self-drive only. Optional fields left out
+        take their defaults.
       properties:
         daily_price_cents:
           type: integer
@@ -5348,7 +5350,7 @@ components:
           type: integer
           minimum: 1
           nullable: true
-          description: Per day; required unless self_drive
+          description: Per day; required with either, null otherwise
       required:
       - daily_price_cents
     vehicle_driving:
@@ -5357,7 +5359,8 @@ components:
       - self_drive
       - with_driver
       - either
-      description: Self-drive only, with a driver only, or either (RAA-150)
+      description: Self-drive only, with a driver only (in the price), or either at
+        a driver fee (RAA-150)
     listing_fee_charged_per:
       type: string
       enum:

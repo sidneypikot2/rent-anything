@@ -17,11 +17,12 @@ function serviceText(cents: number | null) {
   return cents === null ? "Not offered" : cents === 0 ? "Free" : formatPeso(cents);
 }
 
-// "Self-drive", "With driver, ₱1,500 a day", or self-drive with a driver to ask for.
+// "Self-drive", "With driver, included in the price", or self-drive with a driver to ask for.
 function drivingText(rate: Rate) {
-  const fee = rate.driver_fee_cents ? `${formatPeso(rate.driver_fee_cents)} a day` : "";
-  if (rate.driving === "with_driver") return `With driver, ${fee}`;
-  if (rate.driving === "either") return `Self-drive, or with driver for ${fee}`;
+  if (rate.driving === "with_driver") return "With driver, included in the price";
+  if (rate.driving === "either" && rate.driver_fee_cents) {
+    return `Self-drive, or with driver for ${formatPeso(rate.driver_fee_cents)} a day`;
+  }
   return "Self-drive";
 }
 

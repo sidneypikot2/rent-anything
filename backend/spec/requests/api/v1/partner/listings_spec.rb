@@ -561,15 +561,15 @@ RSpec.describe "Partner listings", type: :request do
           end
         end
 
-        response "422", "a driver with no fee" do
+        response "422", "a choice of driver with no fee" do
           schema "$ref" => "#/components/schemas/validation_errors"
 
           let(:category) { create(:category, :car) }
 
-          before { vehicle_rate.merge!(driving: "with_driver") }
+          before { vehicle_rate.merge!(driving: "either") }
 
           run_test! do |response|
-            expect(response.parsed_body["errors"]).to include("Driver fee is required with a driver")
+            expect(response.parsed_body["errors"]).to include("Driver fee is required when the guest can choose a driver")
             expect(Listing.count).to eq(0)
           end
         end

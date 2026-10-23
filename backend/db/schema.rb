@@ -596,7 +596,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_110000) do
     t.string "driving", default: "self_drive", null: false
     t.bigint "driver_fee_cents"
     t.index ["listing_id"], name: "index_vehicle_rates_on_listing_id", unique: true
-    t.check_constraint "(driving::text = 'self_drive'::text) = (driver_fee_cents IS NULL)", name: "vehicle_rates_driver_fee_needs_driver_check"
+    t.check_constraint "(driving::text = 'either'::text) = (driver_fee_cents IS NOT NULL)", name: "vehicle_rates_driver_fee_needs_choice_check"
     t.check_constraint "daily_price_cents >= 0", name: "vehicle_rates_daily_price_check"
     t.check_constraint "delivery_fee_cents >= 0", name: "vehicle_rates_delivery_fee_check"
     t.check_constraint "driver_fee_cents > 0", name: "vehicle_rates_driver_fee_check"

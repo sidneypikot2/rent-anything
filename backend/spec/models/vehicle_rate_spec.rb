@@ -31,14 +31,17 @@ RSpec.describe VehicleRate do
       .to include("Hourly price must be less than the half-day price")
   end
 
-  it "charges for a driver only with one, and keeps a motorcycle self-drive (RAA-150)" do
+  it "charges for a driver only when the guest can choose one, and keeps a motorcycle self-drive (RAA-150)" do
     car = create(:listing, :vehicle, category: create(:category, :car), with_rate: false)
-    expect(described_class.new(listing: car, daily_price_cents: 250_000, driving: "either", driver_fee_cents: 150_000))
-      .to be_valid
-    expect(messages(described_class.new(listing: car, daily_price_cents: 250_000, driving: "with_driver")))
-      .to include("Driver fee is required with a driver")
+    car_rate = ->(**attributes) { described_class.new(listing: car, daily_price_cents: 250_000, **attributes) }
+    expect(car_rate.(driving: "either", driver_fee_cents: 150_000)).to be_valid
+    expect(car_rate.(driving: "with_driver")).to be_valid
+    expect(messages(car_rate.(driving: "either")))
+      .to include("Driver fee is required when the guest can choose a driver")
+    expect(messages(car_rate.(driving: "with_driver", driver_fee_cents: 150_000)))
+      .to include("Driver fee is only for self-drive or with driver: leave it out")
     expect(messages(rate(driver_fee_cents: 150_000)))
-      .to include("Driver fee needs a driver: choose with driver, or leave it out")
+      .to include("Driver fee is only for self-drive or with driver: leave it out")
     expect(messages(rate(driving: "with_driver", driver_fee_cents: 150_000)))
       .to include("Driving can only be self-drive for a motorcycle")
     expect(messages(rate(driving: "chauffeur"))).to include("Driving is not included in the list")

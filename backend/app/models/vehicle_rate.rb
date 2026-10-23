@@ -4,8 +4,9 @@
 # refundable and never part of the price. Delivery to the guest and picking the vehicle up
 # from them at the end are each not offered (nil), free (0) or a fee. min_rental_days bounds
 # a rental; a daily km limit may come with a fee per km above it. A car, van, multicab or
-# tricycle can come with a driver (driving), at driver_fee_cents a day; a motorcycle is
-# always self-drive. A daily price of 0 is "no
+# tricycle can come with a driver (driving): with_driver has the driver in the price, either
+# lets the guest choose, a driver then costing driver_fee_cents a day. A motorcycle is always
+# self-drive. A daily price of 0 is "no
 # price yet": existing listings were given one, and a partner sets the real price. It isn't
 # quoted at checkout yet: a rental is still agreed with the partner (Bookings::Price).
 class VehicleRate < ApplicationRecord
@@ -31,7 +32,7 @@ class VehicleRate < ApplicationRecord
   validate :longer_rentals_cost_less_per_day
   validate :shorter_rentals_cost_less
   validate :excess_km_fee_has_a_limit
-  validate :driver_fee_goes_with_a_driver
+  validate :driver_fee_goes_with_a_choice
 
   def priced?
     daily_price_cents.positive?
@@ -81,13 +82,13 @@ class VehicleRate < ApplicationRecord
     errors.add(:excess_km_fee_cents, "needs a daily km limit") if excess_km_fee_cents && km_limit_per_day.nil?
   end
 
-  def driver_fee_goes_with_a_driver
-    if self_drive?
-      errors.add(:driver_fee_cents, "needs a driver: choose with driver, or leave it out") if driver_fee_cents
-    elsif SELF_DRIVE_ONLY_SLUGS.include?(listing&.category&.slug)
+  def driver_fee_goes_with_a_choice
+    if !self_drive? && SELF_DRIVE_ONLY_SLUGS.include?(listing&.category&.slug)
       errors.add(:driving, "can only be self-drive for a #{listing.category.name.downcase}")
-    elsif driver_fee_cents.nil?
-      errors.add(:driver_fee_cents, "is required with a driver")
+    elsif driving == "either"
+      errors.add(:driver_fee_cents, "is required when the guest can choose a driver") if driver_fee_cents.nil?
+    elsif driver_fee_cents
+      errors.add(:driver_fee_cents, "is only for self-drive or with driver: leave it out")
     end
   end
 end

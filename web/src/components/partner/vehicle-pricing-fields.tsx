@@ -141,7 +141,7 @@ export function toVehicleRateBody(values: VehiclePricingValues): VehicleRateBody
     km_limit_per_day: kmLimit,
     excess_km_fee_cents: kmLimit ? optionalCents(values.excessKmFee) : null,
     driving: values.driving,
-    driver_fee_cents: values.driving === "self_drive" ? null : toCents(values.driverFee),
+    driver_fee_cents: values.driving === "either" ? toCents(values.driverFee) : null,
   };
 }
 
@@ -212,8 +212,8 @@ export function vehiclePricingErrors(values: VehiclePricingValues, included: str
 
   if (values.delivery === "fee" && !toCents(values.deliveryFee)) errors.deliveryFee = "Set a fee above ₱0, or choose Free";
   if (values.pickup === "fee" && !toCents(values.pickupFee)) errors.pickupFee = "Set a fee above ₱0, or choose Free";
-  if (values.driving !== "self_drive" && !toCents(values.driverFee)) {
-    errors.driverFee = "Set the driver's fee per day, or choose Self-drive only";
+  if (values.driving === "either" && !toCents(values.driverFee)) {
+    errors.driverFee = "Set the driver's fee per day, or pick another option";
   }
 
   const fees = feesError(values.fees) ?? includedFeeError(values.fees, included);
@@ -274,7 +274,7 @@ function includedFeeError(fees: FeeValues[], included: string[]) {
 
 const DRIVING: { value: Driving; label: string; description: string }[] = [
   { value: "self_drive", label: "Self-drive only", description: "The guest drives." },
-  { value: "with_driver", label: "With driver only", description: "Your driver drives, at a fee per day." },
+  { value: "with_driver", label: "With driver only", description: "Your driver drives; the daily price includes them." },
   { value: "either", label: "Self-drive or with driver", description: "The guest chooses; a driver costs extra per day." },
 ];
 
@@ -361,7 +361,7 @@ export function VehiclePricingFields({
             onChange={(driving) => set({ driving: driving as Driving })}
             columns={1}
           />
-          {values.driving !== "self_drive" && (
+          {values.driving === "either" && (
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
                 label="Driver fee per day (₱)"
@@ -372,7 +372,7 @@ export function VehiclePricingFields({
                 value={values.driverFee}
                 onChange={(event) => set({ driverFee: event.target.value })}
                 error={errors?.driverFee}
-                hint={values.driving === "either" ? "Added to the daily price when the guest wants a driver." : "Added to the daily price."}
+                hint="Added to the daily price when the guest wants a driver."
                 data-testid="pricing-driver-fee"
               />
             </div>

@@ -5753,10 +5753,10 @@ export interface components {
             /** @description Per km above the daily limit */
             excess_km_fee_cents: number | null;
             driving: components["schemas"]["vehicle_driving"];
-            /** @description The driver, per day; null when self-drive */
+            /** @description A driver per day when the guest can choose one (either); otherwise null */
             driver_fee_cents: number | null;
         };
-        /** @description A half day costs less than a day and an hour less than a half day (or a day); a week at most 7 days and a month at most 30 at the daily price. A fee per km above the limit needs a limit. A driver needs a driver fee, and a motorcycle is self-drive only. Optional fields left out take their defaults. */
+        /** @description A half day costs less than a day and an hour less than a half day (or a day); a week at most 7 days and a month at most 30 at the daily price. A fee per km above the limit needs a limit. A choice of driver (either) needs a driver fee, and a motorcycle is self-drive only. Optional fields left out take their defaults. */
         vehicle_rate_body: {
             daily_price_cents: number;
             /** @description Default null */
@@ -5783,11 +5783,11 @@ export interface components {
             excess_km_fee_cents?: number | null;
             /** @description Default self_drive */
             driving?: components["schemas"]["vehicle_driving"];
-            /** @description Per day; required unless self_drive */
+            /** @description Per day; required with either, null otherwise */
             driver_fee_cents?: number | null;
         };
         /**
-         * @description Self-drive only, with a driver only, or either (RAA-150)
+         * @description Self-drive only, with a driver only (in the price), or either at a driver fee (RAA-150)
          * @enum {string}
          */
         vehicle_driving: "self_drive" | "with_driver" | "either";
