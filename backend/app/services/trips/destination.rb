@@ -33,7 +33,43 @@ module Trips
     # "Bantayan Island · Nov 12–15"; the destination alone without dates. A long place name
     # is shortened so the name fits a trip's 80 characters.
     def self.trip_name(area, starts_on, ends_on)
-      place = self.for(area)&.name || area.name
+      with_dates(self.for(area)&.name || area.name, starts_on, ends_on)
+    end
+
+    # A trip name made by #trip_name, moved to the trip's new dates (RAA-137): "Bantayan
+    # Island · Oct 22" becomes "Bantayan Island · Oct 21–24". Nil for a name that doesn't end
+    # with the old dates, which the guest typed (or there were none to tell it by).
+    def self.redated(name, (was_from, was_to), (from, to))
+      suffix = was_from && " · #{dates(was_from, was_to)}"
+      return unless suffix && name.end_with?(suffix)
+
+      with_dates(name.delete_suffix(suffix), from, to)
+    end
+
+    # A trip name made from its places (#trip_name, or an earlier #for_places), naming the
+    # places its items are in now, in the order the trip reaches them: "Bantayan Island ·
+    # Oct 22–27" becomes "Bantayan Island · Cebu City · Oct 22–27" once a Cebu City item is
+    # added. Nil when nothing changes, the trip has no items, or the name isn't one of ours:
+    # every part before the dates must be a destination's name, or the guest typed it.
+    def self.for_places(name, places, starts_on, ends_on)
+      return if places.empty?
+
+      suffix = starts_on && " · #{dates(starts_on, ends_on)}"
+      dated = suffix && name.end_with?(suffix)
+      parts = (dated ? name.delete_suffix(suffix) : name).split(" · ")
+      return unless parts.uniq.size == destination_names(parts).size
+
+      renamed = dated ? with_dates(places.join(" · "), starts_on, ends_on) : places.join(" · ").truncate(NAME_LENGTH)
+      renamed unless renamed == name
+    end
+
+    def self.destination_names(names)
+      Area.where(name: names)
+        .where("(kind = 'island' AND status = 'published') OR kind IN (?)", PLACE_KINDS)
+        .distinct.pluck(:name)
+    end
+
+    def self.with_dates(place, starts_on, ends_on)
       return place.truncate(NAME_LENGTH) unless starts_on
 
       suffix = " · #{dates(starts_on, ends_on)}"

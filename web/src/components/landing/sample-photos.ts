@@ -82,10 +82,30 @@ export function isApiPhoto(src: string) {
   return /^https?:\/\//.test(src);
 }
 
-// A landmark's photo by the first of its tags that has one, or else one in turn.
-export function landmarkPhoto(tags: { slug: string }[], index: number): Photo {
-  const tag = tags.find((t) => ACTIVITY_PHOTOS[t.slug]);
-  return tag ? ACTIVITY_PHOTOS[tag.slug] : destinationPhoto(index);
+// A stand-in is a scene a place of that kind could look like, never one it can't: a sandbar
+// may show clear water, but a church or a park gets no photo rather than a snorkeller.
+const ISLAND = DESTINATION_PHOTOS[1];
+const LANDMARK_PHOTOS: Record<string, Photo> = {
+  ...Object.fromEntries(
+    ["cliff-diving", "freediving", "island-hopping", "snorkelling", "swimming", "sunset-viewing"].map((slug) => [
+      slug,
+      ACTIVITY_PHOTOS[slug],
+    ]),
+  ),
+  sandbar: ISLAND,
+  "white-sand": ISLAND,
+};
+
+// The places to see on one page, each with the first of its tags whose scene no place before
+// it has taken, so two places never share a photo; a place with none left gets none (its card
+// shows its icon). `taken` are photos already on the page (its banner's), which none reuses.
+export function landmarkPhotos(landmarks: { tags: { slug: string }[] }[], taken: string[] = []): (Photo | null)[] {
+  const used = new Set(taken);
+  return landmarks.map(({ tags }) => {
+    const photo = tags.map((tag) => LANDMARK_PHOTOS[tag.slug]).find((p) => p && !used.has(p.src)) ?? null;
+    if (photo) used.add(photo.src);
+    return photo;
+  });
 }
 
 // The photo behind the home page's closing band (RAA-130), under its forest tint.

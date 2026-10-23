@@ -16,6 +16,18 @@ export function AreaScene({ kind, className }: { kind: string; className?: strin
   );
 }
 
+// The same scenes for a place to see without a photo that fits it, picked by its tags: a beach or
+// an island the sandbar, a fort, church or other old site the fort wall, anything else the coast.
+// A drawing, so nothing passes for a photo of the place.
+const BEACH_TAGS = new Set(["white-sand", "sandbar", "island-hopping", "snorkelling", "swimming"]);
+const HERITAGE_TAGS = new Set(["history", "architecture", "religious"]);
+
+export function PlaceScene({ tags, className }: { tags: { slug: string }[]; className?: string }) {
+  const slugs = tags.map((tag) => tag.slug);
+  const kind = slugs.some((slug) => HERITAGE_TAGS.has(slug)) ? "city" : slugs.some((slug) => BEACH_TAGS.has(slug)) ? "island" : "region";
+  return <AreaScene kind={kind} className={className} />;
+}
+
 // A sandbar off a palm-topped island, the sea in bands.
 function IslandScene() {
   return (

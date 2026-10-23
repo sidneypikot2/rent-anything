@@ -82,9 +82,37 @@ RSpec.describe "Trips", type: :request do
           expect(body.first["items"].pluck("starts_on")).to eq([ (day + 1).iso8601, nil ])
           expect(body.first["items"].first).to include(
             "quantity" => 2, "booking_type" => "rental", "area" => { "slug" => "santa-fe", "name" => "Santa Fe" },
+            "destination" => { "slug" => "bantayan-island", "name" => "Bantayan Island" },
             "cancellation_policy" => "free_cancellation", "listing_active" => true
           )
           expect(body.first["items"].first["listing"]).to include("title" => "Island hopping")
+        end
+      end
+
+      # So the trip can say which nights still need beds: a room's guests times its rooms, a
+      # shared room's beds, nothing for anything but a stay.
+      response "200", "each stay item with the guests it sleeps, all its units together" do
+        schema type: :array, items: { "$ref" => "#/components/schemas/trip" }
+
+        before do
+          cottage = create(:listing, :stay, area: santa_fe, title: "Bamboo cottage",
+            attrs: { "place_type" => "entire_place", "guests" => 2 })
+          rooms = create(:listing, :stay, area: santa_fe, title: "Family rooms",
+            attrs: { "place_type" => "private_room", "guests" => 4 })
+          rooms.units.create!([ { position: 2 }, { position: 3 } ])
+          dorm = create(:listing, :stay, area: santa_fe, title: "Dorm", with_rate: false,
+            attrs: { "place_type" => "shared_room", "guests" => 1 })
+          dorm.units.create!((2..6).map { { position: _1 } })
+          trip = create(:trip, user:, starts_on: day, ends_on: day + 2)
+          [ cottage, rooms, dorm, tour ].each do |listing|
+            create(:trip_item, trip:, listing:, starts_on: day, ends_on: day + 2, quantity: 15)
+          end
+        end
+
+        run_test! do |response|
+          items = response.parsed_body.first["items"]
+          expect(items.to_h { [ _1["listing"]["title"], _1["sleeps"] ] })
+            .to eq("Bamboo cottage" => 2, "Family rooms" => 12, "Dorm" => 6, "Island hopping" => nil)
         end
       end
 
@@ -263,8 +291,10 @@ RSpec.describe "Trips", type: :request do
       consumes "application/json"
       produces "application/json"
       description "Guest-only. Only the keys sent change; a date not sent keeps its value. Null dates make " \
-        "the trip undated. The dates must " \
-        "still cover every dated item's dates."
+        "the trip undated. Unbooked items follow: one that spanned the whole trip takes the new dates, one " \
+        "the new dates no longer reach becomes undated, and one for the whole group takes the new guests; " \
+        "each item's `unavailable` then says whether its listing can still have it. Booked items stay as " \
+        "they are, and the dates must still cover them."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
       parameter name: :body, in: :body, schema: {
@@ -288,11 +318,30 @@ RSpec.describe "Trips", type: :request do
         end
       end
 
-      response "422", "dates that no longer cover an item" do
+      response "200", "new dates and guests, which a whole-trip item follows onto a day its listing is booked" do
+        schema "$ref" => "#/components/schemas/trip"
+        let(:van) { create(:listing, area: santa_fe, title: "Van rental") }
+        let!(:item) { create(:trip_item, trip:, listing: van, starts_on: day, ends_on: day + 3, quantity: trip.guests) }
+        let(:body) { { starts_on: (day - 1).iso8601, ends_on: (day + 3).iso8601, guests: 6 } }
+
+        before { create(:booking, listing: van, starts_on: day - 1, ends_on: day - 1) }
+
+        run_test! do |response|
+          expect(response.parsed_body["items"].sole).to include(
+            "id" => item.id, "starts_on" => (day - 1).iso8601, "ends_on" => (day + 3).iso8601, "quantity" => 6,
+            "unavailable" => "#{(day - 1).strftime('%b %-d')} is fully booked"
+          )
+        end
+      end
+
+      response "422", "dates that no longer cover a booked item" do
         schema "$ref" => "#/components/schemas/validation_errors"
         let(:body) { { starts_on: day.iso8601, ends_on: day.iso8601 } }
 
-        before { create(:trip_item, trip:, starts_on: day + 2, ends_on: day + 3) }
+        before do
+          item = create(:trip_item, trip:, listing: tour, starts_on: day + 2, ends_on: day + 3)
+          create(:booking, :checkout, listing: tour, trip_item: item, starts_on: day + 2, ends_on: day + 3, status: "confirmed")
+        end
 
         run_test! do |response|
           expect(response.parsed_body["errors"]).to include("The trip's dates must cover the dates of its items")

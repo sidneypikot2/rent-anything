@@ -1,15 +1,32 @@
 import type { Explore } from "@/api/discovery";
-import { landmarkPhoto, listingCover } from "@/components/landing/sample-photos";
 import { formatPeso } from "@/lib/money";
 import { priceUnitText } from "@/lib/pricing";
+import type { AddPreview } from "@/components/trips/use-trips";
 import type { Feature } from "./listing-features";
 
 type Photo = { src: string; alt: string };
 
 // What a listing row or a place card already knows, for the side panel a pin opens, with the
 // photo it shows, so a pin's pop-up matches its card.
-export type ListingPanelInfo = { by: string; summary: string | null; features: Feature[]; photo: Photo };
-export type LandmarkInfo = { description: string; tags: { slug: string; name: string }[]; photo: Photo };
+// `place`: the place it is in, which names a map stack of its listings. `photo` is null for a
+// listing with none of its own: its category icon shows instead, never a stand-in photo.
+// `add`: what its add-to-trip sheet shows, as its row does.
+export type ListingPanelInfo = {
+  by: string;
+  place: string;
+  summary: string | null;
+  features: Feature[];
+  photo: Photo | null;
+  add?: AddPreview;
+};
+export type LandmarkInfo = {
+  description: string;
+  tags: { slug: string; name: string }[];
+  photo: Photo | null;
+  visits: LandmarkVisit[];
+};
+// A listing on the page that visits a place to see.
+export type LandmarkVisit = { id: number; title: string; href: string; category: string };
 
 // A pin on an area page's map, built on the server from the explore response and again in the
 // browser from a distance search, so both sides draw it the same.
@@ -20,13 +37,16 @@ export type ListingPin = {
   title: string;
   category: string;
   bookingType: string;
+  // Where guests find it (a listing's `group`): its colour and its key entry.
+  group: string;
   // Booked at once, without asking the partner (RAA-133): the pop-up's pill.
   instantBook: boolean;
   // "₱1,500" and "/ night": the pin shows the amount, the pop-up both.
   price: { amount: string; unit?: string } | null;
   lat: number;
   lng: number;
-  photo: Photo;
+  // Null when it has no photo of its own: its category icon instead.
+  photo: Photo | null;
   info?: ListingPanelInfo;
 };
 export type PlacePin = {
@@ -37,12 +57,13 @@ export type PlacePin = {
   areaSlug: string;
   lat: number;
   lng: number;
-  photo: Photo;
+  // Null when no stand-in fits the place (landmarkPhotos): its icon instead.
+  photo: Photo | null;
   landmark?: LandmarkInfo;
 };
 export type AreaPin = ListingPin | PlacePin;
 
-export function listingPin(listing: Explore["listings"][number], index: number, info?: ListingPanelInfo): ListingPin {
+export function listingPin(listing: Explore["listings"][number], info?: ListingPanelInfo): ListingPin {
   return {
     key: listingKey(listing.id),
     kind: "listing",
@@ -50,13 +71,14 @@ export function listingPin(listing: Explore["listings"][number], index: number, 
     title: listing.title,
     category: listing.category,
     bookingType: listing.booking_type,
+    group: listing.group,
     instantBook: listing.instant_book,
     price: listing.price_from_cents
       ? { amount: formatPeso(listing.price_from_cents), unit: priceUnitText(listing.price_unit) }
       : null,
     lat: listing.location.lat,
     lng: listing.location.lng,
-    photo: info?.photo ?? listingCover(listing, index),
+    photo: info ? info.photo : listing.cover_photo_url ? { src: listing.cover_photo_url, alt: listing.title } : null,
     info,
   };
 }
@@ -69,7 +91,7 @@ export const placeKey = (slug: string) => `place-${slug}`;
 export function placePins(destinations: Explore["destinations"], landmarks: Map<string, LandmarkInfo>): PlacePin[] {
   return destinations
     .filter((place) => place.type === "landmark")
-    .map((place, index) => {
+    .map((place) => {
       const landmark = landmarks.get(place.slug);
       return {
         key: placeKey(place.slug),
@@ -79,7 +101,7 @@ export function placePins(destinations: Explore["destinations"], landmarks: Map<
         areaSlug: place.area_slug,
         lat: place.location.lat,
         lng: place.location.lng,
-        photo: landmark?.photo ?? landmarkPhoto([], index),
+        photo: landmark?.photo ?? null,
         landmark,
       };
     });

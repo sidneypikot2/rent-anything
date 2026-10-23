@@ -39,6 +39,27 @@ export function priceUnitText(unit: components["schemas"]["price_unit"]) {
   return unit ? { night: "/ night", group: "/ group", person: "/ guest", day: "/ day" }[unit] : undefined;
 }
 
+// What an unpriced listing says where its price would be: only stays and tours have prices
+// yet (RAA-104, RAA-110); a rental or a transfer is booked at a price agreed with the partner
+// (Bookings::Price's to_be_agreed). The row says when, as checkout and bookings then say it is
+// "to be agreed".
+const PRICED_BY: Record<string, string> = {
+  transfer: "Price agreed with the partner when you book",
+  rental: "Price agreed with the partner when you book",
+};
+
+export function pricedByText(bookingType: string) {
+  return PRICED_BY[bookingType];
+}
+
+// The same, short, on an area page's rows: their section says once what it means (pricedByNote).
+export const TO_BE_AGREED = "Price to be agreed";
+
+// An area page section's line over its rows when some have no price: what "to be agreed" means.
+export function pricedByNote(bookingType: string) {
+  return PRICED_BY[bookingType] ? "No set price yet: you agree it with the partner when you book." : undefined;
+}
+
 export function plural(count: number, noun: string) {
   return `${count} ${count === 1 ? noun : `${noun}s`}`;
 }
@@ -49,10 +70,13 @@ export function plural(count: number, noun: string) {
 export function stayRateTerms(rate: StayRate, perGuest: boolean) {
   const terms: string[] = [];
   if (rate.weekend_price_cents) terms.push(`Fridays and Saturdays ${formatPeso(rate.weekend_price_cents)} ${nightUnit(perGuest)}`);
+  // Without an extra-guest fee the price covers everyone the place sleeps, so "up to 1 guest
+  // included" would read as a limit beside "Sleeps 2".
   if (!perGuest) {
     terms.push(
-      `Up to ${plural(rate.base_guests, "guest")} included` +
-        (rate.extra_guest_fee_cents ? `, then ${formatPeso(rate.extra_guest_fee_cents)} per extra guest per night` : ""),
+      rate.extra_guest_fee_cents
+        ? `Up to ${plural(rate.base_guests, "guest")} included, then ${formatPeso(rate.extra_guest_fee_cents)} per extra guest per night`
+        : "One price for every guest it sleeps",
     );
   }
   if (rate.weekly_discount_percent) terms.push(`${rate.weekly_discount_percent}% off stays of 7 nights or more`);

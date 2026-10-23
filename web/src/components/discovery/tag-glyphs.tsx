@@ -128,6 +128,11 @@ export function CloseGlyph({ className }: Props) {
   return <Glyph paths={["M6 6l12 12", "M18 6L6 18"]} className={className} />;
 }
 
+// A trip's bag, as the header's cart draws it.
+export function BagGlyph({ className }: Props) {
+  return <Glyph paths={["M6 8h12l-1 12H7L6 8Z", "M9 8V6a3 3 0 0 1 6 0v2"]} className={className} />;
+}
+
 // The hero search's When and Guests: a calendar page and two people.
 export function CalendarGlyph({ className }: Props) {
   return <Glyph paths={["M4 6h16v14H4Z", "M4 10h16", "M8 3v4", "M16 3v4"]} className={className} />;
@@ -238,6 +243,11 @@ export function BoltGlyph({ className }: Props) {
 // An i in a circle: a card's details (RAA-126).
 export function InfoGlyph({ className }: Props) {
   return <Glyph paths={[circle(12, 12, 9), "M12 11v5", "M12 8h.01"]} className={className} />;
+}
+
+// A warning triangle: a trip item its listing can't have on its dates.
+export function AlertGlyph({ className }: Props) {
+  return <Glyph paths={["M12 4L2.5 20h19L12 4Z", "M12 10v4.5", "M12 17.5h.01"]} className={className} />;
 }
 
 // A chevron pointing down: something that opens below or in a sheet (the hero's search summary,

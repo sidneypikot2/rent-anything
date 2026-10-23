@@ -53,7 +53,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
 
   return (
     <main className="flex flex-1 flex-col">
-      <CurrentPlace name={area.name} />
+      <CurrentPlace name={area.name} slug={area.slug} />
       <PageBanner
         // Its own cover (RAA-109); without one the banner stays on the backdrop (RAA-107).
         photo={cover && { src: cover.large_url, alt: listing.title }}

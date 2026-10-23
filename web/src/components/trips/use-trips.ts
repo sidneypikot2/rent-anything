@@ -18,9 +18,30 @@ export type AddRequest = {
   title: string;
   // Range bookings (rentals, stays) take from–to; the others a single day.
   range: boolean;
+  bookingType?: string;
   startsOn?: string;
   endsOn?: string;
   quantity: number;
+  // What the add sheet shows of the listing, as much as the page that started the add knows.
+  preview?: AddPreview;
+};
+
+export type AddPreview = {
+  category?: string;
+  // "by Santa Fe Island Adventures · in Santa Fe"
+  by?: string;
+  photo?: { src: string; alt: string } | null;
+  // "From ₱1,500 / night", or how an unpriced listing is priced.
+  price?: string;
+  // A transfer's seats per vehicle, a stay's guests per room (not a shared room's: its guests
+  // take a bed each), and how many of them the partner lists ("2 vans", "3 rooms").
+  seats?: number | null;
+  sleeps?: number | null;
+  sharedRoom?: boolean;
+  // A tour's group: the fewest guests it runs for and the most it takes.
+  tourGuests?: { min: number; max: number } | null;
+  unitsCount?: number;
+  unitsLabel?: string;
 };
 
 export function tripsKey(userId: number | undefined) {
@@ -96,7 +117,7 @@ export function itemQuote(quote: TripQuote | undefined, item: TripItem) {
 export function itemProblem(item: TripItem, quote: ItemQuote | undefined) {
   if (item.booking) return null;
   if (!item.listing_active) return "Isn't available to book any more";
-  return quote?.problem ?? null;
+  return quote?.problem ?? (item.unavailable ? `Not available: ${item.unavailable}` : null);
 }
 
 export type CopyChanges = { name: string; guests: number; starts_on?: string };
@@ -169,11 +190,20 @@ function useInvalidateTrips() {
     ]);
 }
 
-// POST /trip_items: into `tripId`, or a new trip named by the server when it's null.
+// POST /trip_items: into `tripId`, or a new trip when it's null: named `tripName` if the guest
+// typed one, otherwise by the server (after the destination and dates).
 export function useAddTripItem() {
   const invalidate = useInvalidateTrips();
   return useMutation({
-    mutationFn: async ({ request, tripId }: { request: AddRequest; tripId: number | null }) => {
+    mutationFn: async ({
+      request,
+      tripId,
+      tripName,
+    }: {
+      request: AddRequest;
+      tripId: number | null;
+      tripName?: string;
+    }) => {
       const { data, error } = await apiClient().POST("/api/v1/trip_items", {
         body: {
           listing_id: request.listingId,
@@ -181,6 +211,7 @@ export function useAddTripItem() {
           ends_on: request.endsOn ?? null,
           quantity: request.quantity,
           trip_id: tripId,
+          ...(tripId === null && tripName?.trim() ? { trip_name: tripName.trim() } : {}),
         },
       });
       if (!data) throw tripError(error, "Couldn't add it to your trip. Try again.");
@@ -256,7 +287,7 @@ export function useMergeTrip() {
   });
 }
 
-export type ItemChanges = { starts_on?: string | null; ends_on?: string | null; move_to_trip_id?: number };
+export type ItemChanges = { starts_on?: string | null; ends_on?: string | null; quantity?: number; move_to_trip_id?: number };
 
 // PATCH /trip_items/:id: re-date an item or move it to another trip. Answers with the trip
 // it ends up in.

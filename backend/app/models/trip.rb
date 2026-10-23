@@ -13,6 +13,7 @@ class Trip < ApplicationRecord
   validates :guests, numericality: { only_integer: true, in: 1..50 }
   validate :user_is_a_guest
   validate :dates_cover_items, if: :dates_changed?
+  before_save :follow_dates_in_name, if: -> { dates_changed? && !name_changed? }
   after_save { @covering = false }
   before_destroy :keep_if_booked, prepend: true
 
@@ -31,7 +32,7 @@ class Trip < ApplicationRecord
   scope :due_for_cleanup, -> { where(ends_on: ...ended_cutoff).or(where(ends_on: nil, updated_at: ...undated_cutoff)) }
   # The Trips page (RAA-139): trips with a booked item, which Trips::Cleanup keeps.
   scope :with_bookings, -> { where(TripItem.booked.where("trip_items.trip_id = trips.id").arel.exists) }
-  scope :with_items, -> { includes(items: [ :booking, { listing: %i[area category cover_photo] } ]) }
+  scope :with_items, -> { includes(items: [ :booking, { listing: [ :area, { category: :parent }, :cover_photo, :units, :stay_rate, :tour_detail ] } ]) }
 
   # The cart keeps a trip that ended on or after this date (#deletes_on is still to come)...
   def self.ended_cutoff(today = Date.current)
@@ -76,6 +77,21 @@ class Trip < ApplicationRecord
     items.booked.exists?
   end
 
+  # The destinations its items are in (Trips::Destination), in the order the trip reaches
+  # them: items go in date order, undated last.
+  def places
+    items = self.items.reload.includes(listing: :area).to_a
+    destinations = Trips::Destination.for_areas(items.map { _1.listing.area_id }.uniq)
+    items.map { |item| destinations[item.listing.area_id]&.name || item.listing.area.name }.uniq
+  end
+
+  # After its items change (an add, a move, a re-date, a removal, a merge), a name the trip
+  # was given from its places names the places it has now; a typed name is left alone.
+  def follow_places_in_name!
+    renamed = Trips::Destination.for_places(name, places, starts_on, ends_on)
+    update!(name: renamed) if renamed
+  end
+
   private
 
   def keep_if_booked
@@ -91,6 +107,13 @@ class Trip < ApplicationRecord
 
   def dates_are_not_past
     super unless @covering
+  end
+
+  # A name made from the destination and dates keeps saying the trip's dates, whichever way
+  # they change (an item extending them, Edit trip, a merge); a typed name is left alone.
+  def follow_dates_in_name
+    redated = Trips::Destination.redated(name, [ starts_on_was, ends_on_was ], [ starts_on, ends_on ])
+    self.name = redated if redated
   end
 
   def dates_cover_items

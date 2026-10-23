@@ -105,7 +105,7 @@ RSpec.describe "Search", type: :request do
         run_test! do |response|
           listings = response.parsed_body["listings"]
           expect(listings).to eq([
-            { "id" => gopro.id, "title" => "GoPro Hero 12 with dive housing", "category" => "Action camera",
+            { "id" => gopro.id, "title" => "GoPro Hero 12 with dive housing", "category" => "Action camera", "group" => "rental",
               "area_slug" => "bantayan-island", "instant_book" => false, "cover_photo_url" => nil }
           ])
         end

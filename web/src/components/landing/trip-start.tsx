@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { CheckGlyph } from "@/components/discovery/tag-glyphs";
-import { formatDateRange } from "@/components/trips/format";
-import { useContinueTrip } from "@/components/trips/use-trips";
+import { currentTrips, useTrips } from "@/components/trips/use-trips";
 import { useSession } from "@/lib/auth/session";
 import { useHeroTrip } from "./hero-trip";
-import { LAUNCH_AREA, START_TRIP, tripHref } from "./launch-area";
+import { LAUNCH_AREA, START_TRIP } from "./launch-area";
 
 // The line under the home hero's search (RAA-80, RAA-130). A traveller starts a trip with the
 // search's own button, so the line says what that costs and, signed out, when the account
@@ -14,8 +13,8 @@ import { LAUNCH_AREA, START_TRIP, tripHref } from "./launch-area";
 // cart already is, so the hero offers one action. Once Where names something that
 // isn't a destination the button searches, and the line says how to start a trip instead. With
 // Where emptied the button still starts at the launch area, so the line names it.
-// A guest with a trip planning goes on with it (Continue your trip, RAA-130): the line names that
-// trip and links to it, so the hero never reads as starting a second one.
+// A guest with trips planning is asked which one, or a new one, once they press it
+// (TripChoiceSheet), and the line says so.
 // Partners and admins have no cart: their search's button only searches, and the line is a
 // link to their own work.
 // Every version is one line of the same height, so when the session has been read (it lives in
@@ -32,7 +31,7 @@ export function TripStart() {
   const role = useSession()?.user.role;
   const { trip, where } = useHeroTrip();
   const row = role === "partner" || role === "admin" ? ROWS[role] : null;
-  const continuing = useContinueTrip();
+  const trips = currentTrips(useTrips(role === "guest").data);
   const startsAt = trip && !where ? `Starts on ${LAUNCH_AREA.name}. ` : "";
 
   if (row) {
@@ -47,26 +46,15 @@ export function TripStart() {
       </p>
     );
   }
-  if (continuing && trip) {
-    const count = continuing.items.length;
-    const dates = formatDateRange(continuing.starts_on, continuing.ends_on);
+  if (trips.length > 0 && trip) {
     return (
+      // An instruction, not something done: no tick.
       <p aria-live="polite" className={LINE}>
-        <CheckGlyph className={TICK} />
         <span className="min-w-0">
-          {/* "Your trip" and its dates, so a trip named after its place ("Bantayan Island")
-              doesn't read as the place itself. */}
-          Adds go to your trip <span className="font-semibold text-white">{continuing.name}</span>
-          {dates && !continuing.name.includes(dates) && `, ${dates}`}
-          {count > 0 && ` (${count === 1 ? "1 thing saved" : `${count} things saved`})`}.{" "}
-          {/* Inline in the sentence, so its tap target (44px) reaches past the line rather than
-              growing it. */}
-          <Link
-            href={tripHref(continuing.id)}
-            className="relative font-semibold text-white underline underline-offset-4 after:absolute after:-inset-x-2 after:-inset-y-3 after:content-[''] hover:text-sky-pale"
-          >
-            Open it
-          </Link>
+          {startsAt}
+          {trips.length === 1
+            ? "Next, pick your trip to add to, or start a new one."
+            : `Next, pick one of your ${trips.length} trips to add to, or start a new one.`}
         </span>
       </p>
     );

@@ -3,9 +3,10 @@
 # revealed only after a paid booking. The business offering it and how many units it has
 # (RAA-100): "by Basilia Guest House · 5 rooms". An area page's rows reuse its summary and
 # offered_by. Its pricing (RAA-104): a stay's nightly rate once it has a price, the guests it
-# sleeps, and its fees; a vehicle's rate once it has a price (RAA-149). Its ready photos in the partner's order (RAA-106). A tour's details
-# (RAA-110). Preload business, category, units, stay_rate, vehicle_rate, fees, ready_photos, tour_detail
-# and tour_inclusions.
+# sleeps, and its fees; a vehicle's rate once it has a price (RAA-149). Its ready photos in the
+# partner's order (RAA-106). A tour's details (RAA-110). Its guest-safe attrs (GUEST_DETAILS), as
+# an area page's rows have them. Preload business, category, units, stay_rate, vehicle_rate, fees,
+# ready_photos, tour_detail and tour_inclusions.
 module ListingDetailSerializer
   SUMMARY_LENGTH = 160
   # The attrs a guest may see (RAA-124): what a listing includes and how big it is. Never an
@@ -32,6 +33,7 @@ module ListingDetailSerializer
       vehicle_rate: listing.vehicle_rate&.priced? ? PricingSerializer.vehicle_rate(listing.vehicle_rate) : nil,
       fees: PricingSerializer.fees(listing),
       tour: TourSerializer.guest(listing),
+      details: details(listing),
       photos: listing.ready_photos.first(listing.photo_limit).map { |photo| ListingPhotoSerializer.call(photo) }
     }
   end
@@ -51,7 +53,7 @@ module ListingDetailSerializer
   def self.offered_by(listing)
     units_count = listing.units.size
     {
-      business: { name: listing.business.name },
+      business: { id: listing.business_id, name: listing.business.name },
       units_count:,
       units_label: listing.category.units_label(units_count),
       partner_name: listing.business.name

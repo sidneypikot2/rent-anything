@@ -53,7 +53,7 @@ RSpec.describe "Areas", type: :request do
           expect(json.first).to eq(
             "slug" => "bantayan-island", "name" => "Bantayan Island", "kind" => "island", "parent_name" => "Cebu",
             "parent_slug" => "cebu",
-            "landmark_count" => 2, "listing_count" => 2,
+            "landmark_count" => 2, "listing_count" => 2, "to_book_count" => 2,
             "activities" => [ { "slug" => "swimming", "name" => "Swimming", "kind" => "activity" },
                               { "slug" => "snorkelling", "name" => "Snorkelling", "kind" => "activity" } ]
           )
@@ -77,20 +77,60 @@ RSpec.describe "Areas", type: :request do
           expect(json["area"]).to include("slug" => "bantayan-island", "parent_name" => "Cebu", "parent_slug" => "cebu")
           expect(json["areas"]).to be_empty
           expect(json["landmarks"].pluck("slug")).to eq(%w[kota-beach virgin-island])
-          expect(json["landmarks"].first).to include("description" => "Sandbar beach")
+          expect(json["landmarks"].first).to include("description" => "Sandbar beach", "visited_by" => [])
           expect(json["landmarks"].first["tags"].pluck("slug")).to eq(%w[swimming white-sand])
           expect(json["listings"]).to contain_exactly(
-            { "id" => hopping.id, "title" => "Island hopping", "category" => "Tour", "area_slug" => "bantayan-island",
+            { "id" => hopping.id, "title" => "Island hopping", "category" => "Tour", "group" => "activity", "area_slug" => "bantayan-island", "area_name" => "Bantayan Island",
               "instant_book" => false, "cover_photo_url" => nil, "booking_type" => "activity", "summary" => "Four islands and a sandbar in one day.",
-              "business" => { "name" => "Moalboal Gear Rentals" }, "units_count" => 1, "units_label" => "1 unit",
+              "business" => { "id" => hopping.business_id, "name" => "Moalboal Gear Rentals" }, "units_count" => 1, "units_label" => "1 unit",
               "partner_name" => "Moalboal Gear Rentals", "price_from_cents" => nil, "price_unit" => nil,
-              "photos" => [], "details" => {}, "cancellation_policy" => "free_cancellation" },
-            { "id" => honda.id, "title" => "Honda Click 125", "category" => "Motorcycle",
-              "area_slug" => "bantayan-island", "instant_book" => false, "cover_photo_url" => nil, "booking_type" => "rental", "summary" => "",
-              "business" => { "name" => "Basilia Motor Rentals" }, "units_count" => 50, "units_label" => "50 motorcycles",
+              "photos" => [], "details" => {}, "tour" => nil, "cancellation_policy" => "free_cancellation" },
+            { "id" => honda.id, "title" => "Honda Click 125", "category" => "Motorcycle", "group" => "rental",
+              "area_slug" => "bantayan-island", "area_name" => "Bantayan Island", "instant_book" => false, "cover_photo_url" => nil,
+              "booking_type" => "rental", "summary" => "",
+              "business" => { "id" => basilia.id, "name" => "Basilia Motor Rentals" }, "units_count" => 50, "units_label" => "50 motorcycles",
               "partner_name" => "Basilia Motor Rentals", "price_from_cents" => nil, "price_unit" => nil,
-              "photos" => [], "details" => { "engine_cc" => 125, "transmission" => "automatic", "amenities" => [ "rider_helmet" ] }, "cancellation_policy" => "free_cancellation" }
+              "photos" => [], "details" => { "engine_cc" => 125, "transmission" => "automatic", "amenities" => [ "rider_helmet" ] }, "tour" => nil,
+              "cancellation_policy" => "free_cancellation" }
           )
+        end
+      end
+
+      response "200", "the listings of the places inside it, however deep, with their place's name" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "bantayan-island" }
+        let!(:santa_fe) { create(:area, slug: "santa-fe", name: "Santa Fe", kind: "town", parent: bantayan) }
+        let!(:port) { create(:area, slug: "santa-fe-port", name: "Santa Fe Port", parent: santa_fe) }
+        let!(:hidden) { create(:area, :draft, slug: "madridejos", name: "Madridejos", kind: "town", parent: bantayan) }
+
+        before do
+          create(:listing, area: santa_fe, category: tour, title: "Santa Fe kayaks")
+          create(:listing, area: port, category: tour, title: "Port transfer")
+          create(:listing, area: hidden, category: tour, title: "Draft town tour")
+          create(:listing, :paused, area: santa_fe, category: tour, title: "Paused kayaks")
+        end
+
+        run_test! do |response|
+          rows = response.parsed_body["listings"]
+          expect(rows.pluck("title")).to eq([ "Honda Click 125", "Island hopping", "Port transfer", "Santa Fe kayaks" ])
+          expect(rows.find { _1["title"] == "Santa Fe kayaks" }).to include("area_slug" => "santa-fe", "area_name" => "Santa Fe")
+        end
+      end
+
+      response "200", "a place to see names the active listings that visit it" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "bantayan-island" }
+
+        before do
+          ListingLandmark.create!(listing: hopping, landmark: virgin, relation: "visits")
+          ListingLandmark.create!(listing: paused, landmark: virgin, relation: "visits")
+          ListingLandmark.create!(listing: honda, landmark: virgin, relation: "serves")
+        end
+
+        run_test! do |response|
+          landmarks = response.parsed_body["landmarks"].index_by { _1["slug"] }
+          expect(landmarks["virgin-island"]["visited_by"]).to eq([ hopping.id ])
+          expect(landmarks["kota-beach"]["visited_by"]).to eq([])
         end
       end
 
@@ -127,7 +167,18 @@ RSpec.describe "Areas", type: :request do
         end
       end
 
-      response "200", "a province lists the areas under it that have something to book" do
+      response "200", "a tour's row says its kind and the group it takes" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "bantayan-island" }
+        let!(:joiner) { create(:listing, :tour, category: tour, area: bantayan, title: "Sandbar joiner") }
+
+        run_test! do |response|
+          row = response.parsed_body["listings"].find { _1["id"] == joiner.id }
+          expect(row["tour"]).to eq("tour_type" => "joiner", "min_guests" => 2, "max_guests" => 12)
+        end
+      end
+
+      response "200", "a province lists the areas under it that have something to book, and everything to book in them" do
         schema "$ref" => "#/components/schemas/area_detail"
         let(:slug) { "cebu" }
         let!(:mactan) { create(:area, slug: "mactan", name: "Mactan", parent: cebu) }
@@ -136,7 +187,7 @@ RSpec.describe "Areas", type: :request do
           json = response.parsed_body
           expect(json["areas"].pluck("slug")).to eq(%w[bantayan-island cebu-city])
           expect(json["landmarks"]).to be_empty
-          expect(json["listings"]).to be_empty
+          expect(json["listings"].pluck("title")).to eq([ "Heritage walk", "Honda Click 125", "Island hopping" ])
         end
       end
 
@@ -154,6 +205,24 @@ RSpec.describe "Areas", type: :request do
 
         run_test!
       end
+    end
+  end
+
+  # What an area's page counts to book (its banner, What to book's All): one card per business per
+  # guest group, the places inside it included, so the home page's destinations say the same number.
+  describe "to_book_count" do
+    let!(:santa_fe) { create(:area, slug: "santa-fe", name: "Santa Fe", kind: "town", parent: bantayan) }
+
+    it "counts each business once per group, over the area and the places inside it" do
+      # Basilia's second scooter, in Santa Fe: the same card as its Honda on Bantayan Island.
+      create(:listing, area: santa_fe, category: scooter, title: "Yamaha Mio", partner: basilia.partner, business: basilia)
+      # A tour from Basilia: another group, another card.
+      create(:listing, area: santa_fe, category: tour, title: "Sunset cruise", partner: basilia.partner, business: basilia)
+
+      get "/api/v1/areas"
+
+      counts = response.parsed_body.to_h { |area| [ area["slug"], area["to_book_count"] ] }
+      expect(counts).to eq("bantayan-island" => 3, "santa-fe" => 2, "cebu-city" => 1)
     end
   end
 end

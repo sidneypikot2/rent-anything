@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { Card, CardBody } from "@/components/ui/card";
+import { cn } from "@/components/ui/cn";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { PasswordField } from "@/components/ui/password-field";
@@ -34,9 +35,13 @@ type Props = {
   // Set when the card sits in a sheet over the page (add to trip): signing in calls it
   // instead of navigating, and the page carries on where it was.
   onSignedIn?: () => void;
+  // Set by a card that isn't a page's whole form (the add-to-trip sheet, which leads with
+  // creating an account): its own title in place of "Welcome back", and no link to the other form.
+  title?: string;
+  switchLink?: boolean;
 };
 
-export function AuthCard({ role, mode, next, onSignedIn }: Props) {
+export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = true }: Props) {
   const router = useRouter();
   const redirectTo = next ?? DASHBOARD_PATHS[role];
   const selfServe = role !== "admin";
@@ -110,7 +115,7 @@ export function AuthCard({ role, mode, next, onSignedIn }: Props) {
   return (
     <Card data-testid={`${role}-${signup ? "signup" : "signin"}`} className="w-full self-start">
       <CardBody pad="lg" className="flex flex-col gap-5">
-        <h2 className="font-display text-2xl font-extrabold tracking-tight">{TITLES[role][signup ? "signup" : "signin"]}</h2>
+        <h2 className={cn("font-display font-extrabold tracking-tight", title ? "text-lg" : "text-2xl")}>{title ?? TITLES[role][signup ? "signup" : "signin"]}</h2>
 
         <form onSubmit={submit}>
           <fieldset disabled={pending} className="flex flex-col gap-3">
@@ -160,7 +165,7 @@ export function AuthCard({ role, mode, next, onSignedIn }: Props) {
           </div>
         )}
 
-        {role !== "admin" && (
+        {role !== "admin" && switchLink && (
           <p className="text-center text-sm text-muted">
             {signup ? "Already have an account? " : "Don't have an account? "}
             <Link

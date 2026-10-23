@@ -125,7 +125,7 @@ export function StayPrice({
             <p>
               {datesSet
                 ? "Pick a check-out date after check-in to see the total for your stay."
-                : "Set your dates and guests above to see the total for your stay."}
+                : "Set your dates and guests to see the total for your stay."}
             </p>
             {required.length > 0 && <p>Fees: {required.map(feeText).join(", ")}.</p>}
           </div>

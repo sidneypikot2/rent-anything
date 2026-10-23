@@ -4,6 +4,19 @@ import { GlassPanel, glassClasses } from "@/components/ui/glass";
 import { DriftingPhoto } from "./drifting-photo";
 import { SearchBar } from "./search-bar";
 
+// A banner's row of chips (an area's counts, a trip's needs): one row to swipe on a phone, so the
+// banner stays short; its right edge fades, so a chip cut there reads as more to swipe to, and the
+// end padding lets the last one clear it. From sm it wraps. `relative` holds a chip's sr-only
+// text (absolutely positioned) inside the row, which would otherwise widen the page on a phone.
+export const CHIP_ROW =
+  "relative -mx-1 flex gap-2 overflow-x-auto pr-8 pl-1 [scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0";
+// A count on the banner ("20 to book"), on glass.
+export const STAT_CHIP = "flex min-h-11 items-center gap-1.5 rounded-control px-3.5 text-sm whitespace-nowrap text-sky-mist";
+
+export function StatCount({ count }: { count: number }) {
+  return <span className="font-display text-xl font-extrabold tabular-nums text-white">{count}</span>;
+}
+
 // `sizes` defaults to the frame's width; a photo also shown elsewhere passes that one's.
 type Photo = { src: string; alt: string; mirror?: boolean; sizes?: string; placeholder?: `data:image/${string}` };
 
@@ -28,8 +41,8 @@ const HERO_PHOTO_PAD = "pb-8 pt-16 max-sm:short:pb-5 max-sm:short:pt-5! sm:py-12
 // The home hero's photo is the backdrop's own, at full colour: its scrim darkens only where the
 // text is, the foot on a phone and the left from sm up, so the boats show on the right. `mirror`
 // flips a photo whose open side is on the wrong side for the text; it is the `scale` property,
-// so it composes with the drift's transform. `search={false}` leaves out the search bar under it,
-// for a page that isn't about finding a place (the cart). `compact` is a work page's banner (the
+// so it composes with the drift's transform. `search={false}` leaves the header's search off the
+// page (SearchBar marks a page that has it), for a page that isn't about finding a place (the cart). `compact` is a work page's banner (the
 // cart, Trips, Bookings): no photo, the title and its actions on one short row, so the page's
 // own content starts in the first screen.
 export function PageBanner({
@@ -84,7 +97,7 @@ export function PageBanner({
     // the window's edge (RAA-125), so the bar never sits on the frame. z-10 keeps the hero
     // search's suggestions, which open past the frame's foot, over the page sheet that follows
     // (its glass sections are stacking contexts); the header is z-40. Every banner but the
-    // hero, which holds the search itself, has the search bar under it (RAA-126).
+    // hero, which holds the search itself, marks its page for the header's search (RAA-126).
     <>
     <section className={cn("focus-light relative isolate z-10 flex px-3 pb-3 pt-3 sm:px-6", compact ? "sm:pb-4" : "sm:pb-6")}>
       {photo ? (

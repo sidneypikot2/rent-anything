@@ -9,7 +9,7 @@ module Api
       before_action :set_item, only: %i[update destroy]
 
       def create
-        trip = Trips::AddItem.call(current_user, params.slice(:listing_id, :starts_on, :ends_on, :quantity, :trip_id))
+        trip = Trips::AddItem.call(current_user, params.slice(:listing_id, :starts_on, :ends_on, :quantity, :trip_id, :trip_name))
         render json: TripSerializer.reloaded(trip), status: :created
       end
 
@@ -20,7 +20,12 @@ module Api
 
       # A booked item is kept (RAA-132): a 422. Its trip is locked, as a checkout locks it.
       def destroy
-        raise ActiveRecord::RecordInvalid, @item unless @item.trip.with_lock { @item.destroy }
+        trip = @item.trip
+        trip.with_lock do
+          raise ActiveRecord::RecordInvalid, @item unless @item.destroy
+
+          trip.follow_places_in_name!
+        end
 
         head :no_content
       end

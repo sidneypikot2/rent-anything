@@ -555,7 +555,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description a province lists the areas under it that have something to book */
+                /** @description a province lists the areas under it that have something to book, and everything to book in them */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -4348,7 +4348,7 @@ export interface paths {
         put?: never;
         /**
          * Add a listing to a trip
-         * @description Guest-only. Adds the listing to `trip_id`, or, without one, to a new trip named after the destination and dates ("Bantayan Island · Nov 12–15") with `quantity` guests. The trip's dates grow to cover the item's. Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an undated item can't be checked out until it has one. `quantity` is 1 to 99, default 1. Answers with the trip.
+         * @description Guest-only. Adds the listing to `trip_id`, or, without one, to a new trip named after the destination and dates ("Bantayan Island · Nov 12–15"), or `trip_name` if the guest typed one, with `quantity` guests. The trip's dates grow to cover the item's. Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an undated item can't be checked out until it has one. `quantity` is 1 to 99, default 1. Answers with the trip.
          */
         post: {
             parameters: {
@@ -4370,6 +4370,8 @@ export interface paths {
                         quantity?: number;
                         /** @description Omit or null for a new trip */
                         trip_id?: number | null;
+                        /** @description A new trip's name, up to 80 characters; blank or omitted names it after the destination and dates. Ignored with trip_id */
+                        trip_name?: string | null;
                     };
                 };
             };
@@ -4554,7 +4556,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description the guest's trips, up to 7 days after they end */
+                /** @description each stay item with the guests it sleeps, all its units together */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -4796,7 +4798,7 @@ export interface paths {
         head?: never;
         /**
          * Rename a trip or change its dates or guests
-         * @description Guest-only. Only the keys sent change; a date not sent keeps its value. Null dates make the trip undated. The dates must still cover every dated item's dates.
+         * @description Guest-only. Only the keys sent change; a date not sent keeps its value. Null dates make the trip undated. Unbooked items follow: one that spanned the whole trip takes the new dates, one the new dates no longer reach becomes undated, and one for the whole group takes the new guests; each item's `unavailable` then says whether its listing can still have it. Booked items stay as they are, and the dates must still cover them.
          */
         patch: {
             parameters: {
@@ -4822,7 +4824,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description the changed trip */
+                /** @description new dates and guests, which a whole-trip item follows onto a day its listing is booked */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -4840,7 +4842,7 @@ export interface paths {
                         "application/json": components["schemas"]["error"];
                     };
                 };
-                /** @description dates that no longer cover an item */
+                /** @description dates that no longer cover a booked item */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -5210,6 +5212,11 @@ export interface components {
             id: number;
             title: string;
             category: string;
+            /**
+             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Getting around"
+             * @enum {string}
+             */
+            group: "activity" | "transfer" | "rental" | "stay" | "gear";
             area_slug: string;
             /** @description Booked at once, without asking the partner (RAA-132): its pill */
             instant_book: boolean;
@@ -5249,15 +5256,21 @@ export interface components {
              */
             ends_on: string | null;
             quantity: number;
+            /** @description A stay: the most guests it sleeps, all its units together (a shared room's beds); null for anything else, or a stay that doesn't say */
+            sleeps: number | null;
             /**
              * @description Its listing's: rentals and stays take a range of days, the others one day
              * @enum {string}
              */
             booking_type: "rental" | "stay" | "activity" | "transfer";
             area: components["schemas"]["area_ref"];
+            /** @description Where it is, as the trip's destinations say it: the published island its listing's area is on, otherwise its town or city. The cart lists a trip's items under it when the trip goes to more than one */
+            destination: components["schemas"]["area_ref"] | null;
             listing: components["schemas"]["listing_summary"];
             /** @description Its booking while one holds its days (RAA-132); a booked item can't be changed or removed */
             booking: components["schemas"]["booking_ref"] | null;
+            /** @description Why its listing can't have it on its days still ahead: a day blocked or with nothing left ("Nov 18 is fully booked", "No longer offered"), checked against the partner's calendar; null when it can, or when it is booked, undated or past. The item stays in the trip: the guest picks another or new dates */
+            unavailable: string | null;
             /**
              * @description The listing's, which a booking made now would be under (RAA-139)
              * @enum {string}
@@ -5299,6 +5312,11 @@ export interface components {
             id: number;
             title: string;
             category: string;
+            /**
+             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Getting around"
+             * @enum {string}
+             */
+            group: "activity" | "transfer" | "rental" | "stay" | "gear";
             area_slug: string;
             /** @description Booked at once, without asking the partner (RAA-132) */
             instant_book: boolean;
@@ -5348,6 +5366,7 @@ export interface components {
             fees: components["schemas"]["listing_fee"][];
             /** @description A tour's details and the days it runs; null for any other category */
             tour: components["schemas"]["guest_tour"] | null;
+            details: components["schemas"]["listing_details"];
             /** @description Its photos ready for guests (see partner_photo.ready), in the partner's order; the first is the cover */
             photos: components["schemas"]["photo_urls"][];
         };
@@ -5367,7 +5386,9 @@ export interface components {
             card_url: string;
             large_url: string;
         };
+        /** @description Who offers it; an area page groups its rows by business (names are unique per partner only) */
         business_ref: {
+            id: number;
             name: string;
         };
         landmark_pin: {
@@ -5911,6 +5932,8 @@ export interface components {
             parent_slug: string | null;
             landmark_count: number;
             listing_count: number;
+            /** @description What the area's page counts to book: one per business per guest group, the areas inside it included */
+            to_book_count: number;
             activities: components["schemas"]["tag"][];
         };
         area_detail: {
@@ -5922,12 +5945,22 @@ export interface components {
                 name: string;
                 description: string;
                 tags: components["schemas"]["tag"][];
+                /** @description The ids of the active listings that visit it, from the listings here */
+                visited_by: number[];
             }[];
+            /** @description What to book here and in the published places inside it, however deep */
             listings: {
                 id: number;
                 title: string;
                 category: string;
+                /**
+                 * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Getting around"
+                 * @enum {string}
+                 */
+                group: "activity" | "transfer" | "rental" | "stay" | "gear";
                 area_slug: string;
+                /** @description Its own place: this area or one inside it */
+                area_name: string;
                 /** @description Booked at once, without asking the partner (RAA-132) */
                 instant_book: boolean;
                 /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
@@ -5951,6 +5984,12 @@ export interface components {
                 /** @description Its first ready photos, in the partner's order */
                 photos: components["schemas"]["photo_urls"][];
                 details: components["schemas"]["listing_details"];
+                /** @description A tour's kind and the group it takes; null for anything else */
+                tour: {
+                    tour_type: components["schemas"]["tour_type"];
+                    min_guests: number;
+                    max_guests: number;
+                } | null;
                 cancellation_policy: components["schemas"]["cancellation_policy"];
             }[];
         };
@@ -5999,6 +6038,11 @@ export interface components {
             id: number;
             title: string;
             category: string;
+            /**
+             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Getting around"
+             * @enum {string}
+             */
+            group: "activity" | "transfer" | "rental" | "stay" | "gear";
             area_slug: string;
             /** @description Booked at once, without asking the partner (RAA-132) */
             instant_book: boolean;
