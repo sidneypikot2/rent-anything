@@ -14,7 +14,8 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY Gemfile Gemfile.lock ./
-# Unset locally (Compose installs every group); Render passes development:test (render.yaml).
+# Unset locally (Compose installs every group); the staging deploy passes development:test
+# (.github/workflows/deploy-staging.yml).
 ARG BUNDLE_WITHOUT
 RUN bundle install
 

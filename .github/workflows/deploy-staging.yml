@@ -1,0 +1,120 @@
+name: Deploy staging
+
+# The hosted staging environment: one AWS Lightsail instance (RAA-156, deploy/staging/).
+# Builds the backend and web images here (a Next build is too heavy for the 2 GB instance),
+# pushes them to GHCR, then has the instance pull them and restart. Not a required check:
+# it never runs on PRs. Run it by hand to redeploy staging as it is.
+on:
+  push:
+    branches: [ staging ]
+    paths:
+      - backend/**
+      - web/**
+      - deploy/staging/**
+      - .github/workflows/deploy-staging.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+# Deploys run one at a time, in order; a newer merge waits instead of cancelling a deploy
+# that is halfway through restarting the instance.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io/sidneypikot2
+  API_URL: https://api.staging.tripkonext.com
+  WEB_URL: https://staging.tripkonext.com
+
+jobs:
+  deploy:
+    # A manual run can pick any branch; only staging deploys.
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push the backend
+        uses: docker/build-push-action@v7
+        with:
+          context: backend
+          push: true
+          build-args: BUNDLE_WITHOUT=development:test
+          tags: |
+            ${{ env.REGISTRY }}/rent-anything-backend:${{ github.sha }}
+            ${{ env.REGISTRY }}/rent-anything-backend:staging
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      # NEXT_PUBLIC_* are baked into the bundle: they are repository variables (Settings →
+      # Secrets and variables → Actions → Variables), and changing one needs a redeploy.
+      - name: Build and push the web app
+        uses: docker/build-push-action@v7
+        with:
+          context: web
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ env.API_URL }}
+            NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
+            NEXT_PUBLIC_FACEBOOK_APP_ID=${{ vars.NEXT_PUBLIC_FACEBOOK_APP_ID }}
+            NEXT_PUBLIC_SECTION_SWITCH=${{ vars.NEXT_PUBLIC_SECTION_SWITCH }}
+          tags: |
+            ${{ env.REGISTRY }}/rent-anything-web:${{ github.sha }}
+            ${{ env.REGISTRY }}/rent-anything-web:staging
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+      # The instance's deploy user, its key (only for this workflow) and its host key are
+      # repository secrets; deploy/staging/README.md sets them up.
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.LIGHTSAIL_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      # IMAGE_TAG in the instance's .env pins this commit's images, so a restart on the
+      # instance keeps them; rolling back is setting an older commit there (README).
+      - name: Deploy to the instance
+        env:
+          HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          SHA: ${{ github.sha }}
+        # The commit SHA is meant to expand here, on the runner (SC2029).
+        run: |
+          scp deploy/staging/compose.yml deploy/staging/Caddyfile "deploy@$HOST:/opt/tripkonext/"
+          # shellcheck disable=SC2029
+          ssh "deploy@$HOST" "cd /opt/tripkonext \
+            && echo IMAGE_TAG=$SHA > .env \
+            && docker compose pull --quiet \
+            && docker compose up -d --remove-orphans \
+            && docker image prune -f"
+
+      - name: Check the API and the web app answer
+        run: |
+          for url in "$API_URL/up" "$WEB_URL/"; do
+            for _ in $(seq 1 30); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)
+              [ "$code" = 200 ] && break
+              sleep 10
+            done
+            echo "$url: $code"
+            [ "$code" = 200 ] || exit 1
+          done

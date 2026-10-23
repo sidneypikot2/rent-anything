@@ -1,0 +1,13 @@
+# Caddy gets and renews a Let's Encrypt certificate for each name on its own, once the
+# GoDaddy A records point both names at the instance's static IP (RAA-156).
+
+staging.tripkonext.com {
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+# Action Cable's WebSocket goes through reverse_proxy as is.
+api.staging.tripkonext.com {
+	encode zstd gzip
+	reverse_proxy backend:3000
+}
