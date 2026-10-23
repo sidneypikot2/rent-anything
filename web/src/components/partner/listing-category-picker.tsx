@@ -21,13 +21,14 @@ function subcategoryLegend(group: CategoryGroup) {
 }
 
 // How each top-level category is offered, in the order partners on the island most often list:
-// tours first. A group the API adds later still shows, under its own name, after these.
+// tours first. Named as guests find them on an area page (BOOKING_GROUPS), so a partner's
+// "Getting around" is the guest's. A group the API adds later still shows, under its own name, after these.
 const GROUPS: Record<string, { label: string; description: string }> = {
   Services: { label: "Tours and services", description: "Island hopping, snorkelling trips, a photographer" },
-  "Vehicle rental": { label: "Vehicle rental", description: "Motorbikes, trikes, cars and vans" },
+  "Vehicle rental": { label: "Getting around", description: "Motorbikes, cars and vans" },
   Accommodation: { label: "A place to stay", description: "Rooms, cottages, resorts and villas" },
   Transport: { label: "Transfers", description: "Port and airport pickups, van transfers" },
-  "Equipment rental": { label: "Gear rental", description: "Cameras, snorkel sets and more" },
+  "Equipment rental": { label: "Gear", description: "Cameras, snorkel sets and more" },
 };
 const GROUP_ORDER = Object.keys(GROUPS);
 

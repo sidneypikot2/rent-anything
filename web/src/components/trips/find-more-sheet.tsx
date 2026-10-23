@@ -30,7 +30,7 @@ export function FindMoreSheet({ trip, onClose }: { trip: Trip; onClose: () => vo
             {areas.map((area) => (
               <li key={area.slug}>
                 <CardLink
-                  href={`/${area.slug}${carry}`}
+                  href={withDates(`/${area.slug}`, carry)}
                   data-testid="find-more-area"
                   className="flex items-center gap-3 p-3 hover:text-primary"
                 >

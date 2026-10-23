@@ -4,7 +4,10 @@ import { Eyebrow, SectionTitle } from "./typography";
 
 // One section of a page, so they all read the same way: an optional eyebrow, the title, an
 // optional intro and action, then the content one `block` step below. Sections sit one
-// `section` step apart in their page (gap-section). It eases up as it scrolls into view.
+// `section` step apart in their page (gap-section). It eases up as it scrolls into view, unless
+// it has an `id`: links jump to it and to things in it (#places, #listing-12), and the browser
+// aims a jump at where the section is drawn before the jump, 14px low while it is still rising,
+// so the heading would land under the header.
 // In a .page-sections page, `surface` says what it sits on (RAA-125): the bare photo, the
 // faint glass or paper (a pale sheet, for a section of white cards); globals.css draws them.
 // An anchor to it (/#destinations) clears the header through html's scroll padding
@@ -31,7 +34,7 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section id={id} data-testid={testId} data-surface={surface} className={cn("reveal flex flex-col gap-block", className)}>
+    <section id={id} data-testid={testId} data-surface={surface} className={cn(!id && "reveal", "flex flex-col gap-block", className)}>
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="flex max-w-prose flex-col gap-2">
           {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}

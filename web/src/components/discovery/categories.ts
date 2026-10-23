@@ -1,32 +1,57 @@
 import type { components } from "@/api/schema";
 
-// What to book's four groups, one per booking type, named once (RAA-130): `title` heads the
-// group on an area page and in the map's key; `short` is the home hero's shortcut to it, which a
-// search that finds nothing offers too, so a Transfers pill opens Getting there & around. `id` is
-// the group's anchor and `?show=` value; `icon` the listing category whose line icon stands for
-// it. In the area page's order.
+// What to book's groups, one per listing `group` (a booking type, with gear told apart from the
+// vehicle rentals it shares `rental` with), named once (RAA-130): `title` heads the group on an
+// area page and in the map's key; `short` is the home hero's shortcut to it, which a search that
+// finds nothing offers too. `id` is the group's anchor and `?show=` value; `icon` the listing
+// category whose line icon stands for it; `need` what it is to a trip, in the trip card's
+// checklist of what a trip here still lacks — gear is nice to have, not a need, so it has none.
 export const BOOKING_GROUPS = [
-  { group: "activity", id: "need-activity", title: "Tours & activities", short: "Tours", icon: "Tour" },
-  { group: "transfer", id: "need-transfer", title: "Getting there & around", short: "Transfers", icon: "Van transfer" },
-  { group: "rental", id: "need-rental", title: "Rentals & gear", short: "Rentals", icon: "Motorcycle" },
-  { group: "stay", id: "need-stay", title: "Stays", short: "Stays", icon: "Hotel or cottage" },
+  {
+    group: "activity",
+    id: "need-activity",
+    title: "Tours & activities",
+    short: "Tours",
+    need: "Things to do",
+    icon: "Tour",
+  },
+  {
+    group: "transfer",
+    id: "need-transfer",
+    title: "Transfers",
+    short: "Transfers",
+    need: "A transfer",
+    icon: "Van transfer",
+  },
+  {
+    group: "rental",
+    id: "need-rental",
+    title: "Getting around",
+    short: "Getting around",
+    need: "Getting around",
+    icon: "Motorcycle",
+  },
+  { group: "stay", id: "need-stay", title: "Stays", short: "Stays", need: "A place to stay", icon: "Hotel or cottage" },
+  { group: "gear", id: "need-gear", title: "Gear", short: "Gear", need: null, icon: "Snorkel gear" },
 ] as const;
 
 export type BookingGroup = (typeof BOOKING_GROUPS)[number];
 
 // The same groups in the order a trip needs them, getting there first, as the example trip
-// lists them: wherever the kinds are offered as shortcuts (the home hero, a search that finds
-// nothing), so they never appear in two orders.
-export const TRIP_ORDER_GROUPS = (["transfer", "stay", "rental", "activity"] as const).map(
-  (key) => BOOKING_GROUPS.find(({ group }) => group === key)!,
+// lists them: an area page's What to book and wherever the kinds are offered as shortcuts (the
+// home hero, a search that finds nothing), so they never appear in two orders.
+export const TRIP_ORDER_GROUPS = (["transfer", "stay", "rental", "activity", "gear"] as const).map((key) =>
+  BOOKING_GROUPS.find(({ group }) => group === key)!,
 );
 
-// An icon's colour per group, on dark glass. Full class names, so Tailwind finds them.
+// An icon's colour per group, on dark glass. Full class names, so Tailwind finds them. Gear
+// shares the rentals' hue.
 export const GROUP_ICON = {
   activity: "text-kind-activity",
   transfer: "text-kind-transfer",
   rental: "text-kind-rental",
   stay: "text-kind-stay",
+  gear: "text-kind-rental",
 };
 
 type Results = components["schemas"]["search_results"];

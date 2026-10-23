@@ -61,6 +61,8 @@ export function OauthButtons({ disabled, onToken }: Props) {
       theme: "outline",
       size: "large",
       text: "continue_with",
+      // The site is English only: otherwise Google follows the browser's language.
+      locale: "en",
       width: googleButton.current.offsetWidth || 280,
     });
   }, [googleReady]);

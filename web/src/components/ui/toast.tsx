@@ -2,6 +2,9 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 
+// How many toasts are showing; while any is, the root carries data-toast.
+let showing = 0;
+
 type Props = {
   // The message; null hides the toast.
   message: ReactNode | null;
@@ -20,7 +23,13 @@ type Props = {
 // stays mounted so screen readers announce each new message.
 export function Toast({ message, id, ...props }: Props) {
   return (
-    <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-4">
+    // From sm, above an area page's floating dock while it shows (--dock-space, floating-dock.ts);
+    // on a phone it takes the dock's place instead (data-toast, globals.css), so the foot of the
+    // screen holds one bar, not two over the card just tapped.
+    <div
+      aria-live="polite"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-[61] flex justify-center px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:z-50 sm:pb-[calc(1rem+var(--dock-space,0px))]"
+    >
       {message !== null && (
         <ToastCard key={id ?? String(message)} {...props}>
           {message}
@@ -41,6 +50,15 @@ function ToastCard({
   const [held, setHeld] = useState(false);
 
   useEffect(() => {
+    showing += 1;
+    document.documentElement.dataset.toast = "";
+    return () => {
+      showing -= 1;
+      if (showing === 0) delete document.documentElement.dataset.toast;
+    };
+  }, []);
+
+  useEffect(() => {
     if (held) return;
     const timer = window.setTimeout(onDismiss, duration);
     return () => window.clearTimeout(timer);
@@ -55,7 +73,8 @@ function ToastCard({
       onBlur={() => setHeld(false)}
       className="pointer-events-auto flex w-full max-w-lg animate-rise flex-wrap items-center gap-x-4 gap-y-2 focus-light rounded-card border border-glass-edge bg-navy/90 px-4 py-3 text-sm text-white shadow-lift backdrop-blur-lg"
     >
-      <div className="min-w-0 flex-1">{children}</div>
+      {/* A phone gives the message its own line, so a trip's name isn't squeezed by the actions. */}
+      <div className="min-w-0 flex-1 max-sm:basis-full">{children}</div>
       <div className="flex items-center gap-3 font-semibold text-aqua">
         {actions}
         <button type="button" onClick={onDismiss} aria-label="Dismiss" className="text-on-dark hover:text-white">

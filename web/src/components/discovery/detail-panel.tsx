@@ -3,10 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";
-import { useState, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { apiClient } from "@/api/client";
 import { isApiPhoto } from "@/components/landing/sample-photos";
+import type { TripDates } from "@/components/trips/trip-dates";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
@@ -14,7 +15,8 @@ import { Price } from "@/components/ui/typography";
 import { InstantBookBadge } from "./instant-book-badge";
 import type { Feature } from "./listing-features";
 import { StayPrice } from "./stay-price";
-import { CategoryGlyph, FeatureGlyph, TagGlyph } from "./tag-glyphs";
+import { SamplePhotoTag } from "./photo-card";
+import { CategoryGlyph, ChevronGlyph, FeatureGlyph, PlaceGlyph, TagGlyph } from "./tag-glyphs";
 import { TourFacts } from "./tour-facts";
 
 type Photo = { src: string; alt: string };
@@ -42,6 +44,14 @@ export function DetailPanelButton({
   "data-testid"?: string;
 }) {
   const [open, setOpen] = useState(false);
+  // A link inside it to a row on the page (#listing-<id>: a place's "Go there with") closes it, so
+  // the row it scrolls to is in view.
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("hashchange", close);
+    return () => window.removeEventListener("hashchange", close);
+  }, [open]);
   return (
     <>
       <button
@@ -76,21 +86,32 @@ function PanelSection({ title, children }: { title: string; children: ReactNode 
   );
 }
 
-// A side panel's single photo, above its title.
-export function PanelPhoto({ photo }: { photo: Photo }) {
+// A side panel's single photo, above its title, saying so when it is a stand-in. A place with
+// no photo that fits it gets its icon on navy, as its card does; a listing with none of its own,
+// its category's (`icon`).
+export function PanelPhoto({ photo, icon }: { photo: Photo | null; icon?: ReactNode }) {
   return (
-    <div className="relative aspect-[4/3] overflow-hidden rounded-card bg-mist">
-      <Image src={photo.src} alt={photo.alt} fill unoptimized={isApiPhoto(photo.src)} sizes="28rem" className="object-cover" />
+    <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-card bg-navy text-sky-mist/50">
+      {photo ? (
+        <>
+          <Image src={photo.src} alt={photo.alt} fill unoptimized={isApiPhoto(photo.src)} sizes="28rem" className="object-cover" />
+          {!isApiPhoto(photo.src) && <SamplePhotoTag className="absolute left-3 top-3" />}
+        </>
+      ) : (
+        (icon ?? <PlaceGlyph className="size-12" />)
+      )}
     </div>
   );
 }
 
-// A place to see, whole, under its photo and name: every tag and the full description.
+// A place to see, whole, under its photo and name: every tag, the full description and the
+// listings on the page that go there, each a link down to its row in What to book, which closes
+// the panel (DetailPanelButton) and shows the row whatever section is picked.
 export function LandmarkPanel({
   landmark,
   areaName,
 }: {
-  landmark: { description: string; tags: { slug: string; name: string }[] };
+  landmark: { description: string; tags: { slug: string; name: string }[]; visits?: { id: number; title: string; href: string }[] };
   areaName: string;
 }) {
   return (
@@ -113,13 +134,37 @@ export function LandmarkPanel({
           <p className="text-sm break-words whitespace-pre-line">{landmark.description}</p>
         </PanelSection>
       )}
+      {landmark.visits && landmark.visits.length > 0 && (
+        <PanelSection title="Go there with">
+          <ul className="flex flex-col gap-2">
+            {landmark.visits.map((visit) => (
+              <li key={visit.id}>
+                <a
+                  href={`#listing-${visit.id}`}
+                  onClick={(event) => {
+                    // The same row again: no hashchange would fire, so send one.
+                    if (window.location.hash !== `#listing-${visit.id}`) return;
+                    event.preventDefault();
+                    window.dispatchEvent(new HashChangeEvent("hashchange"));
+                  }}
+                  className="flex min-h-11 items-center text-sm font-semibold text-link underline-offset-4 hover:underline"
+                >
+                  {visit.title}
+                  <ChevronGlyph aria-hidden className="ml-1 size-4" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </PanelSection>
+      )}
     </>
   );
 }
 
 // A thing to book, whole, under its photos and title. What the area page already has shows at once; the description, a
 // tour's facts and a stay's price and fees come from the listing's own endpoint, fetched when
-// the panel opens and kept, so opening it again is instant.
+// the panel opens and kept, so opening it again is instant. With the page's trip dates a stay's
+// total comes from /quotes, as on the listing page.
 export function ListingPanel({
   listingId,
   href,
@@ -128,6 +173,8 @@ export function ListingPanel({
   summary,
   features,
   instantBook = false,
+  dates,
+  unpriced,
 }: {
   listingId: number;
   href: string;
@@ -136,6 +183,9 @@ export function ListingPanel({
   summary?: string | null;
   features: Feature[];
   instantBook?: boolean;
+  dates?: TripDates;
+  // Set while it has no price: the panel says what adding and booking it mean.
+  unpriced?: string;
 }) {
   const { data: listing, isPending, isError } = useQuery({
     queryKey: ["listing", listingId],
@@ -146,7 +196,22 @@ export function ListingPanel({
     },
     staleTime: 5 * 60_000,
   });
-  const cancellation = features.find((feature) => feature.trust);
+  const datesSet = Boolean(dates?.from && dates.to);
+  const { data: quote } = useQuery({
+    queryKey: ["quote", listingId, dates?.from, dates?.to, dates?.guests],
+    queryFn: async () => {
+      const { data, error, response } = await apiClient().GET("/api/v1/quotes", {
+        params: { query: { listing_id: listingId, starts_on: dates!.from!, ends_on: dates!.to!, guests: dates!.guests } },
+      });
+      if (data) return { quote: data };
+      if (response.status === 422 && error && "errors" in error) return { errors: error.errors };
+      return { errors: ["Couldn't work out the price just now. Try again in a moment."] };
+    },
+    enabled: Boolean(listing?.stay_rate) && datesSet,
+    staleTime: 60_000,
+  });
+  // The full description only when it says more than the summary above it.
+  const description = listing?.description.trim();
 
   return (
     <>
@@ -156,7 +221,7 @@ export function ListingPanel({
           {category}
         </Badge>
         {instantBook && <InstantBookBadge small />}
-        {[listing?.area.name, by].filter(Boolean).join(" · ")}
+        {by}
       </p>
       {summary && <p className="text-sm break-words">{summary}</p>}
       {features.length > 0 && (
@@ -188,16 +253,19 @@ export function ListingPanel({
           </Link>
         </p>
       )}
-      {listing?.tour && <TourFacts listing={listing} tour={listing.tour} />}
-      {listing?.stay_rate && <StayPrice listing={listing} rate={listing.stay_rate} datesSet={false} />}
-      {listing?.description.trim() && (
-        <PanelSection title="About this">
-          <p className="text-sm break-words whitespace-pre-line">{listing.description}</p>
+      {unpriced && (
+        <PanelSection title="Price">
+          <p className="text-sm text-pretty">
+            The partner hasn&apos;t listed a price yet. Saving it to your trip is free, and when you book it, the price
+            is agreed with them.
+          </p>
         </PanelSection>
       )}
-      {cancellation && (
-        <PanelSection title="Cancellation">
-          <p className="text-sm">{cancellation.label}.</p>
+      {listing?.tour && <TourFacts listing={listing} tour={listing.tour} head={false} />}
+      {listing?.stay_rate && <StayPrice listing={listing} rate={listing.stay_rate} quote={quote} datesSet={datesSet} />}
+      {description && description !== summary?.trim() && (
+        <PanelSection title="About this">
+          <p className="text-sm break-words whitespace-pre-line">{description}</p>
         </PanelSection>
       )}
       <Link href={href} data-testid="listing-link" className="w-fit text-sm font-semibold text-link underline-offset-4 hover:underline">
@@ -207,12 +275,20 @@ export function ListingPanel({
   );
 }
 
-// The panel's foot: the price, or nothing promised, and the action.
-export function PanelActions({ price, action }: { price?: ComponentProps<typeof Price>; action?: ReactNode }) {
+// The panel's foot: the price, or how an unpriced listing is priced, and the action.
+export function PanelActions({
+  price,
+  unpriced,
+  action,
+}: {
+  price?: ComponentProps<typeof Price>;
+  unpriced?: string;
+  action?: ReactNode;
+}) {
   if (!price && !action) return null;
   return (
     <>
-      {price ? <Price {...price} /> : <span />}
+      {price ? <Price {...price} /> : unpriced ? <span className="text-sm text-muted">{unpriced}</span> : <span />}
       {action}
     </>
   );

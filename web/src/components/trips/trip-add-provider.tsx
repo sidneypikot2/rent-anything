@@ -8,7 +8,7 @@ import { getSession, useSession } from "@/lib/auth/session";
 import { EditTripSheet, type EditFocus } from "./edit-trip-sheet";
 import { formatDateRange } from "./format";
 import { SignInSheet } from "./sign-in-sheet";
-import { currentTrips, useAddTripItem, useFetchTrips, type AddRequest, type Trip } from "./use-trips";
+import { currentTrips, useFetchTrips, type AddRequest, type Trip } from "./use-trips";
 import { WhichTripSheet } from "./which-trip-sheet";
 
 // An add kept through sign-in: the page it started on, so it finishes there and nowhere
@@ -60,8 +60,7 @@ function takePending(pathname: string): PendingAdd | null {
 type Notice = { id: number; text: string; trip?: Trip };
 
 type Context = {
-  // Starts adding a listing: sign-in first when signed out, then the which-trip sheet
-  // when the guest already has trips.
+  // Starts adding a listing: sign-in first when signed out, then the add sheet.
   add: (request: AddRequest) => void;
   // A guest's add is under way (the trips are being fetched or the item posted).
   busyListingId: number | null;
@@ -76,12 +75,11 @@ export function useTripAdd() {
 }
 
 // The add-to-trip flow for the listings on a page (RAA-66): sign-in before the first add,
-// the which-trip sheet, the toast, and the edit-trip sheet it leads to.
+// the add sheet, the toast, and the edit-trip sheet it leads to.
 export function TripAddProvider({ children }: { children: ReactNode }) {
   const session = useSession();
   const pathname = usePathname();
   const fetchTrips = useFetchTrips();
-  const { mutateAsync: addItem } = useAddTripItem();
   const [signingIn, setSigningIn] = useState<{ pending: PendingAdd; saved: boolean } | null>(null);
   const [choosing, setChoosing] = useState<{ request: AddRequest; trips: Trip[] } | null>(null);
   const [busyListingId, setBusyListingId] = useState<number | null>(null);
@@ -101,7 +99,7 @@ export function TripAddProvider({ children }: { children: ReactNode }) {
     [show],
   );
 
-  // Signed in: with no trips, the add creates one straight away; otherwise the guest picks.
+  // Signed in: the add sheet, with the guest's trips to pick from.
   const start = useCallback(
     async (request: AddRequest, userId: number) => {
       if (inFlight.current) return;
@@ -110,13 +108,11 @@ export function TripAddProvider({ children }: { children: ReactNode }) {
       setNotice(null);
       let sheetOpen = false;
       try {
+        // The sheet confirms every add: the listing, its dates and guests, and the trip it goes
+        // to (a new one when the guest has none yet).
         const trips = currentTrips(await fetchTrips(userId));
-        if (trips.length > 0) {
-          setChoosing({ request, trips });
-          sheetOpen = true;
-        } else {
-          added(await addItem({ request, tripId: null }));
-        }
+        setChoosing({ request, trips });
+        sheetOpen = true;
       } catch (caught) {
         show(caught instanceof Error ? caught.message : "Couldn't add it to your trip. Try again.");
       } finally {
@@ -125,7 +121,7 @@ export function TripAddProvider({ children }: { children: ReactNode }) {
         if (!sheetOpen) inFlight.current = false;
       }
     },
-    [fetchTrips, addItem, added, show],
+    [fetchTrips, show],
   );
 
   const add = useCallback(
@@ -152,10 +148,10 @@ export function TripAddProvider({ children }: { children: ReactNode }) {
     if (guestId === undefined) return;
     const pending = takePending(pathname);
     if (!pending) return;
-    const { listingId, title, range, startsOn, endsOn, quantity } = pending;
+    const { listingId, title, range, bookingType, startsOn, endsOn, quantity, preview } = pending;
     // The add is a request to the API that sets state as it goes, not render state, so it
     // starts after the effect rather than inside it.
-    queueMicrotask(() => void start({ listingId, title, range, startsOn, endsOn, quantity }, guestId));
+    queueMicrotask(() => void start({ listingId, title, range, bookingType, startsOn, endsOn, quantity, preview }, guestId));
   }, [guestId, pathname, start]);
 
   const dismissNotice = useCallback(() => setNotice(null), []);

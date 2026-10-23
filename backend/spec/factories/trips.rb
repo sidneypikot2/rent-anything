@@ -1,7 +1,7 @@
 FactoryBot.define do
   factory :trip do
     user
-    name { "Bantayan Island · Nov 12–15" }
+    name { "Weekend away" }
     starts_on { 10.days.from_now.to_date }
     ends_on { 13.days.from_now.to_date }
 

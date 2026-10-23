@@ -4,17 +4,19 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { cn } from "@/components/ui/cn";
-import { ArrowGlyph } from "./tag-glyphs";
+import { ArrowGlyph, CategoryGlyph } from "./tag-glyphs";
 
 type Photo = { src: string; alt: string };
 
 // A listing's photos on its row (RAA-125): swiped on a phone, stepped with the arrows with a
 // mouse (they show on hover or focus), with dots and an "n / N" count. One photo is just the
 // photo. Scroll snapping does the moving, so it stays smooth and keyboard scrolling works too.
-export function ListingPhotos({ photos, label, sample = false, count = "top", className }: {
+// A listing with no photos of its own shows its category's icon, never a stand-in photo, which
+// would show it as something it isn't (web-ui.md).
+export function ListingPhotos({ photos, label, category, count = "top", className }: {
   photos: Photo[];
   label: string;
-  sample?: boolean;
+  category: string;
   // Where "n / N" sits: "bottom" keeps the top right clear for a side panel's close button.
   count?: "top" | "bottom";
   className?: string;
@@ -29,6 +31,14 @@ export function ListingPhotos({ photos, label, sample = false, count = "top", cl
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     el.scrollBy({ left: by * el.clientWidth, behavior: reduce ? "auto" : "smooth" });
   };
+
+  if (photos.length === 0)
+    return (
+      <div className={cn("flex flex-col items-center justify-center gap-2 rounded-card bg-mist text-primary", className)}>
+        <CategoryGlyph name={category} className="size-10 opacity-70" />
+        <span className="text-small font-semibold text-muted">No photos yet</span>
+      </div>
+    );
 
   return (
     <div
@@ -58,9 +68,6 @@ export function ListingPhotos({ photos, label, sample = false, count = "top", cl
           </div>
         ))}
       </div>
-      {sample && (
-        <span className="absolute left-2.5 top-2.5 rounded-full bg-scrim/60 px-2 py-0.5 text-xs text-white">Sample photo</span>
-      )}
       {many && (
         <>
           <span className={cn("absolute right-2.5 rounded-full bg-scrim/60 px-2 py-0.5 text-xs font-bold tabular-nums text-white", count === "top" ? "top-2.5" : "bottom-2.5")}>

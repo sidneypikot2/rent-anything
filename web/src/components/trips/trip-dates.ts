@@ -38,3 +38,11 @@ export function withDates(href: string, carry: string) {
   const [path, fragment] = hash < 0 ? [href, ""] : [href.slice(0, hash), href.slice(hash)];
   return `${path}${path.includes("?") ? `&${carry.slice(1)}` : carry}${fragment}`;
 }
+
+// A trip's own dates and guests as a query, to open a place's page on them (a past or missing
+// range drops out, as readTripDates does).
+export function tripOwnQuery(trip: { starts_on: string | null; ends_on: string | null; guests: number }) {
+  return tripDatesQuery(
+    readTripDates({ from: trip.starts_on ?? undefined, to: trip.ends_on ?? undefined, guests: String(trip.guests) }),
+  );
+}

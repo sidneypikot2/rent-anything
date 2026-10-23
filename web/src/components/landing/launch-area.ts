@@ -11,14 +11,22 @@ export const LAUNCH_AREA = { slug: "bantayan-island", name: "Bantayan Island", k
 // that isn't a destination the button searches instead, and the note says how to get a trip back.
 export const START_TRIP = {
   action: "Start your trip",
-  // Booking isn't open until checkout exists (PRODUCT.md), so the line says so rather than
-  // reading "nothing to pay" as a perk, and first says what a traveller can do today.
-  note: "Plan and save your trip free today; booking opens later. Sign in at your first add.",
-  guestNote: "Plan and save your trip free today; booking opens later.",
+  // A guest with trips planning picks one (or a new one) after pressing it, so it says continue.
+  continueOne: "Continue your trip",
+  continueMany: "Continue a trip",
+  // What a traveller can do today, then what isn't live (BOOKING_STATE).
+  note: "Save your trip free, then send requests to partners. Nothing is paid in the app yet. Sign in at your first add.",
+  guestNote: "Save your trip free, then send requests to partners. Nothing is paid in the app yet.",
   searchNote: "Pick a destination to start a trip there.",
-  // A guest with a trip already planning goes on with it (RAA-130): the area page's next add
-  // suggests that trip (Trips::Suggest), so the button says so and skips the started banner.
-  continueAction: "Continue your trip",
+};
+
+// What booking is today, said one way on every page (PRODUCT.md: promise only what is true): a
+// trip's items go to their partners as requests from the cart, and payments aren't live, so
+// nothing is paid in the app. Never "booking opens later" (requests already go out) nor
+// "nothing is charged until the partner accepts" (nothing is charged after it either).
+export const BOOKING_STATE = {
+  unpaid: "nothing is paid in the app yet",
+  answer: "each partner has 24 hours to answer",
 };
 
 // Where a trip's own page in the cart is.
@@ -26,11 +34,9 @@ export function tripHref(id: number) {
   return `/cart?trip=${id}`;
 }
 
-// A Start your trip link without the started banner, for a guest continuing a trip.
-export function continueTripHref(href: string) {
-  return href.replace(/([?&])start=trip&?/, "$1").replace(/[?&](?=#|$)/, "");
+// A trip starts at the top of its destination's page, whose first section asks what the guest
+// wants to see; What to book follows.
+export function startTripHref(slug: string) {
+  return `/${slug}?start=trip`;
 }
 
-export function startTripHref(slug: string) {
-  return `/${slug}?start=trip#listings`;
-}

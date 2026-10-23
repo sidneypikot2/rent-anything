@@ -8,7 +8,7 @@ import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { LandmarkCard, ListingCard as PhotoListingCard, ListingRow } from "@/components/discovery/cards";
 import { AreaGlyph, CategoryGlyph, CloseGlyph, PlusGlyph, SearchGlyph, TagGlyph } from "@/components/discovery/tag-glyphs";
-import { landmarkPhoto, listingPhoto } from "@/components/landing/sample-photos";
+import { landmarkPhotos, listingPhoto } from "@/components/landing/sample-photos";
 import { GlassPanel } from "@/components/ui/glass";
 import { PasswordField } from "@/components/ui/password-field";
 import { SelectField } from "@/components/ui/select-field";
@@ -239,7 +239,7 @@ export default function UiKit() {
                 { slug: "swimming", name: "Swimming" },
               ],
             }}
-            photo={landmarkPhoto([{ slug: "swimming" }], 0)}
+            photo={landmarkPhotos([{ tags: [{ slug: "swimming" }] }])[0]}
             areaName="Santa Fe"
           />
           <PhotoListingCard
@@ -262,7 +262,6 @@ export default function UiKit() {
             by="by Santa Fe Boats · 1 unit"
             summary="Joiner boat from Santa Fe: snorkelling, cliff diving and lunch on Virgin Island."
             photos={[listingPhoto("Tour", 0), listingPhoto("Snorkel gear", 1), listingPhoto("Motorcycle", 2)]}
-            samplePhoto
             features={[
               { icon: "guide", label: "Guide included" },
               { icon: "cancellation", label: "Free cancellation", trust: true },

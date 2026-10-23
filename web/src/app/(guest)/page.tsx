@@ -24,7 +24,7 @@ import { glassClasses } from "@/components/ui/glass";
 import { Section } from "@/components/ui/section";
 import { DisplayTitle } from "@/components/ui/typography";
 import { formatPeso } from "@/lib/money";
-import { priceUnitText } from "@/lib/pricing";
+import { pricedByText, priceUnitText } from "@/lib/pricing";
 
 // The guest home, as the Sky & Forest landing page (RAA-102): a photo hero whose title names
 // where we launch, holding the way in (RAA-80) — a trip there, with dates and guests, or a
@@ -263,7 +263,7 @@ async function PartnerListings() {
                   ? { prefix: "from", amount: formatPeso(listing.price_from_cents), unit }
                   : undefined
               }
-              unpriced={PRICED_BY[listing.booking_type]}
+              unpriced={pricedByText(listing.booking_type)}
               action={<HeroAddToTrip listing={listing} />}
               instantBook={listing.instant_book}
               rowOnPhone
@@ -275,11 +275,6 @@ async function PartnerListings() {
     </ul>
   );
 }
-
-const PRICED_BY: Record<string, string> = {
-  transfer: "Prices per route",
-  rental: "Prices by rental length",
-};
 
 const HERO_ORDER = ["transfer", "stay", "rental", "activity"] as const;
 

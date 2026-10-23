@@ -1,0 +1,44 @@
+import type { components } from "@/api/schema";
+import { formatPeso } from "@/lib/money";
+import { pricedByText, priceUnitText } from "@/lib/pricing";
+import type { AddPreview } from "./use-trips";
+
+// Whatever the page has of a listing; the add sheet shows the parts it's given.
+export type AddListing = {
+  id: number;
+  title: string;
+  booking_type: string;
+  // A name, or the listing page's {slug, name}.
+  category?: string | { name: string };
+  cover_photo_url?: string | null;
+  photos?: { card_url: string }[];
+  business?: { name: string };
+  price_from_cents?: number | null;
+  price_unit?: components["schemas"]["price_unit"];
+  details?: Record<string, unknown>;
+  // A tour's group (the area row's and the listing page's `tour`).
+  tour?: { min_guests: number; max_guests: number } | null;
+  units_count?: number;
+  units_label?: string;
+};
+
+// What the add sheet shows of a listing. Plain, so server pages build it too.
+export function addPreview(listing: AddListing, by?: string): AddPreview {
+  const unit = listing.price_unit ? priceUnitText(listing.price_unit) : undefined;
+  const count = (value: unknown) => (typeof value === "number" && value > 0 ? value : null);
+  const cover = listing.cover_photo_url ?? listing.photos?.[0]?.card_url;
+  return {
+    category: typeof listing.category === "string" ? listing.category : listing.category?.name,
+    by: by ?? (listing.business && `by ${listing.business.name}`),
+    photo: cover ? { src: cover, alt: listing.title } : null,
+    price: listing.price_from_cents
+      ? ["From", formatPeso(listing.price_from_cents), unit].filter(Boolean).join(" ")
+      : pricedByText(listing.booking_type),
+    seats: count(listing.details?.seats),
+    sleeps: listing.booking_type === "stay" ? count(listing.details?.guests) : null,
+    sharedRoom: listing.details?.place_type === "shared_room",
+    tourGuests: listing.tour ? { min: listing.tour.min_guests, max: listing.tour.max_guests } : null,
+    unitsCount: listing.units_count,
+    unitsLabel: listing.units_label,
+  };
+}
