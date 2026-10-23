@@ -4556,7 +4556,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description each stay item with the guests it sleeps, all its units together */
+                /** @description each item with the most guests it can be for */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -5258,6 +5258,8 @@ export interface components {
             quantity: number;
             /** @description A stay: the most guests it sleeps, all its units together (a shared room's beds); null for anything else, or a stay that doesn't say */
             sleeps: number | null;
+            /** @description The most guests the item can be for: a tour's group, the guests a stay sleeps, or a transfer's or a trike's seats (one vehicle a booking); null when the listing doesn't say */
+            max_guests: number | null;
             /**
              * @description Its listing's: rentals and stays take a range of days, the others one day
              * @enum {string}

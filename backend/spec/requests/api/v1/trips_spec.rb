@@ -116,6 +116,30 @@ RSpec.describe "Trips", type: :request do
         end
       end
 
+      # So the add and edit sheets stop + at what one item can be for.
+      response "200", "each item with the most guests it can be for" do
+        schema type: :array, items: { "$ref" => "#/components/schemas/trip" }
+
+        before do
+          cottage = create(:listing, :stay, area: santa_fe, title: "Bamboo cottage",
+            attrs: { "place_type" => "entire_place", "guests" => 2 })
+          hopping = create(:listing, :tour, area: santa_fe, title: "Virgin Island hopping")
+          shuttle = create(:category, name: "Van", booking_type: "transfer",
+            attribute_schema: { type: "object", properties: { seats: { type: "integer" } } })
+          van = create(:listing, area: santa_fe, category: shuttle, title: "Hagnaya port van", attrs: { "seats" => 12 })
+          trip = create(:trip, user:, starts_on: day, ends_on: day + 2)
+          [ cottage, hopping, van, tour ].each do |listing|
+            create(:trip_item, trip:, listing:, starts_on: day, ends_on: day + 2)
+          end
+        end
+
+        run_test! do |response|
+          items = response.parsed_body.first["items"]
+          expect(items.to_h { [ _1["listing"]["title"], _1["max_guests"] ] })
+            .to eq("Bamboo cottage" => 2, "Virgin Island hopping" => 12, "Hagnaya port van" => 12, "Island hopping" => nil)
+        end
+      end
+
       response "403", "a partner" do
         schema "$ref" => "#/components/schemas/error"
         let(:user) { create(:user, :partner) }

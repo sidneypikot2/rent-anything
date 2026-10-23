@@ -113,6 +113,17 @@ class Listing < ApplicationRecord
     per_unit * units.size if per_unit.is_a?(Integer) && per_unit.positive?
   end
 
+  # The most guests one trip item (one booking) can be for: a tour's group, the guests a stay
+  # sleeps, or the seats of the one vehicle a transfer or a trike books (Booking.units_for).
+  # Nil when the listing doesn't say. Reads tour_detail, category and units.
+  def max_guests
+    return tour_detail.max_guests if tour_detail
+    return sleeps if category.accommodation?
+
+    seats = attrs["seats"]
+    seats if seats.is_a?(Integer) && seats.positive?
+  end
+
   # How many photos it can have (RAA-110): a tour's carousel takes fewer.
   def photo_limit
     category&.tour? ? ListingPhoto::MAX_PER_TOUR : ListingPhoto::MAX_PER_LISTING

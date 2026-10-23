@@ -229,6 +229,11 @@ RSpec.configure do |config|
                 description: "A stay: the most guests it sleeps, all its units together (a shared room's beds); " \
                   "null for anything else, or a stay that doesn't say"
               },
+              max_guests: {
+                type: :integer, nullable: true,
+                description: "The most guests the item can be for: a tour's group, the guests a stay sleeps, or a " \
+                  "transfer's or a trike's seats (one vehicle a booking); null when the listing doesn't say"
+              },
               booking_type: {
                 type: :string, enum: %w[rental stay activity transfer],
                 description: "Its listing's: rentals and stays take a range of days, the others one day"
@@ -257,7 +262,7 @@ RSpec.configure do |config|
               },
               listing_active: { type: :boolean, description: "False once the listing is paused or delisted: it can't be booked" }
             },
-            required: %w[id starts_on ends_on quantity sleeps booking_type area destination listing booking unavailable cancellation_policy listing_active]
+            required: %w[id starts_on ends_on quantity sleeps max_guests booking_type area destination listing booking unavailable cancellation_policy listing_active]
           },
           # What a trip's items would cost if booked now (RAA-139, GET /trips/:id/quote).
           trip_quote: {
