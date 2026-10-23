@@ -42,12 +42,17 @@ export function toVehicleValues(attrs: PartnerListing["attrs"]): VehicleValues {
   };
 }
 
+// The ticked amenities this category can have: a listing moved from a motorbike to a car keeps
+// its helmet ticks in the form, but they're neither shown nor saved.
+export function includedAmenities(values: VehicleValues, slug: string | undefined) {
+  return vehicleAmenities(slug).filter((amenity) => values.amenities.includes(amenity));
+}
+
 // The form's values as attrs, on top of what the listing already has (a plate number), so
 // saving keeps them. A blank color is left out, and so are amenities its category can't have.
 export function toVehicleAttrs(values: VehicleValues, kept: PartnerListing["attrs"] = {}, slug?: string) {
   const rest = Object.fromEntries(Object.entries(kept).filter(([key]) => !(VEHICLE_KEYS as readonly string[]).includes(key)));
   const color = values.color.trim();
-  const allowed = vehicleAmenities(slug);
   return {
     ...rest,
     make: values.make.trim(),
@@ -55,7 +60,7 @@ export function toVehicleAttrs(values: VehicleValues, kept: PartnerListing["attr
     engine_cc: Number(values.engine_cc),
     transmission: values.transmission,
     ...(color && { color }),
-    amenities: allowed.filter((amenity) => values.amenities.includes(amenity)),
+    amenities: includedAmenities(values, slug),
   };
 }
 

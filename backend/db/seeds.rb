@@ -77,6 +77,9 @@ unless Rails.env.test?
       require Rails.root.join("db/migrate/20261023090001_add_vehicle_transmission_and_amenities").to_s
       AddVehicleTransmissionAndAmenities.new.migrate(:up)
     end
+    # Its car amenities (RAA-150), on top. Safe to run again.
+    require Rails.root.join("db/migrate/20261023100000_add_car_vehicle_amenities").to_s
+    AddCarVehicleAmenities.new.migrate(:up)
 
     CreateBusinesses.backfill(connection)
     AddUnitNamesToCategories.fill(connection)

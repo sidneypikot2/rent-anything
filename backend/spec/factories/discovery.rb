@@ -68,7 +68,9 @@ FactoryBot.define do
       booking_type { "rental" }
       attribute_schema do
         require Rails.root.join("db/migrate/20261023090001_add_vehicle_transmission_and_amenities").to_s
+        require Rails.root.join("db/migrate/20261023100000_add_car_vehicle_amenities").to_s
         AddVehicleTransmissionAndAmenities::VEHICLE_SCHEMA
+          .deep_merge(properties: { amenities: { items: { enum: AddCarVehicleAmenities::AMENITIES } } })
       end
       initialize_with { Category.find_or_initialize_by(slug: "motorcycle") }
     end

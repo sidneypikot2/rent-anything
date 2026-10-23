@@ -71,7 +71,7 @@ import {
 } from "./tour-fields";
 import type { PartnerBusiness } from "./use-partner-businesses";
 import type { PartnerLandmark } from "./use-partner-landmarks";
-import { isVehicle, toVehicleAttrs, toVehicleValues, VehicleFields, type VehicleValues } from "./vehicle-fields";
+import { includedAmenities, isVehicle, toVehicleAttrs, toVehicleValues, VehicleFields, type VehicleValues } from "./vehicle-fields";
 import {
   toVehiclePricingValues,
   toVehicleRateBody,
@@ -223,8 +223,8 @@ export function ListingForm({
       setPriceErrors(pricingErrors(pricing));
       return;
     }
-    if (vehicleCategory && vehiclePricingErrors(vehiclePricing, vehicleValues.amenities)) {
-      setVehiclePriceErrors(vehiclePricingErrors(vehiclePricing, vehicleValues.amenities));
+    if (vehicleCategory && vehiclePricingErrors(vehiclePricing, includedAmenities(vehicleValues, category?.slug))) {
+      setVehiclePriceErrors(vehiclePricingErrors(vehiclePricing, includedAmenities(vehicleValues, category?.slug)));
       return;
     }
     if (tourCategory && tourErrors(tour)) {
@@ -471,7 +471,8 @@ export function ListingForm({
                   setVehiclePriceErrors(undefined);
                 }}
                 errors={vehiclePriceErrors}
-                included={vehicleValues.amenities}
+                included={includedAmenities(vehicleValues, category?.slug)}
+                slug={category?.slug}
               />
             </EditSection>
           </>

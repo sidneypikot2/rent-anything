@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_23_090001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_23_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -77,7 +77,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_090001) do
     t.jsonb "metadata", default: {}, null: false
     t.datetime "created_at", null: false
     t.index ["booking_id"], name: "index_booking_events_on_booking_id"
-    t.check_constraint "actor::text = ANY (ARRAY['guest'::character varying, 'partner'::character varying, 'system'::character varying, 'admin'::character varying]::text[])", name: "booking_events_actor_check"
+    t.check_constraint "actor::text = ANY (ARRAY['guest'::character varying::text, 'partner'::character varying::text, 'system'::character varying::text, 'admin'::character varying::text])", name: "booking_events_actor_check"
   end
 
   create_table "bookings", force: :cascade do |t|
@@ -117,8 +117,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_090001) do
     t.index ["status", "expires_at"], name: "index_bookings_on_status_and_expires_at"
     t.index ["trip_item_id"], name: "index_bookings_on_trip_item_id_holding", unique: true, where: "(status = ANY (ARRAY['requested'::booking_status, 'accepted'::booking_status, 'awaiting_payment'::booking_status, 'confirmed'::booking_status, 'in_progress'::booking_status, 'completed'::booking_status]))"
     t.index ["user_id"], name: "index_bookings_on_user_id"
-    t.check_constraint "booking_mode::text = ANY (ARRAY['instant'::character varying, 'request'::character varying]::text[])", name: "bookings_booking_mode_check"
-    t.check_constraint "cancelled_by::text = ANY (ARRAY['guest'::character varying, 'partner'::character varying, 'system'::character varying]::text[])", name: "bookings_cancelled_by_check"
+    t.check_constraint "booking_mode::text = ANY (ARRAY['instant'::character varying::text, 'request'::character varying::text])", name: "bookings_booking_mode_check"
+    t.check_constraint "cancelled_by::text = ANY (ARRAY['guest'::character varying::text, 'partner'::character varying::text, 'system'::character varying::text])", name: "bookings_cancelled_by_check"
     t.check_constraint "char_length(cancellation_reason) <= 500", name: "bookings_cancellation_reason_check"
     t.check_constraint "char_length(guest_name::text) >= 1 AND char_length(guest_name::text) <= 80", name: "bookings_guest_name_length_check"
     t.check_constraint "char_length(notes) <= 500", name: "bookings_notes_length_check"
@@ -285,7 +285,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_090001) do
     t.check_constraint "\"position\" >= 1", name: "listing_fees_position_check"
     t.check_constraint "amount_cents >= 0", name: "listing_fees_amount_check"
     t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 60", name: "listing_fees_name_length_check"
-    t.check_constraint "charged_per::text = ANY (ARRAY['booking'::character varying, 'night'::character varying, 'guest'::character varying, 'guest_night'::character varying, 'unit'::character varying, 'day'::character varying, 'hour'::character varying]::text[])", name: "listing_fees_charged_per_check"
+    t.check_constraint "charged_per::text = ANY (ARRAY['booking'::character varying::text, 'night'::character varying::text, 'guest'::character varying::text, 'guest_night'::character varying::text, 'unit'::character varying::text, 'day'::character varying::text, 'hour'::character varying::text])", name: "listing_fees_charged_per_check"
   end
 
   create_table "listing_landmarks", primary_key: ["listing_id", "landmark_id"], force: :cascade do |t|
@@ -350,7 +350,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_090001) do
     t.index ["location"], name: "index_listings_on_location", using: :gist
     t.index ["partner_id"], name: "index_listings_on_partner_id"
     t.index ["status"], name: "index_listings_on_status"
-    t.check_constraint "booking_mode::text = ANY (ARRAY['instant'::character varying, 'request'::character varying]::text[])", name: "listings_booking_mode_check"
+    t.check_constraint "booking_mode::text = ANY (ARRAY['instant'::character varying::text, 'request'::character varying::text])", name: "listings_booking_mode_check"
     t.check_constraint "cancellation_policy::text = ANY (ARRAY['free_cancellation'::character varying::text, 'non_refundable'::character varying::text, 'seven_days'::character varying::text, 'fourteen_days'::character varying::text])", name: "listings_cancellation_policy_check"
     t.check_constraint "country::text ~ '^[A-Z]{2}$'::text", name: "listings_country_check"
     t.check_constraint "partner_role::text = 'partner'::text", name: "listings_partner_role_check"
@@ -416,7 +416,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_090001) do
     t.index ["checkout_id"], name: "index_payments_on_checkout_id"
     t.check_constraint "amount_cents >= 0", name: "payments_amount_check"
     t.check_constraint "provider::text = 'stub'::text", name: "payments_provider_check"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'paid'::character varying, 'failed'::character varying]::text[])", name: "payments_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'paid'::character varying::text, 'failed'::character varying::text])", name: "payments_status_check"
   end
 
   create_table "payout_accounts", force: :cascade do |t|

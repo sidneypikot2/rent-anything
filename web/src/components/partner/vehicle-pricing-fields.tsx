@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { components } from "@/api/schema";
-import { VEHICLE_AMENITY_LABELS } from "@/components/listings/vehicle-labels";
+import { isFourWheel, VEHICLE_AMENITY_LABELS } from "@/components/listings/vehicle-labels";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Field } from "@/components/ui/field";
@@ -210,12 +210,28 @@ export function vehiclePricingErrors(values: VehiclePricingValues, included: str
 }
 
 // The fees PH rental shops charge on top, one click each: a row with its name and how it's
-// charged, the partner types the amount.
-const FEE_PRESETS: { label: string; fee: Partial<FeeValues> }[] = [
+// charged, the partner types the amount. Motorbikes and trikes have their own list.
+const TWO_WHEEL_FEE_PRESETS: { label: string; fee: Partial<FeeValues> }[] = [
   { label: "Late return", fee: { name: "Late return", chargedPer: "hour", required: true } },
   { label: "Passenger helmet", fee: { name: "Passenger helmet", chargedPer: "day", required: false } },
   { label: "Fuel refill", fee: { name: "Fuel refill", chargedPer: "booking", required: false } },
   { label: "Cleaning", fee: { name: "Cleaning fee", chargedPer: "booking", required: true } },
+  { label: "Airport or port delivery", fee: { name: "Airport or port delivery", chargedPer: "booking", required: false } },
+  { label: "Out-of-area delivery", fee: { name: "Out-of-area delivery", chargedPer: "booking", required: false } },
+  { label: "Insurance add-on", fee: { name: "Insurance add-on", chargedPer: "day", required: false } },
+];
+
+// Cars, vans and multicabs.
+const CAR_FEE_PRESETS: { label: string; fee: Partial<FeeValues> }[] = [
+  { label: "Late return", fee: { name: "Late return", chargedPer: "hour", required: true } },
+  { label: "With driver", fee: { name: "With driver", chargedPer: "day", required: false } },
+  { label: "Additional driver", fee: { name: "Additional driver", chargedPer: "day", required: false } },
+  { label: "Child seat", fee: { name: "Child seat", chargedPer: "day", required: false } },
+  { label: "Out-of-town use", fee: { name: "Out-of-town use", chargedPer: "day", required: false } },
+  { label: "Fuel refill", fee: { name: "Fuel refill", chargedPer: "booking", required: false } },
+  { label: "Toll / RFID load", fee: { name: "Toll / RFID load", chargedPer: "booking", required: false } },
+  { label: "Cleaning", fee: { name: "Cleaning fee", chargedPer: "booking", required: true } },
+  { label: "Smoking or pet cleaning", fee: { name: "Smoking or pet cleaning", chargedPer: "booking", required: false } },
   { label: "Airport or port delivery", fee: { name: "Airport or port delivery", chargedPer: "booking", required: false } },
   { label: "Out-of-area delivery", fee: { name: "Out-of-area delivery", chargedPer: "booking", required: false } },
   { label: "Insurance add-on", fee: { name: "Insurance add-on", chargedPer: "day", required: false } },
@@ -226,6 +242,9 @@ const INCLUDED_FEE_NAMES: Record<string, string[]> = {
   passenger_helmet: ["Passenger helmet"],
   full_tank: ["Fuel refill"],
   insurance: ["Insurance add-on"],
+  child_seat: ["Child seat"],
+  driver_available: ["With driver"],
+  rfid_toll: ["Toll / RFID load"],
 };
 
 function includedFeeNames(amenity: string) {
@@ -267,16 +286,18 @@ export function VehiclePricingFields({
   onChange,
   errors,
   included,
+  slug,
 }: {
   values: VehiclePricingValues;
   onChange: (values: VehiclePricingValues) => void;
   errors?: VehiclePricingErrors;
   included: string[];
+  slug: string | undefined;
 }) {
   const set = (patch: Partial<VehiclePricingValues>) => onChange({ ...values, ...patch });
   const money = { type: "number", min: 0, step: "0.01", inputMode: "decimal" } as const;
   const count = { type: "number", step: 1, inputMode: "numeric" } as const;
-  const presets = FEE_PRESETS.filter(
+  const presets = (isFourWheel(slug) ? CAR_FEE_PRESETS : TWO_WHEEL_FEE_PRESETS).filter(
     (preset) =>
       !includedBy(preset.fee.name ?? "", included) &&
       !values.fees.some((fee) => fee.name.trim().toLowerCase() === preset.fee.name?.toLowerCase()),

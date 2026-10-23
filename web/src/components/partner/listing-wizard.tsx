@@ -30,7 +30,7 @@ import { SameAsBusinessAddress, startingAddress, startingPin, useSameAsBusinessA
 import type { PartnerBusiness } from "./use-partner-businesses";
 import { useCreateListing, type ListingBody, type ListingCategory, type PartnerListing } from "./use-partner-listings";
 import { UNITS_LABEL, UnitsField } from "./units-field";
-import { isVehicle, NEW_VEHICLE, toVehicleAttrs, VehicleFields, type VehicleValues } from "./vehicle-fields";
+import { includedAmenities, isVehicle, NEW_VEHICLE, toVehicleAttrs, VehicleFields, type VehicleValues } from "./vehicle-fields";
 import {
   NEW_VEHICLE_PRICING,
   toVehicleRateBody,
@@ -113,8 +113,8 @@ export function ListingWizard({
   // The current step's checks: the browser's required fields, then the map pin or the pricing's rules.
   function stepIsValid() {
     if (!formRef.current?.reportValidity()) return false;
-    if (step.key === "pricing" && vehiclePricingErrors(pricing, vehicleValues.amenities)) {
-      setPriceErrors(vehiclePricingErrors(pricing, vehicleValues.amenities));
+    if (step.key === "pricing" && vehiclePricingErrors(pricing, includedAmenities(vehicleValues, category.slug))) {
+      setPriceErrors(vehiclePricingErrors(pricing, includedAmenities(vehicleValues, category.slug)));
       return false;
     }
     if (step.key === "location" && !location) {
@@ -246,7 +246,8 @@ export function ListingWizard({
                 setPriceErrors(undefined);
               }}
               errors={priceErrors}
-              included={vehicleValues.amenities}
+              included={includedAmenities(vehicleValues, category.slug)}
+              slug={category.slug}
             />
           )}
 

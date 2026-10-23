@@ -537,6 +537,16 @@ RSpec.describe "Partner listings", type: :request do
           end
         end
 
+        response "201", "with the car amenities (RAA-150)" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before { attrs[:amenities] = %w[air_conditioning bluetooth_audio dashcam rfid_toll early_warning_device] }
+
+          run_test! do |response|
+            expect(response.parsed_body["attrs"]["amenities"]).to eq(attrs[:amenities])
+          end
+        end
+
         response "422", "no vehicle rate" do
           schema "$ref" => "#/components/schemas/validation_errors"
 
