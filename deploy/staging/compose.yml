@@ -29,6 +29,8 @@ services:
       RAILS_ENV: production
       SOLID_QUEUE_IN_PUMA: "1"
       RAILS_MAX_THREADS: "3"
+      # Fewer malloc arenas: keeps Ruby's memory down on the 1 GB instance.
+      MALLOC_ARENA_MAX: "2"
       # Accept booking requests the moment they are made, until partners answer them in the
       # app (RAA-134 turned the default off). A guest's change to a booking always waits.
       BOOKINGS_AUTO_ACCEPT: "true"

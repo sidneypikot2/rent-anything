@@ -1,7 +1,7 @@
 name: Deploy staging
 
 # The hosted staging environment: one AWS Lightsail instance (RAA-156, deploy/staging/).
-# Builds the backend and web images here (a Next build is too heavy for the 2 GB instance),
+# Builds the backend and web images here (a Next build is too heavy for the 1 GB instance),
 # pushes them to GHCR, then has the instance pull them and restart. Not a required check:
 # it never runs on PRs. Run it by hand to redeploy staging as it is.
 on:

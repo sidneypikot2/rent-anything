@@ -11,7 +11,7 @@ The hosted staging environment (RAA-156): one Lightsail instance running `compos
 
 In the Lightsail console, under the team's AWS account:
 
-1. Create an instance: Linux, **Ubuntu 24.04 LTS**, region **Singapore** (`ap-southeast-1`, next to Neon and Upstash), the **2 GB** plan.
+1. Create an instance: Linux, **Ubuntu 24.04 LTS**, region **Singapore** (`ap-southeast-1`, next to Neon and Upstash), the **1 GB** plan (move up to 2 GB from a snapshot if memory runs short).
 2. Networking → **Create static IP** and attach it to the instance.
 3. Networking → IPv4 firewall: keep SSH (22), add HTTP (80) and HTTPS (443). Nothing else.
 
@@ -27,7 +27,7 @@ Connect with the browser SSH in the Lightsail console (user `ubuntu`), then:
 # Docker, from Docker's own apt repository
 curl -fsSL https://get.docker.com | sudo sh
 
-# 2 GB of swap: the instance has 2 GB of memory and Rails, Next and Caddy share it
+# 2 GB of swap: the instance has 1 GB of memory and Rails, Next and Caddy share it
 sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
 sudo mkswap /swapfile && sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
