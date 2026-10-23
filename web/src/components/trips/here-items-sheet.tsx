@@ -7,11 +7,11 @@ import { tripHref } from "@/components/landing/launch-area";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { formatDateRange, guestCount } from "./format";
-import { ItemDateSheet } from "./item-date-sheet";
+import { ItemEditSheet } from "./item-edit-sheet";
 import { useRemoveTripItem, type Trip, type TripItem } from "./use-trips";
 
 // What the trip holds in this place, from the place's page: each item's dates and guests, with
-// Change date (the cart's ItemDateSheet) and Remove, so a guest fixes an add without leaving for
+// Edit, its dates and guests (the cart's ItemEditSheet), and Remove, so a guest fixes an add without leaving for
 // the cart. A booked item only links to the trip, where its booking is changed or cancelled.
 // Moving to another trip stays in the cart. Closes itself once nothing is left here.
 export function HereItemsSheet({
@@ -40,7 +40,7 @@ export function HereItemsSheet({
   }
 
   if (step?.kind === "date")
-    return <ItemDateSheet trip={trip} item={step.item} onClose={back} onSaved={() => setStep(null)} />;
+    return <ItemEditSheet trip={trip} item={step.item} onClose={back} onSaved={() => setStep(null)} />;
 
   if (step?.kind === "remove")
     return (
@@ -108,7 +108,7 @@ export function HereItemsSheet({
                     data-testid="here-item-date"
                     onClick={() => setStep({ kind: "date", item })}
                   >
-                    {dates ? "Change date" : "Pick a date"}
+                    {dates ? "Edit" : "Pick a date"}
                   </Button>
                   <Button
                     type="button"

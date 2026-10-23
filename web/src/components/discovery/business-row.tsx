@@ -8,7 +8,6 @@ import { InTripBadge } from "@/components/trips/in-trip-badge";
 import type { TripDates } from "@/components/trips/trip-dates";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { Price } from "@/components/ui/typography";
@@ -99,7 +98,9 @@ export function BusinessRow({
   const instant = offers.every((offer) => offer.instantBook);
 
   return (
-    <Card className="relative grid grid-cols-[minmax(0,1fr)] gap-4 p-3 @sm:grid-cols-[10rem_minmax(0,1fr)] @2xl:grid-cols-[19rem_minmax(0,1fr)_auto] @2xl:items-start @2xl:gap-5">
+    // A row of What to book's list, on its white sheet: no card of its own (the list divides the
+    // rows), so the sheet isn't cards inside a card.
+    <div className="relative grid grid-cols-[minmax(0,1fr)] gap-4 @sm:grid-cols-[10rem_minmax(0,1fr)] @2xl:grid-cols-[19rem_minmax(0,1fr)_auto] @2xl:items-start @2xl:gap-5">
       <ListingPhotos
         photos={photos}
         label={name}
@@ -112,12 +113,12 @@ export function BusinessRow({
             type="button"
             aria-haspopup="dialog"
             data-testid="business-open"
+            // A business can be in several groups: its name says which, for a screen reader's list.
+            aria-label={`${name}, ${groupTitle}`}
             onClick={() => setOpen(true)}
-            className="cursor-pointer text-left underline-offset-4 outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] hover:underline focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-(--focus)"
+            className="cursor-pointer text-left underline-offset-4 outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] hover:underline focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-(--focus)"
           >
             {name}
-            {/* A business can be in several groups: its heading says which, for a screen reader's list. */}
-            <span className="sr-only">, {groupTitle}</span>
           </button>
         </h4>
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
@@ -136,7 +137,7 @@ export function BusinessRow({
         </p>
         <ListingRowDetails summary={summary} features={common} />
       </div>
-      <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-t border-line px-1 pt-3 @sm:col-span-2 @2xl:col-span-1 @2xl:flex-col @2xl:items-end @2xl:justify-start @2xl:border-0 @2xl:px-0 @2xl:pt-1">
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 px-1 @sm:col-span-2 @2xl:col-span-1 @2xl:flex-col @2xl:items-end @2xl:justify-start @2xl:px-0 @2xl:pt-1">
         {price ? (
           <Price {...price} />
         ) : (
@@ -172,7 +173,7 @@ export function BusinessRow({
           />,
           document.body,
         )}
-    </Card>
+    </div>
   );
 }
 

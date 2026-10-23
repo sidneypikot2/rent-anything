@@ -8,6 +8,8 @@ import { getSession, useSession } from "@/lib/auth/session";
 import { EditTripSheet, type EditFocus } from "./edit-trip-sheet";
 import { formatDateRange } from "./format";
 import { SignInSheet } from "./sign-in-sheet";
+import { readChosenTrip } from "./chosen-trip";
+import { tripHere } from "./use-trip-here";
 import { currentTrips, useFetchTrips, type AddRequest, type Trip } from "./use-trips";
 import { WhichTripSheet } from "./which-trip-sheet";
 
@@ -75,13 +77,18 @@ export function useTripAdd() {
 }
 
 // The add-to-trip flow for the listings on a page (RAA-66): sign-in before the first add,
-// the add sheet, the toast, and the edit-trip sheet it leads to.
-export function TripAddProvider({ children }: { children: ReactNode }) {
+// the add sheet, the toast, and the edit-trip sheet it leads to. On a place's page (`places`:
+// its place and the places inside it) every add goes to the trip its banner shows (tripHere),
+// or starts a new one, which then becomes the trip worked on: the sheet asks only the dates and
+// guests, so an add never lands in another trip. Elsewhere the sheet asks which trip.
+export function TripAddProvider({ children, places }: { children: ReactNode; places?: string[] }) {
   const session = useSession();
   const pathname = usePathname();
   const fetchTrips = useFetchTrips();
   const [signingIn, setSigningIn] = useState<{ pending: PendingAdd; saved: boolean } | null>(null);
-  const [choosing, setChoosing] = useState<{ request: AddRequest; trips: Trip[] } | null>(null);
+  const [choosing, setChoosing] = useState<{ request: AddRequest; trips: Trip[]; target?: Trip | "new" } | null>(
+    null,
+  );
   const [busyListingId, setBusyListingId] = useState<number | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [editing, setEditing] = useState<{ trip: Trip; focus: EditFocus } | null>(null);
@@ -111,7 +118,9 @@ export function TripAddProvider({ children }: { children: ReactNode }) {
         // The sheet confirms every add: the listing, its dates and guests, and the trip it goes
         // to (a new one when the guest has none yet).
         const trips = currentTrips(await fetchTrips(userId));
-        setChoosing({ request, trips });
+        // Read now, not from render: after sign-in the trips have only just been fetched.
+        const target = places && (tripHere(trips, readChosenTrip(), places) ?? "new");
+        setChoosing({ request, trips, target });
         sheetOpen = true;
       } catch (caught) {
         show(caught instanceof Error ? caught.message : "Couldn't add it to your trip. Try again.");
@@ -121,7 +130,7 @@ export function TripAddProvider({ children }: { children: ReactNode }) {
         if (!sheetOpen) inFlight.current = false;
       }
     },
-    [fetchTrips, show],
+    [fetchTrips, show, places],
   );
 
   const add = useCallback(
@@ -194,6 +203,7 @@ export function TripAddProvider({ children }: { children: ReactNode }) {
         <WhichTripSheet
           request={choosing.request}
           trips={choosing.trips}
+          target={choosing.target}
           onClose={closeChoosing}
           onAdded={(trip, before) => {
             closeChoosing();

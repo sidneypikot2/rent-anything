@@ -10,7 +10,7 @@ import { useSyncExternalStore } from "react";
 // banner already holds the trip: it rises once What to book reaches the window's upper half, and
 // stays up while the full-screen map is open (setDockPinned), as its List button is the way back.
 // Hidden, it is only out of sight: the keyboard still reaches it (last on the page, or through
-// DockSkipLink near What to book), and focus inside brings it up.
+// MapSkipLink near What to book), and focus inside brings it up.
 const DOCK_CLASS =
   "pointer-events-none fixed inset-x-0 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-[60] flex justify-center gap-2 px-4 transition-[opacity,translate] duration-500 ease-calm data-hidden:not-focus-within:translate-y-4 data-hidden:not-focus-within:opacity-0 sm:justify-end sm:px-6 [&>*]:pointer-events-auto data-hidden:not-focus-within:[&>*]:pointer-events-none";
 
@@ -59,7 +59,7 @@ export function setDockPinned(value: boolean) {
   if (dock) update();
 }
 
-// Moves focus to the dock's first button (DockSkipLink); false when it holds none.
+// Moves focus to the dock's first button (MapSkipLink); false when it holds none.
 export function focusDock() {
   const first = document.getElementById("floating-dock")?.querySelector<HTMLElement>("button, a[href]");
   first?.focus();

@@ -16,6 +16,11 @@ export function guestCount(count: number) {
   return plural(count, "guest", "guests");
 }
 
+// Under a Guests stepper whose + stops at what the listing takes: "Up to 12".
+export function guestLimitHint(max: number | null | undefined) {
+  return max ? `Up to ${max}` : undefined;
+}
+
 // "4 things": a trip's items, as a guest reads them.
 export function thingCount(count: number) {
   return plural(count, "thing", "things");
@@ -41,7 +46,11 @@ export function formatDay(iso: string) {
   return formatDateRange(iso, iso);
 }
 
-// A trip's dates and size, where trips are listed to pick from: "Nov 12–15 · 2 items".
+// A trip's dates and size, where trips are listed to pick from: "Nov 12–15 · 2 items". An
+// auto-named trip ("Bantayan Island · Nov 12–15") already says its dates, so only its size.
 export function tripDetails(trip: Trip) {
-  return [formatDateRange(trip.starts_on, trip.ends_on) ?? "No dates yet", itemCount(trip.items.length)].join(" · ");
+  const range = formatDateRange(trip.starts_on, trip.ends_on);
+  return [range && trip.name.includes(range) ? null : (range ?? "No dates yet"), itemCount(trip.items.length)]
+    .filter(Boolean)
+    .join(" · ");
 }

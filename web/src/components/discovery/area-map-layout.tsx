@@ -84,7 +84,7 @@ export function AreaMapLayout({
           <AreaMap {...map} full />
         </div>
       )}
-      {/* In the window's foot bar with the trip checklist (floating-dock.ts), first. */}
+      {/* In the window's foot bar (floating-dock.ts); the phone's only floating button. */}
       {map &&
         dock &&
         createPortal(

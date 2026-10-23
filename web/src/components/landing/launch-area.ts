@@ -40,3 +40,15 @@ export function startTripHref(slug: string) {
   return `/${slug}?start=trip`;
 }
 
+
+// How a traveller reaches a place and leaves it, by its slug: the trip plan's "Getting here"
+// first and its going-home day last (TripPlan). Written by hand for now; a place with none
+// leaves both out.
+export type GettingHere = { route: string; note: string; home: string };
+export const GETTING_HERE: Record<string, GettingHere> = {
+  "bantayan-island": {
+    route: "Cebu City → Hagnaya port by bus or van → ferry to Santa Fe",
+    note: "About 4 hours in all. Check the last ferry before you set off.",
+    home: "Ferry from Santa Fe to Hagnaya, then on to Cebu. Mind the last ferry.",
+  },
+};

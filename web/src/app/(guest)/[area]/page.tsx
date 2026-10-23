@@ -17,9 +17,9 @@ import { BusinessRow } from "@/components/discovery/business-row";
 import { countLine, LandmarkCard, PHOTO_CARD, PHOTO_CARD_IMAGE } from "@/components/discovery/cards";
 import { ExploreSections, withoutShown } from "@/components/discovery/explore-sections";
 import { areaIcon } from "@/components/discovery/icons";
-import { SearchedFirst } from "@/components/discovery/searched-first";
 import { ListingBrowser } from "@/components/discovery/listing-browser";
 import { listingFeatures, type Feature } from "@/components/discovery/listing-features";
+import { SectionOrder } from "@/components/discovery/section-order";
 import { PlacesGrid } from "@/components/discovery/places-grid";
 import { AreaGlyph } from "@/components/discovery/tag-glyphs";
 import { CurrentPlace } from "@/components/landing/current-place";
@@ -83,10 +83,9 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   const show = typeof searchParams.show === "string" ? searchParams.show : undefined;
   // Words typed in the header's search on this page: What to book narrows to them (ListingBrowser).
   const q = typeof searchParams.q === "string" && searchParams.q.trim() ? searchParams.q.trim() : undefined;
-  // Came with a search (dates, a category, words): What to book leads the page, not the places to
-  // see, which lead only an open-ended start (SearchedFirst).
+  // A search for something to book (a category, words) puts What to book first; otherwise the
+  // trip shown here decides (SectionOrder).
   const asked = Boolean(show || q);
-  const searched = asked || Boolean(dates.from);
   const [detail, explored, destinations] = await Promise.all([
     getArea(slug),
     // The map and what's nearby: without them the page still has everything to book, and says so.
@@ -276,6 +275,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           areaName={area.name}
           places={places}
           offered={needs.map((need) => need.group)}
+          sights={landmarks.map((landmark) => ({ slug: landmark.slug, name: landmark.name, visitedBy: landmark.visited_by }))}
           starting={starting}
         />
       ) : (
@@ -300,7 +300,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
 
       <PageSheet tone="clear">
         <AreaMapProvider>
-          <TripAddProvider>
+          <TripAddProvider places={places}>
             <AreaMapLayout map={map}>
               <div className="page-sections flex min-w-0 flex-col gap-section pt-block pb-page-pad">
                 {/* What to book's rail holds the map's switch; without it the switch leads the page. */}
@@ -309,9 +309,9 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                     <MapSwitch />
                   </div>
                 )}
-                <SearchedFirst
-                  searched={searched}
+                <SectionOrder
                   asked={asked}
+                  tripPlaces={places}
                   places={
                     landmarks.length > 0 && (
                       <Section

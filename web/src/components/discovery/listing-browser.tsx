@@ -8,12 +8,14 @@ import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { formatPeso } from "@/lib/money";
+import { openPlan, usePlanSummary } from "@/components/trips/plan-open";
+import { gapGroup, planGaps, stillMissing } from "@/components/trips/trip-missing";
 import { useTripHere } from "@/components/trips/use-trip-here";
 import { ShownOffersContext } from "./business-row";
 import { BOOKING_GROUPS } from "./categories";
 import { listingKey, MapHoverTarget, MapSwitch, useAreaMap, useBesideMap } from "./area-map-context";
 import type { Feature } from "./listing-features";
-import { CategoryGlyph, CloseGlyph, FilterGlyph, GridGlyph } from "./tag-glyphs";
+import { AlertGlyph, CategoryGlyph, CloseGlyph, FilterGlyph, GridGlyph, ListGlyph, TickGlyph } from "./tag-glyphs";
 import { focusDock } from "./floating-dock";
 import { useFitRows } from "./use-fit-rows";
 
@@ -114,15 +116,20 @@ export function ListingBrowser({
   // from here goes to the end, in the rail and the sections, so what the trip still lacks leads.
   tripPlaces?: string[];
 }) {
-  const { has } = useTripHere(tripPlaces);
-  const inTrip = (group: ListingGroup) => Boolean(group.group && has.has(group.group));
-  // What the trip lacks leads, Stays first among it (as on the trip card), then what it has.
-  const lacking = groups.filter((group) => !inTrip(group));
-  const ordered = [
-    ...lacking.filter((group) => group.group === "stay"),
-    ...lacking.filter((group) => group.group !== "stay"),
-    ...groups.filter(inTrip),
-  ];
+  const { trip, has } = useTripHere(tripPlaces);
+  // With a trip shown, the plan orders the sections: what it is missing here first (a stay for
+  // its nights, a transfer, an item to replace; stillMissing, the banner's count), then the ideas
+  // it has nothing of yet, then what it has, and gear, never needed, last. With none, Stays lead.
+  const offered = groups.filter((group) => group.group && group.items.length > 0).map((group) => group.group!);
+  const lacks = new Set<string>(trip ? stillMissing(planGaps(trip, tripPlaces ?? [], offered, [])).map(gapGroup) : []);
+  const inTrip = (group: ListingGroup) => Boolean(group.group && has.has(group.group) && !lacks.has(group.group));
+  const rank = (group: ListingGroup) =>
+    group.group && lacks.has(group.group) ? 0 : inTrip(group) ? 2 : group.group === "gear" ? 3 : 1;
+  const stayFirst = (a: ListingGroup, b: ListingGroup) => Number(b.group === "stay") - Number(a.group === "stay");
+  const ordered = [...groups].sort((a, b) => (trip ? rank(a) - rank(b) : 0) || stayFirst(a, b));
+  // A chip's mark: a dot for what's missing, a tick for what the trip has.
+  const markOf = (group: ListingGroup) => (group.group && lacks.has(group.group) ? "missing" : inTrip(group) ? "has" : undefined);
+  const planSummary = usePlanSummary();
   const [current, setCurrent] = useState<string>(() =>
     initial && groups.some((group) => group.id === initial) ? initial : "all",
   );
@@ -219,7 +226,7 @@ export function ListingBrowser({
   const total = groups.reduce((sum, group) => sum + visible(group).length, 0);
   // Under a search, only the sections it found something in (and the one picked).
   const options = [
-    { id: "all", title: "All", icon: "", count: total, set: 0 },
+    { id: "all", title: "All", icon: "", count: total, set: 0, mark: undefined },
     ...ordered
       .map((group) => ({
         id: group.id,
@@ -227,6 +234,7 @@ export function ListingBrowser({
         icon: group.icon,
         count: visible(group).length,
         set: setCount(filtersOf(group.id)),
+        mark: markOf(group),
       }))
       .filter((option) => !matches || option.count > 0 || option.id === current),
   ];
@@ -242,7 +250,7 @@ export function ListingBrowser({
 
   return (
     <div className={cn("relative grid gap-5", rail && "lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-6")}>
-      <DockSkipLink />
+      <MapSkipLink />
       {/* Under the stuck search bar, scrolling on its own if the window is short. */}
       {/* Below lg its contents join the grid, so the chips can stick for the whole list. */}
       <aside
@@ -265,6 +273,33 @@ export function ListingBrowser({
               rail && "lg:static lg:mx-0 lg:my-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:rounded-card lg:bg-surface lg:p-2 lg:card-edge lg:shadow-soft",
             )}
           >
+            {/* The trip's plan, first in the row (and the rail): it says what to look for here. */}
+            {planSummary && (
+              <button
+                type="button"
+                onClick={openPlan}
+                aria-haspopup="dialog"
+                data-testid="trip-plan-button"
+                aria-label={planSummary.missing > 0 ? `Your plan: ${planSummary.missing} missing` : "Your plan"}
+                className={cn(
+                  "flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-navy bg-surface px-4 text-sm font-semibold whitespace-nowrap text-navy transition-colors duration-300 ease-calm hover:bg-mist",
+                  rail && "lg:mb-1 lg:grid lg:grid-cols-[1.75rem_minmax(0,1fr)_auto] lg:gap-2.5 lg:rounded-control lg:border-line lg:px-2.5 lg:py-2 lg:text-left",
+                )}
+              >
+                <span aria-hidden className={cn("flex items-center justify-center", rail && "lg:size-7 lg:rounded-lg lg:bg-navy lg:text-white")}>
+                  {planSummary.problem ? <AlertGlyph className={cn("size-4 text-warning", rail && "lg:text-warning-tint")} /> : <ListGlyph className="size-4" />}
+                </span>
+                <span>Your plan</span>
+                {planSummary.missing > 0 && (
+                  <span
+                    aria-hidden
+                    className="grid min-w-6 place-items-center rounded-full bg-warning-tint px-1.5 text-xs font-bold text-navy tabular-nums"
+                  >
+                    {planSummary.missing}
+                  </span>
+                )}
+              </button>
+            )}
             {options.map((option) => {
               const on = option.id === current;
               return (
@@ -293,8 +328,11 @@ export function ListingBrowser({
                   >
                     {option.icon ? <CategoryGlyph name={option.icon} className="size-4" /> : <GridGlyph className="size-4" />}
                   </span>
-                  <span>
+                  <span className="flex items-center gap-1.5">
+                    {option.mark === "missing" && <span aria-hidden className="size-2 shrink-0 rounded-full bg-warning" />}
                     {option.title}
+                    {option.mark === "has" && <TickGlyph className={cn("size-3.5 shrink-0", on ? "text-mint" : "text-forest", rail && on && "lg:text-forest")} />}
+                    {option.mark && <span className="sr-only">{option.mark === "missing" ? ", missing from your trip" : ", in your trip"}</span>}
                     {option.set > 0 && (
                       <span className={cn("ml-1.5 text-xs font-medium", on ? rail && "lg:text-primary" : "text-link")}>
                         · {option.set} {option.set === 1 ? "filter" : "filters"}
@@ -388,12 +426,12 @@ export function ListingBrowser({
                   </div>
                   {group.note && <p className="-mt-1 text-sm text-pretty text-muted">{group.note}</p>}
                   {rows.length > 0 ? (
-                    <ul className="flex flex-col gap-3">
+                    <ul className="flex flex-col divide-y divide-line">
                       {rows.map((item) => (
                         // A search suggestion links straight to its row (#listing-<id>).
                         // A container, so the row lays itself out by its own width: beside the map
                         // it is narrower than the window says.
-                        <li key={item.key} id={item.key} className="@container scroll-mt-36">
+                        <li key={item.key} id={item.key} className="@container scroll-mt-36 py-4 first:pt-1 last:pb-1">
                           {near && (
                             <p className="mb-1.5 px-1 text-sm font-semibold text-primary">{distance(group, item).toFixed(1)} km from your pin</p>
                           )}
@@ -720,11 +758,12 @@ function FilterMarkers({
   );
 }
 
-// For the keyboard, first in What to book: the floating dock (the trip checklist, the phone's
-// Map) is last on the page, after the footer. Hidden until focused, like Skip to content, and
-// then shown where it is, over What to book's first row, not at the window's corner. On an
-// area page only (the map's provider), where the dock is.
-function DockSkipLink() {
+// For the keyboard on a phone, first in What to book: the Map button sits in the floating dock,
+// last on the page after the footer. Hidden until focused, like Skip to content, and then shown
+// where it is, over What to book's first row. Not from lg, where the map has its switch in the
+// rail beside the sections, and not for the plan, whose chip comes right after it. On an area
+// page only (the map's provider), where the dock is.
+function MapSkipLink() {
   if (!useAreaMap()) return null;
   return (
     <a
@@ -732,9 +771,9 @@ function DockSkipLink() {
       onClick={(event) => {
         if (focusDock()) event.preventDefault();
       }}
-      className="focus-light sr-only rounded-full bg-white font-bold text-navy shadow-lift focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-30 focus:px-5 focus:py-3"
+      className="focus-light sr-only rounded-full bg-white font-bold text-navy shadow-lift focus:not-sr-only lg:hidden focus:absolute focus:top-0 focus:left-0 focus:z-30 focus:px-5 focus:py-3"
     >
-      Skip to your plan
+      Skip to the map
     </a>
   );
 }

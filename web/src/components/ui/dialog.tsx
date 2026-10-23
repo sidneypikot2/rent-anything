@@ -14,6 +14,11 @@ const PLACEMENTS = {
   // the title under it with the details, `actions` pinned at the foot and what's between
   // scrolling; the close button floats at the top right.
   side: "my-3 mr-3 ml-auto h-[calc(100dvh-1.5rem)] max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-md rounded-card",
+  // A sheet from the bottom on a phone, in thumb's reach, and the side panel from sm: up, for a
+  // guide to the page under it (the trip's plan). The title and close button stay at its top and
+  // only the body scrolls, so nothing floats over the text.
+  drawer:
+    "mx-0 mb-0 mt-auto max-h-[88dvh] w-full max-w-none rounded-t-card sm:my-3 sm:mr-3 sm:ml-auto sm:h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-1.5rem)] sm:w-[calc(100%-1.5rem)] sm:max-w-md sm:rounded-card",
   // Centred and wider, for the whole of a record on a work screen: the title and close button
   // stay at the top and `actions` at the foot, and what's between scrolls.
   overlay: "m-auto max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] max-w-2xl overflow-hidden rounded-card",
@@ -30,7 +35,8 @@ type Props = {
   // inside its own form leaves them out.
   actions?: ReactNode;
   // "sheet" for a step in a flow (choosing, editing) rather than a confirmation; "side" for
-  // the details of something on the page, beside it; "overlay" for a record's details over it.
+  // the details of something on the page, beside it; "drawer" for a guide to the page, from the
+  // bottom on a phone; "overlay" for a record's details over it.
   placement?: keyof typeof PLACEMENTS;
   "data-testid"?: string;
 };
@@ -84,7 +90,7 @@ export function Dialog({
       }}
       className={cn(
         "card-edge bg-surface text-foreground shadow-float backdrop:bg-navy/50 backdrop:backdrop-blur-sm",
-        placement === "side" ? "open:animate-panel-in" : "open:animate-rise",
+        placement === "side" ? "open:animate-panel-in" : placement === "drawer" ? "open:animate-rise sm:open:animate-panel-in" : "open:animate-rise",
         PLACEMENTS[placement],
       )}
     >
@@ -116,6 +122,13 @@ export function Dialog({
           {actions && (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3">{actions}</div>
           )}
+        </div>
+      ) : placement === "drawer" ? (
+        <div className="flex max-h-[inherit] flex-col sm:h-full">
+          <div className="px-5 pt-4 pb-3">{header}</div>
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] *:shrink-0">
+            {children}
+          </div>
         </div>
       ) : placement === "overlay" ? (
         <div className="flex max-h-[calc(100dvh-3rem)] flex-col">

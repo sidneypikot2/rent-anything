@@ -5,7 +5,7 @@ import { TickGlyph } from "@/components/discovery/tag-glyphs";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "@/lib/auth/session";
 import { useChosenTrip } from "./chosen-trip";
-import { ItemDateSheet } from "./item-date-sheet";
+import { ItemEditSheet } from "./item-edit-sheet";
 import { currentTrips, useTrips, type Trip } from "./use-trips";
 
 // Where a listing sits among the guest's current trips, judged by the trip they're working on
@@ -31,7 +31,7 @@ export function useListingInTrip(listingId: number): { where: "this" | "other" |
 // trips, so the row reads as taken care of while its button stays an action (Add another). Held
 // only by another trip, a quiet "In another trip" naming it: the guest sees they have it
 // somewhere without this trip claiming it. Not yet booked, the badge is "In your trip · Edit",
-// opening its days (ItemDateSheet) right on the card.
+// opening its days (ItemEditSheet) right on the card.
 export function InTripBadge({ listingId }: { listingId: number }) {
   const { where, trip } = useListingInTrip(listingId);
   const [editing, setEditing] = useState(false);
@@ -51,12 +51,12 @@ export function InTripBadge({ listingId }: { listingId: number }) {
           aria-haspopup="dialog"
           onClick={() => setEditing(true)}
           data-testid="in-trip-edit"
-          className="relative z-10 inline-flex min-h-6 items-center gap-1 rounded-full border border-sage bg-sage px-2.5 text-xs font-semibold text-forest transition-colors hover:border-forest/40"
+          className="tap-target z-10 inline-flex min-h-6 items-center gap-1 rounded-full border border-sage bg-sage px-2.5 text-xs font-semibold text-forest transition-colors hover:border-forest/40"
         >
           <TickGlyph aria-hidden className="size-3.5" />
           In your trip ·<span className="underline underline-offset-2">Edit</span>
         </button>
-        {editing && <ItemDateSheet trip={trip} item={item} onClose={() => setEditing(false)} onSaved={() => setEditing(false)} />}
+        {editing && <ItemEditSheet trip={trip} item={item} onClose={() => setEditing(false)} onSaved={() => setEditing(false)} />}
       </>
     );
   return (
