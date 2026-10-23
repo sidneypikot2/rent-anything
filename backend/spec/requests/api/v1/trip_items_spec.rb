@@ -84,7 +84,7 @@ RSpec.describe "Trip items", type: :request do
         schema "$ref" => "#/components/schemas/trip"
         let(:range) { Trips::Destination.dates(day, day + 3) }
         let(:trip) { create(:trip, user:, name: "Bantayan Island · #{range}", starts_on: day, ends_on: day + 3) }
-        let(:city_tour) { create(:listing, area: create(:area, kind: "city", name: "Cebu City"), title: "City tour") }
+        let(:city_tour) { create(:listing, area: create(:area, kind: "city", name: "Cebu City"), title: "Cebu City tour") }
         let(:body) { { listing_id: city_tour.id, starts_on: (day + 2).iso8601, ends_on: (day + 2).iso8601, trip_id: trip.id } }
 
         before { create(:trip_item, trip:, listing: tour, starts_on: day, ends_on: day) }
