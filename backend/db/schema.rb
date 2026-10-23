@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_23_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_23_110000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -593,9 +593,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_100000) do
     t.bigint "excess_km_fee_cents"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "driving", default: "self_drive", null: false
+    t.bigint "driver_fee_cents"
     t.index ["listing_id"], name: "index_vehicle_rates_on_listing_id", unique: true
+    t.check_constraint "(driving::text = 'self_drive'::text) = (driver_fee_cents IS NULL)", name: "vehicle_rates_driver_fee_needs_driver_check"
     t.check_constraint "daily_price_cents >= 0", name: "vehicle_rates_daily_price_check"
     t.check_constraint "delivery_fee_cents >= 0", name: "vehicle_rates_delivery_fee_check"
+    t.check_constraint "driver_fee_cents > 0", name: "vehicle_rates_driver_fee_check"
+    t.check_constraint "driving::text = ANY (ARRAY['self_drive'::character varying, 'with_driver'::character varying, 'either'::character varying]::text[])", name: "vehicle_rates_driving_check"
     t.check_constraint "excess_km_fee_cents >= 0", name: "vehicle_rates_excess_km_fee_check"
     t.check_constraint "half_day_hours >= 2 AND half_day_hours <= 12", name: "vehicle_rates_half_day_hours_check"
     t.check_constraint "half_day_price_cents > 0", name: "vehicle_rates_half_day_price_check"

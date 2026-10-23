@@ -74,6 +74,14 @@ FactoryBot.define do
       end
       initialize_with { Category.find_or_initialize_by(slug: "motorcycle") }
     end
+
+    # A car (RAA-150): a vehicle rental that can come with a driver.
+    trait :car do
+      motorcycle
+      slug { "car" }
+      name { "Car" }
+      initialize_with { Category.find_or_initialize_by(slug: "car") }
+    end
   end
 
   factory :listing do

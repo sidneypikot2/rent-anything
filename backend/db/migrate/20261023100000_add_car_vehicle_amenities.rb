@@ -1,7 +1,7 @@
-# Car amenities (RAA-150): cars and vans tick what car renters look for — Bluetooth audio,
-# CarPlay / Android Auto, GPS, a dashcam, a reverse camera, RFID toll tags, the early warning
-# device, a spare tire and tools, a first aid kit — on top of RAA-149's list, which was mostly
-# for motorbikes. Which category offers which is the web form's; the schema only lists them all.
+# Car amenities (RAA-150): cars and vans tick what car renters look for — Bluetooth or
+# CarPlay, a dashcam, a reverse camera, RFID toll tags, the early warning device, a spare tire
+# and tools, a first aid kit — on top of RAA-149's list, which was mostly for motorbikes.
+# Which category offers which is the web form's; the schema only lists them all.
 #
 # It only changes the vehicle categories (those whose schema asks for make, model and
 # engine_cc) and can run twice. Down drops the new amenities from any listing that has them.
@@ -12,8 +12,7 @@ class AddCarVehicleAmenities < ActiveRecord::Migration[8.1]
     driver_available
   ].freeze
   NEW_AMENITIES = %w[
-    bluetooth_audio carplay_android_auto gps_navigation dashcam reverse_camera rfid_toll early_warning_device
-    spare_tire_tools first_aid_kit
+    bluetooth_audio dashcam reverse_camera rfid_toll early_warning_device spare_tire_tools first_aid_kit
   ].freeze
   AMENITIES = (OLD_AMENITIES + NEW_AMENITIES).freeze
 

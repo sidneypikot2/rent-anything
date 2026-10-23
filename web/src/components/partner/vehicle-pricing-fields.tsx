@@ -2,9 +2,10 @@
 
 import type { ReactNode } from "react";
 import type { components } from "@/api/schema";
-import { isFourWheel, VEHICLE_AMENITY_LABELS } from "@/components/listings/vehicle-labels";
+import { hasDriverOption, isFourWheel, VEHICLE_AMENITY_LABELS } from "@/components/listings/vehicle-labels";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox-field";
+import { ChoiceCards } from "@/components/ui/choice-cards";
 import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
 import { formatPeso, fromCents, toCents } from "@/lib/money";
@@ -14,6 +15,7 @@ import { FeeFields, feesError, newFee, toFeeValues, type FeeValues } from "./fee
 type VehicleRate = components["schemas"]["vehicle_rate"];
 type VehicleRateBody = components["schemas"]["vehicle_rate_body"];
 type ListingFee = components["schemas"]["listing_fee"];
+type Driving = components["schemas"]["vehicle_driving"];
 
 // VehicleRate's limits (RAA-149).
 const WEEK_DAYS = 7;
@@ -50,6 +52,8 @@ export type VehiclePricingValues = {
   deliveryFee: string;
   pickup: Service;
   pickupFee: string;
+  driving: Driving;
+  driverFee: string;
   fees: FeeValues[];
 };
 
@@ -74,6 +78,8 @@ export const NEW_VEHICLE_PRICING: VehiclePricingValues = {
   deliveryFee: "",
   pickup: "none",
   pickupFee: "",
+  driving: "self_drive",
+  driverFee: "",
   fees: [],
 };
 
@@ -104,6 +110,8 @@ export function toVehiclePricingValues(rate: VehicleRate | null, fees: ListingFe
     deliveryFee: peso(rate.delivery_fee_cents),
     pickup: service(rate.return_pickup_fee_cents),
     pickupFee: peso(rate.return_pickup_fee_cents),
+    driving: rate.driving,
+    driverFee: peso(rate.driver_fee_cents),
     fees: toFeeValues(fees),
   };
 }
@@ -132,6 +140,8 @@ export function toVehicleRateBody(values: VehiclePricingValues): VehicleRateBody
     min_rental_days: wholeNumber(values.minDays) ?? 1,
     km_limit_per_day: kmLimit,
     excess_km_fee_cents: kmLimit ? optionalCents(values.excessKmFee) : null,
+    driving: values.driving,
+    driver_fee_cents: values.driving === "self_drive" ? null : toCents(values.driverFee),
   };
 }
 
@@ -146,6 +156,7 @@ export type VehiclePricingErrors = Partial<
     | "deposit"
     | "deliveryFee"
     | "pickupFee"
+    | "driverFee"
     | "minDays"
     | "kmLimit"
     | "excessKmFee"
@@ -201,6 +212,9 @@ export function vehiclePricingErrors(values: VehiclePricingValues, included: str
 
   if (values.delivery === "fee" && !toCents(values.deliveryFee)) errors.deliveryFee = "Set a fee above ₱0, or choose Free";
   if (values.pickup === "fee" && !toCents(values.pickupFee)) errors.pickupFee = "Set a fee above ₱0, or choose Free";
+  if (values.driving !== "self_drive" && !toCents(values.driverFee)) {
+    errors.driverFee = "Set the driver's fee per day, or choose Self-drive only";
+  }
 
   const fees = feesError(values.fees) ?? includedFeeError(values.fees, included);
   if (fees) errors.fees = fees;
@@ -210,30 +224,24 @@ export function vehiclePricingErrors(values: VehiclePricingValues, included: str
 }
 
 // The fees PH rental shops charge on top, one click each: a row with its name and how it's
-// charged, the partner types the amount. Motorbikes and trikes have their own list.
+// charged, the partner types the amount. Motorbikes and trikes have their own list. Delivery and
+// a driver have their own sections, so neither is a preset.
 const TWO_WHEEL_FEE_PRESETS: { label: string; fee: Partial<FeeValues> }[] = [
   { label: "Late return", fee: { name: "Late return", chargedPer: "hour", required: true } },
   { label: "Passenger helmet", fee: { name: "Passenger helmet", chargedPer: "day", required: false } },
   { label: "Fuel refill", fee: { name: "Fuel refill", chargedPer: "booking", required: false } },
   { label: "Cleaning", fee: { name: "Cleaning fee", chargedPer: "booking", required: true } },
-  { label: "Airport or port delivery", fee: { name: "Airport or port delivery", chargedPer: "booking", required: false } },
-  { label: "Out-of-area delivery", fee: { name: "Out-of-area delivery", chargedPer: "booking", required: false } },
   { label: "Insurance add-on", fee: { name: "Insurance add-on", chargedPer: "day", required: false } },
 ];
 
 // Cars, vans and multicabs.
 const CAR_FEE_PRESETS: { label: string; fee: Partial<FeeValues> }[] = [
   { label: "Late return", fee: { name: "Late return", chargedPer: "hour", required: true } },
-  { label: "With driver", fee: { name: "With driver", chargedPer: "day", required: false } },
-  { label: "Additional driver", fee: { name: "Additional driver", chargedPer: "day", required: false } },
   { label: "Child seat", fee: { name: "Child seat", chargedPer: "day", required: false } },
   { label: "Out-of-town use", fee: { name: "Out-of-town use", chargedPer: "day", required: false } },
   { label: "Fuel refill", fee: { name: "Fuel refill", chargedPer: "booking", required: false } },
   { label: "Toll / RFID load", fee: { name: "Toll / RFID load", chargedPer: "booking", required: false } },
   { label: "Cleaning", fee: { name: "Cleaning fee", chargedPer: "booking", required: true } },
-  { label: "Smoking or pet cleaning", fee: { name: "Smoking or pet cleaning", chargedPer: "booking", required: false } },
-  { label: "Airport or port delivery", fee: { name: "Airport or port delivery", chargedPer: "booking", required: false } },
-  { label: "Out-of-area delivery", fee: { name: "Out-of-area delivery", chargedPer: "booking", required: false } },
   { label: "Insurance add-on", fee: { name: "Insurance add-on", chargedPer: "day", required: false } },
 ];
 
@@ -243,7 +251,6 @@ const INCLUDED_FEE_NAMES: Record<string, string[]> = {
   full_tank: ["Fuel refill"],
   insurance: ["Insurance add-on"],
   child_seat: ["Child seat"],
-  driver_available: ["With driver"],
   rfid_toll: ["Toll / RFID load"],
 };
 
@@ -265,6 +272,12 @@ function includedFeeError(fees: FeeValues[], included: string[]) {
   return `${VEHICLE_AMENITY_LABELS[amenity]} is ticked as coming with the vehicle: remove this fee, or untick it there`;
 }
 
+const DRIVING: { value: Driving; label: string; description: string }[] = [
+  { value: "self_drive", label: "Self-drive only", description: "The guest drives." },
+  { value: "with_driver", label: "With driver only", description: "Your driver drives, at a fee per day." },
+  { value: "either", label: "Self-drive or with driver", description: "The guest chooses; a driver costs extra per day." },
+];
+
 const SERVICES: { value: Service; label: string }[] = [
   { value: "none", label: "Not offered" },
   { value: "free", label: "Free" },
@@ -277,9 +290,9 @@ function perDay(text: string, days: number) {
   return cents ? `${formatPeso(Math.round(cents / days))} a day` : undefined;
 }
 
-// A vehicle rental's price (RAA-150), top to bottom: the daily price, the other rental lengths,
-// the deposit, the km limit, delivery and pick-up, then the extra fees. Everything optional is a
-// tick box that opens its fields. Guests see it; the price is still confirmed with the partner,
+// A vehicle rental's price (RAA-150), top to bottom: the daily price, who drives (not for a
+// motorbike), the other rental lengths, the deposit, the km limit, delivery and pick-up, then
+// the extra fees. Everything optional is a tick box that opens its fields. Guests see it; the price is still confirmed with the partner,
 // as checkout doesn't quote rentals yet.
 export function VehiclePricingFields({
   values,
@@ -337,6 +350,35 @@ export function VehiclePricingFields({
           />
         </div>
       </PricingSection>
+
+      {hasDriverOption(slug) && (
+        <PricingSection title="Driving" intro="Whether the guest drives, or you send a driver." data-testid="pricing-driving">
+          <ChoiceCards
+            legend="Who drives"
+            name="driving"
+            choices={DRIVING}
+            value={values.driving}
+            onChange={(driving) => set({ driving: driving as Driving })}
+            columns={1}
+          />
+          {values.driving !== "self_drive" && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Driver fee per day (₱)"
+                name="driver_fee"
+                required
+                {...money}
+                min={0.01}
+                value={values.driverFee}
+                onChange={(event) => set({ driverFee: event.target.value })}
+                error={errors?.driverFee}
+                hint={values.driving === "either" ? "Added to the daily price when the guest wants a driver." : "Added to the daily price."}
+                data-testid="pricing-driver-fee"
+              />
+            </div>
+          )}
+        </PricingSection>
+      )}
 
       <PricingSection title="Other rental lengths" intro="Tick the ones you offer.">
         <OptionalRate label="Half-day" name="half_day" on={values.halfDayOn} onToggle={(halfDayOn) => set({ halfDayOn })}>

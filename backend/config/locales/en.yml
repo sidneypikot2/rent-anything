@@ -54,6 +54,8 @@ en:
         min_rental_days: "Minimum days"
         km_limit_per_day: "Daily km limit"
         excess_km_fee_cents: "Fee per km above the limit"
+        driving: "Driving"
+        driver_fee_cents: "Driver fee"
       listing_fee:
         amount_cents: "Fee amount"
         charged_per: "Charged per"

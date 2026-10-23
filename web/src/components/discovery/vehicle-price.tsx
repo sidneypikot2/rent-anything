@@ -17,7 +17,15 @@ function serviceText(cents: number | null) {
   return cents === null ? "Not offered" : cents === 0 ? "Free" : formatPeso(cents);
 }
 
-// What a vehicle rental costs (RAA-150): its rates, the deposit, delivery and pick-up, the km
+// "Self-drive", "With driver, ₱1,500 a day", or self-drive with a driver to ask for.
+function drivingText(rate: Rate) {
+  const fee = rate.driver_fee_cents ? `${formatPeso(rate.driver_fee_cents)} a day` : "";
+  if (rate.driving === "with_driver") return `With driver, ${fee}`;
+  if (rate.driving === "either") return `Self-drive, or with driver for ${fee}`;
+  return "Self-drive";
+}
+
+// What a vehicle rental costs (RAA-150): its rates, the deposit, who drives, delivery and pick-up, the km
 // limit and its fees. Rentals aren't quoted at checkout yet, so it says the partner confirms
 // the price.
 export function VehiclePrice({ listing, rate }: { listing: ListingDetail; rate: Rate }) {
@@ -36,6 +44,7 @@ export function VehiclePrice({ listing, rate }: { listing: ListingDetail; rate: 
   ];
   const terms: [string, string][] = [
     ["Security deposit", rate.security_deposit_cents ? `${formatPeso(rate.security_deposit_cents)}, refunded on return` : "None"],
+    ["Driving", drivingText(rate)],
     ["Delivery to you", serviceText(rate.delivery_fee_cents)],
     ["Pick-up at the end", serviceText(rate.return_pickup_fee_cents)],
     ...(rate.min_rental_days > 1 ? [["Minimum rental", plural(rate.min_rental_days, "day")] as [string, string]] : []),

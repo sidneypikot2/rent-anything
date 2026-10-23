@@ -29,14 +29,9 @@ export const VEHICLE_AMENITY_LABELS: Record<string, string> = {
   cargo_straps: "Cargo straps",
   usb_charger: "USB charger",
   roadside_assistance: "Roadside assistance",
-  unlimited_km: "Unlimited km",
-  maintenance_checked: "Maintenance checked",
   air_conditioning: "Air conditioning",
   child_seat: "Child seat",
-  driver_available: "Driver available",
-  bluetooth_audio: "Bluetooth audio",
-  carplay_android_auto: "Apple CarPlay / Android Auto",
-  gps_navigation: "GPS navigation",
+  bluetooth_audio: "Bluetooth / CarPlay",
   dashcam: "Dashcam",
   reverse_camera: "Reverse camera",
   rfid_toll: "RFID toll tags",
@@ -45,7 +40,8 @@ export const VEHICLE_AMENITY_LABELS: Record<string, string> = {
   first_aid_kit: "First aid kit",
 };
 
-// What a rider gets with a motorbike or a trike.
+// What a rider gets with a motorbike or a trike. The km limit, delivery and a driver are the
+// pricing step's, so none of them is an inclusion.
 const TWO_WHEEL = [
   "rider_helmet",
   "passenger_helmet",
@@ -59,8 +55,6 @@ const TWO_WHEEL = [
   "cargo_straps",
   "usb_charger",
   "roadside_assistance",
-  "unlimited_km",
-  "maintenance_checked",
 ];
 
 // What a car or van renter looks for, the most searched first.
@@ -68,12 +62,8 @@ const CAR = [
   "air_conditioning",
   "full_tank",
   "insurance",
-  "unlimited_km",
-  "driver_available",
   "child_seat",
   "bluetooth_audio",
-  "carplay_android_auto",
-  "gps_navigation",
   "dashcam",
   "reverse_camera",
   "usb_charger",
@@ -84,11 +74,10 @@ const CAR = [
   "early_warning_device",
   "spare_tire_tools",
   "first_aid_kit",
-  "maintenance_checked",
 ];
 
-// A multicab is a basic utility vehicle: no infotainment, camera or toll tags.
-const MULTICAB = CAR.filter((amenity) => !["carplay_android_auto", "reverse_camera", "rfid_toll"].includes(amenity));
+// A multicab is a basic utility vehicle: no reverse camera or toll tags.
+const MULTICAB = CAR.filter((amenity) => !["reverse_camera", "rfid_toll"].includes(amenity));
 
 const VEHICLE_AMENITIES: Record<string, string[]> = {
   motorcycle: TWO_WHEEL,
@@ -101,6 +90,11 @@ const VEHICLE_AMENITIES: Record<string, string[]> = {
 // Cars, vans and multicabs: they take the car fee presets too.
 export function isFourWheel(slug: string | undefined) {
   return slug === "car" || slug === "van-rental" || slug === "multicab";
+}
+
+// The vehicles a partner can rent out with a driver; a motorbike is always self-drive.
+export function hasDriverOption(slug: string | undefined) {
+  return isFourWheel(slug) || slug === "tricycle";
 }
 
 // The amenities a vehicle of this category slug can tick.

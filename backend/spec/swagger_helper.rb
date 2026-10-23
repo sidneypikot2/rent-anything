@@ -888,17 +888,22 @@ RSpec.configure do |config|
               },
               min_rental_days: { type: :integer, minimum: 1, maximum: 365 },
               km_limit_per_day: { type: :integer, minimum: 1, maximum: 2000, nullable: true, description: "Null: unlimited" },
-              excess_km_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Per km above the daily limit" }
+              excess_km_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Per km above the daily limit" },
+              driving: { "$ref" => "#/components/schemas/vehicle_driving" },
+              driver_fee_cents: {
+                type: :integer, minimum: 1, nullable: true, description: "The driver, per day; null when self-drive"
+              }
             },
             required: %w[daily_price_cents half_day_price_cents half_day_hours hourly_price_cents weekly_price_cents
               monthly_price_cents security_deposit_cents delivery_fee_cents return_pickup_fee_cents min_rental_days
-              km_limit_per_day excess_km_fee_cents]
+              km_limit_per_day excess_km_fee_cents driving driver_fee_cents]
           },
           vehicle_rate_body: {
             type: :object,
             description: "A half day costs less than a day and an hour less than a half day (or a day); a week " \
               "at most 7 days and a month at most 30 at the daily price. A fee per km above the limit needs a " \
-              "limit. Optional fields left out take their defaults.",
+              "limit. A driver needs a driver fee, and a motorcycle is self-drive only. Optional fields left out " \
+              "take their defaults.",
             properties: {
               daily_price_cents: { type: :integer, minimum: 1 },
               half_day_price_cents: { type: :integer, minimum: 1, nullable: true, description: "Default null" },
@@ -911,9 +916,17 @@ RSpec.configure do |config|
               return_pickup_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Default null: not offered" },
               min_rental_days: { type: :integer, minimum: 1, maximum: 365, description: "Default 1" },
               km_limit_per_day: { type: :integer, minimum: 1, maximum: 2000, nullable: true, description: "Default null" },
-              excess_km_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Default null" }
+              excess_km_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Default null" },
+              driving: { "$ref" => "#/components/schemas/vehicle_driving", description: "Default self_drive" },
+              driver_fee_cents: {
+                type: :integer, minimum: 1, nullable: true, description: "Per day; required unless self_drive"
+              }
             },
             required: %w[daily_price_cents]
+          },
+          vehicle_driving: {
+            type: :string, enum: %w[self_drive with_driver either],
+            description: "Self-drive only, with a driver only, or either (RAA-150)"
           },
           listing_fee_charged_per: {
             type: :string, enum: %w[booking night guest guest_night unit day hour],

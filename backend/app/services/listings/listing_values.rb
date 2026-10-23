@@ -38,7 +38,7 @@ module Listings
     VEHICLE_RATE_FIELDS = %i[
       half_day_price_cents half_day_hours hourly_price_cents weekly_price_cents monthly_price_cents
       security_deposit_cents delivery_fee_cents return_pickup_fee_cents min_rental_days km_limit_per_day
-      excess_km_fee_cents
+      excess_km_fee_cents driver_fee_cents
     ].freeze
 
     private
@@ -331,7 +331,14 @@ module Listings
         next field if field.is_a?(Integer)
 
         error("#{VehicleRate.human_attribute_name(key)} must be a whole number")
-      end.merge(daily_price_cents: price)
+      end.merge(daily_price_cents: price, driving: driving_for(value[:driving]))
+    end
+
+    def driving_for(value)
+      return VehicleRate.column_defaults["driving"] if value.nil?
+      return value if VehicleRate::DRIVING.include?(value)
+
+      error("Driving must be one of #{VehicleRate::DRIVING.join(', ')}")
     end
 
     # nil keeps the listing's fees as they are; an array replaces them, in its order.

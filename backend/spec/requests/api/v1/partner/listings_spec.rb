@@ -516,7 +516,8 @@ RSpec.describe "Partner listings", type: :request do
 
           run_test! do |response|
             expect(response.parsed_body["attrs"]).to eq(attrs.deep_stringify_keys)
-            expect(response.parsed_body["vehicle_rate"]).to eq(vehicle_rate.stringify_keys)
+            expect(response.parsed_body["vehicle_rate"])
+              .to eq(vehicle_rate.stringify_keys.merge("driving" => "self_drive", "driver_fee_cents" => nil))
             expect(response.parsed_body["stay_rate"]).to be_nil
             expect(response.parsed_body["fees"].pluck("charged_per")).to eq(%w[day hour])
           end
@@ -532,7 +533,8 @@ RSpec.describe "Partner listings", type: :request do
               "daily_price_cents" => 45_000, "half_day_price_cents" => nil, "half_day_hours" => 4,
               "hourly_price_cents" => nil, "weekly_price_cents" => nil, "monthly_price_cents" => nil,
               "security_deposit_cents" => 0, "delivery_fee_cents" => nil, "return_pickup_fee_cents" => nil,
-              "min_rental_days" => 1, "km_limit_per_day" => nil, "excess_km_fee_cents" => nil
+              "min_rental_days" => 1, "km_limit_per_day" => nil, "excess_km_fee_cents" => nil,
+              "driving" => "self_drive", "driver_fee_cents" => nil
             )
           end
         end
@@ -544,6 +546,31 @@ RSpec.describe "Partner listings", type: :request do
 
           run_test! do |response|
             expect(response.parsed_body["attrs"]["amenities"]).to eq(attrs[:amenities])
+          end
+        end
+
+        response "201", "a car with a driver, at a fee per day (RAA-150)" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          let(:category) { create(:category, :car) }
+
+          before { vehicle_rate.merge!(driving: "either", driver_fee_cents: 150_000) }
+
+          run_test! do |response|
+            expect(response.parsed_body["vehicle_rate"]).to include("driving" => "either", "driver_fee_cents" => 150_000)
+          end
+        end
+
+        response "422", "a driver with no fee" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          let(:category) { create(:category, :car) }
+
+          before { vehicle_rate.merge!(driving: "with_driver") }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to include("Driver fee is required with a driver")
+            expect(Listing.count).to eq(0)
           end
         end
 

@@ -3,12 +3,16 @@
 # and weekly and monthly totals that come out cheaper per day. The security deposit is
 # refundable and never part of the price. Delivery to the guest and picking the vehicle up
 # from them at the end are each not offered (nil), free (0) or a fee. min_rental_days bounds
-# a rental; a daily km limit may come with a fee per km above it. A daily price of 0 is "no
+# a rental; a daily km limit may come with a fee per km above it. A car, van, multicab or
+# tricycle can come with a driver (driving), at driver_fee_cents a day; a motorcycle is
+# always self-drive. A daily price of 0 is "no
 # price yet": existing listings were given one, and a partner sets the real price. It isn't
 # quoted at checkout yet: a rental is still agreed with the partner (Bookings::Price).
 class VehicleRate < ApplicationRecord
   WEEK_DAYS = 7
   MONTH_DAYS = 30
+  DRIVING = %w[self_drive with_driver either].freeze
+  SELF_DRIVE_ONLY_SLUGS = %w[motorcycle].freeze
 
   belongs_to :listing, inverse_of: :vehicle_rate
 
@@ -21,10 +25,13 @@ class VehicleRate < ApplicationRecord
   validates :half_day_hours, numericality: { only_integer: true, in: 2..12 }
   validates :min_rental_days, numericality: { only_integer: true, in: 1..365 }
   validates :km_limit_per_day, numericality: { only_integer: true, in: 1..2000 }, allow_nil: true
+  validates :driving, inclusion: { in: DRIVING }
+  validates :driver_fee_cents, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
   validate :listing_is_a_vehicle
   validate :longer_rentals_cost_less_per_day
   validate :shorter_rentals_cost_less
   validate :excess_km_fee_has_a_limit
+  validate :driver_fee_goes_with_a_driver
 
   def priced?
     daily_price_cents.positive?
@@ -36,6 +43,10 @@ class VehicleRate < ApplicationRecord
 
   def picks_up?
     !return_pickup_fee_cents.nil?
+  end
+
+  def self_drive?
+    driving == "self_drive"
   end
 
   private
@@ -68,5 +79,15 @@ class VehicleRate < ApplicationRecord
 
   def excess_km_fee_has_a_limit
     errors.add(:excess_km_fee_cents, "needs a daily km limit") if excess_km_fee_cents && km_limit_per_day.nil?
+  end
+
+  def driver_fee_goes_with_a_driver
+    if self_drive?
+      errors.add(:driver_fee_cents, "needs a driver: choose with driver, or leave it out") if driver_fee_cents
+    elsif SELF_DRIVE_ONLY_SLUGS.include?(listing&.category&.slug)
+      errors.add(:driving, "can only be self-drive for a #{listing.category.name.downcase}")
+    elsif driver_fee_cents.nil?
+      errors.add(:driver_fee_cents, "is required with a driver")
+    end
   end
 end
