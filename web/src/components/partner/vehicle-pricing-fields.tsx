@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
 import { formatPeso, fromCents, toCents } from "@/lib/money";
+import { VEHICLE_CHARGED_PER } from "@/lib/pricing";
 import { FeeFields, feesError, newFee, toFeeValues, type FeeValues } from "./fee-fields";
 
 type VehicleRate = components["schemas"]["vehicle_rate"];
@@ -364,6 +365,7 @@ export function VehiclePricingFields({
           onChange={(fees) => set({ fees })}
           error={errors?.fees}
           hint="Late return, a passenger helmet, a fuel refill. Optional ones are add-ons guests choose."
+          chargedPer={VEHICLE_CHARGED_PER}
         />
         {presets.length > 0 && values.fees.length < 20 && (
           <div className="flex flex-col gap-2" data-testid="pricing-fee-presets">

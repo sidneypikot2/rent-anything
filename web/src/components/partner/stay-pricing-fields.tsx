@@ -4,6 +4,7 @@ import type { components } from "@/api/schema";
 import { Field } from "@/components/ui/field";
 import { StepperField } from "@/components/ui/stepper-field";
 import { formatPeso, fromCents, toCents } from "@/lib/money";
+import { STAY_CHARGED_PER } from "@/lib/pricing";
 import { exampleFees, FeeFields, feesError, toFeeValues, type FeeValues } from "./fee-fields";
 
 type StayRate = components["schemas"]["stay_rate"];
@@ -262,7 +263,12 @@ export function StayPricingFields({
         />
       </div>
 
-      <FeeFields fees={values.fees} onChange={(fees) => set({ fees })} error={errors?.fees} />
+      <FeeFields
+        fees={values.fees}
+        onChange={(fees) => set({ fees })}
+        error={errors?.fees}
+        chargedPer={STAY_CHARGED_PER}
+      />
 
       {example && (
         <p className="rounded-control bg-surface-2 px-4 py-3 text-sm text-muted" data-testid="pricing-example">
