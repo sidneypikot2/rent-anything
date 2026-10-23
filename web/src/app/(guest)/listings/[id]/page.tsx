@@ -6,6 +6,7 @@ import { categoryIcon } from "@/components/discovery/icons";
 import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
 import { StayPrice, stayPriceLine } from "@/components/discovery/stay-price";
 import { TourFacts, tourPriceLine } from "@/components/discovery/tour-facts";
+import { VehiclePrice, vehiclePriceLine } from "@/components/discovery/vehicle-price";
 import { CurrentPlace } from "@/components/landing/current-place";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
@@ -32,7 +33,7 @@ export async function generateMetadata(props: PageProps<"/listings/[id]">): Prom
 // One listing, for a traveller deciding whether to add it to a trip (RAA-90). Active listings
 // only; it never shows the location. A priced stay shows its nightly price and, with the trip's
 // dates, what the stay costs from /quotes (RAA-105); a tour shows its facts and price (RAA-111);
-// other categories have no price yet.
+// a vehicle its rates, confirmed with the partner (RAA-150); other categories have no price yet.
 export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   const id = listingId((await props.params).id);
   if (!id) notFound();
@@ -42,6 +43,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   const { area, category } = listing;
   const rate = listing.stay_rate;
   const tour = listing.tour;
+  const vehicleRate = listing.vehicle_rate;
   const cover = listing.photos.at(0);
   const nightsSet = Boolean(dates.from && dates.to && dates.from < dates.to);
   const quote =
@@ -80,6 +82,11 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
                 {tourPriceLine(tour)}
               </p>
             )}
+            {vehicleRate && (
+              <p data-testid="listing-price" className="font-semibold text-white">
+                {vehiclePriceLine(vehicleRate)}
+              </p>
+            )}
           </>
         }
       >
@@ -109,6 +116,8 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
         {tour && <TourFacts listing={listing} tour={tour} />}
 
         {rate && <StayPrice listing={listing} rate={rate} quote={quote} datesSet={Boolean(dates.from && dates.to)} />}
+
+        {vehicleRate && <VehiclePrice listing={listing} rate={vehicleRate} />}
 
         {listing.photos.length > 1 && <ListingGallery title={listing.title} photos={listing.photos} />}
 

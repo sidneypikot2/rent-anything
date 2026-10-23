@@ -37,23 +37,23 @@ function messageFor(control: Control, label: string) {
 }
 
 // The line under a field: its error, with an icon so it isn't told by colour alone, or its hint.
+// With `counter`, "n / max" sits at its end, turning `warning` near the limit (RAA-150).
 export function FieldNote({
   id,
   error,
   hint,
+  counter,
   inset = false,
 }: {
   id: string;
   error?: string;
   hint?: string;
+  counter?: { length: number; max: number };
   inset?: boolean;
 }) {
-  if (!error && !hint) return null;
-  return (
-    <span
-      id={id}
-      className={cn("flex items-start gap-1.5 text-xs font-normal", inset && "px-1", error ? "font-medium text-danger" : "text-muted")}
-    >
+  if (!error && !hint && !counter) return null;
+  const note = (error || hint) && (
+    <span id={id} className={cn("flex items-start gap-1.5", error ? "font-medium text-danger" : "text-muted")}>
       {error && (
         <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="mt-px size-3.5 shrink-0">
           <path
@@ -66,4 +66,28 @@ export function FieldNote({
       {error ?? hint}
     </span>
   );
+  if (!counter) return <span className={cn("text-xs font-normal", inset && "px-1")}>{note}</span>;
+  const near = counter.length >= counter.max * COUNTER_WARNING;
+  return (
+    <span className={cn("flex items-start justify-between gap-3 text-xs font-normal", inset && "px-1")}>
+      {note || <span />}
+      <span data-testid="field-counter" className={cn("shrink-0 tabular-nums", near ? "font-medium text-warning" : "text-muted")}>
+        {counter.length.toLocaleString("en-PH")} / {counter.max.toLocaleString("en-PH")}
+      </span>
+    </span>
+  );
+}
+
+// How close to the limit a counter turns `warning`.
+const COUNTER_WARNING = 0.9;
+
+// The length a counted field shows: the controlled value's, or what has been typed into an
+// uncontrolled one since its defaultValue.
+export function useCounter(max: number | undefined, value: unknown, defaultValue: unknown) {
+  const [typed, setTyped] = useState(() => String(defaultValue ?? "").length);
+  const length = value !== undefined && value !== null ? String(value).length : typed;
+  return {
+    counter: max ? { length, max } : undefined,
+    track: (text: string) => setTyped(text.length),
+  };
 }

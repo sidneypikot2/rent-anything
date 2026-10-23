@@ -11,6 +11,7 @@ import {
   attributeFields,
   categoryLabel,
   descriptionHint,
+  LISTING_TEXT,
   titleExample,
   toAttrs,
   visitsLandmarks,
@@ -30,15 +31,25 @@ import type { PartnerBusiness } from "./use-partner-businesses";
 import { useCreateListing, type ListingBody, type ListingCategory, type PartnerListing } from "./use-partner-listings";
 import { UNITS_LABEL, UnitsField } from "./units-field";
 import { isVehicle, NEW_VEHICLE, toVehicleAttrs, VehicleFields, type VehicleValues } from "./vehicle-fields";
+import {
+  NEW_VEHICLE_PRICING,
+  toVehicleRateBody,
+  VehiclePricingFields,
+  vehiclePricingErrors,
+  type VehiclePricingErrors,
+  type VehiclePricingValues,
+} from "./vehicle-pricing-fields";
+import { toFeesBody } from "./fee-fields";
 import { ChangeCategoryLink, WizardCancel } from "./wizard-cancel";
 import { WizardActions, WizardLayout, WizardNext, WizardTitle } from "./wizard-steps";
 import type { PartnerLandmark } from "./use-partner-landmarks";
 
-type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "cancellation" | "units" | (typeof SAVED_STEPS)[number]["key"];
+type StepKey = "basic" | "location" | "route" | "details" | "vehicle" | "pricing" | "cancellation" | "units" | (typeof SAVED_STEPS)[number]["key"];
 
 // Adding a listing of the chosen category (RAA-50), one step at a time: Basic, Location,
 // Route (the landmarks a tour visits, RAA-70), the category's
 // own details (skipped when it has none; a vehicle's make, model, engine and color, RAA-89),
+// a vehicle's pricing (RAA-150),
 // the cancellation policy (RAA-89), how many identical units it has (RAA-99) and,
 // then photos, how guests book it (RAA-133) and the listing status. Only the current step is on the page, so the browser's required checks
 // cover just that step; every value is kept here, so going back loses nothing, and any step
@@ -64,7 +75,12 @@ export function ListingWizard({
     { key: "location", label: "Location" },
     ...(withLandmarks ? [{ key: "route" as const, label: "Route" }] : []),
     ...(fields.length > 0 ? [{ key: "details" as const, label: `${category.name} details` }] : []),
-    ...(vehicle ? [{ key: "vehicle" as const, label: "Vehicle details" }] : []),
+    ...(vehicle
+      ? [
+          { key: "vehicle" as const, label: "Vehicle details" },
+          { key: "pricing" as const, label: "Pricing" },
+        ]
+      : []),
     { key: "cancellation", label: "Cancellation policy" },
     { key: "units", label: UNITS_LABEL },
     ...SAVED_STEPS,
@@ -90,11 +106,17 @@ export function ListingWizard({
   const [attrValues, setAttrValues] = useState<AttributeValues>({});
   const [landmarks, setLandmarks] = useState<PartnerLandmark[]>([]);
   const [vehicleValues, setVehicleValues] = useState<VehicleValues>(NEW_VEHICLE);
+  const [pricing, setPricing] = useState<VehiclePricingValues>(NEW_VEHICLE_PRICING);
+  const [priceErrors, setPriceErrors] = useState<VehiclePricingErrors>();
   const [policy, setPolicy] = useState<CancellationPolicy>(DEFAULT_CANCELLATION_POLICY);
 
-  // The current step's checks: the browser's required fields, then the map pin.
+  // The current step's checks: the browser's required fields, then the map pin or the pricing's rules.
   function stepIsValid() {
     if (!formRef.current?.reportValidity()) return false;
+    if (step.key === "pricing" && vehiclePricingErrors(pricing)) {
+      setPriceErrors(vehiclePricingErrors(pricing));
+      return false;
+    }
     if (step.key === "location" && !location) {
       setLocationError("Drop a pin on the map");
       return false;
@@ -124,10 +146,11 @@ export function ListingWizard({
       category_id: category.id,
       address: address.toBody(),
       location,
-      attrs: vehicle ? toVehicleAttrs(vehicleValues) : toAttrs(fields, attrValues),
+      attrs: vehicle ? toVehicleAttrs(vehicleValues, {}, category.slug) : toAttrs(fields, attrValues),
       cancellation_policy: policy,
       units_count: units,
       ...(withLandmarks && { landmark_ids: landmarks.map((landmark) => landmark.id) }),
+      ...(vehicle && { vehicle_rate: toVehicleRateBody(pricing), fees: toFeesBody(pricing) }),
     };
     create.mutate(body, {
       onSuccess: (listing) => {
@@ -164,7 +187,9 @@ export function ListingWizard({
                 label="Title"
                 name="title"
                 required
-                maxLength={120}
+                minLength={LISTING_TEXT.titleMin}
+                maxLength={LISTING_TEXT.titleMax}
+                counter={LISTING_TEXT.titleMax}
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder={`e.g. ${titleExample(category)}`}
@@ -172,7 +197,8 @@ export function ListingWizard({
               <TextareaField
                 label="Description"
                 name="description"
-                maxLength={5000}
+                maxLength={LISTING_TEXT.descriptionMax}
+                counter={LISTING_TEXT.descriptionMax}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 hint={descriptionHint(category)}
@@ -210,7 +236,18 @@ export function ListingWizard({
 
           {step.key === "details" && <AttributeFields fields={fields} values={attrValues} onChange={setAttrValues} />}
 
-          {step.key === "vehicle" && <VehicleFields values={vehicleValues} onChange={setVehicleValues} />}
+          {step.key === "vehicle" && <VehicleFields values={vehicleValues} onChange={setVehicleValues} slug={category.slug} />}
+
+          {step.key === "pricing" && (
+            <VehiclePricingFields
+              values={pricing}
+              onChange={(values) => {
+                setPricing(values);
+                setPriceErrors(undefined);
+              }}
+              errors={priceErrors}
+            />
+          )}
 
           {step.key === "cancellation" && <CancellationPolicyChoice policies={policies} value={policy} onChange={setPolicy} />}
 

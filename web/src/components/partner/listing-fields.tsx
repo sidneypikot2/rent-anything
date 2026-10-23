@@ -135,8 +135,16 @@ export function titleExample(category: ListingCategory | undefined) {
   return TITLE_EXAMPLES[category.slug] ?? `${category.name} in Bantayan`;
 }
 
+// How long a listing's title and description can be, and how long a description must be to go
+// live: the API's Listing::TITLE_LENGTH, DESCRIPTION_MAX and LIVE_DESCRIPTION_MIN (RAA-149).
+export const LISTING_TEXT = { titleMin: 10, titleMax: 80, descriptionMax: 2000, liveDescriptionMin: 50 } as const;
+
 export function descriptionHint(category: ListingCategory | undefined) {
-  if (category?.booking_type === "rental") return "Its condition, what comes with it, where to pick it up and return it.";
+  return `${descriptionTopics(category)} At least ${LISTING_TEXT.liveDescriptionMin} characters to go live.`;
+}
+
+function descriptionTopics(category: ListingCategory | undefined) {
+  if (category?.booking_type === "rental") return "Its condition, where to pick it up and return it, your rules.";
   if (category?.booking_type === "stay") return "The space, the neighbourhood, house rules: anything a guest should know.";
   if (category?.slug === "tour") return "The route, what to bring, anything a traveller should know.";
   if (category?.booking_type === "transfer") return "Where you pick up and drop off, luggage, and how long the ride takes.";

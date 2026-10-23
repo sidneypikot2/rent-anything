@@ -14,7 +14,7 @@ import {
   type CancellationPolicies,
   type CancellationPolicy,
 } from "./cancellation-policy";
-import { categoryLabel } from "./listing-fields";
+import { categoryLabel, descriptionHint, LISTING_TEXT } from "./listing-fields";
 import { LandmarkPicker } from "./landmark-picker";
 import { LocationPicker } from "./location-picker";
 import { NewListingPhotos, SAVED_STEPS } from "./new-listing-photos";
@@ -190,7 +190,9 @@ export function TourWizard({
                 label="Title"
                 name="title"
                 required
-                maxLength={120}
+                minLength={LISTING_TEXT.titleMin}
+                maxLength={LISTING_TEXT.titleMax}
+                counter={LISTING_TEXT.titleMax}
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="e.g. Island hopping to Virgin Island and Hilantagaan"
@@ -198,10 +200,11 @@ export function TourWizard({
               <TextareaField
                 label="Description"
                 name="description"
-                maxLength={5000}
+                maxLength={LISTING_TEXT.descriptionMax}
+                counter={LISTING_TEXT.descriptionMax}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                hint="The route, what to bring, anything a traveller should know."
+                hint={descriptionHint(category)}
               />
               <TourTypeChoice values={tour} onChange={changeTour} />
             </>

@@ -12,7 +12,7 @@ import {
   type CancellationPolicies,
   type CancellationPolicy,
 } from "./cancellation-policy";
-import { categoryLabel } from "./listing-fields";
+import { categoryLabel, descriptionHint, LISTING_TEXT } from "./listing-fields";
 import { LocationPicker } from "./location-picker";
 import { NewListingPhotos, SAVED_STEPS } from "./new-listing-photos";
 import { SameAsBusinessAddress, startingAddress, startingPin, useSameAsBusinessAddress } from "./same-as-business-address";
@@ -220,7 +220,9 @@ export function StayWizard({
                 label="Title"
                 name="title"
                 required
-                maxLength={120}
+                minLength={LISTING_TEXT.titleMin}
+                maxLength={LISTING_TEXT.titleMax}
+                counter={LISTING_TEXT.titleMax}
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="e.g. Beachfront nipa cottage with sunset view"
@@ -228,10 +230,11 @@ export function StayWizard({
               <TextareaField
                 label="Description"
                 name="description"
-                maxLength={5000}
+                maxLength={LISTING_TEXT.descriptionMax}
+                counter={LISTING_TEXT.descriptionMax}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                hint="The space, the neighbourhood, house rules — anything a guest should know."
+                hint={descriptionHint(category)}
               />
             </>
           )}

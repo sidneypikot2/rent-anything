@@ -2,17 +2,19 @@
 
 import { useId, type ComponentProps } from "react";
 import { cn } from "./cn";
-import { FieldNote, useFieldError } from "./field-error";
+import { FieldNote, useCounter, useFieldError } from "./field-error";
 import { controlClasses, floatingLabelClasses, useFieldLook } from "./field-look";
 
 type Props = {
   label: string;
   hint?: string;
   error?: string;
+  // The most characters it takes: shows "n / max" under it.
+  counter?: number;
 } & ComponentProps<"textarea">;
 
 // A labelled multi-line input, styled like Field, with an optional hint or an error in its place.
-export function TextareaField({ label, hint, error: apiError, className, rows = 4, placeholder, onChange, ...props }: Props) {
+export function TextareaField({ label, hint, error: apiError, counter: max, className, rows = 4, placeholder, onChange, ...props }: Props) {
   const look = useFieldLook();
   const textareaId = useId();
   const noteId = useId();
@@ -20,6 +22,7 @@ export function TextareaField({ label, hint, error: apiError, className, rows = 
   const error = apiError ?? native.message;
   const note = error ?? hint;
   const floating = look === "floating";
+  const count = useCounter(max, props.value, props.defaultValue);
 
   const textarea = (
     <textarea
@@ -32,6 +35,7 @@ export function TextareaField({ label, hint, error: apiError, className, rows = 
       onInvalid={native.onInvalid}
       onChange={(event) => {
         native.recheck(event.currentTarget);
+        count.track(event.currentTarget.value);
         onChange?.(event);
       }}
       {...props}
@@ -53,7 +57,7 @@ export function TextareaField({ label, hint, error: apiError, className, rows = 
           {textarea}
         </>
       )}
-      <FieldNote id={noteId} error={error} hint={hint} inset={floating} />
+      <FieldNote id={noteId} error={error} hint={hint} counter={count.counter} inset={floating} />
     </div>
   );
 }

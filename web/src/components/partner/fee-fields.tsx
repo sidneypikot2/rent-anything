@@ -17,8 +17,9 @@ const MAX_FEES = 20;
 export type FeeValues = { key: number; name: string; amount: string; chargedPer: ChargedPer; required: boolean };
 
 let nextFeeKey = 1;
-function newFee(): FeeValues {
-  return { key: nextFeeKey++, name: "", amount: "", chargedPer: "booking", required: true };
+// A new row, blank or prefilled from a preset (a vehicle's late-return fee, RAA-150).
+export function newFee(preset: Partial<Omit<FeeValues, "key">> = {}): FeeValues {
+  return { key: nextFeeKey++, name: "", amount: "", chargedPer: "booking", required: true, ...preset };
 }
 
 export function toFeeValues(fees: ListingFee[]): FeeValues[] {
