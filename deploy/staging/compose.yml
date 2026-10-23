@@ -1,0 +1,57 @@
+# The hosted staging environment on one AWS Lightsail instance (RAA-156). It lives at
+# /opt/tripkonext/ on the instance; .github/workflows/deploy-staging.yml copies this file and
+# the Caddyfile there and runs `docker compose pull && up -d` on every merge into staging.
+# Images come from GHCR, built by that workflow — the instance never builds anything.
+# Postgres (Neon) and Redis (Upstash) are outside; their URLs are in backend.env.
+# Secrets are in backend.env next to this file on the instance, never in the repository.
+services:
+  caddy:
+    image: caddy:2.11-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # The Let's Encrypt certificates: losing them means re-issuing, which is rate limited.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - web
+
+  backend:
+    image: ghcr.io/sidneypikot2/rent-anything-backend:${IMAGE_TAG:-staging}
+    restart: unless-stopped
+    env_file: ./backend.env
+    environment:
+      RAILS_ENV: production
+      SOLID_QUEUE_IN_PUMA: "1"
+      RAILS_MAX_THREADS: "3"
+      # Fewer malloc arenas: keeps Ruby's memory down on the 1 GB instance.
+      MALLOC_ARENA_MAX: "2"
+      # Accept booking requests the moment they are made, until partners answer them in the
+      # app (RAA-134 turned the default off). A guest's change to a booking always waits.
+      BOOKINGS_AUTO_ACCEPT: "true"
+    healthcheck:
+      # assume_ssl in production.rb keeps force_ssl from redirecting this plain-HTTP check.
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/up"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  web:
+    image: ghcr.io/sidneypikot2/rent-anything-web:${IMAGE_TAG:-staging}
+    restart: unless-stopped
+    environment:
+      # Server-side rendering reaches the API inside the Compose network.
+      API_INTERNAL_URL: http://backend:3000
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:

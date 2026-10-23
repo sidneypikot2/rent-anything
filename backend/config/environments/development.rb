@@ -73,7 +73,7 @@ Rails.application.configure do
   # config.generators.apply_rubocop_autocorrect_after_generate!
 
   # Fixed Active Record Encryption keys, so the local stack runs without setup; they guard
-  # only local sample data. Render sets its own (config/application.rb).
+  # only local sample data. Staging sets its own (config/application.rb).
   config.active_record.encryption.primary_key ||= "development-only-primary-key-not-secret"
   config.active_record.encryption.deterministic_key ||= "development-only-deterministic-key-not-secret"
   config.active_record.encryption.key_derivation_salt ||= "development-only-key-derivation-salt-not-secret"

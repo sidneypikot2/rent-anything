@@ -12,7 +12,9 @@ mkdirSync("public/maplibre", { recursive: true });
 copyFileSync(path.join(maplibreDist, "maplibre-gl-worker.mjs"), "public/maplibre/maplibre-gl-worker.mjs");
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // The hosted image (web/Dockerfile) runs the minimal server.js from .next/standalone.
+  // `next dev` ignores it.
+  output: "standalone",
 };
 
 export default nextConfig;

@@ -5,7 +5,7 @@ const TARGETS = {
   partner: { href: "/partner", label: "Partner site" },
 };
 
-// Opt-in: on locally, and on staging through NEXT_PUBLIC_SECTION_SWITCH (set in Vercel), so a
+// Opt-in: on locally, and on staging through NEXT_PUBLIC_SECTION_SWITCH (a GitHub variable), so a
 // production host never shows it unless asked to (RAA-87).
 const ENABLED =
   process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_SECTION_SWITCH === "true";
