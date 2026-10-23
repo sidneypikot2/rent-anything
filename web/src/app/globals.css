@@ -72,8 +72,7 @@
   /* Two page widths: page for browsing, narrow for one thing (a listing, the cart, a form). */
   --container-page: 72rem;
   --container-narrow: 48rem;
-  /* An area page with its map beside the sections: the sections keep about a page's width on
-     the left, the map takes the rest. */
+  /* The admin console's wide sheet (RAA-142): its dense tables take more than a page's width. */
   --container-split: 110rem;
   --container-prose: 40rem;
   /* A lede: the short paragraph under a big title (the hero, the closing band), about 50
@@ -119,6 +118,14 @@
   /* A section's heading after a footer link brings you there: it settles 2px into place, just
      enough for the eye to find where it landed. */
   --animate-land: land 0.6s var(--ease-calm) both;
+  /* A dropdown opening (the search's suggestions): quicker than an arrival, as it answers a tap. */
+  --animate-drop-in: drop-in 0.3s var(--ease-calm) both;
+  @keyframes drop-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+  }
   @keyframes land {
     from {
       transform: translateY(2px);
@@ -263,6 +270,29 @@
   }
 }
 
+/* Results as they arrive (the search's suggestions): each group eases up 6px, 50ms after the
+   one before. Quicker than cascade, as they come back while someone types. */
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@utility results-in {
+  & > * {
+    animation: settle 0.35s var(--ease-calm) both;
+  }
+  & > :nth-child(2) {
+    animation-delay: 50ms;
+  }
+  & > :nth-child(3) {
+    animation-delay: 100ms;
+  }
+  & > :nth-child(n + 4) {
+    animation-delay: 150ms;
+  }
+}
+
 /* Steps that ease up in their order as they scroll into view, each a little after the one
    before, so a row of them still reads first to last. Simply there without support. */
 @utility reveal-steps {
@@ -328,16 +358,22 @@
   /* The keyboard focus ring: primary blue on white; focus-light turns it sky-pale on dark. */
   --focus: var(--color-primary);
   /* How far down what sticks at the top reaches, plus 12px, for the anchor offset: the header
-     (12px in, 60px tall) and, on a page with one, the search bar stuck 8px under it (48px on a
-     phone, 63px from sm), RAA-126. SearchBar measures it once the page runs, so these only
-     hold the first paint. */
+     (12px in, 56px tall; on a phone with a search, its pill's row under it). HeaderSearch
+     measures it once the page runs, so these only hold the first paint. */
   --chrome: 5rem;
 }
 
-:root:has([data-search-bar]) {
-  --chrome: 8.75rem;
-  @media (width >= 40rem) {
-    --chrome: 9.6875rem;
+/* The header's search shows on a page with one (PageBanner's SearchBar marks it), in CSS so the
+   server's render already has it and the header never grows after the first paint. */
+[data-header-search] {
+  display: none;
+}
+:root:has([data-search-bar]) [data-header-search] {
+  display: flex;
+}
+@media (width < 46.875rem) {
+  :root:has([data-search-bar]) {
+    --chrome: 8.75rem;
   }
 }
 
@@ -365,6 +401,8 @@
   /* A day with nothing left to sell on the partner calendar (RAA-120); danger text on it is 5.9:1. */
   --color-danger-tint: #fef2f2;
   --color-warning: #b45309;
+  /* Warning text and icons on dark or forest glass: a trip item its listing can't have. */
+  --color-warning-tint: #fcd34d;
   --font-sans: var(--font-jakarta);
   --font-display: var(--font-jakarta);
   --font-mono: var(--font-geist-mono);
@@ -375,6 +413,12 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
   line-height: 1.65;
+}
+
+/* A page with buttons floating at the window's foot (the area page's Map, Trip still needs) ends
+   with room for them, so its last controls can scroll clear: they are 48px, 1.25rem up. */
+body:has([data-floating]) {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
 }
 
 /* Everything moves only for people who are fine with motion. A scroll-driven animation (reveal)
@@ -489,3 +533,16 @@ body {
 :is(.on-glass, .page-sections) section:not([data-surface="paper"]) > header .text-primary {
   color: var(--color-sky-pale);
 }
+
+/* On a phone a toast takes the floating dock's place for its few seconds (Toast sets
+   data-toast), unless the keyboard is in the dock. */
+@media (width < 40rem) {
+  :root[data-toast] #floating-dock:not(:focus-within) {
+    opacity: 0;
+    translate: 0 1rem;
+  }
+  :root[data-toast] #floating-dock:not(:focus-within) > * {
+    pointer-events: none;
+  }
+}
+

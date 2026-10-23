@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { Dialog } from "@/components/ui/dialog";
-import { RANGE_TYPES, todayIso } from "./format";
+import { noNightError, RANGE_TYPES, todayIso } from "./format";
 import { useUpdateTripItem, type Trip, type TripItem } from "./use-trips";
 
 type Props = {
@@ -28,7 +28,8 @@ export function ItemDateSheet({ trip, item, onClose, onSaved }: Props) {
 
   // A single-day booking has one date; the API takes it as from–to of that day.
   const itemEnds = range ? endsOn : startsOn;
-  const valid = Boolean(startsOn && itemEnds);
+  const noNight = noNightError(item.booking_type, startsOn, endsOn);
+  const valid = Boolean(startsOn && itemEnds) && !noNight;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -52,6 +53,7 @@ export function ItemDateSheet({ trip, item, onClose, onSaved }: Props) {
             inline
             autoFocus
             hint={range && startsOn && !endsOn ? "Pick the last day too" : undefined}
+            error={noNight}
           />
         </fieldset>
 

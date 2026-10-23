@@ -98,7 +98,9 @@ export function Dialog({
           >
             <CloseGlyph className="size-5" />
           </button>
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-5 *:shrink-0">
+          {/* Nothing in the body shrinks to fit; it scrolls. A `contents` wrapper's children are
+              flex items too, so they're held as well (a clipped card would otherwise be squashed). */}
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-5 *:shrink-0 [&>.contents>*]:shrink-0">
             {media}
             <h2
               id={titleId}

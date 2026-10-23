@@ -25,7 +25,9 @@ export function DisplayTitle({
 }: { as?: "h1" | "p"; size?: keyof typeof TITLE_SIZES } & ComponentProps<"h1">) {
   return (
     <Tag
-      className={cn("font-display font-extrabold", TITLE_SIZES[size], className)}
+      // A place name longer than the line (at a large text size, on a phone) breaks rather than
+      // pushing the page sideways; at usual sizes nothing changes.
+      className={cn("font-display font-extrabold wrap-anywhere", TITLE_SIZES[size], className)}
       {...props}
     />
   );
@@ -34,7 +36,7 @@ export function DisplayTitle({
 export function SectionTitle({ className, ...props }: ComponentProps<"h2">) {
   return (
     <h2
-      className={cn("font-display text-3xl leading-[1.1] font-extrabold tracking-tight text-balance sm:text-4xl", className)}
+      className={cn("font-display text-3xl leading-[1.1] font-extrabold tracking-tight text-balance wrap-anywhere sm:text-4xl", className)}
       {...props}
     />
   );

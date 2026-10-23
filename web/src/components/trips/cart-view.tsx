@@ -137,7 +137,7 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
         </Card>
       ) : (
         <div className="grid gap-gutter lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start">
-          <CartTripNav groups={[{ label: "Your trips", trips: list }]} selectedId={selected?.id} onSelect={select} />
+          <CartTripNav groups={[{ label: "Trips you're planning", trips: list }]} selectedId={selected?.id} onSelect={select} />
           {selected && <TripDetails key={selected.id} trip={selected} actions={actions} />}
         </div>
       )}

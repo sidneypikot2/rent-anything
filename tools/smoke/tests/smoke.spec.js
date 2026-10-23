@@ -55,7 +55,7 @@ test("search a landmark and open its destination", async ({ page }) => {
   await expect(suggestions).toContainText("Kota Beach");
   // Listings near Kota Beach are suggested too; take the landmark, named with its destination.
   await suggestions.getByRole("option", { name: "Kota Beach Bantayan Island" }).click();
-  // Picking a place opens nothing yet: the dates come next, and Show me goes there.
+  // Picking a place opens nothing yet: the dates come next, and Search goes there.
   await expect(page.getByTestId("search-input")).toHaveValue("Kota Beach");
   await expect(page).toHaveURL(/\/$/);
   await page.getByTestId("search-submit").click();
@@ -64,33 +64,56 @@ test("search a landmark and open its destination", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bantayan Island");
   await expect(page.locator("#kota-beach")).toBeVisible();
 
-  // The search bar under the header names the place; new guests apply to this page (RAA-126).
+  // The header's search names the place; its pill opens the search, and new guests apply to
+  // this page (RAA-126).
   const bar = page.getByTestId("search-bar");
+  await expect(bar.getByTestId("search-bar-pill")).toContainText("Bantayan Island");
+  await bar.getByTestId("search-bar-pill").click();
   await expect(bar.getByTestId("search-input")).toHaveValue("Bantayan Island");
   await bar.getByTestId("search-guests").click();
   await bar.getByTestId("search-guests-count-more").click();
   await bar.getByTestId("search-submit").click();
   await expect(page).toHaveURL(/\/bantayan-island\?guests=2$/);
-  await expect(bar.getByTestId("search-guests")).toContainText("2 guests");
+  await expect(bar.getByTestId("search-bar-pill")).toContainText("2 guests");
 
-  // A listing's row opens its details in a side panel (RAA-126), which links to its page, also
-  // rendered on the server, with its own Add to trip.
-  const listingOpen = page.getByTestId("listing-open").first();
-  const listingTitle = (await listingOpen.textContent()).trim();
-  await listingOpen.click();
+  // What to book lists businesses: a card opens a side panel (RAA-126) with the business's
+  // listings in that group, or, for a business with one, that listing's details at once. A
+  // listing's details link to its page, also rendered on the server, with its own Add to trip.
+  await page.getByTestId("business-open").first().click();
   const panel = page.getByTestId("detail-panel");
-  await expect(panel.getByRole("heading", { level: 2 })).toHaveText(listingTitle);
+  const offers = panel.getByTestId("business-offer");
+  if (await offers.count()) {
+    await offers.first().click();
+    await expect(panel.getByTestId("business-back")).toBeVisible();
+  }
+  const listingTitle = (await panel.getByRole("heading", { level: 2 }).textContent()).trim();
   await panel.getByTestId("listing-link").click();
   await expect(page).toHaveURL(/\/listings\/\d+\?guests=2$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(listingTitle);
   await expect(page.getByTestId("add-to-trip")).toBeVisible();
 
-  // Enter opens the full results page.
+  // Enter on the home search with several matches opens the results page, which lists them.
   await page.goto("/");
   await page.getByTestId("search-input").fill("snorkelling");
   await page.getByTestId("search-input").press("Enter");
   await expect(page).toHaveURL(/\/search\?q=snorkelling$/);
   await expect(page.getByTestId("search-results")).toContainText("Bantayan Island");
+
+  // On a place's page the search bar searches that place's things to book, says what it found
+  // and offers every place.
+  await page.goto("/bantayan-island");
+  const placeBar = page.getByTestId("search-bar");
+  // Filled in once the page has named its place, which would replace anything typed before.
+  await expect(placeBar.getByTestId("search-bar-pill")).toContainText("Bantayan Island");
+  await placeBar.getByTestId("search-bar-pill").click();
+  await expect(placeBar.getByTestId("search-input")).toHaveValue("Bantayan Island");
+  await placeBar.getByTestId("search-input").fill("snorkelling");
+  await placeBar.getByTestId("search-input").press("Enter");
+  await expect(page).toHaveURL(/\/bantayan-island\?q=snorkelling#listings$/);
+  const searched = page.getByTestId("searched-line");
+  await expect(searched).toContainText("snorkelling");
+  await searched.getByRole("link", { name: "Search all places" }).click();
+  await expect(page).toHaveURL(/\/search\?q=snorkelling$/);
 
   expect(errors).toEqual([]);
 });
@@ -317,7 +340,7 @@ test("add to trip through sign-up", async ({ page }) => {
   await page.getByTestId("add-to-trip").first().click();
   const signIn = page.getByTestId("trip-signin-sheet");
   await expect(signIn).toBeVisible();
-  await signIn.getByRole("link", { name: "Create one" }).click();
+  await signIn.getByTestId("trip-signin-create").click();
 
   await expect(page).toHaveURL(/\/register\?next=/);
   await page.getByLabel("Email").fill(`trip-${stamp}@example.com`);
@@ -326,9 +349,16 @@ test("add to trip through sign-up", async ({ page }) => {
   await page.getByRole("button", { name: "Create account" }).click();
 
   await expect(page).toHaveURL(new RegExp(`/bantayan-island\\?from=${from}&to=${to}&guests=2$`));
+  // Every add is confirmed in the add sheet, the first one too: it starts a new trip.
+  const firstAdd = page.getByTestId("which-trip-sheet");
+  await expect(firstAdd.getByTestId("add-sheet-listing")).toBeVisible();
+  await firstAdd.getByTestId("which-trip-add").click();
+  await expect(firstAdd).toHaveCount(0);
   const toast = page.getByTestId("trip-toast");
   await expect(toast).toContainText("Added to Bantayan Island");
   await toast.getByRole("button", { name: "Dismiss" }).click();
+  // The place's page stays the place's, saying the guest has a trip here; View trip opens it in the cart.
+  await expect(page.getByTestId("trip-notice-open")).toHaveAttribute("href", /^\/cart\?trip=\d+$/);
 
   // The guest has a trip now, so the next add asks which, with that trip suggested.
   await page.getByTestId("add-to-trip").nth(1).click();

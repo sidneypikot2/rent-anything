@@ -19,7 +19,10 @@ import { bookingProgress } from "./cart-trip-nav";
 import { DeletionBanner } from "./deletion-banner";
 import type { EditFocus } from "./edit-trip-sheet";
 import { formatDateRange, guestCount, itemCount, todayIso } from "./format";
+import { BOOKING_STATE } from "@/components/landing/launch-area";
 import { TripItinerary } from "./trip-itinerary";
+import { tripDatesQuery } from "./trip-dates";
+import { missingStays, missingText, type Missing } from "./trip-missing";
 import { pastOutcome, tripPhase, tripTiming } from "./trip-phase";
 import { itemProblem, itemQuote, useTripQuote, type ItemQuote, type Trip, type TripItem, type TripQuote } from "./use-trips";
 
@@ -44,17 +47,17 @@ export type TripActions = {
 // The cart edits and books a trip; the Trips page shows what was booked.
 export type TripMode = "cart" | "trips";
 
-// An item can be booked once it has dates that haven't passed, and while it has no booking
-// holding its days (RAA-133).
+// An item can be booked once it has dates that haven't passed, while it has no booking
+// holding its days (RAA-133) and while its listing can have it then (`unavailable`).
 export function bookable(item: TripItem) {
-  return !item.booking && item.starts_on !== null && item.starts_on >= todayIso();
+  return !item.booking && !item.unavailable && item.starts_on !== null && item.starts_on >= todayIso();
 }
 
 // "₱12,300", with what is priced with the partner after it: "₱12,300 + 1 to agree".
 export function quoteTotal(totalCents: number, toBeAgreed: number) {
   if (toBeAgreed === 0) return formatPeso(totalCents);
-  const agree = `${toBeAgreed} to agree with the partner`;
-  return totalCents > 0 ? `${formatPeso(totalCents)} + ${agree}` : `Price ${agree}`;
+  if (totalCents > 0) return `${formatPeso(totalCents)} + ${toBeAgreed} to agree with the partner`;
+  return toBeAgreed === 1 ? "Price to agree with the partner" : `${toBeAgreed} prices to agree with the partner`;
 }
 
 // What the picked items come to, from the trip's quote.
@@ -77,8 +80,9 @@ function pickedTotal(quote: TripQuote | undefined, items: TripItem[]) {
 // item shows its booking's status instead of a tick. Prices and problems come from the
 // trip's quote (RAA-140): an item that can't be booked as it is says why and can't be ticked.
 // Paying (RAA-143): an item whose booking its partner accepted is ticked too, apart from those
-// to send, and a second foot pays for the ticked ones. In the cart the items are grouped by
-// where their booking stands (groupItems), each foot inside its group; an empty group is hidden.
+// to send, and a second foot pays for the ticked ones; both feet sit under the items. A trip
+// in more than one place lists its items under each place (byPlace), each card saying where its
+// booking stands.
 // On the Trips page (`mode="trips"`) it shows only the booked items, day by day at first, when
 // the trip is, and offers to plan it again.
 export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; actions: TripActions; mode?: TripMode }) {
@@ -99,8 +103,12 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
   const canPay = cart ? trip.items.filter(payable) : [];
   const toPay = canPay.filter((item) => !unpaid.has(item.id));
   const toPayBy = payBy(toPay);
+  const totalCents = !quote.data ? 0 : cart ? quote.data.total_cents : bookedTotal(quote.data, shown);
   const shownTrip = cart ? trip : { ...trip, items: shown };
 
+  const places = byPlace(shown);
+  // Nights with nowhere to sleep, said under the trip's header: a hint, never a step to finish.
+  const missing = cart && phase !== "past" && trip.items.length > 0 ? missingStays(trip) : [];
   function toggle(item: TripItem) {
     (payable(item) ? setUnpaid : setUnpicked)((before) => {
       const next = new Set(before);
@@ -129,7 +137,7 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
     );
   }
 
-  // The feet of the cart's groups: sending the ticked items, paying for the ticked accepted ones.
+  // The cart's feet: sending the ticked items, paying for the ticked accepted ones.
   const sendFoot = canBook.length > 0 && (
     <Card
       edge="line"
@@ -137,7 +145,7 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
     >
       <div className="text-sm">
         <p className="text-muted">
-          {picked.length} of {itemCount(canBook.length)} ticked · each goes to its partner as a request
+          {picked.length} of {itemCount(canBook.length)} ticked · each goes to its partner as a request, and {BOOKING_STATE.answer}
         </p>
         {picked.length > 0 && pickedPrice && (
           <p className="font-semibold" data-testid="cart-picked-total">
@@ -258,11 +266,9 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
               {cart && progress && <span className="text-mint">{progress}</span>}
               {quote.data && quote.data.items.length > 0 && (
                 <span className="text-white" data-testid="trip-total">
-                  {cart ? "Comes to about " : "Booked for "}
-                  {quoteTotal(
-                    cart ? quote.data.total_cents : bookedTotal(quote.data, shown),
-                    cart ? quote.data.to_be_agreed_count : bookedToAgree(quote.data, shown),
-                  )}
+                  {/* "Comes to about" or "Booked for" only before an amount, never "Price to agree…". */}
+                  {totalCents > 0 && (cart ? "Comes to about " : "Booked for ")}
+                  {quoteTotal(totalCents, cart ? quote.data.to_be_agreed_count : bookedToAgree(quote.data, shown))}
                 </span>
               )}
             </p>
@@ -302,6 +308,28 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
         )}
       </div>
 
+      {missing.length > 0 && (
+        <div
+          data-testid="cart-missing"
+          className="flex flex-col gap-1 rounded-control border border-warning bg-surface-2 px-3 py-2 text-sm"
+        >
+          <p className="font-semibold">Still needed</p>
+          <ul className="flex flex-col gap-1">
+            {missing.map((gap, index) => (
+              <li key={index} className="flex flex-wrap items-baseline justify-between gap-x-3">
+                <span>
+                  {capitalize(missingText(gap))}
+                  {gap.kind === "stay" && gap.nights > 1 && <span className="text-muted"> · {gap.nights} nights</span>}
+                </span>
+                <Link href={findStayHref(trip, gap)} className="font-semibold text-link hover:underline">
+                  Find a stay
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {shown.length > 0 && (
         <div className="flex gap-2" role="group" aria-label="Show the trip as">
           <Pill on={view === "items"} onClick={() => setView("items")} data-testid="trip-view-items">
@@ -326,26 +354,24 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
         </Card>
       ) : view === "days" ? (
         <TripItinerary trip={shownTrip} onOpen={(item) => actions.open(trip, item)} />
-      ) : cart ? (
-        <div className="flex flex-col gap-section">
-          {groupItems(shown).map(
-            (group) =>
-              group.items.length > 0 && (
-                <section
-                  key={group.key}
-                  aria-labelledby={`trip-${trip.id}-${group.key}`}
-                  data-testid={`cart-section-${group.key}`}
-                  className="flex flex-col gap-3"
-                >
-                  <h3 id={`trip-${trip.id}-${group.key}`} className="text-sm font-semibold">
-                    {group.title} <span className="font-normal text-muted">· {group.items.length}</span>
-                  </h3>
-                  <ul className="flex flex-col gap-3">{group.items.map(card)}</ul>
-                  {group.key === "unbooked" && sendFoot}
-                  {group.key === "payment" && payFoot}
-                </section>
-              ),
-          )}
+      ) : places.length > 1 ? (
+        // A trip to more than one place: its items under each place, in the order the trip
+        // reaches them, each heading with that place's days.
+        <div className="flex flex-col gap-5">
+          {places.map((place) => (
+            <section key={place.slug} aria-labelledby={`trip-${trip.id}-${place.slug}`} data-testid="trip-place" className="flex flex-col gap-3">
+              <h3
+                id={`trip-${trip.id}-${place.slug}`}
+                className="flex flex-wrap items-baseline justify-between gap-x-3 border-b border-line pb-2 font-semibold"
+              >
+                {place.name}
+                <span className="text-sm font-normal text-muted">
+                  {formatDateRange(place.from, place.to) ?? "No dates yet"}
+                </span>
+              </h3>
+              <ul className="flex flex-col gap-3">{place.items.map(card)}</ul>
+            </section>
+          ))}
         </div>
       ) : (
         <ul className="flex flex-col gap-3">{shown.map(card)}</ul>
@@ -360,27 +386,46 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
         </p>
       )}
 
+      {cart && view === "items" && (canBook.length > 0 || canPay.length > 0) && (
+        <div className="flex flex-col gap-3 lg:sticky lg:bottom-3">
+          {sendFoot}
+          {payFoot}
+        </div>
+      )}
     </section>
   );
 }
 
-// A cart trip's items by where their booking stands, in the order the cart shows them.
-function groupItems(items: TripItem[]) {
-  const status = (item: TripItem) => item.booking?.status;
-  return [
-    { key: "unbooked", title: "Not booked yet", items: items.filter((item) => !item.booking) },
-    { key: "payment", title: "Awaiting payment", items: items.filter(payable) },
-    {
-      key: "waiting",
-      title: "Waiting for the partner",
-      items: items.filter((item) => status(item) === "requested" || status(item) === "accepted"),
-    },
-    {
-      key: "booked",
-      title: "Booked",
-      items: items.filter((item) => item.booking && !payable(item) && !["requested", "accepted"].includes(status(item)!)),
-    },
-  ];
+// A trip's items by the place each is in (its destination: the island, or else the town or city),
+// the places in the order the items reach them (the API sends items in date order, undated last),
+// each with the days its dated items span.
+function byPlace(items: TripItem[]) {
+  const places = new Map<string, { slug: string; name: string; from: string | null; to: string | null; items: TripItem[] }>();
+  for (const item of items) {
+    const where = item.destination ?? item.area;
+    const place = places.get(where.slug) ?? { slug: where.slug, name: where.name, from: null, to: null, items: [] };
+    place.items.push(item);
+    if (item.starts_on) {
+      const end = item.ends_on ?? item.starts_on;
+      if (!place.from || item.starts_on < place.from) place.from = item.starts_on;
+      if (!place.to || end > place.to) place.to = end;
+    }
+    places.set(where.slug, place);
+  }
+  return [...places.values()];
+}
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+// Where to find a stay for a gap: the place the trip is in just before it (the latest item that
+// starts by then), else its first place, on its Stays with the trip's dates and guests.
+function findStayHref(trip: Trip, gap: Missing) {
+  const from = gap.kind === "stay" ? gap.from : null;
+  const before = from ? trip.items.filter((item) => item.starts_on && item.starts_on <= from).at(-1) : undefined;
+  const item = before ?? trip.items[0];
+  const place = item.destination ?? item.area;
+  const dates = tripDatesQuery({ from: trip.starts_on ?? undefined, to: trip.ends_on ?? undefined, guests: trip.guests });
+  return `/${place.slug}${dates}#need-stay`;
 }
 
 function bookedLines(quote: TripQuote, items: TripItem[]) {

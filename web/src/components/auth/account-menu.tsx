@@ -77,19 +77,23 @@ export function AccountMenu({ section }: { section: MenuSection }) {
         ref={trigger}
         type="button"
         data-testid="nav-user"
+        // The first letter, drawn by CSS on a phone, so the button's text stays the name.
+        data-initial={(session.user.name ?? session.user.email).trim().charAt(0).toUpperCase()}
         aria-expanded={open}
         aria-controls="account-menu"
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex min-h-11 items-center gap-1 rounded-full border border-glass-edge px-4 transition-colors",
+          // On a phone (max-sm) the name shrinks to its first letter, so the header keeps to one
+          // row beside the logo and the cart: an email beside them wrapped it onto two.
+          "relative flex min-h-11 items-center gap-1 rounded-full border border-glass-edge px-4 transition-colors max-sm:w-11 max-sm:justify-center max-sm:px-0 max-sm:font-semibold max-sm:before:content-[attr(data-initial)_/_'']",
           open ? "bg-white text-navy" : "bg-glass-fill text-white hover:bg-glass-hover",
         )}
       >
-        <span className="max-w-36 truncate sm:max-w-56">{session.user.name ?? session.user.email}</span>
+        <span className="max-w-56 truncate max-sm:sr-only">{session.user.name ?? session.user.email}</span>
         <svg
           aria-hidden="true"
           viewBox="0 0 20 20"
-          className={cn("size-4 transition-transform", open && "rotate-180")}
+          className={cn("size-4 transition-transform max-sm:hidden", open && "rotate-180")}
         >
           <path d="M5.5 7.5 10 12l4.5-4.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
         </svg>

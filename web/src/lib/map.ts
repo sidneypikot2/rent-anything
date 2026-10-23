@@ -1,4 +1,5 @@
 import { getVersion, LngLatBounds, setWorkerUrl, type LngLatLike } from "maplibre-gl";
+import { EARTH_RADIUS_KM, type LatLng } from "./geo";
 
 // Maps are MapLibre GL JS with OpenFreeMap's vector tiles (SPEC.md, RAA-61): free and keyless.
 // The style carries the OpenStreetMap credit, shown by the map's attribution control.
@@ -14,7 +15,8 @@ export function setMapWorker() {
   workerSet = true;
 }
 
-export type LatLng = { lat: number; lng: number };
+// Plain geometry lives in geo.ts, free of MapLibre, so pages can measure without loading it.
+export { distanceKm, type LatLng } from "./geo";
 
 // MapLibre takes and gives [lng, lat]; the app and the API use { lat, lng }.
 export function toLngLat(point: LatLng): LngLatLike {
@@ -25,17 +27,8 @@ export function fromLngLat(point: { lng: number; lat: number }): LatLng {
   return { lat: point.lat, lng: point.lng };
 }
 
-const EARTH_RADIUS_KM = 6371;
 const rad = (degrees: number) => (degrees * Math.PI) / 180;
 const deg = (radians: number) => (radians * 180) / Math.PI;
-
-// Great-circle (haversine) distance between two points, in km.
-export function distanceKm(a: LatLng, b: LatLng): number {
-  const dLat = rad(b.lat - a.lat);
-  const dLng = rad(b.lng - a.lng);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
-}
 
 const CIRCLE_STEPS = 64;
 

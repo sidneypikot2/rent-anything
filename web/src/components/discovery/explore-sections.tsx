@@ -35,7 +35,8 @@ export function ExploreSections({ explore, name }: { explore: Explore; name: str
 
 function PlaceGroup({ testId, title, places }: { testId: string; title: string; places: (ExplorePlace & { note: string })[] }) {
   return (
-    <Section testId={testId} title={title}>
+    // White cards, so a pale sheet under them, as What to book has (RAA-125).
+    <Section testId={testId} surface="paper" title={title}>
       <ul className="grid gap-gutter sm:grid-cols-2">
         {places.map((place) => (
           <li key={`${place.type}-${place.slug}`}>
