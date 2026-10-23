@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { components } from "@/api/schema";
 import { VEHICLE_AMENITY_LABELS } from "@/components/listings/vehicle-labels";
 import { Button } from "@/components/ui/button";
+import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
 import { formatPeso, fromCents, toCents } from "@/lib/money";
@@ -25,40 +26,54 @@ const MAX_KM = 2000;
 // or a fee.
 export type Service = "none" | "free" | "fee";
 
-// A vehicle rental's price (RAA-150) as typed: pesos and counts are text until saved.
+// A vehicle rental's price (RAA-150) as typed: pesos and counts are text until saved. Each
+// optional rate has its own switch (`…On`); text typed under a switch that's off is kept, so
+// switching it back on brings it back, but it isn't saved.
 export type VehiclePricingValues = {
   daily: string;
+  minDays: string;
+  halfDayOn: boolean;
   halfDay: string;
   halfDayHours: string;
+  hourlyOn: boolean;
   hourly: string;
+  weeklyOn: boolean;
   weekly: string;
+  monthlyOn: boolean;
   monthly: string;
+  depositOn: boolean;
   deposit: string;
+  kmLimitOn: boolean;
+  kmLimit: string;
+  excessKmFee: string;
   delivery: Service;
   deliveryFee: string;
   pickup: Service;
   pickupFee: string;
-  minDays: string;
-  kmLimit: string;
-  excessKmFee: string;
   fees: FeeValues[];
 };
 
 export const NEW_VEHICLE_PRICING: VehiclePricingValues = {
   daily: "",
+  minDays: "1",
+  halfDayOn: false,
   halfDay: "",
   halfDayHours: "4",
+  hourlyOn: false,
   hourly: "",
+  weeklyOn: false,
   weekly: "",
+  monthlyOn: false,
   monthly: "",
+  depositOn: false,
   deposit: "",
+  kmLimitOn: false,
+  kmLimit: "",
+  excessKmFee: "",
   delivery: "none",
   deliveryFee: "",
   pickup: "none",
   pickupFee: "",
-  minDays: "1",
-  kmLimit: "",
-  excessKmFee: "",
   fees: [],
 };
 
@@ -70,19 +85,25 @@ export function toVehiclePricingValues(rate: VehicleRate | null, fees: ListingFe
   if (!rate) return { ...NEW_VEHICLE_PRICING, fees: toFeeValues(fees) };
   return {
     daily: peso(rate.daily_price_cents),
+    minDays: String(rate.min_rental_days),
+    halfDayOn: !!rate.half_day_price_cents,
     halfDay: peso(rate.half_day_price_cents),
     halfDayHours: String(rate.half_day_hours),
+    hourlyOn: !!rate.hourly_price_cents,
     hourly: peso(rate.hourly_price_cents),
+    weeklyOn: !!rate.weekly_price_cents,
     weekly: peso(rate.weekly_price_cents),
+    monthlyOn: !!rate.monthly_price_cents,
     monthly: peso(rate.monthly_price_cents),
+    depositOn: !!rate.security_deposit_cents,
     deposit: peso(rate.security_deposit_cents),
+    kmLimitOn: !!rate.km_limit_per_day,
+    kmLimit: rate.km_limit_per_day ? String(rate.km_limit_per_day) : "",
+    excessKmFee: peso(rate.excess_km_fee_cents),
     delivery: service(rate.delivery_fee_cents),
     deliveryFee: peso(rate.delivery_fee_cents),
     pickup: service(rate.return_pickup_fee_cents),
     pickupFee: peso(rate.return_pickup_fee_cents),
-    minDays: String(rate.min_rental_days),
-    kmLimit: rate.km_limit_per_day ? String(rate.km_limit_per_day) : "",
-    excessKmFee: peso(rate.excess_km_fee_cents),
     fees: toFeeValues(fees),
   };
 }
@@ -92,19 +113,20 @@ function wholeNumber(text: string): number | null {
 }
 
 const optionalCents = (text: string) => (text.trim() ? toCents(text) : null);
+const switchedCents = (on: boolean, text: string) => (on ? optionalCents(text) : null);
 const serviceCents = (choice: Service, fee: string) => (choice === "none" ? null : choice === "free" ? 0 : toCents(fee));
 
 // What the API takes. Call it after vehiclePricingErrors has passed.
 export function toVehicleRateBody(values: VehiclePricingValues): VehicleRateBody {
-  const kmLimit = wholeNumber(values.kmLimit);
+  const kmLimit = values.kmLimitOn ? wholeNumber(values.kmLimit) : null;
   return {
     daily_price_cents: toCents(values.daily) ?? 0,
-    half_day_price_cents: optionalCents(values.halfDay),
+    half_day_price_cents: switchedCents(values.halfDayOn, values.halfDay),
     half_day_hours: wholeNumber(values.halfDayHours) ?? 4,
-    hourly_price_cents: optionalCents(values.hourly),
-    weekly_price_cents: optionalCents(values.weekly),
-    monthly_price_cents: optionalCents(values.monthly),
-    security_deposit_cents: optionalCents(values.deposit) ?? 0,
+    hourly_price_cents: switchedCents(values.hourlyOn, values.hourly),
+    weekly_price_cents: switchedCents(values.weeklyOn, values.weekly),
+    monthly_price_cents: switchedCents(values.monthlyOn, values.monthly),
+    security_deposit_cents: switchedCents(values.depositOn, values.deposit) ?? 0,
     delivery_fee_cents: serviceCents(values.delivery, values.deliveryFee),
     return_pickup_fee_cents: serviceCents(values.pickup, values.pickupFee),
     min_rental_days: wholeNumber(values.minDays) ?? 1,
@@ -139,43 +161,51 @@ export function vehiclePricingErrors(values: VehiclePricingValues, included: str
   const errors: VehiclePricingErrors = {};
   const daily = toCents(values.daily);
   if (!daily) errors.daily = "Set a daily price above ₱0";
-  const positive = (text: string) => !text.trim() || !!toCents(text);
-
-  const halfDay = optionalCents(values.halfDay);
-  if (!positive(values.halfDay)) errors.halfDay = "Leave it empty, or set a price above ₱0";
-  else if (halfDay && daily && halfDay >= daily) errors.halfDay = "Must be less than the daily price";
-  const hours = wholeNumber(values.halfDayHours);
-  if (hours === null || hours < HALF_DAY_HOURS.min || hours > HALF_DAY_HOURS.max) {
-    errors.halfDayHours = `From ${HALF_DAY_HOURS.min} to ${HALF_DAY_HOURS.max} hours`;
-  }
-  const hourly = optionalCents(values.hourly);
-  const above = halfDay || daily;
-  if (!positive(values.hourly)) errors.hourly = "Leave it empty, or set a price above ₱0";
-  else if (hourly && above && hourly >= above) errors.hourly = `Must be less than the ${halfDay ? "half-day" : "daily"} price`;
-
-  const weekly = optionalCents(values.weekly);
-  if (!positive(values.weekly)) errors.weekly = "Leave it empty, or set a price above ₱0";
-  else if (weekly && daily && weekly > daily * WEEK_DAYS) errors.weekly = `Can't be more than ${WEEK_DAYS} days at the daily price`;
-  const monthly = optionalCents(values.monthly);
-  if (!positive(values.monthly)) errors.monthly = "Leave it empty, or set a price above ₱0";
-  else if (monthly && daily && monthly > daily * MONTH_DAYS) errors.monthly = `Can't be more than ${MONTH_DAYS} days at the daily price`;
-
-  if (values.deposit.trim() && toCents(values.deposit) === null) errors.deposit = "Enter an amount in pesos";
-  if (values.delivery === "fee" && !toCents(values.deliveryFee)) errors.deliveryFee = "Set a fee above ₱0, or choose Free";
-  if (values.pickup === "fee" && !toCents(values.pickupFee)) errors.pickupFee = "Set a fee above ₱0, or choose Free";
-
   const minDays = wholeNumber(values.minDays);
   if (minDays === null || minDays < 1 || minDays > MAX_DAYS) errors.minDays = `From 1 to ${MAX_DAYS} days`;
-  const km = values.kmLimit.trim() ? wholeNumber(values.kmLimit) : undefined;
-  if (km === null || (km !== undefined && (km < 1 || km > MAX_KM))) errors.kmLimit = `Leave it empty, or 1 to ${MAX_KM} km`;
-  if (values.excessKmFee.trim()) {
-    if (toCents(values.excessKmFee) === null) errors.excessKmFee = "Enter an amount in pesos";
-    else if (km === undefined) errors.excessKmFee = "Needs a daily km limit";
+
+  // A switched-on rate needs a price above ₱0.
+  const rate = (on: boolean, text: string, name: string) => {
+    if (!on) return { cents: null, error: undefined };
+    const cents = toCents(text);
+    return cents ? { cents, error: undefined } : { cents: null, error: `Enter the ${name.toLowerCase()} price, or untick ${name}` };
+  };
+
+  const halfDay = rate(values.halfDayOn, values.halfDay, "Half-day");
+  errors.halfDay = halfDay.error ?? (halfDay.cents && daily && halfDay.cents >= daily ? "Must be less than the daily price" : undefined);
+  const hours = wholeNumber(values.halfDayHours);
+  if (values.halfDayOn && (hours === null || hours < HALF_DAY_HOURS.min || hours > HALF_DAY_HOURS.max)) {
+    errors.halfDayHours = `From ${HALF_DAY_HOURS.min} to ${HALF_DAY_HOURS.max} hours`;
   }
+  const hourly = rate(values.hourlyOn, values.hourly, "Hourly");
+  const above = halfDay.cents || daily;
+  errors.hourly =
+    hourly.error ??
+    (hourly.cents && above && hourly.cents >= above ? `Must be less than the ${halfDay.cents ? "half-day" : "daily"} price` : undefined);
+
+  const weekly = rate(values.weeklyOn, values.weekly, "Weekly");
+  errors.weekly =
+    weekly.error ?? (weekly.cents && daily && weekly.cents > daily * WEEK_DAYS ? `Can't be more than ${WEEK_DAYS} days at the daily price` : undefined);
+  const monthly = rate(values.monthlyOn, values.monthly, "Monthly");
+  errors.monthly =
+    monthly.error ??
+    (monthly.cents && daily && monthly.cents > daily * MONTH_DAYS ? `Can't be more than ${MONTH_DAYS} days at the daily price` : undefined);
+
+  if (values.depositOn && !toCents(values.deposit)) errors.deposit = "Enter the deposit, or untick it";
+
+  if (values.kmLimitOn) {
+    const km = wholeNumber(values.kmLimit);
+    if (km === null || km < 1 || km > MAX_KM) errors.kmLimit = `From 1 to ${MAX_KM} km, or untick it`;
+    if (values.excessKmFee.trim() && toCents(values.excessKmFee) === null) errors.excessKmFee = "Enter an amount in pesos";
+  }
+
+  if (values.delivery === "fee" && !toCents(values.deliveryFee)) errors.deliveryFee = "Set a fee above ₱0, or choose Free";
+  if (values.pickup === "fee" && !toCents(values.pickupFee)) errors.pickupFee = "Set a fee above ₱0, or choose Free";
 
   const fees = feesError(values.fees) ?? includedFeeError(values.fees, included);
   if (fees) errors.fees = fees;
 
+  for (const key of Object.keys(errors) as (keyof VehiclePricingErrors)[]) if (!errors[key]) delete errors[key];
   return Object.keys(errors).length > 0 ? errors : undefined;
 }
 
@@ -228,9 +258,10 @@ function perDay(text: string, days: number) {
   return cents ? `${formatPeso(Math.round(cents / days))} a day` : undefined;
 }
 
-// A vehicle rental's price (RAA-150): the daily price and the shorter and longer rates, the
-// deposit, delivery and pick-up, the km limit and the extra fees. Guests see it; the price is
-// still confirmed with the partner, as checkout doesn't quote rentals yet.
+// A vehicle rental's price (RAA-150), top to bottom: the daily price, the other rental lengths,
+// the deposit, the km limit, delivery and pick-up, then the extra fees. Everything optional is a
+// tick box that opens its fields. Guests see it; the price is still confirmed with the partner,
+// as checkout doesn't quote rentals yet.
 export function VehiclePricingFields({
   values,
   onChange,
@@ -254,15 +285,15 @@ export function VehiclePricingFields({
   const monthlyHint = perDay(values.monthly, MONTH_DAYS);
 
   return (
-    <div data-testid="vehicle-pricing" className="flex flex-col gap-6">
-      <p className="text-sm text-muted">
+    <div data-testid="vehicle-pricing" className="flex flex-col">
+      <p className="pb-6 text-sm text-muted">
         Guests see these prices on your listing. You confirm the final price with them when you accept a booking.
       </p>
 
-      <PricingGroup title="Rental rates">
+      <PricingSection title="Daily price" intro="What a 24-hour rental costs. Every vehicle needs one.">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label="Daily price (₱)"
+            label="Price per day (₱)"
             name="daily_price"
             required
             {...money}
@@ -270,73 +301,7 @@ export function VehiclePricingFields({
             value={values.daily}
             onChange={(event) => set({ daily: event.target.value })}
             error={errors?.daily}
-            hint="For 24 hours."
             data-testid="pricing-daily"
-          />
-          <Field
-            label="Hourly price (₱, optional)"
-            name="hourly_price"
-            {...money}
-            min={0.01}
-            value={values.hourly}
-            onChange={(event) => set({ hourly: event.target.value })}
-            error={errors?.hourly}
-            hint="Empty: not rented by the hour."
-          />
-          <Field
-            label="Half-day price (₱, optional)"
-            name="half_day_price"
-            {...money}
-            min={0.01}
-            value={values.halfDay}
-            onChange={(event) => set({ halfDay: event.target.value })}
-            error={errors?.halfDay}
-            hint="Less than the daily price. Empty: not offered."
-            data-testid="pricing-half-day"
-          />
-          <Field
-            label="Half day (hours)"
-            name="half_day_hours"
-            {...count}
-            min={HALF_DAY_HOURS.min}
-            max={HALF_DAY_HOURS.max}
-            value={values.halfDayHours}
-            onChange={(event) => set({ halfDayHours: event.target.value })}
-            error={errors?.halfDayHours}
-          />
-          <Field
-            label="Weekly price (₱, optional)"
-            name="weekly_price"
-            {...money}
-            min={0.01}
-            value={values.weekly}
-            onChange={(event) => set({ weekly: event.target.value })}
-            error={errors?.weekly}
-            hint={weeklyHint ?? `The total for ${WEEK_DAYS} days.`}
-          />
-          <Field
-            label="Monthly price (₱, optional)"
-            name="monthly_price"
-            {...money}
-            min={0.01}
-            value={values.monthly}
-            onChange={(event) => set({ monthly: event.target.value })}
-            error={errors?.monthly}
-            hint={monthlyHint ?? `The total for ${MONTH_DAYS} days.`}
-          />
-        </div>
-      </PricingGroup>
-
-      <PricingGroup title="Deposit and limits">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Security deposit (₱)"
-            name="security_deposit"
-            {...money}
-            value={values.deposit}
-            onChange={(event) => set({ deposit: event.target.value })}
-            error={errors?.deposit}
-            hint="Refundable, held at pick-up. Empty: none."
           />
           <Field
             label="Minimum rental (days)"
@@ -349,8 +314,99 @@ export function VehiclePricingFields({
             onChange={(event) => set({ minDays: event.target.value })}
             error={errors?.minDays}
           />
+        </div>
+      </PricingSection>
+
+      <PricingSection title="Other rental lengths" intro="Tick the ones you offer.">
+        <OptionalRate label="Half-day" name="half_day" on={values.halfDayOn} onToggle={(halfDayOn) => set({ halfDayOn })}>
           <Field
-            label="Km limit per day (optional)"
+            label="Half-day price (₱)"
+            name="half_day_price"
+            {...money}
+            min={0.01}
+            value={values.halfDay}
+            onChange={(event) => set({ halfDay: event.target.value })}
+            error={errors?.halfDay}
+            hint="Less than the daily price."
+            data-testid="pricing-half-day"
+          />
+          <Field
+            label="Hours in a half day"
+            name="half_day_hours"
+            {...count}
+            min={HALF_DAY_HOURS.min}
+            max={HALF_DAY_HOURS.max}
+            value={values.halfDayHours}
+            onChange={(event) => set({ halfDayHours: event.target.value })}
+            error={errors?.halfDayHours}
+          />
+        </OptionalRate>
+        <OptionalRate label="Hourly" name="hourly" on={values.hourlyOn} onToggle={(hourlyOn) => set({ hourlyOn })}>
+          <Field
+            label="Price per hour (₱)"
+            name="hourly_price"
+            {...money}
+            min={0.01}
+            value={values.hourly}
+            onChange={(event) => set({ hourly: event.target.value })}
+            error={errors?.hourly}
+          />
+        </OptionalRate>
+        <OptionalRate label="Weekly" name="weekly" on={values.weeklyOn} onToggle={(weeklyOn) => set({ weeklyOn })}>
+          <Field
+            label={`Price for ${WEEK_DAYS} days (₱)`}
+            name="weekly_price"
+            {...money}
+            min={0.01}
+            value={values.weekly}
+            onChange={(event) => set({ weekly: event.target.value })}
+            error={errors?.weekly}
+            hint={weeklyHint}
+          />
+        </OptionalRate>
+        <OptionalRate label="Monthly" name="monthly" on={values.monthlyOn} onToggle={(monthlyOn) => set({ monthlyOn })}>
+          <Field
+            label={`Price for ${MONTH_DAYS} days (₱)`}
+            name="monthly_price"
+            {...money}
+            min={0.01}
+            value={values.monthly}
+            onChange={(event) => set({ monthly: event.target.value })}
+            error={errors?.monthly}
+            hint={monthlyHint}
+          />
+        </OptionalRate>
+      </PricingSection>
+
+      <PricingSection title="Security deposit" intro="Money held at pick-up and returned with the vehicle.">
+        <OptionalRate
+          label="Ask for a deposit"
+          name="deposit"
+          on={values.depositOn}
+          onToggle={(depositOn) => set({ depositOn })}
+        >
+          <Field
+            label="Deposit (₱)"
+            name="security_deposit"
+            {...money}
+            min={0.01}
+            value={values.deposit}
+            onChange={(event) => set({ deposit: event.target.value })}
+            error={errors?.deposit}
+            data-testid="pricing-deposit"
+          />
+        </OptionalRate>
+      </PricingSection>
+
+      <PricingSection title="Distance" intro="Without a limit, guests ride as far as they like.">
+        <OptionalRate
+          label="Limit the km per day"
+          name="km_limit"
+          on={values.kmLimitOn}
+          onToggle={(kmLimitOn) => set({ kmLimitOn })}
+        >
+          <Field
+            label="Km per day"
             name="km_limit_per_day"
             {...count}
             min={1}
@@ -358,22 +414,20 @@ export function VehiclePricingFields({
             value={values.kmLimit}
             onChange={(event) => set({ kmLimit: event.target.value })}
             error={errors?.kmLimit}
-            hint="Empty: unlimited."
           />
           <Field
-            label="Fee per extra km (₱, optional)"
+            label="Fee per extra km (₱)"
             name="excess_km_fee"
             {...money}
             value={values.excessKmFee}
             onChange={(event) => set({ excessKmFee: event.target.value })}
             error={errors?.excessKmFee}
-            disabled={!values.kmLimit.trim()}
-            hint="Above the daily limit."
+            hint="Empty: no charge past the limit."
           />
-        </div>
-      </PricingGroup>
+        </OptionalRate>
+      </PricingSection>
 
-      <PricingGroup title="Delivery and pick-up" data-testid="pricing-delivery">
+      <PricingSection title="Delivery and pick-up" intro="Bringing the vehicle to the guest, and collecting it at the end." data-testid="pricing-delivery">
         <div className="grid gap-4 sm:grid-cols-2">
           <ServiceFields
             label="Delivery to the guest"
@@ -394,46 +448,94 @@ export function VehiclePricingFields({
             onChange={(pickup, pickupFee) => set({ pickup, pickupFee })}
           />
         </div>
-      </PricingGroup>
+      </PricingSection>
 
-      <div className="flex flex-col gap-3">
-        <FeeFields
-          fees={values.fees}
-          onChange={(fees) => set({ fees })}
-          error={errors?.fees}
-          hint="Late return, a passenger helmet, a fuel refill. Optional ones are add-ons guests choose."
-          chargedPer={VEHICLE_CHARGED_PER}
-        />
-        {presets.length > 0 && values.fees.length < 20 && (
-          <div className="flex flex-col gap-2" data-testid="pricing-fee-presets">
-            <span className="text-xs text-muted">Common fees:</span>
-            <div className="flex flex-wrap gap-2">
-              {presets.map((preset) => (
-                <Button
-                  key={preset.label}
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => set({ fees: [...values.fees, newFee(preset.fee)] })}
-                >
-                  + {preset.label}
-                </Button>
-              ))}
+      <PricingSection>
+        <div className="flex flex-col gap-3">
+          <FeeFields
+            fees={values.fees}
+            onChange={(fees) => set({ fees })}
+            error={errors?.fees}
+            hint="Late return, a fuel refill, a cleaning fee. Optional ones are add-ons guests choose."
+            chargedPer={VEHICLE_CHARGED_PER}
+          />
+          {presets.length > 0 && values.fees.length < 20 && (
+            <div className="flex flex-col gap-2" data-testid="pricing-fee-presets">
+              <span className="text-xs text-muted">Common fees:</span>
+              <div className="flex flex-wrap gap-2">
+                {presets.map((preset) => (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => set({ fees: [...values.fees, newFee(preset.fee)] })}
+                  >
+                    + {preset.label}
+                  </Button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </PricingSection>
     </div>
   );
 }
 
-// A headed group of pricing fields.
-function PricingGroup({ title, children, ...props }: { title: string; children: ReactNode; "data-testid"?: string }) {
+// One part of the pricing, divided from the one above: a title and a line on what it's for.
+// Without a title it's only the divider (the extra fees, which head themselves).
+function PricingSection({
+  title,
+  intro,
+  children,
+  ...props
+}: {
+  title?: string;
+  intro?: string;
+  children: ReactNode;
+  "data-testid"?: string;
+}) {
   return (
-    <fieldset className="flex flex-col" {...props}>
-      <legend className="mb-3 text-sm font-semibold">{title}</legend>
-      {children}
-    </fieldset>
+    <div className="border-t border-line py-6 last:pb-0">
+      <fieldset className="flex flex-col" {...props}>
+        {title && (
+          <legend className="mb-4 flex flex-col gap-1">
+            <span className="text-base font-semibold">{title}</span>
+            {intro && <span className="text-sm text-muted">{intro}</span>}
+          </legend>
+        )}
+        <div className="flex flex-col gap-4">{children}</div>
+      </fieldset>
+    </div>
+  );
+}
+
+// An optional rate: a tick box that says what it is, and once ticked its fields under it.
+function OptionalRate({
+  label,
+  name,
+  on,
+  onToggle,
+  children,
+}: {
+  label: string;
+  name: string;
+  on: boolean;
+  onToggle: (on: boolean) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <CheckboxField
+        label={label}
+        name={`${name}_on`}
+        checked={on}
+        onChange={(event) => onToggle(event.target.checked)}
+        data-testid={`pricing-${name}-on`}
+      />
+      {on && <div className="grid gap-4 pl-6 sm:grid-cols-2">{children}</div>}
+    </div>
   );
 }
 
