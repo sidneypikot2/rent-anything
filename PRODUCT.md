@@ -50,20 +50,20 @@ The brand promises the whole Philippines: islands, mountains and cities. **Banta
   - partner ID verification (Didit)
   - the cart of trips (add, move, re-date, merge, cleanup)
   - listers publishing their own listings behind readiness checks
+  - checkout as booking requests: the guest sends a trip's items to their partners, who accept or decline (the team can answer for them); a booking can be changed or cancelled under its listing's cancellation policy
 - **Not built yet**:
-  - checkout and payment (Xendit split payment, to be designed together with it)
-  - the booking lifecycle
+  - real payment (Xendit split payment): an accepted request has a pay step, but nothing is charged
   - reviews
   - chat
   - pickup and return checklists
   - payouts
 
-  Until checkout exists, every trip is "Planning" and nothing can be paid.
+  Until payments are live, nothing is paid in the app: requests go out, and paying charges nothing.
 - **Money (planned)**: the guest pays everything in-app. A licensed gateway handles escrow, deposits and payouts; the platform never holds funds itself.
 - **Hosting**: free tiers until launch (M8). Staging is the only hosted environment.
 - **Language**: English only for now. Filipino and Cebuano are on the later roadmap.
 - **Naming**: TripKoNext is the brand in the web UI only. The repo, API, docs and Jira keep the name Rent-Anything.
-- **Open**: the checkout design, cancellation policies, the deposit flow and the production host.
+- **Open**: the payment provider's flow, the deposit flow and the production host.
 
 ## Brand Commitments
 

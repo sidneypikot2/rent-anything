@@ -353,7 +353,7 @@ export function ListingBrowser({
                 <div key={group.id} id={`${group.id}-top`} className="flex scroll-mt-(--chrome) flex-col gap-3">
                   {/* On a phone the pills take a row of their own under the title. */}
                   <div className="flex min-w-0 flex-wrap items-center gap-2.5 sm:flex-nowrap">
-                    <h3 id={group.id} className="scroll-mt-36 shrink-0 text-lg font-semibold">
+                    <h3 id={group.id} className="max-w-full scroll-mt-36 shrink-0 text-lg font-semibold">
                       {group.title}
                     </h3>
                     <button

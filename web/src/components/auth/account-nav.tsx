@@ -22,7 +22,9 @@ export function AccountNav({ section }: { section: Section }) {
   if (session === null) {
     const onAuthPage = pathname === LOGIN_PATHS.guest || pathname === REGISTER_PATHS.guest;
     return section === "guest" && !onAuthPage ? (
-      <span className="flex items-center gap-1 rounded-full border border-glass-edge bg-glass-fill p-1">
+      // A pill on one row (its radius clamps to half its height); at a large text size on a
+      // narrow phone the two links wrap inside it rather than run past the header.
+      <span className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1 rounded-card border border-glass-edge bg-glass-fill p-1">
         <Link
           href={LOGIN_PATHS.guest}
           data-testid="nav-signin"

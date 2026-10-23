@@ -10,6 +10,7 @@ import { tripHref } from "@/components/landing/launch-area";
 import { CHIP_ROW, PageBanner, STAT_CHIP, StatCount } from "@/components/landing/page-banner";
 import { isApiPhoto, listingCover } from "@/components/landing/sample-photos";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
+import { ButtonLink } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import { glassClasses } from "@/components/ui/glass";
 import { formatDateRange } from "@/lib/dates";
@@ -219,6 +220,36 @@ export function AreaHero({
           )}
         </div>
       )}
+      {/* Compact, with no trip to show (signed out, none yet, loading): one slim row down to What
+          to book, so a phone's first screen has something to book behind it. */}
+      {!choosable && !(!loading && trip) && (
+        <a
+          href="#listings"
+          data-testid="trip-lead-compact"
+          className={cn(
+            glassClasses("forest"),
+            COMPACT_ONLY,
+            "@container min-h-11 items-center rounded-card py-1 pr-4 pl-3 text-sm",
+          )}
+        >
+          {/* One row; two only when the text is large for the room (under 13rem, which grows
+              with the text size), rather than What to book running past the banner. */}
+          <span className="flex w-full items-center justify-between gap-x-3 gap-y-1 @max-[13rem]:flex-wrap">
+            <span className="flex min-w-0 items-center gap-2">
+              <span aria-hidden className="size-2 shrink-0 rounded-full bg-sky-pale" />
+              <span className="truncate">
+                <span className="font-semibold">Start your trip</span>
+              </span>
+            </span>
+            <span className="flex shrink-0 items-center gap-1.5 font-semibold">
+              What to book
+              <span aria-hidden className="text-sky-pale">
+                ↓
+              </span>
+            </span>
+          </span>
+        </a>
+      )}
       {/* Compact, with trips but none shown: one slim row to choose one, as the lead does. */}
       {choosable && (
         <button
@@ -359,7 +390,8 @@ function TripNotice({
               tripPlaces={onlyHere ? [] : tripHere}
               places={places}
               dated={dated}
-              onEditHere={editHere}
+              // The rows above already open the edit sheet, so this place's chip only marks it:
+              // one Edit per item, not a second on the chip.
               onAnotherPlace={onAnotherPlace}
               data-testid="trip-places"
               className="mt-2 flex-wrap"
@@ -380,7 +412,7 @@ function TripNotice({
                   )}
                   <a
                     href={missingAnchor(gap)}
-                    className="whitespace-nowrap text-sky-pale underline decoration-sky-pale/40 underline-offset-4 hover:text-white hover:decoration-white"
+                    className="tap-target whitespace-nowrap text-sky-pale underline decoration-sky-pale/40 underline-offset-4 hover:text-white hover:decoration-white"
                   >
                     {missingText(gap)}
                   </a>
@@ -390,13 +422,21 @@ function TripNotice({
           )}
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Link
-            href={href}
-            data-testid="trip-notice-open"
-            className="flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-glass-edge bg-glass-fill px-4 text-sm font-semibold text-white transition-colors duration-300 ease-calm hover:bg-glass-hover"
-          >
-            {open}
-          </Link>
+          {/* The banner's one main action while there is something to book: blue on forest, as the
+              closing band's. Once all of it is booked it only shows the trip, so it stays quiet. */}
+          {toBook ? (
+            <ButtonLink href={href} arrow data-testid="trip-notice-open" className="shrink-0">
+              Checkout
+            </ButtonLink>
+          ) : (
+            <Link
+              href={href}
+              data-testid="trip-notice-open"
+              className="flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-glass-edge bg-glass-fill px-4 text-sm font-semibold text-white transition-colors duration-300 ease-calm hover:bg-glass-hover"
+            >
+              {open}
+            </Link>
+          )}
           {onSwitch && (
             <button
               type="button"
@@ -519,7 +559,7 @@ function HereItemRows({ items, tripHref: href, onEdit }: { items: TripItem[]; tr
                 aria-haspopup="dialog"
                 onClick={onEdit}
                 data-testid="trip-here-edit"
-                className="flex min-h-9 shrink-0 items-center rounded-full border border-glass-edge px-3.5 text-sm font-semibold text-white transition-colors duration-300 ease-calm hover:bg-glass-hover"
+                className="tap-target flex min-h-9 shrink-0 items-center rounded-full border border-glass-edge px-3.5 text-sm font-semibold text-white transition-colors duration-300 ease-calm hover:bg-glass-hover"
               >
                 Edit<span className="sr-only"> {item.listing.title}</span>
               </button>
@@ -562,7 +602,7 @@ function PlaceChips({
   className?: string;
   "data-testid"?: string;
 }) {
-  const chip = "flex min-h-9 shrink-0 items-center gap-2 rounded-full border px-3 text-sm whitespace-nowrap";
+  const chip = "tap-target flex min-h-9 shrink-0 items-center gap-2 rounded-full border px-3 text-sm whitespace-nowrap";
   return (
     <ul aria-label="Places in this trip" data-testid={testId} className={cn("flex items-center gap-2", className)}>
       {list.map((place) => {

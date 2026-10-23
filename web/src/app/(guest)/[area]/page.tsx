@@ -23,14 +23,13 @@ import { listingFeatures, type Feature } from "@/components/discovery/listing-fe
 import { PlacesGrid } from "@/components/discovery/places-grid";
 import { AreaGlyph } from "@/components/discovery/tag-glyphs";
 import { CurrentPlace } from "@/components/landing/current-place";
-import { LAUNCH_AREA } from "@/components/landing/launch-area";
+import { BOOKING_STATE, LAUNCH_AREA } from "@/components/landing/launch-area";
 import { CHIP_ROW, PageBanner, STAT_CHIP, StatCount } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { areaPhoto, landmarkPhotos } from "@/components/landing/sample-photos";
 import { addPreview } from "@/components/trips/add-preview";
 import { AreaHero } from "@/components/trips/area-hero";
 import { ReachYourself } from "@/components/trips/reach-yourself";
-import { BOOKING_STATE } from "@/components/landing/launch-area";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { AreaTripBand } from "@/components/trips/area-trip-band";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
@@ -318,7 +317,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                         id="places"
                         surface="photo"
                         title="Places to see"
-                        intro="Each one says the tours that go there."
+                        intro="Each one names the tours that go there, or how far it is to go yourself."
                       >
                         <PlacesGrid
                           items={landmarks.map((landmark, index) => ({
@@ -372,7 +371,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                             // Said once here rather than on every card: what they all include, and
                             // how the unpriced ones are priced.
                             note:
-                              [shared.length > 0 && `Every one here: ${shared.join(" · ")}.`, unpricedNote]
+                              [shared.length > 0 && `All of these include: ${shared.join(" · ")}.`, unpricedNote]
                                 .filter(Boolean)
                                 .join(" ") || undefined,
                             items: need.businesses.map((offered) => {

@@ -51,7 +51,7 @@ export function InTripBadge({ listingId }: { listingId: number }) {
           aria-haspopup="dialog"
           onClick={() => setEditing(true)}
           data-testid="in-trip-edit"
-          className="relative z-10 inline-flex min-h-6 items-center gap-1 rounded-full border border-sage bg-sage px-2.5 text-xs font-semibold text-forest transition-colors hover:border-forest/40"
+          className="tap-target z-10 inline-flex min-h-6 items-center gap-1 rounded-full border border-sage bg-sage px-2.5 text-xs font-semibold text-forest transition-colors hover:border-forest/40"
         >
           <TickGlyph aria-hidden className="size-3.5" />
           In your trip ·<span className="underline underline-offset-2">Edit</span>

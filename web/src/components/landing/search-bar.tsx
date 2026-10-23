@@ -225,18 +225,21 @@ export function SearchPill({
       onClick={onClick}
       data-testid="search-bar-pill"
       className={cn(
-        "flex min-h-12 w-full items-center gap-3 card-edge rounded-full bg-surface/90 py-1.5 pl-4 text-left text-sm font-semibold text-navy shadow-lift backdrop-blur-xl",
+        "flex min-h-12 w-full items-center gap-3 card-edge rounded-full bg-surface py-1.5 pl-4 text-left text-sm font-semibold text-navy shadow-lift",
         !always && "search:hidden",
         summary ? "pr-3" : "pr-1.5",
         className,
       )}
     >
-      <span ref={rowRef} className="relative flex min-w-0 flex-1 items-center">
-        <MiniStop set={Boolean(where)} className="min-w-0 shrink">
+      <span ref={rowRef} className="@container relative flex min-w-0 flex-1 items-center">
+        {/* The place shortens first. When the text is large for the room (the row under 11rem,
+            which grows with the text size) only the dates stay, shortened if they must: the page
+            under the header names its place, and the label above reads all three. */}
+        <MiniStop set={Boolean(where)} className="min-w-12 shrink @max-[11rem]:hidden">
           {where || "Where to?"}
         </MiniStop>
-        <MiniPath traced={Boolean(where && dateLabel)} />
-        <MiniStop set={Boolean(dateLabel)} className="shrink-0">
+        <MiniPath traced={Boolean(where && dateLabel)} className="@max-[11rem]:hidden" />
+        <MiniStop set={Boolean(dateLabel)} className="min-w-0 shrink-0 @max-[11rem]:shrink">
           {/* The same words as the route's empty stop; the hero's summary doesn't ask in blue, as its
               own button under it is the action. */}
           {dateLabel ?? (summary ? "Add dates" : <span className="text-primary">Add dates +</span>)}
@@ -250,7 +253,7 @@ export function SearchPill({
           </MiniStop>
         </span>
         {!guestsFit && (
-          <span aria-hidden className="flex shrink-0 items-center gap-1 pl-2 whitespace-nowrap">
+          <span aria-hidden className="flex shrink-0 items-center gap-1 pl-2 whitespace-nowrap @max-[11rem]:hidden">
             <GuestsGlyph className="size-4 text-muted" />
             {guestsLabel.match(/\d+/)?.[0] ?? "1"}
           </span>
@@ -286,9 +289,9 @@ function MiniStop({ set, className, children }: { set: boolean; className?: stri
 // The space between two stops, drawn as a line only while it has room for one. The spaces share
 // the pill's spare width, so the stops spread evenly along it; with none to spare they close to
 // a plain gap, so the dates and the guests keep their room before the line does.
-function MiniPath({ traced }: { traced: boolean }) {
+function MiniPath({ traced, className }: { traced: boolean; className?: string }) {
   return (
-    <span aria-hidden className="@container min-w-0 flex-1 px-1.5">
+    <span aria-hidden className={cn("@container min-w-0 flex-1 px-1.5", className)}>
       <span
         className={cn(
           "block h-0.5 @max-[1rem]:hidden",
