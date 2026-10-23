@@ -64,6 +64,7 @@ module TripSerializer
       ends_on: item.ends_on&.iso8601,
       quantity: item.quantity,
       sleeps: item.listing.sleeps,
+      max_guests: item.listing.max_guests,
       booking_type: item.listing.category.booking_type,
       area: { slug: item.listing.area.slug, name: item.listing.area.name },
       destination: destination && { slug: destination.slug, name: destination.name },
