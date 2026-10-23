@@ -68,6 +68,11 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
     const saved = listing.stay_rate ?? {};
     if (Object.entries(rate).some(([key, value]) => saved[key as keyof typeof saved] !== value)) changes.push("Pricing");
   }
+  // A vehicle's price (RAA-150), the same way.
+  if (body.vehicle_rate) {
+    const saved = listing.vehicle_rate ?? {};
+    if (Object.entries(body.vehicle_rate).some(([key, value]) => saved[key as keyof typeof saved] !== value)) changes.push("Pricing");
+  }
   const fees = (list: { name: string; amount_cents: number; charged_per: string; required?: boolean }[]) =>
     JSON.stringify(list.map(({ name, amount_cents, charged_per, required }) => [name, amount_cents, charged_per, required ?? true]));
   if (body.fees && fees(listing.fees) !== fees(body.fees)) changes.push("Fees");

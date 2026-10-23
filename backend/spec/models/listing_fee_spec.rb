@@ -9,5 +9,7 @@ RSpec.describe ListingFee do
     expect(build(:listing_fee, listing:, name: "cleaning fee")).not_to be_valid
     expect(build(:listing_fee, listing:, charged_per: "week")).not_to be_valid
     expect(build(:listing_fee, listing:, name: "Helmet", charged_per: "unit")).to be_valid
+    expect(build(:listing_fee, listing:, name: "Passenger helmet", charged_per: "day")).to be_valid
+    expect(build(:listing_fee, listing:, name: "Late return", charged_per: "hour")).to be_valid
   end
 end

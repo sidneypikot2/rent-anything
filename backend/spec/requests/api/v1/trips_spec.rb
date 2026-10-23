@@ -100,7 +100,7 @@ RSpec.describe "Trips", type: :request do
           rooms = create(:listing, :stay, area: santa_fe, title: "Family rooms",
             attrs: { "place_type" => "private_room", "guests" => 4 })
           rooms.units.create!([ { position: 2 }, { position: 3 } ])
-          dorm = create(:listing, :stay, area: santa_fe, title: "Dorm", with_rate: false,
+          dorm = create(:listing, :stay, area: santa_fe, title: "Santa Fe dorm", with_rate: false,
             attrs: { "place_type" => "shared_room", "guests" => 1 })
           dorm.units.create!((2..6).map { { position: _1 } })
           trip = create(:trip, user:, starts_on: day, ends_on: day + 2)
@@ -112,7 +112,7 @@ RSpec.describe "Trips", type: :request do
         run_test! do |response|
           items = response.parsed_body.first["items"]
           expect(items.to_h { [ _1["listing"]["title"], _1["sleeps"] ] })
-            .to eq("Bamboo cottage" => 2, "Family rooms" => 12, "Dorm" => 6, "Island hopping" => nil)
+            .to eq("Bamboo cottage" => 2, "Family rooms" => 12, "Santa Fe dorm" => 6, "Island hopping" => nil)
         end
       end
 
@@ -459,7 +459,7 @@ RSpec.describe "Trips", type: :request do
 
       let(:trip) { create(:trip, user:, name: "Camotes", guests: 3) }
       let(:id) { trip.id }
-      let(:paused) { create(:listing, :paused, title: "Kayak") }
+      let(:paused) { create(:listing, :paused, title: "Sea kayak rental") }
       let(:body) { { starts_on: day.iso8601 } }
 
       before do
@@ -493,7 +493,7 @@ RSpec.describe "Trips", type: :request do
             [ { "starts_on" => (day + 1).iso8601, "ends_on" => (day + 2).iso8601, "quantity" => 2 } ]
           )
           expect(response.parsed_body["skipped"]).to eq(
-            [ { "listing_id" => paused.id, "title" => "Kayak", "reason" => "Isn't available to book any more" } ]
+            [ { "listing_id" => paused.id, "title" => "Sea kayak rental", "reason" => "Isn't available to book any more" } ]
           )
           expect(trip.reload.items.count).to eq(2)
         end

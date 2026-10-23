@@ -380,11 +380,11 @@ RSpec.describe "Partner listings", type: :request do
       response "422", "a title or description too long" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
-        before { body.merge!(title: "x" * 121, description: "x" * 5001) }
+        before { body.merge!(title: "x" * 81, description: "x" * 2001) }
 
         run_test! do |response|
           expect(response.parsed_body["errors"]).to include(
-            "Title is too long (maximum is 120 characters)", "Description is too long (maximum is 5000 characters)"
+            "Title is too long (maximum is 80 characters)", "Description is too long (maximum is 2000 characters)"
           )
         end
       end
@@ -486,6 +486,173 @@ RSpec.describe "Partner listings", type: :request do
             expect(StayRate.count).to eq(0)
             expect(Listing.count).to eq(0)
           end
+        end
+      end
+
+      context "a vehicle, priced by the day (RAA-149)" do
+        let(:category) { create(:category, :motorcycle) }
+        let(:vehicle_rate) do
+          { daily_price_cents: 50_000, half_day_price_cents: 35_000, half_day_hours: 5, hourly_price_cents: 10_000,
+            weekly_price_cents: 300_000, monthly_price_cents: 1_000_000, security_deposit_cents: 200_000,
+            delivery_fee_cents: 0, return_pickup_fee_cents: 15_000, min_rental_days: 1, km_limit_per_day: 150,
+            excess_km_fee_cents: 500 }
+        end
+        let(:attrs) do
+          { make: "Honda", model: "Click 125", engine_cc: 125, transmission: "automatic",
+            amenities: %w[rider_helmet raincoat phone_holder] }
+        end
+
+        before { body.merge!(title: "Honda Click 125 scooter", attrs:, vehicle_rate:) }
+
+        response "201", "with its transmission, amenities, vehicle rate and per-day fees" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before do
+            body[:fees] = [
+              { name: "Passenger helmet", amount_cents: 5_000, charged_per: "day", required: false },
+              { name: "Late return", amount_cents: 10_000, charged_per: "hour" }
+            ]
+          end
+
+          run_test! do |response|
+            expect(response.parsed_body["attrs"]).to eq(attrs.deep_stringify_keys)
+            expect(response.parsed_body["vehicle_rate"])
+              .to eq(vehicle_rate.stringify_keys.merge("driving" => "self_drive", "driver_fee_cents" => nil))
+            expect(response.parsed_body["stay_rate"]).to be_nil
+            expect(response.parsed_body["fees"].pluck("charged_per")).to eq(%w[day hour])
+          end
+        end
+
+        response "201", "a vehicle rate's optional fields left out take their defaults" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          let(:vehicle_rate) { { daily_price_cents: 45_000 } }
+
+          run_test! do |response|
+            expect(response.parsed_body["vehicle_rate"]).to eq(
+              "daily_price_cents" => 45_000, "half_day_price_cents" => nil, "half_day_hours" => 4,
+              "hourly_price_cents" => nil, "weekly_price_cents" => nil, "monthly_price_cents" => nil,
+              "security_deposit_cents" => 0, "delivery_fee_cents" => nil, "return_pickup_fee_cents" => nil,
+              "min_rental_days" => 1, "km_limit_per_day" => nil, "excess_km_fee_cents" => nil,
+              "driving" => "self_drive", "driver_fee_cents" => nil
+            )
+          end
+        end
+
+        response "201", "with the car amenities (RAA-150)" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before { attrs[:amenities] = %w[air_conditioning bluetooth_audio dashcam rfid_toll early_warning_device] }
+
+          run_test! do |response|
+            expect(response.parsed_body["attrs"]["amenities"]).to eq(attrs[:amenities])
+          end
+        end
+
+        response "201", "a car with a driver, at a fee per day (RAA-150)" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          let(:category) { create(:category, :car) }
+
+          before { vehicle_rate.merge!(driving: "either", driver_fee_cents: 150_000) }
+
+          run_test! do |response|
+            expect(response.parsed_body["vehicle_rate"]).to include("driving" => "either", "driver_fee_cents" => 150_000)
+          end
+        end
+
+        response "422", "a choice of driver with no fee" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          let(:category) { create(:category, :car) }
+
+          before { vehicle_rate.merge!(driving: "either") }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to include("Driver fee is required when the guest can choose a driver")
+            expect(Listing.count).to eq(0)
+          end
+        end
+
+        response "422", "no vehicle rate" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          before { body.delete(:vehicle_rate) }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to include("Vehicle rate is required for a vehicle rental")
+            expect(Listing.count).to eq(0)
+          end
+        end
+
+        response "422", "no transmission, and an amenity we don't know" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          before do
+            attrs.delete(:transmission)
+            attrs[:amenities] = %w[rider_helmet jetpack]
+          end
+
+          run_test! do |response|
+            errors = response.parsed_body["errors"].join(" ")
+            expect(errors).to include("transmission")
+            expect(errors).to include("/amenities/1")
+            expect(Listing.count).to eq(0)
+          end
+        end
+
+        response "422", "no daily price, and wrong-typed fields" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          let(:vehicle_rate) { { daily_price_cents: 0, half_day_price_cents: "350", delivery_fee_cents: 1.5 } }
+
+          run_test! do |refused|
+            expect(refused.parsed_body["errors"]).to include(
+              "Daily price must be a whole number of centavos above 0",
+              "Half-day price must be a whole number",
+              "Delivery fee must be a whole number"
+            )
+            vehicle_rate.delete(:daily_price_cents)
+            post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["errors"]).to include("Daily price must be a whole number of centavos above 0")
+            expect(Listing.count).to eq(0)
+          end
+        end
+
+        response "422", "a vehicle rate whose longer rentals cost more per day" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          let(:vehicle_rate) { { daily_price_cents: 50_000, weekly_price_cents: 400_000, half_day_price_cents: 60_000 } }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to include(
+              "Weekly price can't be more than 7 days at the daily price",
+              "Half-day price must be less than the daily price"
+            )
+            expect(VehicleRate.count).to eq(0)
+          end
+        end
+      end
+
+      response "422", "a vehicle rate on a listing that isn't a vehicle" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:vehicle_rate] = { daily_price_cents: 50_000 } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Only a vehicle rental has a vehicle rate")
+          expect(Listing.count).to eq(0)
+        end
+      end
+
+      response "422", "a title shorter than 10 or longer than 80 characters" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:title] = "Snorkel" }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Title is too short (minimum is 10 characters)")
+          expect(Listing.count).to eq(0)
         end
       end
 
@@ -671,7 +838,7 @@ RSpec.describe "Partner listings", type: :request do
           expect(refused.parsed_body["errors"]).to include(
             "Each fee needs a different name",
             "Fee amount must be a whole number of centavos, 0 or more",
-            "Fees are charged per booking, night, guest, guest_night or unit",
+            "Fees are charged per booking, night, guest, guest_night, unit, day or hour",
             "Whether a fee is required must be true or false",
             "Each fee needs a name"
           )
@@ -819,8 +986,8 @@ RSpec.describe "Partner listings", type: :request do
 
         let(:category) { listing.category }
         let(:listing) do
-          create(:listing, partner: user, area: moalboal, status: "active", description: "Waterproof to 10 m.",
-            location: "POINT(123.37 9.95)")
+          create(:listing, partner: user, area: moalboal, status: "active", location: "POINT(123.37 9.95)",
+            description: "Waterproof to 10 m, with a spare battery, a floating grip and a chest mount.")
         end
 
         before do
@@ -829,8 +996,10 @@ RSpec.describe "Partner listings", type: :request do
         end
 
         run_test! do |refused|
-          expect(refused.parsed_body["errors"]).to eq([ "A live listing needs a description: pause it first" ])
-          expect(listing.reload).to have_attributes(description: "Waterproof to 10 m.", title: "GoPro Hero 12")
+          expect(refused.parsed_body["errors"])
+            .to eq([ "A live listing needs a description of at least 50 characters: pause it first" ])
+          expect(listing.reload).to have_attributes(title: "GoPro Hero 12")
+          expect(listing.description).to start_with("Waterproof to 10 m,")
           listing.update!(status: "paused")
           patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
           expect(response).to have_http_status(:ok)
@@ -1106,6 +1275,52 @@ RSpec.describe "Partner listings", type: :request do
           run_test! do |response|
             expect(response.parsed_body["stay_rate"]).to be_nil
             expect(StayRate.count).to eq(0)
+          end
+        end
+      end
+
+      context "a vehicle (RAA-149)" do
+        let(:category) { create(:category, :motorcycle) }
+        let(:listing) { create(:listing, :vehicle, partner: user, area: moalboal, status: "draft") }
+
+        before do
+          body.merge!(attrs: { make: "Honda", model: "Click 125", engine_cc: 125, transmission: "automatic",
+            amenities: %w[rider_helmet] })
+        end
+
+        response "200", "the vehicle rate replaced when sent, kept when left out" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before { body[:vehicle_rate] = { daily_price_cents: 60_000, delivery_fee_cents: 10_000 } }
+
+          run_test! do |saved|
+            expect(saved.parsed_body["vehicle_rate"]).to include("daily_price_cents" => 60_000, "delivery_fee_cents" => 10_000)
+            body.delete(:vehicle_rate)
+            patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["vehicle_rate"]).to include("daily_price_cents" => 60_000)
+            expect(VehicleRate.count).to eq(1)
+          end
+        end
+
+        response "200", "a back-filled vehicle with no price yet can still be changed without one" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before { listing.vehicle_rate.update_columns(daily_price_cents: 0) }
+
+          run_test! do |response|
+            expect(response.parsed_body["vehicle_rate"]).to include("daily_price_cents" => 0)
+            expect(response.parsed_body["live_blockers"]).to include("price")
+          end
+        end
+
+        response "200", "the vehicle rate dropped when the listing stops being a vehicle" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before { body.merge!(category_id: create(:category, booking_type: "activity").id, attrs: {}) }
+
+          run_test! do |response|
+            expect(response.parsed_body["vehicle_rate"]).to be_nil
+            expect(VehicleRate.count).to eq(0)
           end
         end
       end

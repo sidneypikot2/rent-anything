@@ -29,7 +29,8 @@ RSpec.describe "Areas", type: :request do
   let(:basilia) { create(:business, name: "Basilia Motor Rentals") }
   let!(:honda) do
     create(:listing, area: bantayan, category: scooter, title: "Honda Click 125", partner: basilia.partner, business: basilia,
-      attrs: { "make" => "Honda", "plate_no" => "BTN 4521", "engine_cc" => 125, "helmet_included" => true })
+      attrs: { "make" => "Honda", "plate_no" => "BTN 4521", "engine_cc" => 125, "transmission" => "automatic",
+        "amenities" => [ "rider_helmet" ] })
   end
 
   before { honda.units.create!((2..50).map { |position| { position: } }) }
@@ -89,7 +90,7 @@ RSpec.describe "Areas", type: :request do
               "booking_type" => "rental", "summary" => "",
               "business" => { "id" => basilia.id, "name" => "Basilia Motor Rentals" }, "units_count" => 50, "units_label" => "50 motorcycles",
               "partner_name" => "Basilia Motor Rentals", "price_from_cents" => nil, "price_unit" => nil,
-              "photos" => [], "details" => { "engine_cc" => 125, "helmet_included" => true }, "tour" => nil,
+              "photos" => [], "details" => { "engine_cc" => 125, "transmission" => "automatic", "amenities" => [ "rider_helmet" ] }, "tour" => nil,
               "cancellation_policy" => "free_cancellation" }
           )
         end

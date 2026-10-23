@@ -28,8 +28,9 @@ export const SAVED_STEPS = [
 
 // The add-listing wizards' last three steps, once the step before has saved the draft
 // (RAA-109): Photos, which go to a listing that exists, then Booking, how guests book it
-// (instant book or request to book, RAA-133), then Listing status (RAA-115). Earlier steps
-// are closed by then; the listing is changed on its edit page. The steps are kept here, above
+// (instant book or request to book, RAA-133), then Listing status (RAA-115). Any of these
+// already reached opens again; earlier steps are closed by then, as the listing is changed on
+// its edit page. The steps are kept here, above
 // the layout, so the photos' new order and the booking mode survive going between them. Both
 // are saved with the body the wizard sent when the partner finishes. The status step ends
 // with Save as draft or Go live, which is greyed out, saying why, while the listing lacks what
@@ -80,7 +81,7 @@ export function NewListingPhotos({
   }
 
   return (
-    <WizardLayout steps={[...steps]} current={current} reached={reached} onSelect={goTo} locked>
+    <WizardLayout steps={[...steps]} current={current} reached={reached} onSelect={goTo} openFrom={photosStep}>
       {current === photosStep ? (
         <div className="flex w-full flex-col gap-6">
           <div data-testid="listing-step-photos" className="flex flex-col gap-4">

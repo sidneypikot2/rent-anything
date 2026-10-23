@@ -1,4 +1,5 @@
 import { STAY_LABELS } from "@/components/listings/stay-labels";
+import { transmissionLabel, VEHICLE_AMENITY_LABELS } from "@/components/listings/vehicle-labels";
 
 // What a listing includes and how big it is, as the chips on its row (RAA-125), from the
 // guest-safe details the area API sends (RAA-124). Each chip names its FeatureGlyph. Only what
@@ -14,7 +15,12 @@ const CANCELLATION: Record<string, string> = {
 };
 
 // The amenities worth a chip of their own icon; the rest share the plain tick.
-const AMENITY_ICONS: Record<string, string> = { wifi: "wifi", breakfast_included: "breakfast" };
+const AMENITY_ICONS: Record<string, string> = {
+  wifi: "wifi",
+  breakfast_included: "breakfast",
+  rider_helmet: "helmet",
+  passenger_helmet: "helmet",
+};
 
 export function listingFeatures(listing: { details: Details; cancellation_policy: string }): Feature[] {
   const d = listing.details;
@@ -36,12 +42,14 @@ export function listingFeatures(listing: { details: Details; cancellation_policy
   for (const item of [...list(d.accessories), ...list(d.lenses)]) add("accessory", capitalise(item));
   const engine = count(d.engine_cc);
   add("engine", engine && `${engine} cc`);
-  add("helmet", d.helmet_included === true && "Helmets included");
+  add("transmission", transmissionLabel(d.transmission));
   const guests = count(d.guests);
   add("guests", guests && `Sleeps ${guests}`);
   add("bed", beds(d.rooms));
   add("bathroom", typeof d.bathroom === "string" && STAY_LABELS[d.bathroom]);
-  for (const amenity of list(d.amenities)) add(AMENITY_ICONS[amenity] ?? "amenity", STAY_LABELS[amenity] ?? amenity);
+  for (const amenity of list(d.amenities)) {
+    add(AMENITY_ICONS[amenity] ?? "amenity", STAY_LABELS[amenity] ?? VEHICLE_AMENITY_LABELS[amenity] ?? amenity);
+  }
 
   const cancellation = CANCELLATION[listing.cancellation_policy];
   if (cancellation) features.push({ icon: "cancellation", label: cancellation, trust: true });

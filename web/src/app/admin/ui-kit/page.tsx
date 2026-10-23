@@ -172,7 +172,22 @@ export default function UiKit() {
               { value: "SG", label: "Singapore" },
             ]}
           />
+          <Field
+            label="Title"
+            name="title-counted"
+            maxLength={80}
+            counter={80}
+            defaultValue="Honda Click 125, automatic, with two helmets"
+            hint="Field with counter: turns amber near the limit"
+          />
           <TextareaField label="Description" name="description" hint="TextareaField" />
+          <TextareaField
+            label="Description with counter"
+            name="description-counted"
+            maxLength={2000}
+            counter={2000}
+            hint="TextareaField with counter"
+          />
           <CheckboxField label="Guide included (CheckboxField)" name="guide" />
           <InteractiveFields />
           <Field label="Disabled" name="disabled" disabled />

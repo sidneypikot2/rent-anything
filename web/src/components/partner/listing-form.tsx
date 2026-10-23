@@ -22,6 +22,7 @@ import {
   attributeFields,
   categoryLabel,
   descriptionHint,
+  LISTING_TEXT,
   geocodeQuery,
   titleExample,
   toAttributeValues,
@@ -70,7 +71,15 @@ import {
 } from "./tour-fields";
 import type { PartnerBusiness } from "./use-partner-businesses";
 import type { PartnerLandmark } from "./use-partner-landmarks";
-import { isVehicle, toVehicleAttrs, toVehicleValues, VehicleFields, type VehicleValues } from "./vehicle-fields";
+import { includedAmenities, isVehicle, toVehicleAttrs, toVehicleValues, VehicleFields, type VehicleValues } from "./vehicle-fields";
+import {
+  toVehiclePricingValues,
+  toVehicleRateBody,
+  VehiclePricingFields,
+  vehiclePricingErrors,
+  type VehiclePricingErrors,
+  type VehiclePricingValues,
+} from "./vehicle-pricing-fields";
 import { useUpdateListing, type ListingBody, type ListingOptions, type PartnerListing } from "./use-partner-listings";
 import { UNITS_LABEL, UnitsField } from "./units-field";
 import { WizardCancel } from "./wizard-cancel";
@@ -78,7 +87,7 @@ import { TickGlyph } from "@/components/discovery/tag-glyphs";
 
 // Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
 // visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
-// vehicle's, RAA-89), an accommodation's pricing and fees (RAA-105), how guests book it (RAA-133), the cancellation policy
+// vehicle's, RAA-89), an accommodation's or a vehicle's pricing and fees (RAA-105, RAA-150), how guests book it (RAA-133), the cancellation policy
 // (RAA-89), how many identical units it has (RAA-99), its photos (RAA-109) and, last, its status, changed
 // straight away behind Change status rather than with Save (RAA-115). A tour has
 // the TourWizard's sections instead of details and units (RAA-111). Saving first shows what changed and asks to confirm. Adding one is the stepped
@@ -103,6 +112,10 @@ export function ListingForm({
   const [pricing, setPricing] = useState<PricingValues>(() => toPricingValues(listing.stay_rate, listing.fees));
   const [priceErrors, setPriceErrors] = useState<PricingErrors>();
   const [vehicleValues, setVehicleValues] = useState<VehicleValues>(() => toVehicleValues(listing.attrs));
+  const [vehiclePricing, setVehiclePricing] = useState<VehiclePricingValues>(() =>
+    toVehiclePricingValues(listing.vehicle_rate, listing.fees),
+  );
+  const [vehiclePriceErrors, setVehiclePriceErrors] = useState<VehiclePricingErrors>();
   const [tour, setTour] = useState<TourValues>(() => toTourValues(listing));
   const [tourProblems, setTourProblems] = useState<TourErrors>();
   const [policy, setPolicy] = useState<CancellationPolicy>(listing.cancellation_policy);
@@ -156,18 +169,19 @@ export function ListingForm({
       attrs: stayCategory
         ? toStayAttrs(stay)
         : vehicleCategory
-          ? toVehicleAttrs(vehicleValues, savedAsVehicle ? listing.attrs : {})
+          ? toVehicleAttrs(vehicleValues, savedAsVehicle ? listing.attrs : {}, category?.slug)
           : toAttrs(fields, attrValues),
       cancellation_policy: policy,
       booking_mode: bookingMode,
       // A tour has no units: groups a day stand in for them (RAA-111).
       units_count: tourCategory ? 1 : units,
       landmark_ids: visitsLandmarks ? landmarks.map((landmark) => landmark.id) : [],
-      // Only accommodation is priced by the night, and a tour by its own price (RAA-111); other
-      // categories' fees aren't edited here yet.
+      // Accommodation is priced by the night, a vehicle by the day (RAA-150) and a tour by its
+      // own price (RAA-111); other categories' fees aren't edited here yet.
       ...(stayCategory
         ? { stay_rate: toStayRateBody(pricing, stay.placeType, stay.guests), fees: toFeesBody(pricing) }
         : {}),
+      ...(vehicleCategory ? { vehicle_rate: toVehicleRateBody(vehiclePricing), fees: toFeesBody(vehiclePricing) } : {}),
       ...(tourCategory ? toTourListingBody(tour, extras) : {}),
       // Sent only once moved: a body's photos deletes any photo it leaves out.
       ...(photoOrder ? { photos: orderedPhotos(listing.photos, photoOrder).map((photo) => photo.id) } : {}),
@@ -209,6 +223,10 @@ export function ListingForm({
       setPriceErrors(pricingErrors(pricing));
       return;
     }
+    if (vehicleCategory && vehiclePricingErrors(vehiclePricing, includedAmenities(vehicleValues, category?.slug))) {
+      setVehiclePriceErrors(vehiclePricingErrors(vehiclePricing, includedAmenities(vehicleValues, category?.slug)));
+      return;
+    }
     if (tourCategory && tourErrors(tour)) {
       setTourProblems(tourErrors(tour));
       return;
@@ -245,7 +263,12 @@ export function ListingForm({
           { id: "tour-pricing", label: "Pricing" },
         ]
       : []),
-    ...(vehicleCategory ? [{ id: "vehicle", label: "Vehicle details" }] : []),
+    ...(vehicleCategory
+      ? [
+          { id: "vehicle", label: "Vehicle details" },
+          { id: "vehicle-pricing", label: "Pricing" },
+        ]
+      : []),
     ...(fields.length > 0 ? [{ id: "details", label: "Details" }] : []),
     { id: "cancellation", label: "Cancellation policy" },
     { id: "booking", label: "Booking" },
@@ -327,14 +350,17 @@ export function ListingForm({
             label="Title"
             name="title"
             required
-            maxLength={120}
+            minLength={LISTING_TEXT.titleMin}
+            maxLength={LISTING_TEXT.titleMax}
+            counter={LISTING_TEXT.titleMax}
             defaultValue={listing.title}
             placeholder={`e.g. ${titleExample(category)}`}
           />
           <TextareaField
             label="Description"
             name="description"
-            maxLength={5000}
+            maxLength={LISTING_TEXT.descriptionMax}
+            counter={LISTING_TEXT.descriptionMax}
             defaultValue={listing.description}
             hint={descriptionHint(category)}
           />
@@ -428,9 +454,28 @@ export function ListingForm({
         )}
 
         {vehicleCategory && (
-          <EditSection id="vehicle" title="Vehicle details">
-            <VehicleFields values={vehicleValues} onChange={setVehicleValues} />
-          </EditSection>
+          <>
+            <EditSection id="vehicle" title="Vehicle details">
+              <VehicleFields values={vehicleValues} onChange={setVehicleValues} slug={category?.slug} />
+            </EditSection>
+            <EditSection id="vehicle-pricing" title="Pricing" data-testid="listing-vehicle-pricing">
+              {!listing.vehicle_rate?.daily_price_cents && (
+                <p role="status" className="text-sm font-medium text-warning">
+                  Set a daily price: guests don&apos;t see a price for this vehicle until you do.
+                </p>
+              )}
+              <VehiclePricingFields
+                values={vehiclePricing}
+                onChange={(values) => {
+                  setVehiclePricing(values);
+                  setVehiclePriceErrors(undefined);
+                }}
+                errors={vehiclePriceErrors}
+                included={includedAmenities(vehicleValues, category?.slug)}
+                slug={category?.slug}
+              />
+            </EditSection>
+          </>
         )}
 
         {fields.length > 0 && (

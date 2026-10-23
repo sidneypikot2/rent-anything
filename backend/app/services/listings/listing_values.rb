@@ -16,7 +16,8 @@ module Listings
   # An accommodation listing has a stay_rate (RAA-104): required on a new one, replaced when
   # sent and kept when left out, and dropped when the listing stops being accommodation; the
   # rate is checked again on every save, as the guests the place sleeps may change. fees, for
-  # any category, replace the listing's fees when sent and keep them when left out.
+  # any category, replace the listing's fees when sent and keep them when left out. A vehicle
+  # rental has a vehicle_rate (RAA-149) by the same rules as a stay_rate.
   # A tour's details (RAA-110) are read by TourValues.
   # photos (RAA-106) are the ids of the listing's own photos (added through
   # /api/v1/partner/listings/:id/photos) in the partner's order: sent, the order is theirs
@@ -34,6 +35,11 @@ module Listings
       weekend_price_cents base_guests extra_guest_fee_cents weekly_discount_percent monthly_discount_percent min_nights
       max_nights
     ].freeze
+    VEHICLE_RATE_FIELDS = %i[
+      half_day_price_cents half_day_hours hourly_price_cents weekly_price_cents monthly_price_cents
+      security_deposit_cents delivery_fee_cents return_pickup_fee_cents min_rental_days km_limit_per_day
+      excess_km_fee_cents driver_fee_cents
+    ].freeze
 
     private
 
@@ -43,6 +49,7 @@ module Listings
       @landmarks = landmarks_for(category)
       @units_count = units_count
       @stay_rate = stay_rate_for(category)
+      @vehicle_rate = vehicle_rate_for(category)
       @tour = tour_for(category)
       @fees = fees
       @photo_ids = photo_ids
@@ -74,6 +81,7 @@ module Listings
         save_landmarks!(listing)
         save_units!(listing)
         save_stay_rate!(listing)
+        save_vehicle_rate!(listing)
         save_tour!(listing)
         save_fees!(listing)
         save_photos!(listing)
@@ -87,6 +95,14 @@ module Listings
 
       rate = listing.stay_rate || listing.build_stay_rate
       rate.assign_attributes(@stay_rate) if @stay_rate
+      rate.save!
+    end
+
+    def save_vehicle_rate!(listing)
+      return listing.vehicle_rate&.destroy! unless listing.category.vehicle?
+
+      rate = listing.vehicle_rate || listing.build_vehicle_rate
+      rate.assign_attributes(@vehicle_rate) if @vehicle_rate
       rate.save!
     end
 
@@ -292,6 +308,37 @@ module Listings
 
         error("#{StayRate.human_attribute_name(key)} must be a whole number")
       end.merge(nightly_price_cents: price)
+    end
+
+    # nil keeps the listing's rate as it is. A rate sent replaces it whole: the optional
+    # fields left out take their defaults.
+    def vehicle_rate_for(category)
+      value = @params[:vehicle_rate]
+      vehicle = category&.vehicle?
+      if value.nil?
+        return error("Vehicle rate is required for a vehicle rental") if vehicle && !@listing&.vehicle_rate
+
+        return nil
+      end
+      return error("Only a vehicle rental has a vehicle rate") if category && !vehicle
+      return error("Vehicle rate must be an object") unless value.respond_to?(:key?)
+
+      price = value[:daily_price_cents]
+      error("Daily price must be a whole number of centavos above 0") unless price.is_a?(Integer) && price.positive?
+      VEHICLE_RATE_FIELDS.index_with do |key|
+        field = value[key]
+        next VehicleRate.column_defaults[key.to_s] if field.nil?
+        next field if field.is_a?(Integer)
+
+        error("#{VehicleRate.human_attribute_name(key)} must be a whole number")
+      end.merge(daily_price_cents: price, driving: driving_for(value[:driving]))
+    end
+
+    def driving_for(value)
+      return VehicleRate.column_defaults["driving"] if value.nil?
+      return value if VehicleRate::DRIVING.include?(value)
+
+      error("Driving must be one of #{VehicleRate::DRIVING.join(', ')}")
     end
 
     # nil keeps the listing's fees as they are; an array replaces them, in its order.

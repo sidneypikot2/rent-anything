@@ -17,8 +17,9 @@ const MAX_FEES = 20;
 export type FeeValues = { key: number; name: string; amount: string; chargedPer: ChargedPer; required: boolean };
 
 let nextFeeKey = 1;
-function newFee(): FeeValues {
-  return { key: nextFeeKey++, name: "", amount: "", chargedPer: "booking", required: true };
+// A new row, blank or prefilled from a preset (a vehicle's late-return fee, RAA-150).
+export function newFee(preset: Partial<Omit<FeeValues, "key">> = {}): FeeValues {
+  return { key: nextFeeKey++, name: "", amount: "", chargedPer: "booking", required: true, ...preset };
 }
 
 export function toFeeValues(fees: ListingFee[]): FeeValues[] {
@@ -62,18 +63,24 @@ export function exampleFees(fees: FeeValues[], quantities: Record<ChargedPer, nu
 }
 
 // A listing's extra fees (RAA-105): a cleaning fee, an environmental fee, an add-on. Any
-// category can have them; `hint` says what they are for this one.
+// category can have them; `hint` says what they are for this one, and `chargedPer` how they can
+// be charged (all of CHARGED_PER by default).
 export function FeeFields({
   fees,
   onChange,
   error,
   hint = "A cleaning fee, an environmental fee, an extra bed. Optional ones are add-ons guests choose.",
+  chargedPer,
 }: {
   fees: FeeValues[];
   onChange: (fees: FeeValues[]) => void;
   error?: string;
   hint?: string;
+  chargedPer?: ChargedPer[];
 }) {
+  // A saved fee keeps its own charge as an option, so opening an older listing changes nothing.
+  const chargeOptions = (current: ChargedPer) =>
+    CHARGED_PER.filter((option) => !chargedPer || chargedPer.includes(option.value) || option.value === current);
   const setFee = (key: number, patch: Partial<FeeValues>) =>
     onChange(fees.map((fee) => (fee.key === key ? { ...fee, ...patch } : fee)));
 
@@ -111,7 +118,7 @@ export function FeeFields({
               name={`fee_charged_per_${index}`}
               value={fee.chargedPer}
               onChange={(event) => setFee(fee.key, { chargedPer: event.target.value as ChargedPer })}
-              options={CHARGED_PER}
+              options={chargeOptions(fee.chargedPer)}
             />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -137,7 +144,7 @@ export function FeeFields({
           variant="soft"
           size="sm"
           className="self-start"
-          onClick={() => onChange([...fees, newFee()])}
+          onClick={() => onChange([...fees, newFee(chargedPer ? { chargedPer: chargedPer[0] } : {})])}
           data-testid="pricing-add-fee"
         >
           Add a fee

@@ -5361,6 +5361,8 @@ export interface components {
             guests: number | null;
             /** @description Accommodation's nightly pricing once it has a price; null otherwise */
             stay_rate: components["schemas"]["stay_rate"] | null;
+            /** @description A vehicle rental's pricing once it has a price (RAA-149); null otherwise. Not quoted at checkout yet: the price is confirmed with the partner */
+            vehicle_rate: components["schemas"]["vehicle_rate"] | null;
             fees: components["schemas"]["listing_fee"][];
             /** @description A tour's details and the days it runs; null for any other category */
             tour: components["schemas"]["guest_tour"] | null;
@@ -5433,6 +5435,8 @@ export interface components {
             units_count: number;
             /** @description Accommodation's nightly pricing; null for any other category */
             stay_rate: components["schemas"]["stay_rate"] | null;
+            /** @description A vehicle rental's pricing (RAA-149); null for any other category */
+            vehicle_rate: components["schemas"]["vehicle_rate"] | null;
             /** @description In the partner's order */
             fees: components["schemas"]["listing_fee"][];
             /** @description A tour's details (RAA-110); null for any other category */
@@ -5571,7 +5575,9 @@ export interface components {
             status: "active" | "paused" | "delisted";
         };
         listing_body: {
+            /** @description A title of an older listing longer than 80 stays until it is changed */
             title: string;
+            /** @description At least 50 characters for the listing to go live; an older, longer one stays until changed */
             description?: string;
             /** @description A bookable (leaf) category */
             category_id: number;
@@ -5604,6 +5610,8 @@ export interface components {
             landmark_ids?: number[];
             /** @description Accommodation only, and required on a new one or one moved into it: replaces the rate when sent; left out on a change, it stays. Refused for any other category. */
             stay_rate?: components["schemas"]["stay_rate_body"];
+            /** @description Vehicle rentals only (a category whose attribute_schema asks for make, model and engine_cc), and required on a new one or one moved into it: replaces the rate when sent; left out on a change, it stays. Refused for any other category. */
+            vehicle_rate?: components["schemas"]["vehicle_rate_body"];
             /** @description Any category. Replaces the listing's fees, in this order, when sent; left out on a change, they stay. Names are unique per listing, ignoring case. */
             fees?: components["schemas"]["listing_fee_body"][];
             /** @description Tours only (category slug `tour`), and required on a new one or one moved into it: replaces the tour's details and inclusions when sent; left out on a change, they stay. Refused for any other category. */
@@ -5614,10 +5622,10 @@ export interface components {
         /** @enum {string} */
         tour_type: "private" | "joiner";
         /**
-         * @description What price_from_cents is for: a night of a stay, a private tour's whole group or one joiner; null when there is no price
+         * @description What price_from_cents is for: a night of a stay, a private tour's whole group or one joiner, a day of a vehicle rental (RAA-149); null when there is no price
          * @enum {string|null}
          */
-        price_unit: "night" | "group" | "person" | null;
+        price_unit: "night" | "group" | "person" | "day" | null;
         tour_inclusion: {
             /** @enum {string} */
             kind: "accommodation" | "transport" | "meal";
@@ -5721,11 +5729,73 @@ export interface components {
             /** @description Default null */
             max_nights?: number | null;
         };
+        vehicle_rate: {
+            /** @description For each day (24 hours). 0 means no price yet (listings made before pricing) */
+            daily_price_cents: number;
+            /** @description For half_day_hours; null: not offered */
+            half_day_price_cents: number | null;
+            half_day_hours: number;
+            /** @description Null: not offered */
+            hourly_price_cents: number | null;
+            /** @description The total for 7 days; null: 7 daily prices */
+            weekly_price_cents: number | null;
+            /** @description The total for 30 days; null: no monthly price */
+            monthly_price_cents: number | null;
+            /** @description Refundable, held at pick-up; never part of the price */
+            security_deposit_cents: number;
+            /** @description Bringing the vehicle to the guest: null not offered, 0 free */
+            delivery_fee_cents: number | null;
+            /** @description Collecting it from the guest at the end: null not offered, 0 free */
+            return_pickup_fee_cents: number | null;
+            min_rental_days: number;
+            /** @description Null: unlimited */
+            km_limit_per_day: number | null;
+            /** @description Per km above the daily limit */
+            excess_km_fee_cents: number | null;
+            driving: components["schemas"]["vehicle_driving"];
+            /** @description A driver per day when the guest can choose one (either); otherwise null */
+            driver_fee_cents: number | null;
+        };
+        /** @description A half day costs less than a day and an hour less than a half day (or a day); a week at most 7 days and a month at most 30 at the daily price. A fee per km above the limit needs a limit. A choice of driver (either) needs a driver fee, and a motorcycle is self-drive only. Optional fields left out take their defaults. */
+        vehicle_rate_body: {
+            daily_price_cents: number;
+            /** @description Default null */
+            half_day_price_cents?: number | null;
+            /** @description Default 4 */
+            half_day_hours?: number;
+            /** @description Default null */
+            hourly_price_cents?: number | null;
+            /** @description Default null */
+            weekly_price_cents?: number | null;
+            /** @description Default null */
+            monthly_price_cents?: number | null;
+            /** @description Default 0 */
+            security_deposit_cents?: number;
+            /** @description Default null: not offered */
+            delivery_fee_cents?: number | null;
+            /** @description Default null: not offered */
+            return_pickup_fee_cents?: number | null;
+            /** @description Default 1 */
+            min_rental_days?: number;
+            /** @description Default null */
+            km_limit_per_day?: number | null;
+            /** @description Default null */
+            excess_km_fee_cents?: number | null;
+            /** @description Default self_drive */
+            driving?: components["schemas"]["vehicle_driving"];
+            /** @description Per day; required with either, null otherwise */
+            driver_fee_cents?: number | null;
+        };
+        /**
+         * @description Self-drive only, with a driver only (in the price), or either at a driver fee (RAA-150)
+         * @enum {string}
+         */
+        vehicle_driving: "self_drive" | "with_driver" | "either";
         /**
          * @description What the amount is multiplied by in a quote
          * @enum {string}
          */
-        listing_fee_charged_per: "booking" | "night" | "guest" | "guest_night" | "unit";
+        listing_fee_charged_per: "booking" | "night" | "guest" | "guest_night" | "unit" | "day" | "hour";
         listing_fee: {
             id: number;
             name: string;
@@ -5809,7 +5879,7 @@ export interface components {
             /** @enum {boolean} */
             uploaded: true;
         };
-        /** @description Only the keys the listing has, from: guide_included, seats, luggage (bags a transfer carries), route, sizes, accessories, lenses, engine_cc, helmet_included, guests (how many a stay sleeps), rooms ([{beds: [{type, count}]}]), bathroom, amenities, place_type */
+        /** @description Only the keys the listing has, from: guide_included, seats, luggage (bags a transfer carries), route, sizes, accessories, lenses, engine_cc, transmission, guests (how many a stay sleeps), rooms ([{beds: [{type, count}]}]), bathroom, amenities (a stay's or a vehicle's), place_type */
         listing_details: {
             [key: string]: unknown;
         };

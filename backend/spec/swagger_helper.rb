@@ -360,6 +360,11 @@ RSpec.configure do |config|
                 allOf: [ { "$ref" => "#/components/schemas/stay_rate" } ], nullable: true,
                 description: "Accommodation's nightly pricing once it has a price; null otherwise"
               },
+              vehicle_rate: {
+                allOf: [ { "$ref" => "#/components/schemas/vehicle_rate" } ], nullable: true,
+                description: "A vehicle rental's pricing once it has a price (RAA-149); null otherwise. Not quoted " \
+                  "at checkout yet: the price is confirmed with the partner"
+              },
               fees: { type: :array, items: { "$ref" => "#/components/schemas/listing_fee" } },
               tour: {
                 allOf: [ { "$ref" => "#/components/schemas/guest_tour" } ], nullable: true,
@@ -372,7 +377,7 @@ RSpec.configure do |config|
               }
             },
             required: %w[id title description summary category booking_type instant_book area business units_count units_label
-              partner_name price_from_cents price_unit guests stay_rate fees tour details photos]
+              partner_name price_from_cents price_unit guests stay_rate vehicle_rate fees tour details photos]
           },
           # A listing photo's sizes (RAA-106), served straight from storage. A partner's photo not
           # ready yet (partner_photo) gives the original for both.
@@ -467,6 +472,10 @@ RSpec.configure do |config|
                 allOf: [ { "$ref" => "#/components/schemas/stay_rate" } ], nullable: true,
                 description: "Accommodation's nightly pricing; null for any other category"
               },
+              vehicle_rate: {
+                allOf: [ { "$ref" => "#/components/schemas/vehicle_rate" } ], nullable: true,
+                description: "A vehicle rental's pricing (RAA-149); null for any other category"
+              },
               fees: { type: :array, items: { "$ref" => "#/components/schemas/listing_fee" }, description: "In the partner's order" },
               tour: {
                 allOf: [ { "$ref" => "#/components/schemas/partner_tour" } ], nullable: true,
@@ -494,7 +503,7 @@ RSpec.configure do |config|
               updated_at: { type: :string, format: "date-time" }
             },
             required: %w[id title description status live_blockers category area address location attrs cancellation_policy booking_mode units_count
-              stay_rate fees tour business landmarks covers photos photo_limit created_at updated_at]
+              stay_rate vehicle_rate fees tour business landmarks covers photos photo_limit created_at updated_at]
           },
           # A business a partner runs (RAA-100); its listings are shown under its name.
           partner_business: {
@@ -645,8 +654,14 @@ RSpec.configure do |config|
           listing_body: {
             type: :object,
             properties: {
-              title: { type: :string, maxLength: 120 },
-              description: { type: :string, maxLength: 5000 },
+              title: {
+                type: :string, minLength: 10, maxLength: 80,
+                description: "A title of an older listing longer than 80 stays until it is changed"
+              },
+              description: {
+                type: :string, maxLength: 2000,
+                description: "At least 50 characters for the listing to go live; an older, longer one stays until changed"
+              },
               category_id: { type: :integer, description: "A bookable (leaf) category" },
               address: ADDRESS_BODY,
               location: LOCATION_BODY,
@@ -679,6 +694,12 @@ RSpec.configure do |config|
                 description: "Accommodation only, and required on a new one or one moved into it: replaces the rate " \
                   "when sent; left out on a change, it stays. Refused for any other category."
               },
+              vehicle_rate: {
+                allOf: [ { "$ref" => "#/components/schemas/vehicle_rate_body" } ],
+                description: "Vehicle rentals only (a category whose attribute_schema asks for make, model and " \
+                  "engine_cc), and required on a new one or one moved into it: replaces the rate when sent; left " \
+                  "out on a change, it stays. Refused for any other category."
+              },
               fees: {
                 type: :array, items: { "$ref" => "#/components/schemas/listing_fee_body" }, maxItems: 20,
                 description: "Any category. Replaces the listing's fees, in this order, when sent; left out on a " \
@@ -704,9 +725,9 @@ RSpec.configure do |config|
           # per head, its inclusions in the price. Money is in centavos.
           tour_type: { type: :string, enum: %w[private joiner] },
           price_unit: {
-            type: :string, enum: %w[night group person], nullable: true,
+            type: :string, enum: %w[night group person day], nullable: true,
             description: "What price_from_cents is for: a night of a stay, a private tour's whole group or one " \
-              "joiner; null when there is no price"
+              "joiner, a day of a vehicle rental (RAA-149); null when there is no price"
           },
           tour_inclusion: {
             type: :object,
@@ -834,8 +855,82 @@ RSpec.configure do |config|
             },
             required: %w[nightly_price_cents]
           },
+          # A vehicle rental's pricing (RAA-149). Money is in centavos; a weekly or monthly price is
+          # the total for 7 or 30 days.
+          vehicle_rate: {
+            type: :object,
+            properties: {
+              daily_price_cents: {
+                type: :integer, minimum: 0,
+                description: "For each day (24 hours). 0 means no price yet (listings made before pricing)"
+              },
+              half_day_price_cents: {
+                type: :integer, minimum: 1, nullable: true, description: "For half_day_hours; null: not offered"
+              },
+              half_day_hours: { type: :integer, minimum: 2, maximum: 12 },
+              hourly_price_cents: { type: :integer, minimum: 1, nullable: true, description: "Null: not offered" },
+              weekly_price_cents: {
+                type: :integer, minimum: 1, nullable: true, description: "The total for 7 days; null: 7 daily prices"
+              },
+              monthly_price_cents: {
+                type: :integer, minimum: 1, nullable: true, description: "The total for 30 days; null: no monthly price"
+              },
+              security_deposit_cents: {
+                type: :integer, minimum: 0, description: "Refundable, held at pick-up; never part of the price"
+              },
+              delivery_fee_cents: {
+                type: :integer, minimum: 0, nullable: true,
+                description: "Bringing the vehicle to the guest: null not offered, 0 free"
+              },
+              return_pickup_fee_cents: {
+                type: :integer, minimum: 0, nullable: true,
+                description: "Collecting it from the guest at the end: null not offered, 0 free"
+              },
+              min_rental_days: { type: :integer, minimum: 1, maximum: 365 },
+              km_limit_per_day: { type: :integer, minimum: 1, maximum: 2000, nullable: true, description: "Null: unlimited" },
+              excess_km_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Per km above the daily limit" },
+              driving: { "$ref" => "#/components/schemas/vehicle_driving" },
+              driver_fee_cents: {
+                type: :integer, minimum: 1, nullable: true,
+                description: "A driver per day when the guest can choose one (either); otherwise null"
+              }
+            },
+            required: %w[daily_price_cents half_day_price_cents half_day_hours hourly_price_cents weekly_price_cents
+              monthly_price_cents security_deposit_cents delivery_fee_cents return_pickup_fee_cents min_rental_days
+              km_limit_per_day excess_km_fee_cents driving driver_fee_cents]
+          },
+          vehicle_rate_body: {
+            type: :object,
+            description: "A half day costs less than a day and an hour less than a half day (or a day); a week " \
+              "at most 7 days and a month at most 30 at the daily price. A fee per km above the limit needs a " \
+              "limit. A choice of driver (either) needs a driver fee, and a motorcycle is self-drive only. Optional " \
+              "fields left out take their defaults.",
+            properties: {
+              daily_price_cents: { type: :integer, minimum: 1 },
+              half_day_price_cents: { type: :integer, minimum: 1, nullable: true, description: "Default null" },
+              half_day_hours: { type: :integer, minimum: 2, maximum: 12, description: "Default 4" },
+              hourly_price_cents: { type: :integer, minimum: 1, nullable: true, description: "Default null" },
+              weekly_price_cents: { type: :integer, minimum: 1, nullable: true, description: "Default null" },
+              monthly_price_cents: { type: :integer, minimum: 1, nullable: true, description: "Default null" },
+              security_deposit_cents: { type: :integer, minimum: 0, description: "Default 0" },
+              delivery_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Default null: not offered" },
+              return_pickup_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Default null: not offered" },
+              min_rental_days: { type: :integer, minimum: 1, maximum: 365, description: "Default 1" },
+              km_limit_per_day: { type: :integer, minimum: 1, maximum: 2000, nullable: true, description: "Default null" },
+              excess_km_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Default null" },
+              driving: { "$ref" => "#/components/schemas/vehicle_driving", description: "Default self_drive" },
+              driver_fee_cents: {
+                type: :integer, minimum: 1, nullable: true, description: "Per day; required with either, null otherwise"
+              }
+            },
+            required: %w[daily_price_cents]
+          },
+          vehicle_driving: {
+            type: :string, enum: %w[self_drive with_driver either],
+            description: "Self-drive only, with a driver only (in the price), or either at a driver fee (RAA-150)"
+          },
           listing_fee_charged_per: {
-            type: :string, enum: %w[booking night guest guest_night unit],
+            type: :string, enum: %w[booking night guest guest_night unit day hour],
             description: "What the amount is multiplied by in a quote"
           },
           # An extra charge on a listing, any category (RAA-104).
@@ -957,8 +1052,8 @@ RSpec.configure do |config|
             type: :object,
             additionalProperties: true,
             description: "Only the keys the listing has, from: guide_included, seats, luggage (bags a transfer " \
-              "carries), route, sizes, accessories, lenses, engine_cc, helmet_included, guests (how many a stay " \
-              "sleeps), rooms ([{beds: [{type, count}]}]), bathroom, amenities, place_type"
+              "carries), route, sizes, accessories, lenses, engine_cc, transmission, guests (how many a stay " \
+              "sleeps), rooms ([{beds: [{type, count}]}]), bathroom, amenities (a stay's or a vehicle's), place_type"
           },
           # What a guest gets back on cancelling (RAA-88); refunds follow it from M4.
           cancellation_policy: {

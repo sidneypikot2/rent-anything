@@ -18,6 +18,7 @@ import { StayPrice } from "./stay-price";
 import { SamplePhotoTag } from "./photo-card";
 import { CategoryGlyph, ChevronGlyph, FeatureGlyph, PlaceGlyph, TagGlyph } from "./tag-glyphs";
 import { TourFacts } from "./tour-facts";
+import { VehiclePrice } from "./vehicle-price";
 
 type Photo = { src: string; alt: string };
 
@@ -162,7 +163,7 @@ export function LandmarkPanel({
 }
 
 // A thing to book, whole, under its photos and title. What the area page already has shows at once; the description, a
-// tour's facts and a stay's price and fees come from the listing's own endpoint, fetched when
+// tour's facts, a stay's or a vehicle's price and fees come from the listing's own endpoint, fetched when
 // the panel opens and kept, so opening it again is instant. With the page's trip dates a stay's
 // total comes from /quotes, as on the listing page.
 export function ListingPanel({
@@ -263,6 +264,7 @@ export function ListingPanel({
       )}
       {listing?.tour && <TourFacts listing={listing} tour={listing.tour} head={false} />}
       {listing?.stay_rate && <StayPrice listing={listing} rate={listing.stay_rate} quote={quote} datesSet={datesSet} />}
+      {listing?.vehicle_rate && <VehiclePrice listing={listing} rate={listing.vehicle_rate} />}
       {description && description !== summary?.trim() && (
         <PanelSection title="About this">
           <p className="text-sm break-words whitespace-pre-line">{description}</p>

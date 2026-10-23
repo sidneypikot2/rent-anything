@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The MapLibre worker next.config.ts copies in (gitignored): linting it ran out of memory.
+    "public/maplibre/**",
   ]),
 ]);
 

@@ -39,6 +39,13 @@ class Category < ApplicationRecord
     slug == "tour" && activity?
   end
 
+  # A motorcycle, car, van, tricycle or multicab (RAA-88): its schema asks for make, model and
+  # engine size, as the web app's isVehicle checks. Only these are priced by VehicleRate (RAA-149).
+  def vehicle?
+    properties = attribute_schema.is_a?(Hash) ? attribute_schema["properties"] : nil
+    properties.is_a?(Hash) && %w[make model engine_cc].all? { properties.key?(_1) }
+  end
+
   # How many units a listing has, in this category's words (RAA-100): "5 rooms", "1 motorcycle".
   def units_label(count)
     noun = count == 1 ? unit_name.presence || "unit" : unit_name_plural.presence || "units"

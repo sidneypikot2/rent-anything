@@ -15,7 +15,14 @@ export const CHARGED_PER: { value: ChargedPer; label: string }[] = [
   { value: "guest", label: "per guest" },
   { value: "guest_night", label: "per guest per night" },
   { value: "unit", label: "per unit" },
+  { value: "day", label: "per day" },
+  { value: "hour", label: "per hour" },
 ];
+
+// The ones that fit each kind of listing's fees (RAA-150): a rental is charged by the booking,
+// the day or the hour, never by the night or the guest.
+export const VEHICLE_CHARGED_PER: ChargedPer[] = ["booking", "day", "hour"];
+export const STAY_CHARGED_PER: ChargedPer[] = ["booking", "night", "guest", "guest_night", "unit"];
 
 export function chargedPerLabel(chargedPer: ChargedPer) {
   return CHARGED_PER.find((option) => option.value === chargedPer)?.label ?? chargedPer;
@@ -32,9 +39,9 @@ export function nightUnit(perGuest: boolean) {
 }
 
 // The unit after a listing's "from" price (price_unit): a night of a stay, a private tour's
-// whole group or one joiner (RAA-110).
+// whole group or one joiner (RAA-110), or a day of a vehicle rental (RAA-149).
 export function priceUnitText(unit: components["schemas"]["price_unit"]) {
-  return unit ? { night: "/ night", group: "/ group", person: "/ guest" }[unit] : undefined;
+  return unit ? { night: "/ night", group: "/ group", person: "/ guest", day: "/ day" }[unit] : undefined;
 }
 
 // What an unpriced listing says where its price would be: only stays and tours have prices
