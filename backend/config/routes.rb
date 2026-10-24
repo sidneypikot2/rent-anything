@@ -61,6 +61,12 @@ Rails.application.routes.draw do
         resources :search_terms, only: :create
         resources :link_suggestions, only: :index
         resources :destination_links, only: :create
+        # Seeding an area from the console, and publishing what it found (RAA-168).
+        resources :areas, only: :index do
+          post :seed, on: :member
+          get :landmarks, on: :member
+        end
+        resources :landmarks, only: :update
       end
 
       namespace :partner do

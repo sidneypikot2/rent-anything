@@ -7,6 +7,8 @@ class Area < ApplicationRecord
 
   KINDS = %w[region province city town island].freeze
   STATUSES = %w[draft published].freeze
+  # Seeding from the admin console (RAA-168, Gazetteer::SeedArea).
+  SEED_STATUSES = %w[idle queued running done failed].freeze
   # Top-level web paths an area slug would collide with.
   RESERVED_SLUGS = %w[partner admin search login register dashboard profile settings nearby cart trips listings].freeze
 
@@ -21,6 +23,7 @@ class Area < ApplicationRecord
 
   enum :kind, KINDS.index_with(&:itself), validate: true
   enum :status, STATUSES.index_with(&:itself), validate: true
+  enum :seed_status, SEED_STATUSES.index_with(&:itself), prefix: :seed, validate: true
 
   validates :slug, presence: true, uniqueness: true, format: { with: /\A[a-z0-9]+(-[a-z0-9]+)*\z/ },
     exclusion: { in: RESERVED_SLUGS, message: "is reserved" }

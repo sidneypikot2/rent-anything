@@ -1616,6 +1616,50 @@ RSpec.configure do |config|
             required: %w[from_status to_status actor reason created_at]
           },
           # A guest's booking (RAA-132). Never the listing's location.
+          # An area in the admin console's Areas tab, with its last seeding run (RAA-168).
+          admin_area: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              slug: { type: :string },
+              name: { type: :string },
+              kind: { type: :string, enum: Area::KINDS },
+              status: { type: :string, enum: Area::STATUSES },
+              parent_name: { type: :string, nullable: true },
+              landmarks_published: { type: :integer },
+              landmarks_draft: { type: :integer },
+              wikidata_id: { type: :string, nullable: true },
+              seed_status: { type: :string, enum: Area::SEED_STATUSES },
+              seeded_at: { type: :string, format: "date-time", nullable: true, description: "When the last run ended" },
+              seed_report: {
+                type: :object,
+                description: "The last run: what it added and skipped, or the error it stopped on. All null (and " \
+                  "skipped empty) before the first run ends",
+                properties: {
+                  landmarks_added: { type: :integer, nullable: true },
+                  enriched: { type: :integer, nullable: true, description: "Places given Wikidata's terms and popularity" },
+                  skipped: { type: :array, items: { type: :string }, description: "Places Wikidata couldn't match, and why" },
+                  error: { type: :string, nullable: true, description: "Set when the run failed" }
+                },
+                required: %w[landmarks_added enriched skipped error]
+              }
+            },
+            required: %w[id slug name kind status parent_name landmarks_published landmarks_draft wikidata_id seed_status
+              seeded_at seed_report]
+          },
+          admin_landmark: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              slug: { type: :string },
+              name: { type: :string },
+              status: { type: :string, enum: Landmark::STATUSES },
+              wikidata_id: { type: :string, nullable: true },
+              lng: { type: :number },
+              lat: { type: :number }
+            },
+            required: %w[id slug name status wikidata_id lng lat]
+          },
           # A booking as the team sees it when answering for its partner (RAA-141).
           admin_booking: {
             type: :object,

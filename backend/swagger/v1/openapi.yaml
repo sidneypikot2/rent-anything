@@ -22,6 +22,160 @@ paths:
                 type: array
                 items:
                   "$ref": "#/components/schemas/activity"
+  "/api/v1/admin/areas":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    get:
+      summary: Find areas to seed
+      tags:
+      - Admin
+      description: 'Admin-only (RAA-168). Gazetteer areas by name, at most 100: `q`
+        matches the name or slug, `kind` and `status` narrow it. Each comes with its
+        landmark counts and its last seeding run.'
+      security:
+      - bearer: []
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: kind
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - region
+          - province
+          - city
+          - town
+          - island
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - draft
+          - published
+      responses:
+        '200':
+          description: filtered by kind and status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/admin_area"
+        '422':
+          description: an unknown kind
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/admin/areas/{id}/seed":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    post:
+      summary: Seed an area
+      tags:
+      - Admin
+      description: 'Admin-only (RAA-168). Makes the area a destination in the background:
+        publishes it and every area above it, adds Wikidata''s landmarks inside its
+        boundary as drafts, and gives it and its landmarks Wikidata''s search terms
+        and popularity. Poll `GET /api/v1/admin/areas` until `seed_status` is `done`
+        or `failed`. Safe to run again; 409 while a run is queued or running.'
+      security:
+      - bearer: []
+      responses:
+        '202':
+          description: the run is queued
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_area"
+        '409':
+          description: a run is already under way
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '404':
+          description: no such area
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/admin/areas/{id}/landmarks":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    get:
+      summary: An area's landmarks
+      tags:
+      - Admin
+      description: 'Admin-only (RAA-168). Every landmark of the area, drafts too,
+        by name: what a seeding run found, to publish or leave out.'
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: the landmarks, by name
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/admin_landmark"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/admin/bookings":
     parameters:
     - name: Authorization
@@ -222,6 +376,64 @@ paths:
               - source
               - target
               - kind
+  "/api/v1/admin/landmarks/{id}":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    patch:
+      summary: Publish or unpublish a landmark
+      tags:
+      - Admin
+      description: Admin-only (RAA-168). Puts a landmark a seeding run found live,
+        or takes one back to draft.
+      security:
+      - bearer: []
+      parameters: []
+      responses:
+        '200':
+          description: the landmark with its new status
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_landmark"
+        '422':
+          description: no status
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                  - draft
+                  - published
+              required:
+              - status
   "/api/v1/admin/link_suggestions":
     get:
       summary: Destination links suggested by search picks
@@ -6773,6 +6985,119 @@ components:
       - actor
       - reason
       - created_at
+    admin_area:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+          - region
+          - province
+          - city
+          - town
+          - island
+        status:
+          type: string
+          enum:
+          - draft
+          - published
+        parent_name:
+          type: string
+          nullable: true
+        landmarks_published:
+          type: integer
+        landmarks_draft:
+          type: integer
+        wikidata_id:
+          type: string
+          nullable: true
+        seed_status:
+          type: string
+          enum:
+          - idle
+          - queued
+          - running
+          - done
+          - failed
+        seeded_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the last run ended
+        seed_report:
+          type: object
+          description: 'The last run: what it added and skipped, or the error it stopped
+            on. All null (and skipped empty) before the first run ends'
+          properties:
+            landmarks_added:
+              type: integer
+              nullable: true
+            enriched:
+              type: integer
+              nullable: true
+              description: Places given Wikidata's terms and popularity
+            skipped:
+              type: array
+              items:
+                type: string
+              description: Places Wikidata couldn't match, and why
+            error:
+              type: string
+              nullable: true
+              description: Set when the run failed
+          required:
+          - landmarks_added
+          - enriched
+          - skipped
+          - error
+      required:
+      - id
+      - slug
+      - name
+      - kind
+      - status
+      - parent_name
+      - landmarks_published
+      - landmarks_draft
+      - wikidata_id
+      - seed_status
+      - seeded_at
+      - seed_report
+    admin_landmark:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+          - draft
+          - published
+        wikidata_id:
+          type: string
+          nullable: true
+        lng:
+          type: number
+        lat:
+          type: number
+      required:
+      - id
+      - slug
+      - name
+      - status
+      - wikidata_id
+      - lng
+      - lat
     admin_booking:
       type: object
       properties:

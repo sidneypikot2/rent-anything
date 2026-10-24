@@ -43,6 +43,219 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/areas": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find areas to seed
+         * @description Admin-only (RAA-168). Gazetteer areas by name, at most 100: `q` matches the name or slug, `kind` and `status` narrow it. Each comes with its landmark counts and its last seeding run.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    kind?: "region" | "province" | "city" | "town" | "island";
+                    status?: "draft" | "published";
+                };
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description filtered by kind and status */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_area"][];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description an unknown kind */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/areas/{id}/seed": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Seed an area
+         * @description Admin-only (RAA-168). Makes the area a destination in the background: publishes it and every area above it, adds Wikidata's landmarks inside its boundary as drafts, and gives it and its landmarks Wikidata's search terms and popularity. Poll `GET /api/v1/admin/areas` until `seed_status` is `done` or `failed`. Safe to run again; 409 while a run is queued or running.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the run is queued */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_area"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description no such area */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a run is already under way */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/areas/{id}/landmarks": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * An area's landmarks
+         * @description Admin-only (RAA-168). Every landmark of the area, drafts too, by name: what a seeding run found, to publish or leave out.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the landmarks, by name */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_landmark"][];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/bookings": {
         parameters: {
             query?: never;
@@ -292,6 +505,87 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/landmarks/{id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Publish or unpublish a landmark
+         * @description Admin-only (RAA-168). Puts a landmark a seeding run found live, or takes one back to draft.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "draft" | "published";
+                    };
+                };
+            };
+            responses: {
+                /** @description the landmark with its new status */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_landmark"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description no status */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/admin/link_suggestions": {
@@ -6342,6 +6636,46 @@ export interface components {
             reason: string | null;
             /** Format: date-time */
             created_at: string;
+        };
+        admin_area: {
+            id: number;
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            kind: "region" | "province" | "city" | "town" | "island";
+            /** @enum {string} */
+            status: "draft" | "published";
+            parent_name: string | null;
+            landmarks_published: number;
+            landmarks_draft: number;
+            wikidata_id: string | null;
+            /** @enum {string} */
+            seed_status: "idle" | "queued" | "running" | "done" | "failed";
+            /**
+             * Format: date-time
+             * @description When the last run ended
+             */
+            seeded_at: string | null;
+            /** @description The last run: what it added and skipped, or the error it stopped on. All null (and skipped empty) before the first run ends */
+            seed_report: {
+                landmarks_added: number | null;
+                /** @description Places given Wikidata's terms and popularity */
+                enriched: number | null;
+                /** @description Places Wikidata couldn't match, and why */
+                skipped: string[];
+                /** @description Set when the run failed */
+                error: string | null;
+            };
+        };
+        admin_landmark: {
+            id: number;
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            status: "draft" | "published";
+            wikidata_id: string | null;
+            lng: number;
+            lat: number;
         };
         admin_booking: {
             id: number;

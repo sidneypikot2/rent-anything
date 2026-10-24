@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_23_110000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_24_160000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -20,6 +20,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_110000) do
 
   # Custom types defined in this database.
   # Note that some types may not work with other database engines. Be careful if changing database.
+  create_enum "area_seed_status", ["idle", "queued", "running", "done", "failed"]
   create_enum "booking_source", ["offline", "checkout"]
   create_enum "booking_status", ["confirmed", "cancelled", "requested", "accepted", "awaiting_payment", "in_progress", "completed", "declined", "expired"]
   create_enum "listing_status", ["draft", "active", "paused", "delisted"]
@@ -40,6 +41,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_110000) do
     t.string "wikidata_id"
     t.string "wikidata_aliases", default: [], null: false, array: true
     t.integer "wikidata_popularity", default: 0, null: false
+    t.enum "seed_status", default: "idle", null: false, enum_type: "area_seed_status"
+    t.datetime "seeded_at"
+    t.jsonb "seed_report", default: {}, null: false
     t.index ["boundary"], name: "index_areas_on_boundary", using: :gist
     t.index ["center"], name: "index_areas_on_center", using: :gist
     t.index ["parent_id"], name: "index_areas_on_parent_id"
