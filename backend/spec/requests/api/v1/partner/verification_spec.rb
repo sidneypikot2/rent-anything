@@ -218,9 +218,15 @@ RSpec.describe "Partner ID verification", type: :request do
       response "502", "Didit can't be reached" do
         schema "$ref" => "#/components/schemas/error"
 
-        before { allow(Didit).to receive(:create_session).and_raise(Didit::Error, "Didit answered 500") }
+        before do
+          allow(Didit).to receive(:create_session).and_raise(Didit::Error, "Didit answered 500")
+          allow(Sentry).to receive(:capture_exception)
+        end
 
-        run_test! { expect(PartnerVerification.where.not(didit_session_id: nil)).to be_empty }
+        run_test! do
+          expect(PartnerVerification.where.not(didit_session_id: nil)).to be_empty
+          expect(Sentry).to have_received(:capture_exception).with(an_instance_of(Didit::Error))
+        end
       end
 
       response "403", "a guest" do

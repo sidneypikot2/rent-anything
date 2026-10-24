@@ -63,6 +63,7 @@ jobs:
 
       # NEXT_PUBLIC_* are baked into the bundle: they are repository variables (Settings →
       # Secrets and variables → Actions → Variables), and changing one needs a redeploy.
+      # The web app reports errors to Sentry as "staging", like the API's RAILS_ENV.
       - name: Build and push the web app
         uses: docker/build-push-action@v7
         with:
@@ -73,6 +74,12 @@ jobs:
             NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
             NEXT_PUBLIC_FACEBOOK_APP_ID=${{ vars.NEXT_PUBLIC_FACEBOOK_APP_ID }}
             NEXT_PUBLIC_SECTION_SWITCH=${{ vars.NEXT_PUBLIC_SECTION_SWITCH }}
+            NEXT_PUBLIC_SENTRY_DSN=${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
+            NEXT_PUBLIC_SENTRY_ENVIRONMENT=staging
+            NEXT_PUBLIC_SENTRY_RELEASE=${{ github.sha }}
+          # Uploads the browser source maps to Sentry (web/Dockerfile, next.config.ts).
+          secrets: |
+            sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
           tags: |
             ${{ env.REGISTRY }}/rent-anything-web:${{ github.sha }}
             ${{ env.REGISTRY }}/rent-anything-web:staging

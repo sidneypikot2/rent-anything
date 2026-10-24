@@ -38,6 +38,8 @@ services:
       # Accept booking requests the moment they are made, until partners answer them in the
       # app (RAA-134 turned the default off). A guest's change to a booking always waits.
       BOOKINGS_AUTO_ACCEPT: "true"
+      # Sentry tags each error with the deployed commit (the DSN is in backend.env).
+      SENTRY_RELEASE: ${IMAGE_TAG:-staging}
     healthcheck:
       # assume_ssl in production.rb keeps force_ssl from redirecting this plain-HTTP check.
       test: ["CMD", "curl", "-fsS", "http://localhost:3000/up"]

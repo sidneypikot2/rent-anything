@@ -24,6 +24,9 @@ class ApplicationController < ActionController::API
     payload = token && JsonWebToken.decode(token)
     @current_user = payload && User.find_by(id: payload[:sub])
     raise NotAuthenticatedError unless @current_user
+
+    # Sentry gets the id only, never the email or name (config/initializers/sentry.rb).
+    Sentry.set_user(id: @current_user.id)
   end
 
   def require_role!(role)
@@ -46,11 +49,14 @@ class ApplicationController < ActionController::API
     render json: { errors: exception.record.errors.full_messages }, status: :unprocessable_content
   end
 
-  def render_bad_gateway
+  # Didit failures are handled here, so Sentry would never see them; report them.
+  def render_bad_gateway(exception)
+    Sentry.capture_exception(exception)
     render json: { error: "ID verification is unavailable right now. Try again shortly." }, status: :bad_gateway
   end
 
   def render_service_unavailable(exception)
+    Sentry.capture_exception(exception)
     render json: { error: exception.message }, status: :service_unavailable
   end
 

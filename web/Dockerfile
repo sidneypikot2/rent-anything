@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Production image of the web app for the hosted staging environment (RAA-156, deploy/staging/).
 # Local development doesn't use it: Compose runs `npm run dev` in a plain node image.
 # The Node major moves with docker-compose.yml's node:24-alpine (.claude/rules/infra.md).
@@ -17,8 +18,14 @@ ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
 ARG NEXT_PUBLIC_FACEBOOK_APP_ID
 ARG NEXT_PUBLIC_SECTION_SWITCH
+# Sentry (src/lib/sentry.ts): the web project's DSN, "staging" on the instance, and the commit.
+ARG NEXT_PUBLIC_SENTRY_DSN
+ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT
+ARG NEXT_PUBLIC_SENTRY_RELEASE
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+# The token that uploads source maps to Sentry is a build secret, not an ARG, so it never
+# lands in the image's history. Without it (a local build) nothing is uploaded.
+RUN --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN npm run build
 
 # The standalone output carries only the files the server needs; public/ and .next/static
 # are copied next to it so server.js serves them too.
