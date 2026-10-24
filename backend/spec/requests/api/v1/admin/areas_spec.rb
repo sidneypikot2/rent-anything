@@ -281,6 +281,67 @@ RSpec.describe "Admin areas", type: :request do
     end
   end
 
+  path "/api/v1/admin/areas/{slug}/seed" do
+    parameter name: :Authorization, in: :header, schema: { type: :string }
+    parameter name: :slug, in: :path, schema: { type: :string }
+
+    post "Seed a destination from Wikidata" do
+      tags "Admin"
+      produces "application/json"
+      description "Admin-only (RAA-168). Makes the area a destination in the background: publishes it and every " \
+        "area above it, adds Wikidata's landmarks inside its boundary as drafts, and gives it and its landmarks " \
+        "Wikidata's search terms and popularity. Poll the area until `seed_status` is `done` or `failed`; the " \
+        "new drafts are in `GET /api/v1/admin/landmarks?area=<slug>&status=draft`. Safe to run again; 409 while " \
+        "a run is queued or running."
+      security [ { bearer: [] } ]
+
+      let(:slug) { "bantayan-island" }
+
+      response "202", "the run is queued" do
+        schema "$ref" => "#/components/schemas/admin_area"
+
+        run_test! do |response|
+          expect(response.parsed_body).to include("slug" => "bantayan-island", "seed_status" => "queued",
+            "seed_report" => { "landmarks_added" => nil, "enriched" => nil, "skipped" => [], "error" => nil })
+          expect(Gazetteer::SeedAreaJob).to have_been_enqueued.with(bantayan)
+        end
+      end
+
+      response "409", "a run is already under way" do
+        schema "$ref" => "#/components/schemas/error"
+
+        before { bantayan.update!(seed_status: "running") }
+
+        run_test! do
+          expect(Gazetteer::SeedAreaJob).not_to have_been_enqueued
+        end
+      end
+
+      response "404", "no such area" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:slug) { "nowhere" }
+
+        run_test!
+      end
+
+      response "403", "a partner" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:user) { create(:user, :partner) }
+
+        run_test! do
+          expect(bantayan.reload.seed_status).to eq("idle")
+        end
+      end
+
+      response "401", "signed out" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:Authorization) { nil }
+
+        run_test!
+      end
+    end
+  end
+
   path "/api/v1/admin/area_options" do
     get "What a destination can be" do
       tags "Admin"

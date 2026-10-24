@@ -64,6 +64,8 @@ Rails.application.routes.draw do
         # Destinations, their details and banner photo (RAA-164).
         resources :areas, only: %i[index show create update], param: :slug do
           resource :banner_photo, only: %i[create update destroy], controller: "area_photos"
+          # Make it a destination from Wikidata in the background (RAA-168).
+          post :seed, on: :member
         end
         resource :area_options, only: :show
         # Landmarks, the places to see; their tags come from area_options.

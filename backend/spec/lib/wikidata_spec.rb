@@ -35,6 +35,27 @@ RSpec.describe Wikidata do
     end
   end
 
+  describe ".landmarks_near" do
+    def label_row(item, label, lang, sitelinks: "2", location: "Point(123.8 11.17)")
+      binding_row(item: "http://www.wikidata.org/entity/#{item}", location:, sitelinks:)
+        .merge("label" => { "value" => label, "xml:lang" => lang })
+    end
+
+    it "names each item in the first language that has a label, most sitelinks first" do
+      respond_with({ "results" => { "bindings" => [
+        label_row("Q7", "Silion", "en"), label_row("Q7", "Pulo sa Silion", "ceb"),
+        label_row("Q8", "Isla ng Hilantagaan", "tl", sitelinks: "4", location: "Point(123.877 11.206)"),
+        label_row("Q8", "Hilantagaan Island", "en", sitelinks: "4", location: "Point(123.877 11.206)"),
+        label_row("Q9", "Somewhere", "en", location: "not a point")
+      ] } })
+
+      expect(described_class.landmarks_near(lat: 11.2, lng: 123.75, radius_km: 15)).to eq([
+        { id: "Q8", name: "Hilantagaan Island", lng: 123.877, lat: 11.206, sitelinks: 4 },
+        { id: "Q7", name: "Silion", lng: 123.8, lat: 11.17, sitelinks: 2 }
+      ])
+    end
+  end
+
   describe ".monthly_pageviews" do
     it "averages the monthly views" do
       respond_with({ "items" => [ { "views" => 300 }, { "views" => 500 } ] })

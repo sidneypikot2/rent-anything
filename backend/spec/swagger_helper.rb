@@ -17,6 +17,24 @@ LISTING_GROUP = {
     "vehicle rental: its own section, never a trip's \"Getting around\""
 }.freeze
 
+# An area's last seeding run from the admin console (RAA-168), on its list row and its page.
+SEED_RUN = {
+  seed_status: { type: :string, enum: Area::SEED_STATUSES },
+  seeded_at: { type: :string, format: "date-time", nullable: true, description: "When the last run ended" },
+  seed_report: {
+    type: :object,
+    description: "The last run: what it added and skipped, or the error it stopped on. All null (and " \
+      "skipped empty) before the first run ends",
+    properties: {
+      landmarks_added: { type: :integer, nullable: true },
+      enriched: { type: :integer, nullable: true, description: "Places given Wikidata's terms and popularity" },
+      skipped: { type: :array, items: { type: :string }, description: "Places Wikidata couldn't match, and why" },
+      error: { type: :string, nullable: true, description: "Set when the run failed" }
+    },
+    required: %w[landmarks_added enriched skipped error]
+  }
+}.freeze
+
 # What explore (RAA-56) says about a destination, nearby or recommended.
 EXPLORE_PLACE = {
   type: { type: :string, enum: %w[area landmark] },
@@ -1805,9 +1823,10 @@ RSpec.configure do |config|
               status: { type: :string, enum: Area::STATUSES },
               parent: { allOf: [ { "$ref" => "#/components/schemas/area_ref" } ], nullable: true },
               listing_count: { type: :integer, description: "Active listings in the area itself" },
-              landmark_count: { type: :integer, description: "Published landmarks in the area itself" }
+              landmark_count: { type: :integer, description: "Published landmarks in the area itself" },
+              **SEED_RUN
             },
-            required: %w[slug name kind status parent listing_count landmark_count]
+            required: %w[slug name kind status parent listing_count landmark_count seed_status seeded_at seed_report]
           },
           # The banner's sizes and state; until it is ready both URLs are the original's.
           area_banner_photo: {
@@ -1853,11 +1872,12 @@ RSpec.configure do |config|
                 description: "Read-only: whether the gazetteer gave it a boundary, which places listings in it"
               },
               listing_count: { type: :integer },
-              landmark_count: { type: :integer }
+              landmark_count: { type: :integer },
+              **SEED_RUN
             },
             required: %w[slug name kind status parent aliases center psgc_code tagline description getting_there
               best_time_to_visit tags banner_photo wikidata_id wikidata_aliases wikidata_popularity has_boundary
-              listing_count landmark_count]
+              listing_count landmark_count seed_status seeded_at seed_report]
           },
           admin_area_body: {
             type: :object,

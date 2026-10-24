@@ -37,7 +37,18 @@ module AdminAreaSerializer
     parent = area.parent
     {
       slug: area.slug, name: area.name, kind: area.kind, status: area.status,
-      parent: parent && { slug: parent.slug, name: parent.name }
+      parent: parent && { slug: parent.slug, name: parent.name },
+      **seed_run(area)
+    }
+  end
+
+  # The last seeding run (RAA-168), every report key present.
+  def self.seed_run(area)
+    report = area.seed_report
+    {
+      seed_status: area.seed_status, seeded_at: area.seeded_at,
+      seed_report: { landmarks_added: report["landmarks_added"], enriched: report["enriched"],
+        skipped: report["skipped"] || [], error: report["error"] }
     }
   end
 

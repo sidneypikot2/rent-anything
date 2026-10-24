@@ -317,6 +317,60 @@ paths:
           application/json:
             schema:
               "$ref": "#/components/schemas/admin_area_body"
+  "/api/v1/admin/areas/{slug}/seed":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    - name: slug
+      in: path
+      schema:
+        type: string
+      required: true
+    post:
+      summary: Seed a destination from Wikidata
+      tags:
+      - Admin
+      description: 'Admin-only (RAA-168). Makes the area a destination in the background:
+        publishes it and every area above it, adds Wikidata''s landmarks inside its
+        boundary as drafts, and gives it and its landmarks Wikidata''s search terms
+        and popularity. Poll the area until `seed_status` is `done` or `failed`; the
+        new drafts are in `GET /api/v1/admin/landmarks?area=<slug>&status=draft`.
+        Safe to run again; 409 while a run is queued or running.'
+      security:
+      - bearer: []
+      responses:
+        '202':
+          description: the run is queued
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_area"
+        '409':
+          description: a run is already under way
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '404':
+          description: no such area
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/admin/area_options":
     get:
       summary: What a destination can be
@@ -7718,6 +7772,45 @@ components:
         landmark_count:
           type: integer
           description: Published landmarks in the area itself
+        seed_status:
+          type: string
+          enum:
+          - idle
+          - queued
+          - running
+          - done
+          - failed
+        seeded_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the last run ended
+        seed_report:
+          type: object
+          description: 'The last run: what it added and skipped, or the error it stopped
+            on. All null (and skipped empty) before the first run ends'
+          properties:
+            landmarks_added:
+              type: integer
+              nullable: true
+            enriched:
+              type: integer
+              nullable: true
+              description: Places given Wikidata's terms and popularity
+            skipped:
+              type: array
+              items:
+                type: string
+              description: Places Wikidata couldn't match, and why
+            error:
+              type: string
+              nullable: true
+              description: Set when the run failed
+          required:
+          - landmarks_added
+          - enriched
+          - skipped
+          - error
       required:
       - slug
       - name
@@ -7726,6 +7819,9 @@ components:
       - parent
       - listing_count
       - landmark_count
+      - seed_status
+      - seeded_at
+      - seed_report
     area_banner_photo:
       type: object
       properties:
@@ -7818,6 +7914,45 @@ components:
           type: integer
         landmark_count:
           type: integer
+        seed_status:
+          type: string
+          enum:
+          - idle
+          - queued
+          - running
+          - done
+          - failed
+        seeded_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the last run ended
+        seed_report:
+          type: object
+          description: 'The last run: what it added and skipped, or the error it stopped
+            on. All null (and skipped empty) before the first run ends'
+          properties:
+            landmarks_added:
+              type: integer
+              nullable: true
+            enriched:
+              type: integer
+              nullable: true
+              description: Places given Wikidata's terms and popularity
+            skipped:
+              type: array
+              items:
+                type: string
+              description: Places Wikidata couldn't match, and why
+            error:
+              type: string
+              nullable: true
+              description: Set when the run failed
+          required:
+          - landmarks_added
+          - enriched
+          - skipped
+          - error
       required:
       - slug
       - name
@@ -7839,6 +7974,9 @@ components:
       - has_boundary
       - listing_count
       - landmark_count
+      - seed_status
+      - seeded_at
+      - seed_report
     admin_area_body:
       type: object
       description: On a change, a field left out is kept. name, slug, kind and center

@@ -40,6 +40,41 @@ module Wikidata
     SPARQL
   end
 
+  # Places a guest visits, for seeding an area's landmarks (RAA-168): instances of these
+  # classes or their subclasses.
+  LANDMARK_CLASSES = {
+    "Q570116" => "tourist attraction", "Q40080" => "beach", "Q34038" => "waterfall", "Q35509" => "cave",
+    "Q23442" => "island", "Q16970" => "church building", "Q39715" => "lighthouse", "Q33506" => "museum",
+    "Q22698" => "park", "Q6017969" => "scenic viewpoint", "Q358" => "heritage site", "Q2141554" => "recreational dive site"
+  }.freeze
+
+  # Landmark-like items within radius_km of the point, most sitelinks first:
+  # [{ id:, name:, lng:, lat:, sitelinks: }]. The name is the label in the first of
+  # LANGUAGES that has one; an item with none is left out.
+  def self.landmarks_near(lat:, lng:, radius_km:)
+    rows = sparql(<<~SPARQL)
+      SELECT ?item ?location ?sitelinks ?label WHERE {
+        SERVICE wikibase:around {
+          ?item wdt:#{COORDINATES_PROPERTY} ?location .
+          bd:serviceParam wikibase:center "Point(#{Float(lng)} #{Float(lat)})"^^geo:wktLiteral ;
+                          wikibase:radius "#{Float(radius_km)}" .
+        }
+        ?item wdt:P31/wdt:P279* ?class .
+        VALUES ?class { #{LANDMARK_CLASSES.keys.map { |id| "wd:#{id}" }.join(" ")} }
+        ?item wikibase:sitelinks ?sitelinks ; rdfs:label ?label .
+        FILTER(LANG(?label) IN (#{language_list}))
+      }
+    SPARQL
+    rows.group_by { |row| item_id(row) }.filter_map do |id, item_rows|
+      labels = item_rows.to_h { |row| [ row.dig("label", "xml:lang"), row.dig("label", "value") ] }
+      name = labels.values_at(*LANGUAGES).compact.first
+      lng, lat = item_rows.first.dig("location", "value").to_s[/\APoint\(([-\d.]+ [-\d.]+)\)\z/, 1]&.split&.map { Float(_1) }
+      next unless name && lat
+
+      { id:, name:, lng:, lat:, sitelinks: Integer(item_rows.first.dig("sitelinks", "value").to_s, exception: false) || 0 }
+    end.sort_by { |item| [ -item[:sitelinks], item[:name] ] }
+  end
+
   # { "Q123" => { terms: [labels and aliases in LANGUAGES], sitelinks: Integer, enwiki: title or nil } }
   def self.entities(ids)
     ids.each { |id| raise ArgumentError, "not a Wikidata item: #{id.inspect}" unless id.to_s.match?(/\AQ\d+\z/) }

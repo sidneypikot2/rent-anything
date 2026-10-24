@@ -8,13 +8,17 @@ module Gazetteer
   # A place without an item is matched once: an area by its PSGC code, else by name near
   # its center; a landmark by name near it. Only a single match is stored; anything else is
   # reported in :skipped for an admin to settle.
+  #
+  # places: limits a run to those areas and landmarks, drafts included (seeding one area,
+  # RAA-168); by default it is every published one.
   class WikidataEnrichment < ApplicationService
     AREA_RADIUS_KM = 10
     LANDMARK_RADIUS_KM = 2
     MAX_TERM_LENGTH = 60
     BATCH_SIZE = 50
 
-    def initialize
+    def initialize(places: nil)
+      @places = places
       @resolved = @enriched = 0
       @skipped = []
       # Which place holds each item, so no two places end up with the same one.
@@ -23,7 +27,7 @@ module Gazetteer
     end
 
     def call
-      places = Area.published.order(:id).to_a + Landmark.published.order(:id).to_a
+      places = @places || (Area.published.order(:id).to_a + Landmark.published.order(:id).to_a)
       matched = places.filter_map { |place| [ place, place.wikidata_id || resolve(place) ] }.select(&:last)
       matched.each_slice(BATCH_SIZE) { |batch| enrich(batch) }
       { resolved: @resolved, enriched: @enriched, skipped: @skipped }

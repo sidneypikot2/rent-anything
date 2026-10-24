@@ -2,7 +2,8 @@ module Api
   module V1
     module Admin
       # Destinations in the admin console (RAA-164): every area, drafts included, searched by
-      # name, slug or alias; adding one and changing its details go through Areas::Save.
+      # name, slug or alias; adding one and changing its details go through Areas::Save; seeding one
+      # from Wikidata goes through Gazetteer::QueueSeed (RAA-168).
       class AreasController < ApplicationController
         PER_PAGE = 50
 
@@ -26,6 +27,13 @@ module Api
 
         def update
           render json: AdminAreaSerializer.call(Areas::Save.call(find_area, area_params))
+        end
+
+        # Queues Gazetteer::SeedArea (RAA-168); the console polls the area for the result.
+        def seed
+          render json: AdminAreaSerializer.call(Gazetteer::QueueSeed.call(find_area)), status: :accepted
+        rescue Gazetteer::QueueSeed::AlreadyRunning
+          render json: { error: "This area is already being seeded" }, status: :conflict
         end
 
         private

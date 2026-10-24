@@ -435,6 +435,89 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/admin/areas/{slug}/seed": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Seed a destination from Wikidata
+         * @description Admin-only (RAA-168). Makes the area a destination in the background: publishes it and every area above it, adds Wikidata's landmarks inside its boundary as drafts, and gives it and its landmarks Wikidata's search terms and popularity. Poll the area until `seed_status` is `done` or `failed`; the new drafts are in `GET /api/v1/admin/landmarks?area=<slug>&status=draft`. Safe to run again; 409 while a run is queued or running.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the run is queued */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_area"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description no such area */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a run is already under way */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/area_options": {
         parameters: {
             query?: never;
@@ -7196,6 +7279,23 @@ export interface components {
             listing_count: number;
             /** @description Published landmarks in the area itself */
             landmark_count: number;
+            /** @enum {string} */
+            seed_status: "idle" | "queued" | "running" | "done" | "failed";
+            /**
+             * Format: date-time
+             * @description When the last run ended
+             */
+            seeded_at: string | null;
+            /** @description The last run: what it added and skipped, or the error it stopped on. All null (and skipped empty) before the first run ends */
+            seed_report: {
+                landmarks_added: number | null;
+                /** @description Places given Wikidata's terms and popularity */
+                enriched: number | null;
+                /** @description Places Wikidata couldn't match, and why */
+                skipped: string[];
+                /** @description Set when the run failed */
+                error: string | null;
+            };
         };
         area_banner_photo: {
             uploaded: boolean;
@@ -7232,6 +7332,23 @@ export interface components {
             has_boundary: boolean;
             listing_count: number;
             landmark_count: number;
+            /** @enum {string} */
+            seed_status: "idle" | "queued" | "running" | "done" | "failed";
+            /**
+             * Format: date-time
+             * @description When the last run ended
+             */
+            seeded_at: string | null;
+            /** @description The last run: what it added and skipped, or the error it stopped on. All null (and skipped empty) before the first run ends */
+            seed_report: {
+                landmarks_added: number | null;
+                /** @description Places given Wikidata's terms and popularity */
+                enriched: number | null;
+                /** @description Places Wikidata couldn't match, and why */
+                skipped: string[];
+                /** @description Set when the run failed */
+                error: string | null;
+            };
         };
         /** @description On a change, a field left out is kept. name, slug, kind and center are required on a new one. */
         admin_area_body: {
