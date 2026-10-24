@@ -10,7 +10,7 @@ import type { GuestBooking } from "@/components/bookings/use-bookings";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
-import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/components/ui/toast";
 import { CartItemPanel } from "./cart-item-panel";
 import { CartTripNav, type TripGroup } from "./cart-trip-nav";
 import { RANGE_TYPES } from "./format";
@@ -81,10 +81,9 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
   const [selectedId, setSelectedId] = useState(expandTripId);
   const [tab, setTab] = useState<Tab | null>(null);
   const [open, setOpen] = useState<Open | null>(null);
-  const [notice, setNotice] = useState<{ id: number; text: string } | null>(null);
+  const toast = useToast();
 
-  const show = useCallback((text: string) => setNotice({ id: Date.now(), text }), []);
-  const dismissNotice = useCallback(() => setNotice(null), []);
+  const show = useCallback((text: string) => toast.show(text, { "data-testid": "trips-toast" }), [toast]);
   const close = () => setOpen(null);
 
   function switchTo(next: Tab) {
@@ -241,7 +240,6 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
         <NewTripSheet onClose={close} onCreated={(trip) => router.push(`/cart?trip=${trip.id}`)} />
       )}
 
-      <Toast data-testid="trips-toast" message={notice?.text ?? null} id={notice?.id} onDismiss={dismissNotice} />
     </>
   );
 }

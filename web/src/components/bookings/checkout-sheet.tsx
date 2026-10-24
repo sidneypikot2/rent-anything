@@ -6,6 +6,7 @@ import { formatDateRange } from "@/components/trips/format";
 import type { Trip, TripItem } from "@/components/trips/use-trips";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
 import { formatPeso } from "@/lib/money";
 import { BookingStatusBadge } from "./booking-status";
 import { newIdempotencyKey, useCheckout, type Checkout } from "./use-bookings";
@@ -26,6 +27,7 @@ export function checkoutLabel(items: TripItem[]) {
 // book twice.
 export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: TripItem[]; onClose: () => void }) {
   const checkout = useCheckout();
+  const toast = useToast();
   const [key] = useState(newIdempotencyKey);
   const result = checkout.data;
 
@@ -54,7 +56,12 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
               type="button"
               data-testid="checkout-confirm"
               disabled={checkout.isPending}
-              onClick={() => checkout.mutate({ tripId: trip.id, itemIds: items.map((item) => item.id), idempotencyKey: key })}
+              onClick={() =>
+                checkout.mutate(
+                  { tripId: trip.id, itemIds: items.map((item) => item.id), idempotencyKey: key },
+                  { onSuccess: (done) => toast.show(checkoutNotice(done), { "data-testid": "checkout-toast" }) },
+                )
+              }
             >
               {checkout.isPending ? "Booking…" : checkoutLabel(items)}
             </Button>
@@ -70,6 +77,15 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
       )}
     </Dialog>
   );
+}
+
+// The toast once it's done: what was booked straight away and what went to partners as requests.
+export function checkoutNotice(result: Checkout) {
+  const booked = result.bookings.filter((booking) => booking.status === "confirmed").length;
+  const sent = result.bookings.length - booked;
+  const requests = sent === 1 ? "Request sent to the partner" : `${sent} requests sent to their partners`;
+  if (sent === 0) return booked === 1 ? "Booked" : `${booked} booked`;
+  return booked === 0 ? requests : `${booked} booked · ${requests.charAt(0).toLowerCase()}${requests.slice(1)}`;
 }
 
 function bookedTitle(result: Checkout) {

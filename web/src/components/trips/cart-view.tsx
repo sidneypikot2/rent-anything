@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/components/ui/toast";
 import { CancelDialog } from "@/components/bookings/cancel-dialog";
 import { ChangeBookingSheet } from "@/components/bookings/change-booking-sheet";
 import { CheckoutSheet } from "@/components/bookings/checkout-sheet";
@@ -57,14 +57,13 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
   const trips = useTrips(true);
   const [selectedId, setSelectedId] = useState(expandTripId);
   const [open, setOpen] = useState<Open | null>(null);
-  const [notice, setNotice] = useState<{ id: number; text: string } | null>(null);
+  const toast = useToast();
   const moveItem = useUpdateTripItem();
   const mergeTrip = useMergeTrip();
   const deleteTrip = useDeleteTrip();
   const removeItem = useRemoveTripItem();
 
-  const show = useCallback((text: string) => setNotice({ id: Date.now(), text }), []);
-  const dismissNotice = useCallback(() => setNotice(null), []);
+  const show = useCallback((text: string) => toast.show(text, { "data-testid": "cart-toast" }), [toast]);
 
   const mutations = [moveItem, mergeTrip, deleteTrip, removeItem];
   const pending = mutations.some((mutation) => mutation.isPending);
@@ -320,7 +319,6 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
       {open?.kind === "checkout" && <CheckoutSheet trip={open.trip} items={open.items} onClose={() => setOpen(null)} />}
       {open?.kind === "pay" && <PaySheet trip={open.trip} items={open.items} onClose={() => setOpen(null)} />}
 
-      <Toast data-testid="cart-toast" message={notice?.text ?? null} id={notice?.id} onDismiss={dismissNotice} />
     </>
   );
 }

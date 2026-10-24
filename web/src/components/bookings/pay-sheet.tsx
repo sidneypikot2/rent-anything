@@ -4,6 +4,7 @@ import { formatDateRange } from "@/components/trips/format";
 import type { Trip, TripItem } from "@/components/trips/use-trips";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
 import { formatPeso } from "@/lib/money";
 import { BookingStatusBadge } from "./booking-status";
 import { usePayBookings, type GuestBooking } from "./use-bookings";
@@ -34,6 +35,7 @@ export function payTotal(items: TripItem[]) {
 // time refuses the lot, and nothing is paid. Payments aren't live yet, so nothing is charged.
 export function PaySheet({ trip, items, onClose }: { trip: Trip; items: TripItem[]; onClose: () => void }) {
   const pay = usePayBookings();
+  const toast = useToast();
   const result = pay.data;
 
   function close() {
@@ -61,7 +63,17 @@ export function PaySheet({ trip, items, onClose }: { trip: Trip; items: TripItem
               type="button"
               data-testid="pay-confirm"
               disabled={pay.isPending}
-              onClick={() => pay.mutate(items.flatMap((item) => (item.booking ? [item.booking.id] : [])))}
+              onClick={() =>
+                pay.mutate(
+                  items.flatMap((item) => (item.booking ? [item.booking.id] : [])),
+                  {
+                    onSuccess: (paid) =>
+                      toast.show(paid.length === 1 ? "Paid · you're booked" : `Paid for ${paid.length} · you're booked`, {
+                        "data-testid": "pay-toast",
+                      }),
+                  },
+                )
+              }
             >
               {pay.isPending ? "Paying…" : `Pay ${payTotal(items)}`}
             </Button>

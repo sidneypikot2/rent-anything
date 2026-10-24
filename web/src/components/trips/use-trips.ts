@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
+import { useErrorToast } from "@/components/ui/toast";
 import { useSession } from "@/lib/auth/session";
 
 export type Trip = components["schemas"]["trip"];
@@ -126,6 +127,7 @@ export type CopyChanges = { name: string; guests: number; starts_on?: string };
 // Answers with the new trip and the items left out.
 export function useCopyTrip() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async ({ id, changes }: { id: number; changes: CopyChanges }) => {
       const { data, error } = await apiClient().POST("/api/v1/trips/{id}/copy", {
@@ -136,6 +138,7 @@ export function useCopyTrip() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
@@ -194,6 +197,7 @@ function useInvalidateTrips() {
 // typed one, otherwise by the server (after the destination and dates).
 export function useAddTripItem() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async ({
       request,
@@ -218,6 +222,7 @@ export function useAddTripItem() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
@@ -226,6 +231,7 @@ export type TripChanges = { name: string; guests: number; starts_on?: string | n
 // PATCH /trips/:id: rename, re-date or change the guests.
 export function useUpdateTrip() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async ({ id, changes }: { id: number; changes: TripChanges }) => {
       const { data, error } = await apiClient().PATCH("/api/v1/trips/{id}", {
@@ -236,6 +242,7 @@ export function useUpdateTrip() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
@@ -249,6 +256,7 @@ export type NewTrip = { name: string; guests: number; starts_on: string | null; 
 // POST /trips: a named trip planned before anything is in it ("Plan a new trip").
 export function useCreateTrip() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async (trip: NewTrip) => {
       const { data, error } = await apiClient().POST("/api/v1/trips", { body: trip });
@@ -256,24 +264,28 @@ export function useCreateTrip() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
 // DELETE /trips/:id, with its items.
 export function useDeleteTrip() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async (id: number) => {
       const { response, error } = await apiClient().DELETE("/api/v1/trips/{id}", { params: { path: { id } } });
       if (!response.ok) throw tripError(error, "Couldn't delete the trip. Try again.");
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
 // POST /trips/:id/merge: every item of `id` moves into `intoTripId`, and `id` is deleted.
 export function useMergeTrip() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async ({ id, intoTripId }: { id: number; intoTripId: number }) => {
       const { data, error } = await apiClient().POST("/api/v1/trips/{id}/merge", {
@@ -284,6 +296,7 @@ export function useMergeTrip() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
@@ -293,6 +306,7 @@ export type ItemChanges = { starts_on?: string | null; ends_on?: string | null; 
 // it ends up in.
 export function useUpdateTripItem() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async ({ id, changes }: { id: number; changes: ItemChanges }) => {
       const { data, error } = await apiClient().PATCH("/api/v1/trip_items/{id}", {
@@ -303,17 +317,20 @@ export function useUpdateTripItem() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
 // DELETE /trip_items/:id.
 export function useRemoveTripItem() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async (id: number) => {
       const { response, error } = await apiClient().DELETE("/api/v1/trip_items/{id}", { params: { path: { id } } });
       if (!response.ok) throw tripError(error, "Couldn't remove it. Try again.");
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
