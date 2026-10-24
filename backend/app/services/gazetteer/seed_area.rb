@@ -4,8 +4,8 @@ module Gazetteer
   #
   # 1. publishes the area and every area above it;
   # 2. matches them to Wikidata, so the area's own item is known before landmarks are looked up;
-  # 3. adds Wikidata's landmark-like items inside the area's boundary, or within
-  #    ISLAND_MARGIN_METERS of an island's, as draft landmarks (CC0;
+  # 3. adds Wikidata's landmark-like items inside the area's boundary (for an island, also
+  #    inside its towns' or within ISLAND_MARGIN_METERS of its own) as draft landmarks (CC0;
   #    OpenStreetMap is ruled out, db/gazetteer/README.md), skipping items another place holds
   #    and names or aliases the area's landmarks already answer to;
   # 4. enriches all the area's landmarks, drafts included, and refreshes search.
@@ -72,27 +72,32 @@ module Gazetteer
       return true if @area.boundary.nil?
 
       point = [ "ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography", item[:lng], item[:lat] ]
-      area = Area.where(id: @area.id)
-      return true if area.exists?([ "ST_Covers(boundary, #{point[0]})", *point[1..] ])
-      return false unless @area.island? &&
-        area.exists?([ "ST_DWithin(boundary, #{point[0]}, ?)", *point[1..], ISLAND_MARGIN_METERS ])
+      covers = [ "ST_Covers(boundary, #{point[0]})", *point[1..] ]
+      return true if Area.where(id: @area.id).exists?(covers)
+      return false unless @area.island?
+      # An island's towns own its outlying islands: Kinatarcan, 15 km off Bantayan, is in Santa Fe.
+      return true if own_areas.exists?(covers)
 
-      !Area.where(kind: Area::SERVING_KINDS).where.not(id: Area.subtree_of(@area).select(:id))
-        .exists?([ "ST_Covers(boundary, #{point[0]})", *point[1..] ])
+      Area.where(id: @area.id).exists?([ "ST_DWithin(boundary, #{point[0]}, ?)", *point[1..], ISLAND_MARGIN_METERS ]) &&
+        !Area.where(kind: Area::SERVING_KINDS).where.not(id: own_areas.select(:id)).exists?(covers)
     end
 
-    # Far enough from the center to reach the boundary's furthest corner, and an island's margin.
+    # The area and, for an island, every area under it.
+    def own_areas
+      @area.island? ? Area.subtree_of(@area) : Area.where(id: @area.id)
+    end
+
+    # Far enough from the center to reach the furthest corner of the area's boundary, or for an
+    # island of its towns' boundaries too, plus its margin.
     def radius_km
       return DEFAULT_RADIUS_KM if @area.boundary.nil?
 
-      meters = Area.where(id: @area.id).pick(Arel.sql(<<~SQL.squish))
-        GREATEST(
-          ST_Distance(center, ST_SetSRID(ST_MakePoint(ST_XMin(boundary::geometry), ST_YMin(boundary::geometry)), 4326)::geography),
-          ST_Distance(center, ST_SetSRID(ST_MakePoint(ST_XMax(boundary::geometry), ST_YMax(boundary::geometry)), 4326)::geography),
-          ST_Distance(center, ST_SetSRID(ST_MakePoint(ST_XMin(boundary::geometry), ST_YMax(boundary::geometry)), 4326)::geography),
-          ST_Distance(center, ST_SetSRID(ST_MakePoint(ST_XMax(boundary::geometry), ST_YMin(boundary::geometry)), 4326)::geography)
-        )
-      SQL
+      xmin, ymin, xmax, ymax = own_areas.where.not(boundary: nil).pick(
+        *%w[XMin YMin XMax YMax].map { Arel.sql("ST_#{_1}(ST_Extent(boundary::geometry))") }
+      )
+      corners = [ [ xmin, ymin ], [ xmin, ymax ], [ xmax, ymin ], [ xmax, ymax ] ]
+      distances = corners.map { "ST_Distance(center, ST_SetSRID(ST_MakePoint(#{Float(_1)}, #{Float(_2)}), 4326)::geography)" }
+      meters = Area.where(id: @area.id).pick(Arel.sql("GREATEST(#{distances.join(', ')})"))
       meters += ISLAND_MARGIN_METERS if @area.island?
       (meters / 1000.0).ceil.clamp(DEFAULT_RADIUS_KM, MAX_RADIUS_KM)
     end

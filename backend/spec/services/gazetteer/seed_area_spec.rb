@@ -64,6 +64,19 @@ RSpec.describe Gazetteer::SeedArea do
     expect(Landmark.where(wikidata_id: %w[Q7515087 Q95])).to be_empty
   end
 
+  it "takes what a town under the island covers, however far off: its outlying islands" do
+    create(:area, :draft, slug: "santa-fe", name: "Santa Fe", kind: "town", parent: bantayan,
+      center: "POINT(123.8 11.17)",
+      boundary: "MULTIPOLYGON(((123.78 11.15, 123.82 11.15, 123.82 11.19, 123.78 11.19, 123.78 11.15)), " \
+        "((123.95 11.35, 124.0 11.35, 124.0 11.4, 123.95 11.4, 123.95 11.35)))")
+    near << { id: "Q5616615", name: "Guintacan", lng: 123.97, lat: 11.37, sitelinks: 3 }
+
+    described_class.call(bantayan)
+
+    expect(Landmark.find_by(wikidata_id: "Q5616615")).to have_attributes(area: bantayan, status: "draft")
+    expect(Wikidata).to have_received(:landmarks_near).with(hash_including(radius_km: be > 30))
+  end
+
   it "leaves out what is further off an island than the margin" do
     near << { id: "Q91", name: "Far Islet", lng: 123.93, lat: 11.2, sitelinks: 1 }
 
