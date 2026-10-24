@@ -1,6 +1,7 @@
 import { copyFileSync, mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 
 // MapLibre runs its tile work in a web worker that it looks for next to its own module, which
@@ -17,4 +18,16 @@ const nextConfig: NextConfig = {
   output: "standalone",
 };
 
-export default nextConfig;
+// Sentry (src/lib/sentry.ts). With SENTRY_AUTH_TOKEN (deploy-staging.yml passes it as a build
+// secret) the build uploads the browser source maps to the "web" project and deletes them from
+// the output; without it, as in local builds and CI checks, nothing is uploaded. The release is
+// the deployed commit, the same one the API reports.
+export default withSentryConfig(nextConfig, {
+  org: "tripkonext",
+  project: "web",
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  release: { name: process.env.NEXT_PUBLIC_SENTRY_RELEASE },
+  // Upload logs show in the deploy run; local builds stay quiet.
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+  telemetry: false,
+});

@@ -24,6 +24,9 @@ class ApplicationController < ActionController::API
     payload = token && JsonWebToken.decode(token)
     @current_user = payload && User.find_by(id: payload[:sub])
     raise NotAuthenticatedError unless @current_user
+
+    # Sentry gets the id only, never the email or name (config/initializers/sentry.rb).
+    Sentry.set_user(id: @current_user.id)
   end
 
   def require_role!(role)
