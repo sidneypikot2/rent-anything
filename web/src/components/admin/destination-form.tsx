@@ -119,7 +119,7 @@ function changesOf(form: FormState, saved: FormState): AdminAreaBody {
 }
 
 // A slug from a name: "Santa Fe" → "santa-fe" (lowercase letters, digits, single dashes).
-function slugify(name: string) {
+export function slugify(name: string) {
   return name
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
@@ -417,7 +417,7 @@ function AreaForm({ area }: { area?: AdminArea }) {
   );
 }
 
-function FormSection({ title, children }: { title: string; children: ReactNode }) {
+export function FormSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-4">
       <h2 className="font-display text-xl font-extrabold tracking-tight">{title}</h2>
@@ -465,8 +465,17 @@ function ParentField({
   );
 }
 
-// Other names guests search it by: each a removable pill, added one at a time.
-function AliasesField({ value, onChange }: { value: string[]; onChange: (aliases: string[]) => void }) {
+// Other names guests search it by: each a removable pill, added one at a time. Shared with the
+// landmark form, whose API has the same limits.
+export function AliasesField({
+  value,
+  onChange,
+  testId = "admin-destination-alias",
+}: {
+  value: string[];
+  onChange: (aliases: string[]) => void;
+  testId?: string;
+}) {
   const [text, setText] = useState("");
   const name = text.trim();
   const full = value.length >= MAX_ALIASES;
@@ -494,7 +503,7 @@ function AliasesField({ value, onChange }: { value: string[]; onChange: (aliases
             event.preventDefault();
             add();
           }}
-          data-testid="admin-destination-alias"
+          data-testid={testId}
         />
         <Button type="button" variant="soft" className="mt-7" onClick={add} disabled={!name || full || !!problem}>
           Add

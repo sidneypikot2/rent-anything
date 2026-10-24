@@ -8,6 +8,7 @@ import { useSession } from "@/lib/auth/session";
 const LINKS = [
   { href: "/admin/bookings", label: "Booking requests", testId: "admin-nav-bookings" },
   { href: "/admin/destinations", label: "Destinations", testId: "admin-nav-destinations" },
+  { href: "/admin/landmarks", label: "Places to see", testId: "admin-nav-landmarks" },
 ];
 
 // The admin console's tabs (RAA-142), for a signed-in admin only: signed out, /admin is the
