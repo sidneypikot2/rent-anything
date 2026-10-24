@@ -75,7 +75,20 @@ export function bookable(item: TripItem) {
 // booking stands.
 // On the Trips page (`mode="trips"`) it shows only the booked items, day by day at first, when
 // the trip is, and offers to plan it again.
-export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; actions: TripActions; mode?: TripMode }) {
+export function TripDetails({
+  trip,
+  actions,
+  mode = "cart",
+  onSwitch,
+  tripCount = 1,
+}: {
+  trip: Trip;
+  actions: TripActions;
+  mode?: TripMode;
+  // Below lg, where the trips' sidebar isn't shown: opens TripSwitchSheet (RAA-161).
+  onSwitch?: () => void;
+  tripCount?: number;
+}) {
   const [unpicked, setUnpicked] = useState<ReadonlySet<number>>(new Set());
   const [unpaid, setUnpaid] = useState<ReadonlySet<number>>(new Set());
   const [view, setView] = useState<"items" | "days">(mode === "cart" ? "items" : "days");
@@ -263,30 +276,46 @@ export function TripDetails({ trip, actions, mode = "cart" }: { trip: Trip; acti
               )}
             </p>
           </div>
-          {!cart && phase === "past" && (
-            <Button
-              type="button"
-              variant="tint"
-              size="sm"
-              onClick={() => actions.recreate(trip)}
-              data-testid="trip-recreate"
-              className="col-span-2 row-start-2 w-full sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:w-auto"
-            >
-              Plan this trip again
-            </Button>
-          )}
-          {cart && (
-            <Button
-              type="button"
-              variant="tint"
-              size="sm"
-              onClick={() => actions.findMore(trip)}
-              data-testid="cart-find-more"
-              className="col-span-2 row-start-2 w-full sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:w-auto"
-            >
-              Find more
-            </Button>
-          )}
+          {/* A phone's second row, full width; from sm beside the menu. Switch trip only below lg,
+              where the trips' sidebar isn't shown. */}
+          <div className="col-span-2 row-start-2 flex gap-2 empty:hidden sm:col-span-1 sm:col-start-2 sm:row-start-1">
+            {onSwitch && tripCount > 1 && (
+              <Button
+                type="button"
+                variant="tint"
+                size="sm"
+                onClick={onSwitch}
+                data-testid="trip-switch"
+                className="flex-1 sm:flex-none lg:hidden"
+              >
+                Switch trip · {tripCount}
+              </Button>
+            )}
+            {!cart && phase === "past" && (
+              <Button
+                type="button"
+                variant="tint"
+                size="sm"
+                onClick={() => actions.recreate(trip)}
+                data-testid="trip-recreate"
+                className="flex-1 sm:flex-none"
+              >
+                Plan this trip again
+              </Button>
+            )}
+            {cart && (
+              <Button
+                type="button"
+                variant="tint"
+                size="sm"
+                onClick={() => actions.findMore(trip)}
+                data-testid="cart-find-more"
+                className="flex-1 sm:flex-none"
+              >
+                Find more
+              </Button>
+            )}
+          </div>
           <div className="col-start-2 row-start-1 sm:col-start-3">
             <Menu label={`Actions for ${trip.name}`} tone="dark" data-testid="cart-trip-menu" items={menu} />
           </div>
