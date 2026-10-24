@@ -23,13 +23,13 @@ export function PageSheet({
   className?: string;
 }) {
   return (
-    <div className="flex flex-1 flex-col px-3 pb-3 sm:px-6 sm:pb-6">
+    <div className="flex flex-1 flex-col px-2 pb-2 sm:px-6 sm:pb-6">
       <div
         className={cn(
           "mx-auto flex w-full flex-1 flex-col",
           wide ? "max-w-split" : "max-w-page",
           tone === "sheet" && cn(glassClasses("sheet"), "rounded-frame sm:px-6"),
-          tone === "paper" && "card-edge rounded-frame bg-surface px-4 text-foreground shadow-float sm:px-6",
+          tone === "paper" && "card-edge rounded-frame bg-surface px-3 text-foreground shadow-float sm:px-6",
           className,
         )}
       >

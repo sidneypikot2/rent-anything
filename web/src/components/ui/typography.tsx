@@ -10,7 +10,7 @@ import { cn } from "./cn";
 // compact is a work page's h1 (the cart, Trips, Bookings), one step under page, so its banner
 // stays one short row over the content the guest came for.
 const TITLE_SIZES = {
-  compact: "text-3xl leading-tight tracking-tight sm:text-4xl",
+  compact: "text-2xl leading-tight tracking-tight sm:text-4xl",
   page: "text-4xl leading-[1.08] tracking-tight sm:text-[min(7svh,3rem)]",
   hero: "text-[clamp(2.25rem,11vw,3rem)] leading-[1.02] tracking-[-0.035em] sm:text-[min(7.2svh,3.75rem)] landscape-phone:text-4xl",
 };

@@ -16,12 +16,12 @@ export default async function Cart(props: PageProps<"/cart">) {
   return (
     <main data-testid="cart" className="flex flex-1 flex-col">
       <PageBanner title={<DisplayTitle size="compact">Trips you&apos;re planning</DisplayTitle>} search={false} compact>
-        <ButtonLink href="/trips" variant="soft" size="sm">
+        <ButtonLink href="/trips" variant="soft" size="sm" className="shrink-0">
           All trips
         </ButtonLink>
       </PageBanner>
       <PageSheet tone="paper">
-        <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-gutter pb-page-pad pt-6">
+        <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-gutter pb-page-pad pt-4 max-sm:px-0 sm:pt-6">
           <CartView expandTripId={Number.isInteger(trip) && trip > 0 ? trip : undefined} />
         </div>
       </PageSheet>

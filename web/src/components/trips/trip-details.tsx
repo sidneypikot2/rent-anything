@@ -242,7 +242,7 @@ export function TripDetails({
       <div className="card-edge rounded-card bg-forest text-white shadow-soft">
         {/* One grid, so a past trip's Plan this trip again sits beside the menu from sm and
             under the details, full width, on a phone, without a second copy of the button. */}
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-3 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5 sm:py-4">
           <div className="col-start-1 row-start-1 min-w-0">
             {!cart && (
               <p className="mb-1.5 flex flex-wrap items-center gap-2">
@@ -286,7 +286,7 @@ export function TripDetails({
                 size="sm"
                 onClick={onSwitch}
                 data-testid="trip-switch"
-                className="flex-1 sm:flex-none lg:hidden"
+                className="flex-1 whitespace-nowrap sm:flex-none lg:hidden"
               >
                 Switch trip · {tripCount}
               </Button>
@@ -298,7 +298,7 @@ export function TripDetails({
                 size="sm"
                 onClick={() => actions.recreate(trip)}
                 data-testid="trip-recreate"
-                className="flex-1 sm:flex-none"
+                className="flex-1 whitespace-nowrap sm:flex-none"
               >
                 Plan this trip again
               </Button>
@@ -310,7 +310,7 @@ export function TripDetails({
                 size="sm"
                 onClick={() => actions.findMore(trip)}
                 data-testid="cart-find-more"
-                className="flex-1 sm:flex-none"
+                className="flex-1 whitespace-nowrap sm:flex-none"
               >
                 Find more
               </Button>
@@ -362,7 +362,7 @@ export function TripDetails({
 
       {shown.length === 0 ? (
         <Card edge="line">
-          <div className="flex flex-col items-start gap-3 p-card">
+          <div className="flex flex-col items-start gap-3 px-4 py-3.5 sm:p-card">
             <p className="text-sm text-muted">Nothing in this trip yet. Add tours, rentals or stays from a destination.</p>
             {cart && (
               <Button type="button" size="sm" onClick={() => actions.findMore(trip)}>

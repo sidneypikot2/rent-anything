@@ -43,8 +43,8 @@ const HERO_PHOTO_PAD = "pb-8 pt-16 max-sm:short:pb-5 max-sm:short:pt-5! sm:py-12
 // flips a photo whose open side is on the wrong side for the text; it is the `scale` property,
 // so it composes with the drift's transform. `search={false}` leaves the header's search off the
 // page (SearchBar marks a page that has it), for a page that isn't about finding a place (the cart). `compact` is a work page's banner (the
-// cart, Trips, Bookings): no photo, the title and its actions on one short row, so the page's
-// own content starts in the first screen.
+// cart, Trips, Bookings): no photo, the title and its actions on one short row (never wrapping on a
+// phone, RAA-161), so the page's own content starts in the first screen.
 export function PageBanner({
   eyebrow,
   title,
@@ -70,7 +70,7 @@ export function PageBanner({
 }) {
   const contents = (
     <>
-      <div className={cn("flex max-w-prose flex-col gap-4 text-white", hero && "max-sm:short:gap-3 landscape-phone:row-span-2 landscape-phone:gap-3")}>
+      <div className={cn("flex min-w-0 max-w-prose flex-col gap-4 text-white", hero && "max-sm:short:gap-3 landscape-phone:row-span-2 landscape-phone:gap-3")}>
         {eyebrow && (
           // A mint dot leads it, as on the trust ticks (RAA-130): something is live here.
           <span
@@ -99,7 +99,7 @@ export function PageBanner({
     // (its glass sections are stacking contexts); the header is z-40. Every banner but the
     // hero, which holds the search itself, marks its page for the header's search (RAA-126).
     <>
-    <section className={cn("focus-light relative isolate z-10 flex px-3 pb-3 pt-3 sm:px-6", compact ? "sm:pb-4" : "sm:pb-6")}>
+    <section className={cn("focus-light relative isolate z-10 flex px-2 pb-2 pt-3 sm:px-6", compact ? "sm:pb-4" : "sm:pb-6")}>
       {photo ? (
         <div
           className={cn(
@@ -164,7 +164,7 @@ export function PageBanner({
             hero
               ? cn(HERO_FRAME, HERO_GLASS_PAD)
               : compact
-                ? "flex-row flex-wrap items-center justify-between gap-3 py-4 sm:py-6"
+                ? "flex-row items-center justify-between gap-3 py-3 max-sm:px-3 sm:flex-wrap sm:py-6"
                 : "gap-6 pb-8 pt-10 sm:pb-10 sm:pt-12",
             frameClass,
           )}
