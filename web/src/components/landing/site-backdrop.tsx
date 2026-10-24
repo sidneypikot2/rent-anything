@@ -22,8 +22,31 @@ export const BACKDROP_PHOTO = {
 export function SiteBackdrop() {
   return (
     <div aria-hidden className="fixed inset-x-0 top-0 -z-10 h-lvh bg-navy">
+      <BackdropLayers />
+    </div>
+  );
+}
+
+function BackdropLayers() {
+  return (
+    <>
       <Image src={BACKDROP_PHOTO.src} alt="" fill preload sizes={BACKDROP_PHOTO.sizes} placeholder={BACKDROP_PHOTO.placeholder} className="object-cover" />
       <div className="absolute inset-0 bg-linear-to-r from-scrim/72 via-scrim/68 to-scrim/65" />
+    </>
+  );
+}
+
+// The backdrop again, from the window's top down to the header's middle (--chrome is its foot
+// plus 12px, and it starts 12px down), laid over the page under the header: what scrolls up is
+// cut off at the header rather than showing in the gap above it. The middle, where the bar is
+// widest, so the cut meets its sides and the page slides under its lower curve; cut at its foot,
+// the page's straight edge met the round ends. Lined up with SiteBackdrop: the same photo.
+export function BackdropStrip() {
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[calc(var(--chrome)/2)] overflow-hidden bg-navy">
+      <div className="absolute inset-x-0 top-0 h-lvh">
+        <BackdropLayers />
+      </div>
     </div>
   );
 }

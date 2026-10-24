@@ -4,7 +4,7 @@ import { useState } from "react";
 import { TickGlyph } from "@/components/discovery/tag-glyphs";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "@/lib/auth/session";
-import { useChosenTrip } from "./chosen-trip";
+import { useChosenTrip, type ChosenTrip } from "./chosen-trip";
 import { ItemEditSheet } from "./item-edit-sheet";
 import { currentTrips, useTrips, type Trip } from "./use-trips";
 
@@ -13,12 +13,32 @@ import { currentTrips, useTrips, type Trip } from "./use-trips";
 // it, "other" when only another one does, so a second trip's page doesn't read as already having
 // it. With no choice, any trip counts as this one, as with one trip. `trip`: the one holding it.
 export function useListingInTrip(listingId: number): { where: "this" | "other" | null; trip?: Trip } {
+  const trips = useGuestTrips();
+  return trips ? whereIs(listingId, trips.current, trips.chosen) : { where: null };
+}
+
+// Which of these listings the trip being worked on holds ("this", as useListingInTrip judges it),
+// with the trip holding each: a place to see marks itself covered by a tour already in the trip.
+export function useListingsInTrip(listingIds: number[]): Map<number, Trip> {
+  const trips = useGuestTrips();
+  const held = new Map<number, Trip>();
+  if (!trips) return held;
+  for (const id of listingIds) {
+    const { where, trip } = whereIs(id, trips.current, trips.chosen);
+    if (where === "this" && trip) held.set(id, trip);
+  }
+  return held;
+}
+
+function useGuestTrips() {
   const session = useSession();
   const isGuest = session?.user.role === "guest";
   const trips = useTrips(isGuest);
   const chosen = useChosenTrip();
-  if (!isGuest) return { where: null };
-  const current = currentTrips(trips.data);
+  return isGuest ? { current: currentTrips(trips.data), chosen } : null;
+}
+
+function whereIs(listingId: number, current: Trip[], chosen: ChosenTrip): { where: "this" | "other" | null; trip?: Trip } {
   const holds = (trip: Trip) => trip.items.some((item) => item.listing.id === listingId);
   const working = chosen === "new" ? "new" : current.find((trip) => trip.id === chosen);
   if (working && working !== "new" && holds(working)) return { where: "this", trip: working };
