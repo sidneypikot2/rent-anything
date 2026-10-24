@@ -18,7 +18,7 @@ export default function GlobalError({ error, retry }: { error: Error & { digest?
       <body className="flex min-h-full flex-col items-center justify-center gap-block bg-background px-gutter py-page-pad text-center text-foreground">
         <p className="text-sm font-semibold text-muted">{BRAND}</p>
         <h1 className="text-2xl font-bold">Something went wrong</h1>
-        <p className="max-w-md text-muted">We&apos;ve been told about it. Try again, or come back in a few minutes.</p>
+        <p className="max-w-md text-muted">Try again, or come back in a few minutes.</p>
         <Button onClick={() => retry()}>Try again</Button>
       </body>
     </html>

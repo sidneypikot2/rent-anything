@@ -5,10 +5,9 @@
 // withSentryConfig in next.config.ts.
 export const SENTRY_OPTIONS = {
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  enabled: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
   // "staging" on the Lightsail instance (deploy-staging.yml), like the API's Rails.env.
   environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || process.env.NODE_ENV,
   // No IP addresses, cookies or request bodies.
   sendDefaultPii: false,
-  tracesSampleRate: 0,
+  // No tracesSampleRate: leaving it out keeps tracing off and its code out of the bundle.
 };

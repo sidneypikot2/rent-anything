@@ -37,11 +37,14 @@ RSpec.describe "Sentry initializer" do
     expect(last_sentry_event.contexts["didit"]).to include(decision: "[FILTERED]", status: "Approved")
   end
 
-  it "sends no request bodies, cookies or client IPs" do
+  it "sends no request bodies, cookies, client IPs, job arguments or SQL values" do
     data = Sentry.configuration.data_collection
 
     expect(data.collect_incoming_http_body?).to be(false)
     expect(data.cookies.mode).to eq(:off)
     expect(data.user_info).to be(false)
+    expect(data.queues).to be(false)
+    expect(data.database_query_data).to be(false)
+    expect(Sentry.configuration.breadcrumbs_logger).to be_empty
   end
 end

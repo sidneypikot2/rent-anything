@@ -49,11 +49,14 @@ class ApplicationController < ActionController::API
     render json: { errors: exception.record.errors.full_messages }, status: :unprocessable_content
   end
 
-  def render_bad_gateway
+  # Didit failures are handled here, so Sentry would never see them; report them.
+  def render_bad_gateway(exception)
+    Sentry.capture_exception(exception)
     render json: { error: "ID verification is unavailable right now. Try again shortly." }, status: :bad_gateway
   end
 
   def render_service_unavailable(exception)
+    Sentry.capture_exception(exception)
     render json: { error: exception.message }, status: :service_unavailable
   end
 

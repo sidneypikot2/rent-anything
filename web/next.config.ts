@@ -27,6 +27,8 @@ export default withSentryConfig(nextConfig, {
   project: "web",
   authToken: process.env.SENTRY_AUTH_TOKEN,
   release: { name: process.env.NEXT_PUBLIC_SENTRY_RELEASE },
+  // No token, no source maps: nothing would upload them, so don't build them either.
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
   // Upload logs show in the deploy run; local builds stay quiet.
   silent: !process.env.SENTRY_AUTH_TOKEN,
   telemetry: false,
