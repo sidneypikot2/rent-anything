@@ -1,6 +1,6 @@
 # Outgoing email goes through whichever SMTP server the SMTP_* variables name: Gmail
 # (tripkonext@gmail.com) on the local stack and staging, GoDaddy (team@tripkonext.com) in
-# production. Staging runs with RAILS_ENV=production, so the env vars choose, not the Rails env.
+# production. Each environment's env file picks the account; no code names one.
 # Without SMTP_ADDRESS, development keeps :test (nothing is sent). The test env always does.
 if ENV["SMTP_ADDRESS"].present? && !Rails.env.test?
   port = ENV.fetch("SMTP_PORT", "587").to_i

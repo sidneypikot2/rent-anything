@@ -48,30 +48,6 @@ module PhotoStorage
     client.put_object(bucket:, key:, body: io, content_type:)
   end
 
-  # Copies every object under one root to another, skipping keys the destination already
-  # has, so it can run again safely. Returns how many were copied and skipped. Used once when
-  # staging stopped running as production (RAA-172): bin/rails photos:copy_root.
-  def copy_root(from:, to:)
-    raise ArgumentError, "the roots must differ" if from == to
-
-    existing = keys_under(to).to_set
-    copied = skipped = 0
-    keys_under(from).each do |key|
-      target = "#{to}/#{key.delete_prefix("#{from}/")}"
-      if existing.include?(target)
-        skipped += 1
-      else
-        client.copy_object(bucket:, copy_source: "#{bucket}/#{key}", key: target)
-        copied += 1
-      end
-    end
-    { copied:, skipped: }
-  end
-
-  def keys_under(root)
-    client.list_objects_v2(bucket:, prefix: "#{root}/").flat_map { |page| page.contents.map(&:key) }
-  end
-
   # Keys that aren't there are skipped: S3 reports them deleted.
   def delete(keys)
     return if keys.empty?

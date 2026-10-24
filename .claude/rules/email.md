@@ -9,7 +9,7 @@ paths:
 
 # Email
 
-- Which SMTP server is used depends only on the env vars (`SMTP_*`, `MAILER_FROM`), not on the Rails env, because staging runs with `RAILS_ENV=production`. The local stack and staging use Gmail (`tripkonext@gmail.com`, an App Password). Production uses GoDaddy Professional Email (`team@tripkonext.com`, `smtpout.secureserver.net:465`). The values are in `backend/.env.example` and `deploy/staging/backend.env.example`.
+- Which SMTP server is used depends only on the env vars (`SMTP_*`, `MAILER_FROM`). Each environment's env file picks the account, and no code names one. The local stack and staging use Gmail (`tripkonext@gmail.com`, an App Password). Production uses GoDaddy Professional Email (`team@tripkonext.com`, `smtpout.secureserver.net:465`). The values are in `backend/.env.example` and `deploy/staging/backend.env.example`.
 - `MAILER_FROM` must be the SMTP account's own address, because both providers rewrite or refuse any other sender. Use `reply_to` to send replies somewhere else.
 - Every mailer inherits from `ApplicationMailer` (layout `mailer`, HTML and text parts). Keep styles inline.
 - Send from the app with `deliver_later`; on staging Solid Queue runs inside Puma. `deliver_now` is only for `bin/rails mail:test`.
