@@ -3,7 +3,7 @@ set -e
 
 # db:prepare is idempotent — safe to re-run on every boot, including the restart
 # on every staging deploy, since it's a no-op once the schema is already up to date.
-if [ "${RAILS_ENV}" = "production" ]; then
+if [ "${RAILS_ENV}" = "production" ] || [ "${RAILS_ENV}" = "staging" ]; then
   ./bin/rails db:prepare
 fi
 
