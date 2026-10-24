@@ -43,41 +43,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/areas": {
+    "/api/v1/admin/areas/{area_slug}/banner_photo": {
         parameters: {
             query?: never;
-            header?: {
-                Authorization?: string;
+            header?: never;
+            path: {
+                area_slug: string;
             };
-            path?: never;
             cookie?: never;
         };
+        get?: never;
+        put?: never;
         /**
-         * Find areas to seed
-         * @description Admin-only (RAA-168). Gazetteer areas by name, at most 100: `q` matches the name or slug, `kind` and `status` narrow it. Each comes with its landmark counts and its last seeding run.
+         * Set a destination's banner photo
+         * @description Admin-only (RAA-164). As a listing photo: `PUT` the file's bytes to `upload.url` with exactly `upload.headers`, then confirm with `PATCH`. Replaces the area's banner, if it has one.
          */
-        get: {
+        post: {
             parameters: {
-                query?: {
-                    q?: string;
-                    kind?: "region" | "province" | "city" | "town" | "island";
-                    status?: "draft" | "published";
-                };
+                query?: never;
                 header?: {
                     Authorization?: string;
                 };
-                path?: never;
+                path: {
+                    area_slug: string;
+                };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["photo_upload_body"];
+                };
+            };
             responses: {
-                /** @description filtered by kind and status */
-                200: {
+                /** @description the new banner, still uploading, replacing the old one */
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["admin_area"][];
+                        "application/json": components["schemas"]["photo_upload"];
                     };
                 };
                 /** @description signed out */
@@ -98,7 +102,171 @@ export interface paths {
                         "application/json": components["schemas"]["error"];
                     };
                 };
-                /** @description an unknown kind */
+                /** @description not a photo we take */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        /**
+         * Remove a destination's banner photo
+         * @description Admin-only (RAA-164). Its files go from storage too.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    area_slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description removed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Confirm a banner photo's upload
+         * @description Admin-only (RAA-164). Once its file is in storage; its sizes follow a few seconds later (`ready`).
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    area_slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["photo_update_body"];
+                };
+            };
+            responses: {
+                /** @description uploaded, sizes on the way */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["area_banner_photo"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description no banner */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description the file isn't there yet */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/admin/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List and search destinations
+         * @description Admin-only (RAA-164). Every area, drafts included: published first, then by name, 50 a page. `q` matches the name, slug or an alias.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    status?: "draft" | "published";
+                    kind?: "region" | "province" | "city" | "town" | "island";
+                    page?: number;
+                };
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description searched by alias, with a filter */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            areas: components["schemas"]["admin_area_row"][];
+                            total: number;
+                        };
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description an unknown status */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -110,29 +278,179 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /**
+         * Add a destination
+         * @description Admin-only (RAA-164). Adds an area as a draft unless `status` says otherwise.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["admin_area_body"];
+                };
+            };
+            responses: {
+                /** @description a new draft */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_area"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a reserved slug and a long tagline */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/areas/{id}/seed": {
+    "/api/v1/admin/areas/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * One destination
+         * @description Admin-only (RAA-164). Drafts included.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the area */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_area"];
+                    };
+                };
+                /** @description no such area */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a destination
+         * @description Admin-only (RAA-164). Fields left out are kept.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["admin_area_body"];
+                };
+            };
+            responses: {
+                /** @description a new Wikidata item clears what came from the old one */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_area"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a Wikidata id another area has */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/admin/areas/{slug}/seed": {
         parameters: {
             query?: never;
             header?: {
                 Authorization?: string;
             };
             path: {
-                id: number;
+                slug: string;
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
         /**
-         * Seed an area
-         * @description Admin-only (RAA-168). Makes the area a destination in the background: publishes it and every area above it, adds Wikidata's landmarks inside its boundary as drafts, and gives it and its landmarks Wikidata's search terms and popularity. Poll `GET /api/v1/admin/areas` until `seed_status` is `done` or `failed`. Safe to run again; 409 while a run is queued or running.
+         * Seed a destination from Wikidata
+         * @description Admin-only (RAA-168). Makes the area a destination in the background: publishes it and every area above it, adds Wikidata's landmarks inside its boundary as drafts, and gives it and its landmarks Wikidata's search terms and popularity. Poll the area until `seed_status` is `done` or `failed`; the new drafts are in `GET /api/v1/admin/landmarks?area=<slug>&status=draft`. Safe to run again; 409 while a run is queued or running.
          */
         post: {
             parameters: {
@@ -141,7 +459,7 @@ export interface paths {
                     Authorization?: string;
                 };
                 path: {
-                    id: number;
+                    slug: string;
                 };
                 cookie?: never;
             };
@@ -165,7 +483,7 @@ export interface paths {
                         "application/json": components["schemas"]["error"];
                     };
                 };
-                /** @description a guest */
+                /** @description a partner */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -200,20 +518,16 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/areas/{id}/landmarks": {
+    "/api/v1/admin/area_options": {
         parameters: {
             query?: never;
-            header?: {
-                Authorization?: string;
-            };
-            path: {
-                id: number;
-            };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         /**
-         * An area's landmarks
-         * @description Admin-only (RAA-168). Every landmark of the area, drafts too, by name: what a seeding run found, to publish or leave out.
+         * What a destination can be
+         * @description Admin-only (RAA-164). The kinds and the tags a destination's form offers.
          */
         get: {
             parameters: {
@@ -221,20 +535,18 @@ export interface paths {
                 header?: {
                     Authorization?: string;
                 };
-                path: {
-                    id: number;
-                };
+                path?: never;
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
-                /** @description the landmarks, by name */
+                /** @description kinds and tags */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["admin_landmark"][];
+                        "application/json": components["schemas"]["admin_area_options"];
                     };
                 };
                 /** @description a partner */
@@ -507,54 +819,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/landmarks/{id}": {
+    "/api/v1/admin/landmarks": {
         parameters: {
             query?: never;
-            header?: {
-                Authorization?: string;
-            };
-            path: {
-                id: number;
-            };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
         /**
-         * Publish or unpublish a landmark
-         * @description Admin-only (RAA-168). Puts a landmark a seeding run found live, or takes one back to draft.
+         * List and search landmarks
+         * @description Admin-only. Every landmark (place to see), drafts included: published first, then by name, 50 a page. `q` matches the name, slug or an alias; `area` keeps the landmarks in that area or any area inside it.
          */
-        patch: {
+        get: {
             parameters: {
-                query?: never;
+                query?: {
+                    q?: string;
+                    status?: "draft" | "published";
+                    area?: string;
+                    page?: number;
+                };
                 header?: {
                     Authorization?: string;
                 };
-                path: {
-                    id: number;
-                };
+                path?: never;
                 cookie?: never;
             };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        status: "draft" | "published";
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
-                /** @description the landmark with its new status */
+                /** @description searched by alias inside an area */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["admin_landmark"];
+                        "application/json": {
+                            landmarks: components["schemas"]["admin_landmark_row"][];
+                            total: number;
+                        };
                     };
                 };
                 /** @description signed out */
@@ -575,7 +876,163 @@ export interface paths {
                         "application/json": components["schemas"]["error"];
                     };
                 };
-                /** @description no status */
+                /** @description an unknown status and area */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add a landmark
+         * @description Admin-only. Adds a landmark as a draft unless `status` says otherwise. Its area is the one listings at that pin would be in: the smallest published city, town or island whose boundary covers it, else the nearest one.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["admin_landmark_body"];
+                };
+            };
+            responses: {
+                /** @description a new draft in the area serving the pin */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_landmark"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a pin no destination serves */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/landmarks/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * One landmark
+         * @description Admin-only. Drafts included.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the landmark */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_landmark"];
+                    };
+                };
+                /** @description no such landmark */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a landmark
+         * @description Admin-only. Fields left out are kept. A new pin moves the landmark to the area serving it.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["admin_landmark_body"];
+                };
+            };
+            responses: {
+                /** @description moved to the area serving its new pin */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_landmark"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description an empty name */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -6637,46 +7094,6 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
-        admin_area: {
-            id: number;
-            slug: string;
-            name: string;
-            /** @enum {string} */
-            kind: "region" | "province" | "city" | "town" | "island";
-            /** @enum {string} */
-            status: "draft" | "published";
-            parent_name: string | null;
-            landmarks_published: number;
-            landmarks_draft: number;
-            wikidata_id: string | null;
-            /** @enum {string} */
-            seed_status: "idle" | "queued" | "running" | "done" | "failed";
-            /**
-             * Format: date-time
-             * @description When the last run ended
-             */
-            seeded_at: string | null;
-            /** @description The last run: what it added and skipped, or the error it stopped on. All null (and skipped empty) before the first run ends */
-            seed_report: {
-                landmarks_added: number | null;
-                /** @description Places given Wikidata's terms and popularity */
-                enriched: number | null;
-                /** @description Places Wikidata couldn't match, and why */
-                skipped: string[];
-                /** @description Set when the run failed */
-                error: string | null;
-            };
-        };
-        admin_landmark: {
-            id: number;
-            slug: string;
-            name: string;
-            /** @enum {string} */
-            status: "draft" | "published";
-            wikidata_id: string | null;
-            lng: number;
-            lat: number;
-        };
         admin_booking: {
             id: number;
             reference: string;
@@ -6849,6 +7266,169 @@ export interface components {
             status: "accepted" | "declined" | "cancelled";
             /** @description Why it was cancelled */
             reason?: string;
+        };
+        admin_area_row: {
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            kind: "region" | "province" | "city" | "town" | "island";
+            /** @enum {string} */
+            status: "draft" | "published";
+            parent: components["schemas"]["area_ref"] | null;
+            /** @description Active listings in the area itself */
+            listing_count: number;
+            /** @description Published landmarks in the area itself */
+            landmark_count: number;
+            /** @enum {string} */
+            seed_status: "idle" | "queued" | "running" | "done" | "failed";
+            /**
+             * Format: date-time
+             * @description When the last run ended
+             */
+            seeded_at: string | null;
+            /** @description The last run: what it added and skipped, or the error it stopped on. All null (and skipped empty) before the first run ends */
+            seed_report: {
+                landmarks_added: number | null;
+                /** @description Places given Wikidata's terms and popularity */
+                enriched: number | null;
+                /** @description Places Wikidata couldn't match, and why */
+                skipped: string[];
+                /** @description Set when the run failed */
+                error: string | null;
+            };
+        };
+        area_banner_photo: {
+            uploaded: boolean;
+            ready: boolean;
+            card_url: string;
+            large_url: string;
+        };
+        admin_area: {
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            kind: "region" | "province" | "city" | "town" | "island";
+            /** @enum {string} */
+            status: "draft" | "published";
+            parent: components["schemas"]["area_ref"] | null;
+            aliases: string[];
+            center: {
+                lat: number;
+                lng: number;
+            };
+            psgc_code: string | null;
+            tagline: string;
+            description: string;
+            getting_there: string;
+            best_time_to_visit: string;
+            tags: components["schemas"]["tag"][];
+            banner_photo: components["schemas"]["area_banner_photo"] | null;
+            wikidata_id: string | null;
+            /** @description Read-only: filled by `bin/rails gazetteer:wikidata` */
+            wikidata_aliases: string[];
+            /** @description Read-only, as wikidata_aliases */
+            wikidata_popularity: number;
+            /** @description Read-only: whether the gazetteer gave it a boundary, which places listings in it */
+            has_boundary: boolean;
+            listing_count: number;
+            landmark_count: number;
+            /** @enum {string} */
+            seed_status: "idle" | "queued" | "running" | "done" | "failed";
+            /**
+             * Format: date-time
+             * @description When the last run ended
+             */
+            seeded_at: string | null;
+            /** @description The last run: what it added and skipped, or the error it stopped on. All null (and skipped empty) before the first run ends */
+            seed_report: {
+                landmarks_added: number | null;
+                /** @description Places given Wikidata's terms and popularity */
+                enriched: number | null;
+                /** @description Places Wikidata couldn't match, and why */
+                skipped: string[];
+                /** @description Set when the run failed */
+                error: string | null;
+            };
+        };
+        /** @description On a change, a field left out is kept. name, slug, kind and center are required on a new one. */
+        admin_area_body: {
+            name?: string;
+            /** @description Lowercase letters, digits and single dashes; unique; not reserved */
+            slug?: string;
+            /** @enum {string} */
+            kind?: "region" | "province" | "city" | "town" | "island";
+            /**
+             * @description published also publishes every area above it; draft is refused while the area has active listings or published areas inside it
+             * @enum {string}
+             */
+            status?: "draft" | "published";
+            /** @description The area it sits in; null for none */
+            parent_slug?: string | null;
+            aliases?: string[];
+            center?: {
+                lat: number;
+                lng: number;
+            };
+            /** @description 10 digits */
+            psgc_code?: string | null;
+            tagline?: string;
+            description?: string;
+            getting_there?: string;
+            best_time_to_visit?: string;
+            /** @description Replaces the area's tags */
+            tag_slugs?: string[];
+            /** @description Like Q123. Changing it clears wikidata_aliases and wikidata_popularity until the next `bin/rails gazetteer:wikidata` */
+            wikidata_id?: string | null;
+        };
+        admin_area_options: {
+            kinds: ("region" | "province" | "city" | "town" | "island")[];
+            tags: components["schemas"]["tag"][];
+        };
+        admin_landmark_row: {
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            status: "draft" | "published";
+            area: components["schemas"]["area_ref"];
+            /** @description Listings that visit it */
+            visit_count: number;
+        };
+        admin_landmark: {
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            status: "draft" | "published";
+            area: components["schemas"]["area_ref"];
+            visit_count: number;
+            description: string;
+            aliases: string[];
+            location: {
+                lat: number;
+                lng: number;
+            };
+            tags: components["schemas"]["tag"][];
+            /** @description Read-only, set by `bin/rails gazetteer:wikidata` */
+            wikidata_id: string | null;
+            /** @description Read-only, as wikidata_id */
+            wikidata_aliases: string[];
+            /** @description Read-only, as wikidata_id */
+            wikidata_popularity: number;
+        };
+        /** @description On a change, a field left out is kept. name, slug and location are required on a new one. The area is never sent: it is the one serving the pin. */
+        admin_landmark_body: {
+            name?: string;
+            /** @description Lowercase letters, digits and single dashes; unique */
+            slug?: string;
+            /** @enum {string} */
+            status?: "draft" | "published";
+            description?: string;
+            aliases?: string[];
+            location?: {
+                lat: number;
+                lng: number;
+            };
+            /** @description Replaces the landmark's tags */
+            tag_slugs?: string[];
         };
     };
     responses: never;

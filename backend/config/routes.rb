@@ -61,12 +61,15 @@ Rails.application.routes.draw do
         resources :search_terms, only: :create
         resources :link_suggestions, only: :index
         resources :destination_links, only: :create
-        # Seeding an area from the console, and publishing what it found (RAA-168).
-        resources :areas, only: :index do
+        # Destinations, their details and banner photo (RAA-164).
+        resources :areas, only: %i[index show create update], param: :slug do
+          resource :banner_photo, only: %i[create update destroy], controller: "area_photos"
+          # Make it a destination from Wikidata in the background (RAA-168).
           post :seed, on: :member
-          get :landmarks, on: :member
         end
-        resources :landmarks, only: :update
+        resource :area_options, only: :show
+        # Landmarks, the places to see; their tags come from area_options.
+        resources :landmarks, only: %i[index show create update], param: :slug
       end
 
       namespace :partner do

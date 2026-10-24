@@ -25,7 +25,7 @@ export function photoProblem(file: File) {
 
 // The file's MD5, base64-encoded, as the signed upload expects in Content-MD5. Web Crypto
 // has no MD5, hence spark-md5 (its raw digest is a binary string, which btoa encodes).
-async function md5Base64(file: File) {
+export async function md5Base64(file: File) {
   return btoa(SparkMD5.ArrayBuffer.hash(await file.arrayBuffer(), true));
 }
 

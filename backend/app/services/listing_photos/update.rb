@@ -1,7 +1,7 @@
 module ListingPhotos
-  # A partner confirms a photo's upload (RAA-106): once its file is in storage, guests see it
-  # and its sizes are made (ListingPhotos::ResizeJob). Sending it again is harmless, so a
-  # browser that lost the answer can retry.
+  # A partner confirms a photo's upload (RAA-106), or the team an area banner's (RAA-164): once
+  # its file is in storage, guests see it and its sizes are made (ListingPhotos::ResizeJob).
+  # Sending it again is harmless, so a browser that lost the answer can retry.
   class Update < ApplicationService
     def initialize(photo, params)
       @photo = photo

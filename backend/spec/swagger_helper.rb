@@ -17,6 +17,24 @@ LISTING_GROUP = {
     "vehicle rental: its own section, never a trip's \"Getting around\""
 }.freeze
 
+# An area's last seeding run from the admin console (RAA-168), on its list row and its page.
+SEED_RUN = {
+  seed_status: { type: :string, enum: Area::SEED_STATUSES },
+  seeded_at: { type: :string, format: "date-time", nullable: true, description: "When the last run ended" },
+  seed_report: {
+    type: :object,
+    description: "The last run: what it added and skipped, or the error it stopped on. All null (and " \
+      "skipped empty) before the first run ends",
+    properties: {
+      landmarks_added: { type: :integer, nullable: true },
+      enriched: { type: :integer, nullable: true, description: "Places given Wikidata's terms and popularity" },
+      skipped: { type: :array, items: { type: :string }, description: "Places Wikidata couldn't match, and why" },
+      error: { type: :string, nullable: true, description: "Set when the run failed" }
+    },
+    required: %w[landmarks_added enriched skipped error]
+  }
+}.freeze
+
 # What explore (RAA-56) says about a destination, nearby or recommended.
 EXPLORE_PLACE = {
   type: { type: :string, enum: %w[area landmark] },
@@ -1616,50 +1634,6 @@ RSpec.configure do |config|
             required: %w[from_status to_status actor reason created_at]
           },
           # A guest's booking (RAA-132). Never the listing's location.
-          # An area in the admin console's Areas tab, with its last seeding run (RAA-168).
-          admin_area: {
-            type: :object,
-            properties: {
-              id: { type: :integer },
-              slug: { type: :string },
-              name: { type: :string },
-              kind: { type: :string, enum: Area::KINDS },
-              status: { type: :string, enum: Area::STATUSES },
-              parent_name: { type: :string, nullable: true },
-              landmarks_published: { type: :integer },
-              landmarks_draft: { type: :integer },
-              wikidata_id: { type: :string, nullable: true },
-              seed_status: { type: :string, enum: Area::SEED_STATUSES },
-              seeded_at: { type: :string, format: "date-time", nullable: true, description: "When the last run ended" },
-              seed_report: {
-                type: :object,
-                description: "The last run: what it added and skipped, or the error it stopped on. All null (and " \
-                  "skipped empty) before the first run ends",
-                properties: {
-                  landmarks_added: { type: :integer, nullable: true },
-                  enriched: { type: :integer, nullable: true, description: "Places given Wikidata's terms and popularity" },
-                  skipped: { type: :array, items: { type: :string }, description: "Places Wikidata couldn't match, and why" },
-                  error: { type: :string, nullable: true, description: "Set when the run failed" }
-                },
-                required: %w[landmarks_added enriched skipped error]
-              }
-            },
-            required: %w[id slug name kind status parent_name landmarks_published landmarks_draft wikidata_id seed_status
-              seeded_at seed_report]
-          },
-          admin_landmark: {
-            type: :object,
-            properties: {
-              id: { type: :integer },
-              slug: { type: :string },
-              name: { type: :string },
-              status: { type: :string, enum: Landmark::STATUSES },
-              wikidata_id: { type: :string, nullable: true },
-              lng: { type: :number },
-              lat: { type: :number }
-            },
-            required: %w[id slug name status wikidata_id lng lat]
-          },
           # A booking as the team sees it when answering for its partner (RAA-141).
           admin_booking: {
             type: :object,
@@ -1838,6 +1812,172 @@ RSpec.configure do |config|
               reason: { type: :string, maxLength: Booking::REASON_LENGTH, description: "Why it was cancelled" }
             },
             required: %w[status]
+          },
+          # A destination in the admin console's list (RAA-164).
+          admin_area_row: {
+            type: :object,
+            properties: {
+              slug: { type: :string },
+              name: { type: :string },
+              kind: { type: :string, enum: Area::KINDS },
+              status: { type: :string, enum: Area::STATUSES },
+              parent: { allOf: [ { "$ref" => "#/components/schemas/area_ref" } ], nullable: true },
+              listing_count: { type: :integer, description: "Active listings in the area itself" },
+              landmark_count: { type: :integer, description: "Published landmarks in the area itself" },
+              **SEED_RUN
+            },
+            required: %w[slug name kind status parent listing_count landmark_count seed_status seeded_at seed_report]
+          },
+          # The banner's sizes and state; until it is ready both URLs are the original's.
+          area_banner_photo: {
+            type: :object,
+            properties: {
+              uploaded: { type: :boolean },
+              ready: { type: :boolean },
+              card_url: { type: :string },
+              large_url: { type: :string }
+            },
+            required: %w[uploaded ready card_url large_url]
+          },
+          # A destination as the admin console edits it (RAA-164).
+          admin_area: {
+            type: :object,
+            properties: {
+              slug: { type: :string },
+              name: { type: :string },
+              kind: { type: :string, enum: Area::KINDS },
+              status: { type: :string, enum: Area::STATUSES },
+              parent: { allOf: [ { "$ref" => "#/components/schemas/area_ref" } ], nullable: true },
+              aliases: { type: :array, items: { type: :string } },
+              center: {
+                type: :object,
+                properties: { lat: { type: :number }, lng: { type: :number } },
+                required: %w[lat lng]
+              },
+              psgc_code: { type: :string, nullable: true },
+              tagline: { type: :string },
+              description: { type: :string },
+              getting_there: { type: :string },
+              best_time_to_visit: { type: :string },
+              tags: { type: :array, items: { "$ref" => "#/components/schemas/tag" } },
+              banner_photo: { allOf: [ { "$ref" => "#/components/schemas/area_banner_photo" } ], nullable: true },
+              wikidata_id: { type: :string, nullable: true },
+              wikidata_aliases: {
+                type: :array, items: { type: :string },
+                description: "Read-only: filled by `bin/rails gazetteer:wikidata`"
+              },
+              wikidata_popularity: { type: :integer, description: "Read-only, as wikidata_aliases" },
+              has_boundary: {
+                type: :boolean,
+                description: "Read-only: whether the gazetteer gave it a boundary, which places listings in it"
+              },
+              listing_count: { type: :integer },
+              landmark_count: { type: :integer },
+              **SEED_RUN
+            },
+            required: %w[slug name kind status parent aliases center psgc_code tagline description getting_there
+              best_time_to_visit tags banner_photo wikidata_id wikidata_aliases wikidata_popularity has_boundary
+              listing_count landmark_count seed_status seeded_at seed_report]
+          },
+          admin_area_body: {
+            type: :object,
+            description: "On a change, a field left out is kept. name, slug, kind and center are required on a new one.",
+            properties: {
+              name: { type: :string, maxLength: 120 },
+              slug: { type: :string, description: "Lowercase letters, digits and single dashes; unique; not reserved" },
+              kind: { type: :string, enum: Area::KINDS },
+              status: {
+                type: :string, enum: Area::STATUSES,
+                description: "published also publishes every area above it; draft is refused while the area has " \
+                  "active listings or published areas inside it"
+              },
+              parent_slug: { type: :string, nullable: true, description: "The area it sits in; null for none" },
+              aliases: { type: :array, items: { type: :string, maxLength: 60 }, maxItems: 20 },
+              center: {
+                type: :object,
+                properties: {
+                  lat: { type: :number, minimum: -90, maximum: 90 },
+                  lng: { type: :number, minimum: -180, maximum: 180 }
+                },
+                required: %w[lat lng]
+              },
+              psgc_code: { type: :string, nullable: true, description: "10 digits" },
+              tagline: { type: :string, maxLength: 120 },
+              description: { type: :string, maxLength: 5000 },
+              getting_there: { type: :string, maxLength: 2000 },
+              best_time_to_visit: { type: :string, maxLength: 200 },
+              tag_slugs: { type: :array, items: { type: :string }, description: "Replaces the area's tags" },
+              wikidata_id: {
+                type: :string, nullable: true,
+                description: "Like Q123. Changing it clears wikidata_aliases and wikidata_popularity until the next " \
+                  "`bin/rails gazetteer:wikidata`"
+              }
+            }
+          },
+          admin_area_options: {
+            type: :object,
+            properties: {
+              kinds: { type: :array, items: { type: :string, enum: Area::KINDS } },
+              tags: { type: :array, items: { "$ref" => "#/components/schemas/tag" } }
+            },
+            required: %w[kinds tags]
+          },
+          # A landmark (place to see) in the admin console's list.
+          admin_landmark_row: {
+            type: :object,
+            properties: {
+              slug: { type: :string },
+              name: { type: :string },
+              status: { type: :string, enum: Landmark::STATUSES },
+              area: { "$ref" => "#/components/schemas/area_ref" },
+              visit_count: { type: :integer, description: "Listings that visit it" }
+            },
+            required: %w[slug name status area visit_count]
+          },
+          # A landmark as the admin console edits it.
+          admin_landmark: {
+            type: :object,
+            properties: {
+              slug: { type: :string },
+              name: { type: :string },
+              status: { type: :string, enum: Landmark::STATUSES },
+              area: { "$ref" => "#/components/schemas/area_ref" },
+              visit_count: { type: :integer },
+              description: { type: :string },
+              aliases: { type: :array, items: { type: :string } },
+              location: {
+                type: :object,
+                properties: { lat: { type: :number }, lng: { type: :number } },
+                required: %w[lat lng]
+              },
+              tags: { type: :array, items: { "$ref" => "#/components/schemas/tag" } },
+              wikidata_id: { type: :string, nullable: true, description: "Read-only, set by `bin/rails gazetteer:wikidata`" },
+              wikidata_aliases: { type: :array, items: { type: :string }, description: "Read-only, as wikidata_id" },
+              wikidata_popularity: { type: :integer, description: "Read-only, as wikidata_id" }
+            },
+            required: %w[slug name status area visit_count description aliases location tags wikidata_id
+              wikidata_aliases wikidata_popularity]
+          },
+          admin_landmark_body: {
+            type: :object,
+            description: "On a change, a field left out is kept. name, slug and location are required on a new one. " \
+              "The area is never sent: it is the one serving the pin.",
+            properties: {
+              name: { type: :string, maxLength: 120 },
+              slug: { type: :string, description: "Lowercase letters, digits and single dashes; unique" },
+              status: { type: :string, enum: Landmark::STATUSES },
+              description: { type: :string, maxLength: 5000 },
+              aliases: { type: :array, items: { type: :string, maxLength: 60 }, maxItems: 20 },
+              location: {
+                type: :object,
+                properties: {
+                  lat: { type: :number, minimum: -90, maximum: 90 },
+                  lng: { type: :number, minimum: -180, maximum: 180 }
+                },
+                required: %w[lat lng]
+              },
+              tag_slugs: { type: :array, items: { type: :string }, description: "Replaces the landmark's tags" }
+            }
           }
         }
       }

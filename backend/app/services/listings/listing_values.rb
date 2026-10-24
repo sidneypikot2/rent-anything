@@ -26,8 +26,6 @@ module Listings
     include RequestValues
     include TourValues
 
-    AREA_KINDS = %w[city town island].freeze
-    AREA_RADIUS_METERS = 50_000
     MAX_LANDMARKS = 30
     MAX_UNITS = 100
     MAX_FEES = 20
@@ -245,16 +243,9 @@ module Listings
       Category.find_by(id:) || error("Category is not one we know")
     end
 
-    # The destination guests will find the listing under: the smallest published area whose
-    # boundary covers the pin, or, where none has a boundary there yet, the one whose center
-    # is nearest. Both use the areas' GiST indexes.
+    # The destination guests will find the listing under (Area.serving).
     def nearest_area(point)
-      geography = "ST_GeogFromText(#{Area.connection.quote("SRID=4326;#{point}")})"
-      areas = Area.published.where(kind: AREA_KINDS)
-      areas.where("ST_Covers(boundary, #{geography})").order(Arel.sql("ST_Area(boundary)")).first ||
-        areas.where("ST_DWithin(center, #{geography}, #{AREA_RADIUS_METERS})")
-          .order(Arel.sql("ST_Distance(center, #{geography})")).first ||
-        error("No destination near this pin yet")
+      Area.serving(point) || error("No destination near this pin yet")
     end
 
     def cancellation_policy

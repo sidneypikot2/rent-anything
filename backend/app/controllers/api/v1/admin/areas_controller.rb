@@ -1,44 +1,49 @@
 module Api
   module V1
     module Admin
-      # The admin console's Areas tab (RAA-168): find a gazetteer area, seed it in the
-      # background (Gazetteer::SeedArea), and see the landmarks the run found.
+      # Destinations in the admin console (RAA-164): every area, drafts included, searched by
+      # name, slug or alias; adding one and changing its details go through Areas::Save; seeding one
+      # from Wikidata goes through Gazetteer::QueueSeed (RAA-168).
       class AreasController < ApplicationController
-        LIMIT = 100
+        PER_PAGE = 50
 
         before_action :authenticate_user!
         before_action -> { require_role!("admin") }
 
         def index
-          return render_bad_filter("Kind", Area::KINDS) if params[:kind].present? && Area::KINDS.exclude?(params[:kind])
-          return render_bad_filter("Status", Area::STATUSES) if params[:status].present? && Area::STATUSES.exclude?(params[:status])
-
-          areas = AdminAreaSerializer.scope(Area.all)
-          areas = areas.where(kind: params[:kind]) if params[:kind].present?
-          areas = areas.where(status: params[:status]) if params[:status].present?
-          if params[:q].present?
-            pattern = "%#{Area.sanitize_sql_like(params[:q].to_s.strip)}%"
-            areas = areas.where("areas.name ILIKE :pattern OR areas.slug ILIKE :pattern", pattern:)
-          end
-          render json: areas.order(:name, :id).limit(LIMIT).map { AdminAreaSerializer.call(_1) }
+          areas = Areas::Search.call(params.slice(:q, :status, :kind))
+          page = params[:page].to_i.clamp(1, nil)
+          rows = areas.includes(:parent).offset((page - 1) * PER_PAGE).limit(PER_PAGE)
+          render json: { areas: AdminAreaSerializer.rows(rows), total: areas.count }
         end
 
+        def show
+          render json: AdminAreaSerializer.call(find_area)
+        end
+
+        def create
+          render json: AdminAreaSerializer.call(Areas::Save.call(Area.new, area_params)), status: :created
+        end
+
+        def update
+          render json: AdminAreaSerializer.call(Areas::Save.call(find_area, area_params))
+        end
+
+        # Queues Gazetteer::SeedArea (RAA-168); the console polls the area for the result.
         def seed
-          area = Gazetteer::QueueSeed.call(Area.find(params[:id]))
-          render json: AdminAreaSerializer.call(AdminAreaSerializer.scope(Area.all).find(area.id)), status: :accepted
+          render json: AdminAreaSerializer.call(Gazetteer::QueueSeed.call(find_area)), status: :accepted
         rescue Gazetteer::QueueSeed::AlreadyRunning
           render json: { error: "This area is already being seeded" }, status: :conflict
         end
 
-        def landmarks
-          landmarks = Area.find(params[:id]).landmarks.order(:name, :id)
-          render json: landmarks.map { AdminAreaSerializer.landmark(_1) }
-        end
-
         private
 
-        def render_bad_filter(name, values)
-          render json: { errors: [ "#{name} must be one of #{values.join(', ')}" ] }, status: :unprocessable_content
+        def find_area
+          Area.find_by!(slug: params[:slug])
+        end
+
+        def area_params
+          params.slice(*Areas::Save::FIELDS)
         end
       end
     end
