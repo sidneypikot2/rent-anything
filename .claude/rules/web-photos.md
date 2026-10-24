@@ -9,6 +9,8 @@ paths:
   - "web/src/components/partner/listing-form.tsx"
   - "web/src/components/discovery/listing-gallery.tsx"
   - "web/src/components/landing/sample-photos.ts"
+  - "web/src/components/admin/use-admin-areas.ts"
+  - "web/src/components/admin/destination-form.tsx"
 ---
 
 # Listing photos in the web app (RAA-109)
