@@ -22,6 +22,328 @@ paths:
                 type: array
                 items:
                   "$ref": "#/components/schemas/activity"
+  "/api/v1/admin/areas/{area_slug}/banner_photo":
+    parameters:
+    - name: area_slug
+      in: path
+      schema:
+        type: string
+      required: true
+    post:
+      summary: Set a destination's banner photo
+      tags:
+      - Admin
+      description: 'Admin-only (RAA-164). As a listing photo: `PUT` the file''s bytes
+        to `upload.url` with exactly `upload.headers`, then confirm with `PATCH`.
+        Replaces the area''s banner, if it has one.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: the new banner, still uploading, replacing the old one
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/photo_upload"
+        '422':
+          description: not a photo we take
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/photo_upload_body"
+    patch:
+      summary: Confirm a banner photo's upload
+      tags:
+      - Admin
+      description: Admin-only (RAA-164). Once its file is in storage; its sizes follow
+        a few seconds later (`ready`).
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: uploaded, sizes on the way
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/area_banner_photo"
+        '422':
+          description: the file isn't there yet
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: no banner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/photo_update_body"
+    delete:
+      summary: Remove a destination's banner photo
+      tags:
+      - Admin
+      description: Admin-only (RAA-164). Its files go from storage too.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '204':
+          description: removed
+        '403':
+          description: a partner
+  "/api/v1/admin/areas":
+    get:
+      summary: List and search destinations
+      tags:
+      - Admin
+      description: 'Admin-only (RAA-164). Every area, drafts included: published first,
+        then by name, 50 a page. `q` matches the name, slug or an alias.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - draft
+          - published
+      - name: kind
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - region
+          - province
+          - city
+          - town
+          - island
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: searched by alias, with a filter
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  areas:
+                    type: array
+                    items:
+                      "$ref": "#/components/schemas/admin_area_row"
+                  total:
+                    type: integer
+                required:
+                - areas
+                - total
+        '422':
+          description: an unknown status
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    post:
+      summary: Add a destination
+      tags:
+      - Admin
+      description: Admin-only (RAA-164). Adds an area as a draft unless `status` says
+        otherwise.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: a new draft
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_area"
+        '422':
+          description: a reserved slug and a long tagline
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/admin_area_body"
+  "/api/v1/admin/areas/{slug}":
+    parameters:
+    - name: slug
+      in: path
+      schema:
+        type: string
+      required: true
+    get:
+      summary: One destination
+      tags:
+      - Admin
+      description: Admin-only (RAA-164). Drafts included.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the area
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_area"
+        '404':
+          description: no such area
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    patch:
+      summary: Change a destination
+      tags:
+      - Admin
+      description: Admin-only (RAA-164). Fields left out are kept.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: a new Wikidata item clears what came from the old one
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_area"
+        '422':
+          description: a Wikidata id another area has
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/admin_area_body"
+  "/api/v1/admin/area_options":
+    get:
+      summary: What a destination can be
+      tags:
+      - Admin
+      description: Admin-only (RAA-164). The kinds and the tags a destination's form
+        offers.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: kinds and tags
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_area_options"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/admin/bookings":
     parameters:
     - name: Authorization
@@ -222,6 +544,187 @@ paths:
               - source
               - target
               - kind
+  "/api/v1/admin/landmarks":
+    get:
+      summary: List and search landmarks
+      tags:
+      - Admin
+      description: 'Admin-only. Every landmark (place to see), drafts included: published
+        first, then by name, 50 a page. `q` matches the name, slug or an alias; `area`
+        keeps the landmarks in that area or any area inside it.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - draft
+          - published
+      - name: area
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: searched by alias inside an area
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  landmarks:
+                    type: array
+                    items:
+                      "$ref": "#/components/schemas/admin_landmark_row"
+                  total:
+                    type: integer
+                required:
+                - landmarks
+                - total
+        '422':
+          description: an unknown status and area
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    post:
+      summary: Add a landmark
+      tags:
+      - Admin
+      description: 'Admin-only. Adds a landmark as a draft unless `status` says otherwise.
+        Its area is the one listings at that pin would be in: the smallest published
+        city, town or island whose boundary covers it, else the nearest one.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: a new draft in the area serving the pin
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_landmark"
+        '422':
+          description: a pin no destination serves
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/admin_landmark_body"
+  "/api/v1/admin/landmarks/{slug}":
+    parameters:
+    - name: slug
+      in: path
+      schema:
+        type: string
+      required: true
+    get:
+      summary: One landmark
+      tags:
+      - Admin
+      description: Admin-only. Drafts included.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the landmark
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_landmark"
+        '404':
+          description: no such landmark
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    patch:
+      summary: Change a landmark
+      tags:
+      - Admin
+      description: Admin-only. Fields left out are kept. A new pin moves the landmark
+        to the area serving it.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: moved to the area serving its new pin
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_landmark"
+        '422':
+          description: an empty name
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/admin_landmark_body"
   "/api/v1/admin/link_suggestions":
     get:
       summary: Destination links suggested by search picks
@@ -7185,3 +7688,379 @@ components:
           description: Why it was cancelled
       required:
       - status
+    admin_area_row:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+          - region
+          - province
+          - city
+          - town
+          - island
+        status:
+          type: string
+          enum:
+          - draft
+          - published
+        parent:
+          allOf:
+          - "$ref": "#/components/schemas/area_ref"
+          nullable: true
+        listing_count:
+          type: integer
+          description: Active listings in the area itself
+        landmark_count:
+          type: integer
+          description: Published landmarks in the area itself
+      required:
+      - slug
+      - name
+      - kind
+      - status
+      - parent
+      - listing_count
+      - landmark_count
+    area_banner_photo:
+      type: object
+      properties:
+        uploaded:
+          type: boolean
+        ready:
+          type: boolean
+        card_url:
+          type: string
+        large_url:
+          type: string
+      required:
+      - uploaded
+      - ready
+      - card_url
+      - large_url
+    admin_area:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+          - region
+          - province
+          - city
+          - town
+          - island
+        status:
+          type: string
+          enum:
+          - draft
+          - published
+        parent:
+          allOf:
+          - "$ref": "#/components/schemas/area_ref"
+          nullable: true
+        aliases:
+          type: array
+          items:
+            type: string
+        center:
+          type: object
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+          - lat
+          - lng
+        psgc_code:
+          type: string
+          nullable: true
+        tagline:
+          type: string
+        description:
+          type: string
+        getting_there:
+          type: string
+        best_time_to_visit:
+          type: string
+        tags:
+          type: array
+          items:
+            "$ref": "#/components/schemas/tag"
+        banner_photo:
+          allOf:
+          - "$ref": "#/components/schemas/area_banner_photo"
+          nullable: true
+        wikidata_id:
+          type: string
+          nullable: true
+        wikidata_aliases:
+          type: array
+          items:
+            type: string
+          description: 'Read-only: filled by `bin/rails gazetteer:wikidata`'
+        wikidata_popularity:
+          type: integer
+          description: Read-only, as wikidata_aliases
+        has_boundary:
+          type: boolean
+          description: 'Read-only: whether the gazetteer gave it a boundary, which
+            places listings in it'
+        listing_count:
+          type: integer
+        landmark_count:
+          type: integer
+      required:
+      - slug
+      - name
+      - kind
+      - status
+      - parent
+      - aliases
+      - center
+      - psgc_code
+      - tagline
+      - description
+      - getting_there
+      - best_time_to_visit
+      - tags
+      - banner_photo
+      - wikidata_id
+      - wikidata_aliases
+      - wikidata_popularity
+      - has_boundary
+      - listing_count
+      - landmark_count
+    admin_area_body:
+      type: object
+      description: On a change, a field left out is kept. name, slug, kind and center
+        are required on a new one.
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        slug:
+          type: string
+          description: Lowercase letters, digits and single dashes; unique; not reserved
+        kind:
+          type: string
+          enum:
+          - region
+          - province
+          - city
+          - town
+          - island
+        status:
+          type: string
+          enum:
+          - draft
+          - published
+          description: published also publishes every area above it; draft is refused
+            while the area has active listings or published areas inside it
+        parent_slug:
+          type: string
+          nullable: true
+          description: The area it sits in; null for none
+        aliases:
+          type: array
+          items:
+            type: string
+            maxLength: 60
+          maxItems: 20
+        center:
+          type: object
+          properties:
+            lat:
+              type: number
+              minimum: -90
+              maximum: 90
+            lng:
+              type: number
+              minimum: -180
+              maximum: 180
+          required:
+          - lat
+          - lng
+        psgc_code:
+          type: string
+          nullable: true
+          description: 10 digits
+        tagline:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 5000
+        getting_there:
+          type: string
+          maxLength: 2000
+        best_time_to_visit:
+          type: string
+          maxLength: 200
+        tag_slugs:
+          type: array
+          items:
+            type: string
+          description: Replaces the area's tags
+        wikidata_id:
+          type: string
+          nullable: true
+          description: Like Q123. Changing it clears wikidata_aliases and wikidata_popularity
+            until the next `bin/rails gazetteer:wikidata`
+    admin_area_options:
+      type: object
+      properties:
+        kinds:
+          type: array
+          items:
+            type: string
+            enum:
+            - region
+            - province
+            - city
+            - town
+            - island
+        tags:
+          type: array
+          items:
+            "$ref": "#/components/schemas/tag"
+      required:
+      - kinds
+      - tags
+    admin_landmark_row:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+          - draft
+          - published
+        area:
+          "$ref": "#/components/schemas/area_ref"
+        visit_count:
+          type: integer
+          description: Listings that visit it
+      required:
+      - slug
+      - name
+      - status
+      - area
+      - visit_count
+    admin_landmark:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+          - draft
+          - published
+        area:
+          "$ref": "#/components/schemas/area_ref"
+        visit_count:
+          type: integer
+        description:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+        location:
+          type: object
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+          - lat
+          - lng
+        tags:
+          type: array
+          items:
+            "$ref": "#/components/schemas/tag"
+        wikidata_id:
+          type: string
+          nullable: true
+          description: Read-only, set by `bin/rails gazetteer:wikidata`
+        wikidata_aliases:
+          type: array
+          items:
+            type: string
+          description: Read-only, as wikidata_id
+        wikidata_popularity:
+          type: integer
+          description: Read-only, as wikidata_id
+      required:
+      - slug
+      - name
+      - status
+      - area
+      - visit_count
+      - description
+      - aliases
+      - location
+      - tags
+      - wikidata_id
+      - wikidata_aliases
+      - wikidata_popularity
+    admin_landmark_body:
+      type: object
+      description: 'On a change, a field left out is kept. name, slug and location
+        are required on a new one. The area is never sent: it is the one serving the
+        pin.'
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        slug:
+          type: string
+          description: Lowercase letters, digits and single dashes; unique
+        status:
+          type: string
+          enum:
+          - draft
+          - published
+        description:
+          type: string
+          maxLength: 5000
+        aliases:
+          type: array
+          items:
+            type: string
+            maxLength: 60
+          maxItems: 20
+        location:
+          type: object
+          properties:
+            lat:
+              type: number
+              minimum: -90
+              maximum: 90
+            lng:
+              type: number
+              minimum: -180
+              maximum: 180
+          required:
+          - lat
+          - lng
+        tag_slugs:
+          type: array
+          items:
+            type: string
+          description: Replaces the landmark's tags
