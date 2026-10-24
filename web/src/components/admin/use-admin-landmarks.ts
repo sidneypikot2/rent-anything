@@ -10,7 +10,8 @@ export type AdminLandmarkRow = components["schemas"]["admin_landmark_row"];
 export type AdminLandmarkBody = components["schemas"]["admin_landmark_body"];
 export type LandmarkStatus = AdminLandmark["status"];
 
-export type LandmarkFilters = { q: string; status: LandmarkStatus | ""; page: number };
+// `area` is a destination's slug: its landmarks and those of every area inside it.
+export type LandmarkFilters = { q: string; status: LandmarkStatus | ""; area: string; page: number };
 
 // What the API's list serves at once (Admin::LandmarksController::PER_PAGE).
 export const LANDMARKS_PER_PAGE = 50;
@@ -21,12 +22,12 @@ const landmarkKey = (slug: string) => ["admin-landmark", slug] as const;
 // Every landmark (place to see), drafts included (GET /admin/landmarks, RAA-164): published
 // first, then by name; `q` matches the name, slug or an alias. The last page stays shown while
 // the next loads.
-export function useAdminLandmarks({ q, status, page }: LandmarkFilters) {
+export function useAdminLandmarks({ q, status, area, page }: LandmarkFilters) {
   return useQuery({
-    queryKey: [...LIST_KEY, q, status, page],
+    queryKey: [...LIST_KEY, q, status, area, page],
     queryFn: async () => {
       const { data } = await apiClient().GET("/api/v1/admin/landmarks", {
-        params: { query: { q: q || undefined, status: status || undefined, page } },
+        params: { query: { q: q || undefined, status: status || undefined, area: area || undefined, page } },
       });
       if (!data) throw new Error("Couldn't load the places to see. Try again.");
       return data;

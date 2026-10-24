@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
+import { Toast, type ToastTone } from "@/components/ui/toast";
 import { DisplayTitle } from "@/components/ui/typography";
-import { AREAS_PER_PAGE, useAdminAreas, type AdminAreaRow, type AreaFilters } from "./use-admin-areas";
+import { SeedButton, seedOutcome } from "./seed-area";
+import { AREAS_PER_PAGE, useAdminAreas, useSeedEnds, type AdminAreaRow, type AreaFilters } from "./use-admin-areas";
 
 const SEARCH_DELAY_MS = 300;
 
@@ -40,11 +42,24 @@ export function AreaStatusBadge({ status }: { status: AdminAreaRow["status"] }) 
 
 // Every destination (RAA-166, over RAA-164's API): searched by name, slug or alias, filtered by
 // status and kind, 50 a page, published first. A row opens its editor. Dense, like Booking
-// requests: a work screen for the team.
+// requests: a work screen for the team. Each row can be seeded from Wikidata (RAA-169); the list
+// is asked for again while one is, and a toast says how each run ended.
 export function DestinationsList() {
   const [text, setText] = useState("");
   const [filters, setFilters] = useState<AreaFilters>({ q: "", status: "", kind: "", page: 1 });
+  const [toast, setToast] = useState<{ id: number; message: string; tone: ToastTone } | null>(null);
   const areas = useAdminAreas(filters);
+
+  const show = useCallback(
+    (message: string, tone: ToastTone = "default") => setToast((last) => ({ id: (last?.id ?? 0) + 1, message, tone })),
+    [],
+  );
+  const showProblem = useCallback((message: string) => show(message, "danger"), [show]);
+  const showOutcome = useCallback((area: AdminAreaRow) => {
+    const { message, tone } = seedOutcome(area);
+    show(message, tone);
+  }, [show]);
+  useSeedEnds(areas.data?.areas, showOutcome);
 
   // The search waits for typing to pause, and starts again from the first page.
   useEffect(() => {
@@ -109,7 +124,7 @@ export function DestinationsList() {
           </CardBody>
         </Card>
       ) : (
-        <AreaTable areas={areas.data.areas} stale={areas.isPlaceholderData} />
+        <AreaTable areas={areas.data.areas} stale={areas.isPlaceholderData} onSeedProblem={showProblem} />
       )}
 
       {pages > 1 && (
@@ -135,6 +150,14 @@ export function DestinationsList() {
           </Button>
         </nav>
       )}
+
+      <Toast
+        message={toast?.message ?? null}
+        id={toast?.id}
+        tone={toast?.tone}
+        onDismiss={() => setToast(null)}
+        data-testid="admin-destinations-toast"
+      />
     </main>
   );
 }
@@ -142,20 +165,31 @@ export function DestinationsList() {
 const CELL = "px-3 py-2 align-middle";
 
 // One line per destination from md, a short list below it: the name links to its editor.
-function AreaTable({ areas, stale }: { areas: AdminAreaRow[]; stale: boolean }) {
+function AreaTable({
+  areas,
+  stale,
+  onSeedProblem,
+}: {
+  areas: AdminAreaRow[];
+  stale: boolean;
+  onSeedProblem: (message: string) => void;
+}) {
   return (
     <Card edge="line" data-testid="admin-destinations" className={cn("transition-opacity duration-300 ease-calm", stale && "opacity-60")}>
       <ul className="divide-y divide-line md:hidden">
         {areas.map((area) => (
-          <li key={area.slug} className="flex flex-col gap-1 px-4 py-2.5 text-sm" data-testid="admin-destination">
-            <div className="flex items-center gap-2">
-              <AreaLink area={area} />
-              <AreaStatusBadge status={area.status} />
+          <li key={area.slug} className="flex items-center gap-3 px-4 py-2.5 text-sm" data-testid="admin-destination">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <AreaLink area={area} />
+                <AreaStatusBadge status={area.status} />
+              </div>
+              <p className="truncate text-xs text-muted">
+                {KIND_LABELS[area.kind]}
+                {area.parent && ` in ${area.parent.name}`} · {area.listing_count} listings · {area.landmark_count} places to see
+              </p>
             </div>
-            <p className="truncate text-xs text-muted">
-              {KIND_LABELS[area.kind]}
-              {area.parent && ` in ${area.parent.name}`} · {area.listing_count} listings · {area.landmark_count} places to see
-            </p>
+            <SeedButton area={area} onProblem={onSeedProblem} />
           </li>
         ))}
       </ul>
@@ -167,6 +201,7 @@ function AreaTable({ areas, stale }: { areas: AdminAreaRow[]; stale: boolean }) 
           <col className="w-32" />
           <col className="w-24" />
           <col className="w-32" />
+          <col className="w-36" />
         </colgroup>
         <thead className="border-b border-line bg-surface-2 text-xs text-muted">
           <tr>
@@ -176,6 +211,9 @@ function AreaTable({ areas, stale }: { areas: AdminAreaRow[]; stale: boolean }) 
             <th scope="col" className="px-3 py-2 font-semibold">Status</th>
             <th scope="col" className="px-3 py-2 text-right font-semibold">Listings</th>
             <th scope="col" className="px-3 py-2 text-right font-semibold">Places to see</th>
+            <th scope="col" className="px-3 py-2 text-right font-semibold">
+              <span className="sr-only">Seed from Wikidata</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -194,6 +232,9 @@ function AreaTable({ areas, stale }: { areas: AdminAreaRow[]; stale: boolean }) 
               </td>
               <td className={cn(CELL, "text-right tabular-nums")}>{area.listing_count}</td>
               <td className={cn(CELL, "text-right tabular-nums")}>{area.landmark_count}</td>
+              <td className={cn(CELL, "text-right")}>
+                <SeedButton area={area} onProblem={onSeedProblem} />
+              </td>
             </tr>
           ))}
         </tbody>
