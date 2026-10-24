@@ -10,9 +10,9 @@ import type { GuestBooking } from "@/components/bookings/use-bookings";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
-import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/components/ui/toast";
 import { CartItemPanel } from "./cart-item-panel";
-import { CartTripNav, type TripGroup } from "./cart-trip-nav";
+import { CartTripNav, TripSwitchSheet, type TripGroup } from "./cart-trip-nav";
 import { RANGE_TYPES } from "./format";
 import { NewTripSheet } from "./new-trip-sheet";
 import { RecreateTripSheet, recreatedNotice } from "./recreate-trip-sheet";
@@ -81,10 +81,10 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
   const [selectedId, setSelectedId] = useState(expandTripId);
   const [tab, setTab] = useState<Tab | null>(null);
   const [open, setOpen] = useState<Open | null>(null);
-  const [notice, setNotice] = useState<{ id: number; text: string } | null>(null);
+  const [switching, setSwitching] = useState(false);
+  const toast = useToast();
 
-  const show = useCallback((text: string) => setNotice({ id: Date.now(), text }), []);
-  const dismissNotice = useCallback(() => setNotice(null), []);
+  const show = useCallback((text: string) => toast.show(text, { "data-testid": "trips-toast" }), [toast]);
   const close = () => setOpen(null);
 
   function switchTo(next: Tab) {
@@ -132,6 +132,16 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
   const groups = shownTab === "cancelled" ? [] : groupTrips(trips.data, shownTab);
   const ordered = groups.flatMap((group) => group.trips);
   const selected = ordered.find((trip) => trip.id === selectedId) ?? ordered[0];
+  // The sidebar from lg and the Switch trip sheet below it list the same trips.
+  const nav = {
+    groups,
+    selectedId: selected?.id,
+    onSelect: select,
+    detail: tabDetail,
+    label: shownTab === "past" ? "Your past trips" : "Your upcoming trips",
+    grouped: true,
+    count: bookedCount,
+  };
   const panelTrip = open?.kind === "item" ? trips.data.find((trip) => trip.id === open.tripId) : undefined;
   const panelItem = open?.kind === "item" ? panelTrip?.items.find((item) => item.id === open.itemId) : undefined;
 
@@ -151,16 +161,18 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
 
       {ordered.length > 0 ? (
         <div className="grid gap-gutter lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start">
-          <CartTripNav
-            groups={groups}
-            selectedId={selected?.id}
-            onSelect={select}
-            detail={tabDetail}
-            label={shownTab === "past" ? "Your past trips" : "Your upcoming trips"}
-            grouped
-            count={bookedCount}
-          />
-          {selected && <TripDetails key={selected.id} trip={selected} actions={actions} mode="trips" />}
+          <CartTripNav {...nav} />
+          {selected && (
+            <TripDetails
+              key={selected.id}
+              trip={selected}
+              actions={actions}
+              mode="trips"
+              onSwitch={() => setSwitching(true)}
+              tripCount={ordered.length}
+            />
+          )}
+          <TripSwitchSheet {...nav} open={switching} onClose={() => setSwitching(false)} />
         </div>
       ) : shownTab === "cancelled" ? (
         <CancelledBookings />
@@ -241,7 +253,6 @@ function BookedTrips({ expandTripId }: { expandTripId?: number }) {
         <NewTripSheet onClose={close} onCreated={(trip) => router.push(`/cart?trip=${trip.id}`)} />
       )}
 
-      <Toast data-testid="trips-toast" message={notice?.text ?? null} id={notice?.id} onDismiss={dismissNotice} />
     </>
   );
 }

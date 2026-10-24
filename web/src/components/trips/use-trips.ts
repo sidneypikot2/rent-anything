@@ -4,7 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
+import { useErrorToast } from "@/components/ui/toast";
 import { useSession } from "@/lib/auth/session";
+import { formatPeso } from "@/lib/money";
 
 export type Trip = components["schemas"]["trip"];
 export type TripItem = components["schemas"]["trip_item"];
@@ -112,6 +114,33 @@ export function itemQuote(quote: TripQuote | undefined, item: TripItem) {
   return quote?.items.find((line) => line.trip_item_id === item.id);
 }
 
+// "₱12,300", with what is priced with the partner after it: "₱12,300 + 1 to agree".
+export function quoteTotal(totalCents: number, toBeAgreed: number) {
+  if (toBeAgreed === 0) return formatPeso(totalCents);
+  if (totalCents > 0) return `${formatPeso(totalCents)} + ${toBeAgreed} to agree with the partner`;
+  return toBeAgreed === 1 ? "Price to agree with the partner" : `${toBeAgreed} prices to agree with the partner`;
+}
+
+// What the picked items come to, from the trip's quote.
+export function pickedTotal(quote: TripQuote | undefined, items: TripItem[]) {
+  const lines = items.flatMap((item) => {
+    const line = itemQuote(quote, item);
+    return line && !line.problem ? [line] : [];
+  });
+  if (!quote || lines.length < items.length) return null;
+  return quoteTotal(
+    lines.reduce((sum, line) => sum + (line.total_cents ?? 0), 0),
+    lines.filter((line) => line.to_be_agreed).length,
+  );
+}
+
+// An item's price on its own: the quote's total, or "Price to agree" for a rental or transfer;
+// null while the quote loads or when the item has a problem.
+export function itemPriceLabel(quote: ItemQuote | undefined) {
+  if (!quote || quote.problem || quote.total_cents === null) return null;
+  return quote.to_be_agreed ? "Price to agree" : formatPeso(quote.total_cents);
+}
+
 // Why an item can't be booked as it is: its listing is off (from the trip itself, so it
 // shows before the quote), or the quote's problem. A booked item has none.
 export function itemProblem(item: TripItem, quote: ItemQuote | undefined) {
@@ -126,6 +155,7 @@ export type CopyChanges = { name: string; guests: number; starts_on?: string };
 // Answers with the new trip and the items left out.
 export function useCopyTrip() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async ({ id, changes }: { id: number; changes: CopyChanges }) => {
       const { data, error } = await apiClient().POST("/api/v1/trips/{id}/copy", {
@@ -136,6 +166,7 @@ export function useCopyTrip() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
@@ -194,6 +225,7 @@ function useInvalidateTrips() {
 // typed one, otherwise by the server (after the destination and dates).
 export function useAddTripItem() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async ({
       request,
@@ -218,6 +250,7 @@ export function useAddTripItem() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
@@ -226,6 +259,7 @@ export type TripChanges = { name: string; guests: number; starts_on?: string | n
 // PATCH /trips/:id: rename, re-date or change the guests.
 export function useUpdateTrip() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async ({ id, changes }: { id: number; changes: TripChanges }) => {
       const { data, error } = await apiClient().PATCH("/api/v1/trips/{id}", {
@@ -236,6 +270,7 @@ export function useUpdateTrip() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
@@ -249,6 +284,7 @@ export type NewTrip = { name: string; guests: number; starts_on: string | null; 
 // POST /trips: a named trip planned before anything is in it ("Plan a new trip").
 export function useCreateTrip() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async (trip: NewTrip) => {
       const { data, error } = await apiClient().POST("/api/v1/trips", { body: trip });
@@ -256,24 +292,28 @@ export function useCreateTrip() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
 // DELETE /trips/:id, with its items.
 export function useDeleteTrip() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async (id: number) => {
       const { response, error } = await apiClient().DELETE("/api/v1/trips/{id}", { params: { path: { id } } });
       if (!response.ok) throw tripError(error, "Couldn't delete the trip. Try again.");
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
 // POST /trips/:id/merge: every item of `id` moves into `intoTripId`, and `id` is deleted.
 export function useMergeTrip() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async ({ id, intoTripId }: { id: number; intoTripId: number }) => {
       const { data, error } = await apiClient().POST("/api/v1/trips/{id}/merge", {
@@ -284,6 +324,7 @@ export function useMergeTrip() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
@@ -293,6 +334,7 @@ export type ItemChanges = { starts_on?: string | null; ends_on?: string | null; 
 // it ends up in.
 export function useUpdateTripItem() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async ({ id, changes }: { id: number; changes: ItemChanges }) => {
       const { data, error } = await apiClient().PATCH("/api/v1/trip_items/{id}", {
@@ -303,17 +345,20 @@ export function useUpdateTripItem() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
 // DELETE /trip_items/:id.
 export function useRemoveTripItem() {
   const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async (id: number) => {
       const { response, error } = await apiClient().DELETE("/api/v1/trip_items/{id}", { params: { path: { id } } });
       if (!response.ok) throw tripError(error, "Couldn't remove it. Try again.");
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Menu } from "@/components/ui/menu";
-import { Toast } from "@/components/ui/toast";
+import { Toast, type ToastTone } from "@/components/ui/toast";
 
 // Dialog holds no state of its own, so the UI kit opens it from here.
 export function DialogDemo() {
@@ -90,22 +90,30 @@ export function DialogDemo() {
   );
 }
 
-// Toast holds no state of its own either.
+// Toast holds no state of its own either. Pages show theirs through useToast() (ToastProvider).
 export function ToastDemo() {
-  const [message, setMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; tone: ToastTone } | null>(null);
 
   return (
     <>
-      <Button variant="soft" onClick={() => setMessage("Added to Bantayan Island · Nov 12–15")}>
-        Show toast
-      </Button>
+      <div className="flex flex-wrap gap-3">
+        <Button variant="soft" onClick={() => setToast({ message: "Added to Bantayan Island · Nov 12–15", tone: "default" })}>
+          Show toast
+        </Button>
+        <Button variant="soft" onClick={() => setToast({ message: "Couldn't remove it. Try again.", tone: "danger" })}>
+          Show error toast
+        </Button>
+      </div>
       <Toast
-        message={message}
-        onDismiss={() => setMessage(null)}
+        message={toast?.message ?? null}
+        tone={toast?.tone}
+        onDismiss={() => setToast(null)}
         actions={
-          <button type="button" onClick={() => setMessage(null)} className="hover:underline">
-            Rename
-          </button>
+          toast?.tone === "default" && (
+            <button type="button" onClick={() => setToast(null)} className="hover:underline">
+              Rename
+            </button>
+          )
         }
       />
     </>

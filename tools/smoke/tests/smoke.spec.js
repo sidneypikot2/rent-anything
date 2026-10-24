@@ -391,6 +391,7 @@ test("add to trip through sign-up", async ({ page }) => {
   await trip.getByTestId("item-action-remove").click();
   await page.getByTestId("remove-item-confirm").click();
   await expect(trip.getByTestId("cart-item")).toHaveCount(1);
+  await expect(page.getByTestId("cart-toast")).toContainText("Removed");
   await expect(page.getByTestId("nav-cart-count")).toHaveText("1");
 
   // Checkout (RAA-133): the item left is ticked; sending it makes a request that waits for its
@@ -398,8 +399,11 @@ test("add to trip through sign-up", async ({ page }) => {
   await expect(trip.getByTestId("cart-item-pick")).toBeChecked();
   await trip.getByTestId("cart-checkout").click();
   const checkout = page.getByTestId("checkout-sheet");
+  await expect(checkout.getByTestId("checkout-item-price")).toHaveCount(1);
+  await expect(checkout.getByTestId("checkout-total")).not.toHaveText("Working out the total…");
   await checkout.getByTestId("checkout-confirm").click();
   await expect(checkout.getByTestId("checkout-result").getByTestId("booking-status")).toHaveText("Request sent");
+  await expect(page.getByTestId("checkout-toast")).toContainText("Request sent to the partner");
   await checkout.getByRole("button", { name: "Done" }).click();
   await expect(trip.getByTestId("cart-item").getByTestId("booking-status")).toHaveText("Request sent");
   await expect(trip.getByTestId("cart-item-pick")).toHaveCount(0);

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
 import { tripError, tripsKey } from "@/components/trips/use-trips";
+import { useErrorToast } from "@/components/ui/toast";
 import { useSession } from "@/lib/auth/session";
 
 export type GuestBooking = components["schemas"]["guest_booking"];
@@ -59,6 +60,7 @@ export type BookingChanges = { starts_on: string; ends_on: string; guests: numbe
 // a request, holding the new dates until they answer; its trip item follows.
 export function useChangeBooking() {
   const invalidate = useInvalidateBookings();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async ({ id, changes }: { id: number; changes: BookingChanges }) => {
       const { data, error } = await apiClient().PATCH("/api/v1/bookings/{id}", {
@@ -69,6 +71,7 @@ export function useChangeBooking() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
@@ -79,6 +82,7 @@ export type CheckoutRequest = { tripId: number; itemIds: number[]; idempotencyKe
 // booking twice.
 export function useCheckout() {
   const invalidate = useInvalidateBookings();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async ({ tripId, itemIds, idempotencyKey }: CheckoutRequest) => {
       const { data, error } = await apiClient().POST("/api/v1/checkouts", {
@@ -88,6 +92,7 @@ export function useCheckout() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
@@ -95,6 +100,7 @@ export function useCheckout() {
 // confirms them. Payment is a stub until Xendit, so nothing is charged.
 export function usePayBookings() {
   const invalidate = useInvalidateBookings();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async (bookingIds: number[]) => {
       const { data, error } = await apiClient().POST("/api/v1/bookings/pay", { body: { booking_ids: bookingIds } });
@@ -102,12 +108,14 @@ export function usePayBookings() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 
 // POST /bookings/:id/cancel, with an optional reason.
 export function useCancelBooking() {
   const invalidate = useInvalidateBookings();
+  const failed = useErrorToast();
   return useMutation({
     mutationFn: async ({ id, reason }: { id: number; reason?: string }) => {
       const { data, error } = await apiClient().POST("/api/v1/bookings/{id}/cancel", {
@@ -118,6 +126,7 @@ export function useCancelBooking() {
       return data;
     },
     onSuccess: invalidate,
+    onError: failed,
   });
 }
 

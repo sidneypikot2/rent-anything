@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/components/ui/toast";
 import { getSession, useSession } from "@/lib/auth/session";
 import { EditTripSheet, type EditFocus } from "./edit-trip-sheet";
 import { formatDateRange } from "./format";
@@ -57,10 +57,6 @@ function takePending(pathname: string): PendingAdd | null {
   }
 }
 
-// What the toast says: an add or a save (with the trip, for Rename and Change dates), or
-// an error. The id restarts the toast's timer for each one.
-type Notice = { id: number; text: string; trip?: Trip };
-
 type Context = {
   // Starts adding a listing: sign-in first when signed out, then the add sheet.
   add: (request: AddRequest) => void;
@@ -90,12 +86,40 @@ export function TripAddProvider({ children, places }: { children: ReactNode; pla
     null,
   );
   const [busyListingId, setBusyListingId] = useState<number | null>(null);
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const toast = useToast();
   const [editing, setEditing] = useState<{ trip: Trip; focus: EditFocus } | null>(null);
   // One add at a time: a second tap while one is under way (or its sheet is open) waits.
   const inFlight = useRef(false);
 
-  const show = useCallback((text: string, trip?: Trip) => setNotice({ id: Date.now(), text, trip }), []);
+  const edit = useCallback(
+    (trip: Trip, focus: EditFocus) => {
+      setEditing({ trip, focus });
+      toast.dismiss();
+    },
+    [toast],
+  );
+
+  // The toast says what was added or saved, with the trip for Rename, Change dates and View trip.
+  const show = useCallback(
+    (text: string, trip: Trip) =>
+      toast.show(text, {
+        "data-testid": "trip-toast",
+        actions: (
+          <>
+            <button type="button" onClick={() => edit(trip, "name")} className="hover:underline">
+              Rename
+            </button>
+            <button type="button" onClick={() => edit(trip, "dates")} className="hover:underline">
+              Change dates
+            </button>
+            <Link href={`/cart?trip=${trip.id}`} data-testid="trip-toast-view" className="hover:underline">
+              View trip
+            </Link>
+          </>
+        ),
+      }),
+    [toast, edit],
+  );
 
   const added = useCallback(
     (trip: Trip, before?: Trip) => {
@@ -112,7 +136,7 @@ export function TripAddProvider({ children, places }: { children: ReactNode; pla
       if (inFlight.current) return;
       inFlight.current = true;
       setBusyListingId(request.listingId);
-      setNotice(null);
+      toast.dismiss();
       let sheetOpen = false;
       try {
         // The sheet confirms every add: the listing, its dates and guests, and the trip it goes
@@ -123,14 +147,17 @@ export function TripAddProvider({ children, places }: { children: ReactNode; pla
         setChoosing({ request, trips, target });
         sheetOpen = true;
       } catch (caught) {
-        show(caught instanceof Error ? caught.message : "Couldn't add it to your trip. Try again.");
+        toast.show(caught instanceof Error ? caught.message : "Couldn't add it to your trip. Try again.", {
+          tone: "danger",
+          "data-testid": "trip-toast",
+        });
       } finally {
         setBusyListingId(null);
         // An open sheet is still this add; closing it frees the next one.
         if (!sheetOpen) inFlight.current = false;
       }
     },
-    [fetchTrips, show, places],
+    [fetchTrips, toast, places],
   );
 
   const add = useCallback(
@@ -163,18 +190,10 @@ export function TripAddProvider({ children, places }: { children: ReactNode; pla
     queueMicrotask(() => void start({ listingId, title, range, bookingType, startsOn, endsOn, quantity, preview }, guestId));
   }, [guestId, pathname, start]);
 
-  const dismissNotice = useCallback(() => setNotice(null), []);
   const closeChoosing = useCallback(() => {
     setChoosing(null);
     inFlight.current = false;
   }, []);
-
-  function edit(trip: Trip, focus: EditFocus) {
-    setEditing({ trip, focus });
-    setNotice(null);
-  }
-
-  const noticeTrip = notice?.trip;
 
   return (
     <TripAddContext.Provider value={{ add, busyListingId }}>
@@ -223,28 +242,6 @@ export function TripAddProvider({ children, places }: { children: ReactNode; pla
           }}
         />
       )}
-
-      <Toast
-        data-testid="trip-toast"
-        message={notice?.text ?? null}
-        id={notice?.id}
-        onDismiss={dismissNotice}
-        actions={
-          noticeTrip && (
-            <>
-              <button type="button" onClick={() => edit(noticeTrip, "name")} className="hover:underline">
-                Rename
-              </button>
-              <button type="button" onClick={() => edit(noticeTrip, "dates")} className="hover:underline">
-                Change dates
-              </button>
-              <Link href={`/cart?trip=${noticeTrip.id}`} data-testid="trip-toast-view" className="hover:underline">
-                View trip
-              </Link>
-            </>
-          )
-        }
-      />
     </TripAddContext.Provider>
   );
 }

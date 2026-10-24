@@ -6,6 +6,7 @@ import { BookingStatusBadge } from "@/components/bookings/booking-status";
 import { tripHref } from "@/components/landing/launch-area";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
 import { formatDateRange, guestCount } from "./format";
 import { ItemEditSheet } from "./item-edit-sheet";
 import { useRemoveTripItem, type Trip, type TripItem } from "./use-trips";
@@ -28,6 +29,7 @@ export function HereItemsSheet({
   const items = trip.items.filter((item) => places.includes(item.area.slug));
   const [step, setStep] = useState<{ kind: "date" | "remove"; item: TripItem } | null>(null);
   const removeItem = useRemoveTripItem();
+  const toast = useToast();
   const empty = items.length === 0;
   useEffect(() => {
     if (empty) onClose();
@@ -40,7 +42,11 @@ export function HereItemsSheet({
   }
 
   if (step?.kind === "date")
-    return <ItemEditSheet trip={trip} item={step.item} onClose={back} onSaved={() => setStep(null)} />;
+    return <ItemEditSheet trip={trip} item={step.item} onClose={back} onSaved={() => {
+          setStep(null);
+          toast.show(`Saved ${step.item.listing.title}`);
+        }}
+      />;
 
   if (step?.kind === "remove")
     return (
@@ -59,7 +65,14 @@ export function HereItemsSheet({
               variant="danger"
               data-testid="remove-item-confirm"
               disabled={removeItem.isPending}
-              onClick={() => removeItem.mutate(step.item.id, { onSuccess: () => setStep(null) })}
+              onClick={() =>
+                removeItem.mutate(step.item.id, {
+                  onSuccess: () => {
+                    setStep(null);
+                    toast.show(`Removed ${step.item.listing.title} from ${trip.name}`);
+                  },
+                })
+              }
             >
               {removeItem.isPending ? "Removing…" : "Remove"}
             </Button>
