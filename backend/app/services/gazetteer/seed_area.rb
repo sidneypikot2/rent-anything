@@ -4,7 +4,8 @@ module Gazetteer
   #
   # 1. publishes the area and every area above it;
   # 2. matches them to Wikidata, so the area's own item is known before landmarks are looked up;
-  # 3. adds Wikidata's landmark-like items inside the area's boundary as draft landmarks (CC0;
+  # 3. adds Wikidata's landmark-like items inside the area's boundary, or within
+  #    ISLAND_MARGIN_METERS of an island's, as draft landmarks (CC0;
   #    OpenStreetMap is ruled out, db/gazetteer/README.md), skipping items another place holds
   #    and names or aliases the area's landmarks already answer to;
   # 4. enriches all the area's landmarks, drafts included, and refreshes search.
@@ -15,6 +16,11 @@ module Gazetteer
     MAX_LANDMARKS = 15
     DEFAULT_RADIUS_KM = 10
     MAX_RADIUS_KM = 40
+    # An island's outline is its landmass, so the islets, sandbars and reefs off it fall
+    # outside (RAA-170). Off Bantayan most are within 2.6 km, Virgin Island and Hilantagaan
+    # 2.4 and 3.5 km; mainland Cebu starts at 12.5 km. Not for towns and cities, whose
+    # outlines touch their neighbours'.
+    ISLAND_MARGIN_METERS = 5_000
 
     def initialize(area)
       @area = area
@@ -41,11 +47,16 @@ module Gazetteer
 
     def add_landmarks
       held = Area.where.not(wikidata_id: nil).pluck(:wikidata_id).to_set + Landmark.where.not(wikidata_id: nil).pluck(:wikidata_id)
-      taken = @area.landmarks.flat_map { [ _1.name, *_1.aliases, *_1.wikidata_aliases ] }.to_set { SearchTerm.normalize(_1) }
+      taken = @area.landmarks.flat_map { [ _1.name, *_1.aliases, *_1.wikidata_aliases ] }.to_set { name_key(_1) }
       center = @area.center
       items = Wikidata.landmarks_near(lat: center.y, lng: center.x, radius_km:)
-      items = items.reject { held.include?(_1[:id]) || taken.include?(SearchTerm.normalize(_1[:name])) }
-      items.select { inside?(_1) }.first(MAX_LANDMARKS).count { create_landmark(_1) }
+      items = items.reject { held.include?(_1[:id]) || taken.include?(name_key(_1[:name])) }
+      items.select { nearby?(_1) }.first(MAX_LANDMARKS).count { create_landmark(_1) }
+    end
+
+    # Silion and Silion Island are one place, as are Virgin Island and Virgin Islet.
+    def name_key(name)
+      SearchTerm.normalize(name).sub(/\s+(island|islet)\z/, "")
     end
 
     def create_landmark(item)
@@ -56,14 +67,21 @@ module Gazetteer
         location: "POINT(#{item[:lng]} #{item[:lat]})")
     end
 
-    def inside?(item)
+    # Inside the boundary, or off an island's coast and in no other area.
+    def nearby?(item)
       return true if @area.boundary.nil?
 
-      Area.where(id: @area.id)
-        .exists?([ "ST_Covers(boundary, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography)", item[:lng], item[:lat] ])
+      point = [ "ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography", item[:lng], item[:lat] ]
+      area = Area.where(id: @area.id)
+      return true if area.exists?([ "ST_Covers(boundary, #{point[0]})", *point[1..] ])
+      return false unless @area.island? &&
+        area.exists?([ "ST_DWithin(boundary, #{point[0]}, ?)", *point[1..], ISLAND_MARGIN_METERS ])
+
+      !Area.where(kind: Area::SERVING_KINDS).where.not(id: Area.subtree_of(@area).select(:id))
+        .exists?([ "ST_Covers(boundary, #{point[0]})", *point[1..] ])
     end
 
-    # Far enough from the center to reach the boundary's furthest corner.
+    # Far enough from the center to reach the boundary's furthest corner, and an island's margin.
     def radius_km
       return DEFAULT_RADIUS_KM if @area.boundary.nil?
 
@@ -75,6 +93,7 @@ module Gazetteer
           ST_Distance(center, ST_SetSRID(ST_MakePoint(ST_XMax(boundary::geometry), ST_YMin(boundary::geometry)), 4326)::geography)
         )
       SQL
+      meters += ISLAND_MARGIN_METERS if @area.island?
       (meters / 1000.0).ceil.clamp(DEFAULT_RADIUS_KM, MAX_RADIUS_KM)
     end
 
