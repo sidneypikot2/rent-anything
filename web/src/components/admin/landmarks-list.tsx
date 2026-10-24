@@ -26,10 +26,11 @@ const STATUS_OPTIONS = [
 
 // Every landmark, the places to see (over RAA-164's API): searched by name, slug or alias,
 // filtered by status, 50 a page, published first. A row opens its editor. Dense, like
-// Destinations: a work screen for the team.
-export function LandmarksList() {
+// Destinations: a work screen for the team. A link can open it on one destination's drafts
+// (`?area=<slug>&status=draft`, a seed run's, RAA-169).
+export function LandmarksList({ area = "", status = "" }: { area?: string; status?: LandmarkFilters["status"] }) {
   const [text, setText] = useState("");
-  const [filters, setFilters] = useState<LandmarkFilters>({ q: "", status: "", page: 1 });
+  const [filters, setFilters] = useState<LandmarkFilters>({ q: "", status, area, page: 1 });
   const landmarks = useAdminLandmarks(filters);
 
   // The search waits for typing to pause, and starts again from the first page.
@@ -66,6 +67,15 @@ export function LandmarksList() {
           onChange={(event) => setFilters({ ...filters, status: event.target.value as LandmarkFilters["status"], page: 1 })}
         />
       </div>
+
+      {filters.area && (
+        <p className="flex flex-wrap items-center gap-2 text-sm text-muted" data-testid="admin-landmarks-area">
+          Only those in {filters.area} and the places inside it.
+          <Button size="sm" variant="quiet" onClick={() => setFilters({ ...filters, area: "", page: 1 })}>
+            Show every destination&apos;s
+          </Button>
+        </p>
+      )}
 
       {landmarks.isPending ? (
         <div className="flex flex-col gap-2" aria-label="Loading places to see">

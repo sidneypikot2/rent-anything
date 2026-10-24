@@ -5,6 +5,13 @@ export const metadata: Metadata = {
   title: "Places to see",
 };
 
-export default function AdminLandmarksPage() {
-  return <LandmarksList />;
+export default async function AdminLandmarksPage({ searchParams }: PageProps<"/admin/landmarks">) {
+  const { area, status } = await searchParams;
+  return (
+    <LandmarksList
+      key={`${area}|${status}`}
+      area={typeof area === "string" ? area : undefined}
+      status={status === "draft" || status === "published" ? status : undefined}
+    />
+  );
 }

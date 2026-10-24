@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { LocationPicker } from "@/components/partner/location-picker";
 import { PHOTO_TYPES, photoProblem } from "@/components/partner/use-listing-photos";
 import { Badge } from "@/components/ui/badge";
@@ -13,16 +14,19 @@ import { Field } from "@/components/ui/field";
 import { Pill } from "@/components/ui/pill";
 import { SelectField } from "@/components/ui/select-field";
 import { TextareaField } from "@/components/ui/textarea-field";
-import { Toast } from "@/components/ui/toast";
+import { Toast, type ToastTone } from "@/components/ui/toast";
 import { DisplayTitle } from "@/components/ui/typography";
 import type { LatLng } from "@/lib/map";
 import { AreaStatusBadge, KIND_LABELS } from "./destinations-list";
+import { SeedButton, seedCounts, seededAt, seedOutcome } from "./seed-area";
 import {
+  isSeeding,
   useAdminArea,
   useAdminAreas,
   useAreaBanner,
   useAreaOptions,
   useSaveArea,
+  useSeedEnds,
   type AdminArea,
   type AdminAreaBody,
   type AreaKind,
@@ -128,6 +132,17 @@ export function slugify(name: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+// The form over a newer saved area (a seed run published it and set its Wikidata ID): each field
+// left as it was saved takes the new value, and each one being edited keeps the edit.
+function rebase(form: FormState, before: FormState, after: FormState): FormState {
+  return Object.fromEntries(
+    Object.entries(form).map(([key, value]) => {
+      const field = key as keyof FormState;
+      return [key, JSON.stringify(value) === JSON.stringify(before[field]) ? after[field] : value];
+    }),
+  ) as FormState;
+}
+
 // Why the form can't be sent yet; undefined when it can. The API checks everything again.
 function problemOf(form: FormState, isNew: boolean) {
   if (isNew && !form.name.trim()) return "Give the destination a name.";
@@ -171,9 +186,30 @@ function AreaForm({ area }: { area?: AdminArea }) {
   const [form, setForm] = useState(saved);
   const [slugTouched, setSlugTouched] = useState(!isNew);
   const [problem, setProblem] = useState<string>();
-  const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
+  const [toast, setToast] = useState<{ id: number; message: string; tone?: ToastTone } | null>(null);
   const save = useSaveArea();
   const options = useAreaOptions();
+
+  const show = useCallback(
+    (message: string, tone?: ToastTone) => setToast((last) => ({ id: (last?.id ?? 0) + 1, message, tone })),
+    [],
+  );
+  // A seed run that ends while the editor is open says how it went, and what it changed in the
+  // saved area shows in the form.
+  const seedEnded = useCallback(
+    (ended: AdminArea) => {
+      const { message, tone } = seedOutcome(ended);
+      show(message, tone);
+      const after = stateOf(ended);
+      setForm((current) => rebase(current, saved, after));
+      setSaved(after);
+    },
+    [show, saved],
+  );
+  useSeedEnds(
+    useMemo(() => (area ? [area] : []), [area]),
+    seedEnded,
+  );
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((last) => ({ ...last, [key]: value }));
@@ -194,7 +230,7 @@ function AreaForm({ area }: { area?: AdminArea }) {
           if (isNew || result.slug !== area.slug) return router.replace(`/admin/destinations/${result.slug}`);
           setSaved(stateOf(result));
           setForm(stateOf(result));
-          setToast((last) => ({ id: (last?.id ?? 0) + 1, message: `Saved ${result.name}.` }));
+          show(`Saved ${result.name}.`);
         },
       },
     );
@@ -226,6 +262,8 @@ function AreaForm({ area }: { area?: AdminArea }) {
           </p>
         )}
       </div>
+
+      {area && <SeedSection area={area} onProblem={(message) => show(message, "danger")} />}
 
       <form onSubmit={submit} noValidate className="flex flex-col gap-section" data-testid="admin-destination-form">
         <FormSection title="Basics">
@@ -412,7 +450,13 @@ function AreaForm({ area }: { area?: AdminArea }) {
         )}
       </FormSection>
 
-      <Toast message={toast?.message ?? null} id={toast?.id} onDismiss={() => setToast(null)} data-testid="admin-destination-toast" />
+      <Toast
+        message={toast?.message ?? null}
+        id={toast?.id}
+        tone={toast?.tone}
+        onDismiss={() => setToast(null)}
+        data-testid="admin-destination-toast"
+      />
     </main>
   );
 }
@@ -423,6 +467,60 @@ export function FormSection({ title, children }: { title: string; children: Reac
       <h2 className="font-display text-xl font-extrabold tracking-tight">{title}</h2>
       {children}
     </section>
+  );
+}
+
+// Seeding from Wikidata (RAA-169, over RAA-168's API): the button, then how the last run went —
+// what it added, with a link to the new drafts, and what Wikidata couldn't match.
+function SeedSection({ area, onProblem }: { area: AdminArea; onProblem: (message: string) => void }) {
+  const report = area.seed_report;
+  const ended = !isSeeding(area) && area.seeded_at;
+
+  return (
+    <FormSection title="Seed from Wikidata">
+      <p className="text-sm text-muted">
+        Publishes it and every area it sits in, adds Wikidata&apos;s places to see in and around it as drafts, and
+        gives it and its places to see Wikidata&apos;s names and popularity. Safe to run again: it skips what it
+        already has.
+      </p>
+      <div className="flex flex-wrap items-center gap-3" data-testid="admin-destination-seed-report">
+        <SeedButton area={area} onProblem={onProblem} />
+        <p className="text-sm text-muted" aria-live="polite">
+          {area.seed_status === "queued"
+            ? "Waiting to start…"
+            : area.seed_status === "running"
+              ? "Seeding: this takes a minute or two."
+              : !ended
+                ? "Not seeded yet."
+                : area.seed_status === "failed"
+                  ? `Last run, ${seededAt(ended)}, stopped: ${report.error ?? "something went wrong"}.`
+                  : `Last run, ${seededAt(ended)}: ${seedCounts(area)}.`}
+        </p>
+      </div>
+      {ended && (
+        <div className="flex flex-col gap-2 text-sm">
+          <Link
+            href={`/admin/landmarks?area=${encodeURIComponent(area.slug)}&status=draft`}
+            className="self-start font-semibold text-link hover:underline"
+            data-testid="admin-destination-seed-drafts"
+          >
+            Review its draft places to see
+          </Link>
+          {report.skipped.length > 0 && (
+            <details className="text-muted">
+              <summary className="cursor-pointer">
+                {report.skipped.length} {report.skipped.length === 1 ? "place" : "places"} Wikidata couldn&apos;t match
+              </summary>
+              <ul className="mt-2 flex list-disc flex-col gap-1 pl-5">
+                {report.skipped.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+    </FormSection>
   );
 }
 
