@@ -544,6 +544,187 @@ paths:
               - source
               - target
               - kind
+  "/api/v1/admin/landmarks":
+    get:
+      summary: List and search landmarks
+      tags:
+      - Admin
+      description: 'Admin-only. Every landmark (place to see), drafts included: published
+        first, then by name, 50 a page. `q` matches the name, slug or an alias; `area`
+        keeps the landmarks in that area or any area inside it.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - draft
+          - published
+      - name: area
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: searched by alias inside an area
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  landmarks:
+                    type: array
+                    items:
+                      "$ref": "#/components/schemas/admin_landmark_row"
+                  total:
+                    type: integer
+                required:
+                - landmarks
+                - total
+        '422':
+          description: an unknown status and area
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    post:
+      summary: Add a landmark
+      tags:
+      - Admin
+      description: 'Admin-only. Adds a landmark as a draft unless `status` says otherwise.
+        Its area is the one listings at that pin would be in: the smallest published
+        city, town or island whose boundary covers it, else the nearest one.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: a new draft in the area serving the pin
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_landmark"
+        '422':
+          description: a pin no destination serves
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/admin_landmark_body"
+  "/api/v1/admin/landmarks/{slug}":
+    parameters:
+    - name: slug
+      in: path
+      schema:
+        type: string
+      required: true
+    get:
+      summary: One landmark
+      tags:
+      - Admin
+      description: Admin-only. Drafts included.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the landmark
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_landmark"
+        '404':
+          description: no such landmark
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+    patch:
+      summary: Change a landmark
+      tags:
+      - Admin
+      description: Admin-only. Fields left out are kept. A new pin moves the landmark
+        to the area serving it.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: moved to the area serving its new pin
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_landmark"
+        '422':
+          description: an empty name
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/admin_landmark_body"
   "/api/v1/admin/link_suggestions":
     get:
       summary: Destination links suggested by search picks
@@ -7754,3 +7935,132 @@ components:
       required:
       - kinds
       - tags
+    admin_landmark_row:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+          - draft
+          - published
+        area:
+          "$ref": "#/components/schemas/area_ref"
+        visit_count:
+          type: integer
+          description: Listings that visit it
+      required:
+      - slug
+      - name
+      - status
+      - area
+      - visit_count
+    admin_landmark:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+          - draft
+          - published
+        area:
+          "$ref": "#/components/schemas/area_ref"
+        visit_count:
+          type: integer
+        description:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+        location:
+          type: object
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+          - lat
+          - lng
+        tags:
+          type: array
+          items:
+            "$ref": "#/components/schemas/tag"
+        wikidata_id:
+          type: string
+          nullable: true
+          description: Read-only, set by `bin/rails gazetteer:wikidata`
+        wikidata_aliases:
+          type: array
+          items:
+            type: string
+          description: Read-only, as wikidata_id
+        wikidata_popularity:
+          type: integer
+          description: Read-only, as wikidata_id
+      required:
+      - slug
+      - name
+      - status
+      - area
+      - visit_count
+      - description
+      - aliases
+      - location
+      - tags
+      - wikidata_id
+      - wikidata_aliases
+      - wikidata_popularity
+    admin_landmark_body:
+      type: object
+      description: 'On a change, a field left out is kept. name, slug and location
+        are required on a new one. The area is never sent: it is the one serving the
+        pin.'
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        slug:
+          type: string
+          description: Lowercase letters, digits and single dashes; unique
+        status:
+          type: string
+          enum:
+          - draft
+          - published
+        description:
+          type: string
+          maxLength: 5000
+        aliases:
+          type: array
+          items:
+            type: string
+            maxLength: 60
+          maxItems: 20
+        location:
+          type: object
+          properties:
+            lat:
+              type: number
+              minimum: -90
+              maximum: 90
+            lng:
+              type: number
+              minimum: -180
+              maximum: 180
+          required:
+          - lat
+          - lng
+        tag_slugs:
+          type: array
+          items:
+            type: string
+          description: Replaces the landmark's tags

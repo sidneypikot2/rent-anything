@@ -8,6 +8,9 @@ class Area < ApplicationRecord
   KINDS = %w[region province city town island].freeze
   STATUSES = %w[draft published].freeze
   # Top-level web paths an area slug would collide with.
+  # The areas a pin can be served by, and how far a center reaches without a boundary.
+  SERVING_KINDS = %w[city town island].freeze
+  SERVING_RADIUS_METERS = 50_000
   RESERVED_SLUGS = %w[partner admin search login register dashboard profile settings nearby cart trips listings].freeze
 
   belongs_to :parent, class_name: "Area", optional: true
@@ -73,6 +76,17 @@ class Area < ApplicationRecord
       )
     SQL
   }
+
+  # The destination guests find a pin (a WKT point) under, for a listing or a landmark: the
+  # smallest published city, town or island whose boundary covers it, or, where none has a
+  # boundary there yet, the one whose center is nearest. Both use the areas' GiST indexes.
+  def self.serving(point)
+    geography = "ST_GeogFromText(#{connection.quote("SRID=4326;#{point}")})"
+    areas = published.where(kind: SERVING_KINDS)
+    areas.where("ST_Covers(boundary, #{geography})").order(Arel.sql("ST_Area(boundary)")).first ||
+      areas.where("ST_DWithin(center, #{geography}, #{SERVING_RADIUS_METERS})")
+        .order(Arel.sql("ST_Distance(center, #{geography})")).first
+  end
 
   # The area and every area above it, nearest first: Santa Fe, Bantayan Island, Cebu, ...
   def lineage

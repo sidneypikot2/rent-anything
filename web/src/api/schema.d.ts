@@ -736,6 +736,232 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/landmarks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List and search landmarks
+         * @description Admin-only. Every landmark (place to see), drafts included: published first, then by name, 50 a page. `q` matches the name, slug or an alias; `area` keeps the landmarks in that area or any area inside it.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    status?: "draft" | "published";
+                    area?: string;
+                    page?: number;
+                };
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description searched by alias inside an area */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            landmarks: components["schemas"]["admin_landmark_row"][];
+                            total: number;
+                        };
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description an unknown status and area */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add a landmark
+         * @description Admin-only. Adds a landmark as a draft unless `status` says otherwise. Its area is the one listings at that pin would be in: the smallest published city, town or island whose boundary covers it, else the nearest one.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["admin_landmark_body"];
+                };
+            };
+            responses: {
+                /** @description a new draft in the area serving the pin */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_landmark"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a pin no destination serves */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/landmarks/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * One landmark
+         * @description Admin-only. Drafts included.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the landmark */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_landmark"];
+                    };
+                };
+                /** @description no such landmark */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a landmark
+         * @description Admin-only. Fields left out are kept. A new pin moves the landmark to the area serving it.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["admin_landmark_body"];
+                };
+            };
+            responses: {
+                /** @description moved to the area serving its new pin */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_landmark"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description an empty name */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/v1/admin/link_suggestions": {
         parameters: {
             query?: never;
@@ -7040,6 +7266,52 @@ export interface components {
         admin_area_options: {
             kinds: ("region" | "province" | "city" | "town" | "island")[];
             tags: components["schemas"]["tag"][];
+        };
+        admin_landmark_row: {
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            status: "draft" | "published";
+            area: components["schemas"]["area_ref"];
+            /** @description Listings that visit it */
+            visit_count: number;
+        };
+        admin_landmark: {
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            status: "draft" | "published";
+            area: components["schemas"]["area_ref"];
+            visit_count: number;
+            description: string;
+            aliases: string[];
+            location: {
+                lat: number;
+                lng: number;
+            };
+            tags: components["schemas"]["tag"][];
+            /** @description Read-only, set by `bin/rails gazetteer:wikidata` */
+            wikidata_id: string | null;
+            /** @description Read-only, as wikidata_id */
+            wikidata_aliases: string[];
+            /** @description Read-only, as wikidata_id */
+            wikidata_popularity: number;
+        };
+        /** @description On a change, a field left out is kept. name, slug and location are required on a new one. The area is never sent: it is the one serving the pin. */
+        admin_landmark_body: {
+            name?: string;
+            /** @description Lowercase letters, digits and single dashes; unique */
+            slug?: string;
+            /** @enum {string} */
+            status?: "draft" | "published";
+            description?: string;
+            aliases?: string[];
+            location?: {
+                lat: number;
+                lng: number;
+            };
+            /** @description Replaces the landmark's tags */
+            tag_slugs?: string[];
         };
     };
     responses: never;

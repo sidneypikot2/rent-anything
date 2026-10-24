@@ -66,6 +66,8 @@ Rails.application.routes.draw do
           resource :banner_photo, only: %i[create update destroy], controller: "area_photos"
         end
         resource :area_options, only: :show
+        # Landmarks, the places to see; their tags come from area_options.
+        resources :landmarks, only: %i[index show create update], param: :slug
       end
 
       namespace :partner do

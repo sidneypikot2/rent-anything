@@ -17,6 +17,8 @@ class Landmark < ApplicationRecord
 
   enum :status, STATUSES.index_with(&:itself), validate: true
 
-  validates :slug, presence: true, uniqueness: true
+  validates :slug, presence: true, uniqueness: true, format: { with: /\A[a-z0-9]+(-[a-z0-9]+)*\z/ }
   validates :name, :location, presence: true
+  validates :name, length: { maximum: 120 }
+  validates :description, length: { maximum: 5_000 }
 end
