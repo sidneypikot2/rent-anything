@@ -399,6 +399,8 @@ test("add to trip through sign-up", async ({ page }) => {
   await expect(trip.getByTestId("cart-item-pick")).toBeChecked();
   await trip.getByTestId("cart-checkout").click();
   const checkout = page.getByTestId("checkout-sheet");
+  await expect(checkout.getByTestId("checkout-item-price")).toHaveCount(1);
+  await expect(checkout.getByTestId("checkout-total")).not.toHaveText("Working out the total…");
   await checkout.getByTestId("checkout-confirm").click();
   await expect(checkout.getByTestId("checkout-result").getByTestId("booking-status")).toHaveText("Request sent");
   await expect(page.getByTestId("checkout-toast")).toContainText("Request sent to the partner");

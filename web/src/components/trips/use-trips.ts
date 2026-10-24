@@ -6,6 +6,7 @@ import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
 import { useErrorToast } from "@/components/ui/toast";
 import { useSession } from "@/lib/auth/session";
+import { formatPeso } from "@/lib/money";
 
 export type Trip = components["schemas"]["trip"];
 export type TripItem = components["schemas"]["trip_item"];
@@ -111,6 +112,33 @@ export function useTripQuote(tripId: number) {
 // The quote of one item, by id, once the trip's quote has loaded.
 export function itemQuote(quote: TripQuote | undefined, item: TripItem) {
   return quote?.items.find((line) => line.trip_item_id === item.id);
+}
+
+// "₱12,300", with what is priced with the partner after it: "₱12,300 + 1 to agree".
+export function quoteTotal(totalCents: number, toBeAgreed: number) {
+  if (toBeAgreed === 0) return formatPeso(totalCents);
+  if (totalCents > 0) return `${formatPeso(totalCents)} + ${toBeAgreed} to agree with the partner`;
+  return toBeAgreed === 1 ? "Price to agree with the partner" : `${toBeAgreed} prices to agree with the partner`;
+}
+
+// What the picked items come to, from the trip's quote.
+export function pickedTotal(quote: TripQuote | undefined, items: TripItem[]) {
+  const lines = items.flatMap((item) => {
+    const line = itemQuote(quote, item);
+    return line && !line.problem ? [line] : [];
+  });
+  if (!quote || lines.length < items.length) return null;
+  return quoteTotal(
+    lines.reduce((sum, line) => sum + (line.total_cents ?? 0), 0),
+    lines.filter((line) => line.to_be_agreed).length,
+  );
+}
+
+// An item's price on its own: the quote's total, or "Price to agree" for a rental or transfer;
+// null while the quote loads or when the item has a problem.
+export function itemPriceLabel(quote: ItemQuote | undefined) {
+  if (!quote || quote.problem || quote.total_cents === null) return null;
+  return quote.to_be_agreed ? "Price to agree" : formatPeso(quote.total_cents);
 }
 
 // Why an item can't be booked as it is: its listing is off (from the trip itself, so it

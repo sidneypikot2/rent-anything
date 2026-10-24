@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Menu } from "@/components/ui/menu";
 import { Pill } from "@/components/ui/pill";
-import { formatPeso } from "@/lib/money";
 import { bookingProgress } from "./cart-trip-nav";
 import { DeletionBanner } from "./deletion-banner";
 import type { EditFocus } from "./edit-trip-sheet";
@@ -24,7 +23,18 @@ import { TripItinerary } from "./trip-itinerary";
 import { tripDatesQuery } from "./trip-dates";
 import { missingStays, missingText, type Missing } from "./trip-missing";
 import { pastOutcome, tripPhase, tripTiming } from "./trip-phase";
-import { itemProblem, itemQuote, useTripQuote, type ItemQuote, type Trip, type TripItem, type TripQuote } from "./use-trips";
+import {
+  itemPriceLabel,
+  itemProblem,
+  itemQuote,
+  pickedTotal,
+  quoteTotal,
+  useTripQuote,
+  type ItemQuote,
+  type Trip,
+  type TripItem,
+  type TripQuote,
+} from "./use-trips";
 
 // What the cart does with a trip or one of its items; each opens a sheet, a dialog or the
 // item's panel. The Trips page (RAA-140) only opens items and recreates trips.
@@ -51,26 +61,6 @@ export type TripMode = "cart" | "trips";
 // holding its days (RAA-133) and while its listing can have it then (`unavailable`).
 export function bookable(item: TripItem) {
   return !item.booking && !item.unavailable && item.starts_on !== null && item.starts_on >= todayIso();
-}
-
-// "₱12,300", with what is priced with the partner after it: "₱12,300 + 1 to agree".
-export function quoteTotal(totalCents: number, toBeAgreed: number) {
-  if (toBeAgreed === 0) return formatPeso(totalCents);
-  if (totalCents > 0) return `${formatPeso(totalCents)} + ${toBeAgreed} to agree with the partner`;
-  return toBeAgreed === 1 ? "Price to agree with the partner" : `${toBeAgreed} prices to agree with the partner`;
-}
-
-// What the picked items come to, from the trip's quote.
-function pickedTotal(quote: TripQuote | undefined, items: TripItem[]) {
-  const lines = items.flatMap((item) => {
-    const line = itemQuote(quote, item);
-    return line && !line.problem ? [line] : [];
-  });
-  if (!quote || lines.length < items.length) return null;
-  return quoteTotal(
-    lines.reduce((sum, line) => sum + (line.total_cents ?? 0), 0),
-    lines.filter((line) => line.to_be_agreed).length,
-  );
 }
 
 // The trip picked in the cart (RAA-135): a header with its name, dates, guests and where it
@@ -447,10 +437,11 @@ function bookedToAgree(quote: TripQuote, items: TripItem[]) {
 // a short placeholder while the quote loads, nothing when it has a problem.
 function ItemPrice({ quote, quoting }: { quote: ItemQuote | undefined; quoting: boolean }) {
   if (quoting) return <span aria-hidden className="block h-4 w-16 rounded bg-mist motion-safe:animate-pulse" />;
-  if (!quote || quote.problem || quote.total_cents === null) return null;
+  const label = itemPriceLabel(quote);
+  if (!label) return null;
   return (
     <span className="text-sm font-semibold tabular-nums" data-testid="cart-item-price">
-      {quote.to_be_agreed ? "Price to agree" : formatPeso(quote.total_cents)}
+      {label}
     </span>
   );
 }

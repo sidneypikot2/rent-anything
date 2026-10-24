@@ -1,9 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { BoltGlyph } from "@/components/discovery/tag-glyphs";
-import { formatDateRange } from "@/components/trips/format";
-import type { Trip, TripItem } from "@/components/trips/use-trips";
+import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
+import { formatDateRange, guestCount } from "@/components/trips/format";
+import {
+  itemPriceLabel,
+  itemQuote,
+  pickedTotal,
+  useTripQuote,
+  type Trip,
+  type TripItem,
+} from "@/components/trips/use-trips";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
@@ -69,7 +76,7 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
         )
       }
     >
-      {result ? <Booked result={result} /> : <Picked items={items} />}
+      {result ? <Booked result={result} /> : <Picked trip={trip} items={items} />}
       {checkout.error && (
         <p role="alert" data-testid="checkout-error" className="text-sm text-danger">
           {checkout.error.message}
@@ -92,28 +99,52 @@ function bookedTitle(result: Checkout) {
   return result.bookings.every((booking) => booking.status === "confirmed") ? "You're booked" : "Sent";
 }
 
-function Picked({ items }: { items: TripItem[] }) {
+// What will be sent, with each item's price from the trip's quote (cached from the cart) and
+// what they come to, so the guest checks it before sending. One note for all of them.
+function Picked({ trip, items }: { trip: Trip; items: TripItem[] }) {
+  const quote = useTripQuote(trip.id);
+  const total = pickedTotal(quote.data, items);
+  const requests = items.some((item) => !item.listing.instant_book);
+
   return (
     <div className="flex flex-col gap-4">
       <ul className="flex flex-col divide-y divide-line rounded-control border border-line">
-        {items.map((item) => (
-          <li key={item.id} className="flex flex-col gap-0.5 px-3 py-2.5">
-            <span className="font-semibold">{item.listing.title}</span>
-            <span className="text-sm text-muted">{formatDateRange(item.starts_on, item.ends_on)}</span>
-            <span className="flex items-center gap-1.5 text-sm">
-              {item.listing.instant_book ? (
-                <>
-                  <BoltGlyph className="size-4 text-primary" />
-                  Instant book: booked straight away
-                </>
+        {items.map((item) => {
+          const dates = formatDateRange(item.starts_on, item.ends_on);
+          const price = itemPriceLabel(itemQuote(quote.data, item));
+          return (
+            <li key={item.id} className="flex items-start justify-between gap-3 px-3 py-2.5">
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="flex flex-wrap items-center gap-2 font-semibold">
+                  {item.listing.title}
+                  {item.listing.instant_book && <InstantBookBadge small />}
+                </span>
+                <span className="text-sm text-muted">
+                  {dates ? `${dates} · ` : ""}
+                  {guestCount(item.quantity)}
+                </span>
+              </span>
+              {quote.isPending ? (
+                <span aria-hidden className="mt-1 block h-4 w-16 shrink-0 rounded bg-mist motion-safe:animate-pulse" />
               ) : (
-                "Request to book: the partner has 24 hours to accept, your dates held meanwhile"
+                price && (
+                  <span className="shrink-0 text-sm font-semibold tabular-nums" data-testid="checkout-item-price">
+                    {price}
+                  </span>
+                )
               )}
-            </span>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
+      <p className="flex justify-between gap-3 text-sm font-semibold">
+        <span>Total</span>
+        <span className="text-right tabular-nums" data-testid="checkout-total">
+          {total ?? (quote.isPending ? "Working out the total…" : "—")}
+        </span>
+      </p>
       <p className="text-sm text-muted">
+        {requests && "Each partner has 24 hours to accept, and your dates are held meanwhile. "}
         Each price is worked out from the listing&apos;s calendar when you send it. You&apos;ll see each answer in your cart,
         and pay there once a partner accepts. Payments aren&apos;t live yet, so nothing is charged.
       </p>
