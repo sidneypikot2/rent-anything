@@ -92,12 +92,16 @@ module Gazetteer
     def radius_km
       return DEFAULT_RADIUS_KM if @area.boundary.nil?
 
-      xmin, ymin, xmax, ymax = own_areas.where.not(boundary: nil).pick(
-        *%w[XMin YMin XMax YMax].map { Arel.sql("ST_#{_1}(ST_Extent(boundary::geometry))") }
-      )
-      corners = [ [ xmin, ymin ], [ xmin, ymax ], [ xmax, ymin ], [ xmax, ymax ] ]
-      distances = corners.map { "ST_Distance(center, ST_SetSRID(ST_MakePoint(#{Float(_1)}, #{Float(_2)}), 4326)::geography)" }
-      meters = Area.where(id: @area.id).pick(Arel.sql("GREATEST(#{distances.join(', ')})"))
+      meters = Area.connection.select_value(Area.sanitize_sql_array([ <<~SQL.squish, own_areas.where.not(boundary: nil).ids, @area.id ]))
+        SELECT GREATEST(
+          ST_Distance(area.center, ST_SetSRID(ST_MakePoint(ST_XMin(ext.box), ST_YMin(ext.box)), 4326)::geography),
+          ST_Distance(area.center, ST_SetSRID(ST_MakePoint(ST_XMin(ext.box), ST_YMax(ext.box)), 4326)::geography),
+          ST_Distance(area.center, ST_SetSRID(ST_MakePoint(ST_XMax(ext.box), ST_YMin(ext.box)), 4326)::geography),
+          ST_Distance(area.center, ST_SetSRID(ST_MakePoint(ST_XMax(ext.box), ST_YMax(ext.box)), 4326)::geography)
+        )
+        FROM (SELECT ST_Extent(boundary::geometry) AS box FROM areas WHERE id IN (?)) AS ext, areas AS area
+        WHERE area.id = ?
+      SQL
       meters += ISLAND_MARGIN_METERS if @area.island?
       (meters / 1000.0).ceil.clamp(DEFAULT_RADIUS_KM, MAX_RADIUS_KM)
     end
