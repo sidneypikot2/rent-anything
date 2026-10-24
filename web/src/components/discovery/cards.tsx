@@ -15,6 +15,7 @@ import { placeIcon } from "./icons";
 import { InstantBookBadge } from "./instant-book-badge";
 import type { LandmarkVisit } from "./area-map-pins";
 import type { Feature } from "./listing-features";
+import { LandmarkLine, LandmarkToursButton, type LandmarkTour } from "./landmark-tours";
 import { ListingPhotos } from "./listing-photos";
 import { DetailPanelButton, LandmarkPanel, ListingPanel, PanelActions, PanelPhoto } from "./detail-panel";
 import { ListingRowDetails } from "./listing-row-details";
@@ -313,6 +314,8 @@ export function LandmarkCard({
   landmark,
   photo,
   visits,
+  tours,
+  dates,
   areaName,
   reach,
 }: {
@@ -321,6 +324,11 @@ export function LandmarkCard({
   photo: Photo | null;
   // The rows on the page that go there: the card's foot links to the first.
   visits?: LandmarkVisit[];
+  // Those rows as its tour list shows them: the foot then opens the list rather than jumping to
+  // the first, and the card says when a tour in the trip goes there.
+  tours?: LandmarkTour[];
+  // The page's dates and guests, for the tour list's Add to trip.
+  dates?: TripDates;
   areaName: string;
   // With no tour going there, how to get there yourself (ReachYourself) in the foot instead.
   reach?: ReactNode;
@@ -352,13 +360,13 @@ export function LandmarkCard({
               {landmark.name}
             </DetailPanelButton>
           </h3>
-          {landmark.tags.length > 0 && (
-            <p className="truncate text-sm text-sky-mist">{landmark.tags.map((tag) => tag.name).join(" · ")}</p>
-          )}
+          <LandmarkLine tags={landmark.tags.map((tag) => tag.name).join(" · ")} tours={tours ?? []} />
         </>
       }
       foot={
-        goes && visits ? (
+        goes && tours && tours.length > 0 && dates ? (
+          <LandmarkToursButton place={landmark.name} label={goes} tours={tours} dates={dates} />
+        ) : goes && visits ? (
           // A plain anchor: the row is on this page, and What to book shows it whatever section is
           // picked (it listens for the hash). Above the title's stretched button.
           <a

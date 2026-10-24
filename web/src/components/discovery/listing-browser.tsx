@@ -282,8 +282,8 @@ export function ListingBrowser({
                 data-testid="trip-plan-button"
                 aria-label={planSummary.missing > 0 ? `Your plan: ${planSummary.missing} missing` : "Your plan"}
                 className={cn(
-                  "flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-navy bg-surface px-4 text-sm font-semibold whitespace-nowrap text-navy transition-colors duration-300 ease-calm hover:bg-mist",
-                  rail && "lg:mb-1 lg:grid lg:grid-cols-[1.75rem_minmax(0,1fr)_auto] lg:gap-2.5 lg:rounded-control lg:border-line lg:px-2.5 lg:py-2 lg:text-left",
+                  "flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-navy bg-mist px-4 text-sm font-semibold whitespace-nowrap text-navy transition-colors duration-300 ease-calm hover:bg-sky-mist",
+                  rail && "lg:mb-1 lg:bg-surface lg:hover:bg-mist lg:grid lg:grid-cols-[1.75rem_minmax(0,1fr)_auto] lg:gap-2.5 lg:rounded-control lg:border-line lg:px-2.5 lg:py-2 lg:text-left",
                 )}
               >
                 <span aria-hidden className={cn("flex items-center justify-center", rail && "lg:size-7 lg:rounded-lg lg:bg-navy lg:text-white")}>
@@ -315,7 +315,11 @@ export function ListingBrowser({
                     rail && "lg:grid lg:grid-cols-[1.75rem_minmax(0,1fr)_2.5ch] lg:gap-2.5 lg:rounded-control lg:border-0 lg:px-2.5 lg:py-2 lg:text-left lg:whitespace-normal",
                     on
                       ? cn("border-navy bg-navy text-white", rail && "lg:bg-mist lg:text-primary")
-                      : cn("border-line bg-surface text-foreground hover:border-line-strong", rail && "lg:hover:bg-surface-2"),
+                      : cn(
+                          // Tinted, not white: white pills on the white sheet read as labels, not buttons.
+                          "border-line-2 bg-mist text-navy hover:border-primary",
+                          rail && "lg:bg-surface lg:text-foreground lg:hover:bg-surface-2",
+                        ),
                   )}
                 >
                   <span
@@ -401,11 +405,13 @@ export function ListingBrowser({
                       onClick={() => openFilters(group.id)}
                       data-testid="section-filter"
                       className={cn(
-                        "relative flex size-11 shrink-0 items-center justify-center rounded-full border text-primary transition-colors duration-300 ease-calm",
-                        set > 0 ? "border-line-2 bg-mist" : "border-line bg-surface hover:border-line-strong",
+                        // A labelled, tinted pill: a bare white icon circle went unnoticed in testing.
+                        "relative flex h-11 shrink-0 items-center gap-2 rounded-full border bg-mist px-4 text-control font-semibold text-primary transition-colors duration-300 ease-calm",
+                        set > 0 ? "border-primary" : "border-line-2 hover:border-primary",
                       )}
                     >
                       <FilterGlyph className="size-5" />
+                      Filter
                       {set > 0 && (
                         <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-bold text-white tabular-nums">
                           {set}

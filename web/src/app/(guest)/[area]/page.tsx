@@ -18,6 +18,7 @@ import { countLine, LandmarkCard, PHOTO_CARD, PHOTO_CARD_IMAGE } from "@/compone
 import { ExploreSections, withoutShown } from "@/components/discovery/explore-sections";
 import { areaIcon } from "@/components/discovery/icons";
 import { ListingBrowser } from "@/components/discovery/listing-browser";
+import type { LandmarkTour } from "@/components/discovery/landmark-tours";
 import { listingFeatures, type Feature } from "@/components/discovery/listing-features";
 import { SectionOrder } from "@/components/discovery/section-order";
 import { PlacesGrid } from "@/components/discovery/places-grid";
@@ -168,6 +169,28 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     const kind = tour && `${guestTourTypeLabel(tour.tour_type)} · ${groupText(tour.min_guests, tour.max_guests)}`;
     return [...(kind ? [{ icon: "guests", label: kind }] : []), ...listingFeatures(listing)];
   };
+  // The same rows as the place's tour list shows them, priced and with Add to trip as in What to book.
+  const toursOf = (landmark: (typeof landmarks)[number]): LandmarkTour[] =>
+    landmark.visited_by.flatMap((id) => {
+      const listing = listingById.get(id);
+      if (!listing) return [];
+      const priceUnit = listing.price_from_cents ? priceUnitText(listing.price_unit) : null;
+      return [
+        {
+          id,
+          title: listing.title,
+          by: byLine(listing),
+          category: listing.category,
+          photo: photosOf(listing)[0] ?? null,
+          price: listing.price_from_cents
+            ? { prefix: "from", amount: formatPeso(listing.price_from_cents), unit: priceUnit ?? undefined }
+            : undefined,
+          unpriced: pricedByText(listing.booking_type),
+          listing: { id: listing.id, title: listing.title, booking_type: listing.booking_type },
+          preview: addPreview(listing, byLine(listing)),
+        },
+      ];
+    });
   // The map's pins, reusing what the rows and cards show, so a pin's pop-up and panel match.
   const rowInfo = new Map<number, ListingPanelInfo>(
     needs.flatMap((need) =>
@@ -329,6 +352,8 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                   landmark={landmark}
                                   photo={photos[index]}
                                   visits={visitsOf(landmark)}
+                                  tours={toursOf(landmark)}
+                                  dates={dates}
                                   areaName={area.name}
                                   reach={
                                     landmarkPoints.has(landmark.slug) && (
