@@ -145,8 +145,8 @@ function Picked({ trip, items }: { trip: Trip; items: TripItem[] }) {
       </p>
       <p className="text-sm text-muted">
         {requests && "Each partner has 24 hours to accept, and your dates are held meanwhile. "}
-        Each price is worked out from the listing&apos;s calendar when you send it. You&apos;ll see each answer in your cart,
-        and pay there once a partner accepts. Payments aren&apos;t live yet, so nothing is charged.
+        You&apos;ll see each answer in your cart, and pay there once a partner accepts. Payments aren&apos;t live yet, so
+        nothing is charged.
       </p>
     </div>
   );
