@@ -26,7 +26,8 @@ services:
     restart: unless-stopped
     env_file: ./backend.env
     environment:
-      RAILS_ENV: production
+      # Its own Rails env (RAA-172): config/environments/staging.rb loads production.rb.
+      RAILS_ENV: staging
       # The image was built without these gem groups (deploy-staging.yml); Bundler has to be
       # told again at runtime, or it looks for them and Rails won't boot.
       BUNDLE_WITHOUT: development:test

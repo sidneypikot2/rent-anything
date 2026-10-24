@@ -11,6 +11,8 @@ development:
 test:
   <<: *default
 
-production:
+production: &deployed
   database: cache
   <<: *default
+
+staging: *deployed

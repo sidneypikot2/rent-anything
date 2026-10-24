@@ -19,10 +19,10 @@ test:
   <<: *default
   database: rent_anything_test
 
-# Production (not deployed yet) reads DATABASE_URL, CACHE_DATABASE_URL and QUEUE_DATABASE_URL
+# Staging and production (not deployed yet) read DATABASE_URL, CACHE_DATABASE_URL and QUEUE_DATABASE_URL
 # (postgis:// scheme for the primary). Solid Cache and Solid Queue keep their own databases there,
 # loaded from db/cache_schema.rb and db/queue_schema.rb.
-production:
+production: &deployed
   primary:
     <<: *default
     url: <%= ENV["DATABASE_URL"] %>
@@ -36,3 +36,5 @@ production:
     adapter: postgresql
     url: <%= ENV["QUEUE_DATABASE_URL"] %>
     migrations_paths: db/queue_migrate
+
+staging: *deployed
