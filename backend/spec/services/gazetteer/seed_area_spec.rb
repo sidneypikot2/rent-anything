@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe Gazetteer::SeedArea do
-  # A square island around Santa Fe; Hilantagaan sits just off it, outside the boundary.
+  # A square island around Santa Fe; Hilantagaan sits about 3 km off it, inside the margin.
   let!(:cebu) { create(:area, :draft, slug: "cebu", name: "Cebu", kind: "province", center: "POINT(123.8 10.3)") }
   let!(:bantayan) do
     create(:area, :draft, slug: "bantayan-island", name: "Bantayan Island", kind: "island", parent: cebu,
@@ -40,16 +40,71 @@ RSpec.describe Gazetteer::SeedArea do
     expect([ cebu, bantayan ].map { _1.reload.status }).to eq(%w[published published])
   end
 
-  it "adds the Wikidata landmarks inside the boundary as drafts, skipping the area itself and names it already has" do
+  it "adds the Wikidata landmarks on or just off the island as drafts, skipping the area itself and names it has" do
     described_class.call(bantayan)
 
     added = bantayan.landmarks.where.not(id: kota.id).order(:slug)
     expect(added.map { [ _1.slug, _1.name, _1.status, _1.wikidata_id ] }).to eq([
       [ "bantayan-church", "Bantayan Church", "draft", "Q56063677" ],
-      [ "bantayan-lighthouse", "Bantayan Lighthouse", "draft", "Q47482456" ]
+      [ "bantayan-lighthouse", "Bantayan Lighthouse", "draft", "Q47482456" ],
+      [ "hilantagaan-island", "Hilantagaan Island", "draft", "Q6192651" ]
     ])
     expect(Wikidata).to have_received(:landmarks_near)
       .with(lat: be_within(0.001).of(11.2), lng: be_within(0.001).of(123.75), radius_km: be_between(10, 40))
+  end
+
+  it "takes a name with or without Island or Islet as one the area already has" do
+    create(:landmark, slug: "virgin-island", name: "Virgin Island", area: bantayan, location: "POINT(123.847 11.15)",
+      aliases: [ "Silion Island" ])
+    near << { id: "Q7515087", name: "Silion", lng: 123.847, lat: 11.15, sitelinks: 2 }
+    near << { id: "Q95", name: "Virgin Islet", lng: 123.847, lat: 11.15, sitelinks: 1 }
+
+    described_class.call(bantayan)
+
+    expect(Landmark.where(wikidata_id: %w[Q7515087 Q95])).to be_empty
+  end
+
+  it "takes what a town under the island covers, however far off: its outlying islands" do
+    create(:area, :draft, slug: "santa-fe", name: "Santa Fe", kind: "town", parent: bantayan,
+      center: "POINT(123.8 11.17)",
+      boundary: "MULTIPOLYGON(((123.78 11.15, 123.82 11.15, 123.82 11.19, 123.78 11.19, 123.78 11.15)), " \
+        "((123.95 11.35, 124.0 11.35, 124.0 11.4, 123.95 11.4, 123.95 11.35)))")
+    near << { id: "Q5616615", name: "Guintacan", lng: 123.97, lat: 11.37, sitelinks: 3 }
+
+    described_class.call(bantayan)
+
+    expect(Landmark.find_by(wikidata_id: "Q5616615")).to have_attributes(area: bantayan, status: "draft")
+    expect(Wikidata).to have_received(:landmarks_near).with(hash_including(radius_km: be > 30))
+  end
+
+  it "leaves out what is further off an island than the margin" do
+    near << { id: "Q91", name: "Far Islet", lng: 123.93, lat: 11.2, sitelinks: 1 }
+
+    described_class.call(bantayan)
+
+    expect(Landmark.exists?(wikidata_id: "Q91")).to be(false)
+  end
+
+  it "leaves out what is within the margin but inside another area" do
+    create(:area, slug: "hagnaya", name: "Hagnaya", kind: "town", parent: cebu, center: "POINT(123.88 11.13)",
+      boundary: "MULTIPOLYGON(((123.86 11.12, 123.9 11.12, 123.9 11.14, 123.86 11.14, 123.86 11.12)))")
+    near << { id: "Q92", name: "Hagnaya Port", lng: 123.87, lat: 11.13, sitelinks: 1 }
+
+    described_class.call(bantayan)
+
+    expect(Landmark.exists?(wikidata_id: "Q92")).to be(false)
+  end
+
+  it "gives a town no margin: its neighbours' outlines touch it" do
+    santa_fe = create(:area, :draft, slug: "santa-fe", name: "Santa Fe", kind: "town", parent: bantayan,
+      center: "POINT(123.8 11.17)",
+      boundary: "MULTIPOLYGON(((123.78 11.15, 123.82 11.15, 123.82 11.19, 123.78 11.19, 123.78 11.15)))")
+    near.replace([ { id: "Q93", name: "Inside", lng: 123.8, lat: 11.17, sitelinks: 1 },
+      { id: "Q94", name: "Just Outside", lng: 123.825, lat: 11.17, sitelinks: 1 } ])
+
+    described_class.call(santa_fe)
+
+    expect(santa_fe.landmarks.pluck(:wikidata_id)).to eq([ "Q93" ])
   end
 
   it "gives a new landmark a slug no other landmark has" do
@@ -72,7 +127,7 @@ RSpec.describe Gazetteer::SeedArea do
     described_class.call(bantayan)
 
     expect(bantayan.reload).to have_attributes(seed_status: "done", seeded_at: be_within(1.minute).of(Time.current))
-    expect(bantayan.seed_report).to include("landmarks_added" => 2, "enriched" => 3)
+    expect(bantayan.seed_report).to include("landmarks_added" => 3, "enriched" => 4)
     expect(bantayan.seed_report["skipped"]).to include("Landmark kota-beach: no Wikidata item matches")
   end
 
