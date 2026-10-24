@@ -61,6 +61,11 @@ Rails.application.routes.draw do
         resources :search_terms, only: :create
         resources :link_suggestions, only: :index
         resources :destination_links, only: :create
+        # Destinations, their details and banner photo (RAA-164).
+        resources :areas, only: %i[index show create update], param: :slug do
+          resource :banner_photo, only: %i[create update destroy], controller: "area_photos"
+        end
+        resource :area_options, only: :show
       end
 
       namespace :partner do

@@ -18,6 +18,11 @@ class Area < ApplicationRecord
   # Read both ends through DestinationLink.for; these only clean up.
   has_many :destination_links_as_source, class_name: "DestinationLink", as: :source, dependent: :delete_all
   has_many :destination_links_as_target, class_name: "DestinationLink", as: :target, dependent: :delete_all
+  # What the team writes about it in the admin console (RAA-164): tags picked for the area
+  # itself (its activities elsewhere come from its landmarks' tags) and a banner photo.
+  has_many :area_tags, dependent: :delete_all
+  has_many :tags, through: :area_tags
+  has_one :banner_photo, class_name: "AreaPhoto", dependent: :destroy
 
   enum :kind, KINDS.index_with(&:itself), validate: true
   enum :status, STATUSES.index_with(&:itself), validate: true
@@ -25,6 +30,14 @@ class Area < ApplicationRecord
   validates :slug, presence: true, uniqueness: true, format: { with: /\A[a-z0-9]+(-[a-z0-9]+)*\z/ },
     exclusion: { in: RESERVED_SLUGS, message: "is reserved" }
   validates :name, :center, presence: true
+  validates :name, length: { maximum: 120 }
+  validates :tagline, length: { maximum: 120 }
+  validates :description, length: { maximum: 5_000 }
+  validates :getting_there, length: { maximum: 2_000 }
+  validates :best_time_to_visit, length: { maximum: 200 }
+  validates :psgc_code, format: { with: /\A\d{10}\z/, message: "must be 10 digits" }, uniqueness: true, allow_nil: true
+  validates :wikidata_id, format: { with: /\AQ\d+\z/, message: "must look like Q123" }, uniqueness: true, allow_nil: true
+  validate :parent_outside_subtree, if: -> { persisted? && parent_id_changed? && parent_id }
 
   # Published areas with something to book: at least one active listing in the area itself.
   scope :bookable, -> { published.where(id: Listing.active.select(:area_id)) }
@@ -84,5 +97,12 @@ class Area < ApplicationRecord
   # island to that island.
   def island
     lineage.find { |area| area.island? && area.published? }
+  end
+
+  private
+
+  # An area can't sit under itself or under any area inside it.
+  def parent_outside_subtree
+    errors.add(:parent, "can't be this area or one inside it") if Area.subtree_of(self).exists?(parent_id)
   end
 end

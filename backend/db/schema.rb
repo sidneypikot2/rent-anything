@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_23_110000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_24_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -24,6 +24,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_110000) do
   create_enum "booking_status", ["confirmed", "cancelled", "requested", "accepted", "awaiting_payment", "in_progress", "completed", "declined", "expired"]
   create_enum "listing_status", ["draft", "active", "paused", "delisted"]
   create_enum "payout_account_kind", ["bank", "gcash", "maya"]
+
+  create_table "area_photos", force: :cascade do |t|
+    t.bigint "area_id", null: false
+    t.string "filename", null: false
+    t.string "content_type", null: false
+    t.bigint "byte_size", null: false
+    t.string "checksum", null: false
+    t.datetime "uploaded_at"
+    t.datetime "sized_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["area_id"], name: "index_area_photos_on_area_id", unique: true
+    t.index ["created_at"], name: "index_area_photos_unfinished", where: "(uploaded_at IS NULL)"
+    t.check_constraint "byte_size > 0", name: "area_photos_byte_size_check"
+    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "area_photos_content_type_check"
+  end
+
+  create_table "area_tags", primary_key: ["area_id", "tag_id"], force: :cascade do |t|
+    t.bigint "area_id", null: false
+    t.bigint "tag_id", null: false
+    t.index ["tag_id"], name: "index_area_tags_on_tag_id"
+  end
 
   create_table "areas", force: :cascade do |t|
     t.bigint "parent_id"
@@ -40,6 +62,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_110000) do
     t.string "wikidata_id"
     t.string "wikidata_aliases", default: [], null: false, array: true
     t.integer "wikidata_popularity", default: 0, null: false
+    t.string "tagline", default: "", null: false
+    t.text "description", default: "", null: false
+    t.text "getting_there", default: "", null: false
+    t.string "best_time_to_visit", default: "", null: false
     t.index ["boundary"], name: "index_areas_on_boundary", using: :gist
     t.index ["center"], name: "index_areas_on_center", using: :gist
     t.index ["parent_id"], name: "index_areas_on_parent_id"
@@ -47,6 +73,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_110000) do
     t.index ["slug"], name: "index_areas_on_slug", unique: true
     t.index ["status"], name: "index_areas_on_status"
     t.index ["wikidata_id"], name: "index_areas_on_wikidata_id", unique: true, where: "(wikidata_id IS NOT NULL)"
+    t.check_constraint "char_length(tagline::text) <= 120", name: "areas_tagline_length_check"
     t.check_constraint "kind::text = ANY (ARRAY['region'::character varying::text, 'province'::character varying::text, 'city'::character varying::text, 'town'::character varying::text, 'island'::character varying::text])", name: "areas_kind_check"
     t.check_constraint "psgc_code::text ~ '^[0-9]{10}$'::text", name: "areas_psgc_code_check"
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'published'::character varying::text])", name: "areas_status_check"
@@ -613,6 +640,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_110000) do
     t.check_constraint "weekly_price_cents > 0", name: "vehicle_rates_weekly_price_check"
   end
 
+  add_foreign_key "area_photos", "areas", on_delete: :cascade
+  add_foreign_key "area_tags", "areas", on_delete: :cascade
+  add_foreign_key "area_tags", "tags", on_delete: :cascade
   add_foreign_key "areas", "areas", column: "parent_id"
   add_foreign_key "availability_blocks", "listings", on_delete: :cascade
   add_foreign_key "booking_events", "bookings"

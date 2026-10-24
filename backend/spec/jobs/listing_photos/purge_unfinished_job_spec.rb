@@ -11,4 +11,13 @@ RSpec.describe ListingPhotos::PurgeUnfinishedJob do
       .and have_enqueued_job(ListingPhotos::DeleteFilesJob).exactly(:once)
     expect(ListingPhoto.exists?(abandoned.id)).to be(false)
   end
+
+  it "deletes an area banner never confirmed too" do
+    attributes = { filename: "beach.jpg", content_type: "image/jpeg", byte_size: 505, checksum: "1B2M2Y8AsgTpgAmY7PhCfg==" }
+    AreaPhoto.create!(area: create(:area), created_at: 3.days.ago, **attributes)
+    kept = AreaPhoto.create!(area: create(:area), created_at: 3.days.ago, uploaded_at: 3.days.ago, **attributes)
+
+    expect { described_class.perform_now }.to change(AreaPhoto, :count).by(-1)
+    expect(AreaPhoto.sole).to eq(kept)
+  end
 end

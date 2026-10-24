@@ -1,6 +1,11 @@
 ---
 paths:
   - "backend/app/models/listing_photo.rb"
+  - "backend/app/models/area_photo.rb"
+  - "backend/app/models/concerns/stored_photo.rb"
+  - "backend/app/services/concerns/photo_upload_values.rb"
+  - "backend/app/services/area_photos/**"
+  - "backend/app/controllers/api/v1/admin/area_photos_controller.rb"
   - "backend/app/services/photo_storage.rb"
   - "backend/app/services/photo_storage/**"
   - "backend/app/controllers/dev/photo_uploads_controller.rb"
@@ -14,6 +19,8 @@ paths:
 # Listing photos (RAA-106)
 
 **Storage**: Cloudflare R2 through its S3 API, with no Active Storage (the engine is off in `config/application.rb`). `PhotoStorage` (`app/services/photo_storage.rb`, `aws-sdk-s3`) is the only code that talks to the bucket: signed upload URLs, `exist?`, download, upload, delete and public URLs. Keep `request_checksum_calculation` / `response_checksum_validation: "when_required"` on its client. Without them R2 refuses our own uploads (the sizes), because the SDK adds a CRC32 next to Content-MD5; only a real bucket shows this. Every hosted environment uses the same bucket (`render.yaml`). A local stack uses it too when `backend/.env` has the `R2_*` values (`backend/.env.example`). With `R2_BUCKET` left blank, development keeps photos on disk instead (`PhotoStorage.disk?` → `PhotoStorage::Disk`, `backend/public/dev-photos/<key>`, gitignored). Rails serves those files from `public/`, and the browser uploads to `PUT /dev/photo_uploads/:token` (`Dev::PhotoUploadsController`), which is routed only in development and test and is not part of the API contract. That endpoint checks the signed key, type, size and MD5 as R2 would, so the web app's code is the same for both. `DEV_BACKEND_URL` (`docker-compose.yml`) is the backend address the browser uses for both. The bucket's CORS policy (set in the Cloudflare dashboard, not in the repo) must allow `PUT` from every web origin that uploads (staging's and `http://localhost:81xx`), with the `Content-Type` and `Content-MD5` headers (what `upload.headers` holds). libvips is in `backend/Dockerfile` for the sizes, and in the `test` job of `.github/workflows/ci.yml`, which runs specs on the host Ruby: change both together.
+
+**Area banners** (RAA-164): an area's one banner photo (`AreaPhoto`, set in the admin console) works the same way. `StoredPhoto` (model concern) holds the key, the validations and the file cleanup both models share, and `PhotoUploadValues` (service concern) the checks on what the browser declares. `ResizeJob`, `DeleteFilesJob`, `PurgeUnfinishedJob` and `ListingPhotos::Update` take either. A new banner replaces the old one (`AreaPhotos::Create`).
 
 **Keys**: a file's key is `<root>/<table>/<id>/<field>.<extension>`, built from the row and never stored, with `image_card` and `image_large` next to `image` (`ListingPhoto#key`). Any future model with files follows the same convention and uses `PhotoStorage.root`. The root is the environment's name: staging runs `RAILS_ENV=production`, so its keys start with "production". In development it is also the local stack's folder, e.g. development/sidney-rent-anything/listing_photos/12/image.jpg. `docker-compose.yml` sets it as `DEV_STORAGE_FOLDER` from the developer (`$USER`) and the Compose project, which `script/worktree-env` makes unique per worktree. Without it, every local database, each numbering its photos from 1, would write over and delete the others' files. A development process outside Compose gets "unnamed".
 

@@ -43,6 +43,448 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/areas/{area_slug}/banner_photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area_slug: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a destination's banner photo
+         * @description Admin-only (RAA-164). As a listing photo: `PUT` the file's bytes to `upload.url` with exactly `upload.headers`, then confirm with `PATCH`. Replaces the area's banner, if it has one.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    area_slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["photo_upload_body"];
+                };
+            };
+            responses: {
+                /** @description the new banner, still uploading, replacing the old one */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["photo_upload"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description not a photo we take */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        /**
+         * Remove a destination's banner photo
+         * @description Admin-only (RAA-164). Its files go from storage too.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    area_slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description removed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Confirm a banner photo's upload
+         * @description Admin-only (RAA-164). Once its file is in storage; its sizes follow a few seconds later (`ready`).
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    area_slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["photo_update_body"];
+                };
+            };
+            responses: {
+                /** @description uploaded, sizes on the way */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["area_banner_photo"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description no banner */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description the file isn't there yet */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/admin/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List and search destinations
+         * @description Admin-only (RAA-164). Every area, drafts included: published first, then by name, 50 a page. `q` matches the name, slug or an alias.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                    status?: "draft" | "published";
+                    kind?: "region" | "province" | "city" | "town" | "island";
+                    page?: number;
+                };
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description searched by alias, with a filter */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            areas: components["schemas"]["admin_area_row"][];
+                            total: number;
+                        };
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description an unknown status */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add a destination
+         * @description Admin-only (RAA-164). Adds an area as a draft unless `status` says otherwise.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["admin_area_body"];
+                };
+            };
+            responses: {
+                /** @description a new draft */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_area"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a reserved slug and a long tagline */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/areas/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * One destination
+         * @description Admin-only (RAA-164). Drafts included.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the area */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_area"];
+                    };
+                };
+                /** @description no such area */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a destination
+         * @description Admin-only (RAA-164). Fields left out are kept.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["admin_area_body"];
+                };
+            };
+            responses: {
+                /** @description a new Wikidata item clears what came from the old one */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_area"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a Wikidata id another area has */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/admin/area_options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a destination can be
+         * @description Admin-only (RAA-164). The kinds and the tags a destination's form offers.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description kinds and tags */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_area_options"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/bookings": {
         parameters: {
             query?: never;
@@ -6515,6 +6957,89 @@ export interface components {
             status: "accepted" | "declined" | "cancelled";
             /** @description Why it was cancelled */
             reason?: string;
+        };
+        admin_area_row: {
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            kind: "region" | "province" | "city" | "town" | "island";
+            /** @enum {string} */
+            status: "draft" | "published";
+            parent: components["schemas"]["area_ref"] | null;
+            /** @description Active listings in the area itself */
+            listing_count: number;
+            /** @description Published landmarks in the area itself */
+            landmark_count: number;
+        };
+        area_banner_photo: {
+            uploaded: boolean;
+            ready: boolean;
+            card_url: string;
+            large_url: string;
+        };
+        admin_area: {
+            slug: string;
+            name: string;
+            /** @enum {string} */
+            kind: "region" | "province" | "city" | "town" | "island";
+            /** @enum {string} */
+            status: "draft" | "published";
+            parent: components["schemas"]["area_ref"] | null;
+            aliases: string[];
+            center: {
+                lat: number;
+                lng: number;
+            };
+            psgc_code: string | null;
+            tagline: string;
+            description: string;
+            getting_there: string;
+            best_time_to_visit: string;
+            tags: components["schemas"]["tag"][];
+            banner_photo: components["schemas"]["area_banner_photo"] | null;
+            wikidata_id: string | null;
+            /** @description Read-only: filled by `bin/rails gazetteer:wikidata` */
+            wikidata_aliases: string[];
+            /** @description Read-only, as wikidata_aliases */
+            wikidata_popularity: number;
+            /** @description Read-only: whether the gazetteer gave it a boundary, which places listings in it */
+            has_boundary: boolean;
+            listing_count: number;
+            landmark_count: number;
+        };
+        /** @description On a change, a field left out is kept. name, slug, kind and center are required on a new one. */
+        admin_area_body: {
+            name?: string;
+            /** @description Lowercase letters, digits and single dashes; unique; not reserved */
+            slug?: string;
+            /** @enum {string} */
+            kind?: "region" | "province" | "city" | "town" | "island";
+            /**
+             * @description published also publishes every area above it; draft is refused while the area has active listings or published areas inside it
+             * @enum {string}
+             */
+            status?: "draft" | "published";
+            /** @description The area it sits in; null for none */
+            parent_slug?: string | null;
+            aliases?: string[];
+            center?: {
+                lat: number;
+                lng: number;
+            };
+            /** @description 10 digits */
+            psgc_code?: string | null;
+            tagline?: string;
+            description?: string;
+            getting_there?: string;
+            best_time_to_visit?: string;
+            /** @description Replaces the area's tags */
+            tag_slugs?: string[];
+            /** @description Like Q123. Changing it clears wikidata_aliases and wikidata_popularity until the next `bin/rails gazetteer:wikidata` */
+            wikidata_id?: string | null;
+        };
+        admin_area_options: {
+            kinds: ("region" | "province" | "city" | "town" | "island")[];
+            tags: components["schemas"]["tag"][];
         };
     };
     responses: never;
