@@ -18,7 +18,6 @@ import { bookingProgress } from "./cart-trip-nav";
 import { DeletionBanner } from "./deletion-banner";
 import type { EditFocus } from "./edit-trip-sheet";
 import { formatDateRange, guestCount, itemCount, todayIso } from "./format";
-import { BOOKING_STATE } from "@/components/landing/launch-area";
 import { TripItinerary } from "./trip-itinerary";
 import { tripDatesQuery } from "./trip-dates";
 import { missingStays, missingText, type Missing } from "./trip-missing";
@@ -142,23 +141,21 @@ export function TripDetails({
 
   // The cart's feet: sending the ticked items, paying for the ticked accepted ones.
   const sendFoot = canBook.length > 0 && (
-    <Card
-      edge="line"
-      className="flex flex-wrap items-center justify-between gap-3 px-card py-4"
-    >
-      <div className="text-sm">
+    <Card edge="line" className="flex flex-wrap items-center justify-end gap-x-4 gap-y-3 px-card py-4">
+      <div className="min-w-0 flex-1 text-sm">
         <p className="text-muted">
-          {picked.length} of {itemCount(canBook.length)} ticked · each goes to its partner as a request, and {BOOKING_STATE.answer}
+          {picked.length} of {itemCount(canBook.length)} ticked
         </p>
         {picked.length > 0 && pickedPrice && (
           <p className="font-semibold" data-testid="cart-picked-total">
-            {pickedPrice} · you pay once the partner accepts
+            {pickedPrice}
           </p>
         )}
       </div>
       <Button
         type="button"
         size="pill"
+        className="shrink-0"
         disabled={picked.length === 0}
         onClick={() => actions.checkout(trip, picked)}
         data-testid="cart-checkout"
@@ -169,12 +166,8 @@ export function TripDetails({
   );
 
   const payFoot = canPay.length > 0 && (
-    <Card
-      edge="line"
-      className="flex flex-wrap items-center justify-between gap-3 px-card py-4"
-      data-testid="cart-pay-bar"
-    >
-      <div className="text-sm">
+    <Card edge="line" className="flex flex-wrap items-center justify-end gap-x-4 gap-y-3 px-card py-4" data-testid="cart-pay-bar">
+      <div className="min-w-0 flex-1 text-sm">
         <p className="text-muted">
           {toPay.length} of {itemCount(canPay.length)} accepted ticked · pay to confirm
         </p>
@@ -188,6 +181,7 @@ export function TripDetails({
       <Button
         type="button"
         size="pill"
+        className="shrink-0"
         disabled={toPay.length === 0}
         onClick={() => actions.pay(trip, toPay)}
         data-testid="cart-pay"
@@ -406,7 +400,7 @@ export function TripDetails({
       )}
 
       {cart && view === "items" && (canBook.length > 0 || canPay.length > 0) && (
-        <div className="flex flex-col gap-3 lg:sticky lg:bottom-3">
+        <div className="flex flex-col gap-3 lg:sticky lg:bottom-3 lg:z-20">
           {sendFoot}
           {payFoot}
         </div>
