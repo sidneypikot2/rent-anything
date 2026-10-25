@@ -114,6 +114,10 @@ areas and a tour can visit several.
   it only in that tab. Five wrong PINs lock the link. A lost link, a forgotten PIN or a locked
   link is recovered with an emailed one-time code, after which the guest makes a new link and
   PIN. A guest can set a password at any time (`POST /me/register`) to keep their trips.
+- **Sharing a trip** (RAA-176): a guest can make a view-only **share link** for one trip
+  (`/trips/shared/<token>`) that friends open without a PIN or an account. It shows the trip's
+  name, dates, guests and items with their status, never prices, contact details or booking
+  references, and it never opens the cart. A new link ends the old one, and it can be revoked.
 - **Later adds suggest a trip**, by date first, then by distance. If the item is inside a
   trip's dates, or up to 3 days outside them, it goes to that trip (outside the dates, the
   trip is extended). If it is more than 3 days from every trip, the suggestion is "New trip".
@@ -248,6 +252,7 @@ Planned shape; the route tables below are checked against `routes.rb`.
 | `/api/v1/areas` | list areas; `/api/v1/areas/:slug` with its categories |
 | `/api/v1/listings` | search (area, category, bounding box, dates) and show |
 | `/api/v1/quotes` | price (and later availability) for a listing and period; stays only so far (RAA-104) |
+| `/api/v1/shared_trips` | a trip as its view-only share link shows it (RAA-176) |
 | `/api/v1/checkouts` | turn a trip's selected items into bookings and a payment |
 | `/api/v1/bookings` | a guest's bookings; partner accept/decline |
 | `/api/v1/partner/listings` | a partner's listings, units, calendar and routes |

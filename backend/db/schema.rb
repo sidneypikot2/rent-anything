@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_26_100100) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_26_110000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -39,7 +39,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_100100) do
     t.index ["area_id"], name: "index_area_photos_on_area_id", unique: true
     t.index ["created_at"], name: "index_area_photos_unfinished", where: "(uploaded_at IS NULL)"
     t.check_constraint "byte_size > 0", name: "area_photos_byte_size_check"
-    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "area_photos_content_type_check"
+    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying::text, 'image/png'::character varying::text, 'image/webp'::character varying::text])", name: "area_photos_content_type_check"
   end
 
   create_table "area_tags", primary_key: ["area_id", "tag_id"], force: :cascade do |t|
@@ -615,6 +615,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_100100) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.datetime "purge_reminded_at"
+    t.string "share_token"
+    t.index ["share_token"], name: "index_trips_on_share_token", unique: true
     t.index ["user_id", "updated_at"], name: "index_trips_on_user_id_and_updated_at"
     t.check_constraint "(starts_on IS NULL) = (ends_on IS NULL)", name: "trips_dates_both_or_neither_check"
     t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 80", name: "trips_name_length_check"

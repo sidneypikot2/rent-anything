@@ -5706,6 +5706,198 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/trips/{trip_id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trip_id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * The trip's share link
+         * @description Guest-only. The trip's view-only share link, for copying again; both null while it isn't shared.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    trip_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description a trip that isn't shared */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip_share"];
+                    };
+                };
+                /** @description another guest's trip */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Share the trip, or make a new share link
+         * @description Guest-only. Anyone with the link can see the trip, without signing in: its name, dates, guests and items, never prices, contact details or booking references, and nothing they can change. A new link ends the old one.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    trip_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the new share link; the old one no longer opens */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip_share"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another guest's trip */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        /**
+         * Stop sharing the trip
+         * @description Guest-only. The share link no longer opens.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    trip_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description no longer shared */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description another guest's trip */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shared_trips/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A trip as its share link shows it
+         * @description Public: no sign-in, and no way into the guest's cart. Sent with `X-Robots-Tag: noindex`. An unknown token, or one replaced or revoked, is a 404.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    token: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the trip, view-only */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["shared_trip"];
+                    };
+                };
+                /** @description an unknown token */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/trips": {
         parameters: {
             query?: never;
@@ -6457,6 +6649,41 @@ export interface components {
             cancellation_policy: "free_cancellation" | "seven_days" | "fourteen_days" | "non_refundable";
             /** @description False once the listing is paused or delisted: it can't be booked */
             listing_active: boolean;
+        };
+        trip_share: {
+            /** @description Null while the trip isn't shared */
+            token: string | null;
+            /** @description The web app's page for it, /trips/shared/<token>; null while the trip isn't shared */
+            path: string | null;
+        };
+        shared_trip: {
+            name: string;
+            /** Format: date */
+            starts_on: string | null;
+            /** Format: date */
+            ends_on: string | null;
+            guests: number;
+            /** @description Where the items are: each one's island, or else its town or city, in item order */
+            destinations: string[];
+            /** @description In date order, undated items last */
+            items: {
+                /** Format: date */
+                starts_on: string | null;
+                /** Format: date */
+                ends_on: string | null;
+                /** @enum {string} */
+                booking_type: "rental" | "stay" | "activity" | "transfer";
+                area: components["schemas"]["area_ref"];
+                listing: {
+                    /** @description Links to the listing's public page */
+                    id: number;
+                    title: string;
+                    /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
+                    cover_photo_url: string | null;
+                };
+                /** @description Its booking's while one holds its days; null while it is only planned */
+                booking_status: components["schemas"]["booking_status"] | null;
+            }[];
         };
         trip_quote: {
             trip_id: number;
