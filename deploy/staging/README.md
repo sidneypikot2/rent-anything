@@ -1,6 +1,6 @@
 # Staging on AWS Lightsail
 
-The hosted staging environment (RAA-156): one Lightsail instance running `compose.yml` — Caddy (HTTPS), the Rails API and the Next.js web app. Postgres is on Neon and Redis on Upstash. Every merge into `staging` that touches `backend/`, `web/` or this folder runs `.github/workflows/deploy-staging.yml`: it builds both images, pushes them to GHCR and restarts the instance on them.
+The hosted staging environment (RAA-156): one Lightsail instance running `compose.yml` — Caddy (HTTPS), Postgres with PostGIS, the Rails API and the Next.js web app. Redis is on Upstash. Postgres moved here from Neon in RAA-174, after Neon's free tier ran out. Every merge into `staging` that touches `backend/`, `web/` or this folder runs `.github/workflows/deploy-staging.yml`: it builds both images, pushes them to GHCR and restarts the instance on them.
 
 - Web: https://staging.tripkonext.com
 - API: https://api.staging.tripkonext.com (`/up`, `/api/v1/health`)
@@ -11,7 +11,7 @@ The hosted staging environment (RAA-156): one Lightsail instance running `compos
 
 In the Lightsail console, under the team's AWS account:
 
-1. Create an instance: Linux, **Ubuntu 24.04 LTS**, region **Singapore** (`ap-southeast-1`, next to Neon and Upstash), the **1 GB** plan (move up to 2 GB from a snapshot if memory runs short).
+1. Create an instance: Linux, **Ubuntu 24.04 LTS**, region **Singapore** (`ap-southeast-1`, next to Upstash), the **1 GB** plan (move up to 2 GB from a snapshot if memory runs short).
 2. Networking → **Create static IP** and attach it to the instance.
 3. Networking → IPv4 firewall: keep SSH (22), add HTTP (80) and HTTPS (443). Nothing else.
 
@@ -56,8 +56,9 @@ Put `deploy_staging.pub` into `/home/deploy/.ssh/authorized_keys` on the instanc
 
 As `deploy` (`sudo -iu deploy`):
 
-1. Fill in `/opt/tripkonext/backend.env` from `backend.env.example` in this folder. Copy the values from the Render dashboard (`rent-anything-api` → Environment). Then run `chmod 600` on the file.
-2. Let the instance pull the private images: create a GitHub personal access token (classic) with only `read:packages`, then:
+1. Fill in `/opt/tripkonext/db.env` from `db.env.example` in this folder, with a new password (`openssl rand -hex 24`).
+2. Fill in `/opt/tripkonext/backend.env` from `backend.env.example`, using the same password in the three database URLs. Then run `chmod 600 db.env backend.env`.
+3. Let the instance pull the private images: create a GitHub personal access token (classic) with only `read:packages`, then:
 
    ```bash
    echo "<token>" | docker login ghcr.io -u <github user> --password-stdin
@@ -98,4 +99,27 @@ docker compose exec backend bin/rails console
 
 **Rolling back**: set an earlier commit's images in `.env` (`IMAGE_TAG=<full commit SHA>`, from a previous deploy run), then run `docker compose up -d`. The next deploy goes back to the newest commit. A migration is not rolled back this way.
 
+**Postgres**: `docker compose exec db psql -U postgres rent_anything_staging`. The data lives in the `postgres_data` volume. `docker compose down -v` deletes it, so never run that here.
+
 **Changing a secret**: edit `backend.env`, then run `docker compose up -d backend`. A `NEXT_PUBLIC_*` value is a GitHub variable baked into the web image, so it only takes effect after the workflow runs again.
+
+## Database backups
+
+A nightly dump stays on the instance for 7 days. As `deploy`, run `crontab -e` and add this line:
+
+```cron
+30 3 * * * cd /opt/tripkonext && mkdir -p backups && docker compose exec -T db pg_dumpall -U postgres | gzip > backups/$(date +\%F).sql.gz && find backups -name '*.sql.gz' -mtime +7 -delete
+```
+
+Copies on the instance don't survive losing the instance. Also turn on **automatic snapshots** in the Lightsail console (instance → Snapshots), which keep the last 7 days.
+
+To restore a dump into an empty `db`, run `gunzip -c backups/<date>.sql.gz | docker compose exec -T db psql -U postgres`, then `docker compose restart backend`.
+
+## Moving off Neon (RAA-174, one time)
+
+Neon's compute was suspended, so staging starts with empty databases. Do these steps on the instance before the PR merges:
+
+1. Create `db.env` (section 5, "Secrets on the instance", above).
+2. In `backend.env`, replace the three Neon URLs with the `db:5432` ones from `backend.env.example`.
+3. Merge. The deploy starts `db`, and the backend's `db:prepare` creates the three databases and loads the schema.
+4. Seed the areas again and recreate test accounts and listings.
