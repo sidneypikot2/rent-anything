@@ -5,22 +5,23 @@ import { usePathname, useRouter } from "next/navigation";
 import { AccountMenu } from "@/components/auth/account-menu";
 import { signOut } from "@/lib/auth/actions";
 import { DASHBOARD_PATHS, LOGIN_PATHS, REGISTER_PATHS } from "@/lib/auth/paths";
-import { useSession } from "@/lib/auth/session";
+import { isAnonymous, useSession } from "@/lib/auth/session";
 import type { Section } from "@/components/landing/section-header";
 
 // The header's account links. Signed in, guests and partners get their account menu
 // (guests also Trips; Profile, Settings, Sign out) and admins their name and "Sign out". Signed out,
 // "Sign in" and "Sign up" show in the guest section only (partner and admin
 // pages show their own form), and not on /login or /register, where the card already is
-// that form.
+// that form. A guest with no account yet (RAA-177, made by their first add) gets the
+// signed-out links; the cart shows their trips.
 export function AccountNav({ section }: { section: Section }) {
   const router = useRouter();
   const pathname = usePathname();
   const session = useSession();
   if (session === undefined) return null;
 
-  if (session === null) {
-    const onAuthPage = pathname === LOGIN_PATHS.guest || pathname === REGISTER_PATHS.guest;
+  if (session === null || isAnonymous(session)) {
+    const onAuthPage = pathname.startsWith(LOGIN_PATHS.guest) || pathname === REGISTER_PATHS.guest;
     return section === "guest" && !onAuthPage ? (
       <span className="flex items-center gap-1 rounded-full border border-glass-edge bg-glass-fill p-1">
         <Link

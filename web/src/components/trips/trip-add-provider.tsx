@@ -1,64 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
 import { useToast } from "@/components/ui/toast";
-import { getSession, useSession } from "@/lib/auth/session";
+import { startGuestSession } from "@/lib/auth/actions";
+import { useSession } from "@/lib/auth/session";
 import { EditTripSheet, type EditFocus } from "./edit-trip-sheet";
 import { formatDateRange } from "./format";
-import { SignInSheet } from "./sign-in-sheet";
 import { readChosenTrip } from "./chosen-trip";
 import { tripHere } from "./use-trip-here";
 import { currentTrips, useFetchTrips, type AddRequest, type Trip } from "./use-trips";
 import { WhichTripSheet } from "./which-trip-sheet";
 
-// An add kept through sign-in: the page it started on, so it finishes there and nowhere
-// else, and when, so one given up on doesn't come back later in the session.
-type PendingAdd = AddRequest & { path: string; savedAt: number };
-
-const PENDING_KEY = "trip-pending-add";
-const PENDING_TTL_MS = 30 * 60 * 1000;
-
-// False when storage is blocked: then only the sign-in sheet can finish the add.
-function savePending(pending: PendingAdd) {
-  try {
-    sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function clearPending() {
-  try {
-    sessionStorage.removeItem(PENDING_KEY);
-  } catch {
-    // Nothing was saved.
-  }
-}
-
-// The pending add for this page, taken so it runs once. One for another page stays for
-// that page; an expired one is dropped.
-function takePending(pathname: string): PendingAdd | null {
-  try {
-    const raw = sessionStorage.getItem(PENDING_KEY);
-    const pending = raw ? (JSON.parse(raw) as PendingAdd) : null;
-    if (!pending) return null;
-    if (Date.now() - pending.savedAt >= PENDING_TTL_MS) {
-      clearPending();
-      return null;
-    }
-    if (new URL(pending.path, window.location.origin).pathname !== pathname) return null;
-    clearPending();
-    return pending;
-  } catch {
-    return null;
-  }
-}
-
 type Context = {
-  // Starts adding a listing: sign-in first when signed out, then the add sheet.
+  // Starts adding a listing: the add sheet, after making a guest session when signed out.
   add: (request: AddRequest) => void;
   // A guest's add is under way (the trips are being fetched or the item posted).
   busyListingId: number | null;
@@ -72,16 +27,14 @@ export function useTripAdd() {
   return context;
 }
 
-// The add-to-trip flow for the listings on a page (RAA-66): sign-in before the first add,
-// the add sheet, the toast, and the edit-trip sheet it leads to. On a place's page (`places`:
-// its place and the places inside it) every add goes to the trip its banner shows (tripHere),
+// The add-to-trip flow for the listings on a page (RAA-66): a guest session made quietly on a
+// signed-out first add (RAA-177: no account needed to plan or book), the add sheet, the toast,
+// and the edit-trip sheet it leads to. On a place's page (`places`: its place and the places inside it) every add goes to the trip its banner shows (tripHere),
 // or starts a new one, which then becomes the trip worked on: the sheet asks only the dates and
 // guests, so an add never lands in another trip. Elsewhere the sheet asks which trip.
 export function TripAddProvider({ children, places }: { children: ReactNode; places?: string[] }) {
   const session = useSession();
-  const pathname = usePathname();
   const fetchTrips = useFetchTrips();
-  const [signingIn, setSigningIn] = useState<{ pending: PendingAdd; saved: boolean } | null>(null);
   const [choosing, setChoosing] = useState<{ request: AddRequest; trips: Trip[]; target?: Trip | "new" } | null>(
     null,
   );
@@ -164,31 +117,23 @@ export function TripAddProvider({ children, places }: { children: ReactNode; pla
     (request: AddRequest) => {
       if (session === undefined) return;
       if (session === null) {
-        const pending = {
-          ...request,
-          path: `${window.location.pathname}${window.location.search}`,
-          savedAt: Date.now(),
-        };
-        setSigningIn({ pending, saved: savePending(pending) });
+        // No sign-in first: a guest with no account owns the trip until checkout asks who
+        // they are.
+        if (inFlight.current) return;
+        inFlight.current = true;
+        setBusyListingId(request.listingId);
+        void startGuestSession().then((result) => {
+          inFlight.current = false;
+          if (result.ok) return start(request, result.user.id);
+          setBusyListingId(null);
+          toast.show(result.error, { tone: "danger", "data-testid": "trip-toast" });
+        });
         return;
       }
       if (session.user.role === "guest") void start(request, session.user.id);
     },
-    [session, start],
+    [session, start, toast],
   );
-
-  // Back from /register (or a reload) with an add kept through sign-in: finish it here.
-  // Taking it clears it, so it runs once.
-  const guestId = session?.user.role === "guest" ? session.user.id : undefined;
-  useEffect(() => {
-    if (guestId === undefined) return;
-    const pending = takePending(pathname);
-    if (!pending) return;
-    const { listingId, title, range, bookingType, startsOn, endsOn, quantity, preview } = pending;
-    // The add is a request to the API that sets state as it goes, not render state, so it
-    // starts after the effect rather than inside it.
-    queueMicrotask(() => void start({ listingId, title, range, bookingType, startsOn, endsOn, quantity, preview }, guestId));
-  }, [guestId, pathname, start]);
 
   const closeChoosing = useCallback(() => {
     setChoosing(null);
@@ -198,25 +143,6 @@ export function TripAddProvider({ children, places }: { children: ReactNode; pla
   return (
     <TripAddContext.Provider value={{ add, busyListingId }}>
       {children}
-
-      <SignInSheet
-        open={signingIn !== null}
-        next={signingIn?.pending.path}
-        onClose={() => {
-          // Dismissed: drop the add. The native dialog also reports a close after a
-          // sign-in, when signingIn is already null and the effect above has taken it.
-          if (signingIn === null) return;
-          clearPending();
-          setSigningIn(null);
-        }}
-        onSignedIn={() => {
-          // The session is saved by now. The effect above picks a saved add up; with
-          // storage blocked, the add finishes from here.
-          const user = getSession()?.user;
-          if (signingIn && !signingIn.saved && user?.role === "guest") void start(signingIn.pending, user.id);
-          setSigningIn(null);
-        }}
-      />
 
       {choosing && (
         <WhichTripSheet

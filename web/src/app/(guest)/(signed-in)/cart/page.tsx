@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CartAccountBar } from "@/components/guest/cart-account-bar";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { CartView } from "@/components/trips/cart-view";
@@ -22,6 +23,7 @@ export default async function Cart(props: PageProps<"/cart">) {
       </PageBanner>
       <PageSheet tone="paper">
         <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-gutter pb-page-pad pt-4 max-sm:px-0 sm:pt-6">
+          <CartAccountBar />
           <CartView expandTripId={Number.isInteger(trip) && trip > 0 ? trip : undefined} />
         </div>
       </PageSheet>

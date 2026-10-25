@@ -321,12 +321,13 @@ test("sign-up and the partner guard", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-// Add to trip (RAA-66): signed out, the add is kept through sign-up and finishes back on
-// the destination page with no second tap. With a trip, the next add asks which trip, and
-// the toast leads to editing it and to the cart, where the item left is booked (RAA-133).
-test("add to trip through sign-up", async ({ page }) => {
-  // Sign-up, the add, the cart, checkout and the Trips page: more than the default 30s.
-  test.setTimeout(60_000);
+// Add to trip (RAA-66): signed out, the first add needs no account (RAA-177). With a trip,
+// the next add asks which trip, and the toast leads to editing it and to the cart, where the
+// item left is booked (RAA-133) after the guest gives their contact details; the trip link and
+// PIN that come back open the cart in a fresh browser.
+test("add to trip without an account", async ({ page, browser }) => {
+  // The add, the cart, checkout, the trip link and the Trips page: more than the default 30s.
+  test.setTimeout(150_000);
   const errors = [];
   collectErrors(page, errors);
   const stamp = Date.now();
@@ -338,17 +339,6 @@ test("add to trip through sign-up", async ({ page }) => {
 
   await page.goto(`/bantayan-island?from=${from}&to=${to}&guests=2`);
   await page.getByTestId("add-to-trip").first().click();
-  const signIn = page.getByTestId("trip-signin-sheet");
-  await expect(signIn).toBeVisible();
-  await signIn.getByTestId("trip-signin-create").click();
-
-  await expect(page).toHaveURL(/\/register\?next=/);
-  await page.getByLabel("Email").fill(`trip-${stamp}@example.com`);
-  await page.getByLabel("Password", { exact: true }).fill("password123");
-  await page.getByLabel("Confirm password").fill("password123");
-  await page.getByRole("button", { name: "Create account" }).click();
-
-  await expect(page).toHaveURL(new RegExp(`/bantayan-island\\?from=${from}&to=${to}&guests=2$`));
   // Every add is confirmed in the add sheet, the first one too: it starts a new trip.
   const firstAdd = page.getByTestId("which-trip-sheet");
   await expect(firstAdd.getByTestId("add-sheet-listing")).toBeVisible();
@@ -401,9 +391,19 @@ test("add to trip through sign-up", async ({ page }) => {
   const checkout = page.getByTestId("checkout-sheet");
   await expect(checkout.getByTestId("checkout-item-price")).toHaveCount(1);
   await expect(checkout.getByTestId("checkout-total")).not.toHaveText("Working out the total…");
+  // No account yet: the guest gives the contact details partners see.
+  const contact = checkout.getByTestId("checkout-contact");
+  await contact.getByLabel("Full name").fill("Smoke Guest");
+  await contact.getByLabel("Email").fill(`trip-${stamp}@example.com`);
+  await contact.getByLabel("Phone").fill("9171234567");
   await checkout.getByTestId("checkout-confirm").click();
   await expect(checkout.getByTestId("checkout-result").getByTestId("booking-status")).toHaveText("Request sent");
   await expect(page.getByTestId("checkout-toast")).toContainText("Request sent to the partner");
+  // The trip link and PIN, shown once.
+  const tripLink = await checkout.getByTestId("trip-link-url").textContent();
+  const pin = await checkout.getByTestId("trip-link-pin").textContent();
+  expect(tripLink).toMatch(/\/trips\/open\/[\w-]+$/);
+  expect(pin).toMatch(/^\d{6}$/);
   await checkout.getByRole("button", { name: "Done" }).click();
   await expect(trip.getByTestId("cart-item").getByTestId("booking-status")).toHaveText("Request sent");
   await expect(trip.getByTestId("cart-item-pick")).toHaveCount(0);
@@ -442,6 +442,23 @@ test("add to trip through sign-up", async ({ page }) => {
   await expect(page.getByTestId("past-bookings-empty")).toBeVisible();
   await page.getByTestId("trips-tab-upcoming").click();
   await expect(booked).toBeVisible();
+
+  // The trip link in a fresh browser: a wrong PIN is refused, the right one opens the cart.
+  const other = await browser.newContext();
+  const elsewhere = await other.newPage();
+  collectErrors(elsewhere, errors);
+  await elsewhere.goto(tripLink);
+  const unlock = elsewhere.getByTestId("trip-link-unlock");
+  await unlock.getByLabel("PIN").fill(pin === "000000" ? "111111" : "000000");
+  await unlock.getByTestId("trip-link-open").click();
+  await expect(unlock.getByTestId("trip-link-error")).toBeVisible();
+  // The wrong PIN's 401 is the one console error expected here.
+  errors.splice(errors.findIndex((error) => error.includes("401")), 1);
+  await unlock.getByLabel("PIN").fill(pin);
+  await unlock.getByTestId("trip-link-open").click();
+  await expect(elsewhere).toHaveURL(/\/cart$/);
+  await expect(elsewhere.getByTestId("cart-trip").filter({ hasText: `Smoke trip ${stamp}` })).toBeVisible();
+  await other.close();
 
   expect(errors).toEqual([]);
 });

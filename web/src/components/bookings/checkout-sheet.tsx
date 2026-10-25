@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
+import { CodeForm } from "@/components/auth/email-code-form";
 import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
 import { formatDateRange, guestCount } from "@/components/trips/format";
 import {
@@ -14,9 +15,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import { TripLinkCard } from "@/components/guest/trip-link-card";
+import { Field } from "@/components/ui/field";
+import { PhoneField } from "@/components/ui/phone-field";
+import { refreshSessionUser } from "@/lib/auth/actions";
+import { getSession, isAnonymous, useSession } from "@/lib/auth/session";
 import { formatPeso } from "@/lib/money";
+import { PHONE_ERROR, toE164 } from "@/lib/ph-phone";
 import { BookingStatusBadge } from "./booking-status";
-import { newIdempotencyKey, useCheckout, type Checkout } from "./use-bookings";
+import { CodeRequiredError, newIdempotencyKey, useCheckout, type Checkout, type Contact } from "./use-bookings";
 
 // What the cart's button says for the items picked (RAA-133): instant-book items are booked,
 // request-to-book ones sent as requests.
@@ -31,15 +38,50 @@ export function checkoutLabel(items: TripItem[]) {
 // bookings as they came back, each with its status and total. The API re-prices every item
 // and checks the calendar again, all or nothing, so a refusal names the item and nothing is
 // booked. One idempotency key per sheet, so pressing again after a failed connection can't
-// book twice.
+// book twice. A guest without an account gives their name, email and phone here first
+// (RAA-177); an email another guest has asks for the code the API sent it, and once signed in
+// with it (their trips move into that account) the checkout goes ahead. The first checkout
+// comes back with the trip link and PIN, shown once.
 export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: TripItem[]; onClose: () => void }) {
   const checkout = useCheckout();
   const toast = useToast();
   const [key] = useState(newIdempotencyKey);
+  const anonymous = isAnonymous(useSession());
+  // The email waiting for its code (a 409), while the code step shows.
+  const [codeFor, setCodeFor] = useState<string | null>(null);
+  const [phone, setPhone] = useState("");
+  const [phoneError, setPhoneError] = useState<string>();
   const result = checkout.data;
+  const error = checkout.error instanceof CodeRequiredError ? null : checkout.error;
 
   function close() {
     if (!checkout.isPending) onClose();
+  }
+
+  function send(contact?: Contact) {
+    checkout.mutate(
+      { tripId: trip.id, itemIds: items.map((item) => item.id), idempotencyKey: key, contact },
+      {
+        onSuccess: (done) => {
+          toast.show(checkoutNotice(done), { "data-testid": "checkout-toast" });
+          // The guest has an email now: the header and the cart's account line follow.
+          if (contact) void refreshSessionUser();
+        },
+        onError: (failed) => {
+          if (failed instanceof CodeRequiredError && contact) setCodeFor(contact.email);
+        },
+      },
+    );
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    // Read when sent, not from render: a code just verified has made the session another's.
+    if (!isAnonymous(getSession())) return send();
+    const form = new FormData(event.currentTarget);
+    const e164 = toE164(phone);
+    if (!e164) return setPhoneError(PHONE_ERROR);
+    send({ name: String(form.get("name") ?? "").trim(), email: String(form.get("email") ?? "").trim(), phone: e164 });
   }
 
   return (
@@ -47,39 +89,65 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
       open
       onClose={close}
       placement="sheet"
-      title={result ? bookedTitle(result) : `${checkoutLabel(items)} · ${trip.name}`}
+      title={result ? bookedTitle(result) : codeFor ? "Check your email" : `${checkoutLabel(items)} · ${trip.name}`}
       data-testid="checkout-sheet"
       actions={
         result ? (
           <Button type="button" onClick={onClose}>
             Done
           </Button>
-        ) : (
+        ) : codeFor ? undefined : (
           <>
             <Button type="button" variant="soft" onClick={close} disabled={checkout.isPending}>
               Cancel
             </Button>
-            <Button
-              type="button"
-              data-testid="checkout-confirm"
-              disabled={checkout.isPending}
-              onClick={() =>
-                checkout.mutate(
-                  { tripId: trip.id, itemIds: items.map((item) => item.id), idempotencyKey: key },
-                  { onSuccess: (done) => toast.show(checkoutNotice(done), { "data-testid": "checkout-toast" }) },
-                )
-              }
-            >
+            <Button type="submit" form="checkout-form" data-testid="checkout-confirm" disabled={checkout.isPending}>
               {checkout.isPending ? "Booking…" : checkoutLabel(items)}
             </Button>
           </>
         )
       }
     >
-      {result ? <Booked result={result} /> : <Picked trip={trip} items={items} />}
-      {checkout.error && (
+      {result ? (
+        <Booked result={result} />
+      ) : codeFor ? (
+        <CodeForm
+          email={codeFor}
+          intro={`${codeFor} already has trips with us. We've emailed it a 6-digit code: enter it to add this trip to them and send it.`}
+          onSignedIn={() => {
+            setCodeFor(null);
+            send();
+          }}
+        />
+      ) : (
+        <form id="checkout-form" onSubmit={submit} className="flex flex-col gap-4">
+          <Picked trip={trip} items={items} />
+          {anonymous && (
+            <fieldset disabled={checkout.isPending} data-testid="checkout-contact" className="flex flex-col gap-3">
+              <legend className="mb-1 font-semibold">Your details</legend>
+              <p className="text-sm text-muted">
+                Partners see these on your booking. No account needed: we&apos;ll email you a link and PIN to come back
+                to your trips.
+              </p>
+              <Field label="Full name" name="name" autoComplete="name" required />
+              <Field label="Email" name="email" type="email" autoComplete="email" required />
+              <PhoneField
+                label="Phone"
+                required
+                number={phone}
+                onNumberChange={(next) => {
+                  setPhone(next);
+                  setPhoneError(undefined);
+                }}
+                error={phoneError}
+              />
+            </fieldset>
+          )}
+        </form>
+      )}
+      {error && (
         <p role="alert" data-testid="checkout-error" className="text-sm text-danger">
-          {checkout.error.message}
+          {error.message}
         </p>
       )}
     </Dialog>
@@ -175,6 +243,7 @@ function Booked({ result }: { result: Checkout }) {
         <span>Total</span>
         <span className="tabular-nums">{formatPeso(result.total_cents)}</span>
       </p>
+      {result.trip_link && <TripLinkCard link={result.trip_link} emailed />}
     </div>
   );
 }

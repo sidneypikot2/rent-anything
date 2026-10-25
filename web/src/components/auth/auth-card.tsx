@@ -10,7 +10,7 @@ import { Field } from "@/components/ui/field";
 import { PasswordField } from "@/components/ui/password-field";
 import { oauthSignIn, signIn, signUp, type OauthProvider, type Role } from "@/lib/auth/actions";
 import { DASHBOARD_PATHS, LOGIN_PATHS, REGISTER_PATHS, withNext } from "@/lib/auth/paths";
-import { useSession } from "@/lib/auth/session";
+import { isAnonymous, useSession } from "@/lib/auth/session";
 import { OauthButtons, hasOauthProviders } from "./oauth-buttons";
 
 type Mode = "signin" | "signup";
@@ -52,9 +52,10 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
   const [showPasswords, setShowPasswords] = useState(false);
   const signup = selfServe && mode === "signup";
 
-  // Already signed in with this role (back button, a second tab): skip the form.
+  // Already signed in with this role (back button, a second tab): skip the form. A guest with
+  // no account yet (RAA-177) is signed out here.
   const session = useSession();
-  const signedInHere = session?.user.role === role;
+  const signedInHere = session?.user.role === role && !isAnonymous(session);
   useEffect(() => {
     if (signedInHere && !onSignedIn) router.replace(redirectTo);
   }, [signedInHere, onSignedIn, redirectTo, router]);
@@ -163,6 +164,15 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
             </div>
             <OauthButtons disabled={pending} onToken={onOauthToken} />
           </div>
+        )}
+
+        {role === "guest" && !signup && (
+          <p className="text-center text-sm text-muted">
+            Booked without a password?{" "}
+            <Link href={withNext("/login/code", next)} data-testid="guest-code-link" className="font-semibold text-link hover:underline">
+              Email me a code
+            </Link>
+          </p>
         )}
 
         {role !== "admin" && switchLink && (

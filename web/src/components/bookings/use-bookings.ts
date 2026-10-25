@@ -75,7 +75,12 @@ export function useChangeBooking() {
   });
 }
 
-export type CheckoutRequest = { tripId: number; itemIds: number[]; idempotencyKey: string };
+export type Contact = { name: string; email: string; phone: string };
+export type CheckoutRequest = { tripId: number; itemIds: number[]; idempotencyKey: string; contact?: Contact };
+
+// A guest without an account gave an email another guest has (409): the API emailed it a
+// code, and the checkout goes ahead once they sign in with it (RAA-177).
+export class CodeRequiredError extends Error {}
 
 // POST /checkouts: books the trip's items, all or nothing. The key is made once per
 // confirmation, so a retry after a dropped connection returns the same checkout instead of
@@ -84,15 +89,17 @@ export function useCheckout() {
   const invalidate = useInvalidateBookings();
   const failed = useErrorToast();
   return useMutation({
-    mutationFn: async ({ tripId, itemIds, idempotencyKey }: CheckoutRequest) => {
-      const { data, error } = await apiClient().POST("/api/v1/checkouts", {
-        body: { trip_id: tripId, item_ids: itemIds, idempotency_key: idempotencyKey },
+    mutationFn: async ({ tripId, itemIds, idempotencyKey, contact }: CheckoutRequest) => {
+      const { data, error, response } = await apiClient().POST("/api/v1/checkouts", {
+        body: { trip_id: tripId, item_ids: itemIds, idempotency_key: idempotencyKey, ...(contact && { contact }) },
       });
+      if (response.status === 409) throw new CodeRequiredError((error as { error?: string } | undefined)?.error);
       if (!data) throw tripError(error, "Couldn't book those. Try again.");
       return data;
     },
     onSuccess: invalidate,
-    onError: failed,
+    // The sheet asks for the code itself.
+    onError: (error) => error instanceof CodeRequiredError || failed(error),
   });
 }
 
