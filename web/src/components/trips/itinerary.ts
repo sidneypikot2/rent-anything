@@ -5,9 +5,12 @@ import type { Trip, TripItem } from "./use-trips";
 // middle and last day, or a one-day booking's day.
 export type ItineraryRole = "check-in" | "night" | "check-out" | "pick-up" | "rental" | "return" | "day";
 
-export type ItineraryDay = {
+// What the days read of an item, so a shared trip's items (RAA-178) lay out like the cart's.
+export type DayItem = Pick<TripItem, "starts_on" | "ends_on" | "booking_type">;
+
+export type ItineraryDay<T extends DayItem = TripItem> = {
   date: string;
-  entries: { item: TripItem; role: ItineraryRole }[];
+  entries: { item: T; role: ItineraryRole }[];
   // Two stays booked for this night: one is likely a mistake.
   doubleStay: boolean;
 };
@@ -15,7 +18,7 @@ export type ItineraryDay = {
 // Long enough for any real trip; a longer one shows its first weeks.
 const MAX_DAYS = 60;
 
-function role(item: TripItem, date: string): ItineraryRole | null {
+function role(item: DayItem, date: string): ItineraryRole | null {
   const { starts_on: from, ends_on: to } = item;
   if (!from || !to || date < from || date > to) return null;
   if (item.booking_type === "stay") {
@@ -37,7 +40,9 @@ function sleepsThere(entry: { role: ItineraryRole }) {
 // A dated trip day by day (RAA-140), from its first day to its last, each with what happens
 // on it, for the cart's Day by day view. Null for an undated trip. Undated items aren't on any
 // day; the view lists them apart.
-export function itinerary(trip: Trip): ItineraryDay[] | null {
+export function itinerary<T extends DayItem = TripItem>(
+  trip: Pick<Trip, "starts_on" | "ends_on"> & { items: T[] },
+): ItineraryDay<T>[] | null {
   if (!trip.starts_on || !trip.ends_on) return null;
   const length = Math.min(daysBetween(trip.starts_on, trip.ends_on) + 1, MAX_DAYS);
   return Array.from({ length }, (_, index) => {

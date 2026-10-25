@@ -18,6 +18,7 @@ import { formatDateRange, itemCount } from "./format";
 import { ItemEditSheet } from "./item-edit-sheet";
 import { PickTripSheet } from "./pick-trip-sheet";
 import { RecreateTripSheet, recreatedNotice } from "./recreate-trip-sheet";
+import { ShareTripSheet } from "./share-trip-sheet";
 import { TripDetails, type TripActions } from "./trip-details";
 import {
   currentTrips,
@@ -45,7 +46,8 @@ type Open =
   | { kind: "checkout"; trip: Trip; items: TripItem[] }
   | { kind: "pay"; trip: Trip; items: TripItem[] }
   | { kind: "recreate"; trip: Trip }
-  | { kind: "find"; trip: Trip };
+  | { kind: "find"; trip: Trip }
+  | { kind: "share"; trip: Trip };
 
 // The cart (screens 6 and 7, laid out again in RAA-135): the guest's trips in a column (a row
 // of chips on a phone) beside the one picked, with its items. An item opens its panel, with
@@ -100,6 +102,7 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
     pay: (trip, items) => setOpen({ kind: "pay", trip, items }),
     recreate: (trip) => setOpen({ kind: "recreate", trip }),
     findMore: (trip) => setOpen({ kind: "find", trip }),
+    share: (trip) => setOpen({ kind: "share", trip }),
   };
 
   if (trips.isPending) {
@@ -187,6 +190,8 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
       )}
 
       {open?.kind === "find" && <FindMoreSheet trip={open.trip} onClose={close} />}
+
+      {open?.kind === "share" && <ShareTripSheet trip={open.trip} onClose={close} />}
 
       {open?.kind === "edit" && (
         <EditTripSheet
