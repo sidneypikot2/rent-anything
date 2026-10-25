@@ -2477,7 +2477,10 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: never;
+                header?: {
+                    /** @description A guest with no account yet (RAA-175): their trips move into the account signed in to */
+                    Authorization?: string;
+                };
                 path: {
                     provider: "google" | "facebook";
                 };
@@ -4878,7 +4881,10 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: never;
+                header?: {
+                    /** @description A guest with no account yet (RAA-175): their trips move into the account signed in to */
+                    Authorization?: string;
+                };
                 path?: never;
                 cookie?: never;
             };
@@ -5066,7 +5072,10 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: never;
+                header?: {
+                    /** @description A guest with no account yet (RAA-175): their trips move into the account signed in to */
+                    Authorization?: string;
+                };
                 path?: never;
                 cookie?: never;
             };
