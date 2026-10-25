@@ -30,4 +30,6 @@ The cart is a list of the guest's **trips**. Each trip has a name, optional date
 
 **Copy and quote** (RAA-139): `Trips::Copy` (`POST /trips/:id/copy`) plans a trip again — a new trip with the items shifted by the new start date, nothing booked, items whose listing isn't active left out and listed. `Trips::Quote` (`GET /trips/:id/quote`) prices each unbooked item as checkout would (`Bookings::Price`, after a `Availability::Ledger` refusal check) without holding anything, and gives a booked item its booking's total; checkout still re-checks everything.
 
-**Not here yet**: a stored trip status (planning → partly booked → booked; the items' bookings say it), and signed-out trips.
+**Unregistered guests** (RAA-175): a trip's owner can be a guest with no email yet (`User#anonymous?`) or one with no password and no OAuth (`User.unregistered`). `Guests::Purge` (`Guests::PurgeJob`, 00:45 UTC) deletes such a guest's trip on `Trip#purge_on` (`PURGE_DAYS`, 60, after it ends, or after an undated trip's last edit), booked items included, once no booking of it is `Booking.unsettled`; it deletes the items first so `keep_if_booked` lets the trip go, and the guest with their last trip. Bookings keep their own `guest_name`/`guest_email`/`guest_phone`, and the foreign keys from bookings, checkouts and booking events to users nullify. It also sends one reminder (`trips.purge_reminded_at`) 7 days before.
+
+**Not here yet**: a stored trip status (planning → partly booked → booked; the items' bookings say it).

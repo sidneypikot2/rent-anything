@@ -442,7 +442,7 @@ function BookingPanel({ error, onClose, ...row }: RowProps & { error: string | u
                 <Phone number={traveller.phone} />
               </Row>
               <Row label="Email">
-                <Email address={traveller.email} />
+                {traveller.email ? <Email address={traveller.email} /> : "Not given"}
               </Row>
             </>
           ) : (

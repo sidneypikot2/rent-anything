@@ -9,5 +9,8 @@ Rails.application.config.filter_parameters += [
   # number, image links); we keep only the outcome, so they stay out of the logs too.
   :decision, :expected_details, :contact_details,
   # Payout account numbers (RAA-145), stored encrypted.
-  :account_number
+  :account_number,
+  # A trip link's PIN and an emailed sign-in code (RAA-175), matched whole so postal_code
+  # and the like stay readable.
+  /\Apin\z/, /\Acode\z/
 ]

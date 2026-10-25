@@ -23,6 +23,9 @@ RSpec.describe "Registrations", type: :request do
 
       let(:body) { { email: "Ana@Example.com", name: "Ana Reyes", phone: "+639171234567", password: "password123", role: "guest" } }
 
+      parameter name: :Authorization, in: :header, required: false, schema: { type: :string },
+        description: "A guest with no account yet (RAA-175): their trips move into the account signed in to"
+
       response "201", "a partner can sign up with a guest's email" do
         schema "$ref" => "#/components/schemas/auth_tokens"
         let(:body) { super().merge(role: "partner") }
@@ -41,6 +44,19 @@ RSpec.describe "Registrations", type: :request do
           json = response.parsed_body
           expect(json["user"]).to include("email" => "ana@example.com", "role" => "guest")
           expect(User.find_by(email: "ana@example.com")).to be_present
+        end
+      end
+
+      response "201", "a guest with no account yet signs up: their trips move into the new account" do
+        schema "$ref" => "#/components/schemas/auth_tokens"
+        let(:body) { { email: "ana@example.com", password: "password123", role: "guest" } }
+        let(:anonymous) { User.create!(role: "guest") }
+        let!(:trip) { create(:trip, user: anonymous) }
+        let(:Authorization) { bearer_for(anonymous) }
+
+        run_test! do |response|
+          expect(trip.reload.user_id).to eq(response.parsed_body.dig("user", "id"))
+          expect(User.exists?(anonymous.id)).to be(false)
         end
       end
 

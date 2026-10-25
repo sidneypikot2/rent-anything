@@ -15,7 +15,10 @@ module Checkouts
   #
   # Both hold their days from the moment they are made. Afterwards requests are accepted at
   # once while Bookings.auto_accept? is on; the guest pays for what is held for payment
-  # afterwards (Payments::Pay, RAA-143). Returns the checkout.
+  # afterwards (Payments::Pay, RAA-143). A guest with no email yet (RAA-175) also sends
+  # `contact` (Guests::ClaimContact), and each booking keeps its own copy of the guest's
+  # name, email and phone, which partners keep after an unregistered guest is purged.
+  # Returns the checkout.
   class Create < ApplicationService
     include Trips::Values
 
@@ -39,6 +42,7 @@ module Checkouts
       return replay(existing, trip_id) if existing
 
       trip = @user.trips.find(trip_id)
+      Guests::ClaimContact.call(@user, @params[:contact]) if @user.anonymous?
       checkout = book(trip, item_ids, key)
       settle(checkout)
     rescue ActiveRecord::RecordNotUnique
@@ -135,6 +139,7 @@ module Checkouts
       instant = listing.booking_mode == "instant"
       booking = listing.bookings.create!(
         source: "checkout", checkout:, user: @user, trip_item: item, guest_name: guest_name,
+        guest_email: @user.email, guest_phone: @user.phone,
         starts_on: item.starts_on, ends_on: item.ends_on, quantity: line[:units], guests: item.quantity.clamp(1, Booking::MAX_QUANTITY),
         status: instant ? "awaiting_payment" : "requested", expires_at: expires_at(instant, item),
         total_cents: line[:total_cents], price_breakdown: line[:breakdown],

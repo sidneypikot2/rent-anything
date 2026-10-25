@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_24_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_26_100100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -141,6 +141,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_24_160000) do
     t.string "cancelled_by"
     t.text "cancellation_reason"
     t.bigint "refund_cents"
+    t.string "guest_email"
+    t.string "guest_phone"
     t.index ["checkout_id"], name: "index_bookings_on_checkout_id"
     t.index ["listing_id", "starts_on", "ends_on"], name: "index_bookings_on_listing_id_and_starts_on_and_ends_on"
     t.index ["payment_id"], name: "index_bookings_on_payment_id"
@@ -159,7 +161,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_24_160000) do
     t.check_constraint "guests >= 1 AND guests <= 100", name: "bookings_guests_check"
     t.check_constraint "quantity >= 1 AND quantity <= 100", name: "bookings_quantity_check"
     t.check_constraint "refund_cents >= 0 AND refund_cents <= total_cents", name: "bookings_refund_check"
-    t.check_constraint "source <> 'checkout'::booking_source OR user_id IS NOT NULL AND checkout_id IS NOT NULL", name: "bookings_checkout_source_check"
+    t.check_constraint "source <> 'checkout'::booking_source OR checkout_id IS NOT NULL", name: "bookings_checkout_source_check"
     t.check_constraint "total_cents >= 0", name: "bookings_total_check"
   end
 
@@ -213,7 +215,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_24_160000) do
   end
 
   create_table "checkouts", force: :cascade do |t|
-    t.bigint "user_id", null: false
+    t.bigint "user_id"
     t.bigint "trip_id"
     t.string "idempotency_key", null: false
     t.bigint "total_cents", null: false
@@ -473,6 +475,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_24_160000) do
     t.datetime "revoked_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "fixed_expiry", default: false, null: false
     t.index ["token_digest"], name: "index_refresh_tokens_on_token_digest", unique: true
     t.index ["user_id"], name: "index_refresh_tokens_on_user_id"
   end
@@ -491,6 +494,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_24_160000) do
     t.check_constraint "result_count >= 0", name: "search_events_result_count_check"
     t.check_constraint "session_hash::text ~ '^[0-9a-f]{64}$'::text", name: "search_events_session_hash_check"
     t.check_constraint "target_type::text = ANY (ARRAY['Area'::character varying::text, 'Landmark'::character varying::text, 'Tag'::character varying::text, 'Listing'::character varying::text])", name: "search_events_target_type_check"
+  end
+
+  create_table "sign_in_codes", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "code_digest", null: false
+    t.datetime "expires_at", null: false
+    t.integer "attempts", default: 0, null: false
+    t.datetime "consumed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_sign_in_codes_on_user_id"
+    t.check_constraint "attempts >= 0", name: "sign_in_codes_attempts_check"
   end
 
   create_table "stay_rates", force: :cascade do |t|
@@ -561,6 +576,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_24_160000) do
     t.check_constraint "price_per_head_cents >= 0", name: "tour_inclusions_price_check"
   end
 
+  create_table "trip_accesses", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "token_digest", null: false
+    t.string "pin_digest", null: false
+    t.integer "failed_attempts", default: 0, null: false
+    t.datetime "locked_at"
+    t.datetime "rotated_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["token_digest"], name: "index_trip_accesses_on_token_digest", unique: true
+    t.index ["user_id"], name: "index_trip_accesses_on_user_id", unique: true
+    t.check_constraint "failed_attempts >= 0", name: "trip_accesses_failed_attempts_check"
+  end
+
   create_table "trip_items", force: :cascade do |t|
     t.bigint "trip_id", null: false
     t.bigint "listing_id", null: false
@@ -585,6 +614,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_24_160000) do
     t.integer "guests", default: 1, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "purge_reminded_at"
     t.index ["user_id", "updated_at"], name: "index_trips_on_user_id_and_updated_at"
     t.check_constraint "(starts_on IS NULL) = (ends_on IS NULL)", name: "trips_dates_both_or_neither_check"
     t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 80", name: "trips_name_length_check"
@@ -593,7 +623,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_24_160000) do
   end
 
   create_table "users", force: :cascade do |t|
-    t.string "email", null: false
+    t.string "email"
     t.string "name"
     t.string "phone"
     t.string "password_digest"
@@ -604,6 +634,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_24_160000) do
     t.index ["email", "role"], name: "index_users_on_email_and_role", unique: true
     t.index ["id", "role"], name: "index_users_on_id_and_role", unique: true
     t.check_constraint "NOT registration_complete OR name IS NOT NULL AND phone IS NOT NULL", name: "users_registration_complete_check"
+    t.check_constraint "email IS NOT NULL OR role::text = 'guest'::text AND NOT registration_complete", name: "users_email_presence_check"
     t.check_constraint "email::text = lower(email::text)", name: "users_email_lowercase_check"
     t.check_constraint "role::text = ANY (ARRAY['guest'::character varying::text, 'partner'::character varying::text, 'admin'::character varying::text])", name: "users_role_check"
   end
@@ -650,12 +681,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_24_160000) do
   add_foreign_key "areas", "areas", column: "parent_id"
   add_foreign_key "availability_blocks", "listings", on_delete: :cascade
   add_foreign_key "booking_events", "bookings"
-  add_foreign_key "booking_events", "users"
+  add_foreign_key "booking_events", "users", on_delete: :nullify
   add_foreign_key "bookings", "checkouts"
   add_foreign_key "bookings", "listings"
   add_foreign_key "bookings", "payments"
   add_foreign_key "bookings", "trip_items", on_delete: :nullify
-  add_foreign_key "bookings", "users"
+  add_foreign_key "bookings", "users", on_delete: :nullify
   add_foreign_key "businesses", "payout_accounts"
   add_foreign_key "businesses", "payout_accounts", column: ["payout_account_id", "partner_id"], primary_key: ["id", "partner_id"], name: "fk_businesses_payout_account_partner"
   add_foreign_key "businesses", "users", column: "partner_id"
@@ -663,7 +694,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_24_160000) do
   add_foreign_key "category_tags", "categories"
   add_foreign_key "category_tags", "tags"
   add_foreign_key "checkouts", "trips", on_delete: :nullify
-  add_foreign_key "checkouts", "users"
+  add_foreign_key "checkouts", "users", on_delete: :nullify
   add_foreign_key "guest_profiles", "users"
   add_foreign_key "guest_profiles", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_guest_profiles_user_role"
   add_foreign_key "landmark_tags", "landmarks"
@@ -690,9 +721,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_24_160000) do
   add_foreign_key "payments", "checkouts"
   add_foreign_key "payout_accounts", "users", column: "partner_id"
   add_foreign_key "refresh_tokens", "users"
+  add_foreign_key "sign_in_codes", "users", on_delete: :cascade
   add_foreign_key "stay_rates", "listings", on_delete: :cascade
   add_foreign_key "tour_details", "listings", on_delete: :cascade
   add_foreign_key "tour_inclusions", "listings", on_delete: :cascade
+  add_foreign_key "trip_accesses", "users", on_delete: :cascade
   add_foreign_key "trip_items", "listings", on_delete: :cascade
   add_foreign_key "trip_items", "trips", on_delete: :cascade
   add_foreign_key "trips", "users"

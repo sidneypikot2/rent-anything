@@ -1,5 +1,7 @@
 # Long-lived token a client trades for a new access token. Only its SHA-256 digest is
-# stored; each use revokes it and issues a new one (rotation).
+# stored; each use revokes it and issues a new one (rotation). A trip link's session
+# (RAA-175) has a fixed expiry instead: its rotations keep the first one's expires_at, so an
+# open of the link ends then however often the tab refreshes.
 class RefreshToken < ApplicationRecord
   LIFETIME = 30.days
 
@@ -11,10 +13,11 @@ class RefreshToken < ApplicationRecord
     OpenSSL::Digest::SHA256.hexdigest(token)
   end
 
-  # Returns the raw token; it is never stored.
-  def self.issue(user)
+  # Returns the raw token; it is never stored. `expires_at` fixes its expiry (see above).
+  def self.issue(user, expires_at: nil)
     token = SecureRandom.urlsafe_base64(32)
-    create!(user: user, token_digest: digest(token), expires_at: LIFETIME.from_now)
+    create!(user: user, token_digest: digest(token), expires_at: expires_at || LIFETIME.from_now,
+      fixed_expiry: expires_at.present?)
     token
   end
 

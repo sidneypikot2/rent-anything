@@ -2,14 +2,16 @@ module Auth
   # Sign in or sign up with Google or Facebook. The browser gets a token from the provider;
   # it is verified here, then matched to a user of the entry point's role: by the linked
   # identity, else by email when the provider vouches for it (Google's email_verified), else a
-  # new user. So the same provider account can have one guest and one partner account.
+  # new user. So the same provider account can have one guest and one partner account. A guest
+  # with no account yet (current_user, RAA-175) brings their trips into it (Guests::Absorb).
   class OauthSignIn < Base
     PROVIDERS = { "google" => Providers::Google, "facebook" => Providers::Facebook }.freeze
 
-    def initialize(provider:, token:, role:)
+    def initialize(provider:, token:, role:, current_user: nil)
       @provider = provider
       @token = token
       @role = role
+      @current_user = current_user
     end
 
     def call
@@ -19,6 +21,7 @@ module Auth
 
       profile = verifier.verify(@token)
       user = find_or_create_with_retry(profile)
+      Guests::Absorb.call(from: @current_user, into: user) if @current_user
       IssueTokens.call(user)
     end
 

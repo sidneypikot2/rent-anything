@@ -22,6 +22,9 @@ class Trip < ApplicationRecord
   CLEANUP_DAYS = 7
   # Days without an edit after which an undated trip gets the same notice.
   STALE_DAYS = 60
+  # Days after it ends that an unregistered guest's trip is deleted, booked items and all
+  # (Guests::Purge, RAA-175); an undated one's, after its last edit.
+  PURGE_DAYS = 60
 
   # Trips a guest is still planning: not yet ended, or undated and not past their deletion
   # date. Suggestions use these.
@@ -32,6 +35,12 @@ class Trip < ApplicationRecord
   scope :due_for_cleanup, -> { where(ends_on: ...ended_cutoff).or(where(ends_on: nil, updated_at: ...undated_cutoff)) }
   # The Trips page (RAA-139): trips with a booked item, which Trips::Cleanup keeps.
   scope :with_bookings, -> { where(TripItem.booked.where("trip_items.trip_id = trips.id").arel.exists) }
+  # Trips of guests with no password and no Google or Facebook sign-in (User.unregistered).
+  scope :of_unregistered_guests, -> { where(user_id: User.unregistered.select(:id)) }
+  # Those whose #purge_on has come by `today`.
+  scope :due_for_purge, ->(today = Date.current) {
+    where(ends_on: ..(today - PURGE_DAYS)).or(where(ends_on: nil, updated_at: ...(today - PURGE_DAYS + 1).beginning_of_day))
+  }
   scope :with_items, -> { includes(items: [ :booking, { listing: [ :area, { category: :parent }, :cover_photo, :units, :stay_rate, :tour_detail ] } ]) }
 
   # The cart keeps a trip that ended on or after this date (#deletes_on is still to come)...
@@ -59,6 +68,11 @@ class Trip < ApplicationRecord
     return if notice_from.nil? || notice_from > today
 
     notice_from + CLEANUP_DAYS
+  end
+
+  # The day Guests::Purge deletes this trip if its guest is unregistered (RAA-175).
+  def purge_on
+    (dated? ? ends_on : updated_at.to_date) + PURGE_DAYS
   end
 
   # Widens the dates to take in the range; sets them on an undated trip.

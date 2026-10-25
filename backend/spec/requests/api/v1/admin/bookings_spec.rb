@@ -41,7 +41,7 @@ RSpec.describe "Admin bookings", type: :request do
             "listing" => { "id" => listing.id, "title" => listing.title, "area" => listing.area.name },
             "partner" => { "id" => partner.id, "name" => "Lito Partner", "email" => "lito@example.com",
               "phone" => "+639170000001", "business" => "Kota Stays" },
-            "traveller" => { "id" => traveller.id, "name" => "Ana Guest", "email" => "ana@example.com",
+            "traveller" => { "id" => traveller.id, "name" => "Later", "email" => "ana@example.com",
               "phone" => "+639170000002" }
           )
         end

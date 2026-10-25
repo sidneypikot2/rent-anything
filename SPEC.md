@@ -99,10 +99,21 @@ areas and a tour can visit several.
   items (`trip_items`: listing, dates, quantity) from any area, in date order. Built in
   RAA-64. A trip's dates always cover its dated items; adding or re-dating an item extends
   them.
-- **Sign-in comes before the first add.** That add then creates a trip named
-  `<destination> · <dates>`. The destination is the listing's published island, otherwise its
-  town or city, never a province (Santa Fe → Bantayan Island). Signed-out trips are a
-  follow-up feature on the same server model.
+- **No account is needed to plan or book** (RAA-175). A signed-out first add makes a guest
+  with no email (`POST /guest_sessions`), so the trip has an owner on the server, and creates a
+  trip named `<destination> · <dates>`. The destination is the listing's published island,
+  otherwise its town or city, never a province (Santa Fe → Bantayan Island). The guest gives
+  name, email and phone at their first checkout, and partners see them on each booking (the
+  booking keeps its own copy). An email another guest already has gets an emailed code, and
+  signing in with it moves the trips into that account. Signing in or up as a guest any other
+  way (password, Google, Facebook) before then moves them too.
+- **Coming back without an account**: the first checkout gives the guest a private **trip
+  link** and a fixed 6-digit **PIN** (shown once, and emailed), one pair per guest opening their
+  whole cart. Every open of the link asks for the PIN, like a password-protected document;
+  within that open nothing asks again. The session lasts 12 hours at most and the web app keeps
+  it only in that tab. Five wrong PINs lock the link. A lost link, a forgotten PIN or a locked
+  link is recovered with an emailed one-time code, after which the guest makes a new link and
+  PIN. A guest can set a password at any time (`POST /me/register`) to keep their trips.
 - **Later adds suggest a trip**, by date first, then by distance. If the item is inside a
   trip's dates, or up to 3 days outside them, it goes to that trip (outside the dates, the
   trip is extended). If it is more than 3 days from every trip, the suggestion is "New trip".
@@ -111,7 +122,15 @@ areas and a tour can visit several.
 - Undated items can sit in a trip but can't be checked out until they have a date.
 - Cleanup (RAA-65): a daily job shows an in-app notice when a trip ends and deletes its
   unbooked items 7 days later. An undated trip gets the same notice after 60 days with no
-  edits. Booked items are never deleted. No email in M4.
+  edits. Booked items are never deleted by it. No email for this notice.
+- **Unregistered guests' trips are deleted 60 days after they end** (RAA-175, `Guests::Purge`,
+  daily): a guest with no password and no Google or Facebook sign-in loses the trip, booked
+  items included, once none of its bookings is still open (any status before completed, or a
+  dispute once there are disputes). The guest goes with their last trip. Partners keep their
+  records: bookings with the guest's name, email and phone, prices, commission and refunds,
+  checkouts, payments and booking history, with the link to the user cleared. The trip-link
+  email states the rule and the date, and a reminder goes out 7 days before; both offer to
+  create an account to keep the trip.
 - The cart holds nothing: availability and price are re-quoted at checkout, and changed
   items are flagged.
 - **Checkout** (RAA-132) takes the dated items the guest selects from a trip and creates their

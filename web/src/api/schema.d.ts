@@ -1689,7 +1689,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description a stay for more guests than a unit sleeps takes two units */
+                /** @description a guest without an account gives their contact details; partners see them, and the trip link comes once */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -1718,6 +1718,15 @@ export interface paths {
                 };
                 /** @description another guest's trip */
                 404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description the email belongs to another guest: a code is emailed to it, and nothing is booked */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1804,6 +1813,54 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guest_sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start as a guest without an account
+         * @description RAA-175. Makes a guest with no email, so a trip made before signing in has an owner, and signs them in. They give name, email and phone at their first checkout (`contact` on POST /checkouts), and come back later through their trip link and PIN.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description a guest with no email yet */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["auth_tokens"];
+                    };
+                };
+                /** @description too many from one IP */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -2174,6 +2231,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create an account to keep this trip
+         * @description Guest-only (RAA-175). A guest who booked without an account sets a password (8 to 72 characters) on the same account, which then signs in with email and password, and their trips are no longer deleted 60 days after they end. Their trip link keeps working.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        password: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description registered */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["user"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description sent as a number */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -2346,7 +2477,10 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: never;
+                header?: {
+                    /** @description A guest with no account yet (RAA-175): their trips move into the account signed in to */
+                    Authorization?: string;
+                };
                 path: {
                     provider: "google" | "facebook";
                 };
@@ -4747,7 +4881,10 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: never;
+                header?: {
+                    /** @description A guest with no account yet (RAA-175): their trips move into the account signed in to */
+                    Authorization?: string;
+                };
                 path?: never;
                 cookie?: never;
             };
@@ -4935,7 +5072,10 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: never;
+                header?: {
+                    /** @description A guest with no account yet (RAA-175): their trips move into the account signed in to */
+                    Authorization?: string;
+                };
                 path?: never;
                 cookie?: never;
             };
@@ -5025,6 +5165,138 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sign_in_codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a guest a sign-in code
+         * @description RAA-175. For a guest who lost their trip link, forgot their PIN or locked the link. Answers 202 whether or not the email has a guest account, and only a guest's email gets a code. A new code replaces the last one. Limited per IP and per email.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        email: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description an email with no guest account: the same answer, nothing sent */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description no email */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description too many from one IP */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sign_in_codes/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with an emailed code
+         * @description RAA-175. A code works once, for 10 minutes and 5 tries. Sent by a guest with no email yet (the 409 at checkout), their trips move into this account and that emailless guest is deleted. From this session the guest can reset their trip link and PIN (POST /trip_access/rotate).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        email: string;
+                        code: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description from a guest with no email yet: their trips move into this account */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["auth_tokens"];
+                    };
+                };
+                /** @description a code replaced by a newer one */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a code sent as a number */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+                /** @description too many from one IP */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tokens/refresh": {
         parameters: {
             query?: never;
@@ -5053,7 +5325,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description new tokens; the old refresh token is spent */
+                /** @description a trip link's session keeps its end: refreshing doesn't make it last longer */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -5072,6 +5344,157 @@ export interface paths {
                     };
                 };
                 /** @description token given as an array */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trip_access/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a trip link with its PIN
+         * @description RAA-175. Every open of the trip link asks for its PIN. The session lasts one open: its refresh token stops working 12 hours after the unlock, refreshes included, and the web app keeps it only in that tab. An unknown link and a wrong PIN get the same 401. Five wrong PINs in a row lock the link (423) until the guest resets it after signing in with an emailed code (POST /sign_in_codes).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @description From the trip link, /trips/open/<token> */
+                        token: string;
+                        pin: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description opened: a session that ends with this open */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["auth_tokens"];
+                    };
+                };
+                /** @description an unknown link: the same answer */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a PIN sent as a number */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+                /** @description the fifth wrong PIN locks the link, and then the right one doesn't open it */
+                423: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description too many from one IP */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trip_access/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a new trip link and PIN
+         * @description Guest-only (RAA-175). The old link and PIN stop working, a locked link is unlocked, and the new pair is returned once. For a guest who has given their email (at their first checkout).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description a new pair; the old one no longer opens */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip_link"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest with no email yet */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -5878,13 +6301,16 @@ export interface components {
     schemas: {
         user: {
             id: number;
-            email: string;
+            /** @description Null for a guest without an account who hasn't checked out yet (POST /api/v1/guest_sessions) */
+            email: string | null;
             name: string | null;
             phone: string | null;
             /** @enum {string} */
             role: "guest" | "partner" | "admin";
             /** @description False until name and phone are set (PUT /api/v1/me/complete_profile) */
             registration_complete: boolean;
+            /** @description Has a password or a Google or Facebook sign-in. A guest who isn't has their trips deleted 60 days after each ends; POST /api/v1/me/register sets a password */
+            registered: boolean;
         };
         profile_address: {
             street: string | null;
@@ -7022,6 +7448,10 @@ export interface components {
             /** @description A short code the guest and the partner can quote */
             reference: string;
             guest_name: string;
+            /** @description Null for one taken offline */
+            guest_email: string | null;
+            /** @description Null for one taken offline */
+            guest_phone: string | null;
             /** Format: date */
             starts_on: string;
             /**
@@ -7098,6 +7528,10 @@ export interface components {
             id: number;
             reference: string;
             guest_name: string;
+            /** @description Null for one taken offline */
+            guest_email: string | null;
+            /** @description Null for one taken offline */
+            guest_phone: string | null;
             /** Format: date */
             starts_on: string;
             /**
@@ -7150,11 +7584,11 @@ export interface components {
                 /** @description The listing's business, the name travellers see */
                 business: string;
             };
-            /** @description Null for one taken offline (see guest_name) */
+            /** @description Null for one taken offline (see guest_name). As the booking keeps them: id is null once an unregistered guest's account is deleted */
             traveller: {
-                id: number;
-                name: string | null;
-                email: string;
+                id: number | null;
+                name: string;
+                email: string | null;
                 phone: string | null;
             } | null;
             /** Format: date-time */
@@ -7215,12 +7649,28 @@ export interface components {
             item_ids: number[];
             /** @description Made by the client for this checkout; sent again, it returns the same checkout */
             idempotency_key: string;
+            /** @description Required from a guest without an email yet (their first checkout); ignored otherwise. Partners see these on each booking. An email another guest has answers 409 and emails it a code (POST /api/v1/sign_in_codes/verify) */
+            contact?: {
+                name: string;
+                email: string;
+                phone: string;
+            };
         };
         checkout: {
             id: number;
             trip_id: number | null;
             total_cents: number;
             bookings: components["schemas"]["guest_booking"][];
+            /** @description Only on an unregistered guest's first checkout, and never again: the trip link's token (the web app's /trips/open/<token>) and its PIN. Also emailed */
+            trip_link: {
+                token: string;
+                pin: string;
+            } | null;
+        };
+        trip_link: {
+            /** @description The web app's trip link is /trips/open/<token> */
+            token: string;
+            pin: string;
         };
         booking_pay_body: {
             booking_ids: number[];

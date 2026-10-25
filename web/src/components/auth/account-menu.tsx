@@ -78,7 +78,7 @@ export function AccountMenu({ section }: { section: MenuSection }) {
         type="button"
         data-testid="nav-user"
         // The first letter, drawn by CSS on a phone, so the button's text stays the name.
-        data-initial={(session.user.name ?? session.user.email).trim().charAt(0).toUpperCase()}
+        data-initial={(session.user.name ?? session.user.email ?? "G").trim().charAt(0).toUpperCase()}
         aria-expanded={open}
         aria-controls="account-menu"
         onClick={() => setOpen(!open)}

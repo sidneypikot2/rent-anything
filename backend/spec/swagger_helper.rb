@@ -88,16 +88,24 @@ RSpec.configure do |config|
             type: :object,
             properties: {
               id: { type: :integer },
-              email: { type: :string },
+              email: {
+                type: :string, nullable: true,
+                description: "Null for a guest without an account who hasn't checked out yet (POST /api/v1/guest_sessions)"
+              },
               name: { type: :string, nullable: true },
               phone: { type: :string, nullable: true },
               role: { type: :string, enum: %w[guest partner admin] },
               registration_complete: {
                 type: :boolean,
                 description: "False until name and phone are set (PUT /api/v1/me/complete_profile)"
+              },
+              registered: {
+                type: :boolean,
+                description: "Has a password or a Google or Facebook sign-in. A guest who isn't has their trips deleted " \
+                  "60 days after each ends; POST /api/v1/me/register sets a password"
               }
             },
-            required: %w[id email name phone role registration_complete]
+            required: %w[id email name phone role registration_complete registered]
           },
           # A profile's address; fields are null until the profile is first saved.
           profile_address: {
@@ -1568,6 +1576,8 @@ RSpec.configure do |config|
               id: { type: :integer },
               reference: { type: :string, description: "A short code the guest and the partner can quote" },
               guest_name: { type: :string },
+              guest_email: { type: :string, nullable: true, description: "Null for one taken offline" },
+              guest_phone: { type: :string, nullable: true, description: "Null for one taken offline" },
               starts_on: { type: :string, format: :date },
               ends_on: {
                 type: :string, format: :date,
@@ -1598,8 +1608,9 @@ RSpec.configure do |config|
               },
               created_at: { type: :string, format: "date-time" }
             },
-            required: %w[id reference guest_name starts_on ends_on quantity guests status source booking_mode total_cents
-              to_be_agreed commission_cents refund_cents cancelled_by expires_at notes listing created_at]
+            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on quantity guests status source
+              booking_mode total_cents to_be_agreed commission_cents refund_cents cancelled_by expires_at notes listing
+              created_at]
           },
           # The booking lifecycle (RAA-132).
           booking_status: {
@@ -1641,6 +1652,8 @@ RSpec.configure do |config|
               id: { type: :integer },
               reference: { type: :string },
               guest_name: { type: :string },
+              guest_email: { type: :string, nullable: true, description: "Null for one taken offline" },
+              guest_phone: { type: :string, nullable: true, description: "Null for one taken offline" },
               starts_on: { type: :string, format: :date },
               ends_on: {
                 type: :string, format: :date,
@@ -1684,18 +1697,21 @@ RSpec.configure do |config|
                 required: %w[id name email phone business]
               },
               traveller: {
-                type: :object, nullable: true, description: "Null for one taken offline (see guest_name)",
+                type: :object, nullable: true,
+                description: "Null for one taken offline (see guest_name). As the booking keeps them: id is null once " \
+                  "an unregistered guest's account is deleted",
                 properties: {
-                  id: { type: :integer },
-                  name: { type: :string, nullable: true },
-                  email: { type: :string },
+                  id: { type: :integer, nullable: true },
+                  name: { type: :string },
+                  email: { type: :string, nullable: true },
                   phone: { type: :string, nullable: true }
                 },
                 required: %w[id name email phone]
               },
               created_at: { type: :string, format: "date-time" }
             },
-            required: %w[id reference guest_name starts_on ends_on quantity guests status source booking_mode booking_type
+            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on quantity guests status source
+              booking_mode booking_type
               total_cents to_be_agreed commission_cents refund_cents cancelled_by cancellation_policy expires_at
               responded_at notes listing partner traveller created_at]
           },
@@ -1757,6 +1773,14 @@ RSpec.configure do |config|
               idempotency_key: {
                 type: :string, minLength: Checkouts::Create::KEY_LENGTH.min, maxLength: Checkouts::Create::KEY_LENGTH.max,
                 description: "Made by the client for this checkout; sent again, it returns the same checkout"
+              },
+              contact: {
+                type: :object,
+                description: "Required from a guest without an email yet (their first checkout); ignored otherwise. " \
+                  "Partners see these on each booking. An email another guest has answers 409 and emails it a code " \
+                  "(POST /api/v1/sign_in_codes/verify)",
+                properties: { name: { type: :string }, email: { type: :string }, phone: { type: :string } },
+                required: %w[name email phone]
               }
             },
             required: %w[trip_id item_ids idempotency_key]
@@ -1767,9 +1791,25 @@ RSpec.configure do |config|
               id: { type: :integer },
               trip_id: { type: :integer, nullable: true },
               total_cents: { type: :integer },
-              bookings: { type: :array, items: { "$ref" => "#/components/schemas/guest_booking" } }
+              bookings: { type: :array, items: { "$ref" => "#/components/schemas/guest_booking" } },
+              trip_link: {
+                type: :object, nullable: true,
+                description: "Only on an unregistered guest's first checkout, and never again: the trip link's token " \
+                  "(the web app's /trips/open/<token>) and its PIN. Also emailed",
+                properties: { token: { type: :string }, pin: { type: :string, pattern: "^[0-9]{6}$" } },
+                required: %w[token pin]
+              }
             },
-            required: %w[id trip_id total_cents bookings]
+            required: %w[id trip_id total_cents bookings trip_link]
+          },
+          # A guest's trip link and PIN (RAA-175), shown once.
+          trip_link: {
+            type: :object,
+            properties: {
+              token: { type: :string, description: "The web app's trip link is /trips/open/<token>" },
+              pin: { type: :string, pattern: "^[0-9]{6}$" }
+            },
+            required: %w[token pin]
           },
           # The bookings a guest pays for at once (RAA-143).
           booking_pay_body: {
