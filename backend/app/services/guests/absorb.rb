@@ -10,7 +10,7 @@ module Guests
     end
 
     def call
-      return @into unless @from.guest? && @from.anonymous? && @from.id != @into.id
+      return @into unless @from.guest? && @from.anonymous? && @into.guest? && @from.id != @into.id
 
       User.transaction do
         @from.lock!

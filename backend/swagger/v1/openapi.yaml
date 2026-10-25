@@ -1725,6 +1725,13 @@ paths:
           - google
           - facebook
         required: true
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+        description: 'A guest with no account yet (RAA-175): their trips move into
+          the account signed in to'
       responses:
         '200':
           description: a new user is created with the entry point's role
@@ -3366,7 +3373,14 @@ paths:
         /partner/login. Admin accounts are never self-made. `name` and `phone` are
         optional; the account starts with `registration_complete: false` until PUT
         /api/v1/me/complete_profile."
-      parameters: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+        description: 'A guest with no account yet (RAA-175): their trips move into
+          the account signed in to'
       responses:
         '201':
           description: a sign-up from /partner makes a partner
@@ -3505,7 +3519,14 @@ paths:
       description: "`role` is the entry point signed in from. Email is unique per
         role, so only that role's account is looked up; an account of another role
         is not found (401)."
-      parameters: []
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+        description: 'A guest with no account yet (RAA-175): their trips move into
+          the account signed in to'
       responses:
         '200':
           description: signed in

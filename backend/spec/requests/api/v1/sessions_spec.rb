@@ -17,9 +17,34 @@ RSpec.describe "Sessions", type: :request do
         },
         required: %w[email password role]
       }
+      parameter name: :Authorization, in: :header, required: false, schema: { type: :string },
+        description: "A guest with no account yet (RAA-175): their trips move into the account signed in to"
 
       let!(:user) { create(:user, email: "ana@example.com", password: "password123") }
       let(:body) { { email: "ANA@example.com ", password: "password123", role: "guest" } }
+
+      response "200", "a guest with no account yet signs in: their trips move into the account" do
+        schema "$ref" => "#/components/schemas/auth_tokens"
+        let(:anonymous) { User.create!(role: "guest") }
+        let!(:trip) { create(:trip, user: anonymous) }
+        let(:Authorization) { bearer_for(anonymous) }
+
+        run_test! do
+          expect(trip.reload.user_id).to eq(user.id)
+          expect(User.exists?(anonymous.id)).to be(false)
+        end
+      end
+
+      response "200", "on /partner/login a guest's trips stay theirs" do
+        schema "$ref" => "#/components/schemas/auth_tokens"
+        let!(:partner) { create(:user, :partner, email: "ana@example.com", password: "partner-pass") }
+        let(:body) { { email: "ana@example.com", password: "partner-pass", role: "partner" } }
+        let(:anonymous) { User.create!(role: "guest") }
+        let!(:trip) { create(:trip, user: anonymous) }
+        let(:Authorization) { bearer_for(anonymous) }
+
+        run_test! { expect(trip.reload.user_id).to eq(anonymous.id) }
+      end
 
       response "200", "the same email has a guest and a partner account: the page picks one" do
         schema "$ref" => "#/components/schemas/auth_tokens"
