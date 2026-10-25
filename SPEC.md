@@ -105,7 +105,8 @@ areas and a tour can visit several.
   otherwise its town or city, never a province (Santa Fe → Bantayan Island). The guest gives
   name, email and phone at their first checkout, and partners see them on each booking (the
   booking keeps its own copy). An email another guest already has gets an emailed code, and
-  signing in with it moves the trips into that account.
+  signing in with it moves the trips into that account. Signing in or up as a guest any other
+  way (password, Google, Facebook) before then moves them too.
 - **Coming back without an account**: the first checkout gives the guest a private **trip
   link** and a fixed 6-digit **PIN** (shown once, and emailed), one pair per guest opening their
   whole cart. Every open of the link asks for the PIN, like a password-protected document;

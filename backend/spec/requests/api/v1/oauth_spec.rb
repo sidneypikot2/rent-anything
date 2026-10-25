@@ -18,6 +18,8 @@ RSpec.describe "OAuth", type: :request do
         },
         required: %w[token role]
       }
+      parameter name: :Authorization, in: :header, required: false, schema: { type: :string },
+        description: "A guest with no account yet (RAA-175): their trips move into the account signed in to"
 
       let(:provider) { "google" }
       let(:body) { { token: "google-id-token", role: "guest" } }
@@ -38,6 +40,19 @@ RSpec.describe "OAuth", type: :request do
           expect(response.parsed_body["user"]).to include("email" => "ana@example.com", "role" => "partner")
           expect(response.parsed_body.dig("user", "id")).not_to eq(guest.id)
           expect(OauthIdentity.where(provider: "google", uid: "g-123").pluck(:role)).to contain_exactly("guest", "partner")
+        end
+      end
+
+      response "200", "a guest with no account yet signs in with Google: their trips move into the account" do
+        schema "$ref" => "#/components/schemas/auth_tokens"
+        let(:body) { { token: "google-id-token", role: "guest" } }
+        let(:anonymous) { User.create!(role: "guest") }
+        let!(:trip) { create(:trip, user: anonymous) }
+        let(:Authorization) { bearer_for(anonymous) }
+
+        run_test! do |response|
+          expect(trip.reload.user_id).to eq(response.parsed_body.dig("user", "id"))
+          expect(User.exists?(anonymous.id)).to be(false)
         end
       end
 
