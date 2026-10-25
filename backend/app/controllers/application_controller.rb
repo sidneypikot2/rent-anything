@@ -2,6 +2,8 @@ class ApplicationController < ActionController::API
   rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
   rescue_from NotAuthenticatedError, with: :render_unauthorized
   rescue_from NotAuthorizedError, with: :render_forbidden
+  rescue_from CodeRequiredError, with: :render_conflict
+  rescue_from TripLinkLockedError, with: :render_locked
   rescue_from ActiveRecord::RecordInvalid, with: :render_unprocessable
   rescue_from Didit::Error, with: :render_bad_gateway
   rescue_from Didit::NotConfiguredError, with: :render_service_unavailable
@@ -20,13 +22,17 @@ class ApplicationController < ActionController::API
   # `before_action :authenticate_user!` on any endpoint that needs a signed-in user: reads
   # the access token from `Authorization: Bearer <token>`.
   def authenticate_user!
+    raise NotAuthenticatedError unless authenticate_user
+  end
+
+  # The same, for an endpoint that also takes signed-out requests: current_user stays nil.
+  def authenticate_user
     token = request.authorization.to_s[/\ABearer (.+)\z/, 1]
     payload = token && JsonWebToken.decode(token)
     @current_user = payload && User.find_by(id: payload[:sub])
-    raise NotAuthenticatedError unless @current_user
-
     # Sentry gets the id only, never the email or name (config/initializers/sentry.rb).
-    Sentry.set_user(id: @current_user.id)
+    Sentry.set_user(id: @current_user.id) if @current_user
+    @current_user
   end
 
   def require_role!(role)
@@ -43,6 +49,14 @@ class ApplicationController < ActionController::API
 
   def render_forbidden(exception)
     render json: { error: error_message(exception, "Forbidden") }, status: :forbidden
+  end
+
+  def render_conflict(exception)
+    render json: { error: exception.message }, status: :conflict
+  end
+
+  def render_locked(exception)
+    render json: { error: exception.message }, status: :locked
   end
 
   def render_unprocessable(exception)

@@ -1,0 +1,11 @@
+Hi <%= @user.name %>, thanks for booking with TripKoNext.
+
+Open <%= @trip.name %> again any time with your trip link and PIN:
+
+Trip link: <%= @link %>
+PIN: <%= @pin %>
+
+Anyone with both can see and change your trip, so keep them private.
+
+Without an account, this trip is deleted 60 days after it ends (on <%= @purge_on.to_fs(:long) %>).
+Create an account to keep it: <%= @keep_link %>

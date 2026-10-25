@@ -18,6 +18,8 @@ class Booking < ApplicationRecord
   HOLDING = %w[requested accepted awaiting_payment confirmed in_progress completed].freeze
   # Not yet confirmed: what the guest and the partner see as pending.
   PENDING = %w[requested accepted awaiting_payment].freeze
+  # Not settled yet: what keeps an unregistered guest's trip from being purged (RAA-175).
+  UNSETTLED = %w[requested accepted awaiting_payment confirmed in_progress].freeze
   SOURCES = %w[offline checkout].freeze
   BOOKING_MODES = %w[instant request].freeze
   CANCELLED_BY = %w[guest partner system].freeze
@@ -44,6 +46,7 @@ class Booking < ApplicationRecord
   before_validation :assign_reference, on: :create
 
   scope :holding, -> { where(status: HOLDING) }
+  scope :unsettled, -> { where(status: UNSETTLED) }
   # Those that may take a day from `from` to `to`; a stay's last date is its check-out.
   scope :overlapping, ->(from, to) { where(starts_on: ..to, ends_on: from..) }
 

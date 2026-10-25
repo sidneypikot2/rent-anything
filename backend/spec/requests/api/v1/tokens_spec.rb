@@ -26,6 +26,17 @@ RSpec.describe "Tokens", type: :request do
         end
       end
 
+      response "200", "a trip link's session keeps its end: refreshing doesn't make it last longer" do
+        schema "$ref" => "#/components/schemas/auth_tokens"
+        let(:ends_at) { 3.hours.from_now }
+        let(:refresh_token) { Auth::IssueTokens.call(user, session_ends_at: ends_at)[:refresh_token] }
+
+        run_test! do |response|
+          expect(RefreshToken.find_by_token(response.parsed_body["refresh_token"]))
+            .to have_attributes(fixed_expiry: true, expires_at: be_within(1.second).of(ends_at))
+        end
+      end
+
       response "401", "a spent token is refused and revokes the user's sessions" do
         schema "$ref" => "#/components/schemas/error"
 

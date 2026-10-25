@@ -26,6 +26,11 @@ production:
   clean_up_trips:
     class: Trips::CleanupJob
     schedule: every day at 12:30am UTC
+  # Unregistered guests' trips, 60 days after they end, and the reminder a week before
+  # (RAA-175). After the trip cleanup, on the same UTC dates.
+  purge_unregistered_guests:
+    class: Guests::PurgeJob
+    schedule: every day at 12:45am UTC
   # Booking requests no partner answered and holds no guest paid for (RAA-132).
   expire_bookings:
     class: Bookings::ExpireJob

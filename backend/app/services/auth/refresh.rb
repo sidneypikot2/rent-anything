@@ -18,7 +18,7 @@ module Auth
         record = RefreshToken.lock.find_by_token(@refresh_token)
         if record&.active?
           record.revoke!
-          IssueTokens.call(record.user)
+          IssueTokens.call(record.user, session_ends_at: (record.expires_at if record.fixed_expiry?))
         elsif record&.revoked_at && record.revoked_at < REUSE_GRACE.ago
           record.user.refresh_tokens.active.update_all(revoked_at: Time.current)
           nil

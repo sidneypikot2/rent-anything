@@ -26,6 +26,9 @@ FactoryBot.define do
       source { "checkout" }
       user factory: :user
       checkout { association(:checkout, user:) }
+      # Copied from the guest at checkout, as Checkouts::Create does (RAA-175).
+      guest_email { user&.email }
+      guest_phone { user&.phone }
       guests { 2 }
       booking_mode { listing.booking_mode }
       cancellation_policy { listing.cancellation_policy }

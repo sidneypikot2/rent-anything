@@ -31,7 +31,7 @@ module PartnerCalendarSerializer
   # A booking as its partner sees it: a pending one (Booking::PENDING) holds its days until it
   # is answered, paid or expires at expires_at. commission_cents is the platform's share.
   def self.booking(booking, listing = booking.listing)
-    booking.slice(:id, :reference, :guest_name, :starts_on, :ends_on, :quantity, :guests, :status, :source,
+    booking.slice(:id, :reference, :guest_name, :guest_email, :guest_phone, :starts_on, :ends_on, :quantity, :guests, :status, :source,
       :booking_mode, :total_cents, :commission_cents, :refund_cents, :cancelled_by, :expires_at, :notes,
       :created_at).symbolize_keys.merge(to_be_agreed: booking.price_breakdown["to_be_agreed"] == true,
         listing: { id: listing.id, title: listing.title })

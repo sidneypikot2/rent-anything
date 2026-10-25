@@ -1,0 +1,4 @@
+<p>Hi <%= @user.name %>,</p>
+<p>Your trip <strong><%= @trip.name %></strong> will be deleted on <strong><%= @purge_on.to_fs(:long) %></strong>, 60 days after it ended, because it isn't saved to an account.</p>
+<p><a href="<%= @keep_link %>" style="color:#0f766e;font-weight:600;">Create an account to keep it</a></p>
+<p style="color:#6b7280;font-size:13px;">Your bookings stay with the partners you booked, whatever you choose.</p>

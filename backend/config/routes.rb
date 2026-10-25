@@ -22,6 +22,16 @@ Rails.application.routes.draw do
       get "me/profile", to: "me/profiles#show", as: :me_profile
       put "me/profile", to: "me/profiles#update"
 
+      # Guests without an account (RAA-175): made on the first add, back through a trip link
+      # and PIN or an emailed code, and registered with a password to keep their trips.
+      resources :guest_sessions, only: :create
+      post "trip_access/unlock", to: "trip_access#unlock"
+      post "trip_access/rotate", to: "trip_access#rotate"
+      resources :sign_in_codes, only: :create do
+        post :verify, on: :collection
+      end
+      post "me/register", to: "me/registrations#create", as: :me_register
+
       # Guest discovery (RAA-33): public, no sign-in.
       get "search", to: "search#index"
       resources :areas, only: %i[index show], param: :slug

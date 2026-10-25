@@ -110,6 +110,57 @@ RSpec.describe "Checkouts", type: :request do
         end
       end
 
+      response "201", "a guest without an account gives their contact details; partners see them, and the trip link comes once" do
+        schema "$ref" => "#/components/schemas/checkout"
+        let(:user) { User.create!(role: "guest") }
+        let(:body) { super().merge(contact: { name: "Ana Reyes", email: "Ana@Example.com ", phone: "+639171234567" }) }
+
+        run_test! do |first|
+          link = first.parsed_body["trip_link"]
+          expect(link["pin"]).to match(/\A\d{6}\z/)
+          expect(user.reload).to have_attributes(email: "ana@example.com", name: "Ana Reyes", registration_complete: true)
+          expect(Booking.pluck(:guest_name, :guest_email, :guest_phone).uniq)
+            .to eq([ [ "Ana Reyes", "ana@example.com", "+639171234567" ] ])
+          expect(TripAccess.find_by_token(link["token"]).authenticate_pin(link["pin"])).to be_truthy
+          expect(ActionMailer::MailDeliveryJob).to have_been_enqueued
+            .with("GuestMailer", "trip_link", "deliver_now", a_hash_including(args: array_including(user, trip)))
+
+          # The next checkout doesn't show them again.
+          post "/api/v1/checkouts", as: :json, headers: { "Authorization" => Authorization() },
+            params: { trip_id: trip.id, item_ids: [ create(:trip_item, trip:, listing: tour, starts_on: day + 2,
+              ends_on: day + 2).id ], idempotency_key: "checkout-0003" }
+          expect(response.parsed_body["trip_link"]).to be_nil
+        end
+      end
+
+      response "409", "the email belongs to another guest: a code is emailed to it, and nothing is booked" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:user) { User.create!(role: "guest") }
+        let!(:owner) { create(:user, email: "ana@example.com") }
+        let(:body) { super().merge(contact: { name: "Ana Reyes", email: "ana@example.com", phone: "+639171234567" }) }
+
+        run_test! do
+          expect(owner.sign_in_codes.usable.count).to eq(1)
+          expect(ActionMailer::MailDeliveryJob).to have_been_enqueued.with("GuestMailer", "sign_in_code", "deliver_now",
+            a_hash_including(args: array_including(owner)))
+          expect(user.reload.email).to be_nil
+          expect(Booking.count).to eq(0)
+        end
+      end
+
+      response "422", "a guest without an account must give name, email and phone" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:user) { User.create!(role: "guest") }
+        let(:body) { super().merge(contact: { name: "Ana Reyes", email: "ana@example.com", phone: 9_171_234_567 }) }
+
+        run_test! do |first|
+          expect(first.parsed_body["errors"]).to include("Phone is required")
+          check_out(contact: nil)
+          expect(response.parsed_body["errors"]).to include(a_string_matching(/Contact details/))
+          expect(Booking.count).to eq(0)
+        end
+      end
+
       response "422", "the stay's dates were taken meanwhile: nothing is booked" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
