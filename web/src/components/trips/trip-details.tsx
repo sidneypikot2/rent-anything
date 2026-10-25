@@ -51,6 +51,8 @@ export type TripActions = {
   recreate: (trip: Trip) => void;
   // More for the trip from its destinations or a search (the cart's Find more).
   findMore: (trip: Trip) => void;
+  // A view-only link for friends (RAA-178); the cart's only.
+  share?: (trip: Trip) => void;
 };
 
 // The cart edits and books a trip; the Trips page shows what was booked.
@@ -307,6 +309,18 @@ export function TripDetails({
                 className="flex-1 whitespace-nowrap sm:flex-none"
               >
                 Find more
+              </Button>
+            )}
+            {cart && actions.share && (
+              <Button
+                type="button"
+                variant="tint"
+                size="sm"
+                onClick={() => actions.share?.(trip)}
+                data-testid="cart-share"
+                className="flex-1 whitespace-nowrap sm:flex-none"
+              >
+                Share
               </Button>
             )}
           </div>

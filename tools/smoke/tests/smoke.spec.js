@@ -443,6 +443,26 @@ test("add to trip without an account", async ({ page, browser }) => {
   await page.getByTestId("trips-tab-upcoming").click();
   await expect(booked).toBeVisible();
 
+  // A share link (RAA-178) opens a view-only page with no prices in a fresh browser, and is
+  // not found once sharing stops. That context's console isn't collected: the 404 is expected.
+  await page.goto("/cart");
+  await page.getByTestId("cart-trip").filter({ hasText: `Smoke trip ${stamp}` }).getByTestId("cart-share").click();
+  const shareSheet = page.getByTestId("share-trip-sheet");
+  await shareSheet.getByTestId("share-trip-create").click();
+  const shareUrl = new URL(await shareSheet.getByTestId("share-trip-url").textContent());
+  const friends = await browser.newContext();
+  const friend = await friends.newPage();
+  await friend.goto(shareUrl.pathname);
+  await expect(friend.getByTestId("shared-trip-name")).toHaveText(`Smoke trip ${stamp}`);
+  await expect(friend.getByTestId("shared-trip-items").getByTestId("booking-status")).toHaveText("Request sent");
+  await expect(friend.getByText("₱")).toHaveCount(0);
+  await shareSheet.getByTestId("share-trip-stop").click();
+  await expect(shareSheet.getByTestId("share-trip-create")).toBeVisible();
+  await friend.reload();
+  await expect(friend.getByTestId("shared-trip-missing")).toBeVisible();
+  await friends.close();
+  await page.keyboard.press("Escape");
+
   // The trip link in a fresh browser: a wrong PIN is refused, the right one opens the cart.
   const other = await browser.newContext();
   const elsewhere = await other.newPage();
