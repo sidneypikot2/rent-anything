@@ -1,4 +1,4 @@
-import { itinerary, type ItineraryDay, type ItineraryRole } from "./itinerary";
+import { itinerary, type DayItem, type ItineraryDay, type ItineraryRole } from "./itinerary";
 import { isIdea, type PlanGap } from "./trip-missing";
 import type { Trip, TripItem } from "./use-trips";
 
@@ -9,11 +9,16 @@ import type { Trip, TripItem } from "./use-trips";
 // (undated items, an item off its dates) is listed apart, and the ideas (isIdea: a ride, things
 // to do, places to see) last, never as gaps.
 // Null for an undated trip: it keeps the plain list.
-export type PlanDay = ItineraryDay & { gaps: PlanGap[]; free: boolean };
-export type Throughout = { item: TripItem; from: string; to: string };
-export type TripPlan = {
-  days: PlanDay[];
-  throughout: Throughout[];
+// What the plan reads of an item: a shared trip's (RAA-178) as well as the cart's.
+export type PlanItem = DayItem & Pick<TripItem, "id" | "unavailable"> & {
+  listing: Pick<TripItem["listing"], "title">;
+  area: Pick<TripItem["area"], "slug" | "name">;
+};
+export type PlanDay<T extends PlanItem = TripItem> = ItineraryDay<T> & { gaps: PlanGap[]; free: boolean };
+export type Throughout<T extends PlanItem = TripItem> = { item: T; from: string; to: string };
+export type TripPlan<T extends PlanItem = TripItem> = {
+  days: PlanDay<T>[];
+  throughout: Throughout<T>[];
   wholeGaps: PlanGap[];
   apart: PlanGap[];
   ideas: PlanGap[];
@@ -24,7 +29,10 @@ export type TripPlan = {
 // Roles that only say an item runs through a day: shown once in the whole-trip strip instead.
 const RUNNING: ItineraryRole[] = ["rental", "night"];
 
-export function tripPlan(trip: Trip, gaps: PlanGap[]): TripPlan | null {
+export function tripPlan<T extends PlanItem = TripItem>(
+  trip: Pick<Trip, "starts_on" | "ends_on"> & { items: T[] },
+  gaps: PlanGap[],
+): TripPlan<T> | null {
   // An item its listing can't have isn't ticked on any day: its gap row says so instead.
   const days = itinerary({ ...trip, items: trip.items.filter((item) => !item.unavailable) });
   if (!days || days.length === 0) return null;
@@ -32,7 +40,7 @@ export function tripPlan(trip: Trip, gaps: PlanGap[]): TripPlan | null {
   const running = new Set(
     days.flatMap((day) => day.entries.filter((entry) => RUNNING.includes(entry.role)).map((entry) => entry.item.id)),
   );
-  const throughout = new Map<number, Throughout>();
+  const throughout = new Map<number, Throughout<T>>();
   for (const day of days)
     for (const entry of day.entries) {
       if (!running.has(entry.item.id)) continue;
@@ -40,7 +48,7 @@ export function tripPlan(trip: Trip, gaps: PlanGap[]): TripPlan | null {
       if (known) known.to = day.date;
       else throughout.set(entry.item.id, { item: entry.item, from: day.date, to: day.date });
     }
-  const plan: PlanDay[] = days.map((day) => ({
+  const plan: PlanDay<T>[] = days.map((day) => ({
     ...day,
     entries: day.entries.filter((entry) => !RUNNING.includes(entry.role)),
     gaps: [],
@@ -67,11 +75,11 @@ export function tripPlan(trip: Trip, gaps: PlanGap[]): TripPlan | null {
 
 // The plan's days as rows: free middle days in a run with nothing on them share one row
 // ("Days 3–4"), so an empty stretch reads as one gap, not a list of blanks.
-export function dayRows(days: PlanDay[]) {
+export function dayRows<T extends PlanItem>(days: PlanDay<T>[]) {
   const last = days.length - 1;
   const blank = (index: number) =>
     index > 0 && index < last && days[index].free && days[index].entries.length === 0 && days[index].gaps.length === 0;
-  const rows: { start: number; days: PlanDay[] }[] = [];
+  const rows: { start: number; days: PlanDay<T>[] }[] = [];
   days.forEach((day, index) => {
     const previous = rows[rows.length - 1];
     if (previous && blank(index) && blank(previous.start + previous.days.length - 1) && previous.start + previous.days.length === index)

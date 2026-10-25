@@ -455,6 +455,10 @@ test("add to trip without an account", async ({ page, browser }) => {
   await friend.goto(shareUrl.pathname);
   await expect(friend.getByTestId("shared-trip-name")).toHaveText(`Smoke trip ${stamp}`);
   await expect(friend.getByTestId("shared-trip-items").getByTestId("booking-status")).toHaveText("Request sent");
+  // Its plan day by day, read-only: Getting here, but no way to find a transfer.
+  await expect(friend.getByTestId("plan-day").first()).toBeVisible();
+  await expect(friend.getByTestId("plan-getting-here")).toBeVisible();
+  await expect(friend.getByTestId("plan-days").getByRole("button")).toHaveCount(0);
   await expect(friend.getByText("₱")).toHaveCount(0);
   await shareSheet.getByTestId("share-trip-stop").click();
   await expect(shareSheet.getByTestId("share-trip-create")).toBeVisible();
