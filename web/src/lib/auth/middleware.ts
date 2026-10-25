@@ -26,6 +26,15 @@ async function refreshAccessToken(): Promise<string | null> {
   return data.access_token;
 }
 
+// Refreshes the access token now, sharing a refresh already under way. Null when there is no
+// session or it can't be renewed.
+export function refreshSession(): Promise<string | null> {
+  refreshing ??= refreshAccessToken().finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
 // Browser only (added in apiClient): sends the access token and, when a GET comes back
 // 401 because it expired, refreshes once and retries. Writes aren't retried — their
 // body is already spent — and none of today's signed-in endpoints are writes.
@@ -42,10 +51,7 @@ export const authMiddleware: Middleware = {
     if (response.status !== 401 || request.method !== "GET") return response;
     if (!request.headers.has("Authorization")) return response;
 
-    refreshing ??= refreshAccessToken().finally(() => {
-      refreshing = null;
-    });
-    const token = await refreshing;
+    const token = await refreshSession();
     if (!token) return response;
 
     const retry = new Request(request);

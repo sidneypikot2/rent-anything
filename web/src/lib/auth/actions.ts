@@ -1,5 +1,6 @@
 import { apiClient } from "@/api/client";
-import { clearSession, getSession, saveSession, saveSessionUser, type AuthTokens, type User } from "./session";
+import { refreshSession } from "./middleware";
+import { clearSession, getSession, isAnonymous, saveSession, saveSessionUser, type AuthTokens, type User } from "./session";
 
 // The entry point a form is on decides the account's role (SPEC: three entry points).
 export type Role = User["role"];
@@ -19,18 +20,28 @@ function finish(data: AuthTokens | undefined, error: ErrorBody): Result {
   return { ok: false, error: message };
 }
 
+// A guest with no account yet signing in or up brings their trips into the account (RAA-175):
+// the API takes them from the request's access token, which may have expired since the last
+// add, so it is renewed first.
+async function sendGuestToken() {
+  if (isAnonymous(getSession())) await refreshSession();
+}
+
 export async function signIn(body: { email: string; password: string; role: Role }) {
+  await sendGuestToken();
   const { data, error } = await apiClient().POST("/api/v1/session", { body });
   return finish(data, error);
 }
 
 // Email and password only; name and phone are set later (PUT /api/v1/me/complete_profile).
 export async function signUp(body: { email: string; password: string; role: SelfServeRole }) {
+  await sendGuestToken();
   const { data, error } = await apiClient().POST("/api/v1/registrations", { body });
   return finish(data, error);
 }
 
 export async function oauthSignIn(provider: OauthProvider, token: string, role: SelfServeRole) {
+  await sendGuestToken();
   const { data, error } = await apiClient().POST("/api/v1/oauth/{provider}", {
     params: { path: { provider } },
     body: { token, role },
@@ -67,6 +78,7 @@ export async function requestSignInCode(email: string) {
 // already in use), the API moves their trips into that account first. tabOnly: recovering
 // from a trip link, whose sessions last one tab.
 export async function verifySignInCode(email: string, code: string, { tabOnly = false } = {}) {
+  await sendGuestToken();
   const { data, error } = await apiClient().POST("/api/v1/sign_in_codes/verify", { body: { email, code } });
   if (data) {
     saveSession(data, { tabOnly });
