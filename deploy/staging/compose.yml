@@ -2,8 +2,9 @@
 # /opt/tripkonext/ on the instance; .github/workflows/deploy-staging.yml copies this file and
 # the Caddyfile there and runs `docker compose pull && up -d` on every merge into staging.
 # Images come from GHCR, built by that workflow — the instance never builds anything.
-# Postgres (Neon) and Redis (Upstash) are outside; their URLs are in backend.env.
-# Secrets are in backend.env next to this file on the instance, never in the repository.
+# Postgres runs here too (RAA-174, after Neon's free tier ran out); Redis (Upstash) is outside.
+# Secrets are in backend.env and db.env next to this file on the instance, never in the
+# repository. Not .env: the deploy rewrites that one with IMAGE_TAG on every run.
 services:
   caddy:
     image: caddy:2.11-alpine
@@ -20,6 +21,40 @@ services:
     depends_on:
       - backend
       - web
+
+  db:
+    # The same PostGIS image as the local docker-compose.yml. Only the Compose network
+    # reaches it: no ports are published, and the firewall stays 22/80/443.
+    image: imresamu/postgis:18-3.6
+    restart: unless-stopped
+    # POSTGRES_PASSWORD; backend.env's three database URLs use the same password.
+    env_file: ./db.env
+    environment:
+      POSTGRES_USER: postgres
+    # Sized for the 1 GB instance it shares with Rails, Next and Caddy. 30 connections is
+    # plenty for Puma's 3 threads across the primary, cache and queue databases plus Solid
+    # Queue's workers.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - effective_cache_size=256MB
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - max_connections=30
+    volumes:
+      # Staging's data. Losing this volume loses every user, listing and booking; the
+      # nightly dump (README) is the way back.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     image: ghcr.io/sidneypikot2/rent-anything-backend:${IMAGE_TAG:-staging}
@@ -47,6 +82,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
+    depends_on:
+      # db:prepare runs on boot (bin/docker-entrypoint) and needs the database up.
+      db:
+        condition: service_healthy
 
   web:
     image: ghcr.io/sidneypikot2/rent-anything-web:${IMAGE_TAG:-staging}
@@ -59,5 +98,6 @@ services:
         condition: service_healthy
 
 volumes:
+  postgres_data:
   caddy_data:
   caddy_config:
