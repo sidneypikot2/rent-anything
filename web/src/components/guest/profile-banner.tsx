@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AlertGlyph } from "@/components/discovery/tag-glyphs";
+import { useSession } from "@/lib/auth/session";
 import { useGuestProfile } from "./use-guest-profile";
 
 // Under the header on every signed-in guest page until the profile is complete; not on
-// the profile page itself, which is where it leads.
+// the profile page itself, which is where it leads. Not for a guest without an account
+// (RAA-177): checkout asks them for what partners need.
 export function GuestProfileBanner() {
   const pathname = usePathname();
+  const registered = useSession()?.user.registered;
   const { data } = useGuestProfile();
-  if (!data || data.complete || pathname === "/profile") return null;
+  if (!registered || !data || data.complete || pathname === "/profile") return null;
 
   // Over the photo backdrop, so light text on a warm glass strip. A phone gets one short line
   // (RAA-161); from sm the whole sentence.

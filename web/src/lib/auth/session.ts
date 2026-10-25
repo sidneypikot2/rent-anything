@@ -3,35 +3,48 @@ import type { components } from "@/api/schema";
 
 export type User = components["schemas"]["user"];
 export type AuthTokens = components["schemas"]["auth_tokens"];
-export type Session = { accessToken: string; refreshToken: string; user: User };
+// tabOnly: a trip link's session (RAA-177), kept in this tab's sessionStorage only, so
+// closing the tab ends it and the next open of the link asks for the PIN again.
+export type Session = { accessToken: string; refreshToken: string; user: User; tabOnly?: boolean };
 
 // The signed-in session lives in this browser's localStorage: an access token (15 min),
-// the refresh token that renews it, and the user. Storage can throw (private windows,
-// blocked site data); then the session is kept in memory and lasts until the page reloads.
+// the refresh token that renews it, and the user. A trip link's session lives in this tab's
+// sessionStorage instead, and while there is one it is the session. Storage can throw
+// (private windows, blocked site data); then the session is kept in memory and lasts until
+// the page reloads.
 const KEY = "raa.session";
 const CHANGE_EVENT = "raa:session";
 
-let memory: string | null = null;
+type Store = "local" | "tab";
+const memory: Record<Store, string | null> = { local: null, tab: null };
 let storageFailed = false;
 
-function readRaw(): string | null {
-  if (storageFailed) return memory;
+function storage(store: Store) {
+  return store === "tab" ? window.sessionStorage : window.localStorage;
+}
+
+function readStore(store: Store): string | null {
+  if (storageFailed) return memory[store];
   try {
-    return window.localStorage.getItem(KEY);
+    return storage(store).getItem(KEY);
   } catch {
     storageFailed = true;
-    return memory;
+    return memory[store];
   }
 }
 
-function writeRaw(value: string | null) {
-  memory = value;
+function writeStore(store: Store, value: string | null) {
+  memory[store] = value;
   try {
-    if (value === null) window.localStorage.removeItem(KEY);
-    else window.localStorage.setItem(KEY, value);
+    if (value === null) storage(store).removeItem(KEY);
+    else storage(store).setItem(KEY, value);
   } catch {
     storageFailed = true;
   }
+}
+
+function readRaw(): string | null {
+  return readStore("tab") ?? readStore("local");
 }
 
 function parse(raw: string | null): Session | null {
@@ -47,19 +60,41 @@ export function getSession(): Session | null {
   return parse(readRaw());
 }
 
-export function saveSession(tokens: AuthTokens) {
+// A refresh keeps the session where it was: a trip link's stays in the tab. Any other
+// sign-in ends a trip link's session in this tab.
+export function saveSession(tokens: AuthTokens, { tabOnly = getSession()?.tabOnly ?? false } = {}) {
   const session: Session = {
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token,
     user: tokens.user,
+    ...(tabOnly && { tabOnly }),
   };
-  writeRaw(JSON.stringify(session));
+  if (!tabOnly) writeStore("tab", null);
+  writeStore(tabOnly ? "tab" : "local", JSON.stringify(session));
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
-export function clearSession() {
-  writeRaw(null);
+// The user changed (POST /me/register): the same tokens, wherever they are kept.
+export function saveSessionUser(user: User) {
+  const session = getSession();
+  if (!session) return;
+  writeStore(session.tabOnly ? "tab" : "local", JSON.stringify({ ...session, user }));
   window.dispatchEvent(new Event(CHANGE_EVENT));
+}
+
+// Ends the session in use: a trip link's, which uncovers this browser's own, if any. `all`
+// (signing out) ends both.
+export function clearSession({ all = false } = {}) {
+  const tabOnly = getSession()?.tabOnly;
+  if (all || tabOnly) writeStore("tab", null);
+  if (all || !tabOnly) writeStore("local", null);
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+}
+
+// A guest with no email yet (RAA-175): made by their first add, they give their contact
+// details at their first checkout. Signed out, for the header and the sign-in pages.
+export function isAnonymous(session: Session | null | undefined) {
+  return session?.user.role === "guest" && session.user.email === null;
 }
 
 function subscribe(onChange: () => void) {
