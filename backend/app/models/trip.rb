@@ -70,6 +70,17 @@ class Trip < ApplicationRecord
     notice_from + CLEANUP_DAYS
   end
 
+  # A new view-only share link (RAA-176), ending the old one. Not an edit: updated_at, which
+  # the undated trip's deletion dates count from, stays.
+  def share!
+    update_columns(share_token: SecureRandom.urlsafe_base64(32))
+    share_token
+  end
+
+  def unshare!
+    update_columns(share_token: nil)
+  end
+
   # The day Guests::Purge deletes this trip if its guest is unregistered (RAA-175).
   def purge_on
     (dated? ? ends_on : updated_at.to_date) + PURGE_DAYS

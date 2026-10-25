@@ -32,4 +32,6 @@ The cart is a list of the guest's **trips**. Each trip has a name, optional date
 
 **Unregistered guests** (RAA-175): a trip's owner can be a guest with no email yet (`User#anonymous?`) or one with no password and no OAuth (`User.unregistered`). `Guests::Purge` (`Guests::PurgeJob`, 00:45 UTC) deletes such a guest's trip on `Trip#purge_on` (`PURGE_DAYS`, 60, after it ends, or after an undated trip's last edit), booked items included, once no booking of it is `Booking.unsettled`; it deletes the items first so `keep_if_booked` lets the trip go, and the guest with their last trip. Bookings keep their own `guest_name`/`guest_email`/`guest_phone`, and the foreign keys from bookings, checkouts and booking events to users nullify. It also sends one reminder (`trips.purge_reminded_at`) 7 days before.
 
+**Share link** (RAA-176): `trips.share_token`, kept in plain text so the guest can copy it again (`GET`/`POST`/`DELETE /trips/:id/share`; `Trip#share!` rotates it, `#unshare!` revokes it, neither touches `updated_at`). `GET /shared_trips/:token` is public and noindex, through `SharedTripSerializer`, never `TripSerializer`: anything added there must leave out prices, the guest's details, booking references and ids that act on the trip.
+
 **Not here yet**: a stored trip status (planning → partly booked → booked; the items' bookings say it).

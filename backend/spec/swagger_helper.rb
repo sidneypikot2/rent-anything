@@ -290,6 +290,60 @@ RSpec.configure do |config|
             },
             required: %w[id starts_on ends_on quantity sleeps max_guests booking_type area destination listing booking unavailable cancellation_policy listing_active]
           },
+          # A trip's view-only share link (RAA-176), as its guest sees it.
+          trip_share: {
+            type: :object,
+            properties: {
+              token: { type: :string, nullable: true, description: "Null while the trip isn't shared" },
+              path: {
+                type: :string, nullable: true,
+                description: "The web app's page for it, /trips/shared/<token>; null while the trip isn't shared"
+              }
+            },
+            required: %w[token path]
+          },
+          # A trip as its share link shows it to anyone (RAA-176): no prices, contact details,
+          # booking references or ids that act on the trip.
+          shared_trip: {
+            type: :object,
+            properties: {
+              name: { type: :string },
+              starts_on: { type: :string, format: :date, nullable: true },
+              ends_on: { type: :string, format: :date, nullable: true },
+              guests: { type: :integer },
+              destinations: {
+                type: :array, items: { type: :string },
+                description: "Where the items are: each one's island, or else its town or city, in item order"
+              },
+              items: {
+                type: :array, description: "In date order, undated items last",
+                items: {
+                  type: :object,
+                  properties: {
+                    starts_on: { type: :string, format: :date, nullable: true },
+                    ends_on: { type: :string, format: :date, nullable: true },
+                    booking_type: { type: :string, enum: %w[rental stay activity transfer] },
+                    area: { "$ref" => "#/components/schemas/area_ref" },
+                    listing: {
+                      type: :object,
+                      properties: {
+                        id: { type: :integer, description: "Links to the listing's public page" },
+                        title: { type: :string },
+                        cover_photo_url: COVER_PHOTO_URL
+                      },
+                      required: %w[id title cover_photo_url]
+                    },
+                    booking_status: {
+                      allOf: [ { "$ref" => "#/components/schemas/booking_status" } ], nullable: true,
+                      description: "Its booking's while one holds its days; null while it is only planned"
+                    }
+                  },
+                  required: %w[starts_on ends_on booking_type area listing booking_status]
+                }
+              }
+            },
+            required: %w[name starts_on ends_on guests destinations items]
+          },
           # What a trip's items would cost if booked now (RAA-139, GET /trips/:id/quote).
           trip_quote: {
             type: :object,

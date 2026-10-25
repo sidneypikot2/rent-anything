@@ -53,7 +53,11 @@ Rails.application.routes.draw do
         # Plan a trip again, and what its items would cost now (RAA-139).
         post :copy, on: :member
         get :quote, on: :member
+        # Its view-only share link (RAA-176).
+        resource :share, only: %i[show create destroy], controller: "trip_shares"
       end
+      # A trip as its share link shows it to anyone (RAA-176).
+      resources :shared_trips, only: :show, param: :token
       resources :trip_items, only: %i[create update destroy]
       # Booking a trip's items, and the guest's bookings (RAA-132), which a guest can change
       # (RAA-134) and pay for once accepted (RAA-143). Guest-only.
