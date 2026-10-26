@@ -9,6 +9,7 @@ import { CancelDialog } from "@/components/bookings/cancel-dialog";
 import { ChangeBookingSheet } from "@/components/bookings/change-booking-sheet";
 import { CheckoutSheet } from "@/components/bookings/checkout-sheet";
 import { PaySheet } from "@/components/bookings/pay-sheet";
+import { PaymentReturn } from "@/components/bookings/payment-return";
 import type { GuestBooking } from "@/components/bookings/use-bookings";
 import { CartItemPanel } from "./cart-item-panel";
 import { CartTripNav, TripSwitchSheet } from "./cart-trip-nav";
@@ -54,8 +55,9 @@ type Open =
 // the listing and its booking, which can be edited (sent to the partner again) or cancelled.
 // The sheets fix a wrong suggestion — move an item, re-date it, merge two trips — and book
 // items (CheckoutSheet, RAA-133). The trip shown at first is `expandTripId` (from "View trip"),
-// or the first; picking another keeps it in `?trip=`.
-export function CartView({ expandTripId }: { expandTripId?: number }) {
+// or the first; picking another keeps it in `?trip=`. `paymentId` is a payment the guest came
+// back with from PayMongo's checkout (`?payment=`), shown over the cart (PaymentReturn).
+export function CartView({ expandTripId, paymentId }: { expandTripId?: number; paymentId?: number }) {
   const trips = useTrips(true);
   const [selectedId, setSelectedId] = useState(expandTripId);
   const [open, setOpen] = useState<Open | null>(null);
@@ -340,6 +342,7 @@ export function CartView({ expandTripId }: { expandTripId?: number }) {
 
       {open?.kind === "checkout" && <CheckoutSheet trip={open.trip} items={open.items} onClose={() => setOpen(null)} />}
       {open?.kind === "pay" && <PaySheet trip={open.trip} items={open.items} onClose={() => setOpen(null)} />}
+      {paymentId !== undefined && <PaymentReturn id={paymentId} />}
 
     </>
   );

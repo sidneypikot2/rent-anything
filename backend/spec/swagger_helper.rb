@@ -1871,6 +1871,46 @@ RSpec.configure do |config|
             required: %w[booking_ids],
             properties: { booking_ids: { type: :array, items: { type: :integer }, minItems: 1 } }
           },
+          # A guest's payment (PaymentSerializer); PayMongo's checkout runs in test mode only.
+          payment: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              status: { type: :string, enum: Payment::STATUSES,
+                        description: "needs_refund: paid after its bookings were let go (refunded by the team)" },
+              amount_cents: { type: :integer },
+              checkout_url: { type: :string, nullable: true,
+                              description: "PayMongo's page to pay on, while pending; the guest comes back to /cart?payment=<id>" },
+              test_mode: { type: :boolean, description: "A PayMongo test payment: no real money moves" },
+              paid_at: { type: :string, format: "date-time", nullable: true }
+            },
+            required: %w[id status amount_cents checkout_url test_mode paid_at]
+          },
+          booking_pay_result: {
+            type: :object,
+            properties: {
+              bookings: { type: :array, items: { "$ref" => "#/components/schemas/guest_booking" } },
+              payment: {
+                allOf: [ { "$ref" => "#/components/schemas/payment" } ], nullable: true,
+                description: "The payment to finish on PayMongo's checkout_url; null when nothing was charged " \
+                  "(no PayMongo set up, or only bookings paid already or priced at nothing)"
+              }
+            },
+            required: %w[bookings payment]
+          },
+          payment_with_bookings: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              status: { type: :string, enum: Payment::STATUSES },
+              amount_cents: { type: :integer },
+              checkout_url: { type: :string, nullable: true },
+              test_mode: { type: :boolean },
+              paid_at: { type: :string, format: "date-time", nullable: true },
+              bookings: { type: :array, items: { "$ref" => "#/components/schemas/guest_booking" } }
+            },
+            required: %w[id status amount_cents checkout_url test_mode paid_at bookings]
+          },
           booking_cancel_body: {
             type: :object,
             properties: { reason: { type: :string, maxLength: Booking::REASON_LENGTH } }

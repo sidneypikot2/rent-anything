@@ -10,6 +10,7 @@ import { useSession } from "@/lib/auth/session";
 export type GuestBooking = components["schemas"]["guest_booking"];
 export type BookingStatus = components["schemas"]["booking_status"];
 export type Checkout = components["schemas"]["checkout"];
+export type Payment = components["schemas"]["payment_with_bookings"];
 
 export function bookingsKey(userId: number | undefined) {
   return ["bookings", userId] as const;
@@ -103,8 +104,10 @@ export function useCheckout() {
   });
 }
 
-// POST /bookings/pay (RAA-143): pays for bookings held for payment, all or nothing, and
-// confirms them. Payment is a stub until Xendit, so nothing is charged.
+// POST /bookings/pay (RAA-143): pays for bookings held for payment, all or nothing. With
+// PayMongo set up (test mode: no real money moves) it answers a pending payment whose
+// checkout_url the guest pays on; otherwise (or when nothing is charged) the bookings come back
+// confirmed and payment is null.
 export function usePayBookings() {
   const invalidate = useInvalidateBookings();
   const failed = useErrorToast();
@@ -116,6 +119,31 @@ export function usePayBookings() {
     },
     onSuccess: invalidate,
     onError: failed,
+  });
+}
+
+// The cart asks again every POLL_MS, at most POLLS times, after a payment still pending:
+// PayMongo's webhook can lag behind the guest coming back.
+const POLL_MS = 2000;
+const POLLS = 30;
+
+// GET /payments/:id: a payment the guest came back to the cart with from PayMongo
+// (`/cart?payment=<id>`). Asked again while pending, for up to a minute; paid, the cart and
+// bookings are fetched again.
+export function usePayment(id: number | undefined) {
+  const invalidate = useInvalidateBookings();
+  const userId = useSession()?.user.id;
+  return useQuery({
+    queryKey: ["payment", userId, id],
+    queryFn: async () => {
+      const { data } = await apiClient().GET("/api/v1/payments/{id}", { params: { path: { id: id! } } });
+      if (!data) throw new Error("Couldn't load that payment. Try again.");
+      if (data.status !== "pending") await invalidate();
+      return data;
+    },
+    enabled: userId !== undefined && id !== undefined,
+    refetchInterval: (query) =>
+      query.state.data?.status === "pending" && query.state.dataUpdateCount < POLLS ? POLL_MS : false,
   });
 }
 

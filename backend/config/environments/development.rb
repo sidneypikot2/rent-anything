@@ -6,6 +6,9 @@ Rails.application.configure do
   # The web container's server-rendered pages call the API as http://backend:3000
   # (API_INTERNAL_URL in docker-compose.yml); host authorization would block that name.
   config.hosts << "backend"
+  # A Cloudflare quick tunnel (`cloudflared tunnel --url http://localhost:3100`) gives PayMongo's
+  # webhook a public address for the local API.
+  config.hosts << ".trycloudflare.com"
 
   # Make code changes take effect immediately without server restart.
   config.enable_reloading = true

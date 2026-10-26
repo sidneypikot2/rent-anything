@@ -1522,7 +1522,7 @@ export interface paths {
         put?: never;
         /**
          * Pay for the guest's accepted bookings
-         * @description Guest-only (RAA-143). Pays for bookings held for payment (awaiting_payment: accepted by their partner, or instant) and confirms them, with one payment per checkout they came from. Every booking must be the guest's and still held, or nothing is paid. Payment is a stub until Xendit replaces it.
+         * @description Guest-only (RAA-143). Pays for bookings held for payment (awaiting_payment: accepted by their partner, or instant). Every booking must be the guest's and still held, or nothing is paid. With PayMongo set up (test mode only: no real money moves) it answers a pending payment whose checkout_url the guest pays on; they come back to /cart?payment=<id>, and the bookings are confirmed once PayMongo reports the payment. Bookings paid already, or priced at nothing, are confirmed at once with no charge. Without PayMongo a stub pays at once, one payment per checkout, and payment is null.
          */
         post: {
             parameters: {
@@ -1539,13 +1539,13 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description paid and confirmed, one payment per checkout */
+                /** @description with PayMongo: one test checkout to pay on, the bookings still held */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["guest_booking"][];
+                        "application/json": components["schemas"]["booking_pay_result"];
                     };
                 };
                 /** @description signed out */
@@ -1573,6 +1573,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+                /** @description PayMongo can't be reached: nothing is paid */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
                     };
                 };
             };
@@ -4802,6 +4811,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/payments/{id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * One of the guest's payments, with its bookings
+         * @description Guest-only. Read when the guest comes back from PayMongo's checkout (/cart?payment=<id>). A pending payment is first read back from PayMongo, so a payment made is confirmed without waiting for the webhook; if PayMongo can't be reached it is answered as it stands. Another guest's payment is a 404.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description PayMongo can't be reached: answered as it stands */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["payment_with_bookings"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another guest's payment */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/quotes": {
         parameters: {
             query?: never;
@@ -6487,6 +6561,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/webhooks/paymongo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * PayMongo reports a payment on a checkout
+         * @description Called by PayMongo, not by the apps. Signed in `Paymongo-Signature` (`t=<unix time>,te=<test signature>,li=<live signature>`, the HMAC-SHA256 of `<t>.<raw body>` keyed with the endpoint's secret, at most 5 minutes off). Test mode only: a live signature or event is not accepted. Only checkout_session.payment.paid is acted on, and the payment is read back from PayMongo, not trusted from the body.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    "Paymongo-Signature"?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        data: Record<string, never>;
+                    };
+                };
+            };
+            responses: {
+                /** @description a checkout we don't know: ignored */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a bad signature */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description PayMongo can't be asked: PayMongo retries the delivery */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7901,6 +8034,37 @@ export interface components {
         };
         booking_pay_body: {
             booking_ids: number[];
+        };
+        payment: {
+            id: number;
+            /**
+             * @description needs_refund: paid after its bookings were let go (refunded by the team)
+             * @enum {string}
+             */
+            status: "pending" | "paid" | "failed" | "needs_refund";
+            amount_cents: number;
+            /** @description PayMongo's page to pay on, while pending; the guest comes back to /cart?payment=<id> */
+            checkout_url: string | null;
+            /** @description A PayMongo test payment: no real money moves */
+            test_mode: boolean;
+            /** Format: date-time */
+            paid_at: string | null;
+        };
+        booking_pay_result: {
+            bookings: components["schemas"]["guest_booking"][];
+            /** @description The payment to finish on PayMongo's checkout_url; null when nothing was charged (no PayMongo set up, or only bookings paid already or priced at nothing) */
+            payment: components["schemas"]["payment"] | null;
+        };
+        payment_with_bookings: {
+            id: number;
+            /** @enum {string} */
+            status: "pending" | "paid" | "failed" | "needs_refund";
+            amount_cents: number;
+            checkout_url: string | null;
+            test_mode: boolean;
+            /** Format: date-time */
+            paid_at: string | null;
+            bookings: components["schemas"]["guest_booking"][];
         };
         booking_cancel_body: {
             reason?: string;

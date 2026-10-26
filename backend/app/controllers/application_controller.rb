@@ -7,6 +7,8 @@ class ApplicationController < ActionController::API
   rescue_from ActiveRecord::RecordInvalid, with: :render_unprocessable
   rescue_from Didit::Error, with: :render_bad_gateway
   rescue_from Didit::NotConfiguredError, with: :render_service_unavailable
+  rescue_from Paymongo::Error, with: :render_payments_unavailable
+  rescue_from Paymongo::NotConfiguredError, with: :render_service_unavailable
 
   # Sign-in and sign-up attempts per IP, counted per endpoint in config.cache_store.
   AUTH_RATE_LIMIT = { to: 10, within: 3.minutes }.freeze
@@ -67,6 +69,11 @@ class ApplicationController < ActionController::API
   def render_bad_gateway(exception)
     Sentry.capture_exception(exception)
     render json: { error: "ID verification is unavailable right now. Try again shortly." }, status: :bad_gateway
+  end
+
+  def render_payments_unavailable(exception)
+    Sentry.capture_exception(exception)
+    render json: { error: "Payments are unavailable right now. Try again shortly." }, status: :bad_gateway
   end
 
   def render_service_unavailable(exception)

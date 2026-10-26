@@ -149,8 +149,9 @@ areas and a tour can visit several.
   behalf from `/admin` (RAA-141, recorded with actor `admin`); whichever answers first wins. A traveller can change a booking's dates or guests
   from the cart: the change goes back to the partner as a request, holding the new dates until
   they answer. An accepted request waits for the traveller's payment (24 hours, or until it starts),
-  which they make from the cart; it is confirmed once paid (RAA-143). Payment is a stub until the
-  split payment to each partner comes with Xendit.
+  which they make from the cart on PayMongo's hosted checkout; it is confirmed once PayMongo
+  reports the payment (RAA-143). PayMongo runs in test mode only while we test with customers:
+  no real money moves until payments go live.
 
 ### Guest browsing layout
 
@@ -196,11 +197,13 @@ after a booking is paid (keeps deals on the platform).
 
 ## Integrations (confirm against current docs when the milestone starts)
 
-- **Payments — Xendit (xenPlatform)**: split payments to a sub-account per partner,
-  GCash/Maya/cards, disbursements to GCash and banks. Webhooks are idempotent, keyed by the
-  gateway's event id. E-wallets can't authorise-and-hold, so the deposit is charged and
-  refunded after a clean return. PayMongo is the fallback if xenPlatform onboarding
-  (business registration) blocks.
+- **Payments — PayMongo Checkout** (replaces the earlier Xendit plan): the guest pays on
+  PayMongo's hosted page (GCash, Maya, cards, QR Ph); the platform absorbs PayMongo's fee. It
+  can't split a payment between partners, so the platform collects it all and pays partners out
+  separately (manual until payouts are built). A signed webhook says which checkout was paid,
+  and the outcome is read back from PayMongo, so a repeated webhook changes nothing. Test mode
+  only for now: a live key is refused in code. E-wallets can't authorise-and-hold, so the
+  deposit is charged and refunded after a clean return.
 - **ID verification — Didit**: hosted KYC (ID document, passive liveness, face match), 500
   free checks a month. Didit keeps the images; we keep only the outcome, read back after a
   signed webhook. A sandbox application on staging. Built in RAA-44.

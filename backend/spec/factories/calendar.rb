@@ -44,9 +44,21 @@ FactoryBot.define do
 
   factory :payment do
     checkout
+    user { checkout&.user }
     provider { "stub" }
     status { "paid" }
     amount_cents { 400_000 }
     paid_at { Time.current }
+
+    # A PayMongo checkout still open for some bookings (Payments::StartCheckout).
+    trait :paymongo do
+      checkout { nil }
+      user
+      provider { "paymongo" }
+      status { "pending" }
+      paid_at { nil }
+      sequence(:provider_ref) { |n| "cs_test#{n}" }
+      checkout_url { "https://checkout.paymongo.com/#{provider_ref}" }
+    end
   end
 end
