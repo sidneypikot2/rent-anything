@@ -1,8 +1,8 @@
 module Payments
   # Pays for some of a checkout's bookings (RAA-132) the moment it is asked: a paid Payment for
   # their total, and each booking held for payment moves to confirmed. It stands in for
-  # Xendit's split payment (SPEC.md, Payments) until that is built, which will confirm them from
-  # its webhook instead. Bookings no longer held for payment (expired, cancelled meanwhile) are
+  # PayMongo where that isn't set up (Payments.paymongo?), and confirms bookings paid already, or
+  # priced at nothing, with no charge. Bookings no longer held for payment (expired, cancelled meanwhile) are
   # left alone. A booking paid already (a guest changed it and its partner accepted the change,
   # RAA-134) is confirmed on that payment, with no second charge; the difference in price is
   # settled once payments are real. Returns the payment, or nil when there was nothing to pay
@@ -22,7 +22,7 @@ module Payments
         end
         next nil if held.empty?
 
-        payment = @checkout.payments.create!(provider: "stub", status: "paid", amount_cents: held.sum(&:total_cents),
+        payment = @checkout.payments.create!(user: @checkout.user, provider: "stub", status: "paid", amount_cents: held.sum(&:total_cents),
           provider_ref: "stub_#{SecureRandom.hex(8)}", paid_at: Time.current)
         held.each do |booking|
           Bookings::Transition.call(booking, "confirmed", actor: "system", attributes: { payment: },

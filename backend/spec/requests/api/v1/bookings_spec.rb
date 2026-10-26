@@ -177,8 +177,11 @@ RSpec.describe "Bookings", type: :request do
       consumes "application/json"
       produces "application/json"
       description "Guest-only (RAA-143). Pays for bookings held for payment (awaiting_payment: accepted by their " \
-        "partner, or instant) and confirms them, with one payment per checkout they came from. Every booking " \
-        "must be the guest's and still held, or nothing is paid. Payment is a stub until Xendit replaces it."
+        "partner, or instant). Every booking must be the guest's and still held, or nothing is paid. With PayMongo " \
+        "set up (test mode only: no real money moves) it answers a pending payment whose checkout_url the guest " \
+        "pays on; they come back to /cart?payment=<id>, and the bookings are confirmed once PayMongo reports the " \
+        "payment. Bookings paid already, or priced at nothing, are confirmed at once with no charge. Without " \
+        "PayMongo a stub pays at once, one payment per checkout, and payment is null."
       security [ { bearer: [] } ]
       parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/booking_pay_body" }
 
@@ -188,15 +191,42 @@ RSpec.describe "Bookings", type: :request do
       end
       let(:body) { { booking_ids: [ held.id, other_checkout.id ] } }
 
-      response "200", "paid and confirmed, one payment per checkout" do
-        schema type: :array, items: { "$ref" => "#/components/schemas/guest_booking" }
+      response "200", "without PayMongo: paid and confirmed, one payment per checkout" do
+        schema "$ref" => "#/components/schemas/booking_pay_result"
 
         run_test! do |response|
-          expect(response.parsed_body.pluck("status")).to eq(%w[confirmed confirmed])
+          expect(response.parsed_body["payment"]).to be_nil
+          expect(response.parsed_body["bookings"].pluck("status")).to eq(%w[confirmed confirmed])
           expect(Payment.where(status: "paid").pluck(:checkout_id)).to contain_exactly(held.checkout_id,
             other_checkout.checkout_id)
           expect(held.reload.payment).to have_attributes(amount_cents: held.total_cents)
         end
+      end
+
+      response "200", "with PayMongo: one test checkout to pay on, the bookings still held" do
+        schema "$ref" => "#/components/schemas/booking_pay_result"
+
+        before do
+          enable_paymongo
+          allow(Paymongo).to receive(:create_checkout_session) { paymongo_session("cs_test_pay") }
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["payment"]).to include("status" => "pending", "test_mode" => true,
+            "checkout_url" => "https://checkout.paymongo.com/cs_test_pay", "amount_cents" => held.total_cents * 2)
+          expect(response.parsed_body["bookings"].pluck("status")).to eq(%w[awaiting_payment awaiting_payment])
+        end
+      end
+
+      response "502", "PayMongo can't be reached: nothing is paid" do
+        schema "$ref" => "#/components/schemas/error"
+
+        before do
+          enable_paymongo
+          allow(Paymongo).to receive(:create_checkout_session).and_raise(Paymongo::Error, "PayMongo answered 500")
+        end
+
+        run_test! { expect(held.reload).to be_awaiting_payment }
       end
 
       response "422", "one is not held for payment" do

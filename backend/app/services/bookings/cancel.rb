@@ -9,7 +9,7 @@ module Bookings
   #   seven_days / fourteen_days in full at least that long before it, non_refundable nothing.
   # - an offline booking was paid outside the app, so no refund is recorded.
   #
-  # Cancelling frees its days. The refund is only recorded until payments are real (Xendit).
+  # Cancelling frees its days. The refund is only recorded until payments are real (PayMongo refunds aren't built).
   class Cancel < ApplicationService
     FREE_UNTIL = { "free_cancellation" => 0, "seven_days" => 7, "fourteen_days" => 14 }.freeze
 

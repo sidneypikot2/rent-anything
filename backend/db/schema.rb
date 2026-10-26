@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_26_110000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_26_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -438,7 +438,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_110000) do
   end
 
   create_table "payments", force: :cascade do |t|
-    t.bigint "checkout_id", null: false
+    t.bigint "checkout_id"
     t.string "provider", null: false
     t.string "status", default: "pending", null: false
     t.bigint "amount_cents", null: false
@@ -446,10 +446,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_110000) do
     t.datetime "paid_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.string "checkout_url"
+    t.string "provider_payment_id"
+    t.bigint "covered_booking_ids", default: [], null: false, array: true
+    t.boolean "livemode", default: false, null: false
+    t.datetime "failed_at"
     t.index ["checkout_id"], name: "index_payments_on_checkout_id"
+    t.index ["covered_booking_ids"], name: "index_payments_on_covered_booking_ids", using: :gin
+    t.index ["provider", "provider_ref"], name: "index_payments_on_provider_and_provider_ref", unique: true
+    t.index ["user_id"], name: "index_payments_on_user_id"
+    t.check_constraint "NOT livemode", name: "payments_test_mode_check"
     t.check_constraint "amount_cents >= 0", name: "payments_amount_check"
-    t.check_constraint "provider::text = 'stub'::text", name: "payments_provider_check"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'paid'::character varying::text, 'failed'::character varying::text])", name: "payments_status_check"
+    t.check_constraint "provider::text = ANY (ARRAY['stub'::character varying, 'paymongo'::character varying]::text[])", name: "payments_provider_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'paid'::character varying, 'failed'::character varying, 'needs_refund'::character varying]::text[])", name: "payments_status_check"
   end
 
   create_table "payout_accounts", force: :cascade do |t|
@@ -721,6 +731,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_110000) do
   add_foreign_key "partner_verifications", "users"
   add_foreign_key "partner_verifications", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_partner_verifications_user_role"
   add_foreign_key "payments", "checkouts"
+  add_foreign_key "payments", "users", on_delete: :nullify
   add_foreign_key "payout_accounts", "users", column: "partner_id"
   add_foreign_key "refresh_tokens", "users"
   add_foreign_key "sign_in_codes", "users", on_delete: :cascade

@@ -66,6 +66,8 @@ Rails.application.routes.draw do
         post :pay, on: :collection
         post :cancel, on: :member
       end
+      # A payment on PayMongo's checkout, read when the guest comes back from it.
+      resources :payments, only: :show
 
       # Admin-only (RAA-60): the search-term and destination-link queues; and every partner's
       # bookings, whose requests the team answers on partners' behalf (RAA-141).
@@ -118,6 +120,7 @@ Rails.application.routes.draw do
       # Called by third parties, signed by them (RAA-44).
       namespace :webhooks do
         post "didit", to: "didit#create"
+        post "paymongo", to: "paymongo#create"
       end
     end
   end

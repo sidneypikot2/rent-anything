@@ -11,9 +11,12 @@ export const metadata: Metadata = {
 };
 
 // The cart: the guest's trips beside the one picked, with its items (RAA-68, RAA-135).
-// `?trip=<id>` shows that trip, as "View trip" in the add-to-trip toast does.
+// `?trip=<id>` shows that trip, as "View trip" in the add-to-trip toast does; `?payment=<id>`
+// is where PayMongo's checkout sends the guest back.
 export default async function Cart(props: PageProps<"/cart">) {
-  const trip = Number((await props.searchParams).trip);
+  const searchParams = await props.searchParams;
+  const trip = Number(searchParams.trip);
+  const payment = Number(searchParams.payment);
   return (
     <main data-testid="cart" className="flex flex-1 flex-col">
       <PageBanner title={<DisplayTitle size="compact">Trips you&apos;re planning</DisplayTitle>} search={false} compact>
@@ -24,7 +27,10 @@ export default async function Cart(props: PageProps<"/cart">) {
       <PageSheet tone="paper">
         <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-gutter pb-page-pad pt-4 max-sm:px-0 sm:pt-6">
           <CartAccountBar />
-          <CartView expandTripId={Number.isInteger(trip) && trip > 0 ? trip : undefined} />
+          <CartView
+            expandTripId={Number.isInteger(trip) && trip > 0 ? trip : undefined}
+            paymentId={Number.isInteger(payment) && payment > 0 ? payment : undefined}
+          />
         </div>
       </PageSheet>
     </main>

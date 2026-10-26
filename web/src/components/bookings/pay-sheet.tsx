@@ -30,16 +30,23 @@ export function payTotal(items: TripItem[]) {
   return agree === 0 ? formatPeso(total) : `${formatPeso(total)} + ${agree} to agree with the partner`;
 }
 
-// Paying for a trip's accepted bookings (RAA-143), in a sheet: what will be paid and by when,
-// then the bookings as they came back, confirmed. All or nothing: one booking past its pay-by
-// time refuses the lot, and nothing is paid. Payments aren't live yet, so nothing is charged.
+// What the guest is told until payments go live: PayMongo runs in test mode.
+export const TEST_MODE_NOTE =
+  "Test payment — no real money is charged. On PayMongo's page, use a test card or the test e-wallet page.";
+
+// Paying for a trip's accepted bookings (RAA-143), in a sheet: what will be paid and by when.
+// With PayMongo the guest is sent to its checkout page and comes back to the cart
+// (PaymentReturn); without it, or when nothing is charged, the bookings come back confirmed and
+// are shown here. All or nothing: one booking past its pay-by time refuses the lot.
 export function PaySheet({ trip, items, onClose }: { trip: Trip; items: TripItem[]; onClose: () => void }) {
   const pay = usePayBookings();
   const toast = useToast();
-  const result = pay.data;
+  const checkoutUrl = pay.data?.payment?.checkout_url;
+  const result = pay.data && !checkoutUrl ? pay.data.bookings : undefined;
+  const leaving = checkoutUrl !== undefined && checkoutUrl !== null;
 
   function close() {
-    if (!pay.isPending) onClose();
+    if (!pay.isPending && !leaving) onClose();
   }
 
   return (
@@ -47,7 +54,7 @@ export function PaySheet({ trip, items, onClose }: { trip: Trip; items: TripItem
       open
       onClose={close}
       placement="sheet"
-      title={result ? "You're booked" : `Pay · ${trip.name}`}
+      title={result ? "You're booked" : leaving ? "Taking you to PayMongo…" : `Pay · ${trip.name}`}
       data-testid="pay-sheet"
       actions={
         result ? (
@@ -56,26 +63,32 @@ export function PaySheet({ trip, items, onClose }: { trip: Trip; items: TripItem
           </Button>
         ) : (
           <>
-            <Button type="button" variant="soft" onClick={close} disabled={pay.isPending}>
+            <Button type="button" variant="soft" onClick={close} disabled={pay.isPending || leaving}>
               Cancel
             </Button>
             <Button
               type="button"
               data-testid="pay-confirm"
-              disabled={pay.isPending}
+              disabled={pay.isPending || leaving}
               onClick={() =>
                 pay.mutate(
                   items.flatMap((item) => (item.booking ? [item.booking.id] : [])),
                   {
-                    onSuccess: (paid) =>
-                      toast.show(paid.length === 1 ? "Paid · you're booked" : `Paid for ${paid.length} · you're booked`, {
-                        "data-testid": "pay-toast",
-                      }),
+                    onSuccess: ({ bookings, payment }) => {
+                      if (payment?.checkout_url) {
+                        window.location.assign(payment.checkout_url);
+                        return;
+                      }
+                      toast.show(
+                        bookings.length === 1 ? "Paid · you're booked" : `Paid for ${bookings.length} · you're booked`,
+                        { "data-testid": "pay-toast" },
+                      );
+                    },
                   },
                 )
               }
             >
-              {pay.isPending ? "Paying…" : `Pay ${payTotal(items)}`}
+              {pay.isPending || leaving ? "Paying…" : `Pay ${payTotal(items)}`}
             </Button>
           </>
         )
@@ -118,13 +131,13 @@ function ToPay({ items }: { items: TripItem[] }) {
       </p>
       <p className="text-sm text-muted">
         {by && <>Accepted by the partner: pay by {by} to keep your dates. </>}
-        Payments aren&apos;t live yet, so nothing is charged.
+        {TEST_MODE_NOTE}
       </p>
     </div>
   );
 }
 
-function Paid({ bookings }: { bookings: GuestBooking[] }) {
+export function Paid({ bookings }: { bookings: GuestBooking[] }) {
   return (
     <ul className="flex flex-col divide-y divide-line rounded-control border border-line" data-testid="pay-result">
       {bookings.map((booking) => (

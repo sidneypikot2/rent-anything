@@ -25,10 +25,11 @@ class User < ApplicationRecord
   # Where their money goes (RAA-145); each business picks one.
   has_many :payout_accounts, foreign_key: :partner_id, inverse_of: :partner, dependent: :restrict_with_error
   has_many :trips, dependent: :destroy
-  # A guest's checkouts and bookings (RAA-132); kept, never deleted with the account. Only
+  # A guest's checkouts, bookings and payments (RAA-132); kept, never deleted with the account. Only
   # Guests::Purge deletes a user who has them, and the foreign keys then nullify user_id.
   has_many :checkouts, dependent: :restrict_with_error
   has_many :bookings, dependent: :restrict_with_error
+  has_many :payments, dependent: :restrict_with_error
 
   enum :role, ROLES.index_with(&:itself), validate: true
 
