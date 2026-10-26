@@ -6,11 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/components/ui/cn";
 import { signOut } from "@/lib/auth/actions";
 import { LOGIN_PATHS } from "@/lib/auth/paths";
-import { useSession } from "@/lib/auth/session";
+import { useSession, type Session } from "@/lib/auth/session";
 
 type MenuSection = "guest" | "partner";
+type MenuLink = { href: string; label: string; testId: string };
 
-const LINKS: Record<MenuSection, { href: string; label: string; testId: string }[]> = {
+const LINKS: Record<MenuSection, MenuLink[]> = {
   guest: [
     { href: "/trips", label: "Trips", testId: "nav-menu-trips" },
     { href: "/profile", label: "Profile", testId: "nav-menu-profile" },
@@ -22,6 +23,16 @@ const LINKS: Record<MenuSection, { href: string; label: string; testId: string }
     { href: "/partner/settings", label: "Settings", testId: "nav-menu-settings" },
   ],
 };
+
+// A guest without a password (RAA-179: they checked out, or opened a trip link) has no account
+// settings yet, and is offered to keep their trips instead.
+function linksFor(section: MenuSection, session: Session): MenuLink[] {
+  if (section !== "guest" || session.user.registered) return LINKS[section];
+  return [
+    ...LINKS.guest.filter(({ href }) => href !== "/settings"),
+    { href: "/trips/keep", label: "Keep your trips", testId: "nav-menu-keep-trips" },
+  ];
+}
 
 // px-3, like the trigger, so the items line up under the name.
 const ITEM = "block w-full px-3 py-2 text-left text-foreground hover:bg-surface-2";
@@ -64,10 +75,14 @@ export function AccountMenu({ section }: { section: MenuSection }) {
 
   if (!session) return null;
 
+  // A trip link's session lives in this tab only: closing it ends it, and coming back takes the
+  // link and PIN again, so it goes home rather than to a sign-in they have no password for.
+  const tripLink = section === "guest" && session.tabOnly;
+
   async function onSignOut() {
     setOpen(false);
     await signOut();
-    router.replace(LOGIN_PATHS[section]);
+    router.replace(tripLink ? "/" : LOGIN_PATHS[section]);
   }
 
   return (
@@ -104,7 +119,7 @@ export function AccountMenu({ section }: { section: MenuSection }) {
           data-testid="nav-user-menu"
           className="absolute right-0 top-full z-20 mt-2 min-w-48 overflow-hidden card-edge rounded-card bg-surface py-2 shadow-lift"
         >
-          {LINKS[section].map(({ href, label, testId }) => (
+          {linksFor(section, session).map(({ href, label, testId }) => (
             <li key={href}>
               <Link href={href} data-testid={testId} className={ITEM}>
                 {label}
@@ -114,7 +129,7 @@ export function AccountMenu({ section }: { section: MenuSection }) {
           <li className="mx-3 my-1 border-t border-line" role="separator" />
           <li>
             <button type="button" data-testid="nav-menu-signout" onClick={onSignOut} className={ITEM}>
-              Sign out
+              {tripLink ? "Close trips" : "Sign out"}
             </button>
           </li>
         </ul>
