@@ -8,6 +8,7 @@ import type { TripDates } from "./trip-dates";
 import { useTripAdd } from "./trip-add-provider";
 import { addPreview, type AddListing } from "./add-preview";
 import { useListingInTrip } from "./in-trip-badge";
+import type { Room } from "./party";
 import type { AddPreview } from "./use-trips";
 
 type Props = {
@@ -16,6 +17,8 @@ type Props = {
   // The add sheet's view of the listing when the page words it its own way (the area page's
   // by-line); otherwise built from the listing.
   preview?: AddPreview;
+  // A stay's rooms and pets as picked beside it (the price card), for the add sheet to start from.
+  rooms?: { rooms: Room[]; pets: number };
 };
 
 // "Add to trip" on a listing (screen 1). The page's dates and guests go with it (a tour or
@@ -26,7 +29,7 @@ type Props = {
 // the button is the outlined second action, so a filled one marks what the trip still needs.
 export const QuietAdd = createContext(false);
 
-export function AddToTripButton({ listing, dates, preview }: Props) {
+export function AddToTripButton({ listing, dates, preview, rooms }: Props) {
   const session = useSession();
   const { add, busyListingId } = useTripAdd();
   const isGuest = session?.user.role === "guest";
@@ -59,7 +62,8 @@ export function AddToTripButton({ listing, dates, preview }: Props) {
           quantity: dates.guests,
           children: dates.children,
           infants: dates.infants,
-          pets: dates.pets,
+          pets: rooms ? rooms.pets : dates.pets,
+          roomGuests: rooms?.rooms,
           preview: preview ?? addPreview(listing),
         })
       }

@@ -110,15 +110,18 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
               <TripDatesBar key={tripDatesQuery(dates)} dates={dates} />
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-muted">Saving to a trip is free, and there&apos;s nothing to pay yet.</p>
-                <AddToTripButton listing={listing} dates={dates} />
+                {/* A stay's Add to trip ends its price card, under the rooms picked there. */}
+                {!rate && <AddToTripButton listing={listing} dates={dates} />}
               </div>
             </CardBody>
           </Card>
+
+          {tour && <TourFacts listing={listing} tour={tour} />}
+
+          {rate && (
+            <StayPrice key={tripDatesQuery(dates)} listing={listing} rate={rate} dates={dates} initialQuote={quote} add />
+          )}
         </TripAddProvider>
-
-        {tour && <TourFacts listing={listing} tour={tour} />}
-
-        {rate && <StayPrice key={tripDatesQuery(dates)} listing={listing} rate={rate} dates={dates} initialQuote={quote} />}
 
         {vehicleRate && <VehiclePrice listing={listing} rate={vehicleRate} />}
 

@@ -4,11 +4,14 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { useEffect, useState } from "react";
 import { apiClient } from "@/api/client";
 import type { ListingDetail, StayQuote } from "@/api/discovery";
+import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { roomText, stayRules } from "@/components/trips/party";
 import { RoomsAndGuests } from "@/components/trips/rooms-and-guests";
 import { datesParty, type TripDates } from "@/components/trips/trip-dates";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
 import { Price } from "@/components/ui/typography";
+import { formatDateRange } from "@/lib/dates";
 import { formatPeso } from "@/lib/money";
 import { feeText, nightUnit, plural, stayRateTerms } from "@/lib/pricing";
 import { shownQuoteKey, startingArrangement, stayQuoteQuery } from "./stay-quote";
@@ -37,13 +40,30 @@ function nightLines(quote: StayQuote) {
   }));
 }
 
-function Row({ label, detail, cents, negative }: { label: string; detail?: string; cents: number; negative?: boolean }) {
+// A fee as a price line: a pet fee by its pets ("1 pet × ₱200", "× 2 nights" for one a night),
+// the others by name, with what they're multiplied by when it's more than one.
+function feeLine(fee: StayQuote["fees"][number], quote: StayQuote) {
+  if (fee.charged_per === "pet" || fee.charged_per === "pet_night") {
+    const nights = fee.charged_per === "pet_night" ? ` × ${plural(quote.nights_count, "night")}` : "";
+    return `${plural(quote.pets, "pet")} × ${formatPeso(fee.amount_cents)}${nights}`;
+  }
+  return `${fee.name}${fee.quantity > 1 ? ` (${formatPeso(fee.amount_cents)} × ${fee.quantity})` : ""}`;
+}
+
+function Row({
+  label,
+  cents,
+  negative,
+  "data-testid": testId,
+}: {
+  label: string;
+  cents: number;
+  negative?: boolean;
+  "data-testid"?: string;
+}) {
   return (
-    <div className="flex justify-between gap-4">
-      <dt className="text-muted">
-        {label}
-        {detail && <span className="block text-xs">{detail}</span>}
-      </dt>
+    <div className="flex justify-between gap-4" data-testid={testId}>
+      <dt className="text-muted">{label}</dt>
       <dd className="tabular-nums">
         {negative ? "−" : ""}
         {formatPeso(cents)}
@@ -56,6 +76,7 @@ function Row({ label, detail, cents, negative }: { label: string; detail?: strin
 // the reasons these dates and guests can't be booked (too few nights, too many guests).
 // With dates, the guest's rooms and guests (RAA-184): it starts from the page's party in the
 // fewest rooms, and each change asks /quotes again; several rooms are priced room by room.
+// `add`: Add to trip ends the card, taking the rooms picked here into the add sheet.
 // Optional fees are listed as add-ons; picking them waits for checkout. `headline={false}` leaves
 // the nightly price out where something beside it already shows it (the side panel's pinned foot),
 // which reads the quote shown here back (shownQuoteKey).
@@ -65,6 +86,7 @@ export function StayPrice({
   dates,
   initialQuote,
   headline = true,
+  add = false,
 }: {
   listing: ListingDetail;
   rate: Rate;
@@ -72,6 +94,7 @@ export function StayPrice({
   // The server's quote for the starting rooms, on the listing page.
   initialQuote?: QuoteResult;
   headline?: boolean;
+  add?: boolean;
 }) {
   const [start] = useState(() => startingArrangement(listing, dates));
   const [picked, setPicked] = useState<Arrangement>(start);
@@ -100,7 +123,7 @@ export function StayPrice({
   const [roomsFree, setRoomsFree] = useState<number | null>(null);
   const freeNow = quote && "quote" in quote ? quote.quote.rooms_free : null;
   if (freeNow !== null && freeNow !== roomsFree) setRoomsFree(freeNow);
-  const rules = stayRules(listing.details, roomsFree ?? listing.units_count);
+  const rules = stayRules(listing.details, roomsFree ?? listing.units_count, listing.fees);
   const { adults, children, infants } = datesParty(dates);
 
   const perGuest = quote && "quote" in quote ? quote.quote.per_guest : false;
@@ -108,17 +131,33 @@ export function StayPrice({
   const required = listing.fees.filter((fee) => fee.required);
   const addOns = listing.fees.filter((fee) => !fee.required);
   const rooms = quote && "quote" in quote ? quote.quote.rooms : [];
+  const nights = quote && "quote" in quote ? quote.quote.nights_count : 0;
+  // "Each room sleeps 5 · 3 free Nov 14 – 16": the beds a room has and, once quoted, the rooms left.
+  const roomsLine = [
+    rules.sleeps ? (rules.shared ? `Sleeps ${rules.sleeps}` : `Each room sleeps ${rules.sleeps}`) : null,
+    roomsFree !== null && !rules.shared ? `${roomsFree} free ${formatDateRange(dates.from, dates.to)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     // Unclipped: the rooms picker opens below the card's edge.
     <Card data-testid="stay-price" clip={false}>
       <CardBody pad="lg" className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          {headline ? (
-            <Price amount={formatPeso(rate.nightly_price_cents)} unit={nightUnit(perGuest)} />
-          ) : (
-            <h3 className="text-sm font-semibold">Price</h3>
-          )}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {headline ? (
+              <Price amount={formatPeso(rate.nightly_price_cents)} unit={nightUnit(perGuest)} />
+            ) : (
+              <h3 className="text-sm font-semibold">Price</h3>
+            )}
+            {rules.pets !== 0 && (
+              <Badge tone="fact" data-testid="stay-pets-allowed">
+                Pets allowed
+              </Badge>
+            )}
+          </div>
+          {roomsLine && <p className="text-sm font-medium">{roomsLine}</p>}
           {terms.length > 0 && (
             <ul className="flex flex-col gap-0.5 text-sm text-muted">
               {terms.map((term) => (
@@ -127,6 +166,16 @@ export function StayPrice({
             </ul>
           )}
         </div>
+
+        {nightsSet && (
+          <p className="flex flex-col gap-0.5 text-sm" data-testid="stay-dates">
+            <span className="font-semibold">Dates</span>
+            <span>
+              {formatDateRange(dates.from, dates.to)}
+              {nights > 0 ? ` · ${plural(nights, "night")}` : ""}
+            </span>
+          </p>
+        )}
 
         {nightsSet && (
           <RoomsAndGuests
@@ -141,33 +190,21 @@ export function StayPrice({
 
         {quote && "quote" in quote ? (
           <dl data-testid="stay-quote" className="flex flex-col gap-2 border-t border-line pt-4 text-sm">
-            {rooms.length > 1 ? (
-              // Each room for its own guests: its nights and extra guests, before the discount.
+            {perGuest ? (
+              // A shared room's beds: its nights by price, each for every guest in a bed.
+              nightLines(quote.quote).map((line) => <Row key={line.label} label={line.label} cents={line.cents} />)
+            ) : (
+              // One line a room: "Room 2 · 4 adults, 1 child · 3 extra", its nights and extra guests.
               rooms.map((room, index) => (
                 <Row
                   key={index}
-                  label={`Room ${index + 1} · ${roomText(room)}`}
-                  detail={[
-                    ...nightLines(quote.quote).map((line) => line.label),
-                    room.extra_guests > 0 ? `${plural(room.extra_guests, "extra guest")}` : null,
-                  ]
+                  label={[`Room ${index + 1}`, roomText(room), room.extra_guests > 0 ? `${room.extra_guests} extra` : null]
                     .filter(Boolean)
                     .join(" · ")}
                   cents={room.nightly_subtotal_cents + room.extra_guests_total_cents}
+                  data-testid="stay-quote-room"
                 />
               ))
-            ) : (
-              <>
-                {nightLines(quote.quote).map((line) => (
-                  <Row key={line.label} label={line.label} cents={line.cents} />
-                ))}
-                {quote.quote.extra_guests > 0 && quote.quote.extra_guests_total_cents > 0 && (
-                  <Row
-                    label={`${plural(quote.quote.extra_guests, "extra guest")} × ${formatPeso(quote.quote.extra_guest_fee_cents)} × ${plural(quote.quote.nights_count, "night")}`}
-                    cents={quote.quote.extra_guests_total_cents}
-                  />
-                )}
-              </>
             )}
             {quote.quote.discount && (
               <Row
@@ -177,17 +214,10 @@ export function StayPrice({
               />
             )}
             {quote.quote.fees.map((fee) => (
-              <Row
-                key={fee.id}
-                label={`${fee.name}${fee.quantity > 1 ? ` (${formatPeso(fee.amount_cents)} × ${fee.quantity})` : ""}`}
-                cents={fee.total_cents}
-              />
+              <Row key={fee.id} label={feeLine(fee, quote.quote)} cents={fee.total_cents} />
             ))}
             <div className="flex justify-between gap-4 border-t border-line pt-3 text-base font-semibold">
-              <dt>
-                Total for {plural(quote.quote.nights_count, "night")}, {plural(quote.quote.guests, "guest")}
-                {rooms.length > 1 ? `, ${rooms.length} rooms` : ""}
-              </dt>
+              <dt>Total</dt>
               <dd className="tabular-nums" data-testid="stay-quote-total">
                 {formatPeso(quote.quote.total_cents)}
               </dd>
@@ -209,6 +239,12 @@ export function StayPrice({
                   : "Set your dates and guests to see the total for your stay."}
             </p>
             {required.length > 0 && <p>Fees: {required.map(feeText).join(", ")}.</p>}
+          </div>
+        )}
+
+        {add && (
+          <div className="flex justify-end">
+            <AddToTripButton listing={listing} dates={dates} rooms={nightsSet ? picked : undefined} />
           </div>
         )}
 

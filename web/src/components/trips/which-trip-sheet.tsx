@@ -77,7 +77,7 @@ function vehicleNote(preview: AddPreview, seats: number, guests: number) {
 function stayNote(preview: AddPreview, rooms: Room[]) {
   const { many } = unitWords({ ...preview, unitsCount: rooms.length }, "room");
   const split = rooms.map((room, index) => `${index + 1}: ${roomText(room)}`).join("; ");
-  return `${rooms.length} ${many} (${split}). They're booked together when you check out, and the price covers all ${rooms.length}.`;
+  return `${rooms.length} ${many} (${split}), booked together when you check out, each priced for its own guests.`;
 }
 
 // The party less those the trip's stays already sleep: adults first (one stays, to hold the
@@ -261,9 +261,10 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   const rules = request.bookingType === "stay" ? (request.preview?.stayRules ?? null) : null;
   const { pets: partyPets, ...people } = partyFromGuests(request.quantity, request);
   const startParty = booked > 0 && unhoused > 0 ? withoutHoused(people, booked) : people;
+  // Rooms picked beside the listing (its price card) come along as they are.
   const arrangement = rules
     ? (typedRooms ?? {
-        rooms: evenRooms(startParty, rules),
+        rooms: request.roomGuests ?? evenRooms(startParty, rules),
         pets: rules.pets === 0 ? 0 : Math.min(partyPets, rules.pets ?? partyPets),
       })
     : null;

@@ -17,7 +17,8 @@ export const MAX_INFANTS_PER_ROOM = 2;
 //   infants only if it says so);
 // - `pets`: the most pets it takes, 0 when it takes none, null when it allows them with no limit;
 // - `rooms`: the most rooms the guest can book, null when not known;
-// - `shared`: a shared room is booked by the bed, so it takes no split into rooms.
+// - `shared`: a shared room is booked by the bed, so it takes no split into rooms;
+// - `petFee`: what a pet costs, from the listing's fees, when the page has them.
 export type StayRules = {
   sleeps: number | null;
   countsChildren: boolean;
@@ -25,13 +26,22 @@ export type StayRules = {
   pets: number | null;
   rooms: number | null;
   shared: boolean;
+  petFee?: { cents: number; perNight: boolean } | null;
 };
+
+type Fee = { charged_per: string; amount_cents: number };
 
 const positive = (value: unknown) => (typeof value === "number" && value > 0 ? value : null);
 
-export function stayRules(details: Record<string, unknown> | undefined, rooms: number | null | undefined): StayRules {
+export function stayRules(
+  details: Record<string, unknown> | undefined,
+  rooms: number | null | undefined,
+  fees?: Fee[],
+): StayRules {
   const shared = details?.place_type === "shared_room";
+  const petFee = fees?.find((fee) => fee.charged_per === "pet" || fee.charged_per === "pet_night");
   return {
+    petFee: petFee ? { cents: petFee.amount_cents, perNight: petFee.charged_per === "pet_night" } : null,
     sleeps: positive(details?.guests),
     countsChildren: details?.children_count !== false,
     countsInfants: details?.infants_count === true,
@@ -97,13 +107,18 @@ export function evenRooms(party: Room, rules: StayRules): Room[] {
 
 const fill = (room: Room, kind: Kind, rules: StayRules) => (counts(rules, kind) ? counted(room, rules) : room[kind]);
 
-// The people of the party the rooms leave out: "1 adult, 2 children", or null when all are in.
-export function unplacedText(party: Room, rooms: Room[]) {
+// How many of the party the rooms leave out, 0 when all are in.
+export function unplacedCount(party: Room, rooms: Room[]) {
   const placed = partyOf(rooms);
-  const parts = KINDS.map((kind) => [kind, party[kind] - placed[kind]] as const)
-    .filter(([, left]) => left > 0)
-    .map(([kind, left]) => peopleWord(kind, left));
-  return parts.length > 0 ? parts.join(", ") : null;
+  return KINDS.reduce((sum, kind) => sum + Math.max(party[kind] - placed[kind], 0), 0);
+}
+
+// "Your trip has 7 guests. 2 still need somewhere to sleep.", or null when the rooms hold everyone.
+export function unplacedText(party: Room, rooms: Room[]) {
+  const left = unplacedCount(party, rooms);
+  if (left === 0) return null;
+  const guests = headcount(party);
+  return `Your trip has ${guests} ${guests === 1 ? "guest" : "guests"}. ${left} still ${left === 1 ? "needs" : "need"} somewhere to sleep.`;
 }
 
 const WORDS: Record<Kind | "pets", [string, string]> = {
@@ -122,12 +137,12 @@ export function roomText(room: Room) {
     .join(", ");
 }
 
-// The picker's summary: "2 rooms · 5 guests · 1 pet".
-export function partySummary(rooms: Room[], pets: number) {
-  const guests = headcount(partyOf(rooms));
+// The picker's summary: "2 rooms · 5 adults, 1 child · 1 pet" ("1 room" for one); a shared room
+// or a whole party has no rooms to count.
+export function partySummary(rooms: Room[], pets: number, shared = false) {
   return [
-    rooms.length > 1 ? `${rooms.length} rooms` : null,
-    `${guests} ${guests === 1 ? "guest" : "guests"}`,
+    shared ? null : `${rooms.length} ${rooms.length === 1 ? "room" : "rooms"}`,
+    roomText(partyOf(rooms)),
     pets > 0 ? peopleWord("pets", pets) : null,
   ]
     .filter(Boolean)

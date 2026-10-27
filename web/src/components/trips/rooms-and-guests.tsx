@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { StepperField } from "@/components/ui/stepper-field";
+import { formatPeso } from "@/lib/money";
 import {
   emptyRoom,
-  MAX_INFANTS_PER_ROOM,
+  counted,
   partySummary,
   roomMax,
-  roomText,
   unplacedText,
   type Kind,
   type Room,
@@ -38,10 +38,10 @@ type Props = {
 // The width from which the picker is a popover; below it, a bottom sheet (Tailwind's sm).
 const WIDE = "(min-width: 40rem)";
 
-const KIND_LABELS: Record<Kind, { label: string; hint?: string }> = {
-  adults: { label: "Adults" },
-  children: { label: "Children", hint: "Ages 2–12" },
-  infants: { label: "Infants", hint: "Under 2" },
+const KIND_LABELS: Record<Kind, { label: string; age: string }> = {
+  adults: { label: "Adults", age: "13+" },
+  children: { label: "Children", age: "2–12" },
+  infants: { label: "Infants", age: "under 2" },
 };
 
 // Rooms and guests for a stay (RAA-184): a summary field that opens a bottom sheet on a phone and
@@ -68,6 +68,7 @@ export function RoomsAndGuests({
   const valueId = useId();
   const panelId = useId();
   const left = party ? unplacedText(party, rooms) : null;
+
 
   useEffect(() => {
     if (open !== "popover" || inline) return;
@@ -111,7 +112,7 @@ export function RoomsAndGuests({
                 <button
                   type="button"
                   onClick={() => onChange(rooms.filter((_, i) => i !== index), pets)}
-                  className="tap-target text-sm font-semibold text-primary underline-offset-4 hover:underline"
+                  className="tap-target text-sm font-semibold text-link underline underline-offset-4 hover:text-primary"
                   data-testid={testId && `${testId}-remove-room`}
                 >
                   Remove
@@ -123,7 +124,7 @@ export function RoomsAndGuests({
             <StepperField
               key={kind}
               label={KIND_LABELS[kind].label}
-              hint={kindHint(kind, room, rules)}
+              hint={kindHint(kind, rules)}
               value={room[kind]}
               min={kind === "adults" ? 1 : 0}
               max={Math.max(roomMax(room, kind, rules), room[kind])}
@@ -131,19 +132,19 @@ export function RoomsAndGuests({
               data-testid={testId && `${testId}-${kind}`}
             />
           ))}
+          <BedsLine room={room} rules={rules} />
         </div>
       ))}
 
       {canAddRoom && (
         <Button
           type="button"
-          variant="soft"
-          glyph="plus"
+          variant="ghost"
           className="self-start"
           onClick={() => onChange([...rooms, emptyRoom()], pets)}
           data-testid={testId && `${testId}-add-room`}
         >
-          Add a room
+          + Add a room
         </Button>
       )}
 
@@ -151,7 +152,7 @@ export function RoomsAndGuests({
         <div className="border-t border-line pt-3">
           <StepperField
             label="Pets"
-            hint={petsHint ?? (rules.pets ? `Up to ${rules.pets} for the stay` : "For the whole stay")}
+            hint={petsHint ?? petsLine(rules)}
             value={pets}
             max={rules.pets ?? 20}
             onChange={(value) => onChange(rooms, value)}
@@ -162,8 +163,7 @@ export function RoomsAndGuests({
 
       {left && (
         <p role="status" className="rounded-control bg-mist px-3 py-2 text-sm" data-testid={testId && `${testId}-left`}>
-          Not in a room yet: {left}.{" "}
-          {canAddRoom ? "Add a room, or book another stay for them." : "Book another stay for them."}
+          {left} {canAddRoom ? "Add a room, or book another stay for them." : "Book another stay for them."}
         </p>
       )}
     </div>
@@ -187,13 +187,14 @@ export function RoomsAndGuests({
           open && "border-primary",
         )}
       >
-        <span id={valueId} className="flex min-w-0 flex-col">
-          <span>{partySummary(rooms, pets)}</span>
-          {rooms.length > 1 && <span className="truncate text-xs text-muted">{rooms.map(roomText).join(" · ")}</span>}
-        </span>
-        <ChevronGlyph direction={open ? "up" : "down"} className="size-5 shrink-0 text-primary" />
+        <span id={valueId}>{partySummary(rooms, pets, rules.shared)}</span>
+        <ChevronGlyph direction={open ? "down" : "right"} className="size-5 shrink-0 text-primary" />
       </button>
-      {left && !open && <span className="text-xs font-normal text-muted">Not in a room yet: {left}</span>}
+      {left && !open && (
+        <span className="text-xs font-normal text-warning" data-testid={testId && `${testId}-hint`}>
+          {left}
+        </span>
+      )}
 
       {open === "popover" && (
         <Panel id={panelId} label={label} inline={inline} onDone={close}>
@@ -213,14 +214,18 @@ export function RoomsAndGuests({
 }
 
 function Panel({ id, label, inline, onDone, children }: { id: string; label: string; inline: boolean; onDone: () => void; children: ReactNode }) {
+  // Opened low on the screen, it scrolls the page so it shows whole, Done included.
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => panel.current?.scrollIntoView({ block: "nearest" }), []);
   return (
     <div
+      ref={panel}
       id={id}
       role="group"
       aria-label={label}
       className={cn(
         "flex w-full flex-col gap-3 card-edge rounded-control bg-surface p-4 font-normal",
-        inline ? "mt-1" : "absolute left-0 top-full z-20 mt-1 max-h-[70vh] overflow-y-auto shadow-lift sm:w-96",
+        inline ? "mt-1 scroll-mb-4" : "absolute left-0 top-full z-20 mt-1 max-h-[70vh] scroll-mb-20 overflow-y-auto shadow-lift sm:w-96",
       )}
     >
       {children}
@@ -233,11 +238,28 @@ function Panel({ id, label, inline, onDone, children }: { id: string; label: str
   );
 }
 
-// Why + stopped, once it has: the room's beds are full, or its infants at the cap.
-function kindHint(kind: Kind, room: Room, rules: StayRules) {
-  const full = room[kind] >= roomMax(room, kind, rules);
-  if (kind === "infants" && !rules.shared && room.infants >= MAX_INFANTS_PER_ROOM) return `Up to ${MAX_INFANTS_PER_ROOM} a room`;
-  if (full && rules.sleeps) return rules.shared ? `Up to ${rules.sleeps} guests` : `Room is full (sleeps ${rules.sleeps})`;
-  if (kind === "infants" && !rules.countsInfants) return "Under 2 · no bed needed";
-  return KIND_LABELS[kind].hint;
+// A stepper's muted note: its ages, and " · no bed" for guests the place doesn't put in a bed.
+function kindHint(kind: Kind, rules: StayRules) {
+  const noBed = (kind === "children" && !rules.countsChildren) || (kind === "infants" && !rules.countsInfants);
+  return `${KIND_LABELS[kind].age}${noBed && !rules.shared ? " · no bed" : ""}`;
+}
+
+// Under a room's steppers: "4 of 5 beds", the guests it puts in a bed; red when it holds more
+// than its beds (a split saved before the place changed them).
+function BedsLine({ room, rules }: { room: Room; rules: StayRules }) {
+  if (!rules.sleeps || rules.shared) return null;
+  const taken = counted(room, rules);
+  const over = taken > rules.sleeps;
+  return (
+    <p className={cn("text-xs", over ? "text-danger" : "text-muted")} data-testid="rooms-beds">
+      {taken} of {rules.sleeps} beds{over ? " · too many after the capacity change" : ""}
+    </p>
+  );
+}
+
+// "Up to 2 for the stay · ₱200 each": the stay's pet limit and, when the page has it, its fee.
+function petsLine(rules: StayRules) {
+  const limit = rules.pets ? `Up to ${rules.pets} for the stay` : "For the whole stay";
+  const fee = rules.petFee ? `${formatPeso(rules.petFee.cents)} each${rules.petFee.perNight ? " a night" : ""}` : null;
+  return [limit, fee].filter(Boolean).join(" · ");
 }

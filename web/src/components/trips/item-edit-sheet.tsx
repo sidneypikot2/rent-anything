@@ -54,7 +54,7 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
     enabled: stay,
     staleTime: 5 * 60_000,
   });
-  const rules = stay && listing ? stayRules(listing.details, listing.units_count) : null;
+  const rules = stay && listing ? stayRules(listing.details, listing.units_count, listing.fees) : null;
   const [typedRooms, setRooms] = useState<{ rooms: Room[]; pets: number } | null>(null);
   const arrangement = rules ? (typedRooms ?? { rooms: startingRooms(trip, item, rules), pets: item.pets }) : null;
 
