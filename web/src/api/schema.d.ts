@@ -5381,6 +5381,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stay_mixes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mixes of a business's room types for a party
+         * @description Public. Up to 3 ways to sleep the party in a mix of one business's room types (RAA-187), each a stay listing: `cheapest`; `private`, the cheapest without a shared room; `one_type`, the cheapest of one room type. A label whose mix is already shown is skipped and the rest are filled cheapest first as `other`. Rooms are filled as a stay's quote fills them (an adult in each, the others spread evenly, infants in private rooms) and priced by it; the pets go to a room type that allows them. Rooms fully booked on any night are left out. Each item can be added to a trip as it is (`POST /trip_items` with `items`). Money is in centavos.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description 2 to 10 active stays of one business */
+                    "listing_ids[]": number[];
+                    /**
+                     * Format: date
+                     * @description Check-in
+                     */
+                    starts_on: string;
+                    /**
+                     * Format: date
+                     * @description Check-out
+                     */
+                    ends_on: string;
+                    adults: number;
+                    /** @description Default 0 */
+                    children?: number;
+                    /** @description Default 0 */
+                    infants?: number;
+                    /** @description Default 0 */
+                    pets?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the mixes, cheapest first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            mixes: components["schemas"]["stay_mix"][];
+                        };
+                    };
+                };
+                /** @description too few listings, listings of two businesses, bad dates or a bad party */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tokens/refresh": {
         parameters: {
             query?: never;
@@ -5606,7 +5676,7 @@ export interface paths {
         put?: never;
         /**
          * Add a listing to a trip
-         * @description Guest-only. Adds the listing to `trip_id`, or, without one, to a new trip named after the destination and dates ("Bantayan Island · Nov 12–15"), or `trip_name` if the guest typed one, with `quantity` guests. The trip's dates grow to cover the item's. Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an undated item can't be checked out until it has one. `quantity` is 1 to 99, default 1. Answers with the trip.
+         * @description Guest-only. Adds the listing to `trip_id`, or, without one, to a new trip named after the destination and dates ("Bantayan Island · Nov 12–15"), or `trip_name` if the guest typed one, with `quantity` guests. The trip's dates grow to cover the item's. Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an undated item can't be checked out until it has one. `quantity` is 1 to 99, default 1. Answers with the trip. Several items at once (RAA-187, a mix of room types from `GET /stay_mixes`): `items` instead of one item's fields, all added or none; a new trip is named and dated after the first.
          */
         post: {
             parameters: {
@@ -5620,7 +5690,7 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        listing_id: number;
+                        listing_id?: number;
                         /** Format: date */
                         starts_on?: string | null;
                         /** Format: date */
@@ -5634,6 +5704,23 @@ export interface paths {
                         }[] | null;
                         /** @description A stay only, where its listing allows pets (RAA-182) */
                         pets?: number;
+                        /** @description Instead of listing_id and the fields above */
+                        items?: {
+                            listing_id: number;
+                            /** Format: date */
+                            starts_on?: string | null;
+                            /** Format: date */
+                            ends_on?: string | null;
+                            quantity?: number;
+                            /** @description A stay only (RAA-182): its guests room by room, adding up to its guests, which it then sets; null for an even split over the fewest rooms that sleep them */
+                            room_guests?: {
+                                adults?: number;
+                                children?: number;
+                                infants?: number;
+                            }[] | null;
+                            /** @description A stay only, where its listing allows pets (RAA-182) */
+                            pets?: number;
+                        }[];
                         /** @description Omit or null for a new trip */
                         trip_id?: number | null;
                         /** @description A new trip's name, up to 80 characters; blank or omitted names it after the destination and dates. Ignored with trip_id */
@@ -5642,7 +5729,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description an undated add */
+                /** @description a mix added to an existing trip */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -7461,6 +7548,31 @@ export interface components {
             extra_guests_total_cents: number;
             discount: components["schemas"]["stay_discount"];
             fees: components["schemas"]["stay_fee_line"][];
+            total_cents: number;
+        };
+        stay_mix: {
+            /**
+             * @description private: no shared room; one_type: a single room type; other: the next cheapest
+             * @enum {string}
+             */
+            label: "cheapest" | "private" | "one_type" | "other";
+            total_cents: number;
+            items: components["schemas"]["stay_mix_item"][];
+        };
+        stay_mix_item: {
+            listing_id: number;
+            title: string;
+            /** @description Rooms, or a shared room's beds */
+            rooms: number;
+            /** @description Its guests, the trip item's quantity */
+            quantity: number;
+            /** @description Each room's guests; null for a shared room, booked by the bed */
+            room_guests: {
+                adults: number;
+                children: number;
+                infants: number;
+            }[] | null;
+            pets: number;
             total_cents: number;
         };
         listing_fee_body: {

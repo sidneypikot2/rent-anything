@@ -1148,6 +1148,40 @@ RSpec.configure do |config|
             required: %w[adults children infants nightly_subtotal_cents extra_guests extra_guests_total_cents discount fees
               total_cents]
           },
+          # A mix of one business's room types for a party (RAA-187).
+          stay_mix: {
+            type: :object,
+            properties: {
+              label: {
+                type: :string, enum: %w[cheapest private one_type other],
+                description: "private: no shared room; one_type: a single room type; other: the next cheapest"
+              },
+              total_cents: { type: :integer },
+              items: { type: :array, items: { "$ref" => "#/components/schemas/stay_mix_item" } }
+            },
+            required: %w[label total_cents items]
+          },
+          # One room type of a mix, with what POST /trip_items takes for it.
+          stay_mix_item: {
+            type: :object,
+            properties: {
+              listing_id: { type: :integer },
+              title: { type: :string },
+              rooms: { type: :integer, description: "Rooms, or a shared room's beds" },
+              quantity: { type: :integer, description: "Its guests, the trip item's quantity" },
+              room_guests: {
+                type: :array, nullable: true, description: "Each room's guests; null for a shared room, booked by the bed",
+                items: {
+                  type: :object,
+                  properties: { adults: { type: :integer }, children: { type: :integer }, infants: { type: :integer } },
+                  required: %w[adults children infants]
+                }
+              },
+              pets: { type: :integer },
+              total_cents: { type: :integer }
+            },
+            required: %w[listing_id title rooms quantity room_guests pets total_cents]
+          },
           listing_fee_body: {
             type: :object,
             properties: {

@@ -8,8 +8,10 @@ module Api
       before_action -> { require_role!("guest") }
       before_action :set_item, only: %i[update destroy]
 
+      # `items` adds several at once (RAA-187), all or none.
       def create
-        trip = Trips::AddItem.call(current_user, params.slice(:listing_id, :starts_on, :ends_on, :quantity, :room_guests, :pets, :trip_id, :trip_name))
+        fields = params.slice(:listing_id, :starts_on, :ends_on, :quantity, :room_guests, :pets, :trip_id, :trip_name)
+        trip = params.key?(:items) ? Trips::AddItems.call(current_user, fields.merge(items: params[:items])) : Trips::AddItem.call(current_user, fields)
         render json: TripSerializer.reloaded(trip), status: :created
       end
 
