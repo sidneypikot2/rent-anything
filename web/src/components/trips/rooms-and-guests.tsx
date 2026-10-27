@@ -216,7 +216,10 @@ export function RoomsAndGuests({
 function Panel({ id, label, inline, onDone, children }: { id: string; label: string; inline: boolean; onDone: () => void; children: ReactNode }) {
   // Opened low on the screen, it scrolls the page so it shows whole, Done included.
   const panel = useRef<HTMLDivElement>(null);
-  useEffect(() => panel.current?.scrollIntoView({ block: "nearest" }), []);
+  // A block body: newer browsers return a Promise from scrollIntoView, which an effect can't return.
+  useEffect(() => {
+    panel.current?.scrollIntoView({ block: "nearest" });
+  }, []);
   return (
     <div
       ref={panel}
