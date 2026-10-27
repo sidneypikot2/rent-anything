@@ -783,7 +783,12 @@ RSpec.configure do |config|
               category_id: { type: :integer, description: "A bookable (leaf) category" },
               address: ADDRESS_BODY,
               location: LOCATION_BODY,
-              attrs: { type: :object, additionalProperties: true },
+              attrs: {
+                type: :object, additionalProperties: true,
+                description: "Matches the category's attribute_schema. A stay's include children_count (children " \
+                  "take a bed; true when left out), infants_count (false when left out), pets_allowed and max_pets " \
+                  "(1 to 20)"
+              },
               cancellation_policy: {
                 allOf: [ { "$ref" => "#/components/schemas/cancellation_policy" } ],
                 description: "Left out on adding a listing, it is free_cancellation; left out on a change, it stays as it is"
@@ -1700,6 +1705,8 @@ RSpec.configure do |config|
               },
               quantity: { type: :integer, description: "Units, a private tour's groups or a joiner tour's joiners" },
               guests: { type: :integer, nullable: true, description: "Null for one taken offline" },
+              room_guests: ROOM_GUESTS,
+              pets: { type: :integer, description: "A stay's pets, beside its guests (RAA-182)" },
               status: { "$ref" => "#/components/schemas/booking_status" },
               source: { type: :string, enum: Booking::SOURCES, description: "offline: taken by the partner outside the app" },
               booking_mode: {
@@ -1723,7 +1730,7 @@ RSpec.configure do |config|
               },
               created_at: { type: :string, format: "date-time" }
             },
-            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on quantity guests status source
+            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on quantity guests room_guests pets status source
               booking_mode total_cents to_be_agreed commission_cents refund_cents cancelled_by expires_at notes listing
               created_at]
           },
@@ -1776,6 +1783,8 @@ RSpec.configure do |config|
               },
               quantity: { type: :integer, description: "Units, a private tour's groups or a joiner tour's joiners" },
               guests: { type: :integer, nullable: true, description: "Null for one taken offline" },
+              room_guests: ROOM_GUESTS,
+              pets: { type: :integer, description: "A stay's pets, beside its guests (RAA-182)" },
               status: { "$ref" => "#/components/schemas/booking_status" },
               source: { type: :string, enum: Booking::SOURCES, description: "offline: taken by the partner outside the app" },
               booking_mode: { type: :string, enum: Booking::BOOKING_MODES, nullable: true },
@@ -1825,7 +1834,7 @@ RSpec.configure do |config|
               },
               created_at: { type: :string, format: "date-time" }
             },
-            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on quantity guests status source
+            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on quantity guests room_guests pets status source
               booking_mode booking_type
               total_cents to_be_agreed commission_cents refund_cents cancelled_by cancellation_policy expires_at
               responded_at notes listing partner traveller created_at]

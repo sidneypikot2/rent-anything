@@ -1297,7 +1297,10 @@ export interface paths {
         /** A destination: its landmarks and what to book there */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description 1 keeps, of the stays, only those that allow pets (RAA-185); other listings stay */
+                    pets?: string;
+                };
                 header?: never;
                 path: {
                     slug: string;
@@ -2818,7 +2821,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description the bookings still to come */
+                /** @description a stay's guests room by room, and its pets (RAA-182) */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -5105,6 +5108,8 @@ export interface paths {
                 query: {
                     /** @description At least 2 characters */
                     q: string;
+                    /** @description 1 keeps, of the stays, only those that allow pets (RAA-185); other listings stay */
+                    pets?: string;
                 };
                 header?: never;
                 path?: never;
@@ -7190,6 +7195,7 @@ export interface components {
                 lat: number;
                 lng: number;
             };
+            /** @description Matches the category's attribute_schema. A stay's include children_count (children take a bed; true when left out), infants_count (false when left out), pets_allowed and max_pets (1 to 20) */
             attrs?: {
                 [key: string]: unknown;
             };
@@ -7899,6 +7905,14 @@ export interface components {
             quantity: number;
             /** @description Null for one taken offline */
             guests: number | null;
+            /** @description A stay's guests room by room, as the guest split them; null when spread evenly */
+            room_guests: {
+                adults: number;
+                children: number;
+                infants: number;
+            }[] | null;
+            /** @description A stay's pets, beside its guests (RAA-182) */
+            pets: number;
             status: components["schemas"]["booking_status"];
             /**
              * @description offline: taken by the partner outside the app
@@ -7979,6 +7993,14 @@ export interface components {
             quantity: number;
             /** @description Null for one taken offline */
             guests: number | null;
+            /** @description A stay's guests room by room, as the guest split them; null when spread evenly */
+            room_guests: {
+                adults: number;
+                children: number;
+                infants: number;
+            }[] | null;
+            /** @description A stay's pets, beside its guests (RAA-182) */
+            pets: number;
             status: components["schemas"]["booking_status"];
             /**
              * @description offline: taken by the partner outside the app

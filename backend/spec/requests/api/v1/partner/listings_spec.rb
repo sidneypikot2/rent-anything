@@ -444,6 +444,43 @@ RSpec.describe "Partner listings", type: :request do
           end
         end
 
+        context "with the real stay schema" do
+          before(:all) { require Rails.root.join("db/migrate/20261027100100_add_stay_guest_rules").to_s }
+
+          let(:category) do
+            create(:category, :accommodation, attribute_schema: AddStayGuestRules::STAY_SCHEMA.deep_stringify_keys)
+          end
+          let(:rooms) { [ { beds: [ { type: "double", count: 2 } ] } ] }
+          let(:attrs) do
+            { place_type: "entire_place", guests: 4, rooms:, bathrooms: 1, children_count: false, infants_count: true, pets_allowed: true, max_pets: 2 }
+          end
+
+          before { body[:attrs] = attrs }
+
+          response "201", "who takes a bed, and whether pets come and how many (RAA-185)" do
+            schema "$ref" => "#/components/schemas/partner_listing"
+
+            run_test! do |response|
+              expect(response.parsed_body["attrs"]).to eq(attrs.deep_stringify_keys)
+              expect(Listing.sole.attrs).to include("children_count" => false, "infants_count" => true, "max_pets" => 2)
+            end
+          end
+
+          response "422", "guest rules of the wrong type, or more than 20 pets (RAA-185)" do
+            schema "$ref" => "#/components/schemas/validation_errors"
+
+            let(:attrs) { { place_type: "entire_place", guests: 4, rooms:, bathrooms: 1, children_count: "yes", pets_allowed: true, max_pets: 21 } }
+
+            run_test! do |refused|
+              expect(refused.parsed_body["errors"].size).to eq(2)
+              body[:attrs] = attrs.merge(children_count: true, max_pets: 0)
+              post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+              expect(response).to have_http_status(:unprocessable_content)
+              expect(Listing.count).to eq(0)
+            end
+          end
+        end
+
         response "422", "no stay rate" do
           schema "$ref" => "#/components/schemas/validation_errors"
 

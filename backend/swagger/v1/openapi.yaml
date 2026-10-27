@@ -941,6 +941,13 @@ paths:
         required: true
         schema:
           type: string
+      - name: pets
+        in: query
+        required: false
+        description: 1 keeps, of the stays, only those that allow pets (RAA-185);
+          other listings stay
+        schema:
+          type: string
       responses:
         '200':
           description: a province lists the areas under it that have something to
@@ -1947,7 +1954,7 @@ paths:
       - bearer: []
       responses:
         '200':
-          description: the bookings still to come
+          description: a stay's guests room by room, and its pets (RAA-182)
           content:
             application/json:
               schema:
@@ -3580,6 +3587,13 @@ paths:
         in: query
         required: true
         description: At least 2 characters
+        schema:
+          type: string
+      - name: pets
+        in: query
+        required: false
+        description: 1 keeps, of the stays, only those that allow pets (RAA-185);
+          other listings stay
         schema:
           type: string
       responses:
@@ -6131,6 +6145,9 @@ components:
         attrs:
           type: object
           additionalProperties: true
+          description: Matches the category's attribute_schema. A stay's include children_count
+            (children take a bed; true when left out), infants_count (false when left
+            out), pets_allowed and max_pets (1 to 20)
         cancellation_policy:
           allOf:
           - "$ref": "#/components/schemas/cancellation_policy"
@@ -7996,6 +8013,27 @@ components:
           type: integer
           nullable: true
           description: Null for one taken offline
+        room_guests:
+          type: array
+          nullable: true
+          items:
+            type: object
+            properties:
+              adults:
+                type: integer
+              children:
+                type: integer
+              infants:
+                type: integer
+            required:
+            - adults
+            - children
+            - infants
+          description: A stay's guests room by room, as the guest split them; null
+            when spread evenly
+        pets:
+          type: integer
+          description: A stay's pets, beside its guests (RAA-182)
         status:
           "$ref": "#/components/schemas/booking_status"
         source:
@@ -8062,6 +8100,8 @@ components:
       - ends_on
       - quantity
       - guests
+      - room_guests
+      - pets
       - status
       - source
       - booking_mode
@@ -8177,6 +8217,27 @@ components:
           type: integer
           nullable: true
           description: Null for one taken offline
+        room_guests:
+          type: array
+          nullable: true
+          items:
+            type: object
+            properties:
+              adults:
+                type: integer
+              children:
+                type: integer
+              infants:
+                type: integer
+            required:
+            - adults
+            - children
+            - infants
+          description: A stay's guests room by room, as the guest split them; null
+            when spread evenly
+        pets:
+          type: integer
+          description: A stay's pets, beside its guests (RAA-182)
         status:
           "$ref": "#/components/schemas/booking_status"
         source:
@@ -8306,6 +8367,8 @@ components:
       - ends_on
       - quantity
       - guests
+      - room_guests
+      - pets
       - status
       - source
       - booking_mode
