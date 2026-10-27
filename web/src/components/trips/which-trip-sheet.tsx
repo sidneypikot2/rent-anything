@@ -13,6 +13,8 @@ import { StepperField } from "@/components/ui/stepper-field";
 import { chooseTrip, useChosenTrip } from "./chosen-trip";
 import { daysBetween, formatDateRange, guestLimitHint, itemCount, noNightError, todayIso, tripDetails } from "./format";
 import { bedsBooked } from "./beds";
+import { evenRooms, headcount, partyFromGuests, partyOf, roomGuestsToSend, roomText, type Room } from "./party";
+import { RoomsAndGuests } from "./rooms-and-guests";
 import { sameItem } from "./trip-missing";
 import { TripOption } from "./trip-option";
 import {
@@ -70,19 +72,24 @@ function vehicleNote(preview: AddPreview, seats: number, guests: number) {
   return `${short} You'll need ${needed} ${many}: add this ${times}, or sort it out with the partner when you book.`;
 }
 
-// When the group won't fit in one room: checkout books as many as the guests need, each
-// priced (Booking.units_for, Bookings::Price), and refuses it when the place has too few.
-// A shared room's guests take a bed each, so it has no per-room limit to show.
-function stayNote(preview: AddPreview, sleeps: number, guests: number) {
-  const needed = Math.ceil(guests / sleeps);
-  const { one, many } = unitWords(preview, "room");
-  const short = `Each ${one} sleeps ${sleeps}, so ${guests} guests need ${needed} ${many}.`;
-  if (preview.unitsCount !== undefined && preview.unitsCount < needed) {
-    const has = preview.unitsCount === 1 ? `only one ${one}` : `only ${preview.unitsCount} ${many}`;
-    const left = guests - preview.unitsCount * sleeps;
-    return `${short} This place has ${has}, so add another stay for the other ${left} ${left === 1 ? "guest" : "guests"}.`;
-  }
-  return `${short} They're booked together when you check out, and the price covers all ${needed}.`;
+// How a stay's guests go into its rooms, once they take more than one: checkout books them
+// together, each room priced for its own guests (RAA-182).
+function stayNote(preview: AddPreview, rooms: Room[]) {
+  const { many } = unitWords({ ...preview, unitsCount: rooms.length }, "room");
+  const split = rooms.map((room, index) => `${index + 1}: ${roomText(room)}`).join("; ");
+  return `${rooms.length} ${many} (${split}). They're booked together when you check out, and the price covers all ${rooms.length}.`;
+}
+
+// The party less those the trip's stays already sleep: adults first (one stays, to hold the
+// room), then children, then infants.
+function withoutHoused(party: Room, housed: number): Room {
+  let left = housed;
+  const take = (count: number, keep: number) => {
+    const taken = Math.min(Math.max(count - keep, 0), left);
+    left -= taken;
+    return count - taken;
+  };
+  return { adults: take(party.adults, 1), children: take(party.children, 0), infants: take(party.infants, 0) };
 }
 
 // The most guests one add can hold, as the trip item's `max_guests` says it: a tour's group,
@@ -101,8 +108,9 @@ const guestsWord = (count: number) => `${count} ${guestWord(count)}`;
 type Note = { text: string; tone: "info" | "warning" };
 
 // `wanted`: the trip's (or the search's) guests, which the sheet may have started below;
-// `booked`: those the picked trip's stays already sleep on these nights.
-function capacityNote(preview: AddPreview | undefined, guests: number, wanted: number, booked = 0): Note | null {
+// `booked`: those the picked trip's stays already sleep on these nights; `rooms`: a stay's rooms
+// as the picker has them, which says itself who it leaves out.
+function capacityNote(preview: AddPreview | undefined, guests: number, wanted: number, booked = 0, rooms?: Room[]): Note | null {
   if (!preview) return null;
   const cap = guestCap(preview);
   const tour = preview.tourGuests;
@@ -125,6 +133,7 @@ function capacityNote(preview: AddPreview | undefined, guests: number, wanted: n
     const has = `Your trip already has room for ${booked} of your ${wanted} guests on these nights`;
     if (unhoused === 0) return { tone: "info", text: `${has}.` };
     if (guests >= unhoused) return { tone: "info", text: `${has}, so this covers the other ${unhoused}.` };
+    if (rooms) return { tone: "info", text: `${has}.` };
     if (cap && guests === cap) {
       const left = unhoused - guests;
       return {
@@ -133,6 +142,7 @@ function capacityNote(preview: AddPreview | undefined, guests: number, wanted: n
       };
     }
   }
+  if (rooms) return rooms.length > 1 ? { tone: "info", text: stayNote(preview, rooms) } : null;
   if (cap && preview.sleeps && booked === 0 && wanted > guests && guests === cap) {
     const { one, many } = unitWords(preview, "room");
     const left = wanted - guests;
@@ -142,8 +152,6 @@ function capacityNote(preview: AddPreview | undefined, guests: number, wanted: n
       text: `This place sleeps ${cap} (${rooms}), so it's set to ${cap} of your ${wanted} guests. Add another stay for the other ${left}.`,
     };
   }
-  if (preview.sleeps && !preview.sharedRoom && guests > preview.sleeps)
-    return { tone: "warning", text: stayNote(preview, preview.sleeps, guests) };
   return null;
 }
 
@@ -202,6 +210,8 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   });
   // What the guest typed in Guests; until then it follows the picked trip (below).
   const [typedQuantity, setQuantity] = useState<string | null>(null);
+  // A stay's rooms and pets once the guest changes them.
+  const [typedRooms, setRooms] = useState<{ rooms: Room[]; pets: number } | null>(null);
   // What the guest picked; until they pick, the trip chosen on the home page (chosen-trip.ts),
   // else the suggestion.
   const chosen = useChosenTrip();
@@ -246,9 +256,21 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   // Guests start at those still without a bed (or the trip's guests), up to what the listing
   // takes (capacityNote says so).
   const unhoused = request.quantity - booked;
-  const quantity =
-    typedQuantity ??
-    String(Math.min(unhoused > 0 ? unhoused : request.quantity, guestCap(request.preview) ?? Infinity));
+  // A stay's rooms (RAA-184): those guests in the fewest rooms, spread evenly, until the guest
+  // changes them; the people they leave out are a hint in the picker.
+  const rules = request.bookingType === "stay" ? (request.preview?.stayRules ?? null) : null;
+  const { pets: partyPets, ...people } = partyFromGuests(request.quantity, request);
+  const startParty = booked > 0 && unhoused > 0 ? withoutHoused(people, booked) : people;
+  const arrangement = rules
+    ? (typedRooms ?? {
+        rooms: evenRooms(startParty, rules),
+        pets: rules.pets === 0 ? 0 : Math.min(partyPets, rules.pets ?? partyPets),
+      })
+    : null;
+  const quantity = arrangement
+    ? String(headcount(partyOf(arrangement.rooms)))
+    : (typedQuantity ??
+      String(Math.min(unhoused > 0 ? unhoused : request.quantity, guestCap(request.preview) ?? Infinity)));
   const quantityNumber = Number(quantity);
   const quantityValid = Number.isInteger(quantityNumber) && quantityNumber >= 1 && quantityNumber <= 99;
   const dateError = noNight ?? (datesValid ? undefined : "Pick both dates, or neither");
@@ -258,7 +280,17 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
     if (!datesValid || !quantityValid || choice === null) return;
     const tripId = choice === "new" ? null : choice;
     addItem.mutate(
-      { request: { ...request, ...dated, quantity: quantityNumber }, tripId, tripName },
+      {
+        request: {
+          ...request,
+          ...dated,
+          quantity: quantityNumber,
+          roomGuests: arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null,
+          pets: arrangement?.pets ?? 0,
+        },
+        tripId,
+        tripName,
+      },
       {
         onSuccess: (trip) => {
           // Once a trip was chosen (always, on a place's page), the one this went to is the one
@@ -278,7 +310,9 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   // as a double tap or a forgotten add would otherwise book it twice. Adding again stays allowed
   // (a second room, a second van).
   const already = pickedTrip ? sameItem(pickedTrip, request.listingId, dated.startsOn, dated.endsOn) : undefined;
-  const capacity = quantityValid ? capacityNote(request.preview, quantityNumber, request.quantity, booked) : null;
+  const capacity = quantityValid
+    ? capacityNote(request.preview, quantityNumber, request.quantity, booked, arrangement?.rooms)
+    : null;
 
   return (
     <Dialog open onClose={onClose} placement="sheet" title="Add to trip" data-testid="which-trip-sheet">
@@ -314,6 +348,19 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
             className="col-span-2 sm:col-span-1"
           />
           {/* − and +, not a typed number: a phone's keyboard would cover the sheet. */}
+          {arrangement && rules ? (
+            <div className="col-span-2">
+              <RoomsAndGuests
+                rooms={arrangement.rooms}
+                pets={arrangement.pets}
+                rules={rules}
+                party={startParty}
+                onChange={(rooms, pets) => setRooms({ rooms, pets })}
+                inline
+                data-testid="which-trip-rooms"
+              />
+            </div>
+          ) : (
           <div className="col-span-2 sm:col-span-1 sm:pt-1">
             <StepperField
               label="Guests"
@@ -325,6 +372,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
               data-testid="which-trip-guests"
             />
           </div>
+          )}
         </fieldset>
 
         {already && (

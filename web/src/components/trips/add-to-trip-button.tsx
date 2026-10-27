@@ -57,6 +57,9 @@ export function AddToTripButton({ listing, dates, preview }: Props) {
           startsOn: dates.from,
           endsOn: range ? dates.to : dates.from,
           quantity: dates.guests,
+          children: dates.children,
+          infants: dates.infants,
+          pets: dates.pets,
           preview: preview ?? addPreview(listing),
         })
       }

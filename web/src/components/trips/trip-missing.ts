@@ -5,7 +5,8 @@ import type { Trip, TripItem } from "./use-trips";
 
 // What a trip still lacks, said as a hint where the guest is already looking (the place's trip
 // line, the cart above Book) and never a step they must finish:
-// - nights still ahead with nowhere to sleep, or with beds for fewer than the trip's guests, in
+// - nights still ahead with nowhere to sleep, or with beds for fewer than the trip's guests (a
+//   stay split into rooms sleeps everyone in them, beds.ts), in
 //   runs ("a stay for Apr 7–9"). Only for a dated trip: an undated one says "a place to stay"
 //   while it has no stay at all. Stays in any place count, as the trip can sleep anywhere;
 // - on a place's page, a way to get there: no transfer here yet, while the place has some.
