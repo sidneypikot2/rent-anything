@@ -41,6 +41,8 @@ Rails.application.routes.draw do
       resources :landmarks, only: :index
       # What a stay at an accommodation listing costs (RAA-104).
       get "quotes", to: "quotes#show"
+      # Mixes of one business's room types for a party (RAA-187).
+      get "stay_mixes", to: "stay_mixes#index"
       # One destination's listings, nearby destinations and recommendations (RAA-56).
       get "explore", to: "explore#index"
       # What guests search for and pick (RAA-60).

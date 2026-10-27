@@ -18,7 +18,8 @@ RSpec.describe "Trip items", type: :request do
         "`quantity` guests. The trip's dates grow " \
         "to cover the item's. Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an " \
         "undated item can't be checked out until it has one. `quantity` is 1 to 99, default 1. Answers with " \
-        "the trip."
+        "the trip. Several items at once (RAA-187, a mix of room types from `GET /stay_mixes`): `items` instead " \
+        "of one item's fields, all added or none; a new trip is named and dated after the first."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
       parameter name: :body, in: :body, schema: {
@@ -30,14 +31,28 @@ RSpec.describe "Trip items", type: :request do
           quantity: { type: :integer },
           room_guests: ROOM_GUESTS_BODY,
           pets: PETS_BODY,
+          items: {
+            type: :array, minItems: 1, maxItems: 10, description: "Instead of listing_id and the fields above",
+            items: {
+              type: :object,
+              properties: {
+                listing_id: { type: :integer },
+                starts_on: { type: :string, format: :date, nullable: true },
+                ends_on: { type: :string, format: :date, nullable: true },
+                quantity: { type: :integer },
+                room_guests: ROOM_GUESTS_BODY,
+                pets: PETS_BODY
+              },
+              required: %w[listing_id]
+            }
+          },
           trip_id: { type: :integer, nullable: true, description: "Omit or null for a new trip" },
           trip_name: {
             type: :string, nullable: true,
             description: "A new trip's name, up to 80 characters; blank or omitted names it after the destination " \
               "and dates. Ignored with trip_id"
           }
-        },
-        required: %w[listing_id]
+        }
       }
 
       response "201", "the first add starts a trip" do
@@ -103,6 +118,75 @@ RSpec.describe "Trip items", type: :request do
         run_test! do |response|
           expect(response.parsed_body).to include("name" => "Bantayan Island", "starts_on" => nil)
           expect(response.parsed_body["items"].first).to include("starts_on" => nil, "quantity" => 1)
+        end
+      end
+
+      context "with several items at once (RAA-187)" do
+        include_context "a business with three room types"
+
+        let(:stay) { { starts_on: day.iso8601, ends_on: (day + 2).iso8601 } }
+        let(:items) do
+          [
+            stay.merge(listing_id: family_room.id, room_guests: [ { adults: 4, children: 1, infants: 1 } ], pets: 1),
+            stay.merge(listing_id: dorm.id, quantity: 1)
+          ]
+        end
+
+        response "201", "a mix of room types added in one go" do
+          schema "$ref" => "#/components/schemas/trip"
+          let(:body) { { items:, trip_name: "Barkada weekend" } }
+
+          run_test! do |response|
+            expect(response.parsed_body).to include("name" => "Barkada weekend", "guests" => 7)
+            expect(response.parsed_body["items"].map { _1.slice("quantity", "pets") }).to contain_exactly(
+              { "quantity" => 6, "pets" => 1 }, { "quantity" => 1, "pets" => 0 }
+            )
+          end
+        end
+
+        response "201", "a mix added to an existing trip" do
+          schema "$ref" => "#/components/schemas/trip"
+          let(:trip) { create(:trip, user:, starts_on: day, ends_on: day + 1) }
+          let(:body) { { items:, trip_id: trip.id } }
+
+          run_test! do |response|
+            expect(response.parsed_body).to include("id" => trip.id, "ends_on" => (day + 2).iso8601)
+            expect(trip.items.count).to eq(2)
+          end
+        end
+
+        response "422", "one item refused: nothing is added" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          context "with pets in the dorm" do
+            let(:body) { { items: [ items.first, items.last.merge(pets: 1) ] } }
+
+            run_test! do |response|
+              expect(response.parsed_body["errors"]).to eq([ "Item 2: This place doesn't allow pets" ])
+              expect(Trip.count).to eq(0)
+            end
+          end
+
+          context "with no items" do
+            let(:body) { { items: [] } }
+
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Items must be a list of 1 to 10 items" ]) }
+          end
+
+          context "with items and one item's fields" do
+            let(:body) { { items:, listing_id: tour.id } }
+
+            run_test! do |response|
+              expect(response.parsed_body["errors"]).to eq([ "Send items or one item's fields, not both" ])
+            end
+          end
+        end
+
+        response "404", "a mix into another guest's trip" do
+          schema "$ref" => "#/components/schemas/error"
+          let(:body) { { items:, trip_id: create(:trip).id } }
+
+          run_test! { expect(TripItem.count).to eq(0) }
         end
       end
 
