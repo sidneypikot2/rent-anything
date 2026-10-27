@@ -22,6 +22,7 @@ import {
   type CalendarListing,
 } from "../use-partner-calendar";
 import { BOOKING_STATUS } from "@/components/bookings/booking-status";
+import { roomSplit } from "@/components/bookings/room-split";
 import { addDays, bookingSpan, daysBetween, shortDate } from "./calendar-dates";
 import type { Selection } from "./calendar-grid";
 
@@ -385,6 +386,7 @@ export function BookingSheet({
   const [confirming, setConfirming] = useState(false);
   const request = booking.status === "requested";
   const cancellable = booking.ends_on >= today && ["requested", "accepted", "awaiting_payment", "confirmed"].includes(booking.status);
+  const rooms = roomSplit(booking);
   const facts: [string, string][] = [
     ["Status", BOOKING_STATUS[booking.status].label],
     ["Reference", booking.reference],
@@ -392,6 +394,7 @@ export function BookingSheet({
     ["Dates", bookingDates(listing, booking) ?? ""],
     [capitalize(quantityNoun(listing)), String(booking.quantity)],
     ...(booking.guests ? [["Guests", String(booking.guests)] as [string, string]] : []),
+    ...(rooms ? [["Rooms and pets", rooms] as [string, string]] : []),
     ["Total", booking.to_be_agreed ? "To be agreed with the guest" : formatPeso(booking.total_cents)],
     ...(booking.source === "checkout" && !booking.to_be_agreed
       ? [["Commission", formatPeso(booking.commission_cents)] as [string, string]]

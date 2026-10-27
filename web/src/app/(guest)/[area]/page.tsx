@@ -21,6 +21,7 @@ import { ListingBrowser } from "@/components/discovery/listing-browser";
 import type { LandmarkTour } from "@/components/discovery/landmark-tours";
 import { listingFeatures, type Feature } from "@/components/discovery/listing-features";
 import { SectionOrder } from "@/components/discovery/section-order";
+import { PetFriendlyChip, wantsPets } from "@/components/discovery/pet-friendly-chip";
 import { PlacesGrid } from "@/components/discovery/places-grid";
 import { AreaGlyph } from "@/components/discovery/tag-glyphs";
 import { CurrentPlace } from "@/components/landing/current-place";
@@ -87,8 +88,10 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   // A search for something to book (a category, words) puts What to book first; otherwise the
   // trip shown here decides (SectionOrder).
   const asked = Boolean(show || q);
+  // The Pet-friendly chip (RAA-186): of the stays, only those that take pets.
+  const pets = wantsPets(searchParams);
   const [detail, explored, destinations] = await Promise.all([
-    getArea(slug),
+    getArea(slug, pets),
     // The map and what's nearby: without them the page still has everything to book, and says so.
     getExplore({ area: slug }).catch((error: unknown) => {
       console.error(error);
@@ -369,11 +372,12 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                     )
                   }
                   listings={
-                    listings.length > 0 && (
+                    (listings.length > 0 || pets) && (
                       <Section
                         id="listings"
                         surface="paper"
                         title="What to book"
+                        action={<PetFriendlyChip path={`/${slug}`} searchParams={searchParams} />}
                         intro={`From ${countText(partners, "local partner")}: tours, transfers, rentals and stays. Saving to a trip is free; ${BOOKING_STATE.unpaid}.`}
                       >
                         <ListingBrowser

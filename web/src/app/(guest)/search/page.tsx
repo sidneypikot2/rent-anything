@@ -6,6 +6,7 @@ import { ExploreSections } from "@/components/discovery/explore-sections";
 import { listingNote } from "@/components/discovery/categories";
 import { ListingCard } from "@/components/discovery/cards";
 import { NoMatches } from "@/components/discovery/no-matches";
+import { PetFriendlyChip, wantsPets } from "@/components/discovery/pet-friendly-chip";
 import { areaIcon, placeIcon, tagIcon } from "@/components/discovery/icons";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
@@ -29,7 +30,9 @@ export default async function SearchPage(props: PageProps<"/search">) {
   const dates = readTripDates(searchParams);
   const carry = tripDatesQuery(dates);
   // Characters, not UTF-16 units, to match the API's minimum (an emoji is one).
-  const results = [...query].length >= 2 ? await search(query) : null;
+  // The Pet-friendly chip (RAA-186): of the stays found, only those that take pets.
+  const pets = wantsPets(searchParams);
+  const results = [...query].length >= 2 ? await search(query, pets) : null;
   const top = results && topDestination(results);
   const [explore, destinations] = await Promise.all([
     top ? getExplore(top.anchor) : null,
@@ -49,6 +52,9 @@ export default async function SearchPage(props: PageProps<"/search">) {
           </Section>
         ) : (
           <>
+            <div className="flex px-inset">
+              <PetFriendlyChip path="/search" searchParams={searchParams} />
+            </div>
             <Results results={results} carry={carry} query={query} destinations={destinations} />
             {top && explore && <ExploreSections explore={explore} name={top.name} />}
           </>

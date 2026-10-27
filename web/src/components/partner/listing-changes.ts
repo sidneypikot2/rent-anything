@@ -10,8 +10,13 @@ const ADDRESS_LABELS = {
   postal_code: "ZIP code",
 } as const;
 
-// A stay's rooms are its beds, by bedroom (RAA-95).
-const LABELS: Record<string, string> = { engine_cc: "Engine size (cc)", rooms: "Beds" };
+// A stay's rooms are its beds, by bedroom (RAA-95); its guest rules say who takes a bed (RAA-186).
+const LABELS: Record<string, string> = {
+  engine_cc: "Engine size (cc)",
+  rooms: "Beds",
+  children_count: "Children count toward capacity",
+  infants_count: "Infants count toward capacity",
+};
 
 // "duration_hours" → "Duration hours": how a category's attribute is labelled everywhere.
 export function attributeLabel(key: string) {

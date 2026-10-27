@@ -39,7 +39,15 @@ export type StayValues = {
   dormType: string;
   sharedWith: string[];
   amenities: string[];
+  // Who takes a bed (RAA-186): children do and infants don't unless the partner says otherwise.
+  childrenCount: boolean;
+  infantsCount: boolean;
+  petsAllowed: boolean;
+  maxPets: number;
 };
+
+// The most pets a stay can take; the API allows the same.
+export const MAX_PETS = 20;
 
 export const NEW_STAY: StayValues = {
   placeType: "",
@@ -50,6 +58,10 @@ export const NEW_STAY: StayValues = {
   dormType: "",
   sharedWith: [],
   amenities: [],
+  childrenCount: true,
+  infantsCount: false,
+  petsAllowed: false,
+  maxPets: 1,
 };
 
 export function isStay(category: ListingCategory | undefined) {
@@ -89,7 +101,8 @@ function toBeds(beds: BedCounts) {
   return BED_TYPES.filter((bed) => (beds[bed.value] ?? 0) > 0).map((bed) => ({ type: bed.value, count: beds[bed.value] }));
 }
 
-// The attrs of the chosen place type, leaving out what belongs to the others.
+// The attrs of the chosen place type, leaving out what belongs to the others. A guest rule
+// at the API's default is left out, so a listing saved before them keeps its attrs as they were.
 export function toStayAttrs(values: StayValues) {
   const single = isSingleRoom(values.placeType);
   const attrs = {
@@ -97,6 +110,9 @@ export function toStayAttrs(values: StayValues) {
     rooms: (single ? values.rooms.slice(0, 1) : values.rooms).map((beds) => ({ beds: toBeds(beds) })),
     guests: values.guests,
     amenities: values.amenities,
+    ...(!values.childrenCount && { children_count: false }),
+    ...(values.infantsCount && { infants_count: true }),
+    ...(values.petsAllowed && { pets_allowed: true, max_pets: values.maxPets }),
   };
   if (!single) return { ...attrs, bathrooms: values.bathrooms };
   if (values.placeType === "private_room") return { ...attrs, bathroom: values.bathroom, shared_with: values.sharedWith };
@@ -132,6 +148,10 @@ export function toStayValues(attrs: PartnerListing["attrs"]): StayValues {
     dormType: text(attrs.dorm_type, NEW_STAY.dormType),
     sharedWith: Array.isArray(attrs.shared_with) ? attrs.shared_with.map(String) : [],
     amenities: Array.isArray(attrs.amenities) ? attrs.amenities.map(String) : [],
+    childrenCount: attrs.children_count !== false,
+    infantsCount: attrs.infants_count === true,
+    petsAllowed: attrs.pets_allowed === true,
+    maxPets: number(attrs.max_pets, NEW_STAY.maxPets),
   };
 }
 

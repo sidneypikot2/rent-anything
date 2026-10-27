@@ -33,11 +33,13 @@ export const getActivities = cache(async (): Promise<Activity[]> => {
   return data;
 });
 
-// null when there is no such area. Cached per request: the page and its metadata share
-// one call.
-export const getArea = cache(async (slug: string): Promise<AreaDetail | null> => {
+// null when there is no such area; `pets` keeps, of its stays, those that take pets (RAA-186).
+// Cached per request: the page and its metadata share one call.
+export const getArea = cache(async (slug: string, pets = false): Promise<AreaDetail | null> => {
   await connection();
-  const { data, response } = await serverApiClient().GET("/api/v1/areas/{slug}", { params: { path: { slug } } });
+  const { data, response } = await serverApiClient().GET("/api/v1/areas/{slug}", {
+    params: { path: { slug }, query: pets ? { pets: "1" } : {} },
+  });
   if (response.status === 404) return null;
   if (!data) throw new Error("Couldn't load this destination");
   return data;
@@ -79,9 +81,10 @@ export async function getQuote(query: {
   return { errors: ["Couldn't work out the price just now. Try again in a moment."] };
 }
 
-export async function search(q: string): Promise<SearchResults> {
+// `pets` keeps, of the stays found, those that take pets (RAA-186).
+export async function search(q: string, pets = false): Promise<SearchResults> {
   await connection();
-  const { data, error } = await serverApiClient().GET("/api/v1/search", { params: { query: { q } } });
+  const { data, error } = await serverApiClient().GET("/api/v1/search", { params: { query: { q, ...(pets && { pets: "1" }) } } });
   if (error || !data) throw new Error("Search failed");
   return data;
 }

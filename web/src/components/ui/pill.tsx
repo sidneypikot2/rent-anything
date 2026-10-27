@@ -42,6 +42,13 @@ export function Pill({ on = false, tone = "line", className, ...props }: PillSty
 }
 
 // A chip that goes somewhere: an activity to search, an area to open, another place in a trip.
-export function PillLink({ tone = "line", className, ...props }: Omit<PillStyle, "on"> & ComponentProps<typeof Link>) {
-  return <Link className={cn(pillClasses({ tone }), "inline-flex items-center gap-2", className)} {...props} />;
+// On `line`, `on` marks a filter the link turns off again (Pet-friendly, RAA-186).
+export function PillLink({ on = false, tone = "line", className, ...props }: PillStyle & ComponentProps<typeof Link>) {
+  return (
+    <Link
+      aria-current={on || undefined}
+      className={cn(pillClasses({ on, tone }), "inline-flex items-center gap-2", className)}
+      {...props}
+    />
+  );
 }
