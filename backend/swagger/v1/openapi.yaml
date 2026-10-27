@@ -3960,6 +3960,34 @@ paths:
                   nullable: true
                 quantity:
                   type: integer
+                room_guests:
+                  type: array
+                  nullable: true
+                  minItems: 1
+                  maxItems: 99
+                  items:
+                    type: object
+                    properties:
+                      adults:
+                        type: integer
+                        minimum: 0
+                        maximum: 99
+                      children:
+                        type: integer
+                        minimum: 0
+                        maximum: 99
+                      infants:
+                        type: integer
+                        minimum: 0
+                        maximum: 99
+                  description: 'A stay only (RAA-182): its guests room by room, adding
+                    up to its guests, which it then sets; null for an even split over
+                    the fewest rooms that sleep them'
+                pets:
+                  type: integer
+                  minimum: 0
+                  maximum: 20
+                  description: A stay only, where its listing allows pets (RAA-182)
                 trip_id:
                   type: integer
                   nullable: true
@@ -4028,6 +4056,36 @@ paths:
                   nullable: true
                 quantity:
                   type: integer
+                  description: Without room_guests, drops a stay's split back to an
+                    even one
+                room_guests:
+                  type: array
+                  nullable: true
+                  minItems: 1
+                  maxItems: 99
+                  items:
+                    type: object
+                    properties:
+                      adults:
+                        type: integer
+                        minimum: 0
+                        maximum: 99
+                      children:
+                        type: integer
+                        minimum: 0
+                        maximum: 99
+                      infants:
+                        type: integer
+                        minimum: 0
+                        maximum: 99
+                  description: 'A stay only (RAA-182): its guests room by room, adding
+                    up to its guests, which it then sets; null for an even split over
+                    the fewest rooms that sleep them'
+                pets:
+                  type: integer
+                  minimum: 0
+                  maximum: 20
+                  description: A stay only, where its listing allows pets (RAA-182)
                 move_to_trip_id:
                   type: integer
     delete:
@@ -4266,6 +4324,22 @@ paths:
                   nullable: true
                 guests:
                   type: integer
+                  description: The whole party, adults, children and infants
+                children:
+                  type: integer
+                  minimum: 0
+                  maximum: 49
+                  description: Of the guests (RAA-182), default 0
+                infants:
+                  type: integer
+                  minimum: 0
+                  maximum: 49
+                  description: Of the guests (RAA-182), default 0
+                pets:
+                  type: integer
+                  minimum: 0
+                  maximum: 20
+                  description: Beside the guests (RAA-182), default 0
               required:
               - name
   "/api/v1/trips/suggestion":
@@ -4409,6 +4483,22 @@ paths:
                   nullable: true
                 guests:
                   type: integer
+                  description: The whole party, adults, children and infants
+                children:
+                  type: integer
+                  minimum: 0
+                  maximum: 49
+                  description: Of the guests (RAA-182), default 0
+                infants:
+                  type: integer
+                  minimum: 0
+                  maximum: 49
+                  description: Of the guests (RAA-182), default 0
+                pets:
+                  type: integer
+                  minimum: 0
+                  maximum: 20
+                  description: Beside the guests (RAA-182), default 0
     delete:
       summary: Delete a trip and its items
       tags:
@@ -8583,6 +8673,34 @@ components:
           type: integer
           minimum: 1
           maximum: 99
+        room_guests:
+          type: array
+          nullable: true
+          minItems: 1
+          maxItems: 99
+          items:
+            type: object
+            properties:
+              adults:
+                type: integer
+                minimum: 0
+                maximum: 99
+              children:
+                type: integer
+                minimum: 0
+                maximum: 99
+              infants:
+                type: integer
+                minimum: 0
+                maximum: 99
+          description: 'A stay only (RAA-182): its guests room by room, adding up
+            to its guests, which it then sets; null for an even split over the fewest
+            rooms that sleep them'
+        pets:
+          type: integer
+          minimum: 0
+          maximum: 20
+          description: A stay only, where its listing allows pets (RAA-182)
     offline_booking_body:
       type: object
       properties:

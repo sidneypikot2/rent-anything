@@ -28,6 +28,8 @@ RSpec.describe "Trip items", type: :request do
           starts_on: { type: :string, format: :date, nullable: true },
           ends_on: { type: :string, format: :date, nullable: true },
           quantity: { type: :integer },
+          room_guests: ROOM_GUESTS_BODY,
+          pets: PETS_BODY,
           trip_id: { type: :integer, nullable: true, description: "Omit or null for a new trip" },
           trip_name: {
             type: :string, nullable: true,
@@ -183,7 +185,9 @@ RSpec.describe "Trip items", type: :request do
         properties: {
           starts_on: { type: :string, format: :date, nullable: true },
           ends_on: { type: :string, format: :date, nullable: true },
-          quantity: { type: :integer },
+          quantity: { type: :integer, description: "Without room_guests, drops a stay's split back to an even one" },
+          room_guests: ROOM_GUESTS_BODY,
+          pets: PETS_BODY,
           move_to_trip_id: { type: :integer }
         }
       }

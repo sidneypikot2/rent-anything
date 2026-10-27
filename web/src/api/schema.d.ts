@@ -5626,6 +5626,14 @@ export interface paths {
                         /** Format: date */
                         ends_on?: string | null;
                         quantity?: number;
+                        /** @description A stay only (RAA-182): its guests room by room, adding up to its guests, which it then sets; null for an even split over the fewest rooms that sleep them */
+                        room_guests?: {
+                            adults?: number;
+                            children?: number;
+                            infants?: number;
+                        }[] | null;
+                        /** @description A stay only, where its listing allows pets (RAA-182) */
+                        pets?: number;
                         /** @description Omit or null for a new trip */
                         trip_id?: number | null;
                         /** @description A new trip's name, up to 80 characters; blank or omitted names it after the destination and dates. Ignored with trip_id */
@@ -5753,7 +5761,16 @@ export interface paths {
                         starts_on?: string | null;
                         /** Format: date */
                         ends_on?: string | null;
+                        /** @description Without room_guests, drops a stay's split back to an even one */
                         quantity?: number;
+                        /** @description A stay only (RAA-182): its guests room by room, adding up to its guests, which it then sets; null for an even split over the fewest rooms that sleep them */
+                        room_guests?: {
+                            adults?: number;
+                            children?: number;
+                            infants?: number;
+                        }[] | null;
+                        /** @description A stay only, where its listing allows pets (RAA-182) */
+                        pets?: number;
                         move_to_trip_id?: number;
                     };
                 };
@@ -6066,7 +6083,14 @@ export interface paths {
                         starts_on?: string | null;
                         /** Format: date */
                         ends_on?: string | null;
+                        /** @description The whole party, adults, children and infants */
                         guests?: number;
+                        /** @description Of the guests (RAA-182), default 0 */
+                        children?: number;
+                        /** @description Of the guests (RAA-182), default 0 */
+                        infants?: number;
+                        /** @description Beside the guests (RAA-182), default 0 */
+                        pets?: number;
                     };
                 };
             };
@@ -6269,7 +6293,14 @@ export interface paths {
                         starts_on?: string | null;
                         /** Format: date */
                         ends_on?: string | null;
+                        /** @description The whole party, adults, children and infants */
                         guests?: number;
+                        /** @description Of the guests (RAA-182), default 0 */
+                        children?: number;
+                        /** @description Of the guests (RAA-182), default 0 */
+                        infants?: number;
+                        /** @description Beside the guests (RAA-182), default 0 */
+                        pets?: number;
                     };
                 };
             };
@@ -8134,6 +8165,14 @@ export interface components {
              */
             ends_on?: string;
             guests?: number;
+            /** @description A stay only (RAA-182): its guests room by room, adding up to its guests, which it then sets; null for an even split over the fewest rooms that sleep them */
+            room_guests?: {
+                adults?: number;
+                children?: number;
+                infants?: number;
+            }[] | null;
+            /** @description A stay only, where its listing allows pets (RAA-182) */
+            pets?: number;
         };
         offline_booking_body: {
             guest_name: string;

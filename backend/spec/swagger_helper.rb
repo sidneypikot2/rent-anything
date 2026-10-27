@@ -22,6 +22,22 @@ ROOM_GUESTS = {
   description: "A stay's guests room by room, as the guest split them; null when spread evenly"
 }.freeze
 
+# The same split sent by the guest: a count left out is 0, and each room needs an adult.
+ROOM_GUESTS_BODY = {
+  type: :array, nullable: true, minItems: 1, maxItems: 99,
+  items: {
+    type: :object,
+    properties: {
+      adults: { type: :integer, minimum: 0, maximum: 99 },
+      children: { type: :integer, minimum: 0, maximum: 99 },
+      infants: { type: :integer, minimum: 0, maximum: 99 }
+    }
+  },
+  description: "A stay only (RAA-182): its guests room by room, adding up to its guests, which it then sets; " \
+    "null for an even split over the fewest rooms that sleep them"
+}.freeze
+PETS_BODY = { type: :integer, minimum: 0, maximum: 20, description: "A stay only, where its listing allows pets (RAA-182)" }.freeze
+
 # Where guests find a listing (Category#guest_group): its booking type, except gear.
 LISTING_GROUP = {
   type: :string, enum: %w[activity transfer rental stay gear],
@@ -1966,7 +1982,9 @@ RSpec.configure do |config|
             properties: {
               starts_on: { type: :string, format: :date, description: "Today or later; a stay's check-in" },
               ends_on: { type: :string, format: :date, description: "A stay's check-out; otherwise the last day" },
-              guests: { type: :integer, minimum: 1, maximum: Bookings::Change::MAX_GUESTS }
+              guests: { type: :integer, minimum: 1, maximum: Bookings::Change::MAX_GUESTS },
+              room_guests: ROOM_GUESTS_BODY,
+              pets: PETS_BODY
             }
           },
           offline_booking_body: {
