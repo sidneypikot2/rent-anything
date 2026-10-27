@@ -21,12 +21,14 @@ module Stays
   # A night that is blocked or without enough rooms left is refused, and so is a stay
   # shorter than the minimum nights set for its check-in day. A refusal is a RecordInvalid.
   # `except_booking` is a booking being changed, whose own nights don't count against it.
+  # `ledger` is one already read for the listing and dates (Mixes prices many stays from one).
   class Quote < ApplicationService
     PET_FEES = %w[pet pet_night].freeze
 
     def initialize(listing, starts_on:, ends_on:, guests: nil, adults: nil, children: 0, infants: 0, room_guests: nil,
-      pets: 0, fee_ids: [], except_booking: nil)
+      pets: 0, fee_ids: [], except_booking: nil, ledger: nil)
       @listing = listing
+      @ledger = ledger
       @except_booking = except_booking
       @rate = listing.stay_rate
       @starts_on = starts_on
@@ -39,7 +41,7 @@ module Stays
     end
 
     def call
-      @ledger = Availability::Ledger.new([ @listing ], @starts_on, @ends_on, except: @except_booking) if @ends_on > @starts_on
+      @ledger ||= Availability::Ledger.new([ @listing ], @starts_on, @ends_on, except: @except_booking) if @ends_on > @starts_on
       check!
       nights = (@starts_on...@ends_on).map { |date| night(date) }
       rooms = @rooms.map { room(_1, nights) }
