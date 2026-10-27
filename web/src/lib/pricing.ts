@@ -17,12 +17,15 @@ export const CHARGED_PER: { value: ChargedPer; label: string }[] = [
   { value: "unit", label: "per unit" },
   { value: "day", label: "per day" },
   { value: "hour", label: "per hour" },
+  // A stay's pets (RAA-186): once for the stay, or each night.
+  { value: "pet", label: "per pet" },
+  { value: "pet_night", label: "per pet per night" },
 ];
 
 // The ones that fit each kind of listing's fees (RAA-150): a rental is charged by the booking,
-// the day or the hour, never by the night or the guest.
+// the day or the hour, never by the night or the guest; only a stay by its pets.
 export const VEHICLE_CHARGED_PER: ChargedPer[] = ["booking", "day", "hour"];
-export const STAY_CHARGED_PER: ChargedPer[] = ["booking", "night", "guest", "guest_night", "unit"];
+export const STAY_CHARGED_PER: ChargedPer[] = ["booking", "night", "guest", "guest_night", "unit", "pet", "pet_night"];
 
 export function chargedPerLabel(chargedPer: ChargedPer) {
   return CHARGED_PER.find((option) => option.value === chargedPer)?.label ?? chargedPer;

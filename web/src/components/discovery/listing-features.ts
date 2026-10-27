@@ -47,6 +47,7 @@ export function listingFeatures(listing: { details: Details; cancellation_policy
   add("guests", guests && `Sleeps ${guests}`);
   add("bed", beds(d.rooms));
   add("bathroom", typeof d.bathroom === "string" && STAY_LABELS[d.bathroom]);
+  add("pets", d.pets_allowed === true && "Pets allowed");
   for (const amenity of list(d.amenities)) {
     add(AMENITY_ICONS[amenity] ?? "amenity", STAY_LABELS[amenity] ?? VEHICLE_AMENITY_LABELS[amenity] ?? amenity);
   }

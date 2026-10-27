@@ -37,6 +37,7 @@ import {
 } from "./stay-fields";
 import type { PartnerBusiness } from "./use-partner-businesses";
 import { useCreateListing, type ListingBody, type ListingCategory, type PartnerListing } from "./use-partner-listings";
+import { StayGuestRules } from "./stay-guest-rules";
 import { UNITS_LABEL, UnitsField } from "./units-field";
 import { ChangeCategoryLink, WizardCancel } from "./wizard-cancel";
 import { WizardActions, WizardLayout, WizardNext, WizardTitle } from "./wizard-steps";
@@ -56,7 +57,7 @@ const STEPS = [
 // Adding an accommodation (RAA-83), once its property type is chosen: what guests book,
 // the address, the property info for that place type (RAA-95), amenities, the title and description, the
 // pricing and fees (RAA-105), the cancellation policy (RAA-89), how many identical rooms or units it has
-// (RAA-99), then photos, how guests book it (RAA-133) and, last, the listing status.
+// (RAA-99) with who takes a bed and whether pets come (RAA-186), then photos, how guests book it (RAA-133) and, last, the listing status.
 // Like ListingWizard, only the current step is on the page, every value is kept here and any
 // step already reached opens again (RAA-93); Units saves the draft and then only Photos and Listing status
 // are open (RAA-109).
@@ -254,7 +255,12 @@ export function StayWizard({
 
           {step.key === "cancellation" && <CancellationPolicyChoice policies={policies} value={policy} onChange={setPolicy} />}
 
-          {step.key === "units" && <UnitsField bookingType={category.booking_type} value={units} onChange={setUnits} />}
+          {step.key === "units" && (
+            <>
+              <UnitsField bookingType={category.booking_type} value={units} onChange={setUnits} />
+              <StayGuestRules values={stay} onChange={setStay} units={units} fees={pricing.fees} />
+            </>
+          )}
         </fieldset>
 
         <WizardActions

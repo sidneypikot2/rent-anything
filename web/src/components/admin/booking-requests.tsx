@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
 import { CANCELLATION_POLICY } from "@/components/bookings/cancellation";
+import { roomSplit } from "@/components/bookings/room-split";
 import { daysBetween, formatDateRange, guestCount } from "@/components/trips/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
@@ -185,7 +186,9 @@ function runLength(booking: AdminBooking) {
 function details(booking: AdminBooking) {
   const dates = formatDateRange(booking.starts_on, booking.ends_on) ?? booking.starts_on;
   const units = `${booking.quantity} ${booking.quantity === 1 ? "unit" : "units"}`;
-  const party = [runLength(booking), booking.guests ? guestCount(booking.guests) : null, units].filter(Boolean).join(" · ");
+  const party = [runLength(booking), booking.guests ? guestCount(booking.guests) : null, units, roomSplit(booking)]
+    .filter(Boolean)
+    .join(" · ");
   const total = booking.to_be_agreed ? "To be agreed" : formatPeso(booking.total_cents);
   const policy = booking.cancellation_policy ? CANCELLATION_POLICY[booking.cancellation_policy]?.name : undefined;
   const timing =
