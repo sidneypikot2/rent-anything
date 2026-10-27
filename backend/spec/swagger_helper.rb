@@ -10,6 +10,34 @@ COVER_PHOTO_URL = {
   description: "The cover photo, sized for a card (about 800 by 600); null when the listing has no photos"
 }.freeze
 
+# A stay's split into rooms (RAA-182), on a trip item and a booking: null when the guests
+# are spread evenly over the fewest rooms that sleep them.
+ROOM_GUESTS = {
+  type: :array, nullable: true,
+  items: {
+    type: :object,
+    properties: { adults: { type: :integer }, children: { type: :integer }, infants: { type: :integer } },
+    required: %w[adults children infants]
+  },
+  description: "A stay's guests room by room, as the guest split them; null when spread evenly"
+}.freeze
+
+# The same split sent by the guest: a count left out is 0, and each room needs an adult.
+ROOM_GUESTS_BODY = {
+  type: :array, nullable: true, minItems: 1, maxItems: 99,
+  items: {
+    type: :object,
+    properties: {
+      adults: { type: :integer, minimum: 0, maximum: 99 },
+      children: { type: :integer, minimum: 0, maximum: 99 },
+      infants: { type: :integer, minimum: 0, maximum: 99 }
+    }
+  },
+  description: "A stay only (RAA-182): its guests room by room, adding up to its guests, which it then sets; " \
+    "null for an even split over the fewest rooms that sleep them"
+}.freeze
+PETS_BODY = { type: :integer, minimum: 0, maximum: 20, description: "A stay only, where its listing allows pets (RAA-182)" }.freeze
+
 # Where guests find a listing (Category#guest_group): its booking type, except gear.
 LISTING_GROUP = {
   type: :string, enum: %w[activity transfer rental stay gear],
@@ -225,7 +253,10 @@ RSpec.configure do |config|
               name: { type: :string },
               starts_on: { type: :string, format: :date, nullable: true },
               ends_on: { type: :string, format: :date, nullable: true },
-              guests: { type: :integer },
+              guests: { type: :integer, description: "The whole party: adults, children and infants" },
+              children: { type: :integer, description: "Of the guests (RAA-182)" },
+              infants: { type: :integer, description: "Of the guests (RAA-182)" },
+              pets: { type: :integer, description: "Beside the guests (RAA-182)" },
               destinations: {
                 type: :array, items: { type: :string },
                 description: "Where the items are: each one's island, or else its town or city, in item order"
@@ -241,7 +272,7 @@ RSpec.configure do |config|
                 description: "In date order, undated items last"
               }
             },
-            required: %w[id name starts_on ends_on guests destinations updated_at deletes_on items]
+            required: %w[id name starts_on ends_on guests children infants pets destinations updated_at deletes_on items]
           },
           trip_item: {
             type: :object,
@@ -250,6 +281,8 @@ RSpec.configure do |config|
               starts_on: { type: :string, format: :date, nullable: true },
               ends_on: { type: :string, format: :date, nullable: true, description: "Null with starts_on: not bookable until it has a date" },
               quantity: { type: :integer },
+              room_guests: ROOM_GUESTS,
+              pets: { type: :integer, description: "A stay's pets (RAA-182)" },
               sleeps: {
                 type: :integer, nullable: true,
                 description: "A stay: the most guests it sleeps, all its units together (a shared room's beds); " \
@@ -288,7 +321,7 @@ RSpec.configure do |config|
               },
               listing_active: { type: :boolean, description: "False once the listing is paused or delisted: it can't be booked" }
             },
-            required: %w[id starts_on ends_on quantity sleeps max_guests booking_type area destination listing booking unavailable cancellation_policy listing_active]
+            required: %w[id starts_on ends_on quantity room_guests pets sleeps max_guests booking_type area destination listing booking unavailable cancellation_policy listing_active]
           },
           # A trip's view-only share link (RAA-176), as its guest sees it.
           trip_share: {
@@ -1015,7 +1048,7 @@ RSpec.configure do |config|
             description: "Self-drive only, with a driver only (in the price), or either at a driver fee (RAA-150)"
           },
           listing_fee_charged_per: {
-            type: :string, enum: %w[booking night guest guest_night unit day hour],
+            type: :string, enum: %w[booking night guest guest_night unit day hour pet pet_night],
             description: "What the amount is multiplied by in a quote"
           },
           # An extra charge on a listing, any category (RAA-104).
@@ -1055,37 +1088,65 @@ RSpec.configure do |config|
               extra_guests: { type: :integer, description: "Guests above base_guests" },
               extra_guest_fee_cents: { type: :integer, description: "Per extra guest, per night" },
               extra_guests_total_cents: { type: :integer },
-              discount: {
-                type: :object, nullable: true,
-                description: "Off the nights and extra guests, never the fees; null under 7 nights or with none set",
-                properties: {
-                  kind: { type: :string, enum: %w[weekly monthly] },
-                  percent: { type: :integer },
-                  amount_cents: { type: :integer }
-                },
-                required: %w[kind percent amount_cents]
-              },
+              discount: { "$ref" => "#/components/schemas/stay_discount" },
               fees: {
-                type: :array,
-                description: "The required fees and the add-ons picked, in the partner's order",
-                items: {
-                  type: :object,
-                  properties: {
-                    id: { type: :integer },
-                    name: { type: :string },
-                    charged_per: { "$ref" => "#/components/schemas/listing_fee_charged_per" },
-                    required: { type: :boolean },
-                    quantity: { type: :integer, description: "What amount_cents is multiplied by" },
-                    amount_cents: { type: :integer },
-                    total_cents: { type: :integer }
-                  },
-                  required: %w[id name charged_per required quantity amount_cents total_cents]
-                }
+                type: :array, items: { "$ref" => "#/components/schemas/stay_fee_line" },
+                description: "The required fees and the add-ons picked, in the partner's order, every room's together; " \
+                  "a fee per pet once for the stay"
               },
-              total_cents: { type: :integer }
+              total_cents: { type: :integer },
+              rooms: {
+                type: :array, items: { "$ref" => "#/components/schemas/stay_quote_room" },
+                description: "Each room booked and what it costs (RAA-182): the guest's own split, or the fewest rooms " \
+                  "that sleep the party, spread evenly; a shared room is one entry for the whole party"
+              },
+              rooms_free: { type: :integer, description: "The fewest rooms (a shared room's beds) left on any of the nights" },
+              pets: { type: :integer }
             },
             required: %w[starts_on ends_on guests nights nights_count per_guest nightly_subtotal_cents extra_guests
-              extra_guest_fee_cents extra_guests_total_cents discount fees total_cents]
+              extra_guest_fee_cents extra_guests_total_cents discount fees total_cents rooms rooms_free pets]
+          },
+          stay_discount: {
+            type: :object, nullable: true,
+            description: "Off the nights and extra guests, never the fees; null under 7 nights or with none set",
+            properties: {
+              kind: { type: :string, enum: %w[weekly monthly] },
+              percent: { type: :integer },
+              amount_cents: { type: :integer }
+            },
+            required: %w[kind percent amount_cents]
+          },
+          stay_fee_line: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              name: { type: :string },
+              charged_per: { "$ref" => "#/components/schemas/listing_fee_charged_per" },
+              required: { type: :boolean },
+              quantity: { type: :integer, description: "What amount_cents is multiplied by" },
+              amount_cents: { type: :integer },
+              total_cents: { type: :integer }
+            },
+            required: %w[id name charged_per required quantity amount_cents total_cents]
+          },
+          # One room of a stay's quote (RAA-182): its guests, and its price as a stay of one room.
+          stay_quote_room: {
+            type: :object,
+            properties: {
+              adults: { type: :integer },
+              children: { type: :integer },
+              infants: { type: :integer, description: "In a bed, and paid for, only if the place counts them" },
+              nightly_subtotal_cents: { type: :integer },
+              extra_guests: {
+                type: :integer, description: "Guests taking a bed above base_guests: adults, and children and infants as the place counts them"
+              },
+              extra_guests_total_cents: { type: :integer },
+              discount: { "$ref" => "#/components/schemas/stay_discount" },
+              fees: { type: :array, items: { "$ref" => "#/components/schemas/stay_fee_line" } },
+              total_cents: { type: :integer }
+            },
+            required: %w[adults children infants nightly_subtotal_cents extra_guests extra_guests_total_cents discount fees
+              total_cents]
           },
           listing_fee_body: {
             type: :object,
@@ -1780,6 +1841,8 @@ RSpec.configure do |config|
               ends_on: { type: :string, format: :date, description: "A stay's check-out; otherwise the last day" },
               quantity: { type: :integer },
               guests: { type: :integer, nullable: true },
+              room_guests: ROOM_GUESTS,
+              pets: { type: :integer, description: "A stay's pets (RAA-182)" },
               total_cents: { type: :integer },
               to_be_agreed: { type: :boolean, description: "Not priced in the app yet (rentals, transfers): settled with the partner" },
               cancellation_policy: {
@@ -1812,7 +1875,7 @@ RSpec.configure do |config|
                 description: "Its history, oldest first"
               }
             },
-            required: %w[id reference status booking_mode starts_on ends_on quantity guests total_cents to_be_agreed
+            required: %w[id reference status booking_mode starts_on ends_on quantity guests room_guests pets total_cents to_be_agreed
               cancellation_policy expires_at confirmed_at cancelled_at cancelled_by refund_cents cancellable
               refund_if_cancelled_cents free_cancellation_until trip_id trip_item_id booking_type area listing created_at events]
           },
@@ -1921,7 +1984,9 @@ RSpec.configure do |config|
             properties: {
               starts_on: { type: :string, format: :date, description: "Today or later; a stay's check-in" },
               ends_on: { type: :string, format: :date, description: "A stay's check-out; otherwise the last day" },
-              guests: { type: :integer, minimum: 1, maximum: Bookings::Change::MAX_GUESTS }
+              guests: { type: :integer, minimum: 1, maximum: Bookings::Change::MAX_GUESTS },
+              room_guests: ROOM_GUESTS_BODY,
+              pets: PETS_BODY
             }
           },
           offline_booking_body: {

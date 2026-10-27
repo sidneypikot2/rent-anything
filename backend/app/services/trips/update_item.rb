@@ -1,5 +1,5 @@
 module Trips
-  # Changes an item's dates or quantity, or moves it to another of the guest's trips
+  # Changes an item's dates, quantity, split into rooms or pets (RAA-182), or moves it to another of the guest's trips
   # (PATCH /trip_items/:id, RAA-64). Only the keys sent change; the trip it ends up in
   # grows to cover its dates. The trip it left keeps its dates.
   class UpdateItem < ApplicationService
@@ -42,7 +42,27 @@ module Trips
       attributes = {}
       attributes[:starts_on], attributes[:ends_on] = read_dates("An item", [ @item.starts_on, @item.ends_on ]) if dates_sent?
       attributes[:quantity] = integer_value(:quantity, "Quantity", required: true) if @params.key?(:quantity)
+      read_party(attributes) if @errors.empty?
       attributes
+    end
+
+    # A new split into rooms sets the quantity; a new quantity without one drops the old
+    # split, back to an even one (RAA-182).
+    def read_party(attributes)
+      if @params.key?(:room_guests)
+        attributes[:room_guests] = room_guests_value
+        quantity = guests_for(attributes[:room_guests], attributes[:quantity], sent: attributes.key?(:quantity))
+        attributes[:quantity] = quantity if quantity
+      elsif attributes.key?(:quantity)
+        attributes[:room_guests] = nil
+      end
+      if @params.key?(:pets)
+        attributes[:pets] = @params[:pets].nil? ? error("Pets is required") : count_value(:pets, "Pets", max: 20)
+      end
+      return unless %i[room_guests pets].any? { attributes.key?(_1) } && @errors.empty?
+
+      check_stay_party(@item.listing, attributes.fetch(:quantity, @item.quantity),
+        attributes.fetch(:room_guests, @item.room_guests), attributes.fetch(:pets, @item.pets))
     end
   end
 end

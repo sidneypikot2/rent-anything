@@ -17,6 +17,8 @@ module BookingSerializer
       ends_on: booking.ends_on,
       quantity: booking.quantity,
       guests: booking.guests,
+      room_guests: booking.room_guests,
+      pets: booking.pets,
       total_cents: booking.total_cents,
       to_be_agreed: booking.price_breakdown["to_be_agreed"] == true,
       cancellation_policy: booking.cancellation_policy,

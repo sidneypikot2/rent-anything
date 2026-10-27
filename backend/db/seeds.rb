@@ -64,6 +64,12 @@ unless Rails.env.test?
       AddStayRooms.new.migrate(:up)
     end
 
+    # Who takes a bed, and pets (RAA-182), loaded the same way, over the rooms schema above.
+    unless Category.where(slug: "hotel").where("attribute_schema -> 'properties' ? 'pets_allowed'").exists?
+      require Rails.root.join("db/migrate/20261027100100_add_stay_guest_rules").to_s
+      AddStayGuestRules.new.migrate(:up)
+    end
+
     # Fewer categories to start with (RAA-103): the loaders above still create the five it
     # removes, so it runs after them.
     if Category.exists?(slug: "photographer")

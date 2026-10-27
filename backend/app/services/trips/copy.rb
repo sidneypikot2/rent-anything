@@ -25,9 +25,10 @@ module Trips
       shift = starts_on && (starts_on - @source.starts_on)
       items, gone = @source.items.includes(:listing).partition { _1.listing.active? }
       Trip.transaction do
-        trip.update!(name:, guests:, starts_on:, ends_on: shift && @source.ends_on + shift)
+        party = @params.key?(:guests) ? {} : @source.slice(:children, :infants, :pets).symbolize_keys
+        trip.update!(name:, guests:, starts_on:, ends_on: shift && @source.ends_on + shift, **party)
         items.each do |item|
-          trip.items.create!(listing: item.listing, quantity: item.quantity,
+          trip.items.create!(listing: item.listing, quantity: item.quantity, room_guests: item.room_guests, pets: item.pets,
             starts_on: item.starts_on && item.starts_on + shift, ends_on: item.ends_on && item.ends_on + shift)
         end
       end

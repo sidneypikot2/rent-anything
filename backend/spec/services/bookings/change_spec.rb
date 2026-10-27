@@ -63,6 +63,20 @@ RSpec.describe Bookings::Change do
     expect(item.reload.starts_on).to eq(today + 10)
   end
 
+  it "changes a stay's split into rooms and its pets, and drops the split when only the guests change (RAA-182)" do
+    listing.update!(attrs: { "place_type" => "entire_place", "guests" => 4, "pets_allowed" => true })
+    listing.units.create!(position: 2)
+    booking = booking_with(status: "requested")
+
+    change_booking(booking, room_guests: [ { adults: 1 }, { adults: 2, infants: 1 } ], pets: 1)
+    expect(booking.reload).to have_attributes(guests: 4, quantity: 2, pets: 1,
+      room_guests: [ { "adults" => 1, "children" => 0, "infants" => 0 }, { "adults" => 2, "children" => 0, "infants" => 1 } ])
+    expect(item.reload).to have_attributes(quantity: 4, pets: 1, room_guests: booking.room_guests)
+
+    change_booking(booking, guests: 3)
+    expect(booking.reload).to have_attributes(guests: 3, quantity: 1, room_guests: nil, pets: 1)
+  end
+
   describe "the partner's answer to a change" do
     it "confirms a paid booking again on its payment when accepted" do
       booking = booking_with(status: "confirmed")

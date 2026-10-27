@@ -3364,8 +3364,12 @@ paths:
         shared room''s per guest); each guest above base_guests at the extra-guest
         fee per night; the monthly discount from 28 nights, otherwise the weekly one
         from 7, off the nights and extra guests; then the required fees and the add-ons
-        picked in fee_ids, never discounted. Money is in centavos. One unit is quoted,
-        and availability isn''t checked yet.'
+        picked in fee_ids, never discounted. Money is in centavos. The dates must
+        be free on the partner''s calendar. Several rooms (RAA-182): the party (adults,
+        children, infants) goes in the guest''s own split (room_guests) or the fewest
+        rooms that sleep it, spread evenly, each room priced for the guests taking
+        a bed in it (adults, and children and infants as the place counts them); a
+        fee per pet is charged once.'
       parameters:
       - name: listing_id
         in: query
@@ -3388,9 +3392,40 @@ paths:
           type: string
       - name: guests
         in: query
-        required: true
+        required: false
+        description: Adults, when adults isn't sent
         schema:
           type: integer
+      - name: adults
+        in: query
+        required: false
+        schema:
+          type: integer
+      - name: children
+        in: query
+        required: false
+        description: Default 0
+        schema:
+          type: integer
+      - name: infants
+        in: query
+        required: false
+        description: Default 0
+        schema:
+          type: integer
+      - name: pets
+        in: query
+        required: false
+        description: Default 0
+        schema:
+          type: integer
+      - name: room_guests
+        in: query
+        required: false
+        description: 'The guest''s split as JSON, e.g. [{"adults":1},{"adults":4,"children":1}];
+          it must add up to the party. Left out: the fewest rooms, spread evenly'
+        schema:
+          type: string
       - name: fee_ids[]
         in: query
         required: false
@@ -3403,7 +3438,7 @@ paths:
         explode: true
       responses:
         '200':
-          description: the nights, extra guests, discount and fees
+          description: the guest's own split, each room priced for its guests
           content:
             application/json:
               schema:
@@ -3926,6 +3961,34 @@ paths:
                   nullable: true
                 quantity:
                   type: integer
+                room_guests:
+                  type: array
+                  nullable: true
+                  minItems: 1
+                  maxItems: 99
+                  items:
+                    type: object
+                    properties:
+                      adults:
+                        type: integer
+                        minimum: 0
+                        maximum: 99
+                      children:
+                        type: integer
+                        minimum: 0
+                        maximum: 99
+                      infants:
+                        type: integer
+                        minimum: 0
+                        maximum: 99
+                  description: 'A stay only (RAA-182): its guests room by room, adding
+                    up to its guests, which it then sets; null for an even split over
+                    the fewest rooms that sleep them'
+                pets:
+                  type: integer
+                  minimum: 0
+                  maximum: 20
+                  description: A stay only, where its listing allows pets (RAA-182)
                 trip_id:
                   type: integer
                   nullable: true
@@ -3994,6 +4057,36 @@ paths:
                   nullable: true
                 quantity:
                   type: integer
+                  description: Without room_guests, drops a stay's split back to an
+                    even one
+                room_guests:
+                  type: array
+                  nullable: true
+                  minItems: 1
+                  maxItems: 99
+                  items:
+                    type: object
+                    properties:
+                      adults:
+                        type: integer
+                        minimum: 0
+                        maximum: 99
+                      children:
+                        type: integer
+                        minimum: 0
+                        maximum: 99
+                      infants:
+                        type: integer
+                        minimum: 0
+                        maximum: 99
+                  description: 'A stay only (RAA-182): its guests room by room, adding
+                    up to its guests, which it then sets; null for an even split over
+                    the fewest rooms that sleep them'
+                pets:
+                  type: integer
+                  minimum: 0
+                  maximum: 20
+                  description: A stay only, where its listing allows pets (RAA-182)
                 move_to_trip_id:
                   type: integer
     delete:
@@ -4232,6 +4325,22 @@ paths:
                   nullable: true
                 guests:
                   type: integer
+                  description: The whole party, adults, children and infants
+                children:
+                  type: integer
+                  minimum: 0
+                  maximum: 49
+                  description: Of the guests (RAA-182), default 0
+                infants:
+                  type: integer
+                  minimum: 0
+                  maximum: 49
+                  description: Of the guests (RAA-182), default 0
+                pets:
+                  type: integer
+                  minimum: 0
+                  maximum: 20
+                  description: Beside the guests (RAA-182), default 0
               required:
               - name
   "/api/v1/trips/suggestion":
@@ -4375,6 +4484,22 @@ paths:
                   nullable: true
                 guests:
                   type: integer
+                  description: The whole party, adults, children and infants
+                children:
+                  type: integer
+                  minimum: 0
+                  maximum: 49
+                  description: Of the guests (RAA-182), default 0
+                infants:
+                  type: integer
+                  minimum: 0
+                  maximum: 49
+                  description: Of the guests (RAA-182), default 0
+                pets:
+                  type: integer
+                  minimum: 0
+                  maximum: 20
+                  description: Beside the guests (RAA-182), default 0
     delete:
       summary: Delete a trip and its items
       tags:
@@ -4919,6 +5044,16 @@ components:
           nullable: true
         guests:
           type: integer
+          description: 'The whole party: adults, children and infants'
+        children:
+          type: integer
+          description: Of the guests (RAA-182)
+        infants:
+          type: integer
+          description: Of the guests (RAA-182)
+        pets:
+          type: integer
+          description: Beside the guests (RAA-182)
         destinations:
           type: array
           items:
@@ -4947,6 +5082,9 @@ components:
       - starts_on
       - ends_on
       - guests
+      - children
+      - infants
+      - pets
       - destinations
       - updated_at
       - deletes_on
@@ -4967,6 +5105,27 @@ components:
           description: 'Null with starts_on: not bookable until it has a date'
         quantity:
           type: integer
+        room_guests:
+          type: array
+          nullable: true
+          items:
+            type: object
+            properties:
+              adults:
+                type: integer
+              children:
+                type: integer
+              infants:
+                type: integer
+            required:
+            - adults
+            - children
+            - infants
+          description: A stay's guests room by room, as the guest split them; null
+            when spread evenly
+        pets:
+          type: integer
+          description: A stay's pets (RAA-182)
         sleeps:
           type: integer
           nullable: true
@@ -5030,6 +5189,8 @@ components:
       - starts_on
       - ends_on
       - quantity
+      - room_guests
+      - pets
       - sleeps
       - max_guests
       - booking_type
@@ -6521,6 +6682,8 @@ components:
       - unit
       - day
       - hour
+      - pet
+      - pet_night
       description: What the amount is multiplied by in a quote
     listing_fee:
       type: object
@@ -6589,55 +6752,27 @@ components:
         extra_guests_total_cents:
           type: integer
         discount:
-          type: object
-          nullable: true
-          description: Off the nights and extra guests, never the fees; null under
-            7 nights or with none set
-          properties:
-            kind:
-              type: string
-              enum:
-              - weekly
-              - monthly
-            percent:
-              type: integer
-            amount_cents:
-              type: integer
-          required:
-          - kind
-          - percent
-          - amount_cents
+          "$ref": "#/components/schemas/stay_discount"
         fees:
           type: array
-          description: The required fees and the add-ons picked, in the partner's
-            order
           items:
-            type: object
-            properties:
-              id:
-                type: integer
-              name:
-                type: string
-              charged_per:
-                "$ref": "#/components/schemas/listing_fee_charged_per"
-              required:
-                type: boolean
-              quantity:
-                type: integer
-                description: What amount_cents is multiplied by
-              amount_cents:
-                type: integer
-              total_cents:
-                type: integer
-            required:
-            - id
-            - name
-            - charged_per
-            - required
-            - quantity
-            - amount_cents
-            - total_cents
+            "$ref": "#/components/schemas/stay_fee_line"
+          description: The required fees and the add-ons picked, in the partner's
+            order, every room's together; a fee per pet once for the stay
         total_cents:
+          type: integer
+        rooms:
+          type: array
+          items:
+            "$ref": "#/components/schemas/stay_quote_room"
+          description: 'Each room booked and what it costs (RAA-182): the guest''s
+            own split, or the fewest rooms that sleep the party, spread evenly; a
+            shared room is one entry for the whole party'
+        rooms_free:
+          type: integer
+          description: The fewest rooms (a shared room's beds) left on any of the
+            nights
+        pets:
           type: integer
       required:
       - starts_on
@@ -6649,6 +6784,90 @@ components:
       - nightly_subtotal_cents
       - extra_guests
       - extra_guest_fee_cents
+      - extra_guests_total_cents
+      - discount
+      - fees
+      - total_cents
+      - rooms
+      - rooms_free
+      - pets
+    stay_discount:
+      type: object
+      nullable: true
+      description: Off the nights and extra guests, never the fees; null under 7 nights
+        or with none set
+      properties:
+        kind:
+          type: string
+          enum:
+          - weekly
+          - monthly
+        percent:
+          type: integer
+        amount_cents:
+          type: integer
+      required:
+      - kind
+      - percent
+      - amount_cents
+    stay_fee_line:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        charged_per:
+          "$ref": "#/components/schemas/listing_fee_charged_per"
+        required:
+          type: boolean
+        quantity:
+          type: integer
+          description: What amount_cents is multiplied by
+        amount_cents:
+          type: integer
+        total_cents:
+          type: integer
+      required:
+      - id
+      - name
+      - charged_per
+      - required
+      - quantity
+      - amount_cents
+      - total_cents
+    stay_quote_room:
+      type: object
+      properties:
+        adults:
+          type: integer
+        children:
+          type: integer
+        infants:
+          type: integer
+          description: In a bed, and paid for, only if the place counts them
+        nightly_subtotal_cents:
+          type: integer
+        extra_guests:
+          type: integer
+          description: 'Guests taking a bed above base_guests: adults, and children
+            and infants as the place counts them'
+        extra_guests_total_cents:
+          type: integer
+        discount:
+          "$ref": "#/components/schemas/stay_discount"
+        fees:
+          type: array
+          items:
+            "$ref": "#/components/schemas/stay_fee_line"
+        total_cents:
+          type: integer
+      required:
+      - adults
+      - children
+      - infants
+      - nightly_subtotal_cents
+      - extra_guests
       - extra_guests_total_cents
       - discount
       - fees
@@ -8131,6 +8350,27 @@ components:
         guests:
           type: integer
           nullable: true
+        room_guests:
+          type: array
+          nullable: true
+          items:
+            type: object
+            properties:
+              adults:
+                type: integer
+              children:
+                type: integer
+              infants:
+                type: integer
+            required:
+            - adults
+            - children
+            - infants
+          description: A stay's guests room by room, as the guest split them; null
+            when spread evenly
+        pets:
+          type: integer
+          description: A stay's pets (RAA-182)
         total_cents:
           type: integer
         to_be_agreed:
@@ -8212,6 +8452,8 @@ components:
       - ends_on
       - quantity
       - guests
+      - room_guests
+      - pets
       - total_cents
       - to_be_agreed
       - cancellation_policy
@@ -8433,6 +8675,34 @@ components:
           type: integer
           minimum: 1
           maximum: 99
+        room_guests:
+          type: array
+          nullable: true
+          minItems: 1
+          maxItems: 99
+          items:
+            type: object
+            properties:
+              adults:
+                type: integer
+                minimum: 0
+                maximum: 99
+              children:
+                type: integer
+                minimum: 0
+                maximum: 99
+              infants:
+                type: integer
+                minimum: 0
+                maximum: 99
+          description: 'A stay only (RAA-182): its guests room by room, adding up
+            to its guests, which it then sets; null for an even split over the fewest
+            rooms that sleep them'
+        pets:
+          type: integer
+          minimum: 0
+          maximum: 20
+          description: A stay only, where its listing allows pets (RAA-182)
     offline_booking_body:
       type: object
       properties:

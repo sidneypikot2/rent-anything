@@ -838,7 +838,7 @@ RSpec.describe "Partner listings", type: :request do
           expect(refused.parsed_body["errors"]).to include(
             "Each fee needs a different name",
             "Fee amount must be a whole number of centavos, 0 or more",
-            "Fees are charged per booking, night, guest, guest_night, unit, day or hour",
+            "Fees are charged per booking, night, guest, guest_night, unit, day, hour, pet or pet_night",
             "Whether a fee is required must be true or false",
             "Each fee needs a name"
           )

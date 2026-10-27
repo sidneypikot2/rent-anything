@@ -239,6 +239,52 @@ RSpec.describe "Checkouts", type: :request do
     end
   end
 
+  describe "a stay split into rooms (RAA-182)" do
+    let(:stay) do
+      create(:listing, :stay, booking_mode: "instant", attrs: { "place_type" => "entire_place", "guests" => 5,
+        "pets_allowed" => true })
+    end
+    let(:headers) { { "Authorization" => Authorization() } }
+
+    before { (2..3).each { stay.units.create!(position: _1) } }
+
+    it "keeps the guest's split from the cart to the booking, and prices each room" do
+      create(:listing_fee, listing: stay, name: "Pet fee", amount_cents: 30_000, charged_per: "pet", position: 1)
+      patch "/api/v1/trip_items/#{stay_item.id}", as: :json, headers:,
+        params: { room_guests: [ { adults: 1 }, { adults: 4, children: 1 } ], pets: 1 }
+      expect(response).to have_http_status(:ok)
+      item = response.parsed_body["items"].find { _1["id"] == stay_item.id }
+      expect(item).to include("quantity" => 6, "pets" => 1,
+        "room_guests" => [ { "adults" => 1, "children" => 0, "infants" => 0 }, { "adults" => 4, "children" => 1, "infants" => 0 } ])
+
+      check_out(item_ids: [ stay_item.id ])
+      expect(response).to have_http_status(:created)
+      booking = stay_item.reload.booking
+      expect(booking).to have_attributes(quantity: 2, guests: 6, pets: 1, room_guests: item["room_guests"])
+      # Two nights at P2,000 a room (no extra-guest fee set), and the pet fee once.
+      expect(booking.total_cents).to eq(2 * 2 * 200_000 + 30_000)
+      expect(booking.price_breakdown["rooms"].pluck("adults", "children")).to eq([ [ 1, 0 ], [ 4, 1 ] ])
+    end
+
+    it "refuses a split that doesn't fit the stay" do
+      patch "/api/v1/trip_items/#{stay_item.id}", as: :json, headers:, params: { room_guests: [ { children: 2 } ] }
+      expect(response.parsed_body["errors"]).to eq([ "Each room needs an adult" ])
+
+      patch "/api/v1/trip_items/#{stay_item.id}", as: :json, headers:, params: { room_guests: [ { adults: 6 } ] }
+      expect(response.parsed_body["errors"]).to eq([ "A room here sleeps at most 5 guests" ])
+
+      patch "/api/v1/trip_items/#{tour_item.id}", as: :json, headers:, params: { room_guests: [ { adults: 2 } ] }
+      expect(response.parsed_body["errors"]).to eq([ "Only a stay can be split into rooms or take pets" ])
+    end
+
+    it "takes 10 guests in two rooms without a split" do
+      patch "/api/v1/trip_items/#{stay_item.id}", as: :json, headers:, params: { quantity: 10 }
+      check_out(item_ids: [ stay_item.id ])
+
+      expect(stay_item.reload.booking).to have_attributes(quantity: 2, guests: 10, room_guests: nil)
+    end
+  end
+
   describe "a booked item" do
     before { check_out }
 

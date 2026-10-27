@@ -170,7 +170,10 @@ RSpec.describe "Trips", type: :request do
           name: { type: :string },
           starts_on: { type: :string, format: :date, nullable: true },
           ends_on: { type: :string, format: :date, nullable: true },
-          guests: { type: :integer }
+          guests: { type: :integer, description: "The whole party, adults, children and infants" },
+          children: { type: :integer, minimum: 0, maximum: 49, description: "Of the guests (RAA-182), default 0" },
+          infants: { type: :integer, minimum: 0, maximum: 49, description: "Of the guests (RAA-182), default 0" },
+          pets: { type: :integer, minimum: 0, maximum: 20, description: "Beside the guests (RAA-182), default 0" }
         },
         required: %w[name]
       }
@@ -327,7 +330,10 @@ RSpec.describe "Trips", type: :request do
           name: { type: :string },
           starts_on: { type: :string, format: :date, nullable: true },
           ends_on: { type: :string, format: :date, nullable: true },
-          guests: { type: :integer }
+          guests: { type: :integer, description: "The whole party, adults, children and infants" },
+          children: { type: :integer, minimum: 0, maximum: 49, description: "Of the guests (RAA-182), default 0" },
+          infants: { type: :integer, minimum: 0, maximum: 49, description: "Of the guests (RAA-182), default 0" },
+          pets: { type: :integer, minimum: 0, maximum: 20, description: "Beside the guests (RAA-182), default 0" }
         }
       }
 

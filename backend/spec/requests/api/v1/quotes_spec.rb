@@ -14,11 +14,21 @@ RSpec.describe "Quotes", type: :request do
         "Saturday nights (a shared room's per guest); each guest above base_guests at the extra-guest fee per " \
         "night; the monthly discount from 28 nights, otherwise the weekly one from 7, off the nights and extra " \
         "guests; then the required fees and the add-ons picked in fee_ids, never discounted. Money is in " \
-        "centavos. One unit is quoted, and availability isn't checked yet."
+        "centavos. The dates must be free on the partner's calendar. Several rooms (RAA-182): the party " \
+        "(adults, children, infants) goes in the guest's own split (room_guests) or the fewest rooms that sleep it, " \
+        "spread evenly, each room priced for the guests taking a bed in it (adults, and children and infants as " \
+        "the place counts them); a fee per pet is charged once."
       parameter name: :listing_id, in: :query, type: :integer, required: true
       parameter name: :starts_on, in: :query, type: :string, format: :date, required: true, description: "Check-in"
       parameter name: :ends_on, in: :query, type: :string, format: :date, required: true, description: "Check-out"
-      parameter name: :guests, in: :query, type: :integer, required: true
+      parameter name: :guests, in: :query, type: :integer, required: false, description: "Adults, when adults isn't sent"
+      parameter name: :adults, in: :query, type: :integer, required: false
+      parameter name: :children, in: :query, type: :integer, required: false, description: "Default 0"
+      parameter name: :infants, in: :query, type: :integer, required: false, description: "Default 0"
+      parameter name: :pets, in: :query, type: :integer, required: false, description: "Default 0"
+      parameter name: :room_guests, in: :query, type: :string, required: false,
+        description: "The guest's split as JSON, e.g. [{\"adults\":1},{\"adults\":4,\"children\":1}]; " \
+          "it must add up to the party. Left out: the fewest rooms, spread evenly"
       parameter name: "fee_ids[]", in: :query, required: false, description: "Optional fees (add-ons) to include",
         schema: { type: :array, items: { type: :integer } }, style: :form, explode: true
 
@@ -27,6 +37,11 @@ RSpec.describe "Quotes", type: :request do
       let(:starts_on) { "2026-11-05" } # A Thursday
       let(:ends_on) { "2026-11-08" }
       let(:guests) { 3 }
+      let(:adults) { nil }
+      let(:children) { nil }
+      let(:infants) { nil }
+      let(:pets) { nil }
+      let(:room_guests) { nil }
       let(:"fee_ids[]") { nil }
 
       response "200", "the nights, extra guests, discount and fees" do
@@ -58,6 +73,45 @@ RSpec.describe "Quotes", type: :request do
         end
       end
 
+      response "200", "several rooms: the party spread evenly over the fewest that sleep it" do
+        schema "$ref" => "#/components/schemas/stay_quote"
+
+        let(:listing) { create(:listing, :stay, attrs: { "place_type" => "entire_place", "guests" => 5 }) }
+        let(:guests) { nil }
+        let(:adults) { 8 }
+        let(:children) { 2 }
+
+        before { (2..3).each { listing.units.create!(position: _1) } }
+
+        run_test! do |response|
+          json = response.parsed_body
+          expect(json["rooms"].map { _1.slice("adults", "children", "infants") }).to eq([
+            { "adults" => 4, "children" => 1, "infants" => 0 }, { "adults" => 4, "children" => 1, "infants" => 0 }
+          ])
+          expect(json).to include("guests" => 10, "rooms_free" => 3, "pets" => 0, "total_cents" => 2 * 3 * 200_000)
+        end
+      end
+
+      response "200", "the guest's own split, each room priced for its guests" do
+        schema "$ref" => "#/components/schemas/stay_quote"
+
+        let(:listing) { create(:listing, :stay, attrs: { "place_type" => "entire_place", "guests" => 5 }) }
+        let(:guests) { 6 }
+        let(:room_guests) { [ { adults: 1 }, { adults: 5 } ].to_json }
+
+        before do
+          listing.units.create!(position: 2)
+          listing.stay_rate.update!(extra_guest_fee_cents: 50_000)
+        end
+
+        run_test! do |response|
+          rooms = response.parsed_body["rooms"]
+          expect(rooms.pluck("adults", "extra_guests", "total_cents")).to eq([
+            [ 1, 0, 600_000 ], [ 5, 3, 600_000 + 450_000 ]
+          ])
+        end
+      end
+
       response "422", "more guests than the place sleeps, or a stay shorter than its minimum" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
@@ -69,6 +123,29 @@ RSpec.describe "Quotes", type: :request do
           expect(response.parsed_body["errors"]).to contain_exactly(
             "This place needs a stay of at least 4 nights", "This place sleeps at most 4 guests"
           )
+        end
+      end
+
+      response "422", "more guests than its rooms sleep, or a split that doesn't fit" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:listing) { create(:listing, :stay, attrs: { "place_type" => "entire_place", "guests" => 5 }) }
+        let(:guests) { 16 }
+
+        before { (2..3).each { listing.units.create!(position: _1) } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "This place sleeps at most 15 guests in 3 rooms" ])
+        end
+      end
+
+      response "422", "a split that isn't a list of rooms" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:room_guests) { "[{\"adults\":\"two\"}]" }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "Rooms must be a list of 1 to 99 rooms, each with adults, children and infants" ])
         end
       end
 

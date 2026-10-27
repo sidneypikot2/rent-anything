@@ -44,6 +44,56 @@ module Trips
       error("#{label} must be a whole number") unless value.nil?
     end
 
+    # A count of people or pets (RAA-182), from 0 to `max`; nil when not sent.
+    def count_value(key, label, max:, digits: false)
+      value = integer_value(key, label, digits:)
+      return value if value.nil? || value.between?(0, max)
+
+      error("#{label} must be from 0 to #{max}")
+    end
+
+    # A stay's split into rooms (RAA-182): 1 to 99 rooms, each { adults, children, infants }
+    # of whole numbers from 0 to 99, 0 when left out (Stays::Arrangement wants an adult in each). A query string
+    # carries it as JSON text (json: true). Nil when not sent or sent as null.
+    def room_guests_value(json: false)
+      value = @params[:room_guests]
+      value = JSON.parse(value) if json && value.is_a?(String)
+      return if value.nil?
+
+      rooms = value.is_a?(Array) && value.map { |room| room.respond_to?(:to_unsafe_h) ? room.to_unsafe_h : room }
+      if rooms && rooms.size.between?(1, 99) && rooms.all? { room_guests_room?(_1) }
+        rooms.map { |room| Stays::Arrangement::KINDS.to_h { |kind| [ kind.to_s, room[kind.to_s] || room[kind] || 0 ] } }
+      else
+        error("Rooms must be a list of 1 to 99 rooms, each with adults, children and infants")
+      end
+    rescue JSON::ParserError
+      error("Rooms must be a list of 1 to 99 rooms, each with adults, children and infants")
+    end
+
+    def room_guests_room?(room)
+      room.is_a?(Hash) && (room.keys.map(&:to_s) - %w[adults children infants]).empty? &&
+        room.values.all? { _1.is_a?(Integer) && _1.between?(0, 99) }
+    end
+
+    # The guests (an item's quantity, a booking's guests) once a split into rooms is sent:
+    # what its rooms add up to, which a number sent with it must agree with.
+    def guests_for(room_guests, guests, sent:)
+      return guests unless room_guests
+
+      total = room_guests.sum { _1.values.sum }
+      error("Guests must be what the rooms add up to (#{total})") if sent && guests != total
+      total
+    end
+
+    # A split into rooms or pets (RAA-182) is for a stay, and must fit it (Stays::Arrangement).
+    def check_stay_party(listing, guests, room_guests, pets)
+      return if room_guests.nil? && pets.zero?
+      return error("Only a stay can be split into rooms or take pets") unless listing.category.accommodation?
+      return error(Stays::Arrangement.pets_refusal(listing, pets)) unless room_guests
+
+      Stays::Arrangement.new(listing, **Stays::Arrangement.party_of(room_guests), room_guests:, pets:).errors.each { error(_1) }
+    end
+
     # digits: from a query string, where every value is text.
     def find_listing(digits: false)
       id = integer_value(:listing_id, "Listing", required: true, digits:)

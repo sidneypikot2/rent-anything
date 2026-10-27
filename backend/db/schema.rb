@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_26_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_27_100100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -143,6 +143,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_120000) do
     t.bigint "refund_cents"
     t.string "guest_email"
     t.string "guest_phone"
+    t.jsonb "room_guests"
+    t.integer "pets", default: 0, null: false
     t.index ["checkout_id"], name: "index_bookings_on_checkout_id"
     t.index ["listing_id", "starts_on", "ends_on"], name: "index_bookings_on_listing_id_and_starts_on_and_ends_on"
     t.index ["payment_id"], name: "index_bookings_on_payment_id"
@@ -159,8 +161,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_120000) do
     t.check_constraint "commission_cents >= 0 AND commission_cents <= total_cents", name: "bookings_commission_check"
     t.check_constraint "ends_on >= starts_on", name: "bookings_dates_check"
     t.check_constraint "guests >= 1 AND guests <= 100", name: "bookings_guests_check"
+    t.check_constraint "pets >= 0 AND pets <= 20", name: "bookings_pets_check"
     t.check_constraint "quantity >= 1 AND quantity <= 100", name: "bookings_quantity_check"
     t.check_constraint "refund_cents >= 0 AND refund_cents <= total_cents", name: "bookings_refund_check"
+    t.check_constraint "room_guests IS NULL OR jsonb_typeof(room_guests) = 'array'::text AND jsonb_array_length(room_guests) >= 1 AND jsonb_array_length(room_guests) <= 99", name: "bookings_room_guests_check"
     t.check_constraint "source <> 'checkout'::booking_source OR checkout_id IS NOT NULL", name: "bookings_checkout_source_check"
     t.check_constraint "total_cents >= 0", name: "bookings_total_check"
   end
@@ -318,7 +322,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_120000) do
     t.check_constraint "\"position\" >= 1", name: "listing_fees_position_check"
     t.check_constraint "amount_cents >= 0", name: "listing_fees_amount_check"
     t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 60", name: "listing_fees_name_length_check"
-    t.check_constraint "charged_per::text = ANY (ARRAY['booking'::character varying::text, 'night'::character varying::text, 'guest'::character varying::text, 'guest_night'::character varying::text, 'unit'::character varying::text, 'day'::character varying::text, 'hour'::character varying::text])", name: "listing_fees_charged_per_check"
+    t.check_constraint "charged_per::text = ANY (ARRAY['booking'::character varying, 'night'::character varying, 'guest'::character varying, 'guest_night'::character varying, 'unit'::character varying, 'day'::character varying, 'hour'::character varying, 'pet'::character varying, 'pet_night'::character varying]::text[])", name: "listing_fees_charged_per_check"
   end
 
   create_table "listing_landmarks", primary_key: ["listing_id", "landmark_id"], force: :cascade do |t|
@@ -609,11 +613,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_120000) do
     t.boolean "followed_suggestion"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "room_guests"
+    t.integer "pets", default: 0, null: false
     t.index ["listing_id"], name: "index_trip_items_on_listing_id"
     t.index ["trip_id"], name: "index_trip_items_on_trip_id"
     t.check_constraint "(starts_on IS NULL) = (ends_on IS NULL)", name: "trip_items_dates_both_or_neither_check"
     t.check_constraint "ends_on >= starts_on", name: "trip_items_dates_order_check"
+    t.check_constraint "pets >= 0 AND pets <= 20", name: "trip_items_pets_check"
     t.check_constraint "quantity >= 1 AND quantity <= 99", name: "trip_items_quantity_check"
+    t.check_constraint "room_guests IS NULL OR jsonb_typeof(room_guests) = 'array'::text AND jsonb_array_length(room_guests) >= 1 AND jsonb_array_length(room_guests) <= 99", name: "trip_items_room_guests_check"
   end
 
   create_table "trips", force: :cascade do |t|
@@ -626,12 +634,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_26_120000) do
     t.datetime "updated_at", null: false
     t.datetime "purge_reminded_at"
     t.string "share_token"
+    t.integer "children", default: 0, null: false
+    t.integer "infants", default: 0, null: false
+    t.integer "pets", default: 0, null: false
     t.index ["share_token"], name: "index_trips_on_share_token", unique: true
     t.index ["user_id", "updated_at"], name: "index_trips_on_user_id_and_updated_at"
     t.check_constraint "(starts_on IS NULL) = (ends_on IS NULL)", name: "trips_dates_both_or_neither_check"
     t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 80", name: "trips_name_length_check"
+    t.check_constraint "children >= 0 AND children <= 49 AND infants >= 0 AND infants <= 49 AND (children + infants) < guests", name: "trips_party_check"
     t.check_constraint "ends_on >= starts_on", name: "trips_dates_order_check"
     t.check_constraint "guests >= 1 AND guests <= 50", name: "trips_guests_check"
+    t.check_constraint "pets >= 0 AND pets <= 20", name: "trips_pets_check"
   end
 
   create_table "users", force: :cascade do |t|

@@ -1,6 +1,15 @@
 require "rails_helper"
 
 RSpec.describe Trip do
+  it "counts children and infants among its guests, with at least one adult, and pets beside them (RAA-182)" do
+    trip = build(:trip, guests: 3, children: 1, infants: 1, pets: 2)
+    expect(trip).to be_valid
+
+    trip.infants = 2
+    expect(trip).not_to be_valid
+    expect(trip.errors.full_messages).to eq([ "A trip needs at least one adult among its guests" ])
+  end
+
   describe "#deletes_on" do
     it "is nil for a trip that hasn't ended" do
       expect(build(:trip).deletes_on).to be_nil
