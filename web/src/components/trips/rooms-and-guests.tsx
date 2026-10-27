@@ -10,6 +10,7 @@ import { formatPeso } from "@/lib/money";
 import {
   emptyRoom,
   counted,
+  KINDS,
   partySummary,
   roomMax,
   unplacedText,
@@ -25,6 +26,8 @@ type Props = {
   rules: StayRules;
   // The trip's party, to say who the rooms leave out.
   party?: Room;
+  // The guests the search asked for (RAA-188): only their counters show. Left out, every one does.
+  searched?: Searched;
   label?: string;
   // Inside a sheet, the desktop panel opens under the field rather than floating over the
   // sheet's edge (a phone always gets its own sheet).
@@ -57,6 +60,7 @@ export function RoomsAndGuests({
   party,
   label = "Rooms and guests",
   inline = false,
+  searched,
   petsHint,
   disabled,
   "data-testid": testId,
@@ -93,47 +97,22 @@ export function RoomsAndGuests({
   }
 
   const setRoom = (index: number, room: Room) => onChange(rooms.map((each, i) => (i === index ? room : each)), pets);
+  const kinds = shownKinds(rooms, searched);
   const canAddRoom = !rules.shared && (rules.rooms === null || rooms.length < rules.rooms);
 
   const body = (
     <div className="flex flex-col gap-4">
       {rooms.map((room, index) => (
-        <div
+        <RoomBlock
           key={index}
-          role="group"
-          aria-label={rules.shared ? "Guests" : `Room ${index + 1}`}
-          className="flex flex-col gap-1"
-          data-testid={testId && `${testId}-room`}
-        >
-          {!rules.shared && (
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold">Room {index + 1}</p>
-              {rooms.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => onChange(rooms.filter((_, i) => i !== index), pets)}
-                  className="tap-target text-sm font-semibold text-link underline underline-offset-4 hover:text-primary"
-                  data-testid={testId && `${testId}-remove-room`}
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          )}
-          {(Object.keys(KIND_LABELS) as Kind[]).map((kind) => (
-            <StepperField
-              key={kind}
-              label={KIND_LABELS[kind].label}
-              hint={kindHint(kind, rules)}
-              value={room[kind]}
-              min={kind === "adults" ? 1 : 0}
-              max={Math.max(roomMax(room, kind, rules), room[kind])}
-              onChange={(value) => setRoom(index, { ...room, [kind]: value })}
-              data-testid={testId && `${testId}-${kind}`}
-            />
-          ))}
-          <BedsLine room={room} rules={rules} />
-        </div>
+          room={room}
+          title={rules.shared ? null : `Room ${index + 1}`}
+          rules={rules}
+          kinds={kinds}
+          onChange={(next) => setRoom(index, next)}
+          onRemove={rooms.length > 1 ? () => onChange(rooms.filter((_, i) => i !== index), pets) : undefined}
+          testId={testId}
+        />
       ))}
 
       {canAddRoom && (
@@ -148,7 +127,7 @@ export function RoomsAndGuests({
         </Button>
       )}
 
-      {rules.pets !== 0 && (
+      {rules.pets !== 0 && (!searched || searched.pets > 0 || pets > 0) && (
         <div className="border-t border-line pt-3">
           <StepperField
             label="Pets"
@@ -209,6 +188,71 @@ export function RoomsAndGuests({
           </Button>
         </div>
       </Dialog>
+    </div>
+  );
+}
+
+// The guests a search asked for (RAA-188), beside its adults.
+export type Searched = { children: number; infants: number; pets: number };
+
+// The counters to show: adults always; children and infants only when the search has them or a
+// room already holds one, so a search for adults alone isn't asked about children.
+export function shownKinds(rooms: Room[], searched?: Searched): Kind[] {
+  return KINDS.filter(
+    (kind) => kind === "adults" || !searched || searched[kind] > 0 || rooms.some((room) => room[kind] > 0),
+  );
+}
+
+// One room's counters (Room 1, its adults, children and infants) and the beds it fills: the
+// picker's rooms, and each room under its type in a mix of room types (StayMixPicker).
+export function RoomBlock({
+  room,
+  title,
+  rules,
+  kinds = [...KINDS],
+  onChange,
+  onRemove,
+  testId,
+}: {
+  room: Room;
+  // "Room 1"; null for a shared room, which is one group.
+  title: string | null;
+  rules: StayRules;
+  kinds?: Kind[];
+  onChange: (room: Room) => void;
+  onRemove?: () => void;
+  testId?: string;
+}) {
+  return (
+    <div role="group" aria-label={title ?? "Guests"} className="flex flex-col gap-1" data-testid={testId && `${testId}-room`}>
+      {title && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold">{title}</p>
+          {onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="tap-target text-sm font-semibold text-link underline underline-offset-4 hover:text-primary"
+              data-testid={testId && `${testId}-remove-room`}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      )}
+      {kinds.map((kind) => (
+        <StepperField
+          key={kind}
+          label={KIND_LABELS[kind].label}
+          hint={kindHint(kind, rules)}
+          value={room[kind]}
+          min={kind === "adults" ? 1 : 0}
+          max={Math.max(roomMax(room, kind, rules), room[kind])}
+          onChange={(value) => onChange({ ...room, [kind]: value })}
+          data-testid={testId && `${testId}-${kind}`}
+        />
+      ))}
+      <BedsLine room={room} rules={rules} />
     </div>
   );
 }

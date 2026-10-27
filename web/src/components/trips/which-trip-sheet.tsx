@@ -13,7 +13,7 @@ import { StepperField } from "@/components/ui/stepper-field";
 import { chooseTrip, useChosenTrip } from "./chosen-trip";
 import { daysBetween, formatDateRange, guestLimitHint, itemCount, noNightError, todayIso, tripDetails } from "./format";
 import { bedsBooked } from "./beds";
-import { evenRooms, headcount, partyFromGuests, partyOf, roomGuestsToSend, roomText, type Room } from "./party";
+import { evenRooms, headcount, partyFromGuests, partyOf, partySummary, roomGuestsToSend, roomText, type Room } from "./party";
 import { RoomsAndGuests } from "./rooms-and-guests";
 import { sameItem } from "./trip-missing";
 import { TripOption } from "./trip-option";
@@ -258,7 +258,9 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   const unhoused = request.quantity - booked;
   // A stay's rooms (RAA-184): those guests in the fewest rooms, spread evenly, until the guest
   // changes them; the people they leave out are a hint in the picker.
-  const rules = request.bookingType === "stay" ? (request.preview?.stayRules ?? null) : null;
+  // A mix of room types (RAA-188) comes with its rooms picked in the partner's panel.
+  const mix = request.mix;
+  const rules = request.bookingType === "stay" && !mix ? (request.preview?.stayRules ?? null) : null;
   const { pets: partyPets, ...people } = partyFromGuests(request.quantity, request);
   const startParty = booked > 0 && unhoused > 0 ? withoutHoused(people, booked) : people;
   // Rooms picked beside the listing (its price card) come along as they are.
@@ -270,7 +272,9 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
     : null;
   const quantity = arrangement
     ? String(headcount(partyOf(arrangement.rooms)))
-    : (typedQuantity ??
+    : mix
+      ? String(request.quantity)
+      : (typedQuantity ??
       String(Math.min(unhoused > 0 ? unhoused : request.quantity, guestCap(request.preview) ?? Infinity)));
   const quantityNumber = Number(quantity);
   const quantityValid = Number.isInteger(quantityNumber) && quantityNumber >= 1 && quantityNumber <= 99;
@@ -310,8 +314,8 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   // The picked trip already holds this listing on these days: said before a second one goes in,
   // as a double tap or a forgotten add would otherwise book it twice. Adding again stays allowed
   // (a second room, a second van).
-  const already = pickedTrip ? sameItem(pickedTrip, request.listingId, dated.startsOn, dated.endsOn) : undefined;
-  const capacity = quantityValid
+  const already = pickedTrip && !mix ? sameItem(pickedTrip, request.listingId, dated.startsOn, dated.endsOn) : undefined;
+  const capacity = quantityValid && !mix
     ? capacityNote(request.preview, quantityNumber, request.quantity, booked, arrangement?.rooms)
     : null;
 
@@ -349,13 +353,25 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
             className="col-span-2 sm:col-span-1"
           />
           {/* − and +, not a typed number: a phone's keyboard would cover the sheet. */}
-          {arrangement && rules ? (
+          {mix ? (
+            <ul className="col-span-2 flex flex-col gap-1.5 rounded-control bg-mist px-3 py-2.5 text-sm" data-testid="which-trip-mix">
+              {mix.map((item) => (
+                <li key={item.listingId}>
+                  <span className="font-semibold">{item.title}</span>
+                  <span className="block text-muted">
+                    {partySummary(item.roomGuests ?? [{ adults: item.quantity, children: 0, infants: 0 }], item.pets, item.shared)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : arrangement && rules ? (
             <div className="col-span-2">
               <RoomsAndGuests
                 rooms={arrangement.rooms}
                 pets={arrangement.pets}
                 rules={rules}
                 party={startParty}
+                searched={{ children: startParty.children, infants: startParty.infants, pets: partyPets }}
                 onChange={(rooms, pets) => setRooms({ rooms, pets })}
                 inline
                 data-testid="which-trip-rooms"
@@ -495,7 +511,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
             loading={addItem.isPending}
             disabled={choice === null || !datesValid || !quantityValid}
           >
-            {addItem.isPending ? "Adding…" : already ? (request.bookingType === "stay" ? "Add another room" : "Add it again") : "Add to trip"}
+            {addItem.isPending ? "Adding…" : mix ? `Add ${mix.length} stays` : already ? (request.bookingType === "stay" ? "Add another room" : "Add it again") : "Add to trip"}
           </Button>
         </div>
       </form>

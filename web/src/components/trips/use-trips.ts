@@ -33,6 +33,18 @@ export type AddRequest = {
   roomGuests?: Room[] | null;
   // What the add sheet shows of the listing, as much as the page that started the add knows.
   preview?: AddPreview;
+  // Several of one partner's room types added together (RAA-188, a mix from its panel): each its
+  // own item, all added or none. The request's own listing is the first of them.
+  mix?: MixItem[];
+};
+
+export type MixItem = {
+  listingId: number;
+  title: string;
+  quantity: number;
+  roomGuests: Room[] | null;
+  pets: number;
+  shared: boolean;
 };
 
 export type AddPreview = {
@@ -245,16 +257,33 @@ export function useAddTripItem() {
       tripId: number | null;
       tripName?: string;
     }) => {
+      const trip = {
+        trip_id: tripId,
+        ...(tripId === null && tripName?.trim() ? { trip_name: tripName.trim() } : {}),
+      };
+      const dates = { starts_on: request.startsOn ?? null, ends_on: request.endsOn ?? null };
+      // A mix (RAA-188) goes in one request, all its items or none.
+      const body = request.mix
+        ? {
+            items: request.mix.map((item) => ({
+              listing_id: item.listingId,
+              ...dates,
+              quantity: item.quantity,
+              ...(item.roomGuests ? { room_guests: item.roomGuests } : {}),
+              ...(item.pets ? { pets: item.pets } : {}),
+            })),
+            ...trip,
+          }
+        : null;
       const { data, error } = await apiClient().POST("/api/v1/trip_items", {
-        body: {
+        body: body ?? {
           listing_id: request.listingId,
           starts_on: request.startsOn ?? null,
           ends_on: request.endsOn ?? null,
           quantity: request.quantity,
           ...(request.roomGuests ? { room_guests: request.roomGuests } : {}),
           ...(request.pets ? { pets: request.pets } : {}),
-          trip_id: tripId,
-          ...(tripId === null && tripName?.trim() ? { trip_name: tripName.trim() } : {}),
+          ...trip,
         },
       });
       if (!data) throw tripError(error, "Couldn't add it to your trip. Try again.");

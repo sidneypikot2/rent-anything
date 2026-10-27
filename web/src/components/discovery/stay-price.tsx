@@ -183,6 +183,7 @@ export function StayPrice({
             pets={picked.pets}
             rules={rules}
             party={{ adults, children, infants }}
+            searched={{ children, infants, pets: datesParty(dates).pets }}
             onChange={(next, pets) => setPicked({ rooms: next, pets })}
             data-testid="stay-rooms"
           />
