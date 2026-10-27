@@ -9,12 +9,12 @@ module Api
       before_action :set_item, only: %i[update destroy]
 
       def create
-        trip = Trips::AddItem.call(current_user, params.slice(:listing_id, :starts_on, :ends_on, :quantity, :trip_id, :trip_name))
+        trip = Trips::AddItem.call(current_user, params.slice(:listing_id, :starts_on, :ends_on, :quantity, :room_guests, :pets, :trip_id, :trip_name))
         render json: TripSerializer.reloaded(trip), status: :created
       end
 
       def update
-        trip = Trips::UpdateItem.call(@item, params.slice(:starts_on, :ends_on, :quantity, :move_to_trip_id))
+        trip = Trips::UpdateItem.call(@item, params.slice(:starts_on, :ends_on, :quantity, :room_guests, :pets, :move_to_trip_id))
         render json: TripSerializer.reloaded(trip)
       end
 

@@ -59,6 +59,7 @@ RSpec.describe Stays::Quote do
 
   it "prices a shared room per guest" do
     listing.update!(attrs: { "place_type" => "shared_room", "guests" => 6 })
+    (2..3).each { listing.units.create!(position: _1) }
     rate.update!(base_guests: 1, nightly_price_cents: 60_000)
 
     expect(quote(nights: 2, guests: 3)).to include(per_guest: true, nightly_subtotal_cents: 360_000, extra_guests: 0,
@@ -81,6 +82,33 @@ RSpec.describe Stays::Quote do
       { name: "Kayak", quantity: 7, total_cents: 210_000 }
     ])
     expect(result[:total_cents]).to eq(1_400_000 - 140_000 + 300_000)
+  end
+
+  describe "several rooms (RAA-182)" do
+    before do
+      listing.update!(attrs: { "place_type" => "entire_place", "guests" => 4, "pets_allowed" => true })
+      (2..3).each { listing.units.create!(position: _1) }
+    end
+
+    it "prices each room for its own guests, and a fee per pet once for the stay" do
+      rate.update!(extra_guest_fee_cents: 50_000)
+      create(:listing_fee, listing:, name: "Pet fee", amount_cents: 30_000, charged_per: "pet_night", position: 1)
+
+      result = described_class.call(listing.reload, starts_on: monday, ends_on: monday + 2, adults: 5, pets: 2,
+        room_guests: [ { adults: 1 }, { adults: 4 } ])
+      expect(result[:rooms].map { _1.slice(:adults, :extra_guests, :total_cents) }).to eq([
+        { adults: 1, extra_guests: 0, total_cents: 400_000 }, { adults: 4, extra_guests: 2, total_cents: 600_000 }
+      ])
+      expect(result[:fees]).to contain_exactly(include(name: "Pet fee", quantity: 4, total_cents: 120_000))
+      expect(result).to include(extra_guests: 2, rooms_free: 3, pets: 2, total_cents: 1_120_000)
+    end
+
+    it "refuses more rooms than are left on a night" do
+      create(:booking, listing:, starts_on: monday, ends_on: monday + 1)
+
+      expect { described_class.call(listing.reload, starts_on: monday, ends_on: monday + 2, adults: 9) }
+        .to raise_error(ActiveRecord::RecordInvalid, /Only 2 left on Nov 2/)
+    end
   end
 
   it "refuses a stay outside the minimum and maximum nights" do

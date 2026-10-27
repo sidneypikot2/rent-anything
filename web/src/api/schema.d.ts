@@ -4885,7 +4885,7 @@ export interface paths {
         };
         /**
          * What a stay costs
-         * @description Public. The price of a stay at an active accommodation listing for the dates and guests, worked out from its stay rate (RAA-104): each night at the nightly price, or the weekend price on Friday and Saturday nights (a shared room's per guest); each guest above base_guests at the extra-guest fee per night; the monthly discount from 28 nights, otherwise the weekly one from 7, off the nights and extra guests; then the required fees and the add-ons picked in fee_ids, never discounted. Money is in centavos. One unit is quoted, and availability isn't checked yet.
+         * @description Public. The price of a stay at an active accommodation listing for the dates and guests, worked out from its stay rate (RAA-104): each night at the nightly price, or the weekend price on Friday and Saturday nights (a shared room's per guest); each guest above base_guests at the extra-guest fee per night; the monthly discount from 28 nights, otherwise the weekly one from 7, off the nights and extra guests; then the required fees and the add-ons picked in fee_ids, never discounted. Money is in centavos. The dates must be free on the partner's calendar. Several rooms (RAA-182): the party (adults, children, infants) goes in the guest's own split (room_guests) or the fewest rooms that sleep it, spread evenly, each room priced for its own guests (infants free); a fee per pet is charged once.
          */
         get: {
             parameters: {
@@ -4901,7 +4901,17 @@ export interface paths {
                      * @description Check-out
                      */
                     ends_on: string;
-                    guests: number;
+                    /** @description Adults, when adults isn't sent */
+                    guests?: number;
+                    adults?: number;
+                    /** @description Default 0 */
+                    children?: number;
+                    /** @description Default 0 */
+                    infants?: number;
+                    /** @description Default 0 */
+                    pets?: number;
+                    /** @description The guest's split as JSON, e.g. [{"adults":1},{"adults":4,"children":1}]; it must add up to the party. Left out: the fewest rooms, spread evenly */
+                    room_guests?: string;
                     /** @description Optional fees (add-ons) to include */
                     "fee_ids[]"?: number[];
                 };
@@ -4911,7 +4921,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description the nights, extra guests, discount and fees */
+                /** @description the guest's own split, each room priced for its guests */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -6732,7 +6742,14 @@ export interface components {
             starts_on: string | null;
             /** Format: date */
             ends_on: string | null;
+            /** @description The whole party: adults, children and infants */
             guests: number;
+            /** @description Of the guests (RAA-182) */
+            children: number;
+            /** @description Of the guests (RAA-182) */
+            infants: number;
+            /** @description Beside the guests (RAA-182) */
+            pets: number;
             /** @description Where the items are: each one's island, or else its town or city, in item order */
             destinations: string[];
             /**
@@ -6758,6 +6775,14 @@ export interface components {
              */
             ends_on: string | null;
             quantity: number;
+            /** @description A stay's guests room by room, as the guest split them; null when spread evenly */
+            room_guests: {
+                adults: number;
+                children: number;
+                infants: number;
+            }[] | null;
+            /** @description A stay's pets (RAA-182) */
+            pets: number;
             /** @description A stay: the most guests it sleeps, all its units together (a shared room's beds); null for anything else, or a stay that doesn't say */
             sleeps: number | null;
             /** @description The most guests the item can be for: a tour's group, the guests a stay sleeps, or a transfer's or a trike's seats (one vehicle a booking); null when the listing doesn't say */
@@ -7334,7 +7359,7 @@ export interface components {
          * @description What the amount is multiplied by in a quote
          * @enum {string}
          */
-        listing_fee_charged_per: "booking" | "night" | "guest" | "guest_night" | "unit" | "day" | "hour";
+        listing_fee_charged_per: "booking" | "night" | "guest" | "guest_night" | "unit" | "day" | "hour" | "pet" | "pet_night";
         listing_fee: {
             id: number;
             name: string;
@@ -7367,24 +7392,44 @@ export interface components {
             /** @description Per extra guest, per night */
             extra_guest_fee_cents: number;
             extra_guests_total_cents: number;
-            /** @description Off the nights and extra guests, never the fees; null under 7 nights or with none set */
-            discount: {
-                /** @enum {string} */
-                kind: "weekly" | "monthly";
-                percent: number;
-                amount_cents: number;
-            } | null;
-            /** @description The required fees and the add-ons picked, in the partner's order */
-            fees: {
-                id: number;
-                name: string;
-                charged_per: components["schemas"]["listing_fee_charged_per"];
-                required: boolean;
-                /** @description What amount_cents is multiplied by */
-                quantity: number;
-                amount_cents: number;
-                total_cents: number;
-            }[];
+            discount: components["schemas"]["stay_discount"];
+            /** @description The required fees and the add-ons picked, in the partner's order, every room's together; a fee per pet once for the stay */
+            fees: components["schemas"]["stay_fee_line"][];
+            total_cents: number;
+            /** @description Each room booked and what it costs (RAA-182): the guest's own split, or the fewest rooms that sleep the party, spread evenly; a shared room is one entry for the whole party */
+            rooms: components["schemas"]["stay_quote_room"][];
+            /** @description The fewest rooms (a shared room's beds) left on any of the nights */
+            rooms_free: number;
+            pets: number;
+        };
+        /** @description Off the nights and extra guests, never the fees; null under 7 nights or with none set */
+        stay_discount: {
+            /** @enum {string} */
+            kind: "weekly" | "monthly";
+            percent: number;
+            amount_cents: number;
+        } | null;
+        stay_fee_line: {
+            id: number;
+            name: string;
+            charged_per: components["schemas"]["listing_fee_charged_per"];
+            required: boolean;
+            /** @description What amount_cents is multiplied by */
+            quantity: number;
+            amount_cents: number;
+            total_cents: number;
+        };
+        stay_quote_room: {
+            adults: number;
+            children: number;
+            /** @description Free, and in a bed only if the place counts them */
+            infants: number;
+            nightly_subtotal_cents: number;
+            /** @description Adults and children above base_guests */
+            extra_guests: number;
+            extra_guests_total_cents: number;
+            discount: components["schemas"]["stay_discount"];
+            fees: components["schemas"]["stay_fee_line"][];
             total_cents: number;
         };
         listing_fee_body: {
@@ -7969,6 +8014,14 @@ export interface components {
             ends_on: string;
             quantity: number;
             guests: number | null;
+            /** @description A stay's guests room by room, as the guest split them; null when spread evenly */
+            room_guests: {
+                adults: number;
+                children: number;
+                infants: number;
+            }[] | null;
+            /** @description A stay's pets (RAA-182) */
+            pets: number;
             total_cents: number;
             /** @description Not priced in the app yet (rentals, transfers): settled with the partner */
             to_be_agreed: boolean;

@@ -11,6 +11,11 @@ class Trip < ApplicationRecord
 
   validates :name, presence: true, length: { maximum: 80 }
   validates :guests, numericality: { only_integer: true, in: 1..50 }
+  # Of the guests, how many are children and infants (RAA-182): the rest are adults, at
+  # least one. Pets aren't guests.
+  validates :children, :infants, numericality: { only_integer: true, in: 0..49 }
+  validates :pets, numericality: { only_integer: true, in: 0..20 }
+  validate :has_an_adult
   validate :user_is_a_guest
   validate :dates_cover_items, if: :dates_changed?
   before_save :follow_dates_in_name, if: -> { dates_changed? && !name_changed? }
@@ -124,6 +129,12 @@ class Trip < ApplicationRecord
 
     errors.add(:base, "A trip with bookings can't be deleted: cancel them first")
     throw :abort
+  end
+
+  def has_an_adult
+    return unless [ guests, children, infants ].all?(Integer) && children + infants >= guests
+
+    errors.add(:base, "A trip needs at least one adult among its guests")
   end
 
   def user_is_a_guest

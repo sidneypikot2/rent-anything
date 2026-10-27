@@ -113,13 +113,13 @@ module Checkouts
     end
 
     # A trip item's quantity is its guests; the units they take come from the listing
-    # (Booking.units_for).
+    # (Booking.units_for), or a stay's split into rooms (RAA-182).
     def price(item, listing)
       return error("#{listing.title} isn't available to book any more") || { total_cents: 0 } unless listing.active?
 
-      units = Booking.units_for(listing, item.quantity)
+      units = Booking.units_for(listing, item.quantity, room_guests: item.room_guests)
       price = Bookings::Price.call(listing, starts_on: item.starts_on, ends_on: item.ends_on, quantity: units,
-        guests: item.quantity)
+        guests: item.quantity, room_guests: item.room_guests, pets: item.pets)
       price.merge(item:, listing:, units:)
     rescue ActiveRecord::RecordInvalid => e
       e.record.errors.full_messages.each { error("#{listing.title}: #{_1}") }
@@ -141,6 +141,7 @@ module Checkouts
         source: "checkout", checkout:, user: @user, trip_item: item, guest_name: guest_name,
         guest_email: @user.email, guest_phone: @user.phone,
         starts_on: item.starts_on, ends_on: item.ends_on, quantity: line[:units], guests: item.quantity.clamp(1, Booking::MAX_QUANTITY),
+        room_guests: item.room_guests, pets: item.pets,
         status: instant ? "awaiting_payment" : "requested", expires_at: expires_at(instant, item),
         total_cents: line[:total_cents], price_breakdown: line[:breakdown],
         commission_bps: listing.category.commission_bps,

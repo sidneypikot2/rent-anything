@@ -1,6 +1,8 @@
 module Bookings
   # A guest changes a booking's dates or guests (PATCH /bookings/:id, RAA-134): starts_on,
-  # ends_on and guests, each optional, a key left out keeping what the booking has. The change
+  # ends_on and guests, each optional, a key left out keeping what the booking has. A stay's
+  # split into rooms (room_guests) and pets (RAA-182) change the same way; a split sets the
+  # guests, and new guests without one split them evenly again. The change
   # goes back to the partner as a request: the booking returns to requested, holding its new
   # days until the partner answers (Booking::REQUEST_TTL or its start), and is never accepted
   # automatically.
@@ -29,6 +31,10 @@ module Bookings
     def call
       starts_on, ends_on = read_dates("A booking", [ @booking.starts_on, @booking.ends_on ])
       guests = @params.key?(:guests) ? integer_value(:guests, "Guests", required: true) : @booking.guests
+      room_guests = read_room_guests
+      guests = guests_for(room_guests, guests, sent: @params.key?(:guests)) if @params.key?(:room_guests)
+      pets = @booking.pets
+      pets = @params[:pets].nil? ? error("Pets is required") : count_value(:pets, "Pets", max: 20) if @params.key?(:pets)
       error("Guests must be from 1 to #{MAX_GUESTS}") if guests.is_a?(Integer) && !guests.between?(1, MAX_GUESTS)
       error("A booking needs dates") if @errors.empty? && starts_on.nil?
       raise_errors!(@booking)
@@ -42,15 +48,23 @@ module Bookings
         check_booking(starts_on)
         raise_errors!(@booking)
 
-        line = price(listing, starts_on, ends_on, guests)
+        party = { guests:, room_guests:, pets: }
+        line = price(listing, starts_on, ends_on, party)
         raise_errors!(@booking)
 
-        update_item(item, trip, starts_on, ends_on, guests) if item
-        update_booking(listing, line, starts_on, ends_on, guests)
+        update_item(item, trip, starts_on, ends_on, party) if item
+        update_booking(listing, line, starts_on, ends_on, party)
       end
     end
 
     private
+
+    # A split sent (null drops it); otherwise the booking's, unless new guests are sent.
+    def read_room_guests
+      return room_guests_value if @params.key?(:room_guests)
+
+      @params.key?(:guests) ? nil : @booking.room_guests
+    end
 
     def check_booking(starts_on)
       if !CHANGEABLE.include?(@booking.status)
@@ -63,11 +77,13 @@ module Bookings
     end
 
     # Priced and checked as at checkout, with the booking's own days left free to it.
-    def price(listing, starts_on, ends_on, guests)
+    def price(listing, starts_on, ends_on, party)
       return error("#{listing.title} isn't available to book any more") unless listing.active?
 
-      units = Booking.units_for(listing, guests)
-      line = Bookings::Price.call(listing, starts_on:, ends_on:, quantity: units, guests:, except_booking: @booking)
+      guests, room_guests, pets = party.values_at(:guests, :room_guests, :pets)
+      units = Booking.units_for(listing, guests, room_guests:)
+      line = Bookings::Price.call(listing, starts_on:, ends_on:, quantity: units, guests:, room_guests:, pets:,
+        except_booking: @booking)
       ledger = Availability::Ledger.new([ listing ], starts_on, ends_on, except: @booking)
       refusal = ledger.refusal(listing, Booking.days_for(listing.category.accommodation?, starts_on, ends_on), units)
       return error("#{listing.title}: #{refusal}") if refusal
@@ -78,17 +94,17 @@ module Bookings
       nil
     end
 
-    def update_item(item, trip, starts_on, ends_on, guests)
-      item.assign_attributes(starts_on:, ends_on:, quantity: guests)
+    def update_item(item, trip, starts_on, ends_on, party)
+      item.assign_attributes(starts_on:, ends_on:, quantity: party[:guests], room_guests: party[:room_guests], pets: party[:pets])
       trip.cover(starts_on, ends_on)
       trip.save!
       item.save!
     end
 
-    def update_booking(listing, line, starts_on, ends_on, guests)
+    def update_booking(listing, line, starts_on, ends_on, party)
       total = line[:total_cents]
       changes = {
-        starts_on:, ends_on:, guests:, quantity: line[:units],
+        starts_on:, ends_on:, **party, quantity: line[:units],
         total_cents: total, price_breakdown: line[:breakdown],
         commission_cents: (total * @booking.commission_bps + 5_000) / 10_000,
         expires_at: [ Time.current + Booking::REQUEST_TTL, starts_on.in_time_zone("UTC").beginning_of_day ].min

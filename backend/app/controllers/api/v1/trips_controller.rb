@@ -3,7 +3,7 @@ module Api
     # The signed-in guest's trips (RAA-64), which the cart lists: planning one, changing it,
     # merging two and asking which trip an item should go to. Another guest's trip is a 404.
     class TripsController < ApplicationController
-      TRIP_PARAMS = %i[name starts_on ends_on guests].freeze
+      TRIP_PARAMS = %i[name starts_on ends_on guests children infants pets].freeze
 
       before_action :authenticate_user!
       before_action -> { require_role!("guest") }

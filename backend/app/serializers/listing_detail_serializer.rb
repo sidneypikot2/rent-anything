@@ -12,7 +12,7 @@ module ListingDetailSerializer
   # The attrs a guest may see (RAA-124): what a listing includes and how big it is. Never an
   # identifier like a plate or serial number.
   GUEST_DETAILS = %w[guide_included seats luggage route sizes accessories lenses engine_cc transmission
-    guests rooms bathroom amenities place_type].freeze
+    guests rooms bathroom amenities place_type children_count infants_count pets_allowed max_pets].freeze
 
   def self.call(listing)
     category = listing.category

@@ -22,6 +22,9 @@ class TripItem < ApplicationRecord
   end
 
   validates :quantity, numericality: { only_integer: true, in: 1..99 }
+  # A stay's pets (RAA-182); its split into rooms, room_guests, is checked by the services
+  # that set it (Stays::Arrangement).
+  validates :pets, numericality: { only_integer: true, in: 0..20 }
   validate :listing_is_bookable, if: :will_save_change_to_listing_id?
 
   private

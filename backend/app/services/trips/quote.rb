@@ -39,9 +39,9 @@ module Trips
       problem = problem(item, listing)
       return { trip_item_id: item.id, total_cents: nil, to_be_agreed: false, problem: } if problem
 
-      units = Booking.units_for(listing, item.quantity)
+      units = Booking.units_for(listing, item.quantity, room_guests: item.room_guests)
       price = Bookings::Price.call(listing, starts_on: item.starts_on, ends_on: item.ends_on, quantity: units,
-        guests: item.quantity)
+        guests: item.quantity, room_guests: item.room_guests, pets: item.pets)
       { trip_item_id: item.id, total_cents: price[:total_cents], to_be_agreed: price.dig(:breakdown, :to_be_agreed) == true,
         problem: nil }
     rescue ActiveRecord::RecordInvalid => e
@@ -60,7 +60,7 @@ module Trips
       return "Its dates have passed" if item.starts_on < Date.current
 
       days = Booking.days_for(listing.category.accommodation?, item.starts_on, item.ends_on)
-      @ledger.refusal(listing, days, Booking.units_for(listing, item.quantity))
+      @ledger.refusal(listing, days, Booking.units_for(listing, item.quantity, room_guests: item.room_guests))
     end
   end
 end

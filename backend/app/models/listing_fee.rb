@@ -10,7 +10,10 @@ class ListingFee < ApplicationRecord
     "unit" => "per unit",
     # A vehicle rental's (RAA-149): a passenger helmet per day, a late return per hour.
     "day" => "per day",
-    "hour" => "per hour"
+    "hour" => "per hour",
+    # A stay's pets (RAA-182), charged once for the stay.
+    "pet" => "per pet",
+    "pet_night" => "per pet per night"
   }.freeze
 
   belongs_to :listing, inverse_of: :fees
