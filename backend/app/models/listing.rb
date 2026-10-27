@@ -81,6 +81,13 @@ class Listing < ApplicationRecord
 
   enum :status, STATUSES.index_with(&:itself), validate: true
 
+  # A pet-friendly browse or search (RAA-185): of the stays, those whose attrs allow pets;
+  # anything that isn't a stay is left in, as pets don't concern it.
+  scope :pet_friendly, -> {
+    where("listings.attrs->>'pets_allowed' = 'true' OR listings.category_id NOT IN (?)",
+      Category.where(booking_type: "stay").select(:id))
+  }
+
   before_destroy :keep_if_booked, prepend: true
 
   validates :title, :location, presence: true

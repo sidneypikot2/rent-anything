@@ -43,13 +43,16 @@ const heldOrderFor = (path: string) => (heldOrder && heldOrder.path === path ? h
 // `note`: a line under the section's title, once for all its rows (how unpriced ones are priced).
 export type ListingGroup = { id: string; title: string; icon: string; group?: string; note?: string; items: ListingItem[] };
 
-type Filters = { free: boolean; min: string; max: string; includes: string[] };
-const NO_FILTERS: Filters = { free: false, min: "", max: "", includes: [] };
+// pets: only stays that take pets (RAA-186), offered in the stays section's filters alone.
+type Filters = { free: boolean; pets: boolean; min: string; max: string; includes: string[] };
+const NO_FILTERS: Filters = { free: false, pets: false, min: "", max: "", includes: [] };
 // Includes listed before "Show all".
 const FIRST_INCLUDES = 6;
 // Chips that describe a listing (its size, its route, a tour's group) rather than say what comes
 // with it: shown on the row, never offered under Includes.
-const NOT_INCLUDES = new Set(["guests", "seats", "luggage", "route", "engine", "sizes", "bed"]);
+// Pets allowed has its own Pet-friendly choice.
+const NOT_INCLUDES = new Set(["guests", "seats", "luggage", "route", "engine", "sizes", "bed", "pets"]);
+const takesPets = (offer: ListingOffer) => offer.features.some((feature) => feature.icon === "pets");
 // Rows a section shows under "All" before its "Show all N": the page stays short enough to reach
 // the places to see below it, on a phone too, and the section's own chip shows the rest.
 const FIRST_ROWS = 3;
@@ -73,10 +76,11 @@ function matcher(query: string | undefined) {
 }
 
 const setCount = (filters: Filters) =>
-  Number(filters.free) + Number(Boolean(filters.min || filters.max)) + filters.includes.length;
+  Number(filters.free) + Number(filters.pets) + Number(Boolean(filters.min || filters.max)) + filters.includes.length;
 
 function passes(item: ListingOffer, filters: Filters, skipIncludes = false) {
   if (filters.free && !item.features.some((feature) => feature.trust)) return false;
+  if (filters.pets && !takesPets(item)) return false;
   const min = Number(filters.min) || 0;
   const max = Number(filters.max) || 0;
   if (min || max) {
@@ -687,8 +691,8 @@ function TextButton({ onClick, children = "Clear", className }: { onClick: () =>
   );
 }
 
-// One section's filters: free cancellation, a price range on its "from" prices, and what its
-// rows include, each with how many businesses would match.
+// One section's filters: free cancellation, for stays whether they take pets, a price range on
+// its "from" prices, and what its rows include, each with how many businesses would match.
 function FilterPanel({
   group,
   filters,
@@ -707,6 +711,7 @@ function FilterPanel({
   const unpriced = offers.some((item) => item.priceCents === null);
   const businesses = group.items.length;
   const free = group.items.filter((item) => item.offers.some((offer) => offer.features.some((feature) => feature.trust))).length;
+  const pets = group.group === "stay" ? group.items.filter((item) => item.offers.some(takesPets)).length : 0;
 
   // What the rows include, counted among the businesses the other filters leave. A choice every
   // business has filters nothing (the section's note already says it), so it isn't offered, nor is
@@ -737,6 +742,15 @@ function FilterPanel({
           aside={free}
           checked={filters.free}
           onChange={(event) => onChange({ ...filters, free: event.target.checked })}
+        />
+      )}
+      {(pets > 0 || filters.pets) && (
+        <CheckboxField
+          label="Pet-friendly"
+          aside={pets}
+          checked={filters.pets}
+          onChange={(event) => onChange({ ...filters, pets: event.target.checked })}
+          data-testid="pet-friendly-filter"
         />
       )}
       {prices.length > 0 && (
@@ -815,6 +829,7 @@ function FilterMarkers({
   const peso = (amount: number) => formatPeso(amount * 100);
   const markers = [
     filters.free && { key: "free", label: "Free cancellation", remove: () => onChange({ ...filters, free: false }) },
+    filters.pets && { key: "pets", label: "Pet-friendly", remove: () => onChange({ ...filters, pets: false }) },
     (min || max) && {
       key: "price",
       label: min && max ? `${peso(min)}–${peso(max)}` : max ? `Up to ${peso(max)}` : `From ${peso(min)}`,
