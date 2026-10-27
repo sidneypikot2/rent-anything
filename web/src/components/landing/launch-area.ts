@@ -6,8 +6,8 @@ export const LAUNCH_AREA = { slug: "bantayan-island", name: "Bantayan Island", k
 
 // "Start your trip" lands on an area's things to book, with the banner that says the trip has
 // started (RAA-80). It is the home hero's button, with the launch area already in Where, and
-// the closing band's; the note under the hero's search says what it costs and, signed out, when
-// the account comes (with the first thing added, TripAddProvider). Once Where names something
+// the closing band's; the note under the hero's search says what it costs and, signed out, that
+// no account is needed (the first add makes a guest without one, RAA-177). Once Where names something
 // that isn't a destination the button searches instead, and the note says how to get a trip back.
 export const START_TRIP = {
   action: "Start your trip",
@@ -15,8 +15,8 @@ export const START_TRIP = {
   continueOne: "Continue your trip",
   continueMany: "Continue a trip",
   // What a traveller can do today, then what isn't live (BOOKING_STATE).
-  note: "Save your trip free, then send requests to partners. Nothing is paid in the app yet. Sign in at your first add.",
-  guestNote: "Save your trip free, then send requests to partners. Nothing is paid in the app yet.",
+  note: "Save your trip free, no account needed. Send requests to partners when you're ready; nothing is paid in the app yet.",
+  guestNote: "Save your trip free, then send requests to partners when you're ready. Nothing is paid in the app yet.",
   searchNote: "Pick a destination to start a trip there.",
 };
 

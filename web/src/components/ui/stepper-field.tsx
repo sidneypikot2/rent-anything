@@ -25,8 +25,8 @@ export function StepperField({
   const labelId = useId();
   const set = (next: number) => onChange(Math.min(max, Math.max(min, Math.round(next / step) * step)));
   const buttonClass = cn(
-    "flex size-11 items-center justify-center rounded-full border border-line-strong text-lg text-primary",
-    "hover:border-primary disabled:cursor-not-allowed disabled:opacity-40",
+    "flex size-11 items-center justify-center rounded-button border border-line-strong text-lg text-primary",
+    "hover:border-primary hover:bg-lagoon-tint disabled:cursor-not-allowed disabled:opacity-50",
   );
 
   return (

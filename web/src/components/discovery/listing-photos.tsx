@@ -13,12 +13,14 @@ type Photo = { src: string; alt: string };
 // photo. Scroll snapping does the moving, so it stays smooth and keyboard scrolling works too.
 // A listing with no photos of its own shows its category's icon, never a stand-in photo, which
 // would show it as something it isn't (web-ui.md).
-export function ListingPhotos({ photos, label, category, count = "top", className }: {
+export function ListingPhotos({ photos, label, category, count = "top", inset = false, className }: {
   photos: Photo[];
   label: string;
   category: string;
   // Where "n / N" sits: "bottom" keeps the top right clear for a side panel's close button.
   count?: "top" | "bottom";
+  // Inside a card's 12px padding: 12px corners, so they nest in the card's 24px ones.
+  inset?: boolean;
   className?: string;
 }) {
   const track = useRef<HTMLDivElement>(null);
@@ -34,7 +36,7 @@ export function ListingPhotos({ photos, label, category, count = "top", classNam
 
   if (photos.length === 0)
     return (
-      <div className={cn("flex flex-col items-center justify-center gap-2 rounded-card bg-mist text-primary", className)}>
+      <div className={cn("flex flex-col items-center justify-center gap-2 bg-mist text-primary", inset ? "rounded-control" : "rounded-card", className)}>
         <CategoryGlyph name={category} className="size-10 opacity-70" />
         <span className="text-small font-semibold text-muted">No photos yet</span>
       </div>
@@ -45,7 +47,7 @@ export function ListingPhotos({ photos, label, category, count = "top", classNam
       role={many ? "group" : undefined}
       aria-roledescription={many ? "carousel" : undefined}
       aria-label={many ? `Photos of ${label}` : undefined}
-      className={cn("group/photos relative isolate overflow-hidden rounded-card bg-mist", className)}
+      className={cn("group/photos relative isolate overflow-hidden bg-mist", inset ? "rounded-control" : "rounded-card", className)}
     >
       <div
         ref={track}

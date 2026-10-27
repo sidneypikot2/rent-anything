@@ -117,13 +117,14 @@ function hovering(event: { pointerType: string }) {
 export function MapHoverTarget({ pin, children, className }: { pin: string | string[]; children: ReactNode; className?: string }) {
   const map = useAreaMap();
   const pins = Array.isArray(pin) ? pin : [pin];
-  const lit = Boolean(map && pins.some((key) => map.hover.includes(key) || map.selected === key));
+  // Lit only while the map shows: with it off, a ring on hover read as "selected".
+  const lit = Boolean(map?.mapOn && pins.some((key) => map.hover.includes(key) || map.selected === key));
   return (
     <div
       onPointerEnter={(event) => hovering(event) && map?.setHover(pins)}
       onPointerLeave={(event) => hovering(event) && map?.hover.some((key) => pins.includes(key)) && map.setHover(null)}
       data-map-lit={lit || undefined}
-      className={cn("rounded-card transition-shadow duration-300 ease-calm", lit && "ring-2 ring-primary ring-offset-2 ring-offset-transparent", className)}
+      className={cn("rounded-card transition-shadow duration-300 ease-calm", lit && "ring-1 ring-primary ring-offset-2 ring-offset-transparent", className)}
     >
       {children}
     </div>
@@ -136,7 +137,7 @@ export function MapSwitch() {
   const map = useAreaMap();
   if (!map) return null;
   return (
-    <div className="hidden flex-col gap-2 rounded-card bg-surface p-4 card-edge shadow-soft lg:flex">
+    <div className="hidden flex-col gap-2 rounded-card bg-surface p-4 card-edge-line shadow-soft lg:flex">
       <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm font-semibold">
         Show map
         <button

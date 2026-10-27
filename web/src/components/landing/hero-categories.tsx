@@ -31,13 +31,14 @@ export function HeroCategories() {
       </p>
       <nav
         aria-label={`Things to book in ${area.name}`}
-        className="cascade -ml-1.5 flex flex-wrap [--cascade:slide-in] sm:ml-0"
+        // One row to swipe on a phone, fading at its right edge, rather than wrapping three over two.
+        className="cascade -ml-1.5 flex [--cascade:slide-in] max-sm:overflow-x-auto max-sm:pr-8 max-sm:[scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] sm:ml-0 sm:flex-wrap"
       >
         {TRIP_ORDER_GROUPS.map((pill) => (
           <Link
             key={pill.id}
             href={withDates(`/${area.slug}?show=${pill.id}#listings`, carry)}
-            className="flex min-h-11 items-center gap-1 rounded-full px-1.5 text-sm sm:gap-1.5 sm:px-2 font-semibold text-white underline-offset-4 transition-colors duration-300 ease-calm hover:bg-glass-fill hover:underline"
+            className="flex min-h-11 shrink-0 items-center gap-1 rounded-full px-1.5 text-sm whitespace-nowrap sm:gap-1.5 sm:px-2 font-semibold text-white underline-offset-4 transition-colors duration-300 ease-calm hover:bg-glass-fill hover:underline"
           >
             <CategoryGlyph name={pill.icon} className={cn("size-4 shrink-0", GROUP_ICON[pill.group])} />
             {pill.short}

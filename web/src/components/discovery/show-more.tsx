@@ -34,10 +34,10 @@ export function ShowMore({
         aria-controls={id}
         onClick={() => setOpen(!open)}
         className={cn(
-          "inline-flex min-h-11 items-center gap-1.5 self-start rounded-full font-semibold",
+          "inline-flex min-h-11 items-center gap-1.5 self-start rounded-button font-semibold",
           glass
             ? cn(glassClasses("dark"), "px-4 text-sm font-bold text-white hover:bg-glass-hover active:scale-[0.97]")
-            : "-mx-1 px-1 text-link",
+            : "-mx-1 px-1 text-primary",
         )}
       >
         {open ? less : more}

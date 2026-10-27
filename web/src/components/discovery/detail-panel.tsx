@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { Price } from "@/components/ui/typography";
+import { formatPeso } from "@/lib/money";
 import { InstantBookBadge } from "./instant-book-badge";
 import type { Feature } from "./listing-features";
 import { StayPrice } from "./stay-price";
@@ -199,7 +200,7 @@ export function ListingPanel({
   });
   const datesSet = Boolean(dates?.from && dates.to);
   const { data: quote } = useQuery({
-    queryKey: ["quote", listingId, dates?.from, dates?.to, dates?.guests],
+    queryKey: quoteKey(listingId, dates),
     queryFn: async () => {
       const { data, error, response } = await apiClient().GET("/api/v1/quotes", {
         params: { query: { listing_id: listingId, starts_on: dates!.from!, ends_on: dates!.to!, guests: dates!.guests } },
@@ -217,7 +218,7 @@ export function ListingPanel({
   return (
     <>
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
-        <Badge tone="mist" className="min-h-6 px-2.5 text-xs">
+        <Badge tone="kind" className="min-h-6 px-2.5 text-xs">
           <CategoryGlyph name={category} className="size-3.5" />
           {category}
         </Badge>
@@ -230,8 +231,8 @@ export function ListingPanel({
           <ul className="flex flex-wrap gap-1.5">
             {features.map((feature) => (
               <li key={feature.label}>
-                <Badge tone={feature.trust ? "emerald" : "mist"} className="min-h-7 px-2.5 text-xs">
-                  <FeatureGlyph name={feature.icon} className="size-3.5" />
+                <Badge tone={feature.trust ? "emerald" : "fact"} className="min-h-7 px-2.5 text-xs">
+                  <FeatureGlyph name={feature.icon} className={cn("size-3.5", !feature.trust && "text-primary")} />
                   {feature.label}
                 </Badge>
               </li>
@@ -263,7 +264,7 @@ export function ListingPanel({
         </PanelSection>
       )}
       {listing?.tour && <TourFacts listing={listing} tour={listing.tour} head={false} />}
-      {listing?.stay_rate && <StayPrice listing={listing} rate={listing.stay_rate} quote={quote} datesSet={datesSet} />}
+      {listing?.stay_rate && <StayPrice listing={listing} rate={listing.stay_rate} quote={quote} datesSet={datesSet} headline={false} />}
       {listing?.vehicle_rate && <VehiclePrice listing={listing} rate={listing.vehicle_rate} />}
       {description && description !== summary?.trim() && (
         <PanelSection title="About this">
@@ -277,20 +278,46 @@ export function ListingPanel({
   );
 }
 
-// The panel's foot: the price, or how an unpriced listing is priced, and the action.
+// A stay's quote for the page's dates and guests: the panel's body fetches it (ListingPanel), and
+// its foot reads the same cached answer.
+function quoteKey(listingId: number, dates?: TripDates) {
+  return ["quote", listingId, dates?.from, dates?.to, dates?.guests];
+}
+
+// The panel's foot: the price, or how an unpriced listing is priced, and the action. With the
+// page's dates a stay shows its total for them, the same figure as the body's last line, rather
+// than a "from" price beside it.
 export function PanelActions({
   price,
   unpriced,
   action,
+  listingId,
+  dates,
 }: {
   price?: ComponentProps<typeof Price>;
   unpriced?: string;
   action?: ReactNode;
+  listingId?: number;
+  dates?: TripDates;
 }) {
+  const { data: quote } = useQuery<{ quote: { total_cents: number; nights_count: number } } | { errors: string[] }>({
+    queryKey: quoteKey(listingId ?? 0, dates),
+    queryFn: skipToken,
+    enabled: false,
+  });
   if (!price && !action) return null;
+  const total = quote && "quote" in quote ? quote.quote : null;
   return (
     <>
-      {price ? <Price {...price} /> : unpriced ? <span className="text-sm text-muted">{unpriced}</span> : <span />}
+      {total ? (
+        <Price amount={formatPeso(total.total_cents)} unit={`for ${total.nights_count} ${total.nights_count === 1 ? "night" : "nights"}`} />
+      ) : price ? (
+        <Price {...price} />
+      ) : unpriced ? (
+        <span className="text-sm text-muted">{unpriced}</span>
+      ) : (
+        <span />
+      )}
       {action}
     </>
   );

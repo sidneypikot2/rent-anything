@@ -127,6 +127,12 @@ export default function UiKit() {
           <span className="text-sm text-on-dark">Accent is for dark bands.</span>
           <Button variant="accent">Get started</Button>
         </div>
+        <div className="mt-4 flex flex-wrap items-center gap-4 rounded-card bg-forest p-6">
+          <span className="text-sm text-sky-mist">Frosted is a way on from glass over a photo.</span>
+          <Button variant="frosted" size="touch" arrow>
+            View trip
+          </Button>
+        </div>
       </Showcase>
 
       <Showcase title="Badges and pills">
@@ -149,6 +155,18 @@ export default function UiKit() {
             </Pill>
           ))}
           <PillLink href="/admin/ui-kit">Pill as link</PillLink>
+        </div>
+        {/* tone="glass": chips on glass over a photo (a trip's places on the area banner). */}
+        <div className="mt-4 flex flex-wrap gap-2 rounded-card bg-forest p-4">
+          <Pill tone="glass" on>
+            This place <span className="font-normal text-sky-pale underline underline-offset-4">Edit</span>
+          </Pill>
+          <PillLink tone="glass" href="/admin/ui-kit">
+            Another place
+          </PillLink>
+          <Pill tone="glass" className="border-dashed">
+            + Another place
+          </Pill>
         </div>
       </Showcase>
 

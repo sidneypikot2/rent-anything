@@ -10,6 +10,8 @@ import { tripHref } from "@/components/landing/launch-area";
 import { CHIP_ROW, PageBanner, STAT_CHIP, StatCount } from "@/components/landing/page-banner";
 import { isApiPhoto, listingCover } from "@/components/landing/sample-photos";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
+import { ButtonLink } from "@/components/ui/button";
+import { Pill, PillLink, pillClasses } from "@/components/ui/pill";
 import { cn } from "@/components/ui/cn";
 import { glassClasses } from "@/components/ui/glass";
 import { ArrowGlyph, ListGlyph } from "@/components/discovery/tag-glyphs";
@@ -18,7 +20,8 @@ import { chooseTrip } from "./chosen-trip";
 import { HereItemsSheet } from "./here-items-sheet";
 import { guestsLabel, thingCount } from "./format";
 import { tripOwnQuery } from "./trip-dates";
-import { missingAnchor, missingHere, missingText, planGaps, stillMissing, type PlanGap, type Sight } from "./trip-missing";
+import { gapGroup, planGaps, stillMissing, type PlanGap, type Sight } from "./trip-missing";
+import { TripNeeds } from "./trip-needs";
 import { openPlan } from "./plan-open";
 import { TripPlan } from "./trip-plan-panel";
 import { bookable } from "./trip-details";
@@ -30,7 +33,7 @@ import type { Trip, TripItem } from "./use-trips";
 // `placeLinks`, built on the server), with the trip's one line at its foot. The guest picks the
 // place, books what they need from What to book, and checks out from the cart: the banner never
 // becomes a trip's own page. With no trip here yet (signed out, none yet, or still loading) the
-// line says the trip starts with the first add (which asks to sign in); once the guest has a trip
+// line says the trip starts with the first add (no account needed, RAA-177); once the guest has a trip
 // with something here, or chose one to work on, it is TripNotice, whose Checkout opens it in the
 // cart ("View trip" once all of it is booked). A guest with trips switches which one they work on
 // here (Switch trip, TripChoiceSheet): the page takes that trip's dates and guests, and the add
@@ -119,9 +122,7 @@ export function AreaHero({
         <li key={link.href} className="shrink-0">
           <Link href={link.href} className={cn(STAT_CHIP, glassClasses(), "hover:bg-glass-hover")}>
             <StatCount count={link.count} /> in {link.name}
-            <span aria-hidden className="text-sky-pale">
-              →
-            </span>
+            <ArrowGlyph className="size-4 text-sky-pale" />
           </Link>
         </li>
       ))}
@@ -151,7 +152,7 @@ export function AreaHero({
         offered={offered}
         lead={lead}
         onSwitch={current.length > 1 ? switchTrip : undefined}
-        onAnotherPlace={edit ? () => edit("where") : undefined}
+        onAnotherPlace={edit ? () => edit("where", { trip: trip.id }) : undefined}
       />
     );
   // A trip with something here leads the banner: the guest has chosen the place, so its name
@@ -163,14 +164,16 @@ export function AreaHero({
         title={
           <h1
             data-testid="area-title-small"
+            // `card` glass, as PageBanner's eyebrow: the top of the photo is its lightest part.
+            // One line at any width: the name keeps whole and the region gives way (a 330px phone).
             className={cn(
-              glassClasses("dark"),
-              "flex items-center gap-2 self-start rounded-full px-3.5 py-1.5 text-sm font-semibold",
+              glassClasses("card"),
+              "flex max-w-full min-w-0 items-center gap-2 self-start rounded-full px-3.5 py-1.5 text-sm font-semibold",
             )}
           >
             <span aria-hidden className="size-2 shrink-0 rounded-full bg-mint" />
-            {areaName}
-            <span className="font-normal text-sky-mist">· {banner.eyebrow}</span>
+            <span className="shrink-0 whitespace-nowrap">{areaName}</span>
+            <span className="min-w-0 truncate font-normal text-sky-mist">· {banner.eyebrow}</span>
           </h1>
         }
       >
@@ -214,7 +217,7 @@ export function AreaHero({
                     ? `Choose the trip to work on, or your first add here asks which. You have ${current.length === 1 ? "one trip" : `${current.length} trips`}.`
                     : isGuest
                       ? "Add what you need, then book it all from your trip."
-                      : "Add what you need, then book it all from your trip. You sign in when you add; saving is free."}
+                      : "Add what you need, then book it all from your trip. Saving is free, no account needed."}
                 </p>
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -223,21 +226,15 @@ export function AreaHero({
                     type="button"
                     onClick={switchTrip}
                     data-testid="trip-choose"
-                    className="flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-semibold text-sky-pale transition-colors duration-300 ease-calm hover:bg-glass-hover hover:text-white"
+                    className="flex min-h-11 shrink-0 items-center gap-2 rounded-button px-4 text-sm font-semibold text-sky-pale transition-colors duration-300 ease-calm hover:bg-glass-hover hover:text-white"
                   >
                     {chosen === "new" ? "Choose a trip instead" : "Choose a trip"}
                   </button>
                 )}
-                <a
-                  href="#listings"
-                  data-testid="trip-lead-next"
-                  className="flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-glass-edge bg-glass-fill px-4 text-sm font-semibold text-white transition-colors duration-300 ease-calm hover:bg-glass-hover"
-                >
+                <ButtonLink href="#listings" variant="frosted" size="touch" data-testid="trip-lead-next" className="shrink-0">
                   See what to book
-                  <span aria-hidden className="text-sky-pale">
-                    ↓
-                  </span>
-                </a>
+                  <ArrowGlyph className="size-4 rotate-90 text-sky-pale" />
+                </ButtonLink>
               </div>
             </div>
           )}
@@ -313,7 +310,8 @@ const COMPACT_ONLY = "hidden max-search:flex fold:flex";
 // The trip's places (tripPlaces) as chips, each a link to that place's page on the trip's own
 // dates, so a trip in Bantayan and Cebu City hops between them in one tap rather than a search
 // each way; "+ Another place" opens the search on Where (`onAnotherPlace`). Compact, they show
-// only for a trip in more than one place, in a sideways row under the slim one. This place's
+// in a sideways row under the slim one, "+ Another place" last, so a phone has a way to add a
+// place from the trip too, not only the header's search. This place's
 // chip, while the trip has something here, opens HereItemsSheet: change a date or remove an add
 // without going to the cart (shown at every width then, as it is the only way in on a phone).
 // A trip only in this place shows no chip for it: its rows (HereItemRows) name what it has here
@@ -340,7 +338,6 @@ function TripNotice({
   const closeEditing = useCallback(() => setEditing(false), []);
   const tripHere = tripPlaces(trip);
   const dated = tripOwnQuery(trip);
-  const missing = missingHere(trip, places, offered);
   // The phone row's count: the plan button's (stillMissing), so the two never disagree.
   const toSort = stillMissing(planGaps(trip, places, offered, []));
   const hereItems = trip.items.filter((item) => places.includes(item.area.slug));
@@ -363,7 +360,9 @@ function TripNotice({
   const autoNamed = Boolean(range && trip.name.endsWith(` · ${range}`));
   const shortName = autoNamed && range ? range : trip.name;
   // The rows name what it has here, so the count stays only to share a trip out between places.
+  // Leading the banner, the line says whose it is ("Your trip · 8 guests"), in place of an eyebrow.
   const parts = [
+    lead && "Your trip",
     !(range && trip.name.includes(range)) && (range ?? "No dates yet"),
     guestsLabel(trip.guests),
     (!onlyHere || items === 0) && here,
@@ -372,14 +371,17 @@ function TripNotice({
   // The link opens the trip in the cart, where it's booked: while anything in it can still be
   // booked that's the next step, so it says so; once all of it is booked it only shows the trip.
   const toBook = trip.items.some(bookable);
-  const open = (
-    <>
-      {toBook ? "Checkout" : "View trip"}
-      <span aria-hidden className="text-sky-pale">
-        →
-      </span>
-    </>
-  );
+  const openLabel = toBook ? "Checkout" : "View trip";
+  // The wide card names the first gap here (a stay or the transfer) as a link to its section and
+  // counts the rest as "N more in your plan", which opens it, so the line and the plan always add
+  // up to one number.
+  // Gaps beyond the stay and transfer the checklist shows (an item to replace, an undated one).
+  const others = toSort.filter((gap) => !["stay", "transfer"].includes(gapGroup(gap) ?? "")).length;
+  // The phone row's second line, also the start of its accessible name (WCAG 2.5.3).
+  const rowNote =
+    toSort.length === 1 ? `Needs ${missingNoun(toSort[0])}` : toSort.length > 1 ? `${toSort.length} missing` : "Your plan";
+  const linkStyle =
+    "tap-target whitespace-nowrap text-sky-pale underline decoration-sky-pale/40 underline-offset-4 hover:text-white hover:decoration-white";
   return (
     <>
       <div
@@ -388,18 +390,16 @@ function TripNotice({
         className={cn(
           glassClasses("forest"),
           // As wide as what it holds, so Checkout sits by the trip rather than across the banner.
-          "flex w-fit max-w-full flex-wrap items-center justify-between gap-x-10 gap-y-2 rounded-card px-4 py-3 sm:px-5",
+          // Actions at the top, beside the trip's name, rather than floating mid-card.
+          "flex w-fit max-w-full flex-wrap items-start justify-between gap-x-10 gap-y-2 rounded-card px-4 py-3 sm:px-5",
           WIDE_ONLY,
         )}
       >
         <div className="min-w-0">
           {lead ? (
-            <>
-              <p className="text-small font-semibold tracking-wide text-sky-mist uppercase">Your trip</p>
-              <h2 className="mt-0.5 font-display text-2xl leading-tight font-extrabold tracking-tight text-balance sm:text-3xl">
-                {trip.name}
-              </h2>
-            </>
+            <h2 className="font-display text-2xl leading-tight font-extrabold tracking-tight text-balance sm:text-3xl">
+              {trip.name}
+            </h2>
           ) : (
             <h2 className="font-display text-lg leading-tight font-extrabold tracking-tight text-balance">
               Your trip: {trip.name}
@@ -425,52 +425,35 @@ function TripNotice({
               className="mt-2 flex-wrap"
             />
           )}
-          {missing.length > 0 && (
-            <p data-testid="trip-missing" className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-              <span className="flex items-center gap-2 font-semibold">
-                <span aria-hidden className="size-2 shrink-0 rounded-full bg-warning-tint" />
-                Still missing:
-              </span>
-              {missing.map((gap, index) => (
-                <Fragment key={`${gap.kind}-${index}`}>
-                  {index > 0 && (
-                    <span aria-hidden className="text-sky-mist">
-                      ·
-                    </span>
-                  )}
-                  <a
-                    href={missingAnchor(gap)}
-                    className="whitespace-nowrap text-sky-pale underline decoration-sky-pale/40 underline-offset-4 hover:text-white hover:decoration-white"
-                  >
-                    {missingText(gap)}
-                  </a>
-                </Fragment>
-              ))}
-            </p>
-          )}
+          {/* What the trip can't do without here, ticking as the guest adds (a hint, never a step
+              to finish), then anything else the plan lists, counted into it, so the two add up to
+              the plan button's one number (stillMissing). */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+            <TripNeeds trip={trip} places={places} offered={offered} />
+            {others > 0 && (
+              <button type="button" onClick={openPlan} aria-haspopup="dialog" data-testid="trip-missing-more" className={linkStyle}>
+                {`${thingCount(others)} more in your plan`}
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Link
-            href={href}
-            data-testid="trip-notice-open"
-            className="flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-glass-edge bg-glass-fill px-4 text-sm font-semibold text-white transition-colors duration-300 ease-calm hover:bg-glass-hover"
-          >
-            {open}
-          </Link>
-          <button
-            type="button"
-            onClick={openPlan}
-            aria-haspopup="dialog"
-            data-testid="trip-plan-open-wide"
-            aria-label={toSort.length > 0 ? `Your plan: ${toSort.length} missing` : undefined}
-            className="flex min-h-11 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold text-sky-pale transition-colors duration-300 ease-calm hover:bg-glass-hover hover:text-white"
-          >
-            <ListGlyph className="size-4" />
-            Your plan
-            {toSort.length > 0 && (
-              <span className="rounded-full bg-warning-tint px-2 py-0.5 text-xs text-navy tabular-nums">{toSort.length}</span>
-            )}
-          </button>
+          <ButtonLink href={href} variant="frosted" size="touch" arrow data-testid="trip-notice-open" className="shrink-0">
+            {openLabel}
+          </ButtonLink>
+          {/* The plan's way in while nothing is missing; otherwise the Still missing line opens it. */}
+          {toSort.length === 0 && (
+            <button
+              type="button"
+              onClick={openPlan}
+              aria-haspopup="dialog"
+              data-testid="trip-plan-open-wide"
+              className="flex min-h-11 shrink-0 items-center gap-2 rounded-button px-3 text-sm font-semibold text-sky-pale transition-colors duration-300 ease-calm hover:bg-glass-hover hover:text-white"
+            >
+              <ListGlyph className="size-4" />
+              Your plan
+            </button>
+          )}
           {onSwitch && (
             <button
               type="button"
@@ -490,63 +473,61 @@ function TripNotice({
           type="button"
           onClick={openPlan}
           aria-haspopup="dialog"
-          aria-label={`Your plan: ${trip.name}${toSort.length > 0 ? `, ${toSort.length} missing` : ""}`}
+          aria-label={`${shortName}, ${rowNote}${rowNote === "Your plan" ? "" : ": your plan"}`}
           data-testid="trip-plan-open"
           className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-l-card py-1 pr-2 pl-3 text-left transition-colors duration-300 ease-calm hover:bg-glass-hover"
         >
           <span
             aria-hidden
-            className={cn("size-2 shrink-0 rounded-full", toSort.length > 0 ? "bg-warning-tint" : "bg-mint")}
+            className={cn("size-2 shrink-0 rounded-full", toSort.length > 0 ? "bg-sky-pale" : "bg-mint")}
           />
           {/* Its name, as a guest with trips may switch here, then what it lacks, when anything,
               rather than its count here: a phone has room for one. */}
           <span className="flex min-w-0 flex-col leading-tight">
             <span className="truncate font-semibold">{shortName}</span>
             <span className="flex min-w-0 items-center gap-1 text-small text-sky-mist">
-              <span className="truncate">
-                {toSort.length === 1 ? `Needs ${missingNoun(toSort[0])}` : toSort.length > 1 ? `${toSort.length} missing` : "Your plan"}
-              </span>
+              <span className="truncate">{rowNote}</span>
               <ArrowGlyph className="size-3 shrink-0 text-sky-pale" />
             </span>
           </span>
         </button>
         <Link
           href={href}
-          aria-label={`${toBook && !onSwitch ? "Checkout" : "View your trip"}: ${trip.name}`}
+          // Its name starts with the words it shows (WCAG 2.5.3): "View" beside Switch, else its label.
+          aria-label={`${onSwitch ? "View trip" : openLabel}: ${trip.name}`}
           data-testid="trip-notice-compact"
-          className="flex min-h-11 shrink-0 items-center gap-2 border-l border-glass-edge px-4 font-semibold transition-colors duration-300 ease-calm hover:bg-glass-hover"
-        >
-          {onSwitch ? (
-            <>
-              View
-              <span aria-hidden className="text-sky-pale">
-                →
-              </span>
-            </>
-          ) : (
-            open
+          // The last control rounds its right end to the row's, so its hover fill keeps the row's shape.
+          className={cn(
+            "flex min-h-11 shrink-0 items-center gap-2 border-l border-glass-edge px-4 font-semibold transition-colors duration-300 ease-calm hover:bg-glass-hover",
+            !onSwitch && "rounded-r-card",
           )}
+        >
+          {onSwitch ? "View" : openLabel}
+          <ArrowGlyph className="size-4 text-sky-pale" />
         </Link>
         {onSwitch && (
           <button
             type="button"
             onClick={onSwitch}
             data-testid="trip-switch-compact"
-            className="min-h-11 shrink-0 border-l border-glass-edge px-4 font-semibold text-sky-pale hover:text-white"
+            className="min-h-11 shrink-0 rounded-r-card border-l border-glass-edge px-4 font-semibold text-sky-pale transition-colors duration-300 ease-calm hover:bg-glass-hover hover:text-white"
           >
             Switch
           </button>
         )}
       </div>
-      {(tripHere.length > 1 || items > 0) && (
+      {(tripHere.length > 1 || items > 0 || onAnotherPlace) && (
         <PlaceChips
           tripPlaces={tripHere}
           places={places}
           dated={dated}
           onEditHere={editHere}
           hereLabel={onlyHere ? hereNames : undefined}
+          onAnotherPlace={onAnotherPlace}
           data-testid="trip-places-compact"
-          className={cn(COMPACT_ONLY, "-my-1 overflow-x-auto py-1 [scrollbar-width:none]")}
+          // Swiped on a phone: the right edge fades, as on the counts row (CHIP_ROW), so a cut chip
+          // reads as more to come, and the end padding lets the last clear it.
+          className={cn(COMPACT_ONLY, "-my-1 overflow-x-auto py-1 pr-8 [scrollbar-width:none] [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)]")}
         />
       )}
       {editing && <HereItemsSheet trip={trip} places={places} placeName={placeName} onClose={closeEditing} />}
@@ -557,12 +538,15 @@ function TripNotice({
 // What the trip has in this place, one row each: its photo, name, days and Edit, which opens
 // HereItemsSheet (change a date, remove). A booked one says so and links to the trip, where its
 // booking is managed. Two rows at most, then "+ N more here", so a long trip doesn't push What to
-// book off the first screen.
+// book off the first screen; one in a window under 50rem tall (`tablet-fold`: a 1024×768 tablet
+// on its side, where two left What to book's heading at the very foot).
 const ROWS_SHOWN = 2;
 
 function HereItemRows({ items, tripHref: href, onEdit }: { items: TripItem[]; tripHref: string; onEdit: () => void }) {
   const more = items.length - ROWS_SHOWN;
-  const link = "text-sm font-semibold text-sky-pale underline decoration-sky-pale/40 underline-offset-4 hover:text-white hover:decoration-white";
+  const moreShort = items.length - 1;
+  const link =
+    "tap-target text-sm font-semibold text-sky-pale underline decoration-sky-pale/40 underline-offset-4 hover:text-white hover:decoration-white";
   return (
     <ul aria-label="In your trip here" data-testid="trip-here-items" className="mt-2.5 flex w-full max-w-md flex-col gap-1.5 sm:w-md">
       {items.slice(0, ROWS_SHOWN).map((item, index) => {
@@ -572,15 +556,19 @@ function HereItemRows({ items, tripHref: href, onEdit }: { items: TripItem[]; tr
           <li
             key={item.id}
             data-testid="trip-here-item"
-            className="flex items-center gap-3 rounded-control border border-glass-edge bg-glass-fill py-1.5 pr-3 pl-1.5"
+            className={cn(
+              "flex items-center gap-3 rounded-control border border-glass-edge bg-glass-fill py-1.5 pr-3 pl-1.5",
+              index > 0 && "tablet-fold:hidden",
+            )}
           >
+            {/* The row's radius less its 6px inset. */}
             <Image
               src={photo.src}
               alt=""
               width={44}
               height={44}
               unoptimized={isApiPhoto(photo.src)}
-              className="size-11 shrink-0 rounded-[0.6rem] object-cover"
+              className="size-11 shrink-0 rounded-md object-cover"
             />
             <span className="flex min-w-0 flex-1 flex-col leading-tight">
               <span className="truncate font-semibold">{item.listing.title}</span>
@@ -598,7 +586,7 @@ function HereItemRows({ items, tripHref: href, onEdit }: { items: TripItem[]; tr
                 aria-haspopup="dialog"
                 onClick={onEdit}
                 data-testid="trip-here-edit"
-                className="tap-target flex min-h-9 shrink-0 items-center rounded-full border border-glass-edge px-3.5 text-sm font-semibold text-white transition-colors duration-300 ease-calm hover:bg-glass-hover"
+                className="tap-target flex min-h-9 shrink-0 items-center rounded-chip border border-white/40 px-3.5 text-sm font-semibold text-white transition-colors duration-300 ease-calm hover:bg-glass-hover"
               >
                 Edit<span className="sr-only"> {item.listing.title}</span>
               </button>
@@ -606,10 +594,11 @@ function HereItemRows({ items, tripHref: href, onEdit }: { items: TripItem[]; tr
           </li>
         );
       })}
-      {more > 0 && (
-        <li>
+      {moreShort > 0 && (
+        <li className={cn(more <= 0 && "hidden tablet-fold:block")}>
           <button type="button" aria-haspopup="dialog" onClick={onEdit} data-testid="trip-here-more" className={link}>
-            + {more} more here · See all
+            <span className="tablet-fold:hidden">+ {more}</span>
+            <span className="hidden tablet-fold:inline">+ {moreShort}</span> more here · See all
           </button>
         </li>
       )}
@@ -641,7 +630,6 @@ function PlaceChips({
   className?: string;
   "data-testid"?: string;
 }) {
-  const chip = "tap-target flex min-h-9 shrink-0 items-center gap-2 rounded-full border px-3 text-sm whitespace-nowrap";
   return (
     <ul aria-label="Places in this trip" data-testid={testId} className={cn("flex items-center gap-2", className)}>
       {list.map((place) => {
@@ -652,61 +640,44 @@ function PlaceChips({
           ) : (
             <>
               {place.name}
-              <span className={here ? "text-sky-mist" : "text-sky-pale/80"}>{place.count}</span>
+              <span className={here ? "text-muted" : "text-sky-pale/80"}>{place.count}</span>
             </>
           );
         return (
           <li key={place.slug} className="shrink-0">
             {here && onEditHere ? (
-              <button
-                type="button"
+              <Pill
+                tone="glass"
+                on
                 aria-haspopup="dialog"
                 aria-current="page"
                 onClick={onEditHere}
                 data-testid="trip-place-edit"
-                className={cn(
-                  chip,
-                  "border-sky-pale bg-glass-fill font-semibold text-white transition-colors duration-300 ease-calm hover:bg-glass-hover",
-                )}
               >
-                <span aria-hidden className="size-1.5 rounded-full bg-mint" />
+                <span aria-hidden className="size-1.5 rounded-full bg-primary" />
                 {label}
-                <span className="font-normal text-sky-pale underline decoration-sky-pale/40 underline-offset-4">Edit</span>
-              </button>
+                <span className="font-semibold text-link underline underline-offset-4">Edit</span>
+              </Pill>
             ) : here ? (
-              <span aria-current="page" className={cn(chip, "border-sky-pale bg-glass-fill font-semibold text-white")}>
-                <span aria-hidden className="size-1.5 rounded-full bg-mint" />
+              <span aria-current="page" className={pillClasses({ tone: "glass", on: true })}>
+                <span aria-hidden className="size-1.5 rounded-full bg-primary" />
                 {label}
               </span>
             ) : (
-              <Link
-                href={`/${place.slug}${dated}`}
-                prefetch
-                className={cn(
-                  chip,
-                  "border-glass-edge text-sky-pale transition-colors duration-300 ease-calm hover:bg-glass-hover hover:text-white",
-                )}
-              >
+              <PillLink tone="glass" href={`/${place.slug}${dated}`} prefetch>
                 {label}
-                <span aria-hidden>→</span>
-              </Link>
+                <ArrowGlyph className="size-4" />
+              </PillLink>
             )}
           </li>
         );
       })}
       {onAnotherPlace && (
         <li className="shrink-0">
-          <button
-            type="button"
-            onClick={onAnotherPlace}
-            data-testid="trip-another-place"
-            className={cn(
-              chip,
-              "border-dashed border-glass-edge text-sky-mist transition-colors duration-300 ease-calm hover:bg-glass-hover hover:text-white",
-            )}
-          >
+          {/* Dashed: a place the trip doesn't have yet. */}
+          <Pill tone="glass" onClick={onAnotherPlace} data-testid="trip-another-place" className="border-dashed">
             + Another place
-          </button>
+          </Pill>
         </li>
       )}
     </ul>

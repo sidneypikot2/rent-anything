@@ -2,7 +2,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { cn } from "./cn";
 
 // A checkbox with its label beside it: "Guide included". `aside` sits at the far end, muted:
-// a filter's count.
+// a filter's count. The whole row is the tap target, 44px tall.
 export function CheckboxField({
   label,
   aside,
@@ -10,8 +10,8 @@ export function CheckboxField({
   ...props
 }: { label: string; aside?: ReactNode } & Omit<ComponentProps<"input">, "type">) {
   return (
-    <label className={cn("flex items-center gap-2 text-sm font-medium", className)}>
-      <input type="checkbox" className="size-4 shrink-0 rounded border-line-strong accent-primary" {...props} />
+    <label className={cn("flex min-h-11 items-center gap-3 text-sm font-medium", className)}>
+      <input type="checkbox" className="size-5 shrink-0 rounded border-line-strong accent-primary" {...props} />
       {label}
       {aside !== undefined && <span className="ml-auto pl-2 text-muted tabular-nums">{aside}</span>}
     </label>

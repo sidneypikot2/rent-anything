@@ -27,7 +27,7 @@ export function AreaTripBand({ areaName, places }: { areaName: string; places: s
     action: "Choose what to book",
   };
 
-  // A forest band over a photo (RAA-130): green marks trips, the button on it stays blue.
+  // A trip band over a photo (the band token): its button is the white one, as on every band.
   return (
     <section
       aria-label="Your trip"
@@ -38,12 +38,12 @@ export function AreaTripBand({ areaName, places }: { areaName: string; places: s
       )}
     >
       <Image src={BAND_PHOTO} alt="" fill sizes="(min-width: 72rem) 72rem, 100vw" className="-z-20 object-cover" />
-      <div aria-hidden className="absolute inset-0 -z-10 bg-forest/92" />
+      <div aria-hidden className="absolute inset-0 -z-10 band-fill" />
       <div>
         <h2 className="font-display text-band leading-[1.1] font-extrabold tracking-tight text-balance">{band.title}</h2>
         <p className="mt-2 max-w-lede text-pretty text-sky-mist">{band.body}</p>
       </div>
-      <ButtonLink href={band.href} arrow className="shrink-0 sm:whitespace-nowrap">
+      <ButtonLink href={band.href} variant="paper" arrow className="shrink-0 sm:whitespace-nowrap">
         {band.action}
       </ButtonLink>
     </section>

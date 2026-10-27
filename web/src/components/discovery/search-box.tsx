@@ -33,7 +33,7 @@ import { countLine, groupDestinations, withSubAreas } from "./cards";
 import { NoMatches } from "./no-matches";
 import { listingNote } from "./categories";
 import { areaIcon, categoryIcon, placeIcon, tagIcon } from "./icons";
-import { ArrowGlyph, ChevronGlyph, CloseGlyph, SearchGlyph } from "./tag-glyphs";
+import { ChevronGlyph, CloseGlyph, SearchGlyph } from "./tag-glyphs";
 import { guestsLabel, thingCount } from "@/components/trips/format";
 
 const MIN_LENGTH = 2;
@@ -94,6 +94,7 @@ export function SearchBox({
   sheet = false,
   here,
   request,
+  onLeave,
   onDone,
 }: {
   request?: { panel: "where" | "when" | "guests"; n: number };
@@ -103,10 +104,20 @@ export function SearchBox({
   bar?: boolean;
   sheet?: boolean;
   here?: { name: string; href: string; area: string };
+  // Called with where the search is about to go (`own`: one of the shown trip's places), so
+  // the header can say whether the trip goes along (search-bar.tsx).
+  onLeave?: (href: string, own: boolean) => void;
   // Called once the search has been sent, so a sheet holding it can close.
   onDone?: () => void;
 }) {
-  const router = useRouter();
+  const nextRouter = useRouter();
+  // Every way the search leaves the page, told to `onLeave` first.
+  const router = {
+    push(href: string, options?: { scroll?: boolean }, own = false) {
+      onLeave?.(href, own);
+      nextRouter.push(href, options);
+    },
+  };
   const [text, setText] = useState(hero ? LAUNCH_AREA.name : initialQuery);
   const [query, setQuery] = useState("");
   const [panel, setPanel] = useState<Panel>(null);
@@ -213,16 +224,18 @@ export function SearchBox({
   const { trip: hereTrip } = useTripHere(hereArea ? [hereArea.slice(1)] : []);
   const workingTrip = hereArea ? hereTrip : undefined;
   // The trip's places lead while Where holds nothing typed: empty, or still the page's own name,
-  // which it opens with on a place's page.
+  // which it opens with on a place's page. Then the destinations, as before typing: the page's
+  // name isn't a search ("Things to book matching Bantayan Island" on Bantayan Island).
+  const untyped = !enabled || query === hereName;
   const items = useMemo(() => {
-    const own = !enabled || query === hereName ? tripPlaceItems(workingTrip, hereArea, areas) : [];
-    const rest = !enabled
+    const own = untyped ? tripPlaceItems(workingTrip, hereArea, areas) : [];
+    const rest = untyped
       ? popularItems(areas)
       : data
         ? suggestionItems(data, query, hereName && hereArea ? { name: hereName, area: hereArea } : undefined)
         : [];
     return [...own, ...rest];
-  }, [enabled, data, query, areas, hereName, hereArea, workingTrip]);
+  }, [untyped, data, query, areas, hereName, hereArea, workingTrip]);
   // Where the hero's Search takes what was typed and not picked, by what it matched: from the
   // results on screen, or (`fetch`, on Search pressed before they came) fetched first.
   const queryClient = useQueryClient();
@@ -254,7 +267,7 @@ export function SearchBox({
     if (item.go) {
       setPanel(null);
       // A trip's place opens on the trip's own dates and guests, already in its href.
-      router.push(item.own ? item.href : withDates(item.href, carry));
+      router.push(item.own ? item.href : withDates(item.href, carry), undefined, Boolean(item.own));
       onDone?.();
       return;
     }
@@ -700,11 +713,12 @@ export function SearchBox({
             <Button
               type="submit"
               size="pill"
+              // The button's own arrow, so it takes the same yellow as every main button's icon.
+              arrow
               data-testid="search-submit"
-              className="group/go shrink-0 gap-2 max-search:order-7 max-search:mt-1 search:self-center"
+              className="shrink-0 gap-2 max-search:order-7 max-search:mt-1 search:self-center"
             >
               Search
-              <ArrowGlyph className="size-4.5 transition-transform duration-300 ease-calm motion-safe:group-hover/go:translate-x-0.5" />
             </Button>
           )}
         </div>
@@ -828,7 +842,7 @@ function PanelActions({ onClear, onDone }: { onClear?: () => void; onDone: () =>
         <button
           type="button"
           onClick={onClear}
-          className="mr-auto rounded-control px-3 py-2 font-medium text-link hover:bg-surface-2"
+          className="mr-auto rounded-control px-3 py-2 font-medium text-primary hover:bg-surface-2"
         >
           Clear dates
         </button>
@@ -1089,7 +1103,7 @@ function Suggestions({
                   className={cn(
                     "group/option flex min-h-12 w-full items-center gap-3 rounded-control px-2.5 py-1.5 text-left transition-colors duration-200 ease-calm hover:bg-mist",
                     index === active && "bg-mist",
-                    !item.group && "min-h-11 text-sm font-semibold text-link",
+                    !item.group && "min-h-11 text-sm font-semibold text-primary",
                   )}
                 >
                   {item.group ? (

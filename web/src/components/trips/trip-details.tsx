@@ -1,14 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
 import { CANCELLATION_POLICY } from "@/components/bookings/cancellation";
 import { checkoutLabel } from "@/components/bookings/checkout-sheet";
 import { payable, payBy, payTotal } from "@/components/bookings/pay-sheet";
-import { CategoryGlyph } from "@/components/discovery/tag-glyphs";
-import { isApiPhoto } from "@/components/landing/sample-photos";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,6 +14,7 @@ import { Pill } from "@/components/ui/pill";
 import { bookingProgress } from "./cart-trip-nav";
 import { DeletionBanner } from "./deletion-banner";
 import type { EditFocus } from "./edit-trip-sheet";
+import { ItemThumb } from "./item-thumb";
 import { formatDateRange, guestCount, itemCount, todayIso } from "./format";
 import { TripItinerary } from "./trip-itinerary";
 import { tripDatesQuery } from "./trip-dates";
@@ -510,7 +508,6 @@ function ItemCard({
 }) {
   const dates = formatDateRange(item.starts_on, item.ends_on);
   const booking = item.booking;
-  const photo = item.listing.cover_photo_url;
   const policy = CANCELLATION_POLICY[item.cancellation_policy];
 
   return (
@@ -530,22 +527,7 @@ function ItemCard({
             className="relative z-10 size-5 shrink-0 rounded border-line-strong accent-primary"
           />
         )}
-        <div className="size-16 shrink-0 overflow-hidden rounded-control bg-mist">
-          {photo ? (
-            <Image
-              src={photo}
-              alt=""
-              width={128}
-              height={128}
-              unoptimized={isApiPhoto(photo)}
-              className="size-full object-cover"
-            />
-          ) : (
-            <span className="flex size-full items-center justify-center text-primary">
-              <CategoryGlyph name={item.listing.category} className="size-7" />
-            </span>
-          )}
-        </div>
+        <ItemThumb item={item} />
         <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <button

@@ -7,3 +7,10 @@ export const BRAND_PARTS = ["TripKo", "Next"] as const;
 export const BRAND = BRAND_PARTS.join("");
 // No trailing period: add punctuation where text follows it.
 export const TAGLINE = "Your Whole Trip in One Cart";
+
+// Our social accounts, linked from the guest footer.
+export const SOCIALS = {
+  facebook: "https://www.facebook.com/profile.php?id=61591923239500",
+  instagram: "https://www.instagram.com/tripkonext",
+  tiktok: "https://www.tiktok.com/@tripkonext",
+} as const;

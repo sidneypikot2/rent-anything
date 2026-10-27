@@ -19,7 +19,7 @@ export default function GuestLayout({ children }: { children: ReactNode }) {
       <SiteBackdrop />
       <CurrentPlaceProvider>
         <SectionHeader section="guest" />
-        <div id="content" tabIndex={-1} className="flex flex-1 flex-col outline-none">
+        <div id="content" data-section="guest" tabIndex={-1} className="flex flex-1 flex-col outline-none">
           {children}
         </div>
       </CurrentPlaceProvider>

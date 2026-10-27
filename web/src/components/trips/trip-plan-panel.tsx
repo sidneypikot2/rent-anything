@@ -7,9 +7,10 @@ import { AlertGlyph, CalendarGlyph, CategoryGlyph, TickGlyph } from "@/component
 import { cn } from "@/components/ui/cn";
 import { GETTING_HERE, tripHref } from "@/components/landing/launch-area";
 import { Dialog } from "@/components/ui/dialog";
-import { formatDateRange } from "@/lib/dates";
+import { formatDateRange, localTodayIso } from "@/lib/dates";
 import { guestCount, guestsLabel } from "./format";
 import { ItemEditSheet } from "./item-edit-sheet";
+import { ItemThumb } from "./item-thumb";
 import { closePlan, setPlanSummary, usePlanOpen } from "./plan-open";
 import { isIdea, PLAN_NEEDS, planGaps, stillMissing, type PlanGap, type Sight } from "./trip-missing";
 import { GettingHereCard, Ideas, jumpTo, LINK, PlanDays } from "./trip-plan-days";
@@ -64,7 +65,8 @@ export function TripPlan({
     (group) => group.need && offered.includes(group.group) && has.has(group.group) && !(group.group === "stay" && gaps.some((gap) => gap.kind === "stay")),
   );
   const range = formatDateRange(trip.starts_on, trip.ends_on);
-  const plan = tripPlan(trip, gaps);
+  // The traveller's own day, not UTC's: in Manila yesterday is done from midnight.
+  const plan = tripPlan(trip, gaps, localTodayIso());
   const gettingHere = places.map((slug) => GETTING_HERE[slug]).find(Boolean);
   const row = (gap: PlanGap) => <GapRow key={gapKey(gap)} gap={gap} guests={trip.guests} then={then} onDate={setDating} />;
   return (
@@ -156,12 +158,16 @@ function GapRow({
   then: (action: () => void) => () => void;
   onDate: (item: TripItem) => void;
 }) {
-  const icon =
+  // A gap about one item shows that item, its kind of trouble on the corner; the rest an icon.
+  const thumb =
     gap.kind === "unavailable" ? (
-      <AlertGlyph className="size-5 text-warning" />
+      <ItemThumb item={gap.item} size="sm" badge={<AlertGlyph className="size-3.5 text-warning" />} />
     ) : gap.kind === "undated" ? (
-      <CalendarGlyph className="size-5" />
-    ) : (
+      <ItemThumb item={gap.item} size="sm" badge={<CalendarGlyph className="size-3 text-primary" />} />
+    ) : gap.kind === "tour-guests" ? (
+      <ItemThumb item={gap.item} size="sm" />
+    ) : null;
+  const icon = (
       <CategoryGlyph
         name={
           gap.kind === "need"
@@ -175,12 +181,15 @@ function GapRow({
     );
   return (
     <li className="flex gap-3 rounded-control border border-line p-3" data-testid="trip-plan-gap">
-      <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-xl bg-mist text-primary">
-        {icon}
-      </span>
+      {thumb ?? (
+        <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-xl bg-mist text-primary">
+          {icon}
+        </span>
+      )}
       <div className="flex min-w-0 flex-col items-start gap-0.5 text-sm">
         <GapText gap={gap} guests={guests} />
-        <span className="mt-1 flex flex-wrap gap-x-4">
+        {/* gap-y-3 keeps wrapped links' 44px hit areas apart. */}
+        <span className="mt-1 flex flex-wrap gap-x-4 gap-y-3">
           {gap.kind === "need" && (
             <button type="button" onClick={then(() => jumpTo(sectionOf(gap.group)))} className={LINK}>
               {NEED_ACTION[gap.group]}
@@ -273,7 +282,11 @@ function SightLinks({ sights, then }: { sights: Sight[]; then: (action: () => vo
         </button>
       ))}
       {!all && sights.length > FIRST_SIGHTS && (
-        <button type="button" onClick={() => setAll(true)} className="text-muted underline-offset-4 hover:underline">
+        <button
+          type="button"
+          onClick={() => setAll(true)}
+          className="relative text-muted underline-offset-4 after:absolute after:-inset-x-2 after:-inset-y-3 after:content-[''] hover:underline"
+        >
           +{sights.length - FIRST_SIGHTS} more
         </button>
       )}

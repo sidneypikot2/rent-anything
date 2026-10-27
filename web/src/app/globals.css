@@ -16,6 +16,20 @@
   --color-mist: #f0f9ff;
   --color-sage: #ecfdf3;
   --color-navy: #0f172a;
+  /* Direction C: an ink button lightens one step on hover; facts sit on a flat grey tag. */
+  --color-ink-hover: #1e293b;
+  --color-tag: #f1f5f9;
+  /* Lagoon: the shallow water off Bantayan, and its ink the one action colour on guest pages.
+     White on lagoon is 5.9:1 and on lagoon ink 9.1:1; lagoon ink on its tint is 8.3:1. Sun is the
+     warm touch, only for the icon on a main button (7.5:1 on lagoon ink). */
+  --color-lagoon: #0e6f78;
+  --color-lagoon-hover: #0b5a62;
+  --color-lagoon-tint: #e3f5f4;
+  --color-lagoon-ink: #0a4f4c;
+  --color-sun: #fde68a;
+  /* A disabled button on guest pages: a flat muted pill (its text 4.0:1, exempt as disabled). */
+  --color-disabled: #e7e3dc;
+  --color-disabled-ink: #6f695f;
   /* Bands and glass on photos. White on forest is 10.2:1. */
   --color-forest: #14532d;
   --color-sky-deep: #0369a1;
@@ -98,6 +112,9 @@
   --radius-control: 0.75rem;
   --radius-card: 1.5rem;
   --radius-frame: 2rem;
+  /* Buttons and chips are squarer than fields on partner and admin pages; pills on guest pages. */
+  --radius-button: 0.625rem;
+  --radius-chip: 0.625rem;
 
   /* Elevation: soft for cards at rest, lift for hover and open panels, float for things over
      a photo (the header, the search bar). */
@@ -120,6 +137,35 @@
   --animate-land: land 0.6s var(--ease-calm) both;
   /* A dropdown opening (the search's suggestions): quicker than an arrival, as it answers a tap. */
   --animate-drop-in: drop-in 0.3s var(--ease-calm) both;
+  /* What to book's sections when another filter is picked: the new rows ease in, one after
+     another, quick enough to answer the tap. */
+  --animate-swap-in: swap-in 0.4s var(--ease-calm) both;
+  @keyframes swap-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+  /* A need the trip just covered (TripNeeds): its chip pops once, with a mint ring fading out. */
+  --animate-tick: tick 0.7s var(--ease-calm) both;
+  @keyframes tick {
+    0% {
+      transform: scale(0.85);
+      box-shadow: 0 0 0 0 rgb(134 239 172 / 0.7);
+    }
+    55% {
+      transform: scale(1.06);
+      box-shadow: 0 0 0 6px rgb(134 239 172 / 0);
+    }
+  }
+  /* A row just added to the trip: a ring in the action colour that fades into its own shadow. */
+  @keyframes just-added {
+    from {
+      box-shadow:
+        0 0 0 3px var(--color-lagoon-tint),
+        0 0 0 4px var(--color-lagoon-ink);
+    }
+  }
   @keyframes drop-in {
     from {
       opacity: 0;
@@ -178,6 +224,9 @@
 /* A laptop window (under 47.5rem tall): banners tighten their gaps so they still fit the first
    screen (RAA-125). */
 @custom-variant fold (@media (max-height: 47.5rem));
+/* Just over fold: a tablet on its side (1024×768) or a laptop's browser window. Wide layouts
+   that would fill the first screen trim to their essentials here. */
+@custom-variant tablet-fold (@media (max-height: 50rem));
 
 :root {
   @media (width >= 40rem) {
@@ -214,6 +263,16 @@
    recipe, so they always match. Unblurred (see the frame tone in glass.tsx). */
 @utility glass-frame {
   @apply border border-glass-edge bg-white/5 inset-shadow-xs inset-shadow-white/25;
+}
+
+.just-added > div {
+  animation: just-added 1.8s var(--ease-calm);
+}
+
+/* A trip band's fill (the trip card, the closing bands, the footer box): the band colour at a
+   dense tint over the photo. */
+@utility band-fill {
+  background-color: color-mix(in srgb, var(--color-trip-band) 91%, transparent);
 }
 
 @utility stagger-1 {
@@ -349,6 +408,17 @@
   --line-strong: #64748b;
   --link-ink: #2563eb;
   --link: var(--link-ink);
+  --band: #14532d;
+  /* The one action colour: a main button's fill, its text and icon, and a quieter tint (tint,
+     ink, a solid 1px edge). Blue on partner and admin pages; guest pages make it lagoon ink
+     (RAA-183, below). */
+  --action: var(--color-cerulean);
+  --action-hover: var(--primary-hover);
+  --on-action: #ffffff;
+  --action-glyph: #ffffff;
+  --action-tint: var(--color-aqua);
+  --action-ink: var(--color-navy);
+  --action-edge: var(--color-cerulean);
   /* Text and links on navy. */
   --on-dark: #bae6fd;
   --primary-hover: #1d4ed8;
@@ -387,6 +457,16 @@
   --color-line-2: var(--line-2);
   --color-line-strong: var(--line-strong);
   --color-link: var(--link);
+  /* The bands and glass that carry a trip on a photo (the trip card, the closing band, the
+     footer): forest on partner and admin pages, guest pages pick their own below. */
+  --color-trip-band: var(--band);
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
+  --color-on-action: var(--on-action);
+  --color-action-glyph: var(--action-glyph);
+  --color-action-tint: var(--action-tint);
+  --color-action-ink: var(--action-ink);
+  --color-action-edge: var(--action-edge);
   --color-on-dark: var(--on-dark);
   /* Primary is cerulean with white text (5.2:1); secondary a deeper blue (8.7:1). Emerald is
      forest green, for trust badges and icons. Aqua is a pale fill under navy text, never text
@@ -546,3 +626,100 @@ body:has([data-floating]) {
   }
 }
 
+
+/* Guest pages (RAA-183, after the team's soft-UI reference): deep lagoon ink is
+   the one action colour, so everything that was blue (icons, the focus ring, switches, Add dates)
+   turns lagoon ink, and links are navy, underlined. Buttons, chips, tabs and steppers are pills;
+   the main button is lit softly from above, a second action is outlined in lagoon ink, a pressed
+   one settles, and a disabled one is a flat muted pill. White on lagoon ink
+   is 9.1:1. Partner and admin pages keep the blue and 10px buttons for now. */
+:root:has([data-section="guest"]) {
+  --color-cerulean: var(--color-lagoon-ink);
+  --primary-hover: #083f3d;
+  --secondary: var(--color-navy);
+  --secondary-hover: var(--color-ink-hover);
+  --link-ink: var(--color-navy);
+  --radius-button: 9999px;
+  --radius-chip: 9999px;
+  --action: var(--color-lagoon-ink);
+  --action-hover: #083f3d;
+  --action-glyph: #fde68a;
+  --action-tint: var(--color-lagoon-tint);
+  --action-ink: var(--color-lagoon-ink);
+  --action-edge: var(--color-lagoon-ink);
+  /* Trip bands (the trip card, the closing bands, the footer box): navy, the header's ink, so
+     the page's frame stays quiet and lagoon stays the one action colour. White on it is 17:1. */
+  --band: var(--color-navy);
+}
+:root:has([data-section="guest"]) {
+  /* The main button is lit softly from above (after the reference, toned down): a face a touch
+     lighter at the top and darker at the foot, a faint bright top edge, and a soft shadow under
+     it in its own colour. */
+  .btn-primary {
+    background-image: linear-gradient(to bottom, rgb(255 255 255 / 0.08), rgb(0 0 0 / 0.06));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.16),
+      0 1px 2px rgb(10 79 76 / 0.2),
+      0 6px 14px -8px rgb(10 79 76 / 0.45);
+  }
+  .btn-primary:hover {
+    background-image: linear-gradient(to bottom, rgb(255 255 255 / 0.12), rgb(0 0 0 / 0.04));
+  }
+  /* A second action (See N options, Add another, Cancel) is outlined in the action colour: on a
+     white card a white pill with only a hairline read as a label. Lagoon ink on white is 9.1:1,
+     and its tint on hover. The pale tint without an edge stays a tag's (Badge kind). */
+  .btn-soft {
+    color: var(--color-lagoon-ink);
+    background-image: none;
+    box-shadow:
+      inset 0 0 0 1px var(--color-lagoon-ink),
+      0 1px 2px rgb(10 79 76 / 0.08),
+      0 4px 10px -8px rgb(10 79 76 / 0.3);
+  }
+  .btn-soft:hover,
+  .btn-soft[data-set] {
+    background-color: var(--color-lagoon-tint);
+  }
+  /* The main action on a photo or a band: a white pill, gently lit. */
+  .btn-paper {
+    background-image: linear-gradient(to bottom, rgb(255 255 255), rgb(248 250 252));
+    box-shadow:
+      inset 0 0 0 1px rgb(15 23 42 / 0.14),
+      0 1px 2px rgb(15 23 42 / 0.06),
+      0 4px 10px -8px rgb(15 23 42 / 0.25);
+  }
+  .btn-tint {
+    box-shadow:
+      inset 0 0 0 1px var(--color-lagoon-ink),
+      0 4px 10px -8px rgb(10 79 76 / 0.35);
+  }
+  /* Pressed, a button settles: its shadow goes and a light shade falls inside its top edge. */
+  .btn:not(:disabled):active {
+    translate: 0 1px;
+    background-image: linear-gradient(to bottom, rgb(0 0 0 / 0.06), rgb(0 0 0 / 0));
+    box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.2);
+  }
+  .btn-soft:not(:disabled):active {
+    background-image: none;
+    background-color: var(--color-lagoon-tint);
+    box-shadow:
+      inset 0 0 0 1px var(--color-lagoon-ink),
+      inset 0 1px 3px rgb(10 79 76 / 0.18);
+  }
+  .btn-paper:not(:disabled):active {
+    background-image: linear-gradient(to bottom, rgb(241 245 249), rgb(248 250 252));
+    box-shadow:
+      inset 0 0 0 1px rgb(15 23 42 / 0.16),
+      inset 0 1px 3px rgb(15 23 42 / 0.1);
+  }
+  .btn[aria-busy="true"] {
+    cursor: progress;
+    opacity: 1;
+  }
+  .btn:disabled:not([aria-busy="true"]) {
+    opacity: 1;
+    background: var(--color-disabled);
+    color: var(--color-disabled-ink);
+    box-shadow: none;
+  }
+}

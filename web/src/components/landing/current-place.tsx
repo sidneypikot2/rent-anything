@@ -2,7 +2,10 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
-type EditSearch = (panel: "where" | "when" | "guests") => void;
+// `trip`: the search was opened for that trip (its "+ Another place"), so the place it goes to
+// shows the trip; a search opened any other way leaves the trip behind.
+export type EditOptions = { trip?: number };
+type EditSearch = (panel: "where" | "when" | "guests", options?: EditOptions) => void;
 
 // The place the page is about, for the search in the header (RAA-126), which sits in the layout
 // and so can't be handed it. A page names it by rendering <CurrentPlace>, with the area's slug,
@@ -68,7 +71,7 @@ export function useRegisterEditSearch(edit: EditSearch, on: boolean) {
   });
   useEffect(() => {
     if (!on) return;
-    setEdit((panel) => ref.current(panel));
+    setEdit((panel, options) => ref.current(panel, options));
     return () => setEdit(null);
   }, [setEdit, on]);
 }

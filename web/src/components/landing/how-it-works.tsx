@@ -47,7 +47,7 @@ const TRUST: { title: string; body: string }[] = [
 // "Planning" is the cart's word for every trip until checkout exists (RAA-68), and means nothing
 // to someone who hasn't made one.
 const EXAMPLE_ITEMS: { name: string; meta: string; when: string; icon: string; group: keyof typeof GROUP_ICON }[] = [
-  { name: "Van transfer", meta: "Cebu airport to Hagnaya port, for the ferry", when: "Day 1", icon: "Van transfer", group: "transfer" },
+  { name: "Van transfer", meta: "Cebu airport to Hagnaya port, then the ferry", when: "Day 1", icon: "Van transfer", group: "transfer" },
   { name: "Cottage in Santa Fe", meta: "Stay", when: "3 nights", icon: "Hotel or cottage", group: "stay" },
   { name: "Scooter", meta: "Rental", when: "Days 1–4", icon: "Motorcycle", group: "rental" },
   { name: "Island hopping", meta: "Activity", when: "Day 2", icon: "Tour", group: "activity" },

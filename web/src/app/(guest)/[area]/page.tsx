@@ -31,7 +31,7 @@ import { areaPhoto, landmarkPhotos } from "@/components/landing/sample-photos";
 import { addPreview } from "@/components/trips/add-preview";
 import { AreaHero } from "@/components/trips/area-hero";
 import { ReachYourself } from "@/components/trips/reach-yourself";
-import { BOOKING_STATE } from "@/components/landing/launch-area";
+import { BOOKING_STATE, GETTING_HERE } from "@/components/landing/launch-area";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { AreaTripBand } from "@/components/trips/area-trip-band";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
@@ -323,7 +323,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
 
       <PageSheet tone="clear">
         <AreaMapProvider>
-          <TripAddProvider places={places}>
+          <TripAddProvider places={places} offered={needs.map((need) => need.group)}>
             <AreaMapLayout map={map}>
               <div className="page-sections flex min-w-0 flex-col gap-section pt-block pb-page-pad">
                 {/* What to book's rail holds the map's switch; without it the switch leads the page. */}
@@ -341,7 +341,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                         id="places"
                         surface="photo"
                         title="Places to see"
-                        intro="Each one says the tours that go there."
+                        intro="Open one to see which tours go there."
                       >
                         <PlacesGrid
                           items={landmarks.map((landmark, index) => ({
@@ -396,8 +396,14 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                             group: need.group,
                             // Said once here rather than on every card: what they all include, and
                             // how the unpriced ones are priced.
+                            // Transfers also say how a traveller reaches the place at all (the
+                            // trip plan's Getting here), where they look for the ride.
                             note:
-                              [shared.length > 0 && `Every one here: ${shared.join(" · ")}.`, unpricedNote]
+                              [
+                                need.group === "transfer" && GETTING_HERE[slug] && `Getting here: ${GETTING_HERE[slug].route}. ${GETTING_HERE[slug].note}`,
+                                shared.length > 0 && `All have: ${shared.join(" · ")}.`,
+                                unpricedNote,
+                              ]
                                 .filter(Boolean)
                                 .join(" ") || undefined,
                             items: need.businesses.map((offered) => {
@@ -438,7 +444,6 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                       listing={listing}
                                       dates={dates}
                                       preview={addPreview(listing, byLine(listing))}
-                                      prominent
                                     />
                                   ),
                                 };
@@ -514,7 +519,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                               <GlassPanel
                                 tone="card"
                                 className={cn(
-                                  "flex items-center gap-3 rounded-control p-3",
+                                  "flex items-center gap-3 rounded-button p-3",
                                   areas.length > 1 ? "w-full" : "w-full sm:w-auto sm:pr-6",
                                 )}
                               >

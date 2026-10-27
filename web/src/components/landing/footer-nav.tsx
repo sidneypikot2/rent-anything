@@ -46,7 +46,7 @@ export function FooterNav() {
             key={link.href}
             href={link.href}
             onClick={id && pathname === "/" ? (event) => goToSection(event, id) : undefined}
-            className="flex min-h-11 items-center justify-center rounded-full border border-glass-edge bg-glass-fill px-4 font-medium whitespace-nowrap transition-[background-color,transform] duration-300 ease-calm last:col-span-2 hover:bg-glass-hover motion-safe:active:scale-[0.96]"
+            className="flex min-h-11 items-center justify-center rounded-button border border-glass-edge bg-glass-fill px-4 font-medium whitespace-nowrap transition-[background-color,transform] duration-300 ease-calm last:col-span-2 hover:bg-glass-hover motion-safe:active:scale-[0.96]"
           >
             {link.label}
           </Link>
