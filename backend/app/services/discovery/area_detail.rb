@@ -7,12 +7,14 @@ module Discovery
   # policy (RAA-124), for the row's carousel and chips. The listings include those of the
   # published places inside it, however deep, each naming its own place, so an island's page
   # shows everything to book on it; a place to see names the active listings that visit it.
+  # pets: true keeps, of the stays, those that allow pets (RAA-185).
   class AreaDetail < ApplicationService
     # A row's carousel shows a few photos; the listing page has them all.
     ROW_PHOTOS = 6
 
-    def initialize(area)
+    def initialize(area, pets: false)
       @area = area
+      @pets = pets
     end
 
     def call
@@ -20,7 +22,7 @@ module Discovery
         area: AreaSerializer.call(@area),
         areas: @area.children.browsable.includes(:parent).order(:name).map { |area| AreaSerializer.call(area) },
         landmarks: landmarks.map { |landmark| landmark_json(landmark) },
-        listings: Listing.active.where(area_id: Area.published.subtree_of(@area).select(:id)).includes({ category: :parent }, :area, :business, :units, :stay_rate, :vehicle_rate, :tour_detail, :cover_photo, :ready_photos)
+        listings: listings.includes({ category: :parent }, :area, :business, :units, :stay_rate, :vehicle_rate, :tour_detail, :cover_photo, :ready_photos)
           .order(:title).map do |listing|
           ListingSummarySerializer.call(listing).merge(
             area_name: listing.area.name,
@@ -39,6 +41,12 @@ module Discovery
     end
 
     private
+
+    # With pets (RAA-185), only the stays that allow them.
+    def listings
+      listings = Listing.active.where(area_id: Area.published.subtree_of(@area).select(:id))
+      @pets ? listings.pet_friendly : listings
+    end
 
     def landmarks
       @landmarks ||= @area.landmarks.published.includes(:tags).order(:name).to_a

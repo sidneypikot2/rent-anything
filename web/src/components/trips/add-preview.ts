@@ -1,6 +1,7 @@
 import type { components } from "@/api/schema";
 import { formatPeso } from "@/lib/money";
 import { pricedByText, priceUnitText } from "@/lib/pricing";
+import { stayRules } from "./party";
 import type { AddPreview } from "./use-trips";
 
 // Whatever the page has of a listing; the add sheet shows the parts it's given.
@@ -40,5 +41,6 @@ export function addPreview(listing: AddListing, by?: string): AddPreview {
     tourGuests: listing.tour ? { min: listing.tour.min_guests, max: listing.tour.max_guests } : null,
     unitsCount: listing.units_count,
     unitsLabel: listing.units_label,
+    stayRules: listing.booking_type === "stay" ? stayRules(listing.details, listing.units_count) : null,
   };
 }

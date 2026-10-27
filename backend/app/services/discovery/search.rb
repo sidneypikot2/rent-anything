@@ -5,7 +5,8 @@ module Discovery
   # a group: exact name or alias first, then terms that start with the query, then the rest
   # by similarity, and the more popular place on a tie. Only places that lead somewhere
   # bookable show: areas when they or an area under them have an active listing, landmarks
-  # and tags when they are in such an area.
+  # and tags when they are in such an area. pets: true keeps, of the stays found, those that
+  # allow pets (RAA-185).
   #
   # Areas, landmarks and tags are matched against the search_terms view (RAA-60), one row
   # per name and alias; listings against their title and category, live.
@@ -15,8 +16,9 @@ module Discovery
     # word_similarity above this counts as a typo match ("fort sn pedro" -> Fort San Pedro).
     TYPO_THRESHOLD = 0.5
 
-    def initialize(query)
+    def initialize(query, pets: false)
       @query = query
+      @pets = pets
     end
 
     def call
@@ -80,7 +82,9 @@ module Discovery
       conditions = columns.map { |column| "#{column} LIKE :contains OR word_similarity(:q, #{column}) > :threshold" }
       title = normalized("listings.title")
 
-      Listing.active.joins(:category).includes({ category: :parent }, :area, :cover_photo)
+      listings = Listing.active.joins(:category).includes({ category: :parent }, :area, :cover_photo)
+      listings = listings.pet_friendly if @pets
+      listings
         .where(sanitize(conditions.join(" OR ")))
         .order(Arel.sql(sanitize(<<~SQL.squish)))
           CASE WHEN #{title} = :q THEN 0

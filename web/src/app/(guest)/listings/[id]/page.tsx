@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { getListing, getQuote } from "@/api/discovery";
 import { categoryIcon } from "@/components/discovery/icons";
 import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
-import { StayPrice, stayPriceLine } from "@/components/discovery/stay-price";
+import { StayPrice } from "@/components/discovery/stay-price";
+import { startingArrangement, stayPriceLine, stayQuoteQuery } from "@/components/discovery/stay-quote";
 import { TourFacts, tourPriceLine } from "@/components/discovery/tour-facts";
 import { VehiclePrice, vehiclePriceLine } from "@/components/discovery/vehicle-price";
 import { CurrentPlace } from "@/components/landing/current-place";
@@ -46,9 +47,11 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   const vehicleRate = listing.vehicle_rate;
   const cover = listing.photos.at(0);
   const nightsSet = Boolean(dates.from && dates.to && dates.from < dates.to);
+  // The party in the fewest rooms, as the price card starts from (RAA-184).
+  const start = startingArrangement(listing, dates);
   const quote =
     rate && nightsSet && dates.from && dates.to
-      ? await getQuote({ listing_id: listing.id, starts_on: dates.from, ends_on: dates.to, guests: dates.guests })
+      ? await getQuote(stayQuoteQuery(listing, dates.from, dates.to, start.rooms, start.pets))
       : undefined;
 
   return (
@@ -104,18 +107,21 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
           {/* Unclipped: the dates calendar opens below the card's edge. */}
           <Card clip={false}>
             <CardBody pad="lg" className="flex flex-col gap-4">
-              <TripDatesBar key={`${dates.from}-${dates.to}-${dates.guests}`} dates={dates} />
+              <TripDatesBar key={tripDatesQuery(dates)} dates={dates} />
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-muted">Saving to a trip is free, and there&apos;s nothing to pay yet.</p>
-                <AddToTripButton listing={listing} dates={dates} />
+                {/* A stay's Add to trip ends its price card, under the rooms picked there. */}
+                {!rate && <AddToTripButton listing={listing} dates={dates} />}
               </div>
             </CardBody>
           </Card>
+
+          {tour && <TourFacts listing={listing} tour={tour} />}
+
+          {rate && (
+            <StayPrice key={tripDatesQuery(dates)} listing={listing} rate={rate} dates={dates} initialQuote={quote} add />
+          )}
         </TripAddProvider>
-
-        {tour && <TourFacts listing={listing} tour={tour} />}
-
-        {rate && <StayPrice listing={listing} rate={rate} quote={quote} datesSet={Boolean(dates.from && dates.to)} />}
 
         {vehicleRate && <VehiclePrice listing={listing} rate={vehicleRate} />}
 

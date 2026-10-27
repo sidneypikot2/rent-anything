@@ -81,6 +81,7 @@ import {
   type VehiclePricingValues,
 } from "./vehicle-pricing-fields";
 import { useUpdateListing, type ListingBody, type ListingOptions, type PartnerListing } from "./use-partner-listings";
+import { StayGuestRules } from "./stay-guest-rules";
 import { UNITS_LABEL, UnitsField } from "./units-field";
 import { WizardCancel } from "./wizard-cancel";
 import { TickGlyph } from "@/components/discovery/tag-glyphs";
@@ -495,6 +496,7 @@ export function ListingForm({
         {!tourCategory && (
           <EditSection id="units" title={UNITS_LABEL}>
             <UnitsField bookingType={category?.booking_type} value={units} onChange={setUnits} />
+            {stayCategory && <StayGuestRules values={stay} onChange={setStay} units={units} fees={pricing.fees} />}
           </EditSection>
         )}
 

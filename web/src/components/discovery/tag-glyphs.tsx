@@ -184,6 +184,14 @@ const FEATURES: Record<string, string[]> = {
   wifi: ["M2.5 9a14 14 0 0 1 19 0", "M5.5 12.5a9.5 9.5 0 0 1 13 0", "M8.5 16a5 5 0 0 1 7 0", "M12 19h.01"],
   breakfast: ["M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5Z", "M17 10h1.5a2.5 2.5 0 0 1 0 5H17", "M8 3.5V6", "M12 3.5V6"],
   cancellation: ["M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6Z", "M9 12l2 2 4-4"],
+  // A paw: a stay that takes pets (RAA-186).
+  pets: [
+    circle(5.5, 10, 1.8),
+    circle(9.5, 6, 1.8),
+    circle(14.5, 6, 1.8),
+    circle(18.5, 10, 1.8),
+    "M12 12c-3 0-5.5 3.5-5.5 6a2 2 0 0 0 2.5 2c1-.3 2-.6 3-.6s2 .3 3 .6a2 2 0 0 0 2.5-2c0-2.5-2.5-6-5.5-6Z",
+  ],
 };
 
 export function FeatureGlyph({ name, className }: { name: string } & Props) {
@@ -256,9 +264,10 @@ export function AlertGlyph({ className }: Props) {
 }
 
 // A chevron pointing down: something that opens below or in a sheet (the hero's search summary,
-// More activities).
-export function ChevronGlyph({ direction = "down", className }: { direction?: "down" | "up" } & Props) {
-  return <Glyph paths={[direction === "down" ? "M6 9l6 6 6-6" : "M6 15l6-6 6 6"]} className={className} />;
+// More activities); right: a summary that opens its own picker (rooms and guests).
+const CHEVRONS = { down: "M6 9l6 6 6-6", up: "M6 15l6-6 6 6", right: "M9 6l6 6-6 6" };
+export function ChevronGlyph({ direction = "down", className }: { direction?: keyof typeof CHEVRONS } & Props) {
+  return <Glyph paths={[CHEVRONS[direction]]} className={className} />;
 }
 
 // Where a partner's payouts go (RAA-146): a bank's columns, and a wallet for GCash and Maya.

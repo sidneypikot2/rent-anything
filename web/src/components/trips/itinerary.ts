@@ -1,4 +1,5 @@
 import { addDays, daysBetween } from "@/lib/dates";
+import { headcount } from "./party";
 import type { Trip, TripItem } from "./use-trips";
 
 // What an item is doing on a day: a stay's check-in, nights and check-out, a rental's first,
@@ -7,7 +8,7 @@ export type ItineraryRole = "check-in" | "night" | "check-out" | "pick-up" | "re
 
 // What the days read of an item, so a shared trip's items (RAA-178) lay out like the cart's.
 // The guests and beds are the cart's only: a shared trip's items don't send them.
-export type DayItem = Pick<TripItem, "starts_on" | "ends_on" | "booking_type"> & Partial<Pick<TripItem, "quantity" | "sleeps">>;
+export type DayItem = Pick<TripItem, "starts_on" | "ends_on" | "booking_type"> & Partial<Pick<TripItem, "quantity" | "sleeps" | "room_guests">>;
 
 export type ItineraryDay<T extends DayItem = TripItem> = {
   date: string;
@@ -39,8 +40,10 @@ function sleepsThere(entry: { role: ItineraryRole }) {
   return entry.role === "check-in" || entry.role === "night";
 }
 
-// The guests a stay sleeps: its guests, up to what the place holds (as beds.ts counts them).
-const sleepsIn = (item: DayItem & { quantity: number }) => Math.min(item.quantity, item.sleeps ?? item.quantity);
+// The guests a stay sleeps: everyone in its rooms once split, else its guests up to what the
+// place holds (as beds.ts counts them).
+const sleepsIn = (item: DayItem & { quantity: number }) =>
+  item.room_guests ? item.room_guests.reduce((sum, room) => sum + headcount(room), 0) : Math.min(item.quantity, item.sleeps ?? item.quantity);
 
 // Whether one of a night's stays is spare. Without the guests and beds (a shared trip), any
 // two stays count.
