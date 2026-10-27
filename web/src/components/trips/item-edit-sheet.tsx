@@ -1,6 +1,8 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
+import { apiClient } from "@/api/client";
 import { CANCELLATION_POLICY } from "@/components/bookings/cancellation";
 import { TickGlyph } from "@/components/discovery/tag-glyphs";
 import { BOOKING_STATE } from "@/components/landing/launch-area";
@@ -11,6 +13,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { StepperField } from "@/components/ui/stepper-field";
 import { daysBetween, guestLimitHint, noNightError, RANGE_TYPES, todayIso } from "./format";
 import { ItemThumb } from "./item-thumb";
+import { evenRooms, headcount, partyFromGuests, roomGuestsToSend, stayRules, type Room } from "./party";
+import { RoomsAndGuests } from "./rooms-and-guests";
 import { useUpdateTripItem, type Trip, type TripItem } from "./use-trips";
 
 type Props = {
@@ -26,6 +30,8 @@ type Props = {
 // keeps its count until the guest lowers it. It opens on what is being changed: the listing's
 // photo, name and kind, the trip it is in, then the nights the new dates make, its cancellation
 // policy and that nothing is paid yet, so a guest changing it from a card knows what they hold.
+// A stay's guests are its rooms (RAA-184): the split it was added with, or its guests spread
+// evenly, in the rooms picker under the listing's rules (fetched, as the panel does).
 export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
   const range = RANGE_TYPES.has(item.booking_type);
   // The trip's dates are a starting point only while they're still ahead.
@@ -37,6 +43,20 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
   const [guests, setGuests] = useState(item.quantity);
   const update = useUpdateTripItem();
   const maxGuests = Math.max(item.max_guests ?? 99, item.quantity);
+  const stay = item.booking_type === "stay";
+  const { data: listing } = useQuery({
+    queryKey: ["listing", item.listing.id],
+    queryFn: async () => {
+      const { data, error } = await apiClient().GET("/api/v1/listings/{id}", { params: { path: { id: item.listing.id } } });
+      if (error || !data) throw new Error("Couldn't load this listing");
+      return data;
+    },
+    enabled: stay,
+    staleTime: 5 * 60_000,
+  });
+  const rules = stay && listing ? stayRules(listing.details, listing.units_count, listing.fees) : null;
+  const [typedRooms, setRooms] = useState<{ rooms: Room[]; pets: number } | null>(null);
+  const arrangement = rules ? (typedRooms ?? { rooms: startingRooms(trip, item, rules), pets: item.pets }) : null;
 
   // A single-day booking has one date; the API takes it as from–to of that day.
   const itemEnds = range ? endsOn : startsOn;
@@ -49,10 +69,15 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!valid) return;
-    update.mutate(
-      { id: item.id, changes: { starts_on: startsOn, ends_on: itemEnds, quantity: guests } },
-      { onSuccess: onSaved },
-    );
+    const dates = { starts_on: startsOn, ends_on: itemEnds };
+    // A split sets the guests; a shared room takes none, so its guests go as they are.
+    const split = arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null;
+    const changes = !arrangement
+      ? { ...dates, quantity: guests }
+      : split
+        ? { ...dates, room_guests: split, pets: arrangement.pets }
+        : { ...dates, quantity: headcount(arrangement.rooms[0]), pets: arrangement.pets };
+    update.mutate({ id: item.id, changes }, { onSuccess: onSaved });
   }
 
   return (
@@ -95,15 +120,26 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
             }
             error={noNight}
           />
-          <StepperField
-            label="Guests"
-            hint={guestLimitHint(item.max_guests)}
-            value={guests}
-            onChange={setGuests}
-            min={1}
-            max={maxGuests}
-            data-testid="item-edit-guests"
-          />
+          {arrangement && rules ? (
+            <RoomsAndGuests
+              rooms={arrangement.rooms}
+              pets={arrangement.pets}
+              rules={rules}
+              onChange={(rooms, pets) => setRooms({ rooms, pets })}
+              inline
+              data-testid="item-edit-rooms"
+            />
+          ) : (
+            <StepperField
+              label="Guests"
+              hint={guestLimitHint(item.max_guests)}
+              value={guests}
+              onChange={setGuests}
+              min={1}
+              max={maxGuests}
+              data-testid="item-edit-guests"
+            />
+          )}
         </fieldset>
 
         <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4 text-sm text-muted">
@@ -125,11 +161,19 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
           <Button type="button" variant="soft" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" data-testid="item-edit-save" loading={update.isPending} disabled={!valid}>
+          <Button type="submit" data-testid="item-edit-save" loading={update.isPending} disabled={!valid || (stay && !listing)}>
             {update.isPending ? "Saving…" : "Save changes"}
           </Button>
         </div>
       </form>
     </Dialog>
   );
+}
+
+// A stay's rooms as it was added: its own split, or its guests spread evenly — the trip's party
+// when the stay is for all of it, otherwise adults.
+function startingRooms(trip: Trip, item: TripItem, rules: ReturnType<typeof stayRules>): Room[] {
+  if (item.room_guests) return item.room_guests;
+  const party = item.quantity === trip.guests ? partyFromGuests(trip.guests, trip) : partyFromGuests(item.quantity);
+  return evenRooms(party, rules);
 }

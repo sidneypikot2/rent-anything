@@ -7,7 +7,7 @@ import { useEffect, useState, type ComponentProps, type ReactNode } from "react"
 import { createPortal } from "react-dom";
 import { apiClient } from "@/api/client";
 import { isApiPhoto } from "@/components/landing/sample-photos";
-import type { TripDates } from "@/components/trips/trip-dates";
+import { tripDatesQuery, type TripDates } from "@/components/trips/trip-dates";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
@@ -16,6 +16,7 @@ import { formatPeso } from "@/lib/money";
 import { InstantBookBadge } from "./instant-book-badge";
 import type { Feature } from "./listing-features";
 import { StayPrice } from "./stay-price";
+import { shownQuoteKey } from "./stay-quote";
 import { SamplePhotoTag } from "./photo-card";
 import { CategoryGlyph, ChevronGlyph, FeatureGlyph, PlaceGlyph, TagGlyph } from "./tag-glyphs";
 import { TourFacts } from "./tour-facts";
@@ -198,20 +199,6 @@ export function ListingPanel({
     },
     staleTime: 5 * 60_000,
   });
-  const datesSet = Boolean(dates?.from && dates.to);
-  const { data: quote } = useQuery({
-    queryKey: quoteKey(listingId, dates),
-    queryFn: async () => {
-      const { data, error, response } = await apiClient().GET("/api/v1/quotes", {
-        params: { query: { listing_id: listingId, starts_on: dates!.from!, ends_on: dates!.to!, guests: dates!.guests } },
-      });
-      if (data) return { quote: data };
-      if (response.status === 422 && error && "errors" in error) return { errors: error.errors };
-      return { errors: ["Couldn't work out the price just now. Try again in a moment."] };
-    },
-    enabled: Boolean(listing?.stay_rate) && datesSet,
-    staleTime: 60_000,
-  });
   // The full description only when it says more than the summary above it.
   const description = listing?.description.trim();
 
@@ -264,7 +251,15 @@ export function ListingPanel({
         </PanelSection>
       )}
       {listing?.tour && <TourFacts listing={listing} tour={listing.tour} head={false} />}
-      {listing?.stay_rate && <StayPrice listing={listing} rate={listing.stay_rate} quote={quote} datesSet={datesSet} headline={false} />}
+      {listing?.stay_rate && (
+        <StayPrice
+          key={dates ? tripDatesQuery(dates) : ""}
+          listing={listing}
+          rate={listing.stay_rate}
+          dates={dates ?? { guests: 1 }}
+          headline={false}
+        />
+      )}
       {listing?.vehicle_rate && <VehiclePrice listing={listing} rate={listing.vehicle_rate} />}
       {description && description !== summary?.trim() && (
         <PanelSection title="About this">
@@ -276,12 +271,6 @@ export function ListingPanel({
       </Link>
     </>
   );
-}
-
-// A stay's quote for the page's dates and guests: the panel's body fetches it (ListingPanel), and
-// its foot reads the same cached answer.
-function quoteKey(listingId: number, dates?: TripDates) {
-  return ["quote", listingId, dates?.from, dates?.to, dates?.guests];
 }
 
 // The panel's foot: the price, or how an unpriced listing is priced, and the action. With the
@@ -301,7 +290,7 @@ export function PanelActions({
   dates?: TripDates;
 }) {
   const { data: quote } = useQuery<{ quote: { total_cents: number; nights_count: number } } | { errors: string[] }>({
-    queryKey: quoteKey(listingId ?? 0, dates),
+    queryKey: shownQuoteKey(listingId ?? 0, dates),
     queryFn: skipToken,
     enabled: false,
   });

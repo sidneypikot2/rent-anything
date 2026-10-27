@@ -7,6 +7,7 @@ import type { components } from "@/api/schema";
 import { useErrorToast } from "@/components/ui/toast";
 import { useSession } from "@/lib/auth/session";
 import { formatPeso } from "@/lib/money";
+import type { Room, StayRules } from "./party";
 
 export type Trip = components["schemas"]["trip"];
 export type TripItem = components["schemas"]["trip_item"];
@@ -24,6 +25,12 @@ export type AddRequest = {
   startsOn?: string;
   endsOn?: string;
   quantity: number;
+  // Of the guests, the children and infants, and pets beside them: the page's party (RAA-184).
+  children?: number;
+  infants?: number;
+  pets?: number;
+  // A stay's split into rooms as the add sheet sends it; null or left out: spread evenly.
+  roomGuests?: Room[] | null;
   // What the add sheet shows of the listing, as much as the page that started the add knows.
   preview?: AddPreview;
 };
@@ -44,6 +51,8 @@ export type AddPreview = {
   tourGuests?: { min: number; max: number } | null;
   unitsCount?: number;
   unitsLabel?: string;
+  // A stay's rules for its rooms and guests (party.ts), from its details.
+  stayRules?: StayRules | null;
 };
 
 export function tripsKey(userId: number | undefined) {
@@ -242,6 +251,8 @@ export function useAddTripItem() {
           starts_on: request.startsOn ?? null,
           ends_on: request.endsOn ?? null,
           quantity: request.quantity,
+          ...(request.roomGuests ? { room_guests: request.roomGuests } : {}),
+          ...(request.pets ? { pets: request.pets } : {}),
           trip_id: tripId,
           ...(tripId === null && tripName?.trim() ? { trip_name: tripName.trim() } : {}),
         },
@@ -254,7 +265,15 @@ export function useAddTripItem() {
   });
 }
 
-export type TripChanges = { name: string; guests: number; starts_on?: string | null; ends_on?: string | null };
+export type TripChanges = {
+  name: string;
+  guests: number;
+  children?: number;
+  infants?: number;
+  pets?: number;
+  starts_on?: string | null;
+  ends_on?: string | null;
+};
 
 // PATCH /trips/:id: rename, re-date or change the guests.
 export function useUpdateTrip() {
@@ -328,7 +347,15 @@ export function useMergeTrip() {
   });
 }
 
-export type ItemChanges = { starts_on?: string | null; ends_on?: string | null; quantity?: number; move_to_trip_id?: number };
+export type ItemChanges = {
+  starts_on?: string | null;
+  ends_on?: string | null;
+  quantity?: number;
+  // A stay's split into rooms (null: spread evenly) and its pets (RAA-184).
+  room_guests?: Room[] | null;
+  pets?: number;
+  move_to_trip_id?: number;
+};
 
 // PATCH /trip_items/:id: re-date an item or move it to another trip. Answers with the trip
 // it ends up in.
