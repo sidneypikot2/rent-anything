@@ -2,7 +2,7 @@
 
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
 import { Card } from "@/components/ui/card";
-import { itinerary, ROLE_LABEL } from "./itinerary";
+import { itinerary, roleLabel } from "./itinerary";
 import type { Trip, TripItem } from "./use-trips";
 
 function weekday(iso: string) {
@@ -52,7 +52,7 @@ export function TripItinerary({ trip, onOpen }: { trip: Trip; onOpen: (item: Tri
                         key={item.id}
                         className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1 text-sm sm:grid-cols-[6rem_minmax(0,1fr)_auto]"
                       >
-                        <span className="text-muted">{ROLE_LABEL[role]}</span>
+                        <span className="text-muted">{roleLabel(role, item)}</span>
                         <button
                           type="button"
                           aria-haspopup="dialog"

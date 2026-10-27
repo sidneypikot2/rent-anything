@@ -73,9 +73,11 @@ export function PageBanner({
       <div className={cn("flex min-w-0 max-w-prose flex-col gap-4 text-white", hero && "max-sm:short:gap-3 landscape-phone:row-span-2 landscape-phone:gap-3")}>
         {eyebrow && (
           // A mint dot leads it, as on the trust ticks (RAA-130): something is live here.
+          // `card` glass: it sits at the top of the photo, where the scrim is lightest, and
+          // sky-mist text on `dark` falls near 3:1 over bright water.
           <span
             className={cn(
-              glassClasses("dark"),
+              glassClasses("card"),
               "flex items-center gap-2 self-start rounded-full px-3.5 py-1.5 text-sm font-semibold",
             )}
           >

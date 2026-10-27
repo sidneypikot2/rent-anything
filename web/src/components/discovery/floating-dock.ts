@@ -9,6 +9,7 @@ import { useSyncExternalStore } from "react";
 // It stays out of the way on the first screen, where What to book's chips sit at the foot and the
 // banner already holds the trip: it rises once What to book reaches the window's upper half, and
 // stays up while the full-screen map is open (setDockPinned), as its List button is the way back.
+// While the guest scrolls down the list it steps aside too, and comes back on any scroll up.
 // Hidden, it is only out of sight: the keyboard still reaches it (last on the page, or through
 // MapSkipLink near What to book), and focus inside brings it up.
 const DOCK_CLASS =
@@ -17,12 +18,22 @@ const DOCK_CLASS =
 let dock: HTMLDivElement | null = null;
 let pinned = false;
 let frame = 0;
+let lastY = 0;
+let goingDown = false;
 
 function update() {
   frame = 0;
   if (!dock) return;
   const section = document.getElementById("listings");
-  const hidden = !pinned && section !== null && section.getBoundingClientRect().top > window.innerHeight / 2;
+  // Scrolling down it steps aside, so it never sits over a card's price or Add to trip while
+  // the guest reads down the list; any scroll back up brings it back.
+  const y = window.scrollY;
+  if (Math.abs(y - lastY) > 8) {
+    goingDown = y > lastY;
+    lastY = y;
+  }
+  const hidden =
+    !pinned && ((section !== null && section.getBoundingClientRect().top > window.innerHeight / 2) || goingDown);
   dock.toggleAttribute("data-hidden", hidden);
   // Room for it at the window's foot, which a toast keeps clear (Toast).
   document.documentElement.style.setProperty("--dock-space", !hidden && dock.childElementCount > 0 ? "4.5rem" : "0px");

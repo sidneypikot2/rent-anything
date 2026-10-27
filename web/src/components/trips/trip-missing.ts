@@ -73,7 +73,8 @@ export type Sight = { slug: string; name: string; visitedBy: number[] };
 export const PLAN_NEEDS = ["transfer", "rental", "activity"] as const;
 
 // Everything the trip still lacks from a place's page, for the floating "Your plan" panel (the
-// banner's "Still missing" says only the stays and the transfer):
+// banner's "Still missing" links the stays and the transfer, and counts the rest as "N more in
+// your plan", so it adds up to the same number):
 // - nights with no stay or too few beds (missingStays), when the place has stays;
 // - each kind the place offers (PLAN_NEEDS) the trip has nothing of here;
 // - items here their listing can't have on their dates (`unavailable`), or with no date yet;
@@ -139,6 +140,8 @@ export function planGaps(trip: Trip, places: string[], offered: string[], sights
     days.set(key, [...(days.get(key) ?? []), tour]);
   }
   for (const group of days.values()) {
+    // A tour on a day already gone can't take more guests now: nothing to ask for.
+    if (group[0].starts_on && group[0].starts_on < today) continue;
     const guests = group.reduce((sum, tour) => sum + tour.quantity, 0);
     if (guests < trip.guests) gaps.push({ kind: "tour-guests", item: group[0], guests, short: trip.guests - guests });
   }

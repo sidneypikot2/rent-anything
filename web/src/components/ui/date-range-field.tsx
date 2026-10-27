@@ -196,12 +196,12 @@ export function DateRangeField({
                   onChange({ from: "", to: "" });
                   close();
                 }}
-                className="rounded-control px-2 py-1 font-medium text-link hover:bg-surface-2"
+                className="rounded-control px-2 py-1 font-medium text-primary hover:bg-surface-2"
               >
                 Clear
               </button>
             )}
-            <button type="button" onClick={close} className="rounded-control px-2 py-1 font-medium text-link hover:bg-surface-2">
+            <button type="button" onClick={close} className="rounded-control px-2 py-1 font-medium text-primary hover:bg-surface-2">
               Done
             </button>
           </div>

@@ -1,4 +1,4 @@
-import { formatDateRange } from "@/lib/dates";
+import { formatDateRange, localTodayIso } from "@/lib/dates";
 import type { Trip } from "./use-trips";
 
 // The date helpers live in lib/dates.ts, shared with the DateRangeField primitive.
@@ -14,6 +14,17 @@ export function itemCount(count: number) {
 
 export function guestCount(count: number) {
   return plural(count, "guest", "guests");
+}
+
+// When a trip is, beside its name: "Under way, until Oct 31" once it has started (so it never
+// disagrees with a search that starts today), else its dates, or nothing when its name already
+// says them (an auto-named "Bantayan Island · Oct 24–31").
+export function tripWhen(trip: { name: string; starts_on: string | null; ends_on: string | null }) {
+  const dates = formatDateRange(trip.starts_on, trip.ends_on);
+  if (!dates || !trip.starts_on || !trip.ends_on) return null;
+  const today = localTodayIso();
+  if (trip.starts_on < today && today <= trip.ends_on) return `Under way, until ${formatDateRange(trip.ends_on, trip.ends_on)}`;
+  return trip.name.includes(dates) ? null : dates;
 }
 
 // Under a Guests stepper whose + stops at what the listing takes: "Up to 12".

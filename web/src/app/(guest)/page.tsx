@@ -24,7 +24,7 @@ import { glassClasses } from "@/components/ui/glass";
 import { Section } from "@/components/ui/section";
 import { DisplayTitle } from "@/components/ui/typography";
 import { formatPeso } from "@/lib/money";
-import { pricedByText, priceUnitText } from "@/lib/pricing";
+import { pricedByText, priceUnitText, TO_BE_AGREED } from "@/lib/pricing";
 
 // The guest home, as the Sky & Forest landing page (RAA-102): a photo hero whose title names
 // where we launch, holding the way in (RAA-80) — a trip there, with dates and guests, or a
@@ -88,7 +88,7 @@ export default function Home() {
                 id="from-partners"
                 surface="glass"
                 title={`From partners on ${LAUNCH_AREA.name}`}
-                intro="Real listings, one of each kind a trip needs. Add any of them to a trip."
+                intro={`Real listings, one of each kind a trip needs. “${TO_BE_AGREED}” means you settle the price with the partner when you book.`}
               >
                 <Suspense fallback={<PartnerListingsSkeleton />}>
                   <PartnerListings />
@@ -222,8 +222,9 @@ function destinationSpan(index: number, count: number) {
 // not a wall; each opens its listing page and adds to a trip with the hero's dates. A kind with
 // nothing listed is left out. A phone lists them as rows, the photo beside the text, so the whole
 // set shows in about a screen rather than one card at a time in a swipe.
-// The API gives only a stay's and a tour's price yet, so a rental or a transfer says how it is
-// priced instead, and never a number it doesn't have.
+// The API gives only a stay's and a tour's price yet, so a rental or a transfer says "Price to be
+// agreed" (the area page's words), the section's intro says once what that means, and never a
+// number it doesn't have.
 async function PartnerListings() {
   const [explore, areas] = await Promise.all([
     getExplore({ area: LAUNCH_AREA.slug }).catch((error: unknown) => {
@@ -263,7 +264,7 @@ async function PartnerListings() {
                   ? { prefix: "from", amount: formatPeso(listing.price_from_cents), unit }
                   : undefined
               }
-              unpriced={pricedByText(listing.booking_type)}
+              unpriced={pricedByText(listing.booking_type) && TO_BE_AGREED}
               action={<HeroAddToTrip listing={listing} />}
               instantBook={listing.instant_book}
               rowOnPhone

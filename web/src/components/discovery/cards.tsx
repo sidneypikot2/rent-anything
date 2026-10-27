@@ -588,7 +588,7 @@ export function ListingRow({
                 unpriced={price ? undefined : unpriced}
               />
             }
-            actions={<PanelActions price={price} unpriced={unpriced} action={panelAction} />}
+            actions={<PanelActions price={price} unpriced={unpriced} action={panelAction} listingId={listingId} dates={dates} />}
             className="underline-offset-4 hover:underline"
           >
             {title}

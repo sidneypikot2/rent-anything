@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/components/ui/cn";
 import { useState } from "react";
 import { TickGlyph } from "@/components/discovery/tag-glyphs";
 import { Badge } from "@/components/ui/badge";
@@ -47,11 +48,16 @@ function whereIs(listingId: number, current: Trip[], chosen: ChosenTrip): { wher
   return { where: working ? "other" : "this", trip: holder };
 }
 
-// "In your trip" on a listing row the trip being worked on already holds: green, as green marks
-// trips, so the row reads as taken care of while its button stays an action (Add another). Held
+// "In your trip" on a listing row the trip being worked on already holds: a filled pill in the
+// action colour (the soft-UI reference's badges), so the row reads as taken care of while its
+// button stays a quiet action (Add another). Held
 // only by another trip, a quiet "In another trip" naming it: the guest sees they have it
 // somewhere without this trip claiming it. Not yet booked, the badge is "In your trip · Edit",
 // opening its days (ItemEditSheet) right on the card.
+// White on the primary (lagoon ink on guest pages) is 9.1:1.
+// Compact: a status beside the row's tags, never as loud as its button.
+const IN_TRIP = "inline-flex min-h-6 items-center gap-1 rounded-full bg-primary px-2.5 text-xs font-semibold text-white";
+
 export function InTripBadge({ listingId }: { listingId: number }) {
   const { where, trip } = useListingInTrip(listingId);
   const [editing, setEditing] = useState(false);
@@ -71,18 +77,18 @@ export function InTripBadge({ listingId }: { listingId: number }) {
           aria-haspopup="dialog"
           onClick={() => setEditing(true)}
           data-testid="in-trip-edit"
-          className="tap-target z-10 inline-flex min-h-6 items-center gap-1 rounded-full border border-sage bg-sage px-2.5 text-xs font-semibold text-forest transition-colors hover:border-forest/40"
+          className={cn(IN_TRIP, "tap-target z-10 transition-colors hover:bg-primary-hover")}
         >
-          <TickGlyph aria-hidden className="size-3.5" />
+          <TickGlyph aria-hidden className="size-3" />
           In your trip ·<span className="underline underline-offset-2">Edit</span>
         </button>
         {editing && <ItemEditSheet trip={trip} item={item} onClose={() => setEditing(false)} onSaved={() => setEditing(false)} />}
       </>
     );
   return (
-    <Badge tone="emerald" data-testid="in-trip" className="min-h-6 px-2.5 text-xs">
-      <TickGlyph aria-hidden className="size-3.5" />
+    <span data-testid="in-trip" className={IN_TRIP}>
+      <TickGlyph aria-hidden className="size-3" />
       In your trip
-    </Badge>
+    </span>
   );
 }

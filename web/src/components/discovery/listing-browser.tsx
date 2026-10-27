@@ -10,6 +10,8 @@ import { Field } from "@/components/ui/field";
 import { formatPeso } from "@/lib/money";
 import { openPlan, usePlanSummary } from "@/components/trips/plan-open";
 import { gapGroup, planGaps, stillMissing } from "@/components/trips/trip-missing";
+import { QuietAdd } from "@/components/trips/add-to-trip-button";
+import { useTripAdd } from "@/components/trips/trip-add-provider";
 import { useTripHere } from "@/components/trips/use-trip-here";
 import { ShownOffersContext } from "./business-row";
 import { BOOKING_GROUPS } from "./categories";
@@ -32,6 +34,11 @@ export type ListingOffer = {
 // its anchor, unique on the page; `content` is the card itself, rendered on the server, which
 // shows only the listings the filters leave (ShownOffersContext).
 export type ListingItem = { key: string; offers: ListingOffer[]; content: ReactNode };
+
+// What to book's held section order (see ListingBrowser), for this page only.
+let heldOrder: { path: string; ids: string[] } | null = null;
+const pathnameNow = () => (typeof window === "undefined" ? "" : window.location.pathname);
+const heldOrderFor = (path: string) => (heldOrder && heldOrder.path === path ? heldOrder.ids : null);
 // `group` (a listing's `group`) tells the area map which pins the group's rows are.
 // `note`: a line under the section's title, once for all its rows (how unpriced ones are priced).
 export type ListingGroup = { id: string; title: string; icon: string; group?: string; note?: string; items: ListingItem[] };
@@ -40,6 +47,9 @@ type Filters = { free: boolean; min: string; max: string; includes: string[] };
 const NO_FILTERS: Filters = { free: false, min: "", max: "", includes: [] };
 // Includes listed before "Show all".
 const FIRST_INCLUDES = 6;
+// Chips that describe a listing (its size, its route, a tour's group) rather than say what comes
+// with it: shown on the row, never offered under Includes.
+const NOT_INCLUDES = new Set(["guests", "seats", "luggage", "route", "engine", "sizes", "bed"]);
 // Rows a section shows under "All" before its "Show all N": the page stays short enough to reach
 // the places to see below it, on a phone too, and the section's own chip shows the rest.
 const FIRST_ROWS = 3;
@@ -126,13 +136,54 @@ export function ListingBrowser({
   const rank = (group: ListingGroup) =>
     group.group && lacks.has(group.group) ? 0 : inTrip(group) ? 2 : group.group === "gear" ? 3 : 1;
   const stayFirst = (a: ListingGroup, b: ListingGroup) => Number(b.group === "stay") - Number(a.group === "stay");
-  const ordered = [...groups].sort((a, b) => (trip ? rank(a) - rank(b) : 0) || stayFirst(a, b));
+  const planned = [...groups].sort((a, b) => (trip ? rank(a) - rank(b) : 0) || stayFirst(a, b));
+  // Once the guest starts an add, the sections keep their order until another is picked: a stay
+  // just added would otherwise drop to the end with "what the trip has" and leave the guest
+  // looking at scooters. The dots and ticks still update; only the order holds.
+  const { busyListingId, lastAdded } = useTripAdd();
+  // Kept outside the component too (heldOrder), as a first add signs a guest in and the page
+  // then swaps its sections (SectionOrder), mounting this list afresh.
+  const [frozen, setFrozen] = useState<string[] | null>(() => heldOrderFor(pathnameNow()));
+  if (busyListingId !== null && frozen === null) setFrozen(planned.map((group) => group.id));
+  useEffect(() => {
+    heldOrder = frozen && { path: pathnameNow(), ids: frozen };
+  }, [frozen]);
+  const place = (group: ListingGroup) => (frozen && frozen.includes(group.id) ? frozen.indexOf(group.id) : Number.MAX_SAFE_INTEGER);
+  const ordered = frozen ? [...planned].sort((a, b) => place(a) - place(b)) : planned;
+  // The row just added comes back into view if it left it, and glows once (.just-added), so the
+  // guest sees what changed: its In your trip badge and Add another.
+  useEffect(() => {
+    if (!lastAdded) return;
+    const row = document.querySelector<HTMLElement>(`[data-listings~="${lastAdded.listingId}"]`);
+    if (!row) return;
+    const box = row.getBoundingClientRect();
+    if (box.top < 0 || box.bottom > window.innerHeight) {
+      const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      row.scrollIntoView({ block: "center", behavior: still ? "auto" : "smooth" });
+    }
+    row.classList.remove("just-added");
+    void row.offsetWidth;
+    row.classList.add("just-added");
+  }, [lastAdded]);
+  // "a transfer", "a place to stay": what a section gives the trip, for its "still needs" line.
+  const needOf = (group: ListingGroup) => {
+    const need = BOOKING_GROUPS.find((each) => each.group === group.group)?.need ?? group.title;
+    return need.charAt(0).toLowerCase() + need.slice(1);
+  };
   // A chip's mark: a dot for what's missing, a tick for what the trip has.
   const markOf = (group: ListingGroup) => (group.group && lacks.has(group.group) ? "missing" : inTrip(group) ? "has" : undefined);
   const planSummary = usePlanSummary();
   const [current, setCurrent] = useState<string>(() =>
     initial && groups.some((group) => group.id === initial) ? initial : "all",
   );
+  // Once another section is picked, its rows ease in (animate-swap-in), never on the first paint.
+  const [seen, setSeen] = useState(current);
+  const [switched, setSwitched] = useState(false);
+  if (current !== seen) {
+    setSeen(current);
+    setSwitched(true);
+    setFrozen(null);
+  }
   const matches = matcher(query);
   const asked = Boolean(query || initial);
   // Passes the page's search and a section's filters.
@@ -270,7 +321,7 @@ export function ListingBrowser({
               // up under the header's foot (z-35, under the header's z-40), so no row shows through
               // the 12px between them.
               "sticky top-(--chrome) z-20 -mx-inset -my-2 flex gap-1.5 overflow-x-auto bg-surface-2 px-inset py-2 [scrollbar-width:none] max-search:top-[calc(var(--chrome)_-_1.25rem)] max-search:-mt-5 max-search:z-35 max-search:pt-5",
-              rail && "lg:static lg:mx-0 lg:my-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:rounded-card lg:bg-surface lg:p-2 lg:card-edge lg:shadow-soft",
+              rail && "lg:static lg:mx-0 lg:my-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:rounded-card lg:bg-surface lg:p-2 lg:card-edge-line lg:shadow-soft",
             )}
           >
             {/* The trip's plan, first in the row (and the rail): it says what to look for here. */}
@@ -282,7 +333,7 @@ export function ListingBrowser({
                 data-testid="trip-plan-button"
                 aria-label={planSummary.missing > 0 ? `Your plan: ${planSummary.missing} missing` : "Your plan"}
                 className={cn(
-                  "flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-navy bg-mist px-4 text-sm font-semibold whitespace-nowrap text-navy transition-colors duration-300 ease-calm hover:bg-sky-mist",
+                  "flex min-h-11 shrink-0 items-center gap-2 rounded-button bg-surface px-4 text-sm font-semibold whitespace-nowrap text-navy shadow-xs inset-ring-1 inset-ring-line-strong transition-colors duration-150 ease-calm hover:bg-surface-2",
                   rail && "lg:mb-1 lg:bg-surface lg:hover:bg-mist lg:grid lg:grid-cols-[1.75rem_minmax(0,1fr)_auto] lg:gap-2.5 lg:rounded-control lg:border-line lg:px-2.5 lg:py-2 lg:text-left",
                 )}
               >
@@ -293,7 +344,7 @@ export function ListingBrowser({
                 {planSummary.missing > 0 && (
                   <span
                     aria-hidden
-                    className="grid min-w-6 place-items-center rounded-full bg-warning-tint px-1.5 text-xs font-bold text-navy tabular-nums"
+                    className="grid min-w-6 place-items-center rounded-full bg-aqua px-1.5 text-xs font-bold text-navy tabular-nums"
                   >
                     {planSummary.missing}
                   </span>
@@ -309,15 +360,16 @@ export function ListingBrowser({
                   aria-pressed={on}
                   onClick={() => setCurrent(option.id)}
                   className={cn(
-                    "flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-semibold whitespace-nowrap transition-colors duration-300 ease-calm",
+                    // On a phone each is a chip, so the row reads as something to tap on the pale section.
+                    "flex min-h-11 shrink-0 items-center gap-2 rounded-chip px-3.5 text-sm whitespace-nowrap transition-colors duration-150 ease-calm",
                     // In the rail: a row with the count in its own right-aligned column, and a long
                     // name wrapping beside its icon rather than pushing the count out.
-                    rail && "lg:grid lg:grid-cols-[1.75rem_minmax(0,1fr)_2.5ch] lg:gap-2.5 lg:rounded-control lg:border-0 lg:px-2.5 lg:py-2 lg:text-left lg:whitespace-normal",
+                    rail && "lg:grid lg:grid-cols-[1.75rem_minmax(0,1fr)_2.5ch] lg:gap-2.5 lg:rounded-control lg:shadow-none lg:inset-ring-0 lg:px-2.5 lg:py-2 lg:text-left lg:whitespace-normal",
                     on
-                      ? cn("border-navy bg-navy text-white", rail && "lg:bg-mist lg:text-primary")
+                      ? cn("bg-primary font-semibold text-white", rail && "lg:bg-lagoon-tint lg:text-lagoon-ink")
                       : cn(
-                          // Tinted, not white: white pills on the white sheet read as labels, not buttons.
-                          "border-line-2 bg-mist text-navy hover:border-primary",
+                          // A flat grey tag, as the row's facts are: the outlined teal is for buttons.
+                          "bg-tag font-medium text-navy hover:bg-lagoon-tint",
                           rail && "lg:bg-surface lg:text-foreground lg:hover:bg-surface-2",
                         ),
                   )}
@@ -327,7 +379,7 @@ export function ListingBrowser({
                     className={cn(
                       "hidden size-7 items-center justify-center rounded-lg",
                       rail && "lg:flex",
-                      on ? "bg-surface text-primary" : "bg-mist text-primary",
+                      on ? "bg-primary text-white" : "bg-tag text-navy",
                     )}
                   >
                     {option.icon ? <CategoryGlyph name={option.icon} className="size-4" /> : <GridGlyph className="size-4" />}
@@ -338,15 +390,28 @@ export function ListingBrowser({
                     {option.mark === "has" && <TickGlyph className={cn("size-3.5 shrink-0", on ? "text-mint" : "text-forest", rail && on && "lg:text-forest")} />}
                     {option.mark && <span className="sr-only">{option.mark === "missing" ? ", missing from your trip" : ", in your trip"}</span>}
                     {option.set > 0 && (
-                      <span className={cn("ml-1.5 text-xs font-medium", on ? rail && "lg:text-primary" : "text-link")}>
+                      <span className={cn("ml-1.5 text-xs font-medium", on ? cn("text-white/80", rail && "lg:text-lagoon-ink") : "text-muted")}>
                         · {option.set} {option.set === 1 ? "filter" : "filters"}
                       </span>
                     )}
                   </span>
-                  <span className={cn("tabular-nums", rail && "lg:text-right", on ? rail && "lg:text-primary" : "text-muted")}>{option.count}</span>
+                  <span className={cn("tabular-nums", rail && "lg:text-right", on ? cn("text-white/80", rail && "lg:text-lagoon-ink") : "text-muted")}>{option.count}</span>
                 </button>
               );
             })}
+            {/* What the marks mean, in the rail, once any shows (screen readers hear it on each). */}
+            {rail && options.some((option) => option.mark) && (
+              <p aria-hidden className="hidden flex-wrap items-center gap-x-3 gap-y-1 border-t border-line px-2.5 pt-2.5 pb-1 text-xs text-muted lg:flex">
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-warning" />
+                  Your trip still needs
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <TickGlyph className="size-3.5 text-forest" />
+                  In your trip
+                </span>
+              </p>
+            )}
             {/* A fade at the row's right edge while it scrolls, so a cut-off chip reads as more. */}
             <span
               aria-hidden
@@ -384,7 +449,7 @@ export function ListingBrowser({
         )}
         {shown.length === 0
           ? !matches && empty
-          : shown.map((group) => {
+          : shown.map((group, groupIndex) => {
               const all = visible(group);
               // A distance search lists everything in range, nearest first.
               // A search's matches show whole: they are few, and the point of the search.
@@ -392,23 +457,29 @@ export function ListingBrowser({
               const set = setCount(filtersOf(group.id));
               const clear = () => setFiltersOf(group.id, NO_FILTERS);
               return (
-                <div key={group.id} id={`${group.id}-top`} className="flex scroll-mt-(--chrome) flex-col gap-3">
+                <div
+                  // Keyed by the pick too, so a new pick plays the rows' arrival again.
+                  key={`${current}-${group.id}`}
+                  id={`${group.id}-top`}
+                  className={cn("flex scroll-mt-(--chrome) flex-col gap-3", switched && "animate-swap-in")}
+                  style={switched ? { animationDelay: `${Math.min(groupIndex, 3) * 60}ms` } : undefined}
+                >
                   {/* On a phone the pills take a row of their own under the title. */}
                   <div className="flex min-w-0 flex-wrap items-center gap-2.5 sm:flex-nowrap">
                     <h3 id={group.id} className="scroll-mt-36 shrink-0 text-lg font-semibold">
                       {group.title}
                     </h3>
-                    <button
-                      type="button"
+                    {/* A labelled button (a bare icon circle went unnoticed in testing): the outlined
+                        second action, tinted while filters are set (data-set, globals.css). */}
+                    <Button
+                      variant="soft"
+                      size="touch"
                       aria-label={`Filter ${group.title}${set > 0 ? `, ${set} set` : ""}`}
                       aria-haspopup="dialog"
                       onClick={() => openFilters(group.id)}
                       data-testid="section-filter"
-                      className={cn(
-                        // A labelled, tinted pill: a bare white icon circle went unnoticed in testing.
-                        "relative flex h-11 shrink-0 items-center gap-2 rounded-full border bg-mist px-4 text-control font-semibold text-primary transition-colors duration-300 ease-calm",
-                        set > 0 ? "border-primary" : "border-line-2 hover:border-primary",
-                      )}
+                      data-set={set > 0 || undefined}
+                      className="shrink-0 px-4 text-control"
                     >
                       <FilterGlyph className="size-5" />
                       Filter
@@ -417,7 +488,7 @@ export function ListingBrowser({
                           {set}
                         </span>
                       )}
-                    </button>
+                    </Button>
                     {set > 0 && (
                       <>
                         <FilterMarkers
@@ -430,20 +501,44 @@ export function ListingBrowser({
                       </>
                     )}
                   </div>
-                  {group.note && <p className="-mt-1 text-sm text-pretty text-muted">{group.note}</p>}
+                  {/* With a trip shown, whether it needs this section: said once under the title, and
+                      its rows' Add to trip filled only here (QuietAdd elsewhere). */}
+                  {trip && markOf(group) === "missing" && (
+                    <p data-testid="section-needed" className="-mt-1 flex items-center gap-2 text-sm font-semibold">
+                      <span aria-hidden className="size-2 shrink-0 rounded-full bg-warning" />
+                      Your trip still needs {needOf(group)}
+                    </p>
+                  )}
+                  {trip && markOf(group) === "has" && (
+                    <p className="-mt-1 flex items-center gap-1.5 text-sm text-muted">
+                      <TickGlyph aria-hidden className="size-3.5 text-forest" />
+                      In your trip
+                    </p>
+                  )}
+                  {group.note && <p className="-mt-1 max-w-prose text-sm text-pretty text-muted">{group.note}</p>}
                   {rows.length > 0 ? (
-                    <ul className="flex flex-col divide-y divide-line">
-                      {rows.map((item) => (
+                    <ul className="flex flex-col gap-3">
+                      {rows.map((item, rowIndex) => (
                         // A search suggestion links straight to its row (#listing-<id>).
                         // A container, so the row lays itself out by its own width: beside the map
                         // it is narrower than the window says.
-                        <li key={item.key} id={item.key} className="@container scroll-mt-36 py-4 first:pt-1 last:pb-1">
+                        <li
+                          key={item.key}
+                          id={item.key}
+                          data-listings={item.offers.map((offer) => offer.id).join(" ")}
+                          className={cn("@container scroll-mt-36", switched && "animate-swap-in")}
+                          style={switched ? { animationDelay: `${Math.min(groupIndex * 3 + rowIndex + 1, 6) * 60}ms` } : undefined}
+                        >
                           {near && (
                             <p className="mb-1.5 px-1 text-sm font-semibold text-primary">{distance(group, item).toFixed(1)} km from your pin</p>
                           )}
-                          <MapHoverTarget pin={item.offers.map((offer) => listingKey(offer.id))}>
+                          {/* Each row a white card on the pale sheet, so its edge shows at rest, not only when lit. */}
+                          <MapHoverTarget
+                            pin={item.offers.map((offer) => listingKey(offer.id))}
+                            className="border border-line bg-surface p-3 shadow-soft"
+                          >
                             <ShownOffersContext.Provider value={new Set(kept(group, item).map((offer) => offer.id))}>
-                              {item.content}
+                              <QuietAdd.Provider value={Boolean(trip) && markOf(group) !== "missing"}>{item.content}</QuietAdd.Provider>
                             </ShownOffersContext.Provider>
                           </MapHoverTarget>
                         </li>
@@ -593,7 +688,7 @@ function TextButton({ onClick, children = "Clear", className }: { onClick: () =>
 }
 
 // One section's filters: free cancellation, a price range on its "from" prices, and what its
-// rows include, each with how many rows would match.
+// rows include, each with how many businesses would match.
 function FilterPanel({
   group,
   filters,
@@ -604,19 +699,30 @@ function FilterPanel({
   onChange: (next: Filters) => void;
 }) {
   const [allIncludes, setAllIncludes] = useState(false);
-  // Its listings, counted one by one: a price or an include belongs to a listing, not a business.
+  // Prices are its listings'; the counts are businesses, as the section's rows and its "Show N
+  // results" count them, so a business with two cottages counts once.
   const offers = group.items.flatMap((item) => item.offers);
   const prices = offers.flatMap((item) => (item.priceCents === null ? [] : [item.priceCents]));
   const units = [...new Set(offers.flatMap((item) => (item.priceUnit ? [item.priceUnit] : [])))];
   const unpriced = offers.some((item) => item.priceCents === null);
-  const free = offers.filter((item) => item.features.some((feature) => feature.trust)).length;
+  const businesses = group.items.length;
+  const free = group.items.filter((item) => item.offers.some((offer) => offer.features.some((feature) => feature.trust))).length;
 
-  // What the rows include, counted among the rows the other filters leave; one already ticked
-  // stays listed even when nothing left has it.
-  const pool = offers.filter((offer) => passes(offer, filters, true));
+  // What the rows include, counted among the businesses the other filters leave. A choice every
+  // business has filters nothing (the section's note already says it), so it isn't offered, nor is
+  // a size or a route, which describe a listing rather than say what comes with it. One already
+  // ticked stays listed even when nothing left has it.
   const counts = new Map<string, number>();
-  for (const item of pool)
-    for (const feature of item.features) if (!feature.trust) counts.set(feature.label, (counts.get(feature.label) ?? 0) + 1);
+  for (const item of group.items) {
+    const labels = new Set(
+      item.offers
+        .filter((offer) => passes(offer, filters, true))
+        .flatMap((offer) => offer.features.filter((feature) => !feature.trust && !NOT_INCLUDES.has(feature.icon)))
+        .map((feature) => feature.label),
+    );
+    for (const label of labels) counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  for (const [label, count] of counts) if (count === businesses && !filters.includes.includes(label)) counts.delete(label);
   for (const label of filters.includes) if (!counts.has(label)) counts.set(label, 0);
   const includes = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   const listed = allIncludes ? includes : includes.slice(0, FIRST_INCLUDES);
@@ -625,7 +731,7 @@ function FilterPanel({
 
   return (
     <div className="flex flex-col gap-4" data-testid="listing-filter-panel">
-      {free > 0 && (
+      {free > 0 && (free < businesses || filters.free) && (
         <CheckboxField
           label="Free cancellation"
           aside={free}
@@ -669,7 +775,7 @@ function FilterPanel({
         </fieldset>
       )}
       {includes.length > 0 && (
-        <fieldset className="flex flex-col gap-2.5">
+        <fieldset className="flex flex-col gap-0">
           <legend className="mb-2 text-sm font-semibold">Includes</legend>
           {listed.map(([label, count]) => (
             <CheckboxField
@@ -754,7 +860,7 @@ function FilterMarkers({
           <button
             type="button"
             onClick={onMore}
-            className="relative flex min-h-8 items-center rounded-full border border-line bg-surface px-3 text-xs font-semibold whitespace-nowrap before:absolute before:inset-x-0 before:-inset-y-1.5 hover:border-line-strong"
+            className="relative flex min-h-8 items-center rounded-full bg-tag px-3 text-xs font-semibold whitespace-nowrap text-navy/80 before:absolute before:inset-x-0 before:-inset-y-1.5 hover:bg-lagoon-tint"
           >
             +{hidden} more
           </button>

@@ -964,7 +964,6 @@ function MapPopup({
                 listing={{ id: pin.id, title: pin.title, booking_type: pin.bookingType }}
                 dates={dates}
                 preview={pinPreview(pin)}
-                prominent
               />
             }
           />

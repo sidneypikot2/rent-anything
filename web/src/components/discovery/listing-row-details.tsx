@@ -41,8 +41,8 @@ export function ListingRowDetails({ summary, features }: { summary?: string | nu
             ] : []),
             // Past "+N more" a chip leaves the flow, so a short one can't show after it on its row.
             <li key={feature.label} className={cn(shown !== null && hidden > 0 && index >= shown && "sr-only")}>
-              <Badge tone={feature.trust ? "emerald" : "mist"} className="min-h-7 px-2.5 text-xs">
-                <FeatureGlyph name={feature.icon} className="size-3.5" />
+              <Badge tone={feature.trust ? "emerald" : "fact"} className="min-h-7 px-2.5 text-xs">
+                <FeatureGlyph name={feature.icon} className={cn("size-3.5", !feature.trust && "text-primary")} />
                 {feature.label}
               </Badge>
             </li>,

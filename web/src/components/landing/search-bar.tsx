@@ -8,7 +8,8 @@ import { readTripDates } from "@/components/trips/trip-dates";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { formatDateRange } from "@/lib/dates";
-import { SearchHere, useCurrentPlace, usePageSearching, useRegisterEditSearch } from "./current-place";
+import { chooseTrip, clearChosenTrip } from "@/components/trips/chosen-trip";
+import { SearchHere, useCurrentPlace, usePageSearching, useRegisterEditSearch, type EditOptions } from "./current-place";
 import { guestsLabel } from "@/components/trips/format";
 
 // Every guest page's banner but the home hero (which holds the search itself) and the cart's
@@ -78,7 +79,8 @@ function HeaderSearchContent({ pathname }: { pathname: string }) {
   // Whatever the search was opened for; a new page or new dates close it and refill the pill.
   const key = `${pathname}?${params.toString()}|${place?.name ?? ""}`;
   // Open for this search: as the panel under the header (`wide`) or a phone's sheet, from scroll `y`.
-  const [opened, setOpened] = useState<{ key: string; wide: boolean; y: number } | null>(null);
+  // `trip`: opened from a trip's "+ Another place", so the place it goes to shows that trip.
+  const [opened, setOpened] = useState<{ key: string; wide: boolean; y: number; trip?: number } | null>(null);
   const open = opened?.key === key ? opened : null;
   const close = useCallback(() => setOpened(null), []);
   // A page asking for a stop (the area page's trip line): the search opens on it.
@@ -87,13 +89,25 @@ function HeaderSearchContent({ pathname }: { pathname: string }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const pillRef = useRef<HTMLButtonElement>(null);
 
-  function openOn(panel?: "where" | "when" | "guests") {
+  function openOn(panel?: "where" | "when" | "guests", options?: EditOptions) {
     const wide = window.matchMedia(SEARCH_ROW).matches;
     // The panel starts in Where; a phone's sheet opens as it is unless a page asked for a stop.
     const stop = panel ?? (wide ? "where" : undefined);
     if (stop) setRequest((last) => ({ panel: stop, n: (last?.n ?? 0) + 1, key }));
-    setOpened({ key, wide, y: window.scrollY });
+    setOpened({ key, wide, y: window.scrollY, trip: options?.trip });
   }
+  // Leaving for another place: the trip goes along only when the search was opened for it. The
+  // same place (new dates, a search of its things to book) and the trip's own places ("In your
+  // trip", already showing it) leave the choice as it is.
+  const trip = open?.trip;
+  const onLeave = useCallback(
+    (href: string, own: boolean) => {
+      if (own || new URL(href, window.location.origin).pathname === pathname) return;
+      if (trip !== undefined) chooseTrip(trip);
+      else clearChosenTrip();
+    },
+    [pathname, trip],
+  );
   useRegisterEditSearch(openOn, searching);
 
   // The panel closes on a click outside it, Escape, or once the page has scrolled on (unless
@@ -133,6 +147,7 @@ function HeaderSearchContent({ pathname }: { pathname: string }) {
       initialDates={dates}
       here={here}
       request={request?.key === key ? request : undefined}
+      onLeave={onLeave}
       onDone={close}
     />
   );
@@ -257,11 +272,11 @@ export function SearchPill({
         )}
       </span>
       {summary ? (
-        // A pencil in blue says the summary opens to be changed, so it doesn't read as a caption;
+        // A pencil in the primary colour says the summary opens to be changed, so it doesn't read as a caption;
         // no word beside it, which would cut the place's name short.
         <PencilGlyph className="size-4 shrink-0 text-primary" />
       ) : (
-        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-white">
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-action text-on-action">
           <SearchGlyph className="size-4" />
         </span>
       )}

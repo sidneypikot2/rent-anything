@@ -38,6 +38,10 @@ type Props = {
   // the details of something on the page, beside it; "drawer" for a guide to the page, from the
   // bottom on a phone; "overlay" for a record's details over it.
   placement?: keyof typeof PLACEMENTS;
+  // A sheet whose list runs long: its title and close button stay at the top and `actions` at
+  // the foot while only the body scrolls. Opt-in, as a scrolling body clips a field's popover
+  // (the date picker), so a sheet holding fields keeps scrolling as a whole.
+  pinned?: boolean;
   "data-testid"?: string;
 };
 
@@ -52,6 +56,7 @@ export function Dialog({
   media,
   actions,
   placement = "center",
+  pinned = false,
   "data-testid": testId,
 }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -73,7 +78,7 @@ export function Dialog({
       <h2 id={titleId} className="pt-1.5 font-display text-2xl font-extrabold tracking-tight break-words">
         {title}
       </h2>
-      <Button type="button" variant="quiet" size="icon" aria-label="Close" onClick={onClose} className="-mt-1 -mr-2 shrink-0 bg-surface-2">
+      <Button type="button" variant="quiet" size="icon" aria-label="Close" onClick={onClose} className="-mt-1 -mr-2 shrink-0">
         <CloseGlyph className="size-5" />
       </Button>
     </div>
@@ -100,7 +105,7 @@ export function Dialog({
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="absolute top-7 right-7 z-10 flex size-11 items-center justify-center rounded-full bg-surface/90 text-foreground shadow-soft backdrop-blur-sm transition-colors duration-300 ease-calm hover:bg-surface"
+            className="absolute top-7 right-7 z-10 flex size-11 items-center justify-center rounded-button bg-surface text-navy inset-ring-1 inset-ring-line transition-colors duration-150 ease-calm hover:bg-surface-2"
           >
             <CloseGlyph className="size-5" />
           </button>
@@ -125,17 +130,24 @@ export function Dialog({
         </div>
       ) : placement === "drawer" ? (
         <div className="flex max-h-[inherit] flex-col sm:h-full">
-          <div className="px-5 pt-4 pb-3">{header}</div>
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] *:shrink-0">
+          <div className="border-b border-line px-5 pt-4 pb-3">{header}</div>
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-5 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] *:shrink-0">
             {children}
           </div>
         </div>
-      ) : placement === "overlay" ? (
-        <div className="flex max-h-[calc(100dvh-3rem)] flex-col">
+      ) : placement === "overlay" || (placement === "sheet" && pinned) ? (
+        <div className={cn("flex flex-col", placement === "sheet" ? "max-h-[inherit]" : "max-h-[calc(100dvh-3rem)]")}>
           <div className="border-b border-line px-5 pt-5 pb-4">{header}</div>
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-5 *:shrink-0">{children}</div>
           {actions && (
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3">{actions}</div>
+            <div
+              className={cn(
+                "flex flex-wrap items-center gap-3 border-t border-line px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+                placement === "sheet" ? "justify-end" : "justify-between",
+              )}
+            >
+              {actions}
+            </div>
           )}
         </div>
       ) : (

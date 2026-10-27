@@ -11,7 +11,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { StepperField } from "@/components/ui/stepper-field";
 import { chooseTrip, useChosenTrip } from "./chosen-trip";
-import { formatDateRange, guestLimitHint, itemCount, noNightError, todayIso, tripDetails } from "./format";
+import { daysBetween, formatDateRange, guestLimitHint, itemCount, noNightError, todayIso, tripDetails } from "./format";
 import { bedsBooked } from "./beds";
 import { sameItem } from "./trip-missing";
 import { TripOption } from "./trip-option";
@@ -147,10 +147,25 @@ function capacityNote(preview: AddPreview | undefined, guests: number, wanted: n
   return null;
 }
 
+// Opens the new trip's name field: a text action, underlined as a link is.
+function NameTripButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid="which-trip-name-open"
+      className="tap-target self-start text-sm font-semibold text-link underline underline-offset-4 hover:text-primary"
+    >
+      Name this trip
+    </button>
+  );
+}
+
 // The listing being added, as the page that started the add showed it.
 function ListingPreview({ title, preview }: { title: string; preview?: AddPreview }) {
   return (
-    <div className="flex items-start gap-3" data-testid="add-sheet-listing">
+    // The same summary box as the edit sheet (ItemEditSheet), so the two sheets read as a pair.
+    <div className="flex items-start gap-3 rounded-control bg-surface-2 p-3" data-testid="add-sheet-listing">
       <div className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-control bg-mist text-navy">
         {preview?.photo ? (
           <Image
@@ -196,6 +211,9 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   const [picked, setPicked] = useState<Choice | null>(fixed ?? preferred);
   // A new trip's name, if the guest gives one; blank keeps the server's (destination and dates).
   const [tripName, setTripName] = useState("");
+  // A new trip is named after its place and dates; a name of the guest's own is one tap away
+  // ("Name this trip"), not a field in the way of every first add.
+  const [naming, setNaming] = useState(false);
   const addItem = useAddTripItem();
 
   // A single-day booking has one date; the API takes it as from–to of that day.
@@ -288,6 +306,11 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
             clearable
             inline
             error={dateError}
+            hint={
+              request.bookingType === "stay" && dated.startsOn && dated.endsOn && !dateError && daysBetween(dated.startsOn, dated.endsOn) > 0
+                ? `${daysBetween(dated.startsOn, dated.endsOn)} ${daysBetween(dated.startsOn, dated.endsOn) === 1 ? "night" : "nights"}`
+                : undefined
+            }
             className="col-span-2 sm:col-span-1"
           />
           {/* − and +, not a typed number: a phone's keyboard would cover the sheet. */}
@@ -346,19 +369,22 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
                 </>
               )}
             </p>
-            {fixed === "new" && (
+            {fixed === "new" && (naming ? (
               <Field
-                label="Trip name (optional)"
+                label="Trip name"
                 name="trip_name"
                 value={tripName}
                 maxLength={80}
                 placeholder={suggestion.data?.new_trip_name}
                 hint="Leave it blank to name it after the place and dates."
                 disabled={addItem.isPending}
+                autoFocus
                 data-testid="which-trip-name"
                 onChange={(event) => setTripName(event.target.value)}
               />
-            )}
+            ) : (
+              <NameTripButton onClick={() => setNaming(true)} />
+            ))}
           </div>
         ) : (
           <fieldset disabled={addItem.isPending} className="flex max-h-[40dvh] flex-col gap-2 overflow-y-auto">
@@ -384,18 +410,21 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
               detail={suggestion.data?.new_trip_name ?? "Named after the destination and dates"}
               suggested={suggestion.data !== undefined && suggested === null}
             />
-            {choice === "new" && (
+            {choice === "new" && (naming ? (
               <Field
-                label="Trip name (optional)"
+                label="Trip name"
                 name="trip_name"
                 value={tripName}
                 maxLength={80}
                 placeholder={suggestion.data?.new_trip_name}
                 hint="Leave it blank to name it after the place and dates."
+                autoFocus
                 data-testid="which-trip-name"
                 onChange={(event) => setTripName(event.target.value)}
               />
-            )}
+            ) : (
+              <NameTripButton onClick={() => setNaming(true)} />
+            ))}
           </fieldset>
         )}
 
@@ -412,8 +441,10 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
           </Button>
           <Button
             type="submit"
+            glyph="plus"
             data-testid="which-trip-add"
-            disabled={addItem.isPending || choice === null || !datesValid || !quantityValid}
+            loading={addItem.isPending}
+            disabled={choice === null || !datesValid || !quantityValid}
           >
             {addItem.isPending ? "Adding…" : already ? (request.bookingType === "stay" ? "Add another room" : "Add it again") : "Add to trip"}
           </Button>

@@ -1,10 +1,12 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BOOKING_STATUS } from "@/components/bookings/booking-status";
 import { AlertGlyph, CategoryGlyph, TickGlyph } from "@/components/discovery/tag-glyphs";
 import { cn } from "@/components/ui/cn";
 import type { GettingHere } from "@/components/landing/launch-area";
 import { formatDateRange } from "@/lib/dates";
-import { ROLE_LABEL } from "./itinerary";
+import { roleLabel } from "./itinerary";
+import { ItemThumb } from "./item-thumb";
 import type { PlanGap } from "./trip-missing";
 import { dayRows, type PlanItem, type TripPlan } from "./trip-plan";
 
@@ -13,13 +15,25 @@ import { dayRows, type PlanItem, type TripPlan } from "./trip-plan";
 // without `then`.
 
 export const LINK =
-  "relative font-semibold text-link underline-offset-4 after:absolute after:-inset-x-2 after:-inset-y-3 after:content-[''] hover:underline";
+  "relative font-semibold text-link underline underline-offset-4 after:absolute after:-inset-x-2 after:-inset-y-3 after:content-[''] hover:text-primary";
 
 // Goes to a section of What to book or a place to see: the page follows hashchange, which
-// setting the same hash again wouldn't fire.
+// setting the same hash again wouldn't fire. Focus follows too, once the panel has closed and
+// handed it back to its opener, so a keyboard or screen reader lands where the page scrolled.
 export function jumpTo(hash: string) {
   if (window.location.hash === hash) window.dispatchEvent(new HashChangeEvent("hashchange"));
   else window.location.hash = hash;
+  window.setTimeout(() => {
+    const target = document.getElementById(hash.slice(1));
+    const heading = target?.querySelector<HTMLElement>("h2, h3") ?? target;
+    if (!heading) return;
+    // A heading isn't a control: focus it for screen readers and the next Tab, without a ring.
+    if (!heading.hasAttribute("tabindex")) {
+      heading.setAttribute("tabindex", "-1");
+      heading.style.outline = "none";
+    }
+    heading.focus({ preventScroll: true });
+  }, 100);
 }
 
 // How a traveller gets here, first in the plan: ticked once the trip has a transfer.
@@ -72,6 +86,8 @@ export function PlanDays<T extends PlanItem>({
   then?: (action: () => void) => () => void;
 }) {
   const last = plan.days.length - 1;
+  // Once the arrival day is over the route there is history; a missing transfer stays a row.
+  const arrived = plan.days[0].past;
   const where = (item: T) => (places.includes(item.area.slug) ? "" : ` · in ${item.area.name}`);
   // What runs through the whole trip is named in full there; its check-in and check-out days say
   // it shorter ("Beachfront nipa cottage", not "…, Santa Fe" again).
@@ -80,7 +96,7 @@ export function PlanDays<T extends PlanItem>({
   const gapRows = (gaps: PlanGap[]) => row && gaps.length > 0 && <ul className="flex flex-col gap-2">{gaps.map(row)}</ul>;
   return (
     <ol className="flex flex-col gap-4" data-testid="plan-days">
-      {gettingHere ? (
+      {gettingHere && !arrived ? (
         <li>
           <GettingHereCard
             {...gettingHere}
@@ -100,17 +116,18 @@ export function PlanDays<T extends PlanItem>({
         <li className="flex flex-col gap-2" data-testid="plan-throughout">
           <h3 className="text-sm font-bold">The whole trip</h3>
           {plan.throughout.length > 0 && (
-            <ul className="flex flex-col gap-1 pl-1 text-sm">
+            <ul className="flex flex-col gap-2 text-sm">
               {plan.throughout.map(({ item, from, to }) => (
-                <li key={item.id} className="flex items-center gap-2">
-                  <TickGlyph className="size-3.5 shrink-0 text-forest" />
-                  <span className="min-w-0 truncate">
+                <li key={item.id} className="flex items-center gap-3">
+                  <ItemThumb item={item} size="sm" badge={entryBadge(item)} />
+                  <span className="min-w-0 text-pretty">
                     {item.listing.title}
                     <span className="text-muted">
                       {" "}
                       · {formatDateRange(from, to)}
                       {where(item)}
                     </span>
+                    <EntryStatus item={item} />
                   </span>
                 </li>
               ))}
@@ -124,32 +141,35 @@ export function PlanDays<T extends PlanItem>({
         const first = start === 0 && last > 0;
         const home = start === last && last > 0;
         const end = start + days.length - 1;
+        // A day already gone shows what it held, quieter, and asks nothing more of it.
+        const past = days[days.length - 1].past;
         return (
-          <li key={day.date} className="flex flex-col gap-2" data-testid="plan-day">
-            <h3 className="text-sm font-bold">
+          <li key={day.date} className="flex flex-col gap-2" data-testid="plan-day" data-past={past || undefined}>
+            <h3 className={cn("text-sm font-bold", past && "text-muted")}>
               {days.length > 1 ? `Days ${start + 1}–${end + 1}` : `Day ${start + 1}`}
               <span className="font-semibold text-muted">
                 {" "}
                 · {days.length > 1 ? `${dayLabel(day.date)} – ${dayLabel(days[days.length - 1].date)}` : dayLabel(day.date)}
-                {first ? " · Arrival day" : home ? " · Going home" : ""}
+                {past ? " · Done" : first ? " · Arrival day" : home ? " · Going home" : ""}
               </span>
             </h3>
             {day.entries.length > 0 && (
-              <ul className="flex flex-col gap-1 pl-1 text-sm">
+              <ul className={cn("flex flex-col gap-2 text-sm", past && "text-muted [&_img]:opacity-60")}>
                 {day.entries.map((entry) => (
-                  <li key={`${entry.item.id}-${entry.role}`} className="flex items-center gap-2">
-                    <TickGlyph className="size-3.5 shrink-0 text-forest" />
-                    <span className="min-w-0 truncate">
-                      <span className="text-muted">{ROLE_LABEL[entry.role]} · </span>
+                  <li key={`${entry.item.id}-${entry.role}`} className="flex items-center gap-3">
+                    <ItemThumb item={entry.item} size="sm" badge={entryBadge(entry.item)} />
+                    <span className="min-w-0 text-pretty">
+                      <span className="text-muted">{roleLabel(entry.role, entry.item)} · </span>
                       {name(entry.item)}
                       <span className="text-muted">{where(entry.item)}</span>
+                      <EntryStatus item={entry.item} />
                     </span>
                   </li>
                 ))}
               </ul>
             )}
-            {then && day.doubleStay && (
-              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 pl-1 text-sm" data-testid="plan-double-stay">
+            {then && day.doubleStay && !past && (
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm" data-testid="plan-double-stay">
                 <span className="flex items-center gap-2 text-warning">
                   <AlertGlyph className="size-4 shrink-0" /> Two stays this night
                 </span>
@@ -161,11 +181,11 @@ export function PlanDays<T extends PlanItem>({
               </p>
             )}
             {gapRows(day.gaps)}
-            {first && gettingHere && <p className="pl-1 text-sm text-muted">Getting here takes most of the day.</p>}
+            {first && !past && gettingHere && <p className="text-sm text-muted">Getting here takes most of the day.</p>}
             {/* A free day still offers something to fill it; not the arrival or going-home day,
                 which the journey takes. */}
-            {day.free && day.gaps.length === 0 && !first && !home && (
-              <p className="pl-1 text-sm text-muted">
+            {day.free && day.gaps.length === 0 && !first && !home && !past && (
+              <p className="text-sm text-muted">
                 {days.length > 1 ? "Free days" : "Free day"}
                 {then && (
                   <>
@@ -178,7 +198,7 @@ export function PlanDays<T extends PlanItem>({
               </p>
             )}
             {home && gettingHere && (
-              <p className="pl-1 text-sm text-muted" data-testid="plan-going-home">
+              <p className="text-sm text-muted" data-testid="plan-going-home">
                 {gettingHere.home}
               </p>
             )}
@@ -198,6 +218,21 @@ export function PlanDays<T extends PlanItem>({
       )}
     </ol>
   );
+}
+
+// An entry's photo carries a tick only once its partner has said yes (confirmed and on), and
+// nothing while it is still a plan or a request, so a tick never claims a booking that isn't there.
+const SETTLED = new Set(["confirmed", "in_progress", "completed"]);
+
+const statusOf = (item: PlanItem) => item.booking?.status ?? item.booking_status ?? null;
+
+const entryBadge = (item: PlanItem) => (SETTLED.has(statusOf(item) ?? "") ? <TickGlyph className="size-3 text-forest" /> : undefined);
+
+// Where its booking stands, once it has one: "Request sent", "Confirmed".
+function EntryStatus({ item }: { item: PlanItem }) {
+  const status = statusOf(item);
+  if (!status) return null;
+  return <span className={cn("font-semibold", SETTLED.has(status) ? "text-forest" : "text-foreground")}> · {BOOKING_STATUS[status].label}</span>;
 }
 
 // What the trip could still have here, offered, never counted: a ride, things to do, places to see.

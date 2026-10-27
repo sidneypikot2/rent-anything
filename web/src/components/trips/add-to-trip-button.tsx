@@ -1,8 +1,7 @@
 "use client";
 
-import { PlusGlyph } from "@/components/discovery/tag-glyphs";
+import { createContext, useContext } from "react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/components/ui/cn";
 import { useSession } from "@/lib/auth/session";
 import { RANGE_TYPES } from "./format";
 import type { TripDates } from "./trip-dates";
@@ -14,23 +13,25 @@ import type { AddPreview } from "./use-trips";
 type Props = {
   listing: AddListing;
   dates: TripDates;
-  // Filled blue where it is the one action (a side panel's foot), rather than a quiet tint
-  // repeated down a list.
-  prominent?: boolean;
   // The add sheet's view of the listing when the page words it its own way (the area page's
   // by-line); otherwise built from the listing.
   preview?: AddPreview;
 };
 
 // "Add to trip" on a listing (screen 1). The page's dates and guests go with it (a tour or
-// transfer takes the first day) into the add sheet, which shows them with the listing to confirm. Trips are for guests: a partner or admin sees nothing. A tint
-// pill led by a plus (RAA-125); once the trip being worked on holds it, a quieter "Add another",
-// as the row's green InTripBadge says it is in (useListingInTrip; another trip's doesn't count).
-export function AddToTripButton({ listing, dates, prominent = false, preview }: Props) {
+// transfer takes the first day) into the add sheet, which shows them with the listing to confirm. Trips are for guests: a partner or admin sees nothing. A filled
+// pill with a plus after it, as the soft-UI reference's card action, in a list and a panel's foot alike; once the trip being worked on holds it, a quieter "Add another"
+// (a white pill with a teal check), as the row's InTripBadge says it is in (useListingInTrip; another trip's doesn't count).
+// True in a What to book section the shown trip doesn't need (ideas, what it has, gear): there
+// the button is the outlined second action, so a filled one marks what the trip still needs.
+export const QuietAdd = createContext(false);
+
+export function AddToTripButton({ listing, dates, preview }: Props) {
   const session = useSession();
   const { add, busyListingId } = useTripAdd();
   const isGuest = session?.user.role === "guest";
   const inTrip = useListingInTrip(listing.id).where === "this";
+  const quiet = useContext(QuietAdd);
   if (session && !isGuest) return null;
 
   const range = RANGE_TYPES.has(listing.booking_type);
@@ -38,13 +39,15 @@ export function AddToTripButton({ listing, dates, prominent = false, preview }: 
 
   return (
     <Button
-      variant={inTrip ? "soft" : prominent ? "primary" : "tint"}
+      variant={inTrip || quiet ? "soft" : "primary"}
       size="touch"
+      glyph={inTrip ? "check" : "plus"}
       // Never squeezed beside text, but never wider than its row either: at large text sizes
       // its label wraps rather than pushing the page sideways.
-      className="max-w-full shrink-0 pl-3"
+      className="max-w-full shrink-0"
       data-testid="add-to-trip"
-      disabled={session === undefined || busy}
+      loading={busy}
+      disabled={session === undefined}
       onClick={() =>
         add({
           listingId: listing.id,
@@ -58,9 +61,6 @@ export function AddToTripButton({ listing, dates, prominent = false, preview }: 
         })
       }
     >
-      <span aria-hidden className={cn("flex size-6 items-center justify-center rounded-full text-navy", inTrip ? "bg-mist" : "bg-white/70")}>
-        <PlusGlyph className="size-3.5" />
-      </span>
       {busy ? "Adding…" : inTrip ? "Add another" : "Add to trip"}
     </Button>
   );

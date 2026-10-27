@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { formatDateRange } from "@/components/trips/format";
+import { tripWhen } from "@/components/trips/format";
 import { withDates } from "@/components/trips/trip-dates";
 import { ButtonLink } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
@@ -52,7 +52,7 @@ export function PlanCta() {
         ? continueBand(continuing)
         : { ...BANDS.signedOut, href: withDates(BANDS.signedOut.href, carry) };
 
-  // A forest band over a photo (RAA-130): green marks trips, the button on it stays blue.
+  // A trip band over a photo (the band token): its button is the white one, as on every band.
   return (
     <section
       className={cn(
@@ -61,7 +61,7 @@ export function PlanCta() {
       )}
     >
       <Image src={BAND_PHOTO} alt="" fill sizes="(min-width: 72rem) 72rem, 100vw" className="-z-20 object-cover" />
-      <div aria-hidden className="absolute inset-0 -z-10 bg-forest/92" />
+      <div aria-hidden className="absolute inset-0 -z-10 band-fill" />
       <div>
         {/* Smaller than a section title (RAA-130): a closing line, not a section. */}
         <h2 className="font-display text-band leading-[1.1] font-extrabold tracking-tight text-balance">
@@ -69,7 +69,7 @@ export function PlanCta() {
         </h2>
         <p className="mt-2 max-w-lede text-pretty text-sky-mist">{band.body}</p>
       </div>
-      <ButtonLink href={band.href} arrow className="shrink-0 sm:whitespace-nowrap">
+      <ButtonLink href={band.href} variant="paper" arrow className="shrink-0 sm:whitespace-nowrap">
         {band.action}
       </ButtonLink>
     </section>
@@ -81,8 +81,8 @@ export function PlanCta() {
 function continueBand(trip: NonNullable<ReturnType<typeof useContinueTrip>>) {
   const count = trip.items.length;
   const saved = count === 0 ? "Nothing saved yet" : count === 1 ? "1 thing saved" : `${count} things saved`;
-  const dates = formatDateRange(trip.starts_on, trip.ends_on);
-  const when = dates && !trip.name.includes(dates) ? `${dates} · ` : "";
+  const dates = tripWhen(trip);
+  const when = dates ? `${dates} · ` : "";
   return {
     title: `Your trip: ${trip.name}`,
     body: `${when}${saved}. Change a date, add a stop, or keep browsing above.`,

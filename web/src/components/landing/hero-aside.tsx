@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { GROUP_ICON } from "@/components/discovery/categories";
-import { formatDateRange, guestCount } from "@/components/trips/format";
+import { formatDateRange, guestCount, tripWhen } from "@/components/trips/format";
 import { useContinueTrip, type TripItem } from "@/components/trips/use-trips";
 import { TripCard } from "./how-it-works";
 import { tripHref } from "./launch-area";
@@ -21,7 +21,7 @@ export function HeroAside({ children }: { children: ReactNode }) {
     <TripCard
       compact
       title={trip.name}
-      details={[formatDateRange(trip.starts_on, trip.ends_on) ?? "No dates yet", guestCount(trip.guests)].join(" · ")}
+      details={[trip.starts_on ? tripWhen(trip) : "No dates yet", guestCount(trip.guests)].filter(Boolean).join(" · ")}
       items={shown.map((item) => ({
         key: item.id,
         name: item.listing.title,

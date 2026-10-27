@@ -31,6 +31,19 @@ export function chooseTrip(choice: number | "new") {
   listeners.forEach((listener) => listener());
 }
 
+// Forget the choice: the next place's page goes by the trip with something there, if any. The
+// header's search does this when it leaves for another place on its own (not from a trip's
+// "+ Another place"), so a plain search browses without carrying the trip along.
+export function clearChosenTrip() {
+  memory = null;
+  try {
+    sessionStorage.removeItem(KEY);
+  } catch {
+    // Only in memory.
+  }
+  listeners.forEach((listener) => listener());
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);

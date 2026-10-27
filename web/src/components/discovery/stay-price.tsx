@@ -49,17 +49,20 @@ function Row({ label, cents, negative }: { label: string; cents: number; negativ
 
 // What a stay costs (RAA-105): the rate's terms, and with trip dates the /quotes breakdown or
 // the reasons these dates and guests can't be booked (too few nights, too many guests).
-// Optional fees are listed as add-ons; picking them waits for checkout.
+// Optional fees are listed as add-ons; picking them waits for checkout. `headline={false}` leaves
+// the nightly price out where something beside it already shows it (the side panel's pinned foot).
 export function StayPrice({
   listing,
   rate,
   quote,
   datesSet,
+  headline = true,
 }: {
   listing: ListingDetail;
   rate: Rate;
   quote?: { quote: StayQuote } | { errors: string[] };
   datesSet: boolean;
+  headline?: boolean;
 }) {
   const perGuest = quote && "quote" in quote ? quote.quote.per_guest : false;
   const terms = stayRateTerms(rate, perGuest);
@@ -70,7 +73,11 @@ export function StayPrice({
     <Card data-testid="stay-price">
       <CardBody pad="lg" className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <Price amount={formatPeso(rate.nightly_price_cents)} unit={nightUnit(perGuest)} />
+          {headline ? (
+            <Price amount={formatPeso(rate.nightly_price_cents)} unit={nightUnit(perGuest)} />
+          ) : (
+            <h3 className="text-sm font-semibold">Price</h3>
+          )}
           {terms.length > 0 && (
             <ul className="flex flex-col gap-0.5 text-sm text-muted">
               {terms.map((term) => (

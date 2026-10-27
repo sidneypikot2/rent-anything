@@ -346,7 +346,7 @@ test("add to trip without an account", async ({ page, browser }) => {
   await firstAdd.getByTestId("which-trip-add").click();
   await expect(firstAdd).toHaveCount(0);
   const toast = page.getByTestId("trip-toast");
-  await expect(toast).toContainText("Added to Bantayan Island");
+  await expect(toast).toContainText(/Added .+ to Bantayan Island/);
   await toast.getByRole("button", { name: "Dismiss" }).click();
   // The place's page stays the place's, saying the guest has a trip here; View trip opens it in the cart.
   await expect(page.getByTestId("trip-notice-open")).toHaveAttribute("href", /^\/cart\?trip=\d+$/);
@@ -357,7 +357,7 @@ test("add to trip without an account", async ({ page, browser }) => {
   await expect(whichTrip.getByTestId("add-sheet-trip")).toContainText("Adding to Bantayan Island");
   await whichTrip.getByTestId("which-trip-add").click();
   await expect(whichTrip).toHaveCount(0);
-  await expect(toast).toContainText("Added to Bantayan Island");
+  await expect(toast).toContainText(/Added .+ to Bantayan Island/);
 
   // Rename from the toast.
   await toast.getByRole("button", { name: "Rename" }).click();

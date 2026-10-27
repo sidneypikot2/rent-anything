@@ -12,6 +12,7 @@ import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { Price } from "@/components/ui/typography";
 import { TO_BE_AGREED } from "@/lib/pricing";
+import { QuietAdd } from "@/components/trips/add-to-trip-button";
 import { ListingPanel, PanelActions } from "./detail-panel";
 import { InstantBookBadge } from "./instant-book-badge";
 import type { Feature } from "./listing-features";
@@ -105,9 +106,10 @@ export function BusinessRow({
         photos={photos}
         label={name}
         category={categories[0]}
-        className="z-10 aspect-[16/10] @sm:aspect-square @2xl:aspect-[4/3]"
+        inset
+        className="z-10 aspect-[2/1] @sm:aspect-square @2xl:aspect-[4/3]"
       />
-      <div className="flex min-w-0 flex-col gap-2 px-1 @sm:px-0">
+      <div className="flex min-w-0 flex-col gap-2.5 px-1 @sm:px-0">
         <h4 className="text-lg leading-snug font-semibold text-balance">
           <button
             type="button"
@@ -121,20 +123,27 @@ export function BusinessRow({
             {name}
           </button>
         </h4>
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+        <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
           {offers.map((offer) => (
             <InTripBadge key={offer.listingId} listingId={offer.listingId} />
           ))}
           {/* One category on a phone-wide row, two from @sm. */}
           {categories.slice(0, 2).map((category, index) => (
-            <Badge key={category} tone="mist" className={cn("min-h-6 px-2.5 text-xs", index > 0 && "@max-sm:hidden")}>
+            <Badge key={category} tone="kind" className={cn("min-h-6 px-2.5 text-xs", index > 0 && "@max-sm:hidden")}>
               <CategoryGlyph name={category} className="size-3.5" />
               {category}
             </Badge>
           ))}
           {instant && <InstantBookBadge small />}
-          <span>{[single ? single.title : `${offers.length} options`, place].filter(Boolean).join(" · ")}</span>
+          {/* What is for sale in the ink, where it is quieter. */}
+          <span>
+            <span className="font-medium text-foreground">{single ? single.title : `${offers.length} options`}</span>
+            {place && ` · ${place}`}
+          </span>
         </p>
+        {/* A phone-wide row drops the summary (ListingRowDetails), but with several options the
+            summary is their names: what is for sale, which the business's name alone doesn't say. */}
+        {!single && <p className="hidden text-sm text-foreground @max-sm:line-clamp-2">{summary}</p>}
         <ListingRowDetails summary={summary} features={common} />
       </div>
       <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 px-1 @sm:col-span-2 @2xl:col-span-1 @2xl:flex-col @2xl:items-end @2xl:justify-start @2xl:px-0 @2xl:pt-1">
@@ -148,14 +157,14 @@ export function BusinessRow({
           // button already opens the panel for the keyboard and a screen reader.
           <Button
             type="button"
-            variant="tint"
+            variant="soft"
             size="touch"
             arrow
             tabIndex={-1}
             aria-hidden
             onClick={() => setOpen(true)}
             data-testid="business-options"
-            className="max-w-full shrink-0 pl-4"
+            className="max-w-full shrink-0"
           >
             See {offers.length} options
           </Button>
@@ -163,14 +172,17 @@ export function BusinessRow({
       </div>
       {open &&
         createPortal(
-          <BusinessPanel
-            name={name}
-            place={place}
-            groupTitle={groupTitle}
-            offers={offers}
-            dates={dates}
-            onClose={() => setOpen(false)}
-          />,
+          // In the panel the add is the one action, filled whatever its section's weight.
+          <QuietAdd.Provider value={false}>
+            <BusinessPanel
+              name={name}
+              place={place}
+              groupTitle={groupTitle}
+              offers={offers}
+              dates={dates}
+              onClose={() => setOpen(false)}
+            />
+          </QuietAdd.Provider>,
           document.body,
         )}
     </div>
@@ -224,7 +236,7 @@ function BusinessPanel({
             className="aspect-[4/3]"
           />
         }
-        actions={<PanelActions price={picked.price} unpriced={picked.unpriced} action={picked.panelAction} />}
+        actions={<PanelActions price={picked.price} unpriced={picked.unpriced} action={picked.panelAction} listingId={picked.listingId} dates={dates} />}
       >
         <div ref={body} className="contents">
           {!single && (
@@ -283,7 +295,7 @@ function BusinessPanel({
           {offers.map((offer) => (
             <li
               key={offer.listingId}
-              className="group relative grid grid-cols-[4rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2.5 rounded-control border border-line p-2.5 transition-colors duration-300 ease-calm hover:border-fern hover:bg-surface-2"
+              className="group relative grid grid-cols-[4rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2.5 rounded-control border border-line p-2.5 transition-colors duration-300 ease-calm hover:border-line-strong hover:bg-surface-2"
             >
               {/* The action goes under the text, not beside it: beside, a phone's panel left the
                   title and price a column too narrow for "from ₱2,500 / night". */}
