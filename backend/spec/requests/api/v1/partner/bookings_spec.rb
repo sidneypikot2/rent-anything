@@ -43,6 +43,25 @@ RSpec.describe "Partner bookings", type: :request do
         run_test! { |response| expect(response.parsed_body.pluck("guest_name")).to eq(%w[Now Later]) }
       end
 
+      response "200", "a stay's guests room by room, and its pets (RAA-182)" do
+        schema type: :array, items: { "$ref" => "#/components/schemas/booking" }
+
+        before do
+          create(:booking, listing:, guests: 6, pets: 1, quantity: 2, room_guests: [
+            { "adults" => 1, "children" => 0, "infants" => 0 }, { "adults" => 4, "children" => 1, "infants" => 0 }
+          ])
+          create(:booking, listing:, starts_on: today + 10, ends_on: today + 12)
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body.map { _1.slice("room_guests", "pets") }).to eq([
+            { "room_guests" => [ { "adults" => 1, "children" => 0, "infants" => 0 }, { "adults" => 4, "children" => 1, "infants" => 0 } ],
+              "pets" => 1 },
+            { "room_guests" => nil, "pets" => 0 }
+          ])
+        end
+      end
+
       response "404", "another partner's listing" do
         schema "$ref" => "#/components/schemas/error"
 

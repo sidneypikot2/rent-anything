@@ -67,6 +67,8 @@ RSpec.describe "Areas", type: :request do
       tags "Discovery"
       produces "application/json"
       parameter name: :slug, in: :path, type: :string
+      parameter name: :pets, in: :query, type: :string, required: false,
+        description: "1 keeps, of the stays, only those that allow pets (RAA-185); other listings stay"
 
       response "200", "published landmarks and active listings" do
         schema "$ref" => "#/components/schemas/area_detail"
@@ -164,6 +166,26 @@ RSpec.describe "Areas", type: :request do
           rows = response.parsed_body["listings"].index_by { _1["title"] }
           expect(rows["Kota Beach house"].values_at("price_from_cents", "price_unit")).to eq([ 200_000, "night" ])
           expect(rows["Unpriced house"]["price_from_cents"]).to be_nil
+        end
+      end
+
+      response "200", "pet-friendly: of the stays, only those that allow pets (RAA-185)" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "bantayan-island" }
+        let(:pets) { "1" }
+
+        before do
+          create(:listing, :stay, area: bantayan, title: "Dog-friendly house",
+            attrs: { "place_type" => "entire_place", "guests" => 4, "pets_allowed" => true, "max_pets" => 2 })
+          create(:listing, :stay, area: bantayan, title: "No pets house",
+            attrs: { "place_type" => "entire_place", "guests" => 4, "pets_allowed" => false })
+          create(:listing, :stay, area: bantayan, title: "Kota Beach house")
+        end
+
+        run_test! do |filtered|
+          expect(filtered.parsed_body["listings"].pluck("title")).to eq([ "Dog-friendly house", "Honda Click 125", "Island hopping" ])
+          get "/api/v1/areas/bantayan-island", params: { pets: "0" }
+          expect(response.parsed_body["listings"].size).to eq(5)
         end
       end
 

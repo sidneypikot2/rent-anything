@@ -33,6 +33,8 @@ RSpec.describe "Search", type: :request do
         "Accent- and typo-tolerant, and matches each record's aliases. At most 5 results per group. " \
         "Areas without anything to book are left out, and listings carry no location."
       parameter name: :q, in: :query, type: :string, required: true, description: "At least 2 characters"
+      parameter name: :pets, in: :query, type: :string, required: false,
+        description: "1 keeps, of the stays, only those that allow pets (RAA-185); other listings stay"
 
       response "200", "results grouped by kind" do
         schema "$ref" => "#/components/schemas/search_results"
@@ -138,6 +140,25 @@ RSpec.describe "Search", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body["tags"]).to be_empty
+        end
+      end
+
+      response "200", "pet-friendly: of the stays, only those that allow pets (RAA-185)" do
+        schema "$ref" => "#/components/schemas/search_results"
+        let(:q) { "bantayan" }
+        let(:pets) { "1" }
+
+        before do
+          create(:listing, :stay, area: bantayan, title: "Bantayan dog-friendly house",
+            attrs: { "place_type" => "entire_place", "guests" => 4, "pets_allowed" => true })
+          create(:listing, :stay, area: bantayan, title: "Bantayan beach house")
+          create(:listing, area: bantayan, category: camera, title: "Bantayan dive camera")
+        end
+
+        run_test! do |filtered|
+          expect(filtered.parsed_body["listings"].pluck("title")).to contain_exactly("Bantayan dog-friendly house", "Bantayan dive camera")
+          get "/api/v1/search", params: { q: "bantayan" }
+          expect(response.parsed_body["listings"].size).to eq(3)
         end
       end
 
