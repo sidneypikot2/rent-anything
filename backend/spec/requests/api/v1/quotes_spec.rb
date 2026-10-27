@@ -16,7 +16,8 @@ RSpec.describe "Quotes", type: :request do
         "guests; then the required fees and the add-ons picked in fee_ids, never discounted. Money is in " \
         "centavos. The dates must be free on the partner's calendar. Several rooms (RAA-182): the party " \
         "(adults, children, infants) goes in the guest's own split (room_guests) or the fewest rooms that sleep it, " \
-        "spread evenly, each room priced for its own guests (infants free); a fee per pet is charged once."
+        "spread evenly, each room priced for the guests taking a bed in it (adults, and children and infants as " \
+        "the place counts them); a fee per pet is charged once."
       parameter name: :listing_id, in: :query, type: :integer, required: true
       parameter name: :starts_on, in: :query, type: :string, format: :date, required: true, description: "Check-in"
       parameter name: :ends_on, in: :query, type: :string, format: :date, required: true, description: "Check-out"

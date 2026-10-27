@@ -103,6 +103,17 @@ RSpec.describe Stays::Quote do
       expect(result).to include(extra_guests: 2, rooms_free: 3, pets: 2, total_cents: 1_120_000)
     end
 
+    it "charges extra guests on who takes a bed: adults, and children and infants as the place counts them" do
+      rate.update!(extra_guest_fee_cents: 50_000)
+      stay = ->(**party) { described_class.call(listing.reload, starts_on: monday, ends_on: monday + 1, **party) }
+
+      expect(stay.(adults: 2, children: 1, infants: 1)).to include(extra_guests: 1, total_cents: 250_000)
+      listing.update!(attrs: listing.attrs.merge("children_count" => false, "infants_count" => true))
+      expect(stay.(adults: 2, children: 1, infants: 1)).to include(extra_guests: 1, total_cents: 250_000)
+      listing.update!(attrs: listing.attrs.merge("children_count" => false, "infants_count" => false))
+      expect(stay.(adults: 2, children: 1, infants: 1)).to include(extra_guests: 0, total_cents: 200_000)
+    end
+
     it "refuses more rooms than are left on a night" do
       create(:booking, listing:, starts_on: monday, ends_on: monday + 1)
 

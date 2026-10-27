@@ -4885,7 +4885,7 @@ export interface paths {
         };
         /**
          * What a stay costs
-         * @description Public. The price of a stay at an active accommodation listing for the dates and guests, worked out from its stay rate (RAA-104): each night at the nightly price, or the weekend price on Friday and Saturday nights (a shared room's per guest); each guest above base_guests at the extra-guest fee per night; the monthly discount from 28 nights, otherwise the weekly one from 7, off the nights and extra guests; then the required fees and the add-ons picked in fee_ids, never discounted. Money is in centavos. The dates must be free on the partner's calendar. Several rooms (RAA-182): the party (adults, children, infants) goes in the guest's own split (room_guests) or the fewest rooms that sleep it, spread evenly, each room priced for its own guests (infants free); a fee per pet is charged once.
+         * @description Public. The price of a stay at an active accommodation listing for the dates and guests, worked out from its stay rate (RAA-104): each night at the nightly price, or the weekend price on Friday and Saturday nights (a shared room's per guest); each guest above base_guests at the extra-guest fee per night; the monthly discount from 28 nights, otherwise the weekly one from 7, off the nights and extra guests; then the required fees and the add-ons picked in fee_ids, never discounted. Money is in centavos. The dates must be free on the partner's calendar. Several rooms (RAA-182): the party (adults, children, infants) goes in the guest's own split (room_guests) or the fewest rooms that sleep it, spread evenly, each room priced for the guests taking a bed in it (adults, and children and infants as the place counts them); a fee per pet is charged once.
          */
         get: {
             parameters: {
@@ -7453,10 +7453,10 @@ export interface components {
         stay_quote_room: {
             adults: number;
             children: number;
-            /** @description Free, and in a bed only if the place counts them */
+            /** @description In a bed, and paid for, only if the place counts them */
             infants: number;
             nightly_subtotal_cents: number;
-            /** @description Adults and children above base_guests */
+            /** @description Guests taking a bed above base_guests: adults, and children and infants as the place counts them */
             extra_guests: number;
             extra_guests_total_cents: number;
             discount: components["schemas"]["stay_discount"];

@@ -1135,9 +1135,11 @@ RSpec.configure do |config|
             properties: {
               adults: { type: :integer },
               children: { type: :integer },
-              infants: { type: :integer, description: "Free, and in a bed only if the place counts them" },
+              infants: { type: :integer, description: "In a bed, and paid for, only if the place counts them" },
               nightly_subtotal_cents: { type: :integer },
-              extra_guests: { type: :integer, description: "Adults and children above base_guests" },
+              extra_guests: {
+                type: :integer, description: "Guests taking a bed above base_guests: adults, and children and infants as the place counts them"
+              },
               extra_guests_total_cents: { type: :integer },
               discount: { "$ref" => "#/components/schemas/stay_discount" },
               fees: { type: :array, items: { "$ref" => "#/components/schemas/stay_fee_line" } },

@@ -13,8 +13,8 @@ module Stays
   #
   # Several rooms (RAA-182): the party (adults, `guests` alone meaning adults, children and
   # infants) is split across rooms by Arrangement, from the guest's own split (room_guests)
-  # or evenly, and each room is priced as above for its own guests: adults and children pay,
-  # infants don't. A fee charged per pet is charged once for the stay. The top-level amounts
+  # or evenly, and each room is priced as above for the guests who take a bed in it (adults,
+  # and children and infants as the place counts them; Arrangement.counted). A fee charged per pet is charged once for the stay. The top-level amounts
   # are the rooms' together, each room's own are in `rooms`, and rooms_free is the fewest
   # rooms left on any of the nights.
   #
@@ -118,9 +118,9 @@ module Stays
       { date:, price_cents: @ledger.day(@listing, date)[:price_cents], weekend: StayRate::WEEKEND_DAYS.include?(date.wday) }
     end
 
-    # One room for its own guests; those who pay are its adults and children.
+    # One room for the guests who take a bed in it.
     def room(party, nights)
-      guests = party[:adults] + party[:children]
+      guests = Arrangement.counted(@listing, party)
       nightly_subtotal = nights.sum { _1[:price_cents] } * (@rate.per_guest? ? guests : 1)
       extra_guests = @rate.per_guest? ? 0 : [ guests - @rate.base_guests, 0 ].max
       extra_guests_total = extra_guests * @rate.extra_guest_fee_cents * nights.size
