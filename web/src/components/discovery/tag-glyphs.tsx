@@ -256,9 +256,10 @@ export function AlertGlyph({ className }: Props) {
 }
 
 // A chevron pointing down: something that opens below or in a sheet (the hero's search summary,
-// More activities).
-export function ChevronGlyph({ direction = "down", className }: { direction?: "down" | "up" } & Props) {
-  return <Glyph paths={[direction === "down" ? "M6 9l6 6 6-6" : "M6 15l6-6 6 6"]} className={className} />;
+// More activities); right: a summary that opens its own picker (rooms and guests).
+const CHEVRONS = { down: "M6 9l6 6 6-6", up: "M6 15l6-6 6 6", right: "M9 6l6 6-6 6" };
+export function ChevronGlyph({ direction = "down", className }: { direction?: keyof typeof CHEVRONS } & Props) {
+  return <Glyph paths={[CHEVRONS[direction]]} className={className} />;
 }
 
 // Where a partner's payouts go (RAA-146): a bank's columns, and a wallet for GCash and Maya.

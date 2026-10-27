@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { cache } from "react";
 import { serverApiClient } from "./server-client";
-import type { components } from "./schema";
+import type { components, paths } from "./schema";
 
 // Guest discovery (RAA-33): destinations, activities, one area, and search. These run in
 // Server Components; connection() keeps them out of the build-time prerender, so the
@@ -65,12 +65,9 @@ export const getExplore = cache(async (anchor: { area: string } | { landmark: st
 
 // What a stay costs (RAA-105): the quote, or the API's reasons it can't be quoted for these
 // dates and guests ("This place needs a stay of at least 2 nights").
-export async function getQuote(query: {
-  listing_id: number;
-  starts_on: string;
-  ends_on: string;
-  guests: number;
-}): Promise<{ quote: StayQuote } | { errors: string[] }> {
+export async function getQuote(
+  query: paths["/api/v1/quotes"]["get"]["parameters"]["query"],
+): Promise<{ quote: StayQuote } | { errors: string[] }> {
   await connection();
   const { data, error, response } = await serverApiClient().GET("/api/v1/quotes", { params: { query } });
   if (data) return { quote: data };
