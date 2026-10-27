@@ -19,6 +19,7 @@ import type { Feature } from "./listing-features";
 import { ListingPhotos } from "./listing-photos";
 import { ListingRowDetails } from "./listing-row-details";
 import type { Photo } from "./photo-card";
+import { StayMixPicker, type MixOffer } from "./stay-mix-picker";
 import { ArrowGlyph, CategoryGlyph } from "./tag-glyphs";
 
 // One of a business's listings in a What to book group, as its card and panel show it.
@@ -41,6 +42,8 @@ export type Offer = {
   // Add to trip in the panel's list, and the prominent one in its details' foot.
   action: ReactNode;
   panelAction: ReactNode;
+  // A stay, as the mix picker takes it (RAA-188), so a partner's room types can be booked together.
+  stay?: MixOffer;
 };
 
 // The listings What to book's filters (and a distance search) leave, by id; null for all. Set by
@@ -265,6 +268,7 @@ function BusinessPanel({
       </Dialog>
     );
 
+  const stays = offers.flatMap((offer) => (offer.stay ? [offer.stay] : []));
   // The business's own photos lead its panel, as a listing's do: each option's first, then the rest.
   const photos = [
     ...offers.flatMap((offer) => offer.photos.slice(0, 1)),
@@ -291,6 +295,8 @@ function BusinessPanel({
         <p className="-mt-2 text-sm text-muted">
           {[groupTitle, `${offers.length} options`, place].filter(Boolean).join(" · ")}
         </p>
+        {/* Several room types with trip dates: rooms for the whole party first (RAA-188). */}
+        {stays.length >= 2 && dates?.from && dates.to && <StayMixPicker offers={stays} dates={dates} />}
         <ul aria-label={`${name}: ${groupTitle}`} className="flex flex-col gap-2.5" data-testid="business-offers">
           {offers.map((offer) => (
             <li

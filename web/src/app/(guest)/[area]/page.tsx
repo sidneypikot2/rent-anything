@@ -29,6 +29,7 @@ import { CHIP_ROW, PageBanner, STAT_CHIP, StatCount } from "@/components/landing
 import { PageSheet } from "@/components/landing/page-sheet";
 import { areaPhoto, landmarkPhotos } from "@/components/landing/sample-photos";
 import { addPreview } from "@/components/trips/add-preview";
+import { stayRules } from "@/components/trips/party";
 import { AreaHero } from "@/components/trips/area-hero";
 import { ReachYourself } from "@/components/trips/reach-yourself";
 import { BOOKING_STATE, GETTING_HERE } from "@/components/landing/launch-area";
@@ -432,6 +433,18 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                     : undefined,
                                   unpriced: pricedByText(listing.booking_type),
                                   instantBook: listing.instant_book,
+                                  stay:
+                                    listing.booking_type === "stay"
+                                      ? {
+                                          listingId: listing.id,
+                                          title: listing.title,
+                                          priceText: listing.price_from_cents
+                                            ? ["from", formatPeso(listing.price_from_cents), priceUnit].filter(Boolean).join(" ")
+                                            : undefined,
+                                          rules: stayRules(listing.details, listing.units_count),
+                                          preview: addPreview(listing, byLine(listing)),
+                                        }
+                                      : undefined,
                                   action: (
                                     <AddToTripButton
                                       listing={listing}
