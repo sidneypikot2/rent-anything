@@ -4,8 +4,7 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { formatPeso } from "@/lib/money";
-import { useShopListings } from "./use-shop-listings";
-import { rentalDays } from "./vehicle-party";
+import { useListingPrices } from "./use-listing-price";
 import type { TripItem } from "./use-trips";
 
 type Entry = { kind: "item"; item: TripItem } | { kind: "shop"; business: TripItem["business"]; items: TripItem[] };
@@ -32,9 +31,8 @@ export function byShop(items: TripItem[]): Entry[] {
 }
 
 // One shop's vehicles in a trip: its name and how many bookings they are (the shop answers each
-// model on its own), the item cards, an estimate per model from its rate (rent for each vehicle and
-// day, plus the refundable deposit) and the shop's subtotal, and how many of the trip's people
-// still have no seat. Prices are estimates until rentals are priced at checkout.
+// model on its own), the item cards, each model's price lines from the API and the shop's
+// subtotal, the refundable deposits apart, and how many of the trip's people still have no seat.
 export function ShopGroup({
   business,
   items,
@@ -46,18 +44,27 @@ export function ShopGroup({
   people: number;
   card: (item: TripItem) => ReactNode;
 }) {
-  const first = items.find((item) => item.starts_on && item.ends_on);
-  const shop = useShopListings(business.id, "", first?.starts_on ?? undefined, first?.ends_on ?? undefined);
-  const rates = new Map((shop.data?.listings ?? []).map((listing) => [listing.id, listing.vehicle_rate]));
-  const lines = items.map((item) => {
-    const rate = rates.get(item.listing.id);
-    const units = item.units ?? 1;
-    const days = rentalDays(item.starts_on ?? undefined, item.ends_on ?? undefined);
-    const total = rate ? units * (rate.daily_price_cents * days + (rate.security_deposit_cents ?? 0)) : null;
-    return { item, rate, units, days, total };
+  // Each model priced by the API as checkout will charge it (RAA-191), the deposit apart.
+  const prices = useListingPrices(
+    items.map((item) => ({
+      listingId: item.listing.id,
+      startsOn: item.starts_on ?? undefined,
+      endsOn: item.ends_on ?? undefined,
+      quantity: item.quantity,
+      units: item.units ?? undefined,
+    })),
+  );
+  // A model that can't be had on its dates (its card says why) is left out of the sums, as the
+  // trip's total leaves it out.
+  const lines = items.map((item, index) => {
+    const price = prices[index]?.data;
+    return { item, price: price && !price.unavailable && !item.unavailable ? price : undefined };
   });
-  const subtotal = lines.every((line) => line.total !== null) ? lines.reduce((sum, line) => sum + (line.total ?? 0), 0) : null;
-  const seats = items.reduce((sum, item) => sum + (item.units ?? 0) * (item.seats ?? 1), 0);
+  const counted = lines.filter((line) => line.price);
+  const loaded = prices.every((result) => !result.isPending);
+  const subtotal = loaded && counted.length > 0 ? counted.reduce((sum, line) => sum + (line.price?.total_cents ?? 0), 0) : null;
+  const deposit = counted.reduce((sum, line) => sum + (line.price?.deposit_cents ?? 0), 0);
+  const seats = counted.reduce((sum, { item }) => sum + (item.units ?? 0) * (item.seats ?? 1), 0);
   const short = people - seats;
 
   return (
@@ -70,17 +77,15 @@ export function ShopGroup({
           </Badge>
         </div>
         <ul className="flex flex-col gap-2 p-2.5">
-          {lines.map(({ item, rate, units, days, total }) => (
+          {lines.map(({ item, price }) => (
             <li key={item.id} className="flex flex-col gap-1">
               <ul>{card(item)}</ul>
-              {rate && total !== null && (
-                <p className="flex justify-between gap-3 px-2 text-sm" data-testid="cart-shop-line">
-                  <span className="text-muted">
-                    {formatPeso(rate.daily_price_cents)} × {units} × {days} {days === 1 ? "day" : "days"} + deposit
-                  </span>
-                  <span className="font-semibold tabular-nums">{formatPeso(total)}</span>
+              {price?.lines.map((line) => (
+                <p key={line.label} className="flex justify-between gap-3 px-2 text-sm" data-testid="cart-shop-line">
+                  <span className="text-muted">{line.label}</span>
+                  <span className="font-semibold tabular-nums">{formatPeso(line.amount_cents)}</span>
                 </p>
-              )}
+              ))}
             </li>
           ))}
         </ul>
@@ -93,12 +98,18 @@ export function ShopGroup({
               </span>
             </p>
           )}
-          {short > 0 && (
+          {deposit > 0 && (
+            <p className="flex justify-between gap-3 text-muted">
+              <span>Refundable deposits, held at pick-up</span>
+              <span className="tabular-nums">{formatPeso(deposit)}</span>
+            </p>
+          )}
+          {loaded && short > 0 && (
             <p className="text-warning" data-testid="cart-shop-short">
               {short} of your {people} people still need a ride.
             </p>
           )}
-          <p className="text-muted">The shop accepts or declines each model separately. Prices are an estimate until the partner confirms them.</p>
+          <p className="text-muted">The shop accepts or declines each model separately.</p>
         </div>
       </Card>
     </li>

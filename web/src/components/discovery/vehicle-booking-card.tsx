@@ -21,7 +21,7 @@ import { ShopPopup } from "./shop-popup";
 type Rate = NonNullable<ListingDetail["vehicle_rate"]>;
 
 // A rental vehicle's booking card (RAA-191, the plan's mock 1): its seats, how many are free on
-// the page's dates, the people and the vehicles they take (PeopleAndVehicles), an estimate from
+// the page's dates, the people and the vehicles they take (PeopleAndVehicles), its price from
 // its rate (rent for each vehicle and day, the refundable deposit for each) and Add to trip with
 // both. A group that needs more than are free is told so and can't add; "More from this shop"
 // opens the shop's other models (ShopPopup). The price is the API's, as checkout charges it.

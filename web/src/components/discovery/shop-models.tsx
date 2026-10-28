@@ -15,6 +15,7 @@ import { formatPeso } from "@/lib/money";
 import { formatDateRange } from "@/components/trips/format";
 import { useOptionalTripAdd } from "@/components/trips/trip-add-provider";
 import type { TripDates } from "@/components/trips/trip-dates";
+import { usePriceBreakdown } from "@/components/trips/price-breakdown";
 import { useShopListings } from "@/components/trips/use-shop-listings";
 import { peopleText, rentalDays, seatsLabel, vehicleNoun, type ShopListing } from "@/components/trips/vehicle-party";
 
@@ -51,7 +52,7 @@ export function splitPeople(picked: { units: number; seats: number }[], people: 
 
 // A shop's models to pick from together (RAA-191, the plan's mock 2): the trip's dates and people,
 // each model with a counter up to what is free ("Sold out" when none), filtered by transmission,
-// and how the seats picked compare with the people. `summary` (the rent and refundable deposits)
+// and how the seats picked compare with the people. `summary` (the API's total, the deposits apart)
 // and `action` ("Add N to trip": one item per model through the add sheet, as a mix of room types
 // is) go in the dialog's action bar. The shop pop-up and a vehicle business's side panel show it.
 export function useShopModels({ business, category, dates, people, listingIds, onOpen, onAdding }: Options) {
@@ -68,8 +69,13 @@ export function useShopModels({ business, category, dates, people, listingIds, o
   const picked = models.filter((model) => (counts[model.id] ?? 0) > 0).map((model) => ({ model, units: counts[model.id], seats: seatsOf(model) }));
   const units = picked.reduce((sum, each) => sum + each.units, 0);
   const seats = picked.reduce((sum, each) => sum + each.units * each.seats, 0);
-  const rent = picked.reduce((sum, each) => sum + each.units * (each.model.vehicle_rate?.daily_price_cents ?? 0) * days, 0);
-  const deposit = picked.reduce((sum, each) => sum + each.units * (each.model.vehicle_rate?.security_deposit_cents ?? 0), 0);
+  const split = splitPeople(picked, people);
+  // Priced by the API, each model as the add will send it: its vehicles and the people on them.
+  const breakdown = usePriceBreakdown(
+    picked.map((each, index) => ({ listingId: each.model.id, startsOn: dates.from, endsOn: dates.to, quantity: split[index], units: each.units })),
+  );
+  const total = breakdown.price?.total ?? null;
+  const deposit = breakdown.price?.deposit ?? 0;
   const short = people - seats;
   const nouns = (count: number) => vehicleNoun(category.name, count);
   const freeDelivery = models.length > 0 && models.every((model) => model.vehicle_rate?.delivery_fee_cents === 0);
@@ -77,7 +83,6 @@ export function useShopModels({ business, category, dates, people, listingIds, o
   const guest = !session || session.user.role === "guest";
 
   function addPicked() {
-    const split = splitPeople(picked, people);
     const [first] = picked;
     if (!first || !flow) return;
     flow.add({
@@ -89,7 +94,7 @@ export function useShopModels({ business, category, dates, people, listingIds, o
       endsOn: dates.to,
       quantity: split.reduce((sum, count) => sum + count, 0),
       guests: people,
-      preview: { category: category.name, by: `by ${business.name}`, photo: null, price: `${formatPeso(rent + deposit)} estimate` },
+      preview: { category: category.name, by: `by ${business.name}`, photo: null, price: total !== null ? formatPeso(total) : undefined },
       mix: picked.map((each, index) => ({
         listingId: each.model.id,
         title: each.model.title,
@@ -103,12 +108,13 @@ export function useShopModels({ business, category, dates, people, listingIds, o
     onAdding?.();
   }
 
+  // The total checkout will charge; a rental's deposit is held at pick-up, never part of it.
   const summary = (
     <div className="flex min-w-0 flex-col gap-1" data-testid="shop-summary">
-      <span className="font-display text-lg leading-tight font-extrabold tracking-tight tabular-nums">{formatPeso(rent + deposit)}</span>
-      <span className="text-xs text-muted">
-        {formatPeso(rent)} rent + {formatPeso(deposit)} refundable deposit
+      <span className="font-display text-lg leading-tight font-extrabold tracking-tight tabular-nums">
+        {!breakdown.dated ? "Pick dates" : breakdown.loading || total === null ? "…" : formatPeso(total)}
       </span>
+      {deposit > 0 && <span className="text-xs text-muted">plus {formatPeso(deposit)} refundable deposit, held at pick-up</span>}
     </div>
   );
 

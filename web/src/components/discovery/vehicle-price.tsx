@@ -27,8 +27,7 @@ function drivingText(rate: Rate) {
 }
 
 // What a vehicle rental costs (RAA-150): its rates, the deposit, who drives, delivery and pick-up, the km
-// limit and its fees. Rentals aren't quoted at checkout yet, so it says the partner confirms
-// the price.
+// limit and its fees. Checkout charges the daily price for each vehicle and day (RAA-191).
 export function VehiclePrice({ listing, rate }: { listing: ListingDetail; rate: Rate }) {
   const rates: [string, string][] = [
     ["Per day", formatPeso(rate.daily_price_cents)],
@@ -84,9 +83,6 @@ export function VehiclePrice({ listing, rate }: { listing: ListingDetail; rate: 
           </div>
         )}
 
-        <p className="rounded-control bg-surface-2 px-4 py-3 text-sm text-muted">
-          The partner confirms the final price when they accept your request.
-        </p>
       </CardBody>
     </Card>
   );
