@@ -75,7 +75,7 @@ export function VehicleBookingCard({
           </div>
           <p className="text-sm text-muted" data-testid="vehicle-free">
             {seats} per {noun}
-            {free !== null && ` · ${free} free ${when}`}
+            {free !== null && ` · ${free} ${free === 1 ? "unit" : "units"} available ${when}`}
           </p>
         </div>
 
@@ -101,7 +101,7 @@ export function VehicleBookingCard({
           {short && (
             <TicketNote tone="warning" data-testid="vehicle-short">
               {peopleText(people)} {people === 1 ? "needs" : "need"} {needed} {nouns(needed)}, and only {free} {free === 1 ? "is" : "are"}{" "}
-              free. Pick other dates or add another listing.
+              available. Pick other dates or add another listing.
             </TicketNote>
           )}
         </Ticket>
