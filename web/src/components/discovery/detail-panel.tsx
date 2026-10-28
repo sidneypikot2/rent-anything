@@ -20,6 +20,7 @@ import { shownQuoteKey } from "./stay-quote";
 import { SamplePhotoTag } from "./photo-card";
 import { CategoryGlyph, ChevronGlyph, FeatureGlyph, PlaceGlyph, TagGlyph } from "./tag-glyphs";
 import { TourFacts } from "./tour-facts";
+import { VehicleBookingCard } from "./vehicle-booking-card";
 import { VehiclePrice } from "./vehicle-price";
 
 type Photo = { src: string; alt: string };
@@ -259,6 +260,10 @@ export function ListingPanel({
           dates={dates ?? { guests: 1 }}
           headline={false}
         />
+      )}
+      {listing?.vehicle_rate && typeof listing.details.seats === "number" && (
+        // Its people and vehicles and what they cost; the panel's foot adds it (RAA-191).
+        <VehicleBookingCard listing={listing} rate={listing.vehicle_rate} dates={dates ?? { guests: 1 }} seats={listing.details.seats} add={false} />
       )}
       {listing?.vehicle_rate && <VehiclePrice listing={listing} rate={listing.vehicle_rate} />}
       {description && description !== summary?.trim() && (

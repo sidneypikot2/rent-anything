@@ -16,6 +16,8 @@ import { daysBetween, guestLimitHint, noNightError, RANGE_TYPES, rentLimitHint, 
 import { ItemThumb } from "./item-thumb";
 import { evenRooms, headcount, partyFromGuests, roomGuestsToSend, stayRules, type Room } from "./party";
 import { RoomsAndGuests } from "./rooms-and-guests";
+import { VehicleCounters } from "./people-and-vehicles";
+import { unitsFor } from "./vehicle-party";
 import { useUpdateTripItem, type Trip, type TripItem } from "./use-trips";
 
 type Props = {
@@ -42,6 +44,8 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
     to: item.ends_on ?? tripAhead?.ends_on ?? "",
   });
   const [guests, setGuests] = useState(item.quantity);
+  // A rental vehicle's units once the guest changes them (RAA-191).
+  const [units, setUnits] = useState<number | null>(null);
   const update = useUpdateTripItem();
   // Gear is booked by the count: how many, up to the units the partner lists (max_quantity).
   const gear = item.listing.group === "gear";
@@ -75,8 +79,10 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
     const dates = { starts_on: startsOn, ends_on: itemEnds };
     // A split sets the guests; a shared room takes none, so its guests go as they are.
     const split = arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null;
+    // A vehicle's units go with its people: the ones chosen, or null to derive them (RAA-191).
+    const vehicleUnits = item.seats ? { units: units ?? item.units_chosen } : {};
     const changes = !arrangement
-      ? { ...dates, quantity: guests }
+      ? { ...dates, quantity: guests, ...vehicleUnits }
       : split
         ? { ...dates, room_guests: split, pets: arrangement.pets }
         : { ...dates, quantity: headcount(arrangement.rooms[0]), pets: arrangement.pets };
@@ -133,6 +139,21 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
                 onChange={(rooms, pets) => setRooms({ rooms, pets })}
                 data-testid="item-edit-rooms"
               />
+            ) : item.seats ? (
+              <div className="flex flex-col gap-1 px-3.5 py-3" data-testid="item-edit-vehicles">
+                <VehicleCounters
+                  people={guests}
+                  units={units ?? unitsFor(guests, item.seats, item.units_chosen)}
+                  seats={item.seats}
+                  category={item.listing.category}
+                  free={item.units_free}
+                  onChange={(people, next) => {
+                    setGuests(people);
+                    setUnits(next);
+                  }}
+                  testId="item-edit-vehicles"
+                />
+              </div>
             ) : (
               <TicketRow
                 icon={gear ? <CategoryGlyph name={item.listing.category ?? ""} /> : <GuestsGlyph />}

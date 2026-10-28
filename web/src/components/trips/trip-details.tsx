@@ -22,6 +22,7 @@ import { formatDateRange, guestCount, itemAmount, itemCount, todayIso } from "./
 import { TripItinerary } from "./trip-itinerary";
 import { tripDatesQuery } from "./trip-dates";
 import { missingStays, missingText, type Missing } from "./trip-missing";
+import { byShop, ShopGroup } from "./shop-group";
 import { pastOutcome, tripPhase, tripTiming } from "./trip-phase";
 import {
   itemPriceLabel,
@@ -121,6 +122,17 @@ export function TripDetails({
       else next.add(item.id);
       return next;
     });
+  }
+
+  // The items with a shop's vehicles together under its name (RAA-191).
+  function list(items: TripItem[]) {
+    return byShop(items).map((entry) =>
+      entry.kind === "item" ? (
+        card(entry.item)
+      ) : (
+        <ShopGroup key={`shop-${entry.business.id}`} business={entry.business} items={entry.items} people={trip.guests} card={card} />
+      ),
+    );
   }
 
   function card(item: TripItem) {
@@ -415,12 +427,12 @@ export function TripDetails({
                   {formatDateRange(place.from, place.to) ?? "No dates yet"}
                 </span>
               </h3>
-              <ul className="flex flex-col gap-3">{place.items.map(card)}</ul>
+              <ul className="flex flex-col gap-3">{list(place.items)}</ul>
             </section>
           ))}
         </div>
       ) : (
-        <ul className="flex flex-col gap-3">{shown.map(card)}</ul>
+        <ul className="flex flex-col gap-3">{list(shown)}</ul>
       )}
 
       {!cart && unbooked > 0 && phase !== "past" && (

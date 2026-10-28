@@ -30,6 +30,11 @@ export function useTripAdd() {
   return context;
 }
 
+// The flow when the component may sit outside one (a listing's side panel in the cart): null there.
+export function useOptionalTripAdd() {
+  return useContext(TripAddContext);
+}
+
 // The add-to-trip flow for the listings on a page (RAA-66): a guest session made quietly on a
 // signed-out first add (RAA-177: no account needed to plan or book), the add sheet, the toast,
 // and the edit-trip sheet it leads to. On a place's page (`places`: its place and the places inside it) every add goes to the trip its banner shows (tripHere),
