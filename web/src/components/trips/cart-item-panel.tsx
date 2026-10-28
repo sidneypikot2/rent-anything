@@ -9,7 +9,7 @@ import { ListingPanel, PanelPhoto } from "@/components/discovery/detail-panel";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { formatPeso } from "@/lib/money";
-import { formatDateRange, formatDay, guestCount, todayIso } from "./format";
+import { formatDateRange, formatDay, itemAmount, todayIso } from "./format";
 import { bookable, type TripActions } from "./trip-details";
 import { itemProblem, itemQuote, useTripQuote, type Trip, type TripItem } from "./use-trips";
 
@@ -146,7 +146,7 @@ export function CartItemPanel({
       ) : (
         <PanelBlock title="In your trip">
           <p className="text-sm">
-            {[formatDateRange(item.starts_on, item.ends_on) ?? "No date yet", guestCount(item.quantity)].join(" · ")}
+            {[formatDateRange(item.starts_on, item.ends_on) ?? "No date yet", itemAmount(item)].join(" · ")}
           </p>
           {problem && (
             <p className="text-sm font-semibold text-warning" data-testid="item-panel-problem">
@@ -312,7 +312,7 @@ function BookingDetails({ booking }: { booking: GuestBooking }) {
         <Rows
           rows={[
             ...dateRows(booking),
-            ["Guests", String(booking.guests ?? booking.quantity)],
+            booking.guests == null ? ["Quantity", String(booking.quantity)] : ["Guests", String(booking.guests)],
             [
               "Total",
               <span key="total" className="font-semibold tabular-nums">

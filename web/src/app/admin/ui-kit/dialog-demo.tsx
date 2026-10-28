@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { BagGlyph, CalendarGlyph, GuestsGlyph } from "@/components/discovery/tag-glyphs";
+import { Dialog, DialogSummary } from "@/components/ui/dialog";
+import { Stepper } from "@/components/ui/stepper-field";
+import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
 import { Menu } from "@/components/ui/menu";
 import { Toast, type ToastTone } from "@/components/ui/toast";
 
@@ -12,6 +15,7 @@ export function DialogDemo() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sideOpen, setSideOpen] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const [guests, setGuests] = useState(2);
 
   return (
     <div className="flex flex-wrap gap-3">
@@ -31,10 +35,12 @@ export function DialogDemo() {
         open={open}
         onClose={() => setOpen(false)}
         title="Delete this listing?"
+        meta="It comes off the site for good."
+        tone="danger"
         actions={
           <>
             <Button variant="soft" onClick={() => setOpen(false)}>
-              Cancel
+              Keep it
             </Button>
             <Button variant="danger" onClick={() => setOpen(false)}>
               Delete
@@ -43,19 +49,29 @@ export function DialogDemo() {
         }
       >
         <p className="text-sm text-muted">
-          Dialog: a native modal for confirming a step. Escape or the backdrop closes it.
+          A confirmation (tone=&quot;danger&quot;): the alert disc, the safe action first and the danger one last.
         </p>
       </Dialog>
       <Dialog
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
         placement="sheet"
-        title="Add to which trip?"
-        actions={<Button onClick={() => setSheetOpen(false)}>Add to trip</Button>}
+        title="Virgin Island hopping"
+        meta="Tour · Kota Beach Boat Tours"
+        summary={<DialogSummary value="₱3,000" detail="2 guests" />}
+        actions={<Button glyph="plus" onClick={() => setSheetOpen(false)}>Start a trip</Button>}
       >
-        <p className="text-sm text-muted">
-          placement=&quot;sheet&quot;: a step in a flow. Docked to the bottom on a phone, centred on wider screens.
-        </p>
+        <Ticket>
+          <TicketRow icon={<BagGlyph />} label="Trip" value="New trip" detail="Bantayan Island" />
+          <TicketRow icon={<CalendarGlyph />} label="Date" value="Sat, Oct 28" onClick={() => {}} />
+          <TicketRow
+            icon={<GuestsGlyph />}
+            value="Guests"
+            detail="up to 12"
+            control={<Stepper label="Guests" value={guests} onChange={setGuests} min={1} max={12} />}
+          />
+          <TicketNote>A Ticket: the choices as rows, notes in its foot. Named after the thing, never the action.</TicketNote>
+        </Ticket>
       </Dialog>
       <Dialog
         open={sideOpen}

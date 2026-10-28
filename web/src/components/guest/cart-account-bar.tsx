@@ -23,7 +23,8 @@ export function CartAccountBar() {
   if (isAnonymous(session)) {
     return (
       <p data-testid="cart-account-bar" className="px-gutter text-sm text-muted sm:px-0">
-        No account needed to plan and book.{" "}
+        No account needed to plan and book. Until you send your first request, your trip is kept in this browser only;
+        sending it gives you a link back to it.{" "}
         <Link href={withNext(LOGIN_PATHS.guest, "/cart")} data-testid="cart-signin" className="font-semibold text-link hover:underline">
           Have an account? Sign in
         </Link>
@@ -65,7 +66,8 @@ function ResetTripLink({ onClose }: { onClose: () => void }) {
       open
       onClose={() => !rotate.isPending && onClose()}
       placement="sheet"
-      title="Reset trip link and PIN"
+      title={rotate.data ? "Your new trip link" : "Reset trip link and PIN?"}
+      tone={rotate.data ? undefined : "danger"}
       data-testid="reset-trip-link"
       actions={
         rotate.data ? (
@@ -75,7 +77,7 @@ function ResetTripLink({ onClose }: { onClose: () => void }) {
         ) : (
           <>
             <Button type="button" variant="soft" onClick={onClose} disabled={rotate.isPending}>
-              Cancel
+              Keep the old one
             </Button>
             <Button type="button" data-testid="reset-trip-link-confirm" disabled={rotate.isPending} onClick={() => rotate.mutate()}>
               {rotate.isPending ? "Resetting…" : "Reset"}

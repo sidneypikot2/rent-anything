@@ -15,9 +15,11 @@ import { ListingGallery } from "@/components/discovery/listing-gallery";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { readTripDates, tripDatesQuery } from "@/components/trips/trip-dates";
-import { TripDatesBar } from "@/components/trips/trip-dates-bar";
+import { InTripBadge } from "@/components/trips/in-trip-badge";
 import { Card, CardBody } from "@/components/ui/card";
 import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
+import { formatPeso } from "@/lib/money";
+import { plural } from "@/lib/pricing";
 
 // Only a positive integer can be a listing id; anything else is a 404 without asking the API.
 function listingId(param: string): number | null {
@@ -53,6 +55,15 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
     rate && nightsSet && dates.from && dates.to
       ? await getQuote(stayQuoteQuery(listing, dates.from, dates.to, start.rooms, start.pets))
       : undefined;
+  // The add bar's one line: a stay's total for the page's dates, or what the banner says it costs.
+  const total = quote && "quote" in quote ? quote.quote : undefined;
+  const priceLine = total
+    ? `${formatPeso(total.total_cents)} for ${plural(total.nights_count, "night")}`
+    : rate
+      ? stayPriceLine(rate, listing.guests)
+      : tour
+        ? tourPriceLine(tour)
+        : vehicleRate && vehiclePriceLine(vehicleRate);
 
   return (
     <main className="flex flex-1 flex-col">
@@ -70,7 +81,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
         }
         title={
           <>
-            <DisplayTitle className="break-words">{listing.title}</DisplayTitle>
+            <DisplayTitle className="break-words text-balance">{listing.title}</DisplayTitle>
             <p className="text-sky-mist">
               by {listing.business.name} · {listing.units_label}
             </p>
@@ -95,7 +106,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
       >
         <Link
           href={`/${area.slug}${tripDatesQuery(dates)}#listing-${listing.id}`}
-          className="self-start rounded-full border border-glass-edge bg-glass-fill px-4 py-2 text-sm font-semibold text-white hover:bg-glass-hover"
+          className="tap-target self-start rounded-full border border-glass-edge bg-glass-fill px-4 py-2 text-sm font-semibold text-white hover:bg-glass-hover"
         >
           <span aria-hidden>←</span> {area.name}
         </Link>
@@ -104,15 +115,21 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
       <PageSheet>
         <div className="mx-auto flex w-full max-w-narrow flex-col gap-block px-gutter py-page-pad">
         <TripAddProvider>
-          {/* Unclipped: the dates calendar opens below the card's edge. */}
-          <Card clip={false}>
-            <CardBody pad="lg" className="flex flex-col gap-4">
-              <TripDatesBar key={tripDatesQuery(dates)} dates={dates} />
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-muted">Saving to a trip is free, and there&apos;s nothing to pay yet.</p>
-                {/* A stay's Add to trip ends its price card, under the rooms picked there. */}
-                {!rate && <AddToTripButton listing={listing} dates={dates} />}
+          {/* The page's one action. On a phone it comes last and sticks to the window's foot, so
+              Add to trip is on the first screen and stays in reach while the guest reads; the
+              header's search owns the dates and guests, and the add sheet confirms them. */}
+          <Card
+            data-testid="listing-add"
+            className="max-sm:sticky max-sm:bottom-[calc(0.5rem+env(safe-area-inset-bottom))] max-sm:z-20 max-sm:order-last max-sm:shadow-float"
+          >
+            <CardBody className="flex flex-wrap items-center justify-between gap-3 max-sm:flex-nowrap max-sm:px-4 max-sm:py-3">
+              <div className="flex min-w-0 flex-col items-start gap-1">
+                {priceLine && <p className="font-semibold text-pretty max-sm:text-sm">{priceLine}</p>}
+                <p className="text-sm text-muted max-sm:hidden">Saving to a trip is free, and there&apos;s nothing to pay yet.</p>
+                <InTripBadge listingId={listing.id} />
               </div>
+              {/* A stay's Add to trip ends its price card, under the rooms picked there. */}
+              {!rate && <AddToTripButton listing={listing} dates={dates} />}
             </CardBody>
           </Card>
 

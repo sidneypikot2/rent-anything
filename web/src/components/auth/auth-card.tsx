@@ -106,11 +106,12 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
     );
   }
 
-  // Password reset isn't built yet: the link is there so the layout is final.
-  const forgotPassword = selfServe && !signup && (
-    <button type="button" className="text-xs font-medium text-link hover:underline">
+  // Password reset isn't built yet; a guest's emailed code signs them in without one (RAA-177).
+  // A partner has no code, so they see nothing rather than a link that goes nowhere.
+  const forgotPassword = role === "guest" && !signup && (
+    <Link href={withNext("/login/code", next)} className="tap-target text-xs font-medium text-link hover:underline">
       Forgot password?
-    </button>
+    </Link>
   );
 
   return (
@@ -167,9 +168,9 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
         )}
 
         {role === "guest" && !signup && (
-          <p className="text-center text-sm text-muted">
+          <p className="text-center text-sm text-pretty text-muted">
             Booked without a password?{" "}
-            <Link href={withNext("/login/code", next)} data-testid="guest-code-link" className="font-semibold text-link hover:underline">
+            <Link href={withNext("/login/code", next)} data-testid="guest-code-link" className="tap-target font-semibold text-link hover:underline">
               Email me a code
             </Link>
           </p>
@@ -180,7 +181,7 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
             {signup ? "Already have an account? " : "Don't have an account? "}
             <Link
               href={withNext(signup ? LOGIN_PATHS[role] : REGISTER_PATHS[role], next)}
-              className="font-semibold text-link hover:underline"
+              className="tap-target font-semibold text-link hover:underline"
             >
               {signup ? "Sign in" : "Create one"}
             </Link>

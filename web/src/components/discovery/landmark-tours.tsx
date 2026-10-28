@@ -73,13 +73,19 @@ export function LandmarkToursButton({
       </button>
       {/* Mounted only while open: no hidden Add to trip buttons per card in the page. */}
       {open && (
-      <Dialog open onClose={() => setOpen(false)} title={`Going to ${place}`} placement="sheet" data-testid="landmark-tours-sheet">
-        <p className="-mt-2 text-sm text-muted">{label}. Add one to your trip to see it.</p>
-        <ul className="flex flex-col divide-y divide-line">
+      <Dialog
+        open
+        onClose={() => setOpen(false)}
+        title={`Going to ${place}`}
+        meta={`${label}. Add one to your trip to see it.`}
+        placement="sheet"
+        data-testid="landmark-tours-sheet"
+      >
+        <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-[1.375rem] border border-line">
           {tours.map((tour) => (
-            <li key={tour.id} className="flex flex-col gap-3 py-4 first:pt-2 last:pb-0">
+            <li key={tour.id} className="flex flex-col gap-3 px-3.5 py-3.5">
               <div className="flex min-w-0 items-start gap-3">
-                <span className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-control bg-mist text-primary">
+                <span className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-[1.125rem] bg-mist text-primary">
                   {tour.photo ? (
                     <Image src={tour.photo.src} alt="" fill unoptimized={isApiPhoto(tour.photo.src)} sizes="4rem" className="object-cover" />
                   ) : (

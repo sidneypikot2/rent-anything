@@ -18,12 +18,12 @@ export function bookingProgress(trip: Trip) {
   return [booked > 0 && `${booked} booked`, waiting > 0 && `${waiting} waiting`].filter(Boolean).join(" · ");
 }
 
-// One entry in the sidebar, forest while picked.
+// One entry in the sidebar, in the trip band's colour (navy on guest pages) while picked.
 function tabClasses(current: boolean) {
   return cn(
     "flex min-h-11 w-full flex-col items-start rounded-card px-3.5 py-2.5 text-left shadow-soft",
     "transition-[background-color,border-color,box-shadow,color] duration-300 ease-calm",
-    current ? "border border-forest bg-forest text-white shadow-lift" : "card-edge-line bg-surface hover:border-line-2 hover:shadow-lift",
+    current ? "border border-trip-band bg-trip-band text-white shadow-lift" : "card-edge-line bg-surface hover:border-line-2 hover:shadow-lift",
   );
 }
 
@@ -130,20 +130,20 @@ export function TripSwitchSheet({
   count = (trip) => trip.items.length,
 }: ListProps & { open: boolean; onClose: () => void }) {
   return (
-    <Dialog open={open} onClose={onClose} placement="sheet" title={label} data-testid="trip-switch-sheet">
+    <Dialog open={open} onClose={onClose} placement="sheet" title={label} meta="Pick one to see it" data-testid="trip-switch-sheet">
       <div className="flex flex-col gap-4">
         {groups.map((group) => (
           <section key={group.label} className="flex flex-col gap-2">
             {grouped && (
-              <h3 className="text-sm font-semibold text-muted" data-testid="trip-switch-group">
+              <h3 className="text-xs font-semibold text-muted" data-testid="trip-switch-group">
                 {group.label}
               </h3>
             )}
-            <ul className="flex flex-col divide-y divide-line rounded-control border border-line">
+            <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-[1.375rem] border border-line">
               {group.trips.map((trip) => {
                 const current = trip.id === selectedId;
                 return (
-                  <li key={trip.id}>
+                  <li key={trip.id} className="group/opt">
                     <button
                       type="button"
                       onClick={() => {
@@ -153,14 +153,15 @@ export function TripSwitchSheet({
                       aria-current={current ? "page" : undefined}
                       data-testid="trip-switch-option"
                       className={cn(
-                        "flex w-full items-center gap-3 px-3.5 py-2.5 text-left transition-colors duration-300 ease-calm",
-                        current ? "bg-mist" : "hover:bg-surface-2",
+                        "flex min-h-16 w-full items-center gap-3 px-3.5 py-3 text-left transition-colors duration-300 ease-calm",
+                        "group-first/opt:rounded-t-[1.3125rem] group-last/opt:rounded-b-[1.3125rem]",
+                        current ? "bg-action-tint inset-ring-2 inset-ring-action-ink" : "hover:bg-surface-2",
                       )}
                     >
                       <span className="flex min-w-0 flex-1 flex-col">
                         <TripRow trip={trip} current={false} line={detail(trip)} count={count(trip)} even />
                       </span>
-                      {current && <TickGlyph className="size-5 shrink-0 text-primary" />}
+                      {current && <TickGlyph className="size-5 shrink-0 text-action-ink" />}
                     </button>
                   </li>
                 );

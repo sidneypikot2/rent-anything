@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { CodeForm } from "@/components/auth/email-code-form";
 import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
-import { formatDateRange, guestCount } from "@/components/trips/format";
+import { formatDateRange, itemAmount } from "@/components/trips/format";
 import {
   itemPriceLabel,
   itemQuote,
@@ -13,7 +13,7 @@ import {
   type TripItem,
 } from "@/components/trips/use-trips";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogSummary } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { TripLinkCard } from "@/components/guest/trip-link-card";
 import { Field } from "@/components/ui/field";
@@ -53,6 +53,9 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
   const [phoneError, setPhoneError] = useState<string>();
   const result = checkout.data;
   const error = checkout.error instanceof CodeRequiredError ? null : checkout.error;
+  // What the picked items come to, from the trip's quote (cached from the cart), for the action bar.
+  const quote = useTripQuote(trip.id);
+  const total = pickedTotal(quote.data, items);
 
   function close() {
     if (!checkout.isPending) onClose();
@@ -89,22 +92,29 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
       open
       onClose={close}
       placement="sheet"
-      title={result ? bookedTitle(result) : codeFor ? "Check your email" : `${checkoutLabel(items)} · ${trip.name}`}
+      // Named after the trip (the modal redesign); the button says what happens to its items.
+      title={result ? bookedTitle(result) : codeFor ? "Check your email" : trip.name}
+      meta={result || codeFor ? undefined : checkoutMeta(items)}
       data-testid="checkout-sheet"
+      summary={
+        result ? (
+          <DialogSummary value={formatPeso(result.total_cents)} detail="Total" />
+        ) : codeFor ? undefined : (
+          <DialogSummary
+            value={<span data-testid="checkout-total">{total ?? (quote.isPending ? "Working out the total…" : "—")}</span>}
+            detail="Total · nothing is charged yet"
+          />
+        )
+      }
       actions={
         result ? (
           <Button type="button" onClick={onClose}>
             Done
           </Button>
         ) : codeFor ? undefined : (
-          <>
-            <Button type="button" variant="soft" onClick={close} disabled={checkout.isPending}>
-              Cancel
-            </Button>
-            <Button type="submit" form="checkout-form" data-testid="checkout-confirm" disabled={checkout.isPending}>
-              {checkout.isPending ? "Booking…" : checkoutLabel(items)}
-            </Button>
-          </>
+          <Button type="submit" form="checkout-form" data-testid="checkout-confirm" loading={checkout.isPending}>
+            {checkout.isPending ? "Sending…" : checkoutLabel(items)}
+          </Button>
         )
       }
     >
@@ -163,6 +173,15 @@ export function checkoutNotice(result: Checkout) {
   return booked === 0 ? requests : `${booked} booked · ${requests.charAt(0).toLowerCase()}${requests.slice(1)}`;
 }
 
+// What the button will do, in a line under the trip's name: "1 item, sent as a request".
+function checkoutMeta(items: TripItem[]) {
+  const count = items.length === 1 ? "1 item" : `${items.length} items`;
+  const instant = items.filter((item) => item.listing.instant_book).length;
+  if (instant === items.length) return `${count}, booked straight away`;
+  if (instant === 0) return `${count}, sent as ${items.length === 1 ? "a request" : "requests"} to the partner`;
+  return `${count}: some booked straight away, the rest sent as requests`;
+}
+
 function bookedTitle(result: Checkout) {
   return result.bookings.every((booking) => booking.status === "confirmed") ? "You're booked" : "Sent";
 }
@@ -171,17 +190,16 @@ function bookedTitle(result: Checkout) {
 // what they come to, so the guest checks it before sending. One note for all of them.
 function Picked({ trip, items }: { trip: Trip; items: TripItem[] }) {
   const quote = useTripQuote(trip.id);
-  const total = pickedTotal(quote.data, items);
   const requests = items.some((item) => !item.listing.instant_book);
 
   return (
     <div className="flex flex-col gap-4">
-      <ul className="flex flex-col divide-y divide-line rounded-control border border-line">
+      <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-[1.375rem] border border-line">
         {items.map((item) => {
           const dates = formatDateRange(item.starts_on, item.ends_on);
           const price = itemPriceLabel(itemQuote(quote.data, item));
           return (
-            <li key={item.id} className="flex items-start justify-between gap-3 px-3 py-2.5">
+            <li key={item.id} className="flex items-start justify-between gap-3 px-3.5 py-3">
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="flex flex-wrap items-center gap-2 font-semibold">
                   {item.listing.title}
@@ -189,7 +207,7 @@ function Picked({ trip, items }: { trip: Trip; items: TripItem[] }) {
                 </span>
                 <span className="text-sm text-muted">
                   {dates ? `${dates} · ` : ""}
-                  {guestCount(item.quantity)}
+                  {itemAmount(item)}
                 </span>
               </span>
               {quote.isPending ? (
@@ -205,12 +223,6 @@ function Picked({ trip, items }: { trip: Trip; items: TripItem[] }) {
           );
         })}
       </ul>
-      <p className="flex justify-between gap-3 text-sm font-semibold">
-        <span>Total</span>
-        <span className="text-right tabular-nums" data-testid="checkout-total">
-          {total ?? (quote.isPending ? "Working out the total…" : "—")}
-        </span>
-      </p>
       <p className="text-sm text-muted">
         {requests && "Each partner has 24 hours to accept, and your dates are held meanwhile. "}
         You&apos;ll see each answer in your cart, and pay there once a partner accepts. Payments aren&apos;t live yet, so
@@ -223,9 +235,9 @@ function Picked({ trip, items }: { trip: Trip; items: TripItem[] }) {
 function Booked({ result }: { result: Checkout }) {
   return (
     <div className="flex flex-col gap-4" data-testid="checkout-result">
-      <ul className="flex flex-col divide-y divide-line rounded-control border border-line">
+      <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-[1.375rem] border border-line">
         {result.bookings.map((booking) => (
-          <li key={booking.id} className="flex items-start justify-between gap-3 px-3 py-2.5">
+          <li key={booking.id} className="flex items-start justify-between gap-3 px-3.5 py-3">
             <span className="flex min-w-0 flex-col gap-0.5">
               <span className="font-semibold">{booking.listing.title}</span>
               <span className="text-sm text-muted">
@@ -239,10 +251,6 @@ function Booked({ result }: { result: Checkout }) {
           </li>
         ))}
       </ul>
-      <p className="flex justify-between text-sm font-semibold">
-        <span>Total</span>
-        <span className="tabular-nums">{formatPeso(result.total_cents)}</span>
-      </p>
       {result.trip_link && <TripLinkCard link={result.trip_link} emailed />}
     </div>
   );

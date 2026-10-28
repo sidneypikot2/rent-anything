@@ -3,8 +3,11 @@
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { DateRangeField } from "@/components/ui/date-range-field";
-import { Dialog } from "@/components/ui/dialog";
+import { GuestsGlyph } from "@/components/discovery/tag-glyphs";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
+import { Stepper } from "@/components/ui/stepper-field";
+import { Ticket, TicketRow } from "@/components/ui/ticket";
 import { todayIso } from "./format";
 import { useCreateTrip, type Trip } from "./use-trips";
 
@@ -35,9 +38,9 @@ export function NewTripSheet({ onClose, onCreated }: Props) {
   }
 
   return (
-    <Dialog open onClose={onClose} placement="sheet" title="Plan a new trip" data-testid="new-trip-sheet">
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        <fieldset disabled={create.isPending} className="flex flex-col gap-3">
+    <Dialog open onClose={onClose} placement="sheet" title="A new trip" meta="Name it, then add things from any place" data-testid="new-trip-sheet">
+      <form onSubmit={submit} className="flex flex-1 flex-col gap-4">
+        <fieldset disabled={create.isPending} className="flex flex-col gap-4">
           <Field
             label="Trip name"
             name="name"
@@ -48,26 +51,34 @@ export function NewTripSheet({ onClose, onCreated }: Props) {
             placeholder="Bantayan – Malapascua escapade"
             onChange={(event) => setName(event.target.value)}
           />
-          <DateRangeField
-            label="Dates"
-            min={todayIso()}
-            from={startsOn}
-            to={endsOn}
-            onChange={setDates}
-            clearable
-            inline
-            error={dateError}
-            hint="Optional"
-          />
-          <Field
-            label="Guests"
-            type="number"
-            min={1}
-            max={50}
-            value={guests}
-            onChange={(event) => setGuests(event.target.value)}
-            error={guestsValid ? undefined : "1 to 50"}
-          />
+          <Ticket>
+            <DateRangeField
+              row
+              label="Dates"
+              min={todayIso()}
+              from={startsOn}
+              to={endsOn}
+              onChange={setDates}
+              clearable
+              error={dateError}
+              hint="optional"
+            />
+            <TicketRow
+              icon={<GuestsGlyph />}
+              value="Guests"
+              detail="up to 50"
+              control={
+                <Stepper
+                  label="Guests"
+                  value={guestsValid ? guestsNumber : 1}
+                  onChange={(value) => setGuests(String(value))}
+                  min={1}
+                  max={50}
+                  testId="new-trip-guests"
+                />
+              }
+            />
+          </Ticket>
         </fieldset>
 
         {create.error && (
@@ -76,14 +87,11 @@ export function NewTripSheet({ onClose, onCreated }: Props) {
           </p>
         )}
 
-        <div className="flex flex-wrap justify-end gap-3">
-          <Button type="button" variant="soft" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" data-testid="new-trip-save" disabled={create.isPending}>
+        <DialogFooter>
+          <Button type="submit" data-testid="new-trip-save" loading={create.isPending}>
             {create.isPending ? "Creating…" : "Create trip"}
           </Button>
-        </div>
+        </DialogFooter>
       </form>
     </Dialog>
   );

@@ -8,7 +8,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/components/ui/cn";
 import { useToast } from "@/components/ui/toast";
-import { formatDateRange, guestCount } from "./format";
+import { formatDateRange, itemAmount } from "./format";
 import { ItemEditSheet } from "./item-edit-sheet";
 import { ItemThumb } from "./item-thumb";
 import { useRemoveTripItem, type Trip, type TripItem } from "./use-trips";
@@ -78,11 +78,13 @@ export function HereItemsSheet({
         open
         onClose={back}
         title="Remove from trip?"
+        meta={`${step.item.listing.title} comes out of ${trip.name}.`}
+        tone="danger"
         data-testid="remove-item-dialog"
         actions={
           <>
             <Button type="button" variant="soft" onClick={back}>
-              Cancel
+              Keep it
             </Button>
             <Button
               type="button"
@@ -103,9 +105,6 @@ export function HereItemsSheet({
           </>
         }
       >
-        <p className="text-sm">
-          {step.item.listing.title} will be removed from {trip.name}.
-        </p>
         {removeItem.error && (
           <p role="alert" className="text-sm text-danger">
             {removeItem.error.message}
@@ -122,6 +121,7 @@ export function HereItemsSheet({
         placement="sheet"
         pinned
         title={`Your trip in ${placeName}`}
+        meta={`${trip.name}. To book, or move something to another trip, open the trip.`}
         data-testid="here-items-sheet"
         actions={
           <ButtonLink href={tripHref(trip.id)} arrow data-testid="here-items-open-trip">
@@ -129,20 +129,17 @@ export function HereItemsSheet({
           </ButtonLink>
         }
       >
-        <p className="text-sm text-pretty text-muted">
-          {trip.name}. To book, or move something to another trip, open the trip.
-        </p>
-        <ul className="-mt-1 flex flex-col divide-y divide-line">
+        <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-[1.375rem] border border-line">
           {items.map((item) => {
             const dates = formatDateRange(item.starts_on, item.ends_on);
             const title = item.listing.title;
             return (
-              <li key={item.id} data-testid="here-item" className="flex items-start gap-3 py-3.5">
+              <li key={item.id} data-testid="here-item" className="flex items-start gap-3 px-3.5 py-3.5">
                 <ItemThumb item={item} />
                 <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                   <span className="font-semibold leading-snug text-pretty">{title}</span>
                   <span className="text-sm text-muted">
-                    {guestCount(item.quantity)} ·{" "}
+                    {itemAmount(item)} ·{" "}
                     {dates ?? <span className="font-semibold text-warning">No date yet</span>}
                   </span>
                   {/* Text actions under the line, not two pills per row: the list stays a list of

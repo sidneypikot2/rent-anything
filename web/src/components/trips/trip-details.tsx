@@ -1,7 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { BAND_PHOTO } from "@/components/landing/sample-photos";
+import { CalendarGlyph, CopyGlyph, InfoGlyph, MergeGlyph, MoveGlyph, PencilGlyph, TrashGlyph } from "@/components/discovery/tag-glyphs";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
 import { CANCELLATION_POLICY } from "@/components/bookings/cancellation";
 import { checkoutLabel } from "@/components/bookings/checkout-sheet";
@@ -15,7 +18,7 @@ import { bookingProgress } from "./cart-trip-nav";
 import { DeletionBanner } from "./deletion-banner";
 import type { EditFocus } from "./edit-trip-sheet";
 import { ItemThumb } from "./item-thumb";
-import { formatDateRange, guestCount, itemCount, todayIso } from "./format";
+import { formatDateRange, guestCount, itemAmount, itemCount, todayIso } from "./format";
 import { TripItinerary } from "./trip-itinerary";
 import { tripDatesQuery } from "./trip-dates";
 import { missingStays, missingText, type Missing } from "./trip-missing";
@@ -195,23 +198,27 @@ export function TripDetails({
     ? [
         {
           label: "Rename or change dates",
+          icon: <PencilGlyph />,
           onSelect: () => actions.edit(trip),
           "data-testid": "trip-action-edit",
         },
         {
           label: "Merge with another trip",
+          icon: <MergeGlyph />,
           detail: "Moves every item into it",
           onSelect: () => actions.merge(trip),
           "data-testid": "trip-action-merge",
         },
         {
           label: "Plan this trip again",
+          icon: <CopyGlyph />,
           detail: "A copy with new dates",
           onSelect: () => actions.recreate(trip),
           "data-testid": "trip-action-recreate",
         },
         {
           label: "Delete trip",
+          icon: <TrashGlyph />,
           danger: true,
           onSelect: () => actions.remove(trip),
           "data-testid": "trip-action-delete",
@@ -220,6 +227,7 @@ export function TripDetails({
     : [
         {
           label: "Plan this trip again",
+          icon: <CopyGlyph />,
           detail: "A copy with new dates",
           onSelect: () => actions.recreate(trip),
           "data-testid": "trip-action-recreate",
@@ -233,7 +241,14 @@ export function TripDetails({
       data-testid="cart-trip"
       className="flex min-w-0 flex-col gap-3"
     >
-      <div className="card-edge rounded-card bg-forest text-white shadow-soft">
+      {/* A trip band, as the home page's closing band: the island photo under the trip band's
+          colour (navy on guest pages). The photo is clipped in its own layer, so the header's
+          menu can still open past its foot, and z-10 keeps that menu over the items below. */}
+      <div className="band card-edge relative isolate z-10 rounded-card text-white shadow-soft">
+        <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden rounded-[inherit] bg-trip-band">
+          <Image src={BAND_PHOTO} alt="" fill sizes="(min-width: 1024px) 50rem, 100vw" className="object-cover" />
+          <div className="absolute inset-0 band-fill" />
+        </div>
         {/* One grid, so a past trip's Plan this trip again sits beside the menu from sm and
             under the details, full width, on a phone, without a second copy of the button. */}
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:px-5 sm:py-4">
@@ -255,7 +270,13 @@ export function TripDetails({
               {trip.name}
             </h2>
             <p className="mt-0.5 text-sm text-sky-mist">
-              {[dates, guestCount(trip.guests), itemCount(shown.length), trip.destinations.join(", ")]
+              {/* Not what the name already says: an auto-named trip is "<place> · <dates>". */}
+              {[
+                dates && !trip.name.includes(dates) && dates,
+                guestCount(trip.guests),
+                itemCount(shown.length),
+                trip.destinations.filter((place) => !trip.name.includes(place)).join(", "),
+              ]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
@@ -276,7 +297,7 @@ export function TripDetails({
             {onSwitch && tripCount > 1 && (
               <Button
                 type="button"
-                variant="tint"
+                variant="paper"
                 size="sm"
                 onClick={onSwitch}
                 data-testid="trip-switch"
@@ -288,7 +309,7 @@ export function TripDetails({
             {!cart && phase === "past" && (
               <Button
                 type="button"
-                variant="tint"
+                variant="paper"
                 size="sm"
                 onClick={() => actions.recreate(trip)}
                 data-testid="trip-recreate"
@@ -300,7 +321,7 @@ export function TripDetails({
             {cart && (
               <Button
                 type="button"
-                variant="tint"
+                variant="paper"
                 size="sm"
                 onClick={() => actions.findMore(trip)}
                 data-testid="cart-find-more"
@@ -312,7 +333,7 @@ export function TripDetails({
             {cart && actions.share && (
               <Button
                 type="button"
-                variant="tint"
+                variant="paper"
                 size="sm"
                 onClick={() => actions.share?.(trip)}
                 data-testid="cart-share"
@@ -544,7 +565,7 @@ function ItemCard({
               <span className="hidden sm:inline">
                 {item.listing.category} · {item.area.name} ·
               </span>
-              <span>{guestCount(item.quantity)} ·</span>
+              <span>{itemAmount(item)} ·</span>
               {dates ? (
                 <span className="text-foreground">{dates}</span>
               ) : mode === "cart" ? (
@@ -588,6 +609,7 @@ function ItemCard({
                 ? [
                     {
                       label: booking ? "View booking" : "View details",
+                      icon: <InfoGlyph />,
                       onSelect: () => actions.open(trip, item),
                       "data-testid": "item-action-booking",
                     },
@@ -595,16 +617,19 @@ function ItemCard({
                 : [
                     {
                       label: "Move to another trip",
+                      icon: <MoveGlyph />,
                       onSelect: () => actions.moveItem(trip, item),
                       "data-testid": "item-action-move",
                     },
                     {
                       label: "Change dates or guests",
+                      icon: <CalendarGlyph />,
                       onSelect: () => actions.redateItem(trip, item),
                       "data-testid": "item-action-date",
                     },
                     {
                       label: "Remove",
+                      icon: <TrashGlyph />,
                       danger: true,
                       onSelect: () => actions.removeItem(trip, item),
                       "data-testid": "item-action-remove",

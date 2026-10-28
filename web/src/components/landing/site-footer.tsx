@@ -15,11 +15,10 @@ export function SiteFooter() {
         <div className="order-last flex flex-1 flex-col justify-center gap-1 sm:order-none">
           <Logo className="text-2xl" />
           <p className="font-display font-semibold text-sky-mist">{TAGLINE}</p>
-          <SocialLinks className="mt-3 justify-center sm:justify-start" />
+          <SocialLinks className="mt-3" />
         </div>
         <GlassPanel tone="forest" className="flex flex-col gap-4 rounded-card p-card text-sm sm:min-w-80">
-          {/* Two to a row on a phone, the partners' link under them across both, so the three
-              pills read as a set rather than wrapping one short. */}
+          {/* Two to a row on a phone: the four pills read as a set. */}
           <FooterNav />
           <p className="text-pretty text-sky-mist">Local partners · starting on {LAUNCH_AREA.name}, {LAUNCH_AREA.region}</p>
         </GlassPanel>

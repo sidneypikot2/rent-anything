@@ -16,6 +16,11 @@ export function guestCount(count: number) {
   return plural(count, "guest", "guests");
 }
 
+// A trip item's quantity in words: its guests, or for gear, booked by the count, how many.
+export function itemAmount(item: { quantity: number; listing: { group: string } }) {
+  return item.listing.group === "gear" ? `Qty ${item.quantity}` : guestCount(item.quantity);
+}
+
 // When a trip is, beside its name: "Under way, until Oct 31" once it has started (so it never
 // disagrees with a search that starts today), else its dates, or nothing when its name already
 // says them (an auto-named "Bantayan Island · Oct 24–31").
@@ -32,6 +37,13 @@ export function guestLimitHint(max: number | null | undefined) {
   return max ? `Up to ${max}` : undefined;
 }
 
+// Gear's How many hint: how many the partner has to rent, a few said as "Only". About the
+// partner's stock, not the dates (the sheet doesn't know what's free on them), so it stays true.
+export function rentLimitHint(listed: number | null | undefined) {
+  if (!listed) return undefined;
+  return listed <= 3 ? `Only ${listed} to rent` : `${listed} to rent`;
+}
+
 // "4 things": a trip's items, as a guest reads them.
 export function thingCount(count: number) {
   return plural(count, "thing", "things");
@@ -39,8 +51,10 @@ export function thingCount(count: number) {
 
 // The guests the search and the area page's trip add with: "Just me", the search's own word for
 // one, so the search bar, its sheet and the trip agree.
-export function guestsLabel(count: number) {
-  return count === 1 ? "Just me" : `${count} guests`;
+// "Just me", "3 guests", and pets after them: "3 guests · 1 pet".
+export function guestsLabel(count: number, pets = 0) {
+  const people = count === 1 ? "Just me" : `${count} guests`;
+  return pets > 0 ? `${people} · ${pets} ${pets === 1 ? "pet" : "pets"}` : people;
 }
 
 // Rentals and stays are booked for a stretch of days; tours and transfers for one.

@@ -36,11 +36,14 @@ export function ShareTripSheet({ trip, onClose }: { trip: Trip; onClose: () => v
   }
 
   return (
-    <Dialog open onClose={onClose} title="Share this trip" placement="sheet" data-testid="share-trip-sheet">
-      <p className="text-sm text-muted">
-        Anyone with the link can see {trip.name}: its dates, guests and what&apos;s in it. They can&apos;t see prices or
-        your details, or change anything.
-      </p>
+    <Dialog
+      open
+      onClose={onClose}
+      title={trip.name}
+      meta="Share it: anyone with the link sees its dates, guests and what's in it, never prices or your details, and can't change anything."
+      placement="sheet"
+      data-testid="share-trip-sheet"
+    >
 
       {share.isPending ? (
         <p className="text-sm text-muted">Loading…</p>
@@ -50,7 +53,7 @@ export function ShareTripSheet({ trip, onClose }: { trip: Trip; onClose: () => v
         </p>
       ) : url ? (
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 rounded-control border border-line bg-surface-2 p-4">
+          <div className="flex flex-col gap-3 rounded-[1.375rem] border border-line bg-surface-2 p-4">
             <span className="text-xs font-semibold text-muted">Share link</span>
             <span data-testid="share-trip-url" className="text-sm break-all">
               {url}

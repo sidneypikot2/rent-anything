@@ -73,6 +73,9 @@ function raise(region: HTMLElement) {
   region.showPopover();
 }
 
+// How long toast-out runs (globals.css): the toast unmounts once it has played.
+const TOAST_OUT_MS = 300;
+
 // One message: its own timer and hover state, both gone when it unmounts.
 function ToastCard({
   children,
@@ -83,6 +86,8 @@ function ToastCard({
   "data-testid": testId,
 }: Omit<Props, "message" | "id"> & { children: ReactNode }) {
   const [held, setHeld] = useState(false);
+  // Leaving plays toast-out, then the toast is gone.
+  const [leaving, setLeaving] = useState(false);
   const danger = tone === "danger";
 
   useEffect(() => {
@@ -95,10 +100,16 @@ function ToastCard({
   }, []);
 
   useEffect(() => {
-    if (held) return;
-    const timer = window.setTimeout(onDismiss, duration);
+    if (held || leaving) return;
+    const timer = window.setTimeout(() => setLeaving(true), duration);
     return () => window.clearTimeout(timer);
-  }, [held, duration, onDismiss]);
+  }, [held, leaving, duration]);
+
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = window.setTimeout(onDismiss, TOAST_OUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [leaving, onDismiss]);
 
   return (
     <div
@@ -109,31 +120,38 @@ function ToastCard({
       onFocus={() => setHeld(true)}
       onBlur={() => setHeld(false)}
       className={cn(
-        "pointer-events-auto flex w-full max-w-lg animate-rise flex-wrap items-center gap-x-4 gap-y-2 focus-light rounded-card border px-4 py-3 text-sm text-white shadow-lift backdrop-blur-lg",
+        "pointer-events-auto flex w-full max-w-lg flex-col gap-2 focus-light rounded-card border py-3 pr-2 pl-4 text-sm text-white shadow-lift backdrop-blur-lg",
         danger ? "border-danger bg-danger" : "border-glass-edge bg-navy/90",
+        leaving ? "pointer-events-none animate-toast-out" : "animate-toast-in",
       )}
     >
-      {/* A phone gives the message its own line, so a trip's name isn't squeezed by the actions. */}
-      <div className="flex min-w-0 flex-1 items-start gap-2 max-sm:basis-full">
+      {/* ✕ sits in the message's top corner, a full tap target, never beside an action: on a phone
+          the toast appears where a sheet's button just was, and a stray tap must not hit one. */}
+      <div className="flex items-start gap-2">
         {danger && <AlertGlyph className="size-5 shrink-0" />}
-        <div className="min-w-0 flex-1">{children}</div>
-      </div>
-      <div className={cn("flex items-center gap-3 font-semibold", danger ? "text-white" : "text-aqua")}>
-        {actions}
+        <div className="min-w-0 flex-1 pt-0.5">{children}</div>
         <button
           type="button"
-          onClick={onDismiss}
+          onClick={() => setLeaving(true)}
           aria-label="Dismiss"
-          className={danger ? "text-white/80 hover:text-white" : "text-on-dark hover:text-white"}
+          className={cn(
+            "-mt-2 grid size-11 shrink-0 place-items-center rounded-full",
+            danger ? "text-white/80 hover:text-white" : "text-on-dark hover:bg-white/10 hover:text-white",
+          )}
         >
           ✕
         </button>
       </div>
+      {actions && (
+        <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 pr-2 font-semibold", danger ? "text-white" : "text-aqua")}>
+          {actions}
+        </div>
+      )}
     </div>
   );
 }
 
-type ShowOptions = { tone?: ToastTone; actions?: ReactNode; "data-testid"?: string };
+type ShowOptions = { tone?: ToastTone; actions?: ReactNode; duration?: number; "data-testid"?: string };
 type Notice = ShowOptions & { id: number; message: ReactNode };
 type ToastContext = { show: (message: ReactNode, options?: ShowOptions) => void; dismiss: () => void };
 
@@ -158,6 +176,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         id={notice?.id}
         tone={notice?.tone}
         actions={notice?.actions}
+        duration={notice?.duration}
         onDismiss={dismiss}
         data-testid={notice?.["data-testid"] ?? "toast"}
       />

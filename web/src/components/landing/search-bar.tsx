@@ -3,7 +3,7 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { SearchBox } from "@/components/discovery/search-box";
-import { GuestsGlyph, PencilGlyph, SearchGlyph } from "@/components/discovery/tag-glyphs";
+import { GuestsGlyph, PencilGlyph, PlusGlyph, SearchGlyph } from "@/components/discovery/tag-glyphs";
 import { readTripDates } from "@/components/trips/trip-dates";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
@@ -158,7 +158,7 @@ function HeaderSearchContent({ pathname }: { pathname: string }) {
         ref={pillRef}
         where={query}
         dateLabel={formatDateRange(dates.from, dates.to)}
-        guestsLabel={guestsLabel(dates.guests)}
+        guestsLabel={guestsLabel(dates.guests, dates.pets)}
         expanded={panelOpen}
         onClick={() => (open ? close() : openOn())}
         always
@@ -254,7 +254,15 @@ export function SearchPill({
         <MiniStop set={Boolean(dateLabel)} className="shrink-0">
           {/* The same words as the route's empty stop; the hero's summary doesn't ask in blue, as its
               own button under it is the action. */}
-          {dateLabel ?? (summary ? "Add dates" : <span className="text-secondary">Add dates +</span>)}
+          {dateLabel ??
+            (summary ? (
+              "Add dates"
+            ) : (
+              <span className="inline-flex items-center gap-1 text-secondary">
+                Add dates
+                <PlusGlyph className="size-3.5" />
+              </span>
+            ))}
         </MiniStop>
         {/* Out of the row while it doesn't fit, but still measured; in its place the count alone,
             with the guests icon, so the search never loses who's going. */}

@@ -2,16 +2,16 @@
 
 import Image from "next/image";
 import { useState, type FormEvent } from "react";
-import { CategoryGlyph } from "@/components/discovery/tag-glyphs";
+import { BagGlyph, CategoryGlyph, GuestsGlyph } from "@/components/discovery/tag-glyphs";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/components/ui/cn";
 import { DateRangeField } from "@/components/ui/date-range-field";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter, DialogSummary } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
-import { StepperField } from "@/components/ui/stepper-field";
+import { Stepper } from "@/components/ui/stepper-field";
+import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
 import { chooseTrip, useChosenTrip } from "./chosen-trip";
-import { daysBetween, formatDateRange, guestLimitHint, itemCount, noNightError, todayIso, tripDetails } from "./format";
+import { daysBetween, formatDateRange, guestLimitHint, itemCount, noNightError, rentLimitHint, todayIso, tripDetails } from "./format";
 import { bedsBooked } from "./beds";
 import { evenRooms, headcount, partyFromGuests, partyOf, partySummary, roomGuestsToSend, roomText, type Room } from "./party";
 import { RoomsAndGuests } from "./rooms-and-guests";
@@ -169,36 +169,6 @@ function NameTripButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-// The listing being added, as the page that started the add showed it.
-function ListingPreview({ title, preview }: { title: string; preview?: AddPreview }) {
-  return (
-    // The same summary box as the edit sheet (ItemEditSheet), so the two sheets read as a pair.
-    <div className="flex items-start gap-3 rounded-control bg-surface-2 p-3" data-testid="add-sheet-listing">
-      <div className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-control bg-mist text-navy">
-        {preview?.photo ? (
-          <Image
-            src={preview.photo.src}
-            alt={preview.photo.alt}
-            fill
-            unoptimized={isApiPhoto(preview.photo.src)}
-            sizes="4rem"
-            className="object-cover"
-          />
-        ) : (
-          <CategoryGlyph name={preview?.category ?? ""} className="size-7" />
-        )}
-      </div>
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <p className="font-semibold break-words">{title}</p>
-        {(preview?.category || preview?.by) && (
-          <p className="text-sm text-muted">{[preview.category, preview.by].filter(Boolean).join(" · ")}</p>
-        )}
-        {preview?.price && <p className="text-sm">{preview.price}</p>}
-      </div>
-    </div>
-  );
-}
-
 // The add sheet (screen 4): every add is confirmed here, with the listing, its dates and
 // guests. With trips, the server's suggestion comes first and is preselected; "New trip" is
 // always there. With none, the add starts one. With a `target` (a place's page) the trip is
@@ -270,11 +240,16 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
         pets: rules.pets === 0 ? 0 : Math.min(partyPets, rules.pets ?? partyPets),
       })
     : null;
+  // Gear is booked by the count: the sheet asks how many, from one, and the page's guests go
+  // along only as a new trip's.
+  const gear = Boolean(request.preview?.gear) && !mix;
   const quantity = arrangement
     ? String(headcount(partyOf(arrangement.rooms)))
     : mix
       ? String(request.quantity)
-      : (typedQuantity ??
+      : gear
+        ? (typedQuantity ?? "1")
+        : (typedQuantity ??
       String(Math.min(unhoused > 0 ? unhoused : request.quantity, guestCap(request.preview) ?? Infinity)));
   const quantityNumber = Number(quantity);
   const quantityValid = Number.isInteger(quantityNumber) && quantityNumber >= 1 && quantityNumber <= 99;
@@ -290,6 +265,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
           ...request,
           ...dated,
           quantity: quantityNumber,
+          guests: gear ? request.quantity : undefined,
           roomGuests: arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null,
           pets: arrangement?.pets ?? 0,
         },
@@ -315,181 +291,257 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   // as a double tap or a forgotten add would otherwise book it twice. Adding again stays allowed
   // (a second room, a second van).
   const already = pickedTrip && !mix ? sameItem(pickedTrip, request.listingId, dated.startsOn, dated.endsOn) : undefined;
-  const capacity = quantityValid && !mix
+  // Gear the trip holds unbooked on exactly these dates: the add counts into it (the API's
+  // Trips::AddItem), so the sheet says the new total rather than warning of a double booking.
+  const merging = gear
+    ? pickedTrip?.items.find(
+        (item) =>
+          item.listing.id === request.listingId &&
+          !item.booking &&
+          Boolean(dated.startsOn) &&
+          item.starts_on === dated.startsOn &&
+          item.ends_on === dated.endsOn,
+      )
+    : undefined;
+  // What the partner lists, less what the trip holds on these dates: the most one add can take.
+  // At none left, the add is off and the note says why (the API refuses it too).
+  const listed = gear ? request.preview?.unitsCount : undefined;
+  const left = listed === undefined ? null : listed - (merging?.quantity ?? 0);
+  const full = left !== null && left <= 0;
+  const capacity = quantityValid && !mix && !gear
     ? capacityNote(request.preview, quantityNumber, request.quantity, booked, arrangement?.rooms)
     : null;
 
+  // The trip's short name for the button: "Bantayan Island", not its dates too.
+  const goingTo = choice === "new" ? null : (pickedTrip ?? (typeof target === "object" ? target : undefined))?.name.split(" · ")[0];
+  const submitLabel = addItem.isPending
+    ? "Adding…"
+    : mix
+      ? `Add ${mix.length} stays`
+      : merging
+        ? `Add ${quantityNumber} more`
+        : already
+          ? request.bookingType === "stay"
+            ? "Add another room"
+            : "Add it again"
+          : goingTo
+            ? `Add to ${goingTo}`
+            : "Start a trip";
+  // What the add holds, beside its button: the count (rooms, guests or how many) over the dates.
+  const amount = mix
+    ? `${mix.length} stays`
+    : arrangement
+      ? `${arrangement.rooms.length} ${arrangement.rooms.length === 1 ? "room" : "rooms"}`
+      : gear
+        ? `Qty ${merging ? merging.quantity + quantityNumber : quantityNumber}`
+        : guestsWord(quantityNumber);
+  const preview = request.preview;
+  const nameTrip =
+    naming ? (
+      <Field
+        label="Trip name"
+        name="trip_name"
+        value={tripName}
+        maxLength={80}
+        placeholder={suggestion.data?.new_trip_name}
+        hint="Leave it blank to name it after the place and dates."
+        disabled={addItem.isPending}
+        autoFocus
+        data-testid="which-trip-name"
+        onChange={(event) => setTripName(event.target.value)}
+      />
+    ) : (
+      <NameTripButton onClick={() => setNaming(true)} />
+    );
+
   return (
-    <Dialog open onClose={onClose} placement="sheet" title="Add to trip" data-testid="which-trip-sheet">
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        <ListingPreview title={request.title} preview={request.preview} />
-        {/* The fields under it already say the dates and guests; only a missing date needs a word,
-            a quiet one, as adding it undated is allowed. */}
+    // Named after the listing, never "Add to trip": the card's button said that, and this one
+    // says where it goes (the modal redesign, 2026-10-28).
+    <Dialog
+      open
+      onClose={onClose}
+      placement="sheet"
+      title={request.title}
+      meta={
+        <>
+          {[preview?.category, preview?.by].filter(Boolean).join(" · ")}
+          {preview?.price && <span className="block font-medium text-foreground">{preview.price}</span>}
+        </>
+      }
+      thumb={
+        <span data-testid="add-sheet-listing" className="absolute inset-0 flex items-center justify-center text-navy">
+          {preview?.photo ? (
+            <Image src={preview.photo.src} alt={preview.photo.alt} fill unoptimized={isApiPhoto(preview.photo.src)} sizes="4rem" className="object-cover" />
+          ) : (
+            <CategoryGlyph name={preview?.category ?? ""} className="size-7" />
+          )}
+        </span>
+      }
+      data-testid="which-trip-sheet"
+    >
+      <form onSubmit={submit} className="flex flex-1 flex-col gap-4">
+        {/* Only a missing date needs a word, a quiet one, as adding it undated is allowed. */}
         {!when && (
           <p className="text-sm text-muted" data-testid="add-sheet-when">
             No date yet: pick one, or add it now and set one later
           </p>
         )}
 
-        <fieldset disabled={addItem.isPending} className="grid grid-cols-[1fr_auto] items-start gap-3">
-          <DateRangeField
-            label={request.range ? "Dates" : "Date"}
-            single={!request.range}
-            min={todayIso()}
-            from={startsOn}
-            to={endsOn}
-            onChange={(dates) => {
-              setDates(dates);
-              setPicked(fixed ?? preferred);
-            }}
-            clearable
-            inline
-            error={dateError}
-            hint={
-              request.bookingType === "stay" && dated.startsOn && dated.endsOn && !dateError && daysBetween(dated.startsOn, dated.endsOn) > 0
-                ? `${daysBetween(dated.startsOn, dated.endsOn)} ${daysBetween(dated.startsOn, dated.endsOn) === 1 ? "night" : "nights"}`
-                : undefined
-            }
-            className="col-span-2 sm:col-span-1"
-          />
-          {/* − and +, not a typed number: a phone's keyboard would cover the sheet. */}
-          {mix ? (
-            <ul className="col-span-2 flex flex-col gap-1.5 rounded-control bg-mist px-3 py-2.5 text-sm" data-testid="which-trip-mix">
-              {mix.map((item) => (
-                <li key={item.listingId}>
-                  <span className="font-semibold">{item.title}</span>
-                  <span className="block text-muted">
-                    {partySummary(item.roomGuests ?? [{ adults: item.quantity, children: 0, infants: 0 }], item.pets, item.shared)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : arrangement && rules ? (
-            <div className="col-span-2">
+        <fieldset disabled={addItem.isPending} className="flex flex-col gap-4">
+          <Ticket data-testid="add-sheet-ticket">
+            {fixed !== null && (
+              <TicketRow
+                icon={<BagGlyph />}
+                label="Trip"
+                value={typeof target === "object" ? target.name : "New trip"}
+                detail={typeof target === "object" ? tripDetails(target) : (suggestion.data?.new_trip_name ?? undefined)}
+                data-testid="add-sheet-trip"
+              />
+            )}
+            <DateRangeField
+              row
+              label={request.range ? "Dates" : "Date"}
+              single={!request.range}
+              min={todayIso()}
+              from={startsOn}
+              to={endsOn}
+              onChange={(dates) => {
+                setDates(dates);
+                setPicked(fixed ?? preferred);
+              }}
+              clearable
+              error={dateError}
+              hint={
+                request.bookingType === "stay" && dated.startsOn && dated.endsOn && !dateError && daysBetween(dated.startsOn, dated.endsOn) > 0
+                  ? `${daysBetween(dated.startsOn, dated.endsOn)} ${daysBetween(dated.startsOn, dated.endsOn) === 1 ? "night" : "nights"}`
+                  : undefined
+              }
+            />
+            {/* − and +, not a typed number: a phone's keyboard would cover the sheet. */}
+            {mix ? (
+              mix.map((item) => (
+                <TicketRow
+                  key={item.listingId}
+                  icon={<CategoryGlyph name="Hotel or cottage" />}
+                  value={item.title}
+                  label={partySummary(item.roomGuests ?? [{ adults: item.quantity, children: 0, infants: 0 }], item.pets, item.shared)}
+                  data-testid="which-trip-mix"
+                />
+              ))
+            ) : arrangement && rules ? (
               <RoomsAndGuests
+                row
                 rooms={arrangement.rooms}
                 pets={arrangement.pets}
                 rules={rules}
                 party={startParty}
                 searched={{ children: startParty.children, infants: startParty.infants, pets: partyPets }}
                 onChange={(rooms, pets) => setRooms({ rooms, pets })}
-                inline
                 data-testid="which-trip-rooms"
               />
-            </div>
-          ) : (
-          <div className="col-span-2 sm:col-span-1 sm:pt-1">
-            <StepperField
-              label="Guests"
-              hint={guestLimitHint(guestCap(request.preview))}
-              value={quantityNumber}
-              onChange={(value) => setQuantity(String(value))}
-              min={1}
-              max={guestCap(request.preview) ?? 99}
-              data-testid="which-trip-guests"
-            />
-          </div>
-          )}
+            ) : gear ? (
+              <TicketRow
+                icon={<CategoryGlyph name={preview?.category ?? ""} />}
+                value={merging ? "How many more" : "How many"}
+                detail={rentLimitHint(listed)?.toLowerCase()}
+                control={
+                  <Stepper
+                    label="How many"
+                    value={quantityNumber}
+                    onChange={(value) => setQuantity(String(value))}
+                    min={1}
+                    // With some already in the trip on these days, what's left of what the partner lists.
+                    max={left === null ? 99 : Math.max(1, left)}
+                    testId="which-trip-count"
+                  />
+                }
+                data-testid="which-trip-count"
+              />
+            ) : (
+              <TicketRow
+                icon={<GuestsGlyph />}
+                value="Guests"
+                detail={guestLimitHint(guestCap(preview))?.toLowerCase()}
+                control={
+                  <Stepper
+                    label="Guests"
+                    value={quantityNumber}
+                    onChange={(value) => setQuantity(String(value))}
+                    min={1}
+                    max={guestCap(preview) ?? 99}
+                    testId="which-trip-guests"
+                  />
+                }
+                data-testid="which-trip-guests"
+              />
+            )}
+            {merging && (
+              <TicketNote tone={full ? "warning" : "info"} data-testid="add-sheet-already">
+                <p className="font-semibold">You have {merging.quantity} in this trip for these dates</p>
+                <p className="text-muted">
+                  {full
+                    ? `The partner lists ${listed}, so there are none left to add for these dates. Change the count in your trip, or pick other dates.`
+                    : `Adding ${quantityNumber} makes it ${merging.quantity + quantityNumber}, on one line in your trip.`}
+                </p>
+              </TicketNote>
+            )}
+            {already && !merging && (
+              <TicketNote tone="warning" data-testid="add-sheet-already">
+                <p className="font-semibold">
+                  Already in this trip
+                  {formatDateRange(already.starts_on, already.ends_on) ? ` for ${formatDateRange(already.starts_on, already.ends_on)}` : ""}
+                </p>
+                <p className="text-muted">
+                  {gear ? (
+                    <>It&apos;s there ({already.quantity}) on other days or already booked, so this goes on a line of its own.</>
+                  ) : (
+                    <>
+                      It&apos;s there for {guestsWord(already.quantity)}. Adding it again books it twice
+                      {request.bookingType === "stay" ? ", as a second room." : "."}
+                    </>
+                  )}
+                </p>
+              </TicketNote>
+            )}
+            {capacity && (
+              <TicketNote tone={capacity.tone} data-testid="add-sheet-capacity">
+                {capacity.text}
+              </TicketNote>
+            )}
+          </Ticket>
+
         </fieldset>
 
-        {already && (
-          <div role="status" data-testid="add-sheet-already" className="rounded-control border border-warning/30 bg-warning/10 px-3 py-2.5 text-sm">
-            <p className="font-semibold text-warning">
-              Already in this trip
-              {formatDateRange(already.starts_on, already.ends_on) ? ` for ${formatDateRange(already.starts_on, already.ends_on)}` : ""}
-            </p>
-            <p className="mt-0.5 text-foreground">
-              It&apos;s there for {guestsWord(already.quantity)}. Adding it again books it twice
-              {request.bookingType === "stay" ? ", as a second room." : "."}
-            </p>
-          </div>
-        )}
-        {capacity && (
-          <div
-            role="status"
-            data-testid="add-sheet-capacity"
-            className={cn(
-              "rounded-control border px-3 py-2.5 text-sm",
-              capacity.tone === "warning" ? "border-warning/30 bg-warning/10 text-warning" : "border-line bg-mist",
-            )}
-          >
-            <p>{capacity.text}</p>
-          </div>
-        )}
+        {fixed === "new" && nameTrip}
 
-        {fixed !== null ? (
-          <div className="flex flex-col gap-2" data-testid="add-sheet-trip">
-            <p className="text-sm">
-              {typeof target === "object" ? (
-                <>
-                  Adding to <span className="font-semibold">{target.name}</span>
-                  <span className="block text-muted">{tripDetails(target)}</span>
-                </>
-              ) : (
-                <>
-                  Starts a new trip
-                  {suggestion.data?.new_trip_name && (
-                    <span className="block text-muted">{suggestion.data.new_trip_name}</span>
-                  )}
-                </>
-              )}
-            </p>
-            {fixed === "new" && (naming ? (
-              <Field
-                label="Trip name"
-                name="trip_name"
-                value={tripName}
-                maxLength={80}
-                placeholder={suggestion.data?.new_trip_name}
-                hint="Leave it blank to name it after the place and dates."
-                disabled={addItem.isPending}
-                autoFocus
-                data-testid="which-trip-name"
-                onChange={(event) => setTripName(event.target.value)}
-              />
-            ) : (
-              <NameTripButton onClick={() => setNaming(true)} />
-            ))}
-          </div>
-        ) : (
-          <fieldset disabled={addItem.isPending} className="flex max-h-[40dvh] flex-col gap-2 overflow-y-auto">
-            <legend className="mb-1 text-sm font-semibold">{trips.length > 0 ? "Which trip" : "Trip"}</legend>
-            {ordered.map((trip) => (
+        {fixed === null && (
+          <fieldset disabled={addItem.isPending} className="flex flex-col gap-2">
+            <legend className="mb-2 text-sm font-semibold">{trips.length > 0 ? "Which trip" : "Trip"}</legend>
+            <Ticket className="max-h-[40dvh] overflow-y-auto">
+              {ordered.map((trip) => (
+                <TripOption
+                  key={trip.id}
+                  checked={choice === trip.id}
+                  onSelect={() => setPicked(trip.id)}
+                  title={trip.name}
+                  detail={
+                    trip.id === suggested?.id && suggestion.data
+                      ? `${suggestedReason(suggestion.data, dated.startsOn, dated.endsOn)} · ${itemCount(trip.items.length)}`
+                      : tripDetails(trip)
+                  }
+                  suggested={trip.id === suggested?.id}
+                />
+              ))}
               <TripOption
-                key={trip.id}
-                checked={choice === trip.id}
-                onSelect={() => setPicked(trip.id)}
-                title={trip.name}
-                detail={
-                  trip.id === suggested?.id && suggestion.data
-                    ? `${suggestedReason(suggestion.data, dated.startsOn, dated.endsOn)} · ${itemCount(trip.items.length)}`
-                    : tripDetails(trip)
-                }
-                suggested={trip.id === suggested?.id}
+                isNew
+                checked={choice === "new"}
+                onSelect={() => setPicked("new")}
+                title="New trip"
+                detail={suggestion.data?.new_trip_name ?? "Named after the destination and dates"}
+                suggested={suggestion.data !== undefined && suggested === null}
               />
-            ))}
-            <TripOption
-              checked={choice === "new"}
-              onSelect={() => setPicked("new")}
-              title="+ New trip"
-              detail={suggestion.data?.new_trip_name ?? "Named after the destination and dates"}
-              suggested={suggestion.data !== undefined && suggested === null}
-            />
-            {choice === "new" && (naming ? (
-              <Field
-                label="Trip name"
-                name="trip_name"
-                value={tripName}
-                maxLength={80}
-                placeholder={suggestion.data?.new_trip_name}
-                hint="Leave it blank to name it after the place and dates."
-                autoFocus
-                data-testid="which-trip-name"
-                onChange={(event) => setTripName(event.target.value)}
-              />
-            ) : (
-              <NameTripButton onClick={() => setNaming(true)} />
-            ))}
+            </Ticket>
+            {choice === "new" && nameTrip}
           </fieldset>
         )}
 
@@ -499,21 +551,19 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
           </p>
         )}
 
-        {/* Pinned to the sheet's foot, so Add is on screen however long the trips list is. */}
-        <div className="sticky bottom-0 -mx-5 -mb-5 flex flex-wrap justify-end gap-3 border-t border-line bg-surface px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <Button type="button" variant="soft" onClick={onClose}>
-            Cancel
-          </Button>
+        {/* Pinned to the sheet's foot, so the button is on screen however long the trips list is.
+            No Cancel: the close disc, a tap beside the sheet or a drag down closes it. */}
+        <DialogFooter summary={<DialogSummary value={when ?? "No date yet"} detail={amount} />}>
           <Button
             type="submit"
             glyph="plus"
             data-testid="which-trip-add"
             loading={addItem.isPending}
-            disabled={choice === null || !datesValid || !quantityValid}
+            disabled={choice === null || !datesValid || !quantityValid || full}
           >
-            {addItem.isPending ? "Adding…" : mix ? `Add ${mix.length} stays` : already ? (request.bookingType === "stay" ? "Add another room" : "Add it again") : "Add to trip"}
+            {submitLabel}
           </Button>
-        </div>
+        </DialogFooter>
       </form>
     </Dialog>
   );

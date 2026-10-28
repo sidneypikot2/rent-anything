@@ -21,6 +21,8 @@ export type AddListing = {
   tour?: { min_guests: number; max_guests: number } | null;
   units_count?: number;
   units_label?: string;
+  // Where guests find it (the API's `group`): "gear" is booked by the count.
+  group?: string;
 };
 
 // What the add sheet shows of a listing. Plain, so server pages build it too.
@@ -41,6 +43,7 @@ export function addPreview(listing: AddListing, by?: string): AddPreview {
     tourGuests: listing.tour ? { min: listing.tour.min_guests, max: listing.tour.max_guests } : null,
     unitsCount: listing.units_count,
     unitsLabel: listing.units_label,
+    gear: listing.group === "gear",
     stayRules: listing.booking_type === "stay" ? stayRules(listing.details, listing.units_count) : null,
   };
 }

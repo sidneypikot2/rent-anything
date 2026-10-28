@@ -264,11 +264,13 @@ export function CartView({ expandTripId, paymentId }: { expandTripId?: number; p
           open
           onClose={close}
           title="Delete this trip?"
+          meta={`${open.trip.name} and its ${itemCount(open.trip.items.length)} will be deleted. This can't be undone.`}
+          tone="danger"
           data-testid="delete-trip-dialog"
           actions={
             <>
               <Button type="button" variant="soft" onClick={close}>
-                Cancel
+                Keep it
               </Button>
               <Button
                 type="button"
@@ -282,9 +284,6 @@ export function CartView({ expandTripId, paymentId }: { expandTripId?: number; p
             </>
           }
         >
-          <p className="text-sm">
-            {open.trip.name} and its {itemCount(open.trip.items.length)} will be deleted. This can&apos;t be undone.
-          </p>
           {deleteTrip.error && (
             <p role="alert" className="text-sm text-danger">
               {deleteTrip.error.message}
@@ -298,11 +297,13 @@ export function CartView({ expandTripId, paymentId }: { expandTripId?: number; p
           open
           onClose={close}
           title="Remove from trip?"
+          meta={`${open.item.listing.title} comes out of ${open.trip.name}.`}
+          tone="danger"
           data-testid="remove-item-dialog"
           actions={
             <>
               <Button type="button" variant="soft" onClick={close}>
-                Cancel
+                Keep it
               </Button>
               <Button
                 type="button"
@@ -318,9 +319,6 @@ export function CartView({ expandTripId, paymentId }: { expandTripId?: number; p
             </>
           }
         >
-          <p className="text-sm">
-            {open.item.listing.title} will be removed from {open.trip.name}.
-          </p>
           {removeItem.error && (
             <p role="alert" className="text-sm text-danger">
               {removeItem.error.message}

@@ -138,13 +138,18 @@ const NEED_ACTION: Record<(typeof PLAN_NEEDS)[number], string> = {
   transfer: "Find a transfer",
   rental: "Find a ride",
   activity: "Find things to do",
+  gear: "Find gear",
 };
 const NEED_LINE: Record<(typeof PLAN_NEEDS)[number], string> = {
   transfer: "From the port or airport to where you stay.",
   rental: "A scooter or trike to get around.",
   activity: "Tours and things to do while you're here.",
+  gear: "A camera, snorkel set or other gear for your days here.",
 };
-const needName = (group: string) => BOOKING_GROUPS.find((each) => each.group === group)?.need ?? group;
+const needName = (group: string) => {
+  const kind = BOOKING_GROUPS.find((each) => each.group === group);
+  return kind?.need ?? kind?.title ?? group;
+};
 
 // One thing the trip still lacks, with its way to sort it.
 function GapRow({

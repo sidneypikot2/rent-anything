@@ -60,7 +60,7 @@ export function HeroSearch() {
         summary
         where={where || LAUNCH_AREA.name}
         dateLabel={formatDateRange(dates.from, dates.to)}
-        guestsLabel={guestsLabel(dates.guests)}
+        guestsLabel={guestsLabel(dates.guests, dates.pets)}
         onClick={() => setOpen(true)}
       />
       <div className="mt-3 flex flex-col search:hidden">

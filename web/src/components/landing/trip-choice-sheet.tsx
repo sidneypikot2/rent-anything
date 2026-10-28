@@ -2,7 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter, DialogSummary } from "@/components/ui/dialog";
+import { Ticket } from "@/components/ui/ticket";
 import { formatDateRange, itemCount, tripDetails } from "@/components/trips/format";
 import { TripOption } from "@/components/trips/trip-option";
 import type { Trip } from "@/components/trips/use-trips";
@@ -47,7 +48,7 @@ export function TripChoiceSheet({
     />
   );
   const heading = (text: string) => (
-    <p className="mt-1 text-small font-semibold tracking-wide text-muted uppercase first:mt-0">{text}</p>
+    <p className="bg-surface-2 px-3.5 py-2 text-xs font-semibold text-muted">{text}</p>
   );
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -55,31 +56,38 @@ export function TripChoiceSheet({
     onPick(picked === "new" ? "new" : (trips.find((trip) => trip.id === picked) ?? "new"));
   }
 
+  const chosen = picked === "new" ? null : trips.find((trip) => trip.id === picked);
   return (
-    <Dialog open onClose={onClose} placement="sheet" title="Which trip?" data-testid="trip-choice-sheet">
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        <p className="text-sm text-muted">Add to one of your trips, or start a new one on {areaName}.</p>
-        <fieldset className="flex max-h-[50dvh] flex-col gap-2 overflow-y-auto">
+    <Dialog
+      open
+      onClose={onClose}
+      placement="sheet"
+      title="Which trip?"
+      meta={`Add to one of your trips, or start a new one on ${areaName}`}
+      data-testid="trip-choice-sheet"
+    >
+      <form onSubmit={submit} className="flex flex-1 flex-col gap-4">
+        <fieldset className="flex flex-col">
           <legend className="sr-only">Trip</legend>
-          {grouped && heading(`In ${areaName}`)}
-          {here.map(option)}
-          {grouped && heading("Your other trips")}
-          {others.map(option)}
-          <TripOption
-            checked={picked === "new"}
-            onSelect={() => setPicked("new")}
-            title="+ New trip"
-            detail="Starts with the first thing you add"
-          />
+          <Ticket className="max-h-[50dvh] overflow-y-auto">
+            {grouped && heading(`In ${areaName}`)}
+            {here.map(option)}
+            {grouped && heading("Your other trips")}
+            {others.map(option)}
+            <TripOption
+              isNew
+              checked={picked === "new"}
+              onSelect={() => setPicked("new")}
+              title="New trip"
+              detail="Starts with the first thing you add"
+            />
+          </Ticket>
         </fieldset>
-        <div className="flex flex-wrap justify-end gap-3">
-          <Button type="button" variant="soft" onClick={onClose}>
-            Cancel
-          </Button>
+        <DialogFooter summary={chosen && <DialogSummary value={chosen.name.split(" · ")[0]} detail={tripDetails(chosen)} />}>
           <Button type="submit" arrow data-testid="trip-choice-go">
             {picked === "new" ? "Start a new trip" : "Continue this trip"}
           </Button>
-        </div>
+        </DialogFooter>
       </form>
     </Dialog>
   );

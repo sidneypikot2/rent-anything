@@ -3,9 +3,12 @@
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { DateRangeField } from "@/components/ui/date-range-field";
-import { Dialog } from "@/components/ui/dialog";
+import { GuestsGlyph } from "@/components/discovery/tag-glyphs";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
-import { StepperField } from "@/components/ui/stepper-field";
+import { Stepper } from "@/components/ui/stepper-field";
+import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
+import { ItemThumb } from "./item-thumb";
 import { addDays, daysBetween, formatDateRange, todayIso } from "./format";
 import { useCopyTrip, type Trip } from "./use-trips";
 
@@ -52,49 +55,58 @@ export function RecreateTripSheet({
   }
 
   return (
-    <Dialog open onClose={onClose} placement="sheet" title="Plan this trip again" data-testid="recreate-trip-sheet">
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        <p className="text-sm text-muted">
-          The same {trip.items.length === 1 ? "item" : "items"} in a new trip in your cart, nothing booked. Check each
-          one&apos;s price and dates there, then send the requests.
-        </p>
-        <fieldset disabled={copy.isPending} className="flex flex-col gap-3">
-          <Field
-            label="Trip name"
-            name="name"
-            value={name}
-            maxLength={80}
-            required
-            onChange={(event) => setName(event.target.value)}
-          />
-          {dated && (
-            <DateRangeField
-              label="New start date"
-              single
-              min={todayIso()}
-              from={startsOn}
-              to={startsOn}
-              onChange={({ from }) => setStartsOn(from)}
-              inline
-              hint={`It was ${formatDateRange(trip.starts_on, trip.ends_on)}`}
+    // Named after the trip being planned again (the modal redesign).
+    <Dialog
+      open
+      onClose={onClose}
+      placement="sheet"
+      title={trip.name}
+      meta={`Plan it again: the same ${trip.items.length === 1 ? "item" : "items"} in a new trip, nothing booked`}
+      data-testid="recreate-trip-sheet"
+    >
+      <form onSubmit={submit} className="flex flex-1 flex-col gap-4">
+        <fieldset disabled={copy.isPending} className="flex flex-col gap-4">
+          <Field label="Trip name" name="name" value={name} maxLength={80} required onChange={(event) => setName(event.target.value)} />
+          <Ticket>
+            {dated && (
+              <DateRangeField
+                row
+                label="New start date"
+                single
+                min={todayIso()}
+                from={startsOn}
+                to={startsOn}
+                onChange={({ from }) => setStartsOn(from)}
+                hint={`was ${formatDateRange(trip.starts_on, trip.ends_on)}`}
+              />
+            )}
+            <TicketRow
+              icon={<GuestsGlyph />}
+              value="Guests"
+              detail="up to 50"
+              control={<Stepper label="Guests" value={guests} onChange={setGuests} min={1} max={50} testId="recreate-guests" />}
+              data-testid="recreate-guests"
             />
-          )}
-          <StepperField label="Guests" value={guests} onChange={setGuests} min={1} max={50} data-testid="recreate-guests" />
+          </Ticket>
         </fieldset>
 
-        <ul className="flex flex-col gap-1.5 rounded-control bg-surface-2 p-4 text-sm" data-testid="recreate-preview">
+        <Ticket data-testid="recreate-preview">
           {trip.items.map((item) => (
-            <li key={item.id} className="flex flex-wrap justify-between gap-x-3">
-              <span className={item.listing_active ? "font-semibold" : "text-muted line-through"}>{item.listing.title}</span>
-              <span className={item.listing_active ? "text-muted" : "font-semibold text-warning"}>
-                {item.listing_active
-                  ? (formatDateRange(moved(item.starts_on), moved(item.ends_on)) ??
-                    (dated && item.starts_on ? "Pick a start date" : "No date"))
-                  : "Left out: no longer available"}
-              </span>
-            </li>
+            <TicketRow
+              key={item.id}
+              media={<ItemThumb item={item} size="sm" />}
+              value={<span className={item.listing_active ? undefined : "text-muted line-through"}>{item.listing.title}</span>}
+              label={
+                <span className={item.listing_active ? undefined : "text-warning"}>
+                  {item.listing_active
+                    ? (formatDateRange(moved(item.starts_on), moved(item.ends_on)) ?? (dated && item.starts_on ? "Pick a start date" : "No date"))
+                    : "Left out: no longer available"}
+                </span>
+              }
+            />
           ))}
-        </ul>
+          <TicketNote>Check each one&apos;s price and dates in your cart, then send the requests.</TicketNote>
+        </Ticket>
 
         {copy.error && (
           <p role="alert" className="text-sm text-danger">
@@ -102,14 +114,11 @@ export function RecreateTripSheet({
           </p>
         )}
 
-        <div className="flex flex-wrap justify-end gap-3">
-          <Button type="button" variant="soft" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" data-testid="recreate-trip-save" disabled={copy.isPending || !ready}>
+        <DialogFooter>
+          <Button type="submit" data-testid="recreate-trip-save" loading={copy.isPending} disabled={!ready}>
             {copy.isPending ? "Planning…" : "Add to my cart"}
           </Button>
-        </div>
+        </DialogFooter>
       </form>
     </Dialog>
   );

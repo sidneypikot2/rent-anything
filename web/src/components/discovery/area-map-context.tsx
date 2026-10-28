@@ -152,7 +152,7 @@ export function MapSwitch() {
           )}
         />
       </label>
-      <p className="text-xs text-muted">Pins follow the group and filters you pick.</p>
+      <p className="text-xs text-pretty text-muted">Pins follow the group and filters you pick.</p>
     </div>
   );
 }

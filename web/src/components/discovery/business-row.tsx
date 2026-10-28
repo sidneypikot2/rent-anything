@@ -4,7 +4,7 @@ import Image from "next/image";
 import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { isApiPhoto } from "@/components/landing/sample-photos";
-import { InTripBadge } from "@/components/trips/in-trip-badge";
+import { InTripBadge, InTripCount } from "@/components/trips/in-trip-badge";
 import type { TripDates } from "@/components/trips/trip-dates";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { Price } from "@/components/ui/typography";
 import { TO_BE_AGREED } from "@/lib/pricing";
-import { QuietAdd } from "@/components/trips/add-to-trip-button";
 import { ListingPanel, PanelActions } from "./detail-panel";
 import { InstantBookBadge } from "./instant-book-badge";
 import type { Feature } from "./listing-features";
@@ -98,7 +97,10 @@ export function BusinessRow({
       !sharedChips.includes(feature.label) &&
       offers.every((offer) => offer.features.some((each) => each.label === feature.label)),
   );
-  const summary = single ? single.summary : offers.map((offer) => offer.title).join(" · ");
+  // What is for sale leads (a guest scans for a cottage or a van, not a company they don't know);
+  // the business is its by-line. With several options the first is named and the rest counted
+  // ("DJI Osmo Action 4 + 5 more"), as their titles in a row read as clutter; the panel lists them all.
+  const title = single ? single.title : `${offers[0].title} + ${offers.length - 1} more`;
   const instant = offers.every((offer) => offer.instantBook);
 
   return (
@@ -113,23 +115,33 @@ export function BusinessRow({
         className="z-10 aspect-[2/1] @sm:aspect-square @2xl:aspect-[4/3]"
       />
       <div className="flex min-w-0 flex-col gap-2.5 px-1 @sm:px-0">
-        <h4 className="text-lg leading-snug font-semibold text-balance">
+        <h4 className="line-clamp-2 text-lg leading-snug font-semibold text-balance">
           <button
             type="button"
             aria-haspopup="dialog"
             data-testid="business-open"
             // A business can be in several groups: its name says which, for a screen reader's list.
-            aria-label={`${name}, ${groupTitle}`}
+            aria-label={`${title}, by ${name}, ${groupTitle}`}
             onClick={() => setOpen(true)}
             className="cursor-pointer text-left underline-offset-4 outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] hover:underline focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-(--focus)"
           >
-            {name}
+            {single ? (
+              title
+            ) : (
+              // The count quieter than the name, so the card still reads as one thing for sale.
+              <>
+                {offers[0].title} <span className="font-medium whitespace-nowrap text-muted">+ {offers.length - 1} more</span>
+              </>
+            )}
           </button>
         </h4>
         <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
-          {offers.map((offer) => (
-            <InTripBadge key={offer.listingId} listingId={offer.listingId} />
-          ))}
+          {/* One badge for the card: an option's own, or a count of those in the trip. */}
+          {single ? (
+            <InTripBadge listingId={single.listingId} />
+          ) : (
+            <InTripCount listingIds={offers.map((offer) => offer.listingId)} />
+          )}
           {/* One category on a phone-wide row, two from @sm. */}
           {categories.slice(0, 2).map((category, index) => (
             <Badge key={category} tone="kind" className={cn("min-h-6 px-2.5 text-xs", index > 0 && "@max-sm:hidden")}>
@@ -138,16 +150,12 @@ export function BusinessRow({
             </Badge>
           ))}
           {instant && <InstantBookBadge small />}
-          {/* What is for sale in the ink, where it is quieter. */}
           <span>
-            <span className="font-medium text-foreground">{single ? single.title : `${offers.length} options`}</span>
+            by <span className="font-medium text-foreground">{name}</span>
             {place && ` · ${place}`}
           </span>
         </p>
-        {/* A phone-wide row drops the summary (ListingRowDetails), but with several options the
-            summary is their names: what is for sale, which the business's name alone doesn't say. */}
-        {!single && <p className="hidden text-sm text-foreground @max-sm:line-clamp-2">{summary}</p>}
-        <ListingRowDetails summary={summary} features={common} />
+        <ListingRowDetails summary={single?.summary} features={common} />
       </div>
       <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 px-1 @sm:col-span-2 @2xl:col-span-1 @2xl:flex-col @2xl:items-end @2xl:justify-start @2xl:px-0 @2xl:pt-1">
         {price ? (
@@ -175,17 +183,14 @@ export function BusinessRow({
       </div>
       {open &&
         createPortal(
-          // In the panel the add is the one action, filled whatever its section's weight.
-          <QuietAdd.Provider value={false}>
-            <BusinessPanel
+          <BusinessPanel
               name={name}
               place={place}
               groupTitle={groupTitle}
               offers={offers}
               dates={dates}
               onClose={() => setOpen(false)}
-            />
-          </QuietAdd.Provider>,
+            />,
           document.body,
         )}
     </div>
@@ -274,6 +279,13 @@ function BusinessPanel({
     ...offers.flatMap((offer) => offer.photos.slice(0, 1)),
     ...offers.flatMap((offer) => offer.photos.slice(1)),
   ].slice(0, CARD_PHOTOS);
+  // What tells the options apart ("Sleeps 4 · 2 beds"): their details that not every one shares.
+  const apart = (offer: Offer) =>
+    offer.features
+      .filter((feature) => !offers.every((other) => other.features.some((each) => each.label === feature.label)))
+      .slice(0, 2)
+      .map((feature) => feature.label)
+      .join(" · ");
   return (
     <Dialog
       open
@@ -303,8 +315,6 @@ function BusinessPanel({
               key={offer.listingId}
               className="group relative grid grid-cols-[4rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2.5 rounded-control border border-line p-2.5 transition-colors duration-300 ease-calm hover:border-line-strong hover:bg-surface-2"
             >
-              {/* The action goes under the text, not beside it: beside, a phone's panel left the
-                  title and price a column too narrow for "from ₱2,500 / night". */}
               <Thumb offer={offer} />
               <div className="flex min-w-0 flex-col gap-1">
                 <button
@@ -316,12 +326,17 @@ function BusinessPanel({
                   {offer.title}
                   <ArrowGlyph className="mt-0.5 size-4 shrink-0 transition-transform duration-500 ease-calm motion-safe:group-hover:translate-x-0.5" />
                 </button>
+                {apart(offer) && <span className="text-sm text-foreground">{apart(offer)}</span>}
+              </div>
+              {/* A foot across the whole row, as a card's: the price on the left and the one
+                  action on the right (the title, the whole row, opens the details). Under the
+                  thumb too, so a phone's panel still has room for "from ₱2,500 / night". */}
+              <div className="col-span-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line pt-2.5">
                 <span className="text-sm text-pretty text-muted">
                   {offer.price ? <Price {...offer.price} prefix="from" /> : offer.unpriced && TO_BE_AGREED}
                 </span>
+                <div className="relative z-10 ml-auto flex">{offer.action}</div>
               </div>
-              {/* One action of its own; the title (the whole row) opens the details. */}
-              <div className="relative z-10 col-start-2 flex">{offer.action}</div>
             </li>
           ))}
         </ul>

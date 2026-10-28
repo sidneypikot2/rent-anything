@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AreaGlyph, ArrowGlyph } from "@/components/discovery/tag-glyphs";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { CardLink } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
+import { Ticket } from "@/components/ui/ticket";
 import { Field } from "@/components/ui/field";
 import { readTripDates, tripDatesQuery, withDates } from "./trip-dates";
 import type { Trip } from "./use-trips";
@@ -22,27 +23,26 @@ export function FindMoreSheet({ trip, onClose }: { trip: Trip; onClose: () => vo
   const areas = [...new Map(trip.items.map((item) => [item.area.slug, item.area])).values()];
 
   return (
-    <Dialog open onClose={onClose} placement="sheet" title={`Find more for ${trip.name}`} data-testid="find-more-sheet">
+    <Dialog open onClose={onClose} placement="sheet" title={trip.name} meta="Find more for this trip, on its dates" data-testid="find-more-sheet">
       {areas.length > 0 && (
         <div className="flex flex-col gap-2">
           <p className="text-sm font-semibold">Where this trip goes</p>
-          <ul className="flex flex-col gap-2">
+          <Ticket>
             {areas.map((area) => (
-              <li key={area.slug}>
-                <CardLink
-                  href={withDates(`/${area.slug}`, carry)}
-                  data-testid="find-more-area"
-                  className="flex items-center gap-3 p-3 hover:text-primary"
-                >
-                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-mist text-primary">
-                    <AreaGlyph className="size-6" />
-                  </span>
-                  <span className="min-w-0 flex-1 font-semibold">More in {area.name}</span>
-                  <ArrowGlyph className="size-5 shrink-0" />
-                </CardLink>
-              </li>
+              <Link
+                key={area.slug}
+                href={withDates(`/${area.slug}`, carry)}
+                data-testid="find-more-area"
+                className="group flex min-h-16 items-center gap-3 px-3.5 py-3 transition-colors duration-300 ease-calm hover:bg-surface-2"
+              >
+                <span className="flex size-9.5 shrink-0 items-center justify-center rounded-xl bg-action-tint text-action-ink">
+                  <AreaGlyph className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1 text-control font-bold">More in {area.name}</span>
+                <ArrowGlyph className="size-4.5 shrink-0 text-muted transition-transform duration-500 ease-calm motion-safe:group-hover:translate-x-0.5" />
+              </Link>
             ))}
-          </ul>
+          </Ticket>
         </div>
       )}
 

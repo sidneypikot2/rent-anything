@@ -70,8 +70,9 @@ export const missingAnchor = (gap: Missing) => (gap.kind === "transfer" ? "#need
 export type Sight = { slug: string; name: string; visitedBy: number[] };
 
 // The kinds of booking the plan asks for by name when the trip has none of them here. A stay is
-// asked for by its nights instead (missingStays); gear is nice to have, never asked for.
-export const PLAN_NEEDS = ["transfer", "rental", "activity"] as const;
+// asked for by its nights instead (missingStays). Gear counts too (team call pending, 2026-10-28:
+// all five kinds count, until the team says otherwise).
+export const PLAN_NEEDS = ["transfer", "rental", "activity", "gear"] as const;
 
 // Everything the trip still lacks from a place's page, for the floating "Your plan" panel (the
 // banner's "Still missing" links the stays and the transfer, and counts the rest as "N more in
@@ -93,7 +94,9 @@ export type PlanGap =
 // plan offers them but never counts them. Everything else is missing — the same things the
 // banner's "Still missing" names (stays, a transfer), plus items here that can't be booked as
 // they are. One count everywhere: the banner's phone row and the plan's button.
-export const isIdea = (gap: PlanGap) => gap.kind === "unseen" || (gap.kind === "need" && gap.group !== "transfer");
+// Every kind the trip lacks counts (2026-10-28, the checklist's "Still to add: N of 5"); only the
+// places to see stay ideas.
+export const isIdea = (gap: PlanGap) => gap.kind === "unseen";
 export const stillMissing = (gaps: PlanGap[]) => gaps.filter((gap) => !isIdea(gap));
 
 // The section of What to book (a listing's `group`) that sorts a gap, so what's missing leads it.

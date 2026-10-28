@@ -510,7 +510,8 @@ export function ListingCard({
         (price || unpriced || action) && (
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             {price ? <Price onDark {...price} /> : unpriced ? <span className="text-sm text-sky-mist">{unpriced}</span> : <span />}
-            {action}
+            {/* On its own line once the row wraps (a phone's narrow card), it keeps to the right. */}
+            {action && <div className="ml-auto">{action}</div>}
           </div>
         )
       }

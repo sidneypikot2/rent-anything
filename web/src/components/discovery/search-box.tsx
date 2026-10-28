@@ -17,6 +17,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import { useHeroTripReport, useStartTrip } from "@/components/landing/hero-trip";
 import { LAUNCH_AREA, startTripHref } from "@/components/landing/launch-area";
+import { headcount, partyFromGuests, type Party } from "@/components/trips/party";
 import { readTripDates, tripDatesQuery, tripOwnQuery, withDates, type TripDates } from "@/components/trips/trip-dates";
 import { tripPlaces } from "@/components/trips/trip-places";
 import { useTripHere } from "@/components/trips/use-trip-here";
@@ -46,14 +47,23 @@ const WIDE = "(min-width: 64rem)";
 const MIN_PANEL_PX = 160;
 // About how tall the calendar and the guests open under the hero's card, with their margin.
 const WHEN_PANEL_PX = 440;
-const GUESTS_PANEL_PX = 300;
+const GUESTS_PANEL_PX = 480;
+// A trip's party as the API takes it: up to 50 people, adults at least 1, up to 20 pets.
 const MAX_GUESTS = 50;
+const MAX_PETS = 20;
+// The guests panel's rows, with the same age bands as a stay's rooms and guests (RoomsAndGuests).
+const PARTY_ROWS = [
+  { kind: "adults", label: "Adults", hint: "Ages 13 or above" },
+  { kind: "children", label: "Children", hint: "Ages 2–12" },
+  { kind: "infants", label: "Infants", hint: "Under 2" },
+  { kind: "pets", label: "Pets", hint: "Travelling with a pet?" },
+] as const;
 // The guests panel's shortcuts. A barkada is a group of friends, which the label says for a visitor.
-const GROUP_SIZES = [
-  { label: "Just me", count: 1 },
-  { label: "Couple", count: 2 },
-  { label: "Family of 4", count: 4 },
-  { label: "Barkada (8 friends)", count: 8 },
+const GROUP_SIZES: { label: string; party: Omit<Party, "pets"> }[] = [
+  { label: "Just me", party: { adults: 1, children: 0, infants: 0 } },
+  { label: "Couple", party: { adults: 2, children: 0, infants: 0 } },
+  { label: "Family of 4", party: { adults: 2, children: 2, infants: 0 } },
+  { label: "Barkada (8 friends)", party: { adults: 8, children: 0, infants: 0 } },
 ];
 
 type Panel = "where" | "when" | "guests" | null;
@@ -122,7 +132,10 @@ export function SearchBox({
   const [query, setQuery] = useState("");
   const [panel, setPanel] = useState<Panel>(null);
   const [range, setRange] = useState({ from: initialDates.from ?? "", to: initialDates.to ?? "" });
-  const [guests, setGuests] = useState(initialDates.guests);
+  // Who is coming: adults, children and infants (`guests` is all of them, as a trip counts it),
+  // and pets beside them.
+  const [party, setParty] = useState<Party>(() => partyFromGuests(initialDates.guests, initialDates));
+  const guests = headcount(party);
   // The suggestion picked for Where; typing again drops it.
   const [picked, setPicked] = useState<Item | null>(hero ? LAUNCH_ITEM : null);
   const [twoMonths, setTwoMonths] = useState(false);
@@ -160,7 +173,8 @@ export function SearchBox({
   }, [request]);
 
   // Only a complete range travels; a half-picked one is dropped, as readTripDates would.
-  const dates: TripDates = range.from && range.to ? { ...range, guests } : { guests };
+  const who = { guests, children: party.children, infants: party.infants, pets: party.pets };
+  const dates: TripDates = range.from && range.to ? { ...range, ...who } : who;
   const carry = tripDatesQuery(dates);
 
   // A guest with a trip planning (RAA-130): the hero goes on with it, its dates and guests filled
@@ -177,9 +191,12 @@ export function SearchBox({
         from: continuing.starts_on ? latestDay(continuing.starts_on, todayIso(), localTodayIso()) : undefined,
         to: continuing.ends_on ?? undefined,
         guests: String(continuing.guests),
+        children: String(continuing.children ?? 0),
+        infants: String(continuing.infants ?? 0),
+        pets: String(continuing.pets ?? 0),
       });
       setRange({ from: own.from ?? "", to: own.to ?? "" });
-      setGuests(own.guests);
+      setParty(partyFromGuests(own.guests, own));
     }
   }
 
@@ -537,19 +554,34 @@ export function SearchBox({
         inFlow && cn(IN_SHEET, "max-search:order-6"),
       )}
     >
-      <StepperField
-        label="Guests"
-        hint={guests >= MAX_GUESTS ? `${MAX_GUESTS} is the most one search takes` : "Everyone on the trip, kids too"}
-        value={guests}
-        onChange={setGuests}
-        min={1}
-        max={MAX_GUESTS}
-        data-testid="search-guests-count"
-      />
-      {/* Common group sizes, one tap each; the stepper shows and fine-tunes the count. */}
+      {/* One row per kind of guest, as Airbnb and Booking.com ask; adults keep at least one,
+          and the people stop at the most one trip takes. */}
+      <div className="flex flex-col divide-y divide-line">
+        {PARTY_ROWS.map((row) => {
+          const people = row.kind !== "pets";
+          const full = people && guests >= MAX_GUESTS;
+          return (
+            <StepperField
+              key={row.kind}
+              label={row.label}
+              hint={full && party[row.kind] > 0 ? `${MAX_GUESTS} people is the most one trip takes` : row.hint}
+              value={party[row.kind]}
+              onChange={(value) => setParty((was) => ({ ...was, [row.kind]: value }))}
+              min={row.kind === "adults" ? 1 : 0}
+              max={people ? party[row.kind] + MAX_GUESTS - guests : MAX_PETS}
+              data-testid={`search-${row.kind}`}
+            />
+          );
+        })}
+      </div>
+      {/* Common groups, one tap each; the rows show and fine-tune them. Pets stay as set. */}
       <div role="group" aria-label="Group size" className="flex flex-wrap gap-2">
         {GROUP_SIZES.map((size) => (
-          <Pill key={size.count} on={guests === size.count} onClick={() => setGuests(size.count)}>
+          <Pill
+            key={size.label}
+            on={(["adults", "children", "infants"] as const).every((kind) => party[kind] === size.party[kind])}
+            onClick={() => setParty((was) => ({ ...size.party, pets: was.pets }))}
+          >
             {size.label}
           </Pill>
         ))}
@@ -617,6 +649,9 @@ export function SearchBox({
       {dates.from && <input type="hidden" name="from" value={dates.from} />}
       {dates.to && <input type="hidden" name="to" value={dates.to} />}
       {guests > 1 && <input type="hidden" name="guests" value={guests} />}
+      {party.children > 0 && <input type="hidden" name="children" value={party.children} />}
+      {party.infants > 0 && <input type="hidden" name="infants" value={party.infants} />}
+      {party.pets > 0 && <input type="hidden" name="pets" value={party.pets} />}
 
       {hero || bar ? (
         // The route (Search Bar Directions, A2): Where, When and Guests are stops on a dashed
@@ -676,7 +711,7 @@ export function SearchBox({
             <RouteMark set open={panel === "guests"} traced={whereSet && dateSet} last />
             <span className={STOP_LABEL}>Guests</span>
             <span className="flex min-w-0 items-center gap-1">
-              <span className={STOP_VALUE}>{guestsLabel(guests)}</span>
+              <span className={STOP_VALUE}>{guestsLabel(guests, party.pets)}</span>
               <ChevronGlyph direction={panel === "guests" ? "up" : "down"} className={STOP_CHEVRON} />
             </span>
           </button>

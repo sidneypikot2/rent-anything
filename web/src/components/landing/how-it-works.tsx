@@ -138,6 +138,7 @@ export function TripCard({
   title,
   details,
   items,
+  needs,
   caption,
 }: {
   compact?: boolean;
@@ -145,6 +146,8 @@ export function TripCard({
   title: string;
   details: string;
   items: TripCardItem[];
+  // What the trip has and lacks of the kinds a trip needs (the hero's own trip), under its items.
+  needs?: ReactNode;
   caption: ReactNode;
 }) {
   return (
@@ -190,9 +193,10 @@ export function TripCard({
             </li>
           ))}
         </ul>
+        {needs}
         {/* At the card's foot, not as a label over its title (the example reads as one) nor on a
             chip of its own under it, which looked like a button. */}
-        <figcaption className={cn("border-t border-glass-edge text-sm text-sky-mist", compact ? "pt-2.5" : "pt-3")}>
+        <figcaption className={cn("border-t border-glass-edge text-sm text-pretty text-sky-mist", compact ? "pt-2.5" : "pt-3")}>
           {caption}
         </figcaption>
       </GlassPanel>
