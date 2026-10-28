@@ -48,6 +48,7 @@ module Listings
       @units_count = units_count
       @stay_rate = stay_rate_for(category)
       @vehicle_rate = vehicle_rate_for(category)
+      @flat_rate = flat_rate_for(category)
       @tour = tour_for(category)
       @fees = fees
       @photo_ids = photo_ids
@@ -80,6 +81,7 @@ module Listings
         save_units!(listing)
         save_stay_rate!(listing)
         save_vehicle_rate!(listing)
+        save_flat_rate!(listing)
         save_tour!(listing)
         save_fees!(listing)
         save_photos!(listing)
@@ -101,6 +103,15 @@ module Listings
 
       rate = listing.vehicle_rate || listing.build_vehicle_rate
       rate.assign_attributes(@vehicle_rate) if @vehicle_rate
+      rate.save!
+    end
+
+    # Gear's and a transfer's price (RAA-191): kept when not sent, 0 ("no price yet") at first.
+    def save_flat_rate!(listing)
+      return listing.flat_rate&.destroy! unless listing.category.flat_priced?
+
+      rate = listing.flat_rate || listing.build_flat_rate
+      rate.assign_attributes(@flat_rate) if @flat_rate
       rate.save!
     end
 
@@ -323,6 +334,19 @@ module Listings
 
         error("#{VehicleRate.human_attribute_name(key)} must be a whole number")
       end.merge(daily_price_cents: price, driving: driving_for(value[:driving]))
+    end
+
+    # nil keeps the listing's price as it is. Only gear and transfers have one (Category#flat_priced?).
+    def flat_rate_for(category)
+      value = @params[:flat_rate]
+      return nil if value.nil?
+      return error("Only gear or a transfer has a flat price") if category && !category.flat_priced?
+      return error("Flat rate must be an object") unless value.respond_to?(:key?)
+
+      price = value[:price_cents]
+      return error("Price must be a whole number of centavos above 0") unless price.is_a?(Integer) && price.positive?
+
+      { price_cents: price }
     end
 
     def driving_for(value)

@@ -81,7 +81,7 @@ module Bookings
       return error("#{listing.title} isn't available to book any more") unless listing.active?
 
       guests, room_guests, pets = party.values_at(:guests, :room_guests, :pets)
-      units = Booking.units_for(listing, guests, room_guests:)
+      units = Booking.units_for(listing, guests, room_guests:, chosen: @booking.trip_item&.units)
       line = Bookings::Price.call(listing, starts_on:, ends_on:, quantity: units, guests:, room_guests:, pets:,
         except_booking: @booking)
       ledger = Availability::Ledger.new([ listing ], starts_on, ends_on, except: @booking)

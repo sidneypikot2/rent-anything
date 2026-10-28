@@ -1182,6 +1182,66 @@ paths:
           application/json:
             schema:
               "$ref": "#/components/schemas/booking_cancel_body"
+  "/api/v1/businesses/{business_id}/listings":
+    get:
+      summary: A business's listings, with what is free on some dates
+      tags:
+      - Discovery
+      description: 'Public. A business''s active listings (RAA-191), by title, for
+        the shop pop-up: a group picks how many of each of a motorbike shop''s models.
+        `category` (a slug) narrows them. With both dates, `units_free` is how many
+        of each one''s units are free on all of them, as the partner''s calendar has
+        it; a model with none free is sold out. Money is in centavos.'
+      parameters:
+      - name: business_id
+        in: path
+        schema:
+          type: integer
+        required: true
+      - name: category
+        in: query
+        required: false
+        description: A category slug, e.g. motorcycle
+        schema:
+          type: string
+      - name: starts_on
+        in: query
+        format: date
+        required: false
+        schema:
+          type: string
+      - name: ends_on
+        in: query
+        format: date
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: every active listing without a category; no dates, nothing
+            free counted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  business:
+                    "$ref": "#/components/schemas/business_ref"
+                  listings:
+                    type: array
+                    items:
+                      "$ref": "#/components/schemas/business_listing"
+                required:
+                - business
+                - listings
+        '422':
+          description: bad dates
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: an unknown business
   "/api/v1/checkouts":
     post:
       summary: Book a trip's items
@@ -1210,6 +1270,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/checkout"
+        '422':
+          description: items and key of the wrong shape
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
         '409':
           description: 'the email belongs to another guest: a code is emailed to it,
             and nothing is booked'
@@ -1217,12 +1283,6 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
-        '422':
-          description: items and key of the wrong shape
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/validation_errors"
         '404':
           description: another guest's trip
           content:
@@ -1369,6 +1429,73 @@ paths:
                 type: array
                 items:
                   "$ref": "#/components/schemas/landmark_pin"
+  "/api/v1/listings/{listing_id}/price":
+    get:
+      summary: What adding a listing to a trip would cost
+      tags:
+      - Discovery
+      description: 'Public. What checkout would charge for a listing on these dates
+        (RAA-191), for any kind: a stay''s nights, extra guests, discount and fees;
+        a tour''s people or groups; a rental vehicle''s vehicles and days (its refundable
+        deposit apart, never in the total); gear''s items and days; a transfer''s
+        vehicles. `lines` say what the total is made of. Dates or a party that can''t
+        be had come back as `unavailable`. Money is in centavos.'
+      parameters:
+      - name: listing_id
+        in: path
+        schema:
+          type: integer
+        required: true
+      - name: starts_on
+        in: query
+        format: date
+        required: true
+        schema:
+          type: string
+      - name: ends_on
+        in: query
+        format: date
+        required: true
+        schema:
+          type: string
+      - name: quantity
+        in: query
+        required: false
+        description: The people, or gear's count; default 1
+        schema:
+          type: integer
+      - name: units
+        in: query
+        required: false
+        description: A rental vehicle's chosen vehicles
+        schema:
+          type: integer
+      - name: room_guests
+        in: query
+        required: false
+        description: A stay's split into rooms, as JSON
+        schema:
+          type: string
+      - name: pets
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: 'every other kind: gear, a transfer, a tour and a stay'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/listing_price"
+        '422':
+          description: missing or bad dates
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: a listing that isn't live
   "/api/v1/listings":
     get:
       summary: Active listings with their approximate location
@@ -4004,9 +4131,12 @@ paths:
         quantity instead of adding a second. The trip''s dates grow to cover the item''s.
         Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an
         undated item can''t be checked out until it has one. `quantity` is 1 to 99,
-        default 1. Answers with the trip. Several items at once (RAA-187, a mix of
-        room types from `GET /stay_mixes`): `items` instead of one item''s fields,
-        all added or none; a new trip is named and dated after the first.'
+        default 1. Answers with the trip. A rental vehicle with seats (RAA-191) takes
+        enough of its units for `quantity` people, rounded up, or `units` when the
+        guest chose more (up to one each), and never more people than its whole fleet
+        seats. Several items at once (RAA-187, a mix of room types from `GET /stay_mixes`):
+        `items` instead of one item''s fields, all added or none; a new trip is named
+        and dated after the first.'
       security:
       - bearer: []
       parameters:
@@ -4095,6 +4225,13 @@ paths:
                   minimum: 0
                   maximum: 20
                   description: A stay only, where its listing allows pets (RAA-182)
+                units:
+                  type: integer
+                  nullable: true
+                  minimum: 1
+                  maximum: 99
+                  description: 'A rental vehicle only: at least quantity ÷ seats rounded
+                    up, at most one each; null or omitted derives it'
                 items:
                   type: array
                   minItems: 1
@@ -4143,6 +4280,13 @@ paths:
                         minimum: 0
                         maximum: 20
                         description: A stay only, where its listing allows pets (RAA-182)
+                      units:
+                        type: integer
+                        nullable: true
+                        minimum: 1
+                        maximum: 99
+                        description: 'A rental vehicle only: at least quantity ÷ seats
+                          rounded up, at most one each; null or omitted derives it'
                     required:
                     - listing_id
                 trip_id:
@@ -4241,6 +4385,13 @@ paths:
                   minimum: 0
                   maximum: 20
                   description: A stay only, where its listing allows pets (RAA-182)
+                units:
+                  type: integer
+                  nullable: true
+                  minimum: 1
+                  maximum: 99
+                  description: 'A rental vehicle only: at least quantity ÷ seats rounded
+                    up, at most one each; null or omitted derives it'
                 move_to_trip_id:
                   type: integer
     delete:
@@ -5297,6 +5448,29 @@ components:
           nullable: true
           description: 'The most its quantity can be: for gear (booked by the count)
             the units the listing has, otherwise max_guests'
+        seats:
+          type: integer
+          nullable: true
+          description: A rental vehicle's seats, rider or driver included (RAA-191);
+            null for anything else
+        units:
+          type: integer
+          nullable: true
+          description: 'How many vehicles it takes (RAA-191): the guests'' share of
+            seats rounded up, or the more the guest chose; null for anything but a
+            rental vehicle'
+        units_chosen:
+          type: integer
+          nullable: true
+          description: The vehicles the guest chose (RAA-191); null when derived from
+            the guests
+        units_free:
+          type: integer
+          nullable: true
+          description: A rental vehicle's units free on all of its days still to come
+            (RAA-191); null when undated, booked, past or not a vehicle
+        business:
+          "$ref": "#/components/schemas/business_ref"
         booking_type:
           type: string
           enum:
@@ -5353,6 +5527,11 @@ components:
       - sleeps
       - max_guests
       - max_quantity
+      - seats
+      - units
+      - units_chosen
+      - units_free
+      - business
       - booking_type
       - area
       - destination
@@ -5664,9 +5843,15 @@ components:
           allOf:
           - "$ref": "#/components/schemas/vehicle_rate"
           nullable: true
-          description: 'A vehicle rental''s pricing once it has a price (RAA-149);
-            null otherwise. Not quoted at checkout yet: the price is confirmed with
-            the partner'
+          description: A vehicle rental's pricing once it has a price (RAA-149); null
+            otherwise. Priced at checkout for each vehicle and day (RAA-191); the
+            deposit is never part of the price
+        flat_rate:
+          allOf:
+          - "$ref": "#/components/schemas/flat_rate"
+          nullable: true
+          description: Gear's price per item and day, or a transfer's per vehicle
+            and trip, once it has one (RAA-191); null otherwise
         fees:
           type: array
           items:
@@ -5697,6 +5882,7 @@ components:
       - business
       - units_count
       - units_label
+      - flat_rate
       - partner_name
       - price_from_cents
       - price_unit
@@ -5869,6 +6055,12 @@ components:
           - "$ref": "#/components/schemas/vehicle_rate"
           nullable: true
           description: A vehicle rental's pricing (RAA-149); null for any other category
+        flat_rate:
+          allOf:
+          - "$ref": "#/components/schemas/flat_rate"
+          nullable: true
+          description: Gear's or a transfer's price (RAA-191), 0 until set; null for
+            any other category
         fees:
           type: array
           items:
@@ -5930,6 +6122,7 @@ components:
       - units_count
       - stay_rate
       - vehicle_rate
+      - flat_rate
       - fees
       - tour
       - business
@@ -6348,6 +6541,12 @@ components:
             for make, model and engine_cc), and required on a new one or one moved
             into it: replaces the rate when sent; left out on a change, it stays.
             Refused for any other category.'
+        flat_rate:
+          allOf:
+          - "$ref": "#/components/schemas/flat_rate"
+          description: 'Gear (per item and day) or a transfer (per vehicle and trip)
+            only (RAA-191): replaces its price when sent, above 0; left out, it stays.
+            Refused for any other category.'
         fees:
           type: array
           items:
@@ -6388,10 +6587,11 @@ components:
       - group
       - person
       - day
+      - trip
       nullable: true
       description: 'What price_from_cents is for: a night of a stay, a private tour''s
-        whole group or one joiner, a day of a vehicle rental (RAA-149); null when
-        there is no price'
+        whole group or one joiner, a day of a vehicle rental (RAA-149) or of gear,
+        a transfer''s trip (RAA-191); null when there is no price'
     tour_inclusion:
       type: object
       properties:
@@ -6678,6 +6878,54 @@ components:
           description: Default null
       required:
       - nightly_price_cents
+    flat_rate:
+      type: object
+      properties:
+        price_cents:
+          type: integer
+          minimum: 0
+      required:
+      - price_cents
+    listing_price:
+      type: object
+      properties:
+        total_cents:
+          type: integer
+          nullable: true
+          description: What checkout would charge; null when the party can't be had
+            (see unavailable)
+        deposit_cents:
+          type: integer
+          nullable: true
+          description: A rental vehicle's refundable deposit, held at pick-up and
+            never part of the total
+        lines:
+          type: array
+          description: What the total is made of, worded for the guest
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              amount_cents:
+                type: integer
+            required:
+            - label
+            - amount_cents
+        to_be_agreed:
+          type: boolean
+          description: 'The listing has no price yet: the total is 0'
+        unavailable:
+          type: string
+          nullable: true
+          description: Why the dates or the party can't be had ("Only 4 left on Nov
+            20"); null when they can
+      required:
+      - total_cents
+      - deposit_cents
+      - lines
+      - to_be_agreed
+      - unavailable
     vehicle_rate:
       type: object
       properties:
@@ -7047,6 +7295,64 @@ components:
       - discount
       - fees
       - total_cents
+    business_listing:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: object
+          properties:
+            slug:
+              type: string
+            name:
+              type: string
+          required:
+          - slug
+          - name
+        area:
+          "$ref": "#/components/schemas/area_ref"
+        cover_photo_url:
+          type: string
+          nullable: true
+          description: The cover photo, sized for a card (about 800 by 600); null
+            when the listing has no photos
+        price_from_cents:
+          type: integer
+          nullable: true
+          description: A stay's nightly price, a tour's base price or a vehicle's
+            daily price; null with none yet
+        price_unit:
+          "$ref": "#/components/schemas/price_unit"
+        vehicle_rate:
+          allOf:
+          - "$ref": "#/components/schemas/vehicle_rate"
+          nullable: true
+          description: A vehicle rental's pricing once it has a price; null otherwise
+        details:
+          "$ref": "#/components/schemas/listing_details"
+        units_count:
+          type: integer
+          minimum: 1
+        units_free:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: Its units free on every one of the dates; null without dates
+      required:
+      - id
+      - title
+      - category
+      - area
+      - cover_photo_url
+      - price_from_cents
+      - price_unit
+      - vehicle_rate
+      - details
+      - units_count
+      - units_free
     stay_mix:
       type: object
       properties:

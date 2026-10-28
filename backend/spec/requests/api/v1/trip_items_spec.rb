@@ -20,7 +20,9 @@ RSpec.describe "Trip items", type: :request do
         "adding a second. The trip's dates grow " \
         "to cover the item's. Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an " \
         "undated item can't be checked out until it has one. `quantity` is 1 to 99, default 1. Answers with " \
-        "the trip. Several items at once (RAA-187, a mix of room types from `GET /stay_mixes`): `items` instead " \
+        "the trip. A rental vehicle with seats (RAA-191) takes enough of its units for `quantity` people, rounded " \
+        "up, or `units` when the guest chose more (up to one each), and never more people than its whole fleet " \
+        "seats. Several items at once (RAA-187, a mix of room types from `GET /stay_mixes`): `items` instead " \
         "of one item's fields, all added or none; a new trip is named and dated after the first."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
@@ -34,6 +36,7 @@ RSpec.describe "Trip items", type: :request do
           guests: { type: :integer, description: "A new trip's guests, 1 to 50; defaults to quantity" },
           room_guests: ROOM_GUESTS_BODY,
           pets: PETS_BODY,
+          units: UNITS_BODY,
           items: {
             type: :array, minItems: 1, maxItems: 10, description: "Instead of listing_id and the fields above",
             items: {
@@ -44,7 +47,8 @@ RSpec.describe "Trip items", type: :request do
                 ends_on: { type: :string, format: :date, nullable: true },
                 quantity: { type: :integer },
                 room_guests: ROOM_GUESTS_BODY,
-                pets: PETS_BODY
+                pets: PETS_BODY,
+                units: UNITS_BODY
               },
               required: %w[listing_id]
             }
@@ -161,6 +165,77 @@ RSpec.describe "Trip items", type: :request do
           run_test! do |response|
             expect(response.parsed_body).to include("guests" => 4)
             expect(response.parsed_body["items"].sole["quantity"]).to eq(2)
+          end
+        end
+      end
+
+      context "with a rental vehicle, booked by the seat (RAA-191)" do
+        # 8 Honda Clicks of 2 seats each.
+        let(:click) { create(:listing, :vehicle, area: santa_fe) }
+
+        before { click.units.create!((2..8).map { |position| { position: } }) }
+
+        response "201", "10 people take 5 motorbikes" do
+          schema "$ref" => "#/components/schemas/trip"
+          let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, quantity: 10 } }
+
+          run_test! do |response|
+            expect(response.parsed_body["items"].sole.slice("quantity", "seats", "units", "units_chosen", "units_free", "max_guests"))
+              .to eq("quantity" => 10, "seats" => 2, "units" => 5, "units_chosen" => nil, "units_free" => 8, "max_guests" => 16)
+          end
+        end
+
+        response "201", "one more than needed, for someone to ride alone" do
+          schema "$ref" => "#/components/schemas/trip"
+          let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, quantity: 10, units: 6 } }
+
+          run_test! { |response| expect(response.parsed_body["items"].sole.slice("units", "units_chosen")).to eq("units" => 6, "units_chosen" => 6) }
+        end
+
+        response "422", "too few motorbikes, more than the people, units on a tour, or more people than the fleet seats" do
+          let(:body) { { listing_id: click.id, quantity: 10, units: 4 } }
+
+          context "with too few" do
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "10 people need at least 5 motorbikes" ]) }
+          end
+
+          context "with more than one each" do
+            let(:body) { { listing_id: click.id, quantity: 3, units: 4 } }
+
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "4 motorbikes is more than one each for 3" ]) }
+          end
+
+          context "with units on a tour" do
+            let(:body) { { listing_id: tour.id, quantity: 3, units: 1 } }
+
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Only a vehicle can be booked by how many" ]) }
+          end
+
+          context "with more people than 8 motorbikes seat" do
+            let(:body) { { listing_id: click.id, quantity: 17 } }
+
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "This motorbike seats 2. 8 of them seat 16 at most." ]) }
+          end
+
+          context "with units that aren't 1 to 99" do
+            let(:body) { { listing_id: click.id, quantity: 3, units: 0 } }
+
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Units must be from 1 to 99" ]) }
+          end
+        end
+
+        response "201", "units for each model in one go" do
+          schema "$ref" => "#/components/schemas/trip"
+          let(:nmax) { create(:listing, :vehicle, area: santa_fe, partner: click.partner, title: "Yamaha NMAX 155") }
+          let(:body) do
+            { items: [ { listing_id: click.id, starts_on: day.iso8601, ends_on: day.iso8601, quantity: 6, units: 3 },
+              { listing_id: nmax.id, starts_on: day.iso8601, ends_on: day.iso8601, quantity: 2, units: 1 } ] }
+          end
+
+          run_test! do |response|
+            expect(response.parsed_body["items"].map { _1.slice("units", "business") })
+              .to eq([ { "units" => 3, "business" => { "id" => click.business_id, "name" => click.business.name } },
+                { "units" => 1, "business" => { "id" => click.business_id, "name" => click.business.name } } ])
           end
         end
       end
@@ -326,9 +401,31 @@ RSpec.describe "Trip items", type: :request do
           quantity: { type: :integer, description: "Without room_guests, drops a stay's split back to an even one" },
           room_guests: ROOM_GUESTS_BODY,
           pets: PETS_BODY,
+          units: UNITS_BODY,
           move_to_trip_id: { type: :integer }
         }
       }
+
+      context "with a rental vehicle (RAA-191)" do
+        let(:click) { create(:listing, :vehicle, area: santa_fe) }
+        let(:item) { create(:trip_item, trip:, listing: click, starts_on: day, ends_on: day, quantity: 4, units: 4) }
+
+        before { click.units.create!((2..8).map { |position| { position: } }) }
+
+        response "200", "fewer people drop chosen units that no longer fit, back to derived" do
+          schema "$ref" => "#/components/schemas/trip"
+          let(:body) { { quantity: 3 } }
+
+          run_test! { |response| expect(response.parsed_body["items"].sole.slice("units", "units_chosen")).to eq("units" => 2, "units_chosen" => nil) }
+        end
+
+        response "200", "new units for the same people" do
+          schema "$ref" => "#/components/schemas/trip"
+          let(:body) { { units: 3 } }
+
+          run_test! { |response| expect(response.parsed_body["items"].sole.slice("units", "units_chosen")).to eq("units" => 3, "units_chosen" => 3) }
+        end
+      end
 
       response "200", "re-dated past the trip's end: the trip grows" do
         schema "$ref" => "#/components/schemas/trip"

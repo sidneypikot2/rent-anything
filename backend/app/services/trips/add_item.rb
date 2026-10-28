@@ -76,9 +76,11 @@ module Trips
       quantity = @params.key?(:quantity) ? integer_value(:quantity, "Quantity", required: true) : 1
       room_guests = room_guests_value
       pets = count_value(:pets, "Pets", max: 20) || 0
+      units = units_value
       quantity = guests_for(room_guests, quantity, sent: @params.key?(:quantity))
       check_stay_party(listing, quantity, room_guests, pets) if listing && @errors.empty?
-      { listing:, starts_on:, ends_on:, quantity:, room_guests:, pets: }
+      check_vehicle_units(listing, quantity, units) if listing && @errors.empty?
+      { listing:, starts_on:, ends_on:, quantity:, room_guests:, pets:, units: }
     end
   end
 end

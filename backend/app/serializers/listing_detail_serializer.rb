@@ -5,7 +5,7 @@
 # offered_by. Its pricing (RAA-104): a stay's nightly rate once it has a price, the guests it
 # sleeps, and its fees; a vehicle's rate once it has a price (RAA-149). Its ready photos in the
 # partner's order (RAA-106). A tour's details (RAA-110). Its guest-safe attrs (GUEST_DETAILS), as
-# an area page's rows have them. Preload business, category, units, stay_rate, vehicle_rate, fees,
+# an area page's rows have them. Preload business, category, units, stay_rate, vehicle_rate, flat_rate, fees,
 # ready_photos, tour_detail and tour_inclusions.
 module ListingDetailSerializer
   SUMMARY_LENGTH = 160
@@ -32,6 +32,7 @@ module ListingDetailSerializer
       guests: listing.stay_rate && listing.attrs["guests"],
       stay_rate: listing.stay_rate&.priced? ? PricingSerializer.stay_rate(listing.stay_rate) : nil,
       vehicle_rate: listing.vehicle_rate&.priced? ? PricingSerializer.vehicle_rate(listing.vehicle_rate) : nil,
+      flat_rate: listing.flat_rate&.priced? ? PricingSerializer.flat_rate(listing.flat_rate) : nil,
       fees: PricingSerializer.fees(listing),
       tour: TourSerializer.guest(listing),
       details: details(listing),

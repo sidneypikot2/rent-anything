@@ -60,6 +60,8 @@ class Listing < ApplicationRecord
   has_one :stay_rate, dependent: :delete, inverse_of: :listing
   # A vehicle rental's pricing (RAA-149); every vehicle listing has one.
   has_one :vehicle_rate, dependent: :delete, inverse_of: :listing
+  # Gear's and a transfer's price (RAA-191).
+  has_one :flat_rate, dependent: :delete, inverse_of: :listing
   # Extra charges, for any category (RAA-104); the foreign keys cascade too.
   has_many :fees, -> { order(:position) }, class_name: "ListingFee", dependent: :delete_all, inverse_of: :listing
   # A tour's type, group size and price (RAA-110); every tour has one. What it includes comes
@@ -121,14 +123,23 @@ class Listing < ApplicationRecord
   end
 
   # The most guests one trip item (one booking) can be for: a tour's group, the guests a stay
-  # sleeps, or the seats of the one vehicle a transfer or a trike books (Booking.units_for).
-  # Nil when the listing doesn't say. Reads tour_detail, category and units.
+  # sleeps, every vehicle of a rental's fleet together (RAA-191), or the seats of the one
+  # vehicle a transfer books (Booking.units_for). Nil when the listing doesn't say. Reads
+  # tour_detail, category and units.
   def max_guests
     return tour_detail.max_guests if tour_detail
     return sleeps if category.accommodation?
+    return vehicle_seats * units.size if vehicle_seats
 
     seats = attrs["seats"]
     seats if seats.is_a?(Integer) && seats.positive?
+  end
+
+  # A rental vehicle's seats, rider or driver included (RAA-191): how many one of its units
+  # carries. Nil for anything else, or one that doesn't say. Reads category.
+  def vehicle_seats
+    seats = attrs["seats"]
+    seats if category.vehicle? && seats.is_a?(Integer) && seats.positive?
   end
 
   # The most one trip item's quantity can be: for gear, booked by the count, the units it has;
@@ -143,9 +154,9 @@ class Listing < ApplicationRecord
   end
 
   # What it still lacks to go live (LIVE_BLOCKERS' keys): a ready photo, a description of
-  # LIVE_DESCRIPTION_MIN characters, a price for a stay, a tour or a vehicle (the others
-  # aren't priced yet), and a landmark on an activity's route. Reads photos, stay_rate,
-  # tour_detail, vehicle_rate and visited_landmarks.
+  # LIVE_DESCRIPTION_MIN characters, a price (a stay's, a tour's, a vehicle's, or gear's and a
+  # transfer's flat one, RAA-191), and a landmark on an activity's route. Reads photos, stay_rate,
+  # tour_detail, vehicle_rate, flat_rate and visited_landmarks.
   def live_blockers
     [
       ("photo" unless photos.any?(&:ready?)),
@@ -177,7 +188,8 @@ class Listing < ApplicationRecord
   def needs_price?
     (category.accommodation? && !stay_rate&.nightly_price_cents&.positive?) ||
       (category.tour? && !tour_detail&.base_price_cents&.positive?) ||
-      (category.vehicle? && !vehicle_rate&.priced?)
+      (category.vehicle? && !vehicle_rate&.priced?) ||
+      (category.flat_priced? && !flat_rate&.priced?)
   end
 
   def partner_is_a_partner

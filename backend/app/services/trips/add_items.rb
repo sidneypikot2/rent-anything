@@ -8,7 +8,7 @@ module Trips
     include Values
 
     MAX_ITEMS = 10
-    ITEM_KEYS = %i[listing_id starts_on ends_on quantity room_guests pets].freeze
+    ITEM_KEYS = %i[listing_id starts_on ends_on quantity room_guests pets units].freeze
 
     def initialize(user, params)
       @user = user

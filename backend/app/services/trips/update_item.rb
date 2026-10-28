@@ -43,7 +43,22 @@ module Trips
       attributes[:starts_on], attributes[:ends_on] = read_dates("An item", [ @item.starts_on, @item.ends_on ]) if dates_sent?
       attributes[:quantity] = integer_value(:quantity, "Quantity", required: true) if @params.key?(:quantity)
       read_party(attributes) if @errors.empty?
+      read_units(attributes) if @errors.empty?
       attributes
+    end
+
+    # A vehicle's units (RAA-191): sent ones are checked against the guests; a new guest count
+    # without them keeps the chosen units only while they still fit, otherwise derives them again.
+    def read_units(attributes)
+      guests = attributes.fetch(:quantity, @item.quantity)
+      if @params.key?(:units)
+        attributes[:units] = units_value
+        check_vehicle_units(@item.listing, guests, attributes[:units]) if @errors.empty?
+      elsif attributes.key?(:quantity)
+        check_vehicle_units(@item.listing, guests, nil)
+        seats = @item.listing.vehicle_seats
+        attributes[:units] = nil if @item.units && seats && !@item.units.between?(guests.fdiv(seats).ceil, guests)
+      end
     end
 
     # A new split into rooms sets the quantity; a new quantity without one drops the old
