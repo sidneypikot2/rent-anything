@@ -174,4 +174,30 @@ RSpec.describe Listing do
       expect(stay(entire_place.except("rooms").merge("beds" => room["beds"]))).not_to be_valid
     end
   end
+
+  describe "a vehicle's seats (RAA-191)" do
+    let(:click) { create(:listing, :vehicle) }
+
+    it "requires them, from 1 to 60" do
+      expect(build(:listing, :vehicle, attrs: click.attrs.except("seats"))).not_to be_valid
+      expect(build(:listing, :vehicle, attrs: click.attrs.merge("seats" => 61))).not_to be_valid
+      expect(build(:listing, :vehicle, attrs: click.attrs.merge("seats" => 5))).to be_valid
+    end
+
+    it "seats its whole fleet together" do
+      click.units.create!((2..8).map { |position| { position: } })
+      expect(click.reload).to have_attributes(vehicle_seats: 2, max_guests: 16, max_quantity: 16)
+    end
+
+    it "gives the vehicles already listed their category's seats once, and keeps a partner's own" do
+      require Rails.root.join("db/migrate/20261028140000_add_seats_to_vehicles_and_units_to_trip_items").to_s
+      car = create(:listing, :vehicle, category: create(:category, :car))
+      own = create(:listing, :vehicle, attrs: click.attrs.merge("seats" => 1))
+      [ click, car ].each { _1.update_column(:attrs, _1.attrs.except("seats")) }
+
+      2.times { AddSeatsToVehiclesAndUnitsToTripItems.seat(ActiveRecord::Base.connection) }
+      expect([ click, car, own ].map { _1.reload.attrs["seats"] }).to eq([ 2, 5, 1 ])
+      expect(Category.find_by(slug: "motorcycle").attribute_schema["required"].count("seats")).to eq(1)
+    end
+  end
 end

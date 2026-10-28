@@ -535,7 +535,7 @@ RSpec.describe "Partner listings", type: :request do
             excess_km_fee_cents: 500 }
         end
         let(:attrs) do
-          { make: "Honda", model: "Click 125", engine_cc: 125, transmission: "automatic",
+          { make: "Honda", model: "Click 125", engine_cc: 125, transmission: "automatic", seats: 2,
             amenities: %w[rider_helmet raincoat phone_holder] }
         end
 
@@ -1321,7 +1321,7 @@ RSpec.describe "Partner listings", type: :request do
         let(:listing) { create(:listing, :vehicle, partner: user, area: moalboal, status: "draft") }
 
         before do
-          body.merge!(attrs: { make: "Honda", model: "Click 125", engine_cc: 125, transmission: "automatic",
+          body.merge!(attrs: { make: "Honda", model: "Click 125", engine_cc: 125, transmission: "automatic", seats: 2,
             amenities: %w[rider_helmet] })
         end
 

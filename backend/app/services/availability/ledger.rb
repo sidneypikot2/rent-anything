@@ -81,6 +81,11 @@ module Availability
       nil
     end
 
+    # The units free on every one of the dates (RAA-191): the fewest left on any of them.
+    def units_free(listing, dates)
+      dates.map { day(listing, _1)[:units_left] }.min
+    end
+
     def default_min_nights(listing)
       listing.category.accommodation? ? listing.stay_rate&.min_nights : nil
     end

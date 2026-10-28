@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_27_100100) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_28_140000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -615,6 +615,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_100100) do
     t.datetime "updated_at", null: false
     t.jsonb "room_guests"
     t.integer "pets", default: 0, null: false
+    t.integer "units"
     t.index ["listing_id"], name: "index_trip_items_on_listing_id"
     t.index ["trip_id"], name: "index_trip_items_on_trip_id"
     t.check_constraint "(starts_on IS NULL) = (ends_on IS NULL)", name: "trip_items_dates_both_or_neither_check"
@@ -622,6 +623,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_100100) do
     t.check_constraint "pets >= 0 AND pets <= 20", name: "trip_items_pets_check"
     t.check_constraint "quantity >= 1 AND quantity <= 99", name: "trip_items_quantity_check"
     t.check_constraint "room_guests IS NULL OR jsonb_typeof(room_guests) = 'array'::text AND jsonb_array_length(room_guests) >= 1 AND jsonb_array_length(room_guests) <= 99", name: "trip_items_room_guests_check"
+    t.check_constraint "units IS NULL OR units >= 1 AND units <= 99", name: "trip_items_units_range"
   end
 
   create_table "trips", force: :cascade do |t|

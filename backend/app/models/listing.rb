@@ -121,14 +121,23 @@ class Listing < ApplicationRecord
   end
 
   # The most guests one trip item (one booking) can be for: a tour's group, the guests a stay
-  # sleeps, or the seats of the one vehicle a transfer or a trike books (Booking.units_for).
-  # Nil when the listing doesn't say. Reads tour_detail, category and units.
+  # sleeps, every vehicle of a rental's fleet together (RAA-191), or the seats of the one
+  # vehicle a transfer books (Booking.units_for). Nil when the listing doesn't say. Reads
+  # tour_detail, category and units.
   def max_guests
     return tour_detail.max_guests if tour_detail
     return sleeps if category.accommodation?
+    return vehicle_seats * units.size if vehicle_seats
 
     seats = attrs["seats"]
     seats if seats.is_a?(Integer) && seats.positive?
+  end
+
+  # A rental vehicle's seats, rider or driver included (RAA-191): how many one of its units
+  # carries. Nil for anything else, or one that doesn't say. Reads category.
+  def vehicle_seats
+    seats = attrs["seats"]
+    seats if category.vehicle? && seats.is_a?(Integer) && seats.positive?
   end
 
   # The most one trip item's quantity can be: for gear, booked by the count, the units it has;

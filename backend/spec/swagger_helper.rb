@@ -37,6 +37,11 @@ ROOM_GUESTS_BODY = {
     "null for an even split over the fewest rooms that sleep them"
 }.freeze
 PETS_BODY = { type: :integer, minimum: 0, maximum: 20, description: "A stay only, where its listing allows pets (RAA-182)" }.freeze
+# How many vehicles a rental vehicle's people take (RAA-191), when the guest chose more than they need.
+UNITS_BODY = {
+  type: :integer, nullable: true, minimum: 1, maximum: 99,
+  description: "A rental vehicle only: at least quantity ÷ seats rounded up, at most one each; null or omitted derives it"
+}.freeze
 
 # Where guests find a listing (Category#guest_group): its booking type, except gear.
 LISTING_GROUP = {
@@ -298,6 +303,25 @@ RSpec.configure do |config|
                 description: "The most its quantity can be: for gear (booked by the count) the units the listing " \
                   "has, otherwise max_guests"
               },
+              seats: {
+                type: :integer, nullable: true,
+                description: "A rental vehicle's seats, rider or driver included (RAA-191); null for anything else"
+              },
+              units: {
+                type: :integer, nullable: true,
+                description: "How many vehicles it takes (RAA-191): the guests' share of seats rounded up, or the " \
+                  "more the guest chose; null for anything but a rental vehicle"
+              },
+              units_chosen: {
+                type: :integer, nullable: true,
+                description: "The vehicles the guest chose (RAA-191); null when derived from the guests"
+              },
+              units_free: {
+                type: :integer, nullable: true,
+                description: "A rental vehicle's units free on all of its days still to come (RAA-191); null when " \
+                  "undated, booked, past or not a vehicle"
+              },
+              business: { "$ref" => "#/components/schemas/business_ref" },
               booking_type: {
                 type: :string, enum: %w[rental stay activity transfer],
                 description: "Its listing's: rentals and stays take a range of days, the others one day"
@@ -326,7 +350,7 @@ RSpec.configure do |config|
               },
               listing_active: { type: :boolean, description: "False once the listing is paused or delisted: it can't be booked" }
             },
-            required: %w[id starts_on ends_on quantity room_guests pets sleeps max_guests max_quantity booking_type area destination listing booking unavailable cancellation_policy listing_active]
+            required: %w[id starts_on ends_on quantity room_guests pets sleeps max_guests max_quantity seats units units_chosen units_free business booking_type area destination listing booking unavailable cancellation_policy listing_active]
           },
           # A trip's view-only share link (RAA-176), as its guest sees it.
           trip_share: {
@@ -1158,6 +1182,37 @@ RSpec.configure do |config|
             },
             required: %w[adults children infants nightly_subtotal_cents extra_guests extra_guests_total_cents discount fees
               total_cents]
+          },
+          # One of a business's listings in the shop pop-up (RAA-191): a model, its price and what is free.
+          business_listing: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              title: { type: :string },
+              category: {
+                type: :object,
+                properties: { slug: { type: :string }, name: { type: :string } },
+                required: %w[slug name]
+              },
+              area: { "$ref" => "#/components/schemas/area_ref" },
+              cover_photo_url: COVER_PHOTO_URL,
+              price_from_cents: {
+                type: :integer, nullable: true,
+                description: "A stay's nightly price, a tour's base price or a vehicle's daily price; null with none yet"
+              },
+              price_unit: { "$ref" => "#/components/schemas/price_unit" },
+              vehicle_rate: {
+                allOf: [ { "$ref" => "#/components/schemas/vehicle_rate" } ], nullable: true,
+                description: "A vehicle rental's pricing once it has a price; null otherwise"
+              },
+              details: { "$ref" => "#/components/schemas/listing_details" },
+              units_count: { type: :integer, minimum: 1 },
+              units_free: {
+                type: :integer, nullable: true, minimum: 0,
+                description: "Its units free on every one of the dates; null without dates"
+              }
+            },
+            required: %w[id title category area cover_photo_url price_from_cents price_unit vehicle_rate details units_count units_free]
           },
           # A mix of one business's room types for a party (RAA-187).
           stay_mix: {

@@ -105,6 +105,36 @@ RSpec.describe "Checkouts", type: :request do
         end
       end
 
+      response "201", "10 people on 2-seat motorbikes book 5 of them, or the 6 they chose (RAA-191)" do
+        schema "$ref" => "#/components/schemas/checkout"
+
+        let(:click) { create(:listing, :vehicle, booking_mode: "instant") }
+        let!(:derived) { create(:trip_item, trip:, listing: click, starts_on: day, ends_on: day + 1, quantity: 10) }
+        let!(:chosen) { create(:trip_item, trip:, listing: click, starts_on: day + 2, ends_on: day + 2, quantity: 10, units: 6) }
+        let(:item_ids) { [ derived.id, chosen.id ] }
+
+        before { click.units.create!((2..6).map { |position| { position: } }) }
+
+        run_test! do |response|
+          expect(response.parsed_body["bookings"].map { _1.slice("quantity", "guests") })
+            .to eq([ { "quantity" => 5, "guests" => 10 }, { "quantity" => 6, "guests" => 10 } ])
+          ledger = Availability::Ledger.new([ click.reload ], day, day + 2)
+          expect([ day, day + 1, day + 2 ].map { ledger.day(click, _1)[:booked] }).to eq([ 5, 5, 6 ])
+        end
+      end
+
+      response "422", "more motorbikes than are free" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:click) { create(:listing, :vehicle, booking_mode: "instant", title: "Honda Click") }
+        let!(:item) { create(:trip_item, trip:, listing: click, starts_on: day, ends_on: day, quantity: 10, units: 5) }
+        let(:item_ids) { [ item.id ] }
+
+        before { click.units.create!((2..4).map { |position| { position: } }) }
+
+        run_test! { |response| expect(response.parsed_body["errors"].join).to include("Honda Click: Only 4 left on") }
+      end
+
       response "201", "a stay for more guests than a unit sleeps takes two units" do
         schema "$ref" => "#/components/schemas/checkout"
 

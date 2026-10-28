@@ -86,6 +86,9 @@ unless Rails.env.test?
     # Its car amenities (RAA-150), on top. Safe to run again.
     require Rails.root.join("db/migrate/20261023100000_add_car_vehicle_amenities").to_s
     AddCarVehicleAmenities.new.migrate(:up)
+    # Vehicles' seats (RAA-191), required, and each sample vehicle's. Safe to run again.
+    require Rails.root.join("db/migrate/20261028140000_add_seats_to_vehicles_and_units_to_trip_items").to_s
+    AddSeatsToVehiclesAndUnitsToTripItems.seat(connection)
 
     CreateBusinesses.backfill(connection)
     AddUnitNamesToCategories.fill(connection)

@@ -117,7 +117,7 @@ module Checkouts
     def price(item, listing)
       return error("#{listing.title} isn't available to book any more") || { total_cents: 0 } unless listing.active?
 
-      units = Booking.units_for(listing, item.quantity, room_guests: item.room_guests)
+      units = Booking.units_for(listing, item.quantity, room_guests: item.room_guests, chosen: item.units)
       price = Bookings::Price.call(listing, starts_on: item.starts_on, ends_on: item.ends_on, quantity: units,
         guests: item.quantity, room_guests: item.room_guests, pets: item.pets)
       price.merge(item:, listing:, units:)

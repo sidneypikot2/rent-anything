@@ -69,8 +69,11 @@ FactoryBot.define do
       attribute_schema do
         require Rails.root.join("db/migrate/20261023090001_add_vehicle_transmission_and_amenities").to_s
         require Rails.root.join("db/migrate/20261023100000_add_car_vehicle_amenities").to_s
-        AddVehicleTransmissionAndAmenities::VEHICLE_SCHEMA
-          .deep_merge(properties: { amenities: { items: { enum: AddCarVehicleAmenities::AMENITIES } } })
+        require Rails.root.join("db/migrate/20261028140000_add_seats_to_vehicles_and_units_to_trip_items").to_s
+        schema = AddVehicleTransmissionAndAmenities::VEHICLE_SCHEMA
+          .deep_merge(properties: { amenities: { items: { enum: AddCarVehicleAmenities::AMENITIES } },
+            seats: AddSeatsToVehiclesAndUnitsToTripItems::SEATS })
+        schema.merge(required: schema[:required] + %w[seats])
       end
       initialize_with { Category.find_or_initialize_by(slug: "motorcycle") }
     end
@@ -126,11 +129,11 @@ FactoryBot.define do
       after(:create) { |listing, context| create(:stay_rate, listing:) if context.with_rate && !listing.stay_rate }
     end
 
-    # A Honda Click 125 at ₱500 a day (RAA-149).
+    # A Honda Click 125 at ₱500 a day (RAA-149), seating 2 (RAA-191).
     trait :vehicle do
       category factory: %i[category motorcycle]
       title { "Honda Click 125 scooter" }
-      attrs { { "make" => "Honda", "model" => "Click 125", "engine_cc" => 125, "transmission" => "automatic" } }
+      attrs { { "make" => "Honda", "model" => "Click 125", "engine_cc" => 125, "transmission" => "automatic", "seats" => 2 } }
       transient { with_rate { true } }
       after(:create) { |listing, context| create(:vehicle_rate, listing:) if context.with_rate && !listing.vehicle_rate }
     end

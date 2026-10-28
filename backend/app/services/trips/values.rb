@@ -94,6 +94,37 @@ module Trips
       Stays::Arrangement.new(listing, **Stays::Arrangement.party_of(room_guests), room_guests:, pets:).errors.each { error(_1) }
     end
 
+    # How many vehicles a rental vehicle's guests take (RAA-191): at least enough seats for them,
+    # at most one each, and never more people than the whole fleet seats. Units sent for anything
+    # but a vehicle with seats are refused. Nil leaves them derived (Booking.units_for).
+    def check_vehicle_units(listing, guests, units)
+      seats = listing.vehicle_seats
+      return error("Only a vehicle can be booked by how many") if units && !seats
+      return unless seats
+
+      noun = Values.vehicle_noun(listing)
+      fleet = listing.units.size
+      return error("This #{noun} seats #{seats}. #{fleet} of them seat #{seats * fleet} at most.") if guests > seats * fleet
+      return unless units
+
+      needed = guests.fdiv(seats).ceil
+      error("#{guests} people need at least #{needed} #{noun.pluralize(needed)}") if units < needed
+      error("#{units} #{noun.pluralize(units)} is more than one each for #{guests}") if units > guests
+    end
+
+    # Units sent for an item (RAA-191): 1 to 99, or nil when not sent or sent as null.
+    def units_value
+      units = integer_value(:units, "Units")
+      return units if units.nil? || units.between?(1, 99)
+
+      error("Units must be from 1 to 99")
+    end
+
+    # What one of a vehicle listing's units is called, for refusals: "motorbike", "car", "van".
+    def self.vehicle_noun(listing)
+      { "motorcycle" => "motorbike", "van-rental" => "van" }.fetch(listing.category.slug, listing.category.name.downcase)
+    end
+
     # digits: from a query string, where every value is text.
     def find_listing(digits: false)
       id = integer_value(:listing_id, "Listing", required: true, digits:)
