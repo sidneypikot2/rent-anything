@@ -6,7 +6,7 @@ import { startGuestSession } from "@/lib/auth/actions";
 import { useSession } from "@/lib/auth/session";
 import { formatDateRange } from "./format";
 import { readChosenTrip } from "./chosen-trip";
-import { TripNeeds } from "./trip-needs";
+import { showAddedBadge } from "./added-badge";
 import { tripHere } from "./use-trip-here";
 import { currentTrips, useFetchTrips, type AddRequest, type Trip } from "./use-trips";
 import { WhichTripSheet } from "./which-trip-sheet";
@@ -22,8 +22,6 @@ type Context = {
 
 const TripAddContext = createContext<Context | null>(null);
 
-const ADD_TOAST_MS = 3000;
-
 export function useTripAdd() {
   const context = useContext(TripAddContext);
   if (!context) throw new Error("useTripAdd needs a TripAddProvider");
@@ -36,20 +34,11 @@ export function useOptionalTripAdd() {
 }
 
 // The add-to-trip flow for the listings on a page (RAA-66): a guest session made quietly on a
-// signed-out first add (RAA-177: no account needed to plan or book), the add sheet, the toast,
-// and the edit-trip sheet it leads to. On a place's page (`places`: its place and the places inside it) every add goes to the trip its banner shows (tripHere),
+// signed-out first add (RAA-177: no account needed to plan or book), the add sheet, and the
+// "Added to trip" badge that confirms it. On a place's page (`places`: its place and the places inside it) every add goes to the trip its banner shows (tripHere),
 // or starts a new one, which then becomes the trip worked on: the sheet asks only the dates and
 // guests, so an add never lands in another trip. Elsewhere the sheet asks which trip.
-export function TripAddProvider({
-  children,
-  places,
-  offered,
-}: {
-  children: ReactNode;
-  places?: string[];
-  // The groups the place has listings in: the toast's checklist asks only for those (TripNeeds).
-  offered?: string[];
-}) {
+export function TripAddProvider({ children, places }: { children: ReactNode; places?: string[] }) {
   const session = useSession();
   const fetchTrips = useFetchTrips();
   const [choosing, setChoosing] = useState<{ request: AddRequest; trips: Trip[]; target?: Trip | "new" } | null>(
@@ -60,42 +49,25 @@ export function TripAddProvider({
   const toast = useToast();
   // One add at a time: a second tap while one is under way (or its sheet is open) waits.
   const inFlight = useRef(false);
-  // The toast only confirms the add: what went where, and on a place's page the trip's checklist.
-  // Nothing in it leaves the page: on a phone it appears where the add sheet's button just was, so
-  // a quick second tap lands on it (a tester's View trip tap took her to the cart). The cart is the
-  // banner's View trip and the header's cart.
-  // Nothing to act on, so it goes sooner than a toast with buttons (3s, not 6s).
-  const show = useCallback(
-    (text: ReactNode) => toast.show(text, { duration: ADD_TOAST_MS, "data-testid": "trip-toast" }),
-    [toast],
-  );
+  // What the last add put where, for screen readers (the flight is only decoration).
+  const [announced, setAnnounced] = useState("");
 
-  // Names what was added, not only where: "Added Beachfront nipa cottage to Bantayan Island".
-  const added = useCallback(
-    (request: AddRequest, trip: Trip, before?: Trip) => {
-      const grew = before && (before.starts_on !== trip.starts_on || before.ends_on !== trip.ends_on);
-      const dates = grew && formatDateRange(trip.starts_on, trip.ends_on);
-      // Gear counted into a line already there says the new count: "now 3 in Bantayan Island".
-      const line = trip.items.find(
-        (item) => item.listing.id === request.listingId && item.listing.group === "gear" && !item.booking && item.starts_on === (request.startsOn ?? null),
-      );
-      const what = line && line.quantity > 1 ? `${request.title}, now ${line.quantity} in` : `${request.title} to`;
-      const text = `Added ${what} ${trip.name}${dates ? ` · now ${dates}` : ""}`;
-      // On a place's page the toast shows the trip coming together: its stay and transfer ticking.
-      show(
-        places && offered ? (
-          <span className="flex flex-col gap-2">
-            <span>{text}</span>
-            <TripNeeds trip={trip} places={places} offered={offered} since={before ?? null} />
-          </span>
-        ) : (
-          text
-        ),
-      );
-      setLastAdded({ listingId: request.listingId, at: Date.now() });
-    },
-    [show, places, offered],
-  );
+  // An add is confirmed by a centred "Added to trip" badge that goes into the header's cart, never a toast: on a phone a
+  // toast covered the card just tapped (2026-10-29). The live region names what was added, not
+  // only where: "Added Beachfront nipa cottage to Bantayan Island".
+  const added = useCallback((request: AddRequest, trip: Trip, before?: Trip) => {
+    const grew = before && (before.starts_on !== trip.starts_on || before.ends_on !== trip.ends_on);
+    const dates = grew && formatDateRange(trip.starts_on, trip.ends_on);
+    // Gear counted into a line already there says the new count: "now 3 in Bantayan Island".
+    const line = trip.items.find(
+      (item) => item.listing.id === request.listingId && item.listing.group === "gear" && !item.booking && item.starts_on === (request.startsOn ?? null),
+    );
+    const what = line && line.quantity > 1 ? `${request.title}, now ${line.quantity} in` : `${request.title} to`;
+    setAnnounced(`Added ${what} ${trip.name}${dates ? ` · now ${dates}` : ""}`);
+    setLastAdded({ listingId: request.listingId, at: Date.now() });
+    // After the sheet has gone, so the badge's way to the cart is read from the settled page.
+    requestAnimationFrame(showAddedBadge);
+  }, []);
 
   // Signed in: the add sheet, with the guest's trips to pick from.
   const start = useCallback(
@@ -172,6 +144,9 @@ export function TripAddProvider({
         />
       )}
 
+      <p aria-live="polite" className="sr-only" data-testid="trip-added">
+        {announced}
+      </p>
     </TripAddContext.Provider>
   );
 }

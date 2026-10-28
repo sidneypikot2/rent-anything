@@ -47,7 +47,6 @@ export function NewTripSheet({ onClose, onCreated }: Props) {
             value={name}
             maxLength={80}
             required
-            autoFocus
             placeholder="Bantayan – Malapascua escapade"
             onChange={(event) => setName(event.target.value)}
           />

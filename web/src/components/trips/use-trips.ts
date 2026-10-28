@@ -147,10 +147,11 @@ export function itemQuote(quote: TripQuote | undefined, item: TripItem) {
   return quote?.items.find((line) => line.trip_item_id === item.id);
 }
 
-// "₱12,300", with what is priced with the partner after it: "₱12,300 + 1 to agree".
+// "₱12,300", with what is priced with the partner after it in words, never as a bare number
+// beside the money: "₱12,300, plus 1 price to agree".
 export function quoteTotal(totalCents: number, toBeAgreed: number) {
   if (toBeAgreed === 0) return formatPeso(totalCents);
-  if (totalCents > 0) return `${formatPeso(totalCents)} + ${toBeAgreed} to agree with the partner`;
+  if (totalCents > 0) return `${formatPeso(totalCents)}, plus ${toBeAgreed === 1 ? "1 price" : `${toBeAgreed} prices`} to agree`;
   return toBeAgreed === 1 ? "Price to agree with the partner" : `${toBeAgreed} prices to agree with the partner`;
 }
 

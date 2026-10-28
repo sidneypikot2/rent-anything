@@ -56,7 +56,8 @@ export default function Home() {
               <>
                 <DisplayTitle size="hero" className="text-balance">
                   Your whole {LAUNCH_AREA.name} trip{" "}
-                  <span className="font-semibold whitespace-nowrap text-sky-pale italic motion-safe:animate-unveil">
+                  {/* Free to wrap: with large text the phrase is wider than a phone. */}
+                  <span className="font-semibold text-sky-pale italic motion-safe:animate-unveil">
                     in one cart.
                   </span>
                 </DisplayTitle>
@@ -155,18 +156,18 @@ async function Destinations() {
     return (
       <ul className="cascade flex flex-wrap gap-3">
         {groups.map(({ area, subAreas }) => (
-          <li key={area.slug}>
+          <li key={area.slug} className="max-w-full min-w-0">
             <HeroTripLink
               href={`/${area.slug}`}
               data-testid="destination-link"
               className={cn(
                 glassClasses("dark"),
-                "group flex min-h-11 items-center gap-2 rounded-full py-2 pr-4 pl-3 hover:bg-navy/60",
+                "group flex min-h-11 max-w-full items-center gap-2 rounded-full py-2 pr-4 pl-3 hover:bg-navy/60",
               )}
             >
               <PlaceGlyph className="size-4.5 shrink-0 text-sky-pale" />
               <span className="font-semibold text-white">{area.name}</span>
-              <span className="text-sm text-sky-mist tabular-nums">{countLine(withSubAreas(area, subAreas))}</span>
+              <span className="min-w-0 truncate text-sm text-sky-mist tabular-nums">{countLine(withSubAreas(area, subAreas))}</span>
               <ArrowGlyph className="size-4 shrink-0 text-sky-pale transition-transform duration-500 ease-calm motion-safe:group-hover:translate-x-0.5" />
             </HeroTripLink>
           </li>

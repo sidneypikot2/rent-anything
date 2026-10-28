@@ -119,6 +119,9 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   const hasNearby = Boolean(nearby && (nearby.destinations.length > 0 || nearby.recommendations.length > 0));
   // This place and every place inside it: what the trip has "here".
   const places = [slug, ...inside];
+  // The island this place is a town of (its top-most destination), when it is one: a transfer or
+  // a scooter anywhere on it covers this page too.
+  const island = destinations ? islandOf(destinations, slug) : null;
   const needs = TRIP_NEEDS.map((need) => ({
     ...need,
     // One row per business (the team's business-first list), with its listings in this group;
@@ -300,6 +303,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           placeLinks={placeLinks}
           areaName={area.name}
           places={places}
+          island={island}
           offered={needs.map((need) => need.group)}
           sights={landmarks.map((landmark) => ({ slug: landmark.slug, name: landmark.name, visitedBy: landmark.visited_by }))}
           starting={starting}
@@ -326,7 +330,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
 
       <PageSheet tone="clear">
         <AreaMapProvider>
-          <TripAddProvider places={places} offered={needs.map((need) => need.group)}>
+          <TripAddProvider places={places}>
             <AreaMapLayout map={map}>
               <div className="page-sections flex min-w-0 flex-col gap-section pt-block pb-page-pad">
                 {/* What to book's rail holds the map's switch; without it the switch leads the page. */}
@@ -385,6 +389,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                           placeName={area.name}
                           clearHref={`/${slug}${datesQuery}`}
                           tripPlaces={places}
+                          tripIsland={island}
                           empty={<p className="text-muted">Nothing here yet.</p>}
                           groups={needs.map((need) => {
                             const shared = sharedChipsOf(need.businesses);
@@ -633,6 +638,22 @@ function byBusiness<T extends { business: { id: number } }>(rows: T[]): T[][] {
 }
 
 // Every listed place inside this one, however deep.
+// The top-most destination above a place, when the place sits inside one (Santa Fe's Bantayan
+// Island): what a trip item's `destination` names. A province above it (Cebu) isn't a
+// destination, so it stops there; null for a top-most place itself.
+function islandOf(destinations: AreaCard[], slug: string) {
+  const bySlug = new Map(destinations.map((each) => [each.slug, each]));
+  const seen = new Set([slug]);
+  let top: string | null = null;
+  let parent = bySlug.get(slug)?.parent_slug ?? null;
+  while (parent && bySlug.has(parent) && !seen.has(parent)) {
+    seen.add(parent);
+    top = parent;
+    parent = bySlug.get(parent)?.parent_slug ?? null;
+  }
+  return top;
+}
+
 function descendants(destinations: AreaCard[], slug: string, seen = new Set([slug])): AreaCard[] {
   return destinations
     .filter((child) => child.parent_slug === slug && !seen.has(child.slug))

@@ -379,7 +379,7 @@ export function TripDetails({
                   {capitalize(missingText(gap))}
                   {gap.kind === "stay" && gap.nights > 1 && <span className="text-muted"> · {gap.nights} nights</span>}
                 </span>
-                <Link href={findStayHref(trip, gap)} className="font-semibold text-link hover:underline">
+                <Link href={findStayHref(trip, gap)} className="tap-target font-semibold text-link hover:underline">
                   Find a stay
                 </Link>
               </li>
@@ -445,7 +445,8 @@ export function TripDetails({
       )}
 
       {cart && view === "items" && (canBook.length > 0 || canPay.length > 0) && (
-        <div className="flex flex-col gap-3 lg:sticky lg:bottom-3 lg:z-20">
+        // Sticky at every width: on a phone a long trip put Send requests thousands of pixels down.
+        <div className="sticky bottom-3 z-20 flex flex-col gap-3">
           {sendFoot}
           {payFoot}
         </div>
@@ -568,7 +569,8 @@ function ItemCard({
               aria-haspopup="dialog"
               onClick={() => actions.open(trip, item)}
               data-testid="cart-item-open"
-              className="truncate text-left font-semibold leading-snug outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] hover:text-primary focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-(--focus)"
+              // Two lines before it cuts: on a phone one line made "Hagnaya port to San…" twins.
+              className="line-clamp-2 text-left font-semibold leading-snug break-words outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] hover:text-primary focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-(--focus)"
             >
               {item.listing.title}
             </button>
@@ -584,7 +586,7 @@ function ItemCard({
                 <button
                   type="button"
                   onClick={() => actions.redateItem(trip, item)}
-                  className="relative z-10 font-semibold text-warning hover:underline"
+                  className="tap-target z-10 font-semibold text-warning hover:underline"
                 >
                   Pick a date to book
                 </button>

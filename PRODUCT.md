@@ -31,7 +31,7 @@ The brand promises the whole Philippines: islands, mountains and cities. **Banta
 ## Operating Context
 
 - **Area first**: every traveller page lives under an area (`/bantayan-island/...`). The area and the trip dates travel in the URL.
-- **The cart is a list of trips**: each trip has a name, dates and guests, and items from any area. Signing in comes before the first add. Later adds suggest a trip by date, then by distance.
+- **The cart is a list of trips**: each trip has a name, dates and guests, and items from any area. The first add needs no account (RAA-177): it starts a guest trip, and checkout asks who they are. Later adds suggest a trip by date, then by distance.
 - **Four booking types**, one per category, which decide pricing and availability:
   - **rental**: priced in duration tiers
   - **stay**: priced per night

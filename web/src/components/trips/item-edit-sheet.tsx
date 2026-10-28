@@ -120,7 +120,6 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
               from={startsOn}
               to={endsOn}
               onChange={setDates}
-              autoFocus
               hint={
                 range && startsOn && !endsOn
                   ? "Pick the last day too"

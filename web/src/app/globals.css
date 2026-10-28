@@ -88,7 +88,8 @@
   --container-narrow: 48rem;
   /* The admin console's wide sheet (RAA-142): its dense tables take more than a page's width. */
   --container-split: 110rem;
-  --container-prose: 40rem;
+  /* Running text: about 80 characters a line. */
+  --container-prose: 36rem;
   /* A lede: the short paragraph under a big title (the hero, the closing band), about 50
      characters a line. */
   --container-lede: 31rem;
@@ -182,6 +183,12 @@
     55% {
       transform: scale(1.06);
       box-shadow: 0 0 0 6px rgb(134 239 172 / 0);
+    }
+  }
+  /* The header's cart as an added listing lands in it (added-badge.ts). */
+  @keyframes cart-bump {
+    40% {
+      transform: scale(1.08);
     }
   }
   /* A row just added to the trip: a ring in the action colour that fades into its own shadow. */
@@ -295,6 +302,10 @@
   animation: just-added 1.8s var(--ease-calm);
 }
 
+.cart-bump {
+  animation: cart-bump 0.3s var(--ease-calm);
+}
+
 /* A trip band's fill (the trip card, the closing bands, the footer box): the band colour at a
    dense tint over the photo. */
 @utility band-fill {
@@ -396,17 +407,18 @@
   }
 }
 
-/* A 44px touch target around a control drawn smaller (the header's pills), without changing
-   how it looks: an invisible layer, centred on it, at least 44px tall. */
+/* A 44px touch target around a control drawn smaller (the header's pills, a 36px disc),
+   without changing how it looks: an invisible layer, centred on it, at least 44px each way. */
 @utility tap-target {
   position: relative;
   &::after {
     content: "";
     position: absolute;
-    inset-inline: 0;
     top: 50%;
+    left: 50%;
+    width: max(100%, 2.75rem);
     height: max(100%, 2.75rem);
-    translate: 0 -50%;
+    translate: -50% -50%;
   }
 }
 
