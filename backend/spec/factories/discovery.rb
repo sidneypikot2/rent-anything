@@ -88,6 +88,15 @@ FactoryBot.define do
       end
     end
 
+    # A van transfer: one vehicle a booking, priced by the trip (RAA-191).
+    trait :transfer do
+      slug { "van" }
+      name { "Van transfer" }
+      booking_type { "transfer" }
+      attribute_schema { { type: "object", properties: { seats: { type: "integer" } } } }
+      initialize_with { Category.find_or_initialize_by(slug: "van") }
+    end
+
     # A car (RAA-150): a vehicle rental that can come with a driver.
     trait :car do
       motorcycle
@@ -145,6 +154,14 @@ FactoryBot.define do
       after(:create) { |listing| (2..3).each { listing.units.create!(position: _1) } }
     end
 
+    # A 12-seat van from the port, at ₱1,500 a trip (RAA-191).
+    trait :transfer do
+      category factory: %i[category transfer]
+      title { "Hagnaya port van transfer" }
+      attrs { { "seats" => 12 } }
+      after(:create) { |listing| create(:flat_rate, listing:, price_cents: 150_000) unless listing.flat_rate }
+    end
+
     # A daily joiner tour for 2 to 12 guests, 4 hours, at ₱1,500 a head (RAA-110).
     trait :tour do
       category factory: %i[category tour]
@@ -175,6 +192,12 @@ FactoryBot.define do
   factory :vehicle_rate do
     listing { association(:listing, :vehicle, with_rate: false) }
     daily_price_cents { 50_000 }
+  end
+
+  # Gear's price per item and day, or a transfer's per vehicle and trip (RAA-191).
+  factory :flat_rate do
+    listing { association(:listing, :gear) }
+    price_cents { 30_000 }
   end
 
   factory :listing_fee do

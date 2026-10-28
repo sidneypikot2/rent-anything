@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_28_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_29_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -248,6 +248,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_140000) do
     t.check_constraint "weight >= 1 AND weight <= 3", name: "destination_links_weight_check"
   end
 
+  create_table "flat_rates", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.bigint "price_cents", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["listing_id"], name: "index_flat_rates_on_listing_id", unique: true
+    t.check_constraint "price_cents >= 0", name: "flat_rates_price_check"
+  end
+
   create_table "guest_profiles", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "user_role", default: "guest", null: false
@@ -322,7 +331,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_140000) do
     t.check_constraint "\"position\" >= 1", name: "listing_fees_position_check"
     t.check_constraint "amount_cents >= 0", name: "listing_fees_amount_check"
     t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 60", name: "listing_fees_name_length_check"
-    t.check_constraint "charged_per::text = ANY (ARRAY['booking'::character varying, 'night'::character varying, 'guest'::character varying, 'guest_night'::character varying, 'unit'::character varying, 'day'::character varying, 'hour'::character varying, 'pet'::character varying, 'pet_night'::character varying]::text[])", name: "listing_fees_charged_per_check"
+    t.check_constraint "charged_per::text = ANY (ARRAY['booking'::character varying::text, 'night'::character varying::text, 'guest'::character varying::text, 'guest_night'::character varying::text, 'unit'::character varying::text, 'day'::character varying::text, 'hour'::character varying::text, 'pet'::character varying::text, 'pet_night'::character varying::text])", name: "listing_fees_charged_per_check"
   end
 
   create_table "listing_landmarks", primary_key: ["listing_id", "landmark_id"], force: :cascade do |t|
@@ -462,8 +471,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_140000) do
     t.index ["user_id"], name: "index_payments_on_user_id"
     t.check_constraint "NOT livemode", name: "payments_test_mode_check"
     t.check_constraint "amount_cents >= 0", name: "payments_amount_check"
-    t.check_constraint "provider::text = ANY (ARRAY['stub'::character varying, 'paymongo'::character varying]::text[])", name: "payments_provider_check"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'paid'::character varying, 'failed'::character varying, 'needs_refund'::character varying]::text[])", name: "payments_status_check"
+    t.check_constraint "provider::text = ANY (ARRAY['stub'::character varying::text, 'paymongo'::character varying::text])", name: "payments_provider_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'paid'::character varying::text, 'failed'::character varying::text, 'needs_refund'::character varying::text])", name: "payments_status_check"
   end
 
   create_table "payout_accounts", force: :cascade do |t|
@@ -722,6 +731,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_28_140000) do
   add_foreign_key "category_tags", "tags"
   add_foreign_key "checkouts", "trips", on_delete: :nullify
   add_foreign_key "checkouts", "users", on_delete: :nullify
+  add_foreign_key "flat_rates", "listings", on_delete: :cascade
   add_foreign_key "guest_profiles", "users"
   add_foreign_key "guest_profiles", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_guest_profiles_user_role"
   add_foreign_key "landmark_tags", "landmarks"

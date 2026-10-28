@@ -5,7 +5,7 @@
 # A tour's details (RAA-110), and how many photos it takes. Its live_blockers (RAA-115) say
 # what it lacks to go live. Preload ASSOCIATIONS, and pass destinations for a list.
 module PartnerListingSerializer
-  ASSOCIATIONS = [ :business, :category, :area, :units, :stay_rate, :vehicle_rate, :fees, :photos, *Listing::TOUR_ASSOCIATIONS,
+  ASSOCIATIONS = [ :business, :category, :area, :units, :stay_rate, :vehicle_rate, :flat_rate, :fees, :photos, *Listing::TOUR_ASSOCIATIONS,
     { visited_landmarks: :area } ].freeze
 
   def self.call(listing, destinations: PartnerLandmarkSerializer.destinations_for(listing.visited_landmarks))
@@ -27,6 +27,7 @@ module PartnerListingSerializer
       units_count: listing.units.size,
       stay_rate: PricingSerializer.stay_rate(listing.stay_rate),
       vehicle_rate: PricingSerializer.vehicle_rate(listing.vehicle_rate),
+      flat_rate: PricingSerializer.flat_rate(listing.flat_rate),
       fees: PricingSerializer.fees(listing),
       tour: TourSerializer.partner(listing),
       business: { id: listing.business.id, name: listing.business.name },

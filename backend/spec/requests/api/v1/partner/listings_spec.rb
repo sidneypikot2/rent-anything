@@ -1362,6 +1362,57 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
+      context "gear, priced flat (RAA-191)" do
+        let(:category) { create(:category, :gear) }
+        let(:listing) { create(:listing, :gear, partner: user, area: moalboal, status: "draft") }
+
+        before { body[:attrs] = {} }
+
+        response "200", "its price per item and day set when sent, kept when left out" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before { body[:flat_rate] = { price_cents: 30_000 } }
+
+          run_test! do |saved|
+            expect(saved.parsed_body["flat_rate"]).to eq("price_cents" => 30_000)
+            expect(saved.parsed_body["live_blockers"]).not_to include("price")
+            body.delete(:flat_rate)
+            patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["flat_rate"]).to eq("price_cents" => 30_000)
+          end
+        end
+
+        response "422", "a price of 0, or a flat price on a vehicle" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          context "with 0" do
+            before { body[:flat_rate] = { price_cents: 0 } }
+
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Price must be a whole number of centavos above 0" ]) }
+          end
+
+          context "on a vehicle" do
+            let(:category) { create(:category, :motorcycle) }
+            let(:listing) { create(:listing, :vehicle, partner: user, area: moalboal, status: "draft") }
+
+            before do
+              body.merge!(attrs: { make: "Honda", model: "Click 125", engine_cc: 125, transmission: "automatic", seats: 2 },
+                flat_rate: { price_cents: 30_000 })
+            end
+
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Only gear or a transfer has a flat price" ]) }
+          end
+        end
+
+        response "404", "another partner's gear" do
+          let(:listing) { create(:listing, :gear, area: moalboal) }
+
+          before { body[:flat_rate] = { price_cents: 30_000 } }
+
+          run_test! { expect(listing.reload.flat_rate).to be_nil }
+        end
+      end
+
       context "a tour (RAA-110)" do
         let(:category) { create(:category, :tour) }
         let(:listing) { create(:listing, :tour, partner: user, area: moalboal) }

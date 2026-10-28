@@ -22,7 +22,7 @@ module Discovery
         area: AreaSerializer.call(@area),
         areas: @area.children.browsable.includes(:parent).order(:name).map { |area| AreaSerializer.call(area) },
         landmarks: landmarks.map { |landmark| landmark_json(landmark) },
-        listings: listings.includes({ category: :parent }, :area, :business, :units, :stay_rate, :vehicle_rate, :tour_detail, :cover_photo, :ready_photos)
+        listings: listings.includes({ category: :parent }, :area, :business, :units, :stay_rate, :vehicle_rate, :flat_rate, :tour_detail, :cover_photo, :ready_photos)
           .order(:title).map do |listing|
           ListingSummarySerializer.call(listing).merge(
             area_name: listing.area.name,

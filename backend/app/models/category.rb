@@ -40,6 +40,11 @@ class Category < ApplicationRecord
     rental? && parent&.slug == "equipment-rentals"
   end
 
+  # Priced by a FlatRate (RAA-191): gear by the item and day, a transfer by the vehicle and trip.
+  def flat_priced?
+    gear? || transfer?
+  end
+
   # The Tour category (RAA-110): only its listings have tour details.
   def tour?
     slug == "tour" && activity?

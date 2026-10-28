@@ -45,6 +45,8 @@ Rails.application.routes.draw do
       get "stay_mixes", to: "stay_mixes#index"
       # A business's listings, with what is free on some dates: the shop pop-up (RAA-191).
       get "businesses/:business_id/listings", to: "business_listings#index", as: :business_listings
+      # What adding a listing to a trip would cost, for any kind of listing (RAA-191).
+      get "listings/:listing_id/price", to: "listing_prices#show", as: :listing_price
       # One destination's listings, nearby destinations and recommendations (RAA-56).
       get "explore", to: "explore#index"
       # What guests search for and pick (RAA-60).
