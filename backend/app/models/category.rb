@@ -31,7 +31,13 @@ class Category < ApplicationRecord
   # apart from the vehicles it shares `rental` with, so it gets its own section and never
   # counts as a trip's "Getting around". Preload category: :parent.
   def guest_group
-    rental? && parent&.slug == "equipment-rentals" ? "gear" : booking_type
+    gear? ? "gear" : booking_type
+  end
+
+  # Gear (cameras, snorkel sets) is booked by the count: a trip item's quantity is how many,
+  # not its guests (Booking.units_for).
+  def gear?
+    rental? && parent&.slug == "equipment-rentals"
   end
 
   # The Tour category (RAA-110): only its listings have tour details.

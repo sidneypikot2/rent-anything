@@ -5681,7 +5681,7 @@ export interface paths {
         put?: never;
         /**
          * Add a listing to a trip
-         * @description Guest-only. Adds the listing to `trip_id`, or, without one, to a new trip named after the destination and dates ("Bantayan Island · Nov 12–15"), or `trip_name` if the guest typed one, with `quantity` guests. The trip's dates grow to cover the item's. Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an undated item can't be checked out until it has one. `quantity` is 1 to 99, default 1. Answers with the trip. Several items at once (RAA-187, a mix of room types from `GET /stay_mixes`): `items` instead of one item's fields, all added or none; a new trip is named and dated after the first.
+         * @description Guest-only. Adds the listing to `trip_id`, or, without one, to a new trip named after the destination and dates ("Bantayan Island · Nov 12–15"), or `trip_name` if the guest typed one, with `quantity` guests (`guests` when sent). Gear is booked by the count: its `quantity` is how many, and adding gear the trip already holds unbooked on the same dates raises that item's quantity instead of adding a second. The trip's dates grow to cover the item's. Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an undated item can't be checked out until it has one. `quantity` is 1 to 99, default 1. Answers with the trip. Several items at once (RAA-187, a mix of room types from `GET /stay_mixes`): `items` instead of one item's fields, all added or none; a new trip is named and dated after the first.
          */
         post: {
             parameters: {
@@ -5700,7 +5700,10 @@ export interface paths {
                         starts_on?: string | null;
                         /** Format: date */
                         ends_on?: string | null;
+                        /** @description Its guests; for gear, how many */
                         quantity?: number;
+                        /** @description A new trip's guests, 1 to 50; defaults to quantity */
+                        guests?: number;
                         /** @description A stay only (RAA-182): its guests room by room, adding up to its guests, which it then sets; null for an even split over the fewest rooms that sleep them */
                         room_guests?: {
                             adults?: number;
@@ -6910,6 +6913,8 @@ export interface components {
             sleeps: number | null;
             /** @description The most guests the item can be for: a tour's group, the guests a stay sleeps, or a transfer's or a trike's seats (one vehicle a booking); null when the listing doesn't say */
             max_guests: number | null;
+            /** @description The most its quantity can be: for gear (booked by the count) the units the listing has, otherwise max_guests */
+            max_quantity: number | null;
             /**
              * @description Its listing's: rentals and stays take a range of days, the others one day
              * @enum {string}
@@ -7030,6 +7035,11 @@ export interface components {
             };
             /** @enum {string} */
             booking_type: "rental" | "stay" | "activity" | "transfer";
+            /**
+             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Getting around"
+             * @enum {string}
+             */
+            group: "activity" | "transfer" | "rental" | "stay" | "gear";
             area: components["schemas"]["area_ref"];
             business: components["schemas"]["business_ref"];
             /** @description How many identical items, rooms or vehicles it has */

@@ -70,6 +70,7 @@ module TripSerializer
       pets: item.pets,
       sleeps: item.listing.sleeps,
       max_guests: item.listing.max_guests,
+      max_quantity: item.listing.max_quantity,
       booking_type: item.listing.category.booking_type,
       area: { slug: item.listing.area.slug, name: item.listing.area.name },
       destination: destination && { slug: destination.slug, name: destination.name },

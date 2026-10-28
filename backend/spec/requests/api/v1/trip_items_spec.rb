@@ -15,7 +15,9 @@ RSpec.describe "Trip items", type: :request do
       produces "application/json"
       description "Guest-only. Adds the listing to `trip_id`, or, without one, to a new trip named after the " \
         "destination and dates (\"Bantayan Island · Nov 12–15\"), or `trip_name` if the guest typed one, with " \
-        "`quantity` guests. The trip's dates grow " \
+        "`quantity` guests (`guests` when sent). Gear is booked by the count: its `quantity` is how many, and " \
+        "adding gear the trip already holds unbooked on the same dates raises that item's quantity instead of " \
+        "adding a second. The trip's dates grow " \
         "to cover the item's. Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an " \
         "undated item can't be checked out until it has one. `quantity` is 1 to 99, default 1. Answers with " \
         "the trip. Several items at once (RAA-187, a mix of room types from `GET /stay_mixes`): `items` instead " \
@@ -28,7 +30,8 @@ RSpec.describe "Trip items", type: :request do
           listing_id: { type: :integer },
           starts_on: { type: :string, format: :date, nullable: true },
           ends_on: { type: :string, format: :date, nullable: true },
-          quantity: { type: :integer },
+          quantity: { type: :integer, description: "Its guests; for gear, how many" },
+          guests: { type: :integer, description: "A new trip's guests, 1 to 50; defaults to quantity" },
           room_guests: ROOM_GUESTS_BODY,
           pets: PETS_BODY,
           items: {
@@ -108,6 +111,57 @@ RSpec.describe "Trip items", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body["name"]).to eq("Bantayan Island · Cebu City · #{range}")
+        end
+      end
+
+      context "with gear, booked by the count" do
+        let(:camera) { create(:listing, :gear, area: santa_fe) }
+        let(:trip) { create(:trip, user:, starts_on: day, ends_on: day + 2) }
+        let!(:held) { create(:trip_item, trip:, listing: camera, starts_on: day, ends_on: day + 1, quantity: 1) }
+
+        response "201", "the same gear on the same dates raises the count already there" do
+          schema "$ref" => "#/components/schemas/trip"
+          let(:body) { { listing_id: camera.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, quantity: 2, trip_id: trip.id } }
+
+          run_test! do |response|
+            expect(response.parsed_body["items"].map { _1.slice("id", "quantity", "max_quantity") })
+              .to eq([ { "id" => held.id, "quantity" => 3, "max_quantity" => 3 } ])
+          end
+        end
+
+        response "201", "the same gear on other dates is an item of its own" do
+          schema "$ref" => "#/components/schemas/trip"
+          let(:body) { { listing_id: camera.id, starts_on: (day + 2).iso8601, ends_on: (day + 2).iso8601, trip_id: trip.id } }
+
+          run_test! { |response| expect(response.parsed_body["items"].map { _1["quantity"] }).to eq([ 1, 1 ]) }
+        end
+
+        response "201", "gear already booked isn't added to" do
+          schema "$ref" => "#/components/schemas/trip"
+          let(:body) { { listing_id: camera.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, trip_id: trip.id } }
+
+          before { create(:booking, listing: camera, trip_item: held, user:, starts_on: day, ends_on: day + 1) }
+
+          run_test! { |response| expect(response.parsed_body["items"].size).to eq(2) }
+        end
+
+        response "422", "more of the gear than the partner lists" do
+          let(:body) { { listing_id: camera.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, quantity: 3, trip_id: trip.id } }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to eq([ "Only 3 of DJI Osmo Action 4 are listed, and this trip already has 1 for these dates" ])
+            expect(held.reload.quantity).to eq(1)
+          end
+        end
+
+        response "201", "a new trip's guests sent apart from the count" do
+          schema "$ref" => "#/components/schemas/trip"
+          let(:body) { { listing_id: camera.id, starts_on: day.iso8601, ends_on: day.iso8601, quantity: 2, guests: 4 } }
+
+          run_test! do |response|
+            expect(response.parsed_body).to include("guests" => 4)
+            expect(response.parsed_body["items"].sole["quantity"]).to eq(2)
+          end
         end
       end
 

@@ -112,8 +112,8 @@ module Checkouts
       end
     end
 
-    # A trip item's quantity is its guests; the units they take come from the listing
-    # (Booking.units_for), or a stay's split into rooms (RAA-182).
+    # A trip item's quantity is its guests, or for gear how many; the units they take come from
+    # the listing (Booking.units_for), or a stay's split into rooms (RAA-182).
     def price(item, listing)
       return error("#{listing.title} isn't available to book any more") || { total_cents: 0 } unless listing.active?
 
@@ -140,7 +140,7 @@ module Checkouts
       booking = listing.bookings.create!(
         source: "checkout", checkout:, user: @user, trip_item: item, guest_name: guest_name,
         guest_email: @user.email, guest_phone: @user.phone,
-        starts_on: item.starts_on, ends_on: item.ends_on, quantity: line[:units], guests: item.quantity.clamp(1, Booking::MAX_QUANTITY),
+        starts_on: item.starts_on, ends_on: item.ends_on, quantity: line[:units], guests: guests_of(item, listing),
         room_guests: item.room_guests, pets: item.pets,
         status: instant ? "awaiting_payment" : "requested", expires_at: expires_at(instant, item),
         total_cents: line[:total_cents], price_breakdown: line[:breakdown],
@@ -149,6 +149,11 @@ module Checkouts
         cancellation_policy: listing.cancellation_policy, booking_mode: listing.booking_mode
       )
       Bookings::Transition.record_start(booking, actor: "guest", user: @user)
+    end
+
+    # Gear isn't sized by people: its booking has a count (quantity) and no guests.
+    def guests_of(item, listing)
+      listing.category.gear? ? nil : item.quantity.clamp(1, Booking::MAX_QUANTITY)
     end
 
     def expires_at(instant, item)

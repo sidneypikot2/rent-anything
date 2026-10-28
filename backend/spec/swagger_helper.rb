@@ -293,6 +293,11 @@ RSpec.configure do |config|
                 description: "The most guests the item can be for: a tour's group, the guests a stay sleeps, or a " \
                   "transfer's or a trike's seats (one vehicle a booking); null when the listing doesn't say"
               },
+              max_quantity: {
+                type: :integer, nullable: true,
+                description: "The most its quantity can be: for gear (booked by the count) the units the listing " \
+                  "has, otherwise max_guests"
+              },
               booking_type: {
                 type: :string, enum: %w[rental stay activity transfer],
                 description: "Its listing's: rentals and stays take a range of days, the others one day"
@@ -321,7 +326,7 @@ RSpec.configure do |config|
               },
               listing_active: { type: :boolean, description: "False once the listing is paused or delisted: it can't be booked" }
             },
-            required: %w[id starts_on ends_on quantity room_guests pets sleeps max_guests booking_type area destination listing booking unavailable cancellation_policy listing_active]
+            required: %w[id starts_on ends_on quantity room_guests pets sleeps max_guests max_quantity booking_type area destination listing booking unavailable cancellation_policy listing_active]
           },
           # A trip's view-only share link (RAA-176), as its guest sees it.
           trip_share: {
@@ -459,6 +464,7 @@ RSpec.configure do |config|
                 required: %w[slug name]
               },
               booking_type: { type: :string, enum: %w[rental stay activity transfer] },
+              group: LISTING_GROUP,
               area: { "$ref" => "#/components/schemas/area_ref" },
               business: { "$ref" => "#/components/schemas/business_ref" },
               units_count: { type: :integer, minimum: 1, description: "How many identical items, rooms or vehicles it has" },
@@ -494,7 +500,7 @@ RSpec.configure do |config|
                 description: "Its photos ready for guests (see partner_photo.ready), in the partner's order; the first is the cover"
               }
             },
-            required: %w[id title description summary category booking_type instant_book area business units_count units_label
+            required: %w[id title description summary category booking_type group instant_book area business units_count units_label
               partner_name price_from_cents price_unit guests stay_rate vehicle_rate fees tour details photos]
           },
           # A listing photo's sizes (RAA-106), served straight from storage. A partner's photo not

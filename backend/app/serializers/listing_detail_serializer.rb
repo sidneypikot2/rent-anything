@@ -23,6 +23,7 @@ module ListingDetailSerializer
       summary: summary(listing),
       category: { slug: category.slug, name: category.name },
       booking_type: category.booking_type,
+      group: category.guest_group,
       instant_book: listing.instant_book?,
       area: { slug: listing.area.slug, name: listing.area.name },
       **offered_by(listing),
