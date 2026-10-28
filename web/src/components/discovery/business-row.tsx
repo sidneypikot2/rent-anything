@@ -18,6 +18,7 @@ import type { Feature } from "./listing-features";
 import { ListingPhotos } from "./listing-photos";
 import { ListingRowDetails } from "./listing-row-details";
 import type { Photo } from "./photo-card";
+import { useShopModels } from "./shop-models";
 import { StayMixPicker, type MixOffer } from "./stay-mix-picker";
 import { ArrowGlyph, CategoryGlyph } from "./tag-glyphs";
 
@@ -65,6 +66,7 @@ export function BusinessRow({
   offers: allOffers,
   dates,
   sharedChips = [],
+  shop,
 }: {
   name: string;
   // "in Santa Fe", for a business in a place inside this one.
@@ -75,6 +77,8 @@ export function BusinessRow({
   // Chips every card in its group has, which the group's note says once instead (the panel
   // still lists them).
   sharedChips?: string[];
+  // A shop whose listings here are all rental vehicles (RAA-191): its panel picks how many of each.
+  shop?: { businessId: number };
 }) {
   const shown = useContext(ShownOffersContext);
   const offers = shown ? allOffers.filter((offer) => shown.has(offer.listingId)) : allOffers;
@@ -189,6 +193,7 @@ export function BusinessRow({
               groupTitle={groupTitle}
               offers={offers}
               dates={dates}
+              shop={shop}
               onClose={() => setOpen(false)}
             />,
           document.body,
@@ -204,6 +209,7 @@ function BusinessPanel({
   groupTitle,
   offers,
   dates,
+  shop,
   onClose,
 }: {
   name: string;
@@ -211,6 +217,7 @@ function BusinessPanel({
   groupTitle: string;
   offers: Offer[];
   dates?: TripDates;
+  shop?: { businessId: number };
   onClose: () => void;
 }) {
   const single = offers.length === 1;
@@ -279,6 +286,21 @@ function BusinessPanel({
     ...offers.flatMap((offer) => offer.photos.slice(0, 1)),
     ...offers.flatMap((offer) => offer.photos.slice(1)),
   ].slice(0, CARD_PHOTOS);
+  const heading = [groupTitle, `${offers.length} options`, place].filter(Boolean).join(" · ");
+  // A shop's vehicles are picked together, a counter each, rather than added one card at a time.
+  if (shop)
+    return (
+      <ShopPanel
+        name={name}
+        businessId={shop.businessId}
+        heading={heading}
+        photos={photos}
+        offers={offers}
+        dates={dates}
+        onOpen={setPickedId}
+        onClose={onClose}
+      />
+    );
   // What tells the options apart ("Sleeps 4 · 2 beds"): their details that not every one shares.
   const apart = (offer: Offer) =>
     offer.features
@@ -305,7 +327,7 @@ function BusinessPanel({
     >
       <div ref={body} className="contents">
         <p className="-mt-2 text-sm text-muted">
-          {[groupTitle, `${offers.length} options`, place].filter(Boolean).join(" · ")}
+          {heading}
         </p>
         {/* Several room types with trip dates: rooms for the whole party first (RAA-188). */}
         {stays.length >= 2 && dates?.from && dates.to && <StayMixPicker offers={stays} dates={dates} />}
@@ -341,6 +363,61 @@ function BusinessPanel({
           ))}
         </ul>
       </div>
+    </Dialog>
+  );
+}
+
+// A vehicle shop's panel (RAA-191, the plan's mock 2): its photos and name over its models, each
+// with a counter, the seats they make for the trip's people, the total and one Add for them all.
+// A model's title opens its details in the same panel.
+function ShopPanel({
+  name,
+  businessId,
+  heading,
+  photos,
+  offers,
+  dates,
+  onOpen,
+  onClose,
+}: {
+  name: string;
+  businessId: number;
+  heading: string;
+  photos: Photo[];
+  offers: Offer[];
+  dates?: TripDates;
+  onOpen: (listingId: number) => void;
+  onClose: () => void;
+}) {
+  const tripDates = dates ?? { guests: 1 };
+  const { body, summary, action } = useShopModels({
+    business: { id: businessId, name },
+    category: { name: offers[0].category },
+    dates: tripDates,
+    people: tripDates.guests,
+    listingIds: offers.map((offer) => offer.listingId),
+    onOpen,
+  });
+  return (
+    <Dialog
+      open
+      placement="side"
+      title={name}
+      onClose={onClose}
+      data-testid="detail-panel"
+      media={<ListingPhotos photos={photos} label={name} category={offers[0].category} count="bottom" className="aspect-[16/9]" />}
+      // A side panel's foot is its own: the total, then the button, on one row. The foot wraps,
+      // so the total takes what's left and wraps its own words, or a longer total ("₱4,800 rent
+      // + ₱5,000 refundable deposit") would push the button under it.
+      actions={
+        <div className="flex w-full items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">{summary}</div>
+          {action && <div className="shrink-0">{action}</div>}
+        </div>
+      }
+    >
+      <p className="-mt-2 text-sm text-muted">{heading}</p>
+      {body}
     </Dialog>
   );
 }

@@ -7,6 +7,7 @@ import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
 import { StayPrice } from "@/components/discovery/stay-price";
 import { startingArrangement, stayPriceLine, stayQuoteQuery } from "@/components/discovery/stay-quote";
 import { TourFacts, tourPriceLine } from "@/components/discovery/tour-facts";
+import { VehicleBookingCard } from "@/components/discovery/vehicle-booking-card";
 import { VehiclePrice, vehiclePriceLine } from "@/components/discovery/vehicle-price";
 import { CurrentPlace } from "@/components/landing/current-place";
 import { PageBanner } from "@/components/landing/page-banner";
@@ -47,6 +48,8 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   const rate = listing.stay_rate;
   const tour = listing.tour;
   const vehicleRate = listing.vehicle_rate;
+  // A rental vehicle with seats books as many as its people need, from its own card (RAA-191).
+  const vehicleSeats = vehicleRate && typeof listing.details.seats === "number" ? listing.details.seats : null;
   const cover = listing.photos.at(0);
   const nightsSet = Boolean(dates.from && dates.to && dates.from < dates.to);
   // The party in the fewest rooms, as the price card starts from (RAA-184).
@@ -129,7 +132,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
                 <InTripBadge listingId={listing.id} />
               </div>
               {/* A stay's Add to trip ends its price card, under the rooms picked there. */}
-              {!rate && <AddToTripButton listing={listing} dates={dates} />}
+              {!rate && !vehicleSeats && <AddToTripButton listing={listing} dates={dates} />}
             </CardBody>
           </Card>
 
@@ -137,6 +140,9 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
 
           {rate && (
             <StayPrice key={tripDatesQuery(dates)} listing={listing} rate={rate} dates={dates} initialQuote={quote} add />
+          )}
+          {vehicleRate && vehicleSeats && (
+            <VehicleBookingCard key={tripDatesQuery(dates)} listing={listing} rate={vehicleRate} dates={dates} seats={vehicleSeats} />
           )}
         </TripAddProvider>
 

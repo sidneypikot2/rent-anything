@@ -71,6 +71,7 @@ import {
 } from "./tour-fields";
 import type { PartnerBusiness } from "./use-partner-businesses";
 import type { PartnerLandmark } from "./use-partner-landmarks";
+import { FlatPriceField, isFlatPriced, toFlatPriceValue, toFlatRateBody } from "./flat-price-field";
 import { includedAmenities, isVehicle, toVehicleAttrs, toVehicleValues, VehicleFields, type VehicleValues } from "./vehicle-fields";
 import {
   toVehiclePricingValues,
@@ -111,6 +112,7 @@ export function ListingForm({
   const [stay, setStay] = useState<StayValues>(() => toStayValues(listing.attrs));
   const [infoErrors, setInfoErrors] = useState<StayErrors>();
   const [pricing, setPricing] = useState<PricingValues>(() => toPricingValues(listing.stay_rate, listing.fees));
+  const [flatPrice, setFlatPrice] = useState(() => toFlatPriceValue(listing.flat_rate));
   const [priceErrors, setPriceErrors] = useState<PricingErrors>();
   const [vehicleValues, setVehicleValues] = useState<VehicleValues>(() => toVehicleValues(listing.attrs));
   const [vehiclePricing, setVehiclePricing] = useState<VehiclePricingValues>(() =>
@@ -141,6 +143,8 @@ export function ListingForm({
   const addressQuery = addressChanged(address, listing.address) ? geocodeQuery(address) : undefined;
   const stayCategory = isStay(category);
   const vehicleCategory = isVehicle(category);
+  // Gear and transfers have one flat price (RAA-191).
+  const flatCategory = isFlatPriced(category);
   const tourCategory = isTour(category);
   const fields = stayCategory || vehicleCategory || tourCategory ? [] : attributeFields(category);
   const extras = tourExtras(category);
@@ -183,6 +187,7 @@ export function ListingForm({
         ? { stay_rate: toStayRateBody(pricing, stay.placeType, stay.guests), fees: toFeesBody(pricing) }
         : {}),
       ...(vehicleCategory ? { vehicle_rate: toVehicleRateBody(vehiclePricing), fees: toFeesBody(vehiclePricing) } : {}),
+      ...(flatCategory && flatPrice ? { flat_rate: toFlatRateBody(flatPrice) } : {}),
       ...(tourCategory ? toTourListingBody(tour, extras) : {}),
       // Sent only once moved: a body's photos deletes any photo it leaves out.
       ...(photoOrder ? { photos: orderedPhotos(listing.photos, photoOrder).map((photo) => photo.id) } : {}),
@@ -477,6 +482,17 @@ export function ListingForm({
               />
             </EditSection>
           </>
+        )}
+
+        {flatCategory && (
+          <EditSection id="flat-pricing" title="Pricing" data-testid="listing-flat-pricing">
+            {!listing.flat_rate?.price_cents && (
+              <p role="status" className="text-sm font-medium text-warning">
+                Set a price: guests don&apos;t see one until you do.
+              </p>
+            )}
+            <FlatPriceField value={flatPrice} onChange={setFlatPrice} transfer={category?.booking_type === "transfer"} />
+          </EditSection>
         )}
 
         {fields.length > 0 && (

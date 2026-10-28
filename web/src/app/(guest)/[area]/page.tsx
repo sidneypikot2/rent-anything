@@ -481,6 +481,15 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                     offers={offers}
                                     dates={dates}
                                     sharedChips={shared}
+                                    // A shop of rental vehicles picks how many of each in its panel (RAA-191).
+                                    shop={
+                                      offered.every(
+                                        (listing) =>
+                                          listing.booking_type === "rental" && listing.group !== "gear" && typeof listing.details?.seats === "number",
+                                      )
+                                        ? { businessId: first.business.id }
+                                        : undefined
+                                    }
                                   />
                                 ),
                               };

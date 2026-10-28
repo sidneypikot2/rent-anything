@@ -9,20 +9,22 @@ import type { ListingCategory, PartnerListing } from "./use-partner-listings";
 import { catalogMakes, catalogModels } from "./vehicle-catalog";
 
 // The attrs every vehicle rental shares (RAA-88): make, model and engine size, its
-// transmission, an optional color, and what comes with it (RAA-150). The API's
+// transmission, its seats (RAA-191), an optional color, and what comes with it (RAA-150). The API's
 // attribute_schema holds the limits; this file holds the form. Make and model are suggested
 // from the catalog (vehicle-catalog.ts), and picking a model fills in its cc and transmission.
 
-const VEHICLE_KEYS = ["make", "model", "engine_cc", "transmission", "color", "amenities", "helmet_included"] as const;
+const VEHICLE_KEYS = ["make", "model", "engine_cc", "transmission", "seats", "color", "amenities", "helmet_included"] as const;
 export type VehicleValues = {
   make: string;
   model: string;
   engine_cc: string;
   transmission: string;
+  // How many it carries, rider or driver included (RAA-191): the partner's own count, no default.
+  seats: string;
   color: string;
   amenities: string[];
 };
-export const NEW_VEHICLE: VehicleValues = { make: "", model: "", engine_cc: "", transmission: "", color: "", amenities: [] };
+export const NEW_VEHICLE: VehicleValues = { make: "", model: "", engine_cc: "", transmission: "", seats: "", color: "", amenities: [] };
 
 // A motorcycle, car or van: its schema asks for make, model and engine.
 export function isVehicle(category: ListingCategory | undefined) {
@@ -37,6 +39,7 @@ export function toVehicleValues(attrs: PartnerListing["attrs"]): VehicleValues {
     model: text(attrs.model),
     engine_cc: text(attrs.engine_cc),
     transmission: text(attrs.transmission),
+    seats: text(attrs.seats),
     color: text(attrs.color),
     amenities: Array.isArray(attrs.amenities) ? attrs.amenities.filter((item) => typeof item === "string") : [],
   };
@@ -59,6 +62,7 @@ export function toVehicleAttrs(values: VehicleValues, kept: PartnerListing["attr
     model: values.model.trim(),
     engine_cc: Number(values.engine_cc),
     transmission: values.transmission,
+    seats: Number(values.seats),
     ...(color && { color }),
     amenities: includedAmenities(values, slug),
   };
@@ -148,6 +152,20 @@ export function VehicleFields({
             onChange={set("transmission")}
             options={[{ value: "", label: "Choose one" }, ...TRANSMISSIONS]}
             data-testid="vehicle-transmission"
+          />
+          <Field
+            label="Seats per vehicle"
+            name="seats"
+            type="number"
+            required
+            min={1}
+            max={60}
+            step={1}
+            value={values.seats}
+            onChange={set("seats")}
+            placeholder="e.g. 2"
+            hint="How many people one carries, the rider or driver included. Groups book as many as they need."
+            data-testid="vehicle-seats"
           />
           <Field
             label="Color (optional)"

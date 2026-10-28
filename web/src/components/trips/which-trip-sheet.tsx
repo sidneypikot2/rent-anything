@@ -10,11 +10,15 @@ import { Dialog, DialogFooter, DialogSummary } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Stepper } from "@/components/ui/stepper-field";
 import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
+import { formatPeso } from "@/lib/money";
 import { chooseTrip, useChosenTrip } from "./chosen-trip";
 import { daysBetween, formatDateRange, guestLimitHint, itemCount, noNightError, rentLimitHint, todayIso, tripDetails } from "./format";
 import { bedsBooked } from "./beds";
 import { evenRooms, headcount, partyFromGuests, partyOf, partySummary, roomGuestsToSend, roomText, type Room } from "./party";
 import { RoomsAndGuests } from "./rooms-and-guests";
+import { PriceBreakdown, usePriceBreakdown } from "./price-breakdown";
+import { VehicleCounters } from "./people-and-vehicles";
+import { unitsFor, vehiclePartyText } from "./vehicle-party";
 import { sameItem } from "./trip-missing";
 import { TripOption } from "./trip-option";
 import {
@@ -155,6 +159,15 @@ function capacityNote(preview: AddPreview | undefined, guests: number, wanted: n
   return null;
 }
 
+// The trip's people, said rather than asked (RAA-191): the trip sets them.
+function TripPeople({ people }: { people: number }) {
+  return (
+    <p className="text-sm" data-testid="which-trip-people">
+      <span className="font-semibold">{people} {people === 1 ? "person" : "people"}</span> <span className="text-muted">· your trip</span>
+    </p>
+  );
+}
+
 // Opens the new trip's name field: a text action, underlined as a link is.
 function NameTripButton({ onClick }: { onClick: () => void }) {
   return (
@@ -223,15 +236,19 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
     pickedTrip && request.bookingType === "stay" && dated.startsOn && dated.endsOn
       ? bedsBooked(pickedTrip, dated.startsOn, dated.endsOn)
       : 0;
+  // The people (RAA-191): an existing trip's own, so the sheet doesn't ask; a new trip's from the
+  // page (the search), which the sheet still lets the guest change.
+  const tripPeople = pickedTrip ? pickedTrip.guests : null;
+  const wanted = tripPeople ?? request.quantity;
   // Guests start at those still without a bed (or the trip's guests), up to what the listing
   // takes (capacityNote says so).
-  const unhoused = request.quantity - booked;
+  const unhoused = wanted - booked;
   // A stay's rooms (RAA-184): those guests in the fewest rooms, spread evenly, until the guest
   // changes them; the people they leave out are a hint in the picker.
   // A mix of room types (RAA-188) comes with its rooms picked in the partner's panel.
   const mix = request.mix;
   const rules = request.bookingType === "stay" && !mix ? (request.preview?.stayRules ?? null) : null;
-  const { pets: partyPets, ...people } = partyFromGuests(request.quantity, request);
+  const { pets: partyPets, ...people } = pickedTrip ? partyFromGuests(pickedTrip.guests, pickedTrip) : partyFromGuests(request.quantity, request);
   const startParty = booked > 0 && unhoused > 0 ? withoutHoused(people, booked) : people;
   // Rooms picked beside the listing (its price card) come along as they are.
   const arrangement = rules
@@ -249,11 +266,33 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
       ? String(request.quantity)
       : gear
         ? (typedQuantity ?? "1")
-        : (typedQuantity ??
-      String(Math.min(unhoused > 0 ? unhoused : request.quantity, guestCap(request.preview) ?? Infinity)));
+        : ((tripPeople === null ? typedQuantity : null) ??
+      String(Math.min(unhoused > 0 ? unhoused : wanted, guestCap(request.preview) ?? Infinity)));
   const quantityNumber = Number(quantity);
   const quantityValid = Number.isInteger(quantityNumber) && quantityNumber >= 1 && quantityNumber <= 99;
+  // A rental vehicle (RAA-191): its people and the vehicles they take, from the booking card's
+  // or the page's people, until the guest changes them here.
+  const vehicleSeats = mix ? null : (request.preview?.vehicleSeats ?? null);
+  const vehicle = vehicleSeats !== null;
+  const [typedUnits, setUnits] = useState<number | null>(null);
+  const vehicleUnits = vehicleSeats ? unitsFor(quantityNumber, vehicleSeats, typedUnits ?? request.units) : undefined;
   const dateError = noNight ?? (datesValid ? undefined : "Pick both dates, or neither");
+  // What the add costs (RAA-191): each item of a mix, or the one listing as the sheet has it now.
+  const breakdown = usePriceBreakdown(
+    mix
+      ? mix.map((item) => ({ ...dated, listingId: item.listingId, quantity: item.quantity, units: item.units, roomGuests: item.roomGuests, pets: item.pets }))
+      : [
+          {
+            ...dated,
+            listingId: request.listingId,
+            quantity: quantityValid ? quantityNumber : 1,
+            units: vehicleUnits,
+            roomGuests: arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null,
+            pets: arrangement?.pets ?? 0,
+          },
+        ],
+    mix?.map((item) => item.title),
+  );
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -265,7 +304,8 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
           ...request,
           ...dated,
           quantity: quantityNumber,
-          guests: gear ? request.quantity : undefined,
+          guests: gear ? request.quantity : vehicle ? request.guests : undefined,
+          units: vehicle ? vehicleUnits : undefined,
           roomGuests: arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null,
           pets: arrangement?.pets ?? 0,
         },
@@ -309,15 +349,20 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   const left = listed === undefined ? null : listed - (merging?.quantity ?? 0);
   const full = left !== null && left <= 0;
   const capacity = quantityValid && !mix && !gear
-    ? capacityNote(request.preview, quantityNumber, request.quantity, booked, arrangement?.rooms)
+    ? capacityNote(request.preview, quantityNumber, wanted, booked, arrangement?.rooms)
     : null;
 
   // The trip's short name for the button: "Bantayan Island", not its dates too.
   const goingTo = choice === "new" ? null : (pickedTrip ?? (typeof target === "object" ? target : undefined))?.name.split(" · ")[0];
+  // A shop's models (RAA-191) are vehicles, not stays.
+  const mixNoun = mix?.some((item) => item.units) ? (mix.length === 1 ? "model" : "models") : "stays";
+  const mixUnits = mix?.reduce((sum, item) => sum + (item.units ?? 0), 0) ?? 0;
   const submitLabel = addItem.isPending
     ? "Adding…"
     : mix
-      ? `Add ${mix.length} stays`
+      ? mixUnits
+        ? `Add ${mixUnits} to trip`
+        : `Add ${mix.length} stays`
       : merging
         ? `Add ${quantityNumber} more`
         : already
@@ -329,12 +374,14 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
             : "Start a trip";
   // What the add holds, beside its button: the count (rooms, guests or how many) over the dates.
   const amount = mix
-    ? `${mix.length} stays`
+    ? `${mix.length} ${mixNoun}`
     : arrangement
       ? `${arrangement.rooms.length} ${arrangement.rooms.length === 1 ? "room" : "rooms"}`
       : gear
         ? `Qty ${merging ? merging.quantity + quantityNumber : quantityNumber}`
-        : guestsWord(quantityNumber);
+        : vehicleUnits
+          ? vehiclePartyText(quantityNumber, vehicleUnits, request.preview?.category)
+          : guestsWord(quantityNumber);
   const preview = request.preview;
   const nameTrip =
     naming ? (
@@ -422,9 +469,13 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
               mix.map((item) => (
                 <TicketRow
                   key={item.listingId}
-                  icon={<CategoryGlyph name="Hotel or cottage" />}
+                  icon={<CategoryGlyph name={item.units ? (preview?.category ?? "") : "Hotel or cottage"} />}
                   value={item.title}
-                  label={partySummary(item.roomGuests ?? [{ adults: item.quantity, children: 0, infants: 0 }], item.pets, item.shared)}
+                  label={
+                    item.units
+                      ? vehiclePartyText(item.quantity, item.units, preview?.category)
+                      : partySummary(item.roomGuests ?? [{ adults: item.quantity, children: 0, infants: 0 }], item.pets, item.shared)
+                  }
                   data-testid="which-trip-mix"
                 />
               ))
@@ -439,6 +490,22 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
                 onChange={(rooms, pets) => setRooms({ rooms, pets })}
                 data-testid="which-trip-rooms"
               />
+            ) : vehicleSeats && vehicleUnits ? (
+              <div className="flex flex-col gap-1 px-3.5 py-3" data-testid="which-trip-vehicles">
+                {tripPeople !== null && <TripPeople people={tripPeople} />}
+                <VehicleCounters
+                  fixedPeople={tripPeople !== null}
+                  people={quantityNumber}
+                  units={vehicleUnits}
+                  seats={vehicleSeats}
+                  category={preview?.category}
+                  onChange={(people, units) => {
+                    setQuantity(String(people));
+                    setUnits(units);
+                  }}
+                  testId="which-trip-vehicles"
+                />
+              </div>
             ) : gear ? (
               <TicketRow
                 icon={<CategoryGlyph name={preview?.category ?? ""} />}
@@ -456,6 +523,14 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
                   />
                 }
                 data-testid="which-trip-count"
+              />
+            ) : tripPeople !== null ? (
+              <TicketRow
+                icon={<GuestsGlyph />}
+                label="People"
+                value={guestsWord(quantityNumber)}
+                detail={quantityNumber < tripPeople ? `of your trip's ${tripPeople}` : "your trip"}
+                data-testid="which-trip-guests"
               />
             ) : (
               <TicketRow
@@ -508,6 +583,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
                 {capacity.text}
               </TicketNote>
             )}
+            <PriceBreakdown breakdown={breakdown} />
           </Ticket>
 
         </fieldset>
@@ -553,7 +629,15 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
 
         {/* Pinned to the sheet's foot, so the button is on screen however long the trips list is.
             No Cancel: the close disc, a tap beside the sheet or a drag down closes it. */}
-        <DialogFooter summary={<DialogSummary value={when ?? "No date yet"} detail={amount} />}>
+        <DialogFooter
+          summary={
+            <DialogSummary
+              value={breakdown.price?.total != null ? formatPeso(breakdown.price.total) : (when ?? "No date yet")}
+              detail={breakdown.price?.total != null ? [when, amount].filter(Boolean).join(" · ") : amount}
+              data-testid="which-trip-summary"
+            />
+          }
+        >
           <Button
             type="submit"
             glyph="plus"

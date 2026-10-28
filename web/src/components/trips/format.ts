@@ -1,4 +1,5 @@
 import { formatDateRange, localTodayIso } from "@/lib/dates";
+import { vehiclePartyText } from "./vehicle-party";
 import type { Trip } from "./use-trips";
 
 // The date helpers live in lib/dates.ts, shared with the DateRangeField primitive.
@@ -17,7 +18,8 @@ export function guestCount(count: number) {
 }
 
 // A trip item's quantity in words: its guests, or for gear, booked by the count, how many.
-export function itemAmount(item: { quantity: number; listing: { group: string } }) {
+export function itemAmount(item: { quantity: number; units?: number | null; listing: { group: string; category?: string } }) {
+  if (item.units) return vehiclePartyText(item.quantity, item.units, item.listing.category);
   return item.listing.group === "gear" ? `Qty ${item.quantity}` : guestCount(item.quantity);
 }
 

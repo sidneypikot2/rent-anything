@@ -30,6 +30,7 @@ export function addPreview(listing: AddListing, by?: string): AddPreview {
   const unit = listing.price_unit ? priceUnitText(listing.price_unit) : undefined;
   const count = (value: unknown) => (typeof value === "number" && value > 0 ? value : null);
   const cover = listing.cover_photo_url ?? listing.photos?.[0]?.card_url;
+  const rentalVehicle = listing.booking_type === "rental" && listing.group !== "gear";
   return {
     category: typeof listing.category === "string" ? listing.category : listing.category?.name,
     by: by ?? (listing.business && `by ${listing.business.name}`),
@@ -37,7 +38,10 @@ export function addPreview(listing: AddListing, by?: string): AddPreview {
     price: listing.price_from_cents
       ? ["From", formatPeso(listing.price_from_cents), unit].filter(Boolean).join(" ")
       : pricedByText(listing.booking_type),
-    seats: count(listing.details?.seats),
+    // A transfer books one vehicle, so its seats cap the guests; a rental vehicle (RAA-191) books
+    // as many as its people need instead.
+    seats: rentalVehicle ? null : count(listing.details?.seats),
+    vehicleSeats: rentalVehicle ? count(listing.details?.seats) : null,
     sleeps: listing.booking_type === "stay" ? count(listing.details?.guests) : null,
     sharedRoom: listing.details?.place_type === "shared_room",
     tourGuests: listing.tour ? { min: listing.tour.min_guests, max: listing.tour.max_guests } : null,

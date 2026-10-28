@@ -34,6 +34,9 @@ export type AddRequest = {
   pets?: number;
   // A stay's split into rooms as the add sheet sends it; null or left out: spread evenly.
   roomGuests?: Room[] | null;
+  // A rental vehicle's units the guest chose (RAA-191); left out, the API derives them from the
+  // people (quantity) and the vehicle's seats.
+  units?: number;
   // What the add sheet shows of the listing, as much as the page that started the add knows.
   preview?: AddPreview;
   // Several of one partner's room types added together (RAA-188, a mix from its panel): each its
@@ -48,10 +51,14 @@ export type MixItem = {
   roomGuests: Room[] | null;
   pets: number;
   shared: boolean;
+  // A vehicle model from a shop's pop-up (RAA-191): how many of it.
+  units?: number;
 };
 
 export type AddPreview = {
   category?: string;
+  // A rental vehicle's seats (RAA-191): the add sheet asks for people and vehicles.
+  vehicleSeats?: number | null;
   // "by Santa Fe Island Adventures · in Santa Fe"
   by?: string;
   photo?: { src: string; alt: string } | null;
@@ -276,6 +283,7 @@ export function useAddTripItem() {
               quantity: item.quantity,
               ...(item.roomGuests ? { room_guests: item.roomGuests } : {}),
               ...(item.pets ? { pets: item.pets } : {}),
+              ...(item.units ? { units: item.units } : {}),
             })),
             ...trip,
           }
@@ -288,6 +296,7 @@ export function useAddTripItem() {
           quantity: request.quantity,
           ...(request.roomGuests ? { room_guests: request.roomGuests } : {}),
           ...(request.pets ? { pets: request.pets } : {}),
+          ...(request.units ? { units: request.units } : {}),
           ...(tripId === null && request.guests ? { guests: request.guests } : {}),
           ...trip,
         },
@@ -389,6 +398,8 @@ export type ItemChanges = {
   // A stay's split into rooms (null: spread evenly) and its pets (RAA-184).
   room_guests?: Room[] | null;
   pets?: number;
+  // A rental vehicle's chosen units (RAA-191); null derives them from the people.
+  units?: number | null;
   move_to_trip_id?: number;
 };
 
