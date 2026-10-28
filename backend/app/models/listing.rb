@@ -131,6 +131,12 @@ class Listing < ApplicationRecord
     seats if seats.is_a?(Integer) && seats.positive?
   end
 
+  # The most one trip item's quantity can be: for gear, booked by the count, the units it has;
+  # otherwise its guests (max_guests). Reads category: :parent and units.
+  def max_quantity
+    category.gear? ? units.size : max_guests
+  end
+
   # How many photos it can have (RAA-110): a tour's carousel takes fewer.
   def photo_limit
     category&.tour? ? ListingPhoto::MAX_PER_TOUR : ListingPhoto::MAX_PER_LISTING

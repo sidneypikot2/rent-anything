@@ -3998,13 +3998,15 @@ paths:
       - Trips
       description: 'Guest-only. Adds the listing to `trip_id`, or, without one, to
         a new trip named after the destination and dates ("Bantayan Island · Nov 12–15"),
-        or `trip_name` if the guest typed one, with `quantity` guests. The trip''s
-        dates grow to cover the item''s. Dates are optional, both or neither, `YYYY-MM-DD`
-        and not in the past: an undated item can''t be checked out until it has one.
-        `quantity` is 1 to 99, default 1. Answers with the trip. Several items at
-        once (RAA-187, a mix of room types from `GET /stay_mixes`): `items` instead
-        of one item''s fields, all added or none; a new trip is named and dated after
-        the first.'
+        or `trip_name` if the guest typed one, with `quantity` guests (`guests` when
+        sent). Gear is booked by the count: its `quantity` is how many, and adding
+        gear the trip already holds unbooked on the same dates raises that item''s
+        quantity instead of adding a second. The trip''s dates grow to cover the item''s.
+        Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an
+        undated item can''t be checked out until it has one. `quantity` is 1 to 99,
+        default 1. Answers with the trip. Several items at once (RAA-187, a mix of
+        room types from `GET /stay_mixes`): `items` instead of one item''s fields,
+        all added or none; a new trip is named and dated after the first.'
       security:
       - bearer: []
       parameters:
@@ -4061,6 +4063,10 @@ paths:
                   nullable: true
                 quantity:
                   type: integer
+                  description: Its guests; for gear, how many
+                guests:
+                  type: integer
+                  description: A new trip's guests, 1 to 50; defaults to quantity
                 room_guests:
                   type: array
                   nullable: true
@@ -5286,6 +5292,11 @@ components:
           description: 'The most guests the item can be for: a tour''s group, the
             guests a stay sleeps, or a transfer''s or a trike''s seats (one vehicle
             a booking); null when the listing doesn''t say'
+        max_quantity:
+          type: integer
+          nullable: true
+          description: 'The most its quantity can be: for gear (booked by the count)
+            the units the listing has, otherwise max_guests'
         booking_type:
           type: string
           enum:
@@ -5341,6 +5352,7 @@ components:
       - pets
       - sleeps
       - max_guests
+      - max_quantity
       - booking_type
       - area
       - destination
@@ -5606,6 +5618,17 @@ components:
           - stay
           - activity
           - transfer
+        group:
+          type: string
+          enum:
+          - activity
+          - transfer
+          - rental
+          - stay
+          - gear
+          description: 'Where guests find it: its booking type, except gear (cameras,
+            snorkel sets), which isn''t a vehicle rental: its own section, never a
+            trip''s "Getting around"'
         area:
           "$ref": "#/components/schemas/area_ref"
         business:
@@ -5668,6 +5691,7 @@ components:
       - summary
       - category
       - booking_type
+      - group
       - instant_book
       - area
       - business

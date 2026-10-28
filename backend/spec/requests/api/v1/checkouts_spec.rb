@@ -93,6 +93,18 @@ RSpec.describe "Checkouts", type: :request do
         end
       end
 
+      response "201", "gear is booked by the count: two cameras are one booking for two units, with no guests" do
+        schema "$ref" => "#/components/schemas/checkout"
+
+        let(:camera) { create(:listing, :gear, booking_mode: "instant") }
+        let!(:camera_item) { create(:trip_item, trip:, listing: camera, starts_on: day, ends_on: day + 1, quantity: 2) }
+        let(:item_ids) { [ camera_item.id ] }
+
+        run_test! do |response|
+          expect(response.parsed_body["bookings"].sole).to include("to_be_agreed" => true, "quantity" => 2, "guests" => nil)
+        end
+      end
+
       response "201", "a stay for more guests than a unit sleeps takes two units" do
         schema "$ref" => "#/components/schemas/checkout"
 

@@ -21,7 +21,9 @@ class TripItem < ApplicationRecord
     booking.present?
   end
 
-  validates :quantity, numericality: { only_integer: true, in: 1..99 }
+  MAX_QUANTITY = 99
+
+  validates :quantity, numericality: { only_integer: true, in: 1..MAX_QUANTITY }
   # A stay's pets (RAA-182); its split into rooms, room_guests, is checked by the services
   # that set it (Stays::Arrangement).
   validates :pets, numericality: { only_integer: true, in: 0..20 }

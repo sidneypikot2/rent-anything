@@ -75,6 +75,16 @@ FactoryBot.define do
       initialize_with { Category.find_or_initialize_by(slug: "motorcycle") }
     end
 
+    # Gear: a rental under Equipment rental (Category#gear?), booked by the count, not by guests.
+    trait :gear do
+      name { "Action camera" }
+      booking_type { "rental" }
+      parent do
+        Category.find_by(slug: "equipment-rentals") ||
+          association(:category, :parent, slug: "equipment-rentals", name: "Equipment rental")
+      end
+    end
+
     # A car (RAA-150): a vehicle rental that can come with a driver.
     trait :car do
       motorcycle
@@ -123,6 +133,13 @@ FactoryBot.define do
       attrs { { "make" => "Honda", "model" => "Click 125", "engine_cc" => 125, "transmission" => "automatic" } }
       transient { with_rate { true } }
       after(:create) { |listing, context| create(:vehicle_rate, listing:) if context.with_rate && !listing.vehicle_rate }
+    end
+
+    # An action camera the partner has 3 of: gear, booked by the count.
+    trait :gear do
+      category factory: %i[category gear]
+      title { "DJI Osmo Action 4" }
+      after(:create) { |listing| (2..3).each { listing.units.create!(position: _1) } }
     end
 
     # A daily joiner tour for 2 to 12 guests, 4 hours, at ₱1,500 a head (RAA-110).
