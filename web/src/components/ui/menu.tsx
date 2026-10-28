@@ -145,7 +145,7 @@ export function Menu({ label, items, tone = "light", "data-testid": testId }: Pr
         data-testid={testId}
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex size-9 items-center justify-center rounded-control text-xl leading-none transition-colors",
+          "tap-target flex size-9 items-center justify-center rounded-control text-xl leading-none transition-colors",
           tone === "dark"
             ? cn("text-sky-mist hover:bg-glass-hover hover:text-white", open && "bg-glass-hover text-white")
             : cn("text-muted hover:bg-surface-2 hover:text-primary", open && "bg-action-tint text-action-ink"),

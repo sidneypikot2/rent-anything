@@ -130,6 +130,7 @@ export function ListingBrowser({
   placeName,
   clearHref,
   tripPlaces = [],
+  tripIsland,
 }: {
   groups: ListingGroup[];
   empty: ReactNode;
@@ -140,13 +141,15 @@ export function ListingBrowser({
   // The page's place and the places inside it: a section the guest's trip already has something
   // from here goes to the end, in the rail and the sections, so what the trip still lacks leads.
   tripPlaces?: string[];
+  // The island this place is a town of, so its plan counts kinds from anywhere on it (coversHere).
+  tripIsland?: string | null;
 }) {
   const { trip, has } = useTripHere(tripPlaces);
   // With a trip shown, the plan orders the sections: what it is missing here first (a stay for
   // its nights, a transfer, an item to replace; stillMissing, the banner's count), then the ideas
   // it has nothing of yet, then what it has, and gear, never needed, last. With none, Stays lead.
   const offered = groups.filter((group) => group.group && group.items.length > 0).map((group) => group.group!);
-  const gaps = trip ? stillMissing(planGaps(trip, tripPlaces ?? [], offered, [])) : [];
+  const gaps = trip ? stillMissing(planGaps(trip, tripPlaces ?? [], offered, [], tripIsland)) : [];
   const lacks = new Set<string>(gaps.map(gapGroup));
   const inTrip = (group: ListingGroup) => Boolean(group.group && has.has(group.group) && !lacks.has(group.group));
   const rank = (group: ListingGroup) =>

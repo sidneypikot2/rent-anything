@@ -322,7 +322,7 @@ test("sign-up and the partner guard", async ({ page }) => {
 });
 
 // Add to trip (RAA-66): signed out, the first add needs no account (RAA-177). With a trip,
-// the next add goes to the trip the banner shows, the toast only confirms it, and in the cart
+// the next add goes to the trip the banner shows, a centred badge confirms it, and in the cart
 // (renamed there) the item left is booked (RAA-133) after the guest gives their contact details; the trip link and
 // PIN that come back open the cart in a fresh browser.
 test("add to trip without an account", async ({ page, browser }) => {
@@ -345,9 +345,11 @@ test("add to trip without an account", async ({ page, browser }) => {
   await expect(firstAdd.getByTestId("add-sheet-trip")).toContainText("New trip");
   await firstAdd.getByTestId("which-trip-add").click();
   await expect(firstAdd).toHaveCount(0);
-  const toast = page.getByTestId("trip-toast");
-  await expect(toast).toContainText(/Added .+ to Bantayan Island/);
-  await toast.getByRole("button", { name: "Dismiss" }).click();
+  // No toast over the page: a centred "Added to trip" badge goes into the header's cart, and a live region says
+  // what was added for screen readers.
+  const added = page.getByTestId("trip-added");
+  await expect(added).toContainText(/Added .+ to Bantayan Island/);
+  await expect(page.getByTestId("trip-toast")).toHaveCount(0);
   // The place's page stays the place's, saying the guest has a trip here; View trip opens it in the cart.
   await expect(page.getByTestId("trip-notice-open")).toHaveAttribute("href", /^\/cart\?trip=\d+$/);
 
@@ -358,12 +360,7 @@ test("add to trip without an account", async ({ page, browser }) => {
   await expect(whichTrip.getByTestId("which-trip-add")).toContainText("Add to Bantayan Island");
   await whichTrip.getByTestId("which-trip-add").click();
   await expect(whichTrip).toHaveCount(0);
-  await expect(toast).toContainText(/Added .+ to Bantayan Island/);
-
-  // The toast only confirms the add: nothing in it leaves the page (on a phone it appears where
-  // the sheet's button was, so a second tap lands on it). Its checklist's "still needed" chips
-  // only scroll to their section.
-  await expect(toast.locator('a:not([href^="#"])')).toHaveCount(0);
+  await expect(added).toContainText(/Added .+ to Bantayan Island/);
 
   // The cart (RAA-68, RAA-135): the header counts both items and opens the cart, the trip picked
   // in the trips beside it; it can be renamed there and an item removed.

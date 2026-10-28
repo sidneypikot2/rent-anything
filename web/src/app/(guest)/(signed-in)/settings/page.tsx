@@ -3,11 +3,11 @@ import { DisplayTitle } from "@/components/ui/typography";
 import { PageSheet } from "@/components/landing/page-sheet";
 
 const PANELS = [
-  { title: "Sign-in methods", note: "Password, Google and Facebook (M1)" },
+  { title: "Sign-in methods", note: "Password, Google and Facebook" },
   { title: "Notifications", note: "Booking updates and messages from partners" },
 ];
 
-// The guest's settings: a skeleton until account settings exist (M1).
+// The guest's settings: a skeleton until account settings exist.
 export default function GuestSettings() {
   return (
     <main data-testid="guest-settings" className="flex flex-1 flex-col pt-3 sm:pt-6">

@@ -12,14 +12,14 @@ import { guestCount, guestsLabel } from "./format";
 import { ItemEditSheet } from "./item-edit-sheet";
 import { ItemThumb } from "./item-thumb";
 import { closePlan, setPlanSummary, usePlanOpen } from "./plan-open";
-import { isIdea, PLAN_NEEDS, planGaps, stillMissing, type PlanGap, type Sight } from "./trip-missing";
+import { isIdea, missingCount, PLAN_NEEDS, planGaps, stillMissing, type PlanGap, type Sight } from "./trip-missing";
 import { GettingHereCard, Ideas, jumpTo, LINK, PlanDays } from "./trip-plan-days";
 import { tripPlan } from "./trip-plan";
 import type { Trip, TripItem } from "./use-trips";
 
 // The trip's guide on a place's page, one panel with three ways in (plan-open.ts): the phone's
 // trip row, the first chip of What to book (the rail's first entry from lg) and the wide trip
-// card, each with the count of what is missing (stillMissing: the same as the banner's), never
+// card, each with the count of what is missing (missingCount: the same as the banner's), never
 // the ideas (a ride, things to do). From the bottom on a phone, beside the page from sm (Dialog
 // "drawer"), each row with its way to sort it — a section of What to book, an item's dates
 // (ItemEditSheet), a place to see. A dated trip shows it day by day (tripPlan, PlanDays):
@@ -30,25 +30,28 @@ import type { Trip, TripItem } from "./use-trips";
 export function TripPlan({
   trip,
   places,
+  island,
   offered,
   sights,
   placeName,
 }: {
   trip: Trip;
   places: string[];
+  island?: string | null;
   offered: string[];
   sights: Sight[];
   placeName: string;
 }) {
   const open = usePlanOpen();
   const [dating, setDating] = useState<TripItem | null>(null);
-  const gaps = planGaps(trip, places, offered, sights);
+  const gaps = planGaps(trip, places, offered, sights, island);
   const missing = stillMissing(gaps);
+  const count = missingCount(gaps);
   const problem = gaps.some((gap) => gap.kind === "unavailable");
   // The ways in show the count while this trip is on the page, and go once it isn't.
   useEffect(() => {
-    setPlanSummary({ missing: missing.length, problem });
-  }, [missing.length, problem]);
+    setPlanSummary({ missing: count, problem });
+  }, [count, problem]);
   useEffect(() => () => {
     setPlanSummary(null);
     closePlan();

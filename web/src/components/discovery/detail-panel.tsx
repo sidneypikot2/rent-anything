@@ -215,7 +215,7 @@ export function ListingPanel({
       </p>
       {summary && <p className="text-sm break-words">{summary}</p>}
       {features.length > 0 && (
-        <PanelSection title="Includes">
+        <PanelSection title="Details">
           <ul className="flex flex-wrap gap-1.5">
             {features.map((feature) => (
               <li key={feature.label}>

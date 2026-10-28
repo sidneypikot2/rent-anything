@@ -20,7 +20,7 @@ import { chooseTrip } from "./chosen-trip";
 import { HereItemsSheet } from "./here-items-sheet";
 import { guestsLabel, thingCount } from "./format";
 import { tripOwnQuery } from "./trip-dates";
-import { gapGroup, planGaps, stillMissing, type PlanGap, type Sight } from "./trip-missing";
+import { fixesOf, missingCount, planGaps, stillMissing, type PlanGap, type Sight } from "./trip-missing";
 import { TripNeeds } from "./trip-needs";
 import { openPlan } from "./plan-open";
 import { TripPlan } from "./trip-plan-panel";
@@ -50,6 +50,7 @@ export function AreaHero({
   placeLinks,
   areaName,
   places,
+  island,
   offered,
   sights = [],
   starting = false,
@@ -60,6 +61,9 @@ export function AreaHero({
   placeLinks: { href: string; name: string; count: number }[];
   areaName: string;
   places: string[];
+  // The island this place is a town of (its top-most destination), when it is one: a transfer or
+  // a scooter anywhere on it covers this page too (coversHere), and its chip isn't "another place".
+  island?: string | null;
   // The groups the place has listings in, so the trip's "still missing" asks only for those.
   offered: string[];
   // The places to see here and the listings that go to each, for the plan's "Not on any of your tours yet".
@@ -141,13 +145,14 @@ export function AreaHero({
   const choosable = isGuest && !loading && !trip && current.length > 0;
   // The trip's guide (TripPlan), opened from the trip's row, What to book's first chip, or the wide card.
   const plan = !loading && trip && (
-    <TripPlan trip={trip} places={places} offered={offered} sights={sights} placeName={areaName} />
+    <TripPlan trip={trip} places={places} island={island} offered={offered} sights={sights} placeName={areaName} />
   );
   const notice = (lead: boolean) =>
     trip && (
       <TripNotice
         trip={trip}
         places={places}
+        island={island}
         placeName={areaName}
         offered={offered}
         lead={lead}
@@ -249,7 +254,7 @@ export function AreaHero({
           className={cn(
             glassClasses("forest"),
             COMPACT_ONLY,
-            "min-h-11 items-center justify-between gap-3 rounded-card py-1.5 pr-4 pl-3 text-left text-sm",
+            "@container min-h-11 items-center justify-between gap-3 rounded-card py-1.5 pr-4 pl-3 text-left text-sm",
           )}
         >
           <span className="flex min-w-0 items-center gap-2">
@@ -259,11 +264,11 @@ export function AreaHero({
               <span className="truncate text-small text-sky-mist">Saving it is free</span>
             </span>
           </span>
+          {/* On a narrow phone (320px) the words give way to the arrow, so the lead reads whole;
+              the whole row is the link down to What to book. */}
           <span className="flex shrink-0 items-center gap-1.5 font-semibold">
-            What to book
-            <span aria-hidden className="text-sky-pale">
-              ↓
-            </span>
+            <span className="@max-[18rem]:sr-only">What to book</span>
+            <ArrowGlyph className="size-4 rotate-90 text-sky-pale" />
           </span>
         </a>
       )}
@@ -303,7 +308,7 @@ const COMPACT_ONLY = "hidden max-search:flex fold:flex";
 
 // The guest's trip with something in this place: its name, dates, what it has here, and View
 // trip, which opens it in the cart (where it is booked). Under them, what it still lacks
-// (missingHere: nights without a stay, no transfer here), each linking to its section of What to
+// (planGaps: nights without a stay, no transfer on the island), each linking to its section of What to
 // book: a hint, never a step to finish. An auto-named trip ("Bantayan Island ·
 // Oct 25–28") says its dates once. Compact, one slim row, so the first screen still reaches the
 // search. `onSwitch`: Switch trip, when the guest has another trip.
@@ -319,6 +324,7 @@ const COMPACT_ONLY = "hidden max-search:flex fold:flex";
 function TripNotice({
   trip,
   places,
+  island,
   placeName,
   offered,
   lead,
@@ -327,6 +333,7 @@ function TripNotice({
 }: {
   trip: Trip;
   places: string[];
+  island?: string | null;
   placeName: string;
   offered: string[];
   // At the top of the banner, in place of the place's title: the trip's name is the big line.
@@ -338,8 +345,10 @@ function TripNotice({
   const closeEditing = useCallback(() => setEditing(false), []);
   const tripHere = tripPlaces(trip);
   const dated = tripOwnQuery(trip);
-  // The phone row's count: the plan button's (stillMissing), so the two never disagree.
-  const toSort = stillMissing(planGaps(trip, places, offered, []));
+  // The phone row's count: the plan button's (missingCount), so the two never disagree.
+  const gaps = planGaps(trip, places, offered, [], island);
+  const toSort = stillMissing(gaps);
+  const missing = missingCount(gaps);
   const hereItems = trip.items.filter((item) => places.includes(item.area.slug));
   const items = hereItems.length;
   // What it has here, for a phone's chip: the one thing by name, or how many ("2 things here"),
@@ -347,7 +356,10 @@ function TripNotice({
   const hereNames = items === 1 ? hereItems[0].listing.title : items > 1 ? `${thingCount(items)} here` : undefined;
   // A trip only in this place: its chip would repeat the banner's name, so the rows of what it
   // has here open the edit sheet instead and the chips start with "+ Another place".
-  const onlyHere = tripHere.every((place) => places.includes(place.slug));
+  // On a town of an island the trip's place is the island itself (each item's destination), so
+  // it counts as here, never as another place.
+  const isHere = (slug: string) => places.includes(slug) || slug === island;
+  const onlyHere = tripHere.every((place) => isHere(place.slug));
   const editHere = items > 0 ? () => setEditing(true) : undefined;
   // The trip's whole count, then this place's share when other places hold some ("2 things · 1
   // here"): "1 thing here" alone read as the whole trip. A chosen trip can have nothing here yet.
@@ -365,21 +377,20 @@ function TripNotice({
     lead && "Your trip",
     !(range && trip.name.includes(range)) && (range ?? "No dates yet"),
     guestsLabel(trip.guests),
-    (!onlyHere || items === 0) && here,
+    (!onlyHere || items === 0 || total > items) && here,
   ].filter((part): part is string => Boolean(part));
   const href = tripHref(trip.id);
   // The link opens the trip in the cart, where it's booked: while anything in it can still be
   // booked that's the next step, so it says so; once all of it is booked it only shows the trip.
   const toBook = trip.items.some(bookable);
   const openLabel = toBook ? "Checkout" : "View trip";
-  // The wide card names the first gap here (a stay or the transfer) as a link to its section and
-  // counts the rest as "N more in your plan", which opens it, so the line and the plan always add
-  // up to one number.
-  // Gaps beyond the stay and transfer the checklist shows (an item to replace, an undated one).
-  const others = toSort.filter((gap) => !["stay", "transfer"].includes(gapGroup(gap) ?? "")).length;
+  // The wide card's checklist names the kinds missing; what is left to fix on items already in
+  // the trip (replace, date, top up) is counted as "N to fix in your plan", which opens it, so
+  // the chips and that line add up to the phone row's one number (missingCount).
+  const others = fixesOf(gaps).length;
   // The phone row's second line, also the start of its accessible name (WCAG 2.5.3).
   const rowNote =
-    toSort.length === 1 ? `Needs ${missingNoun(toSort[0])}` : toSort.length > 1 ? `${toSort.length} missing` : "Your plan";
+    missing === 1 ? `Needs ${missingNoun(toSort[0])}` : missing > 1 ? `${missing} missing` : "Your plan";
   const linkStyle =
     "tap-target whitespace-nowrap text-sky-pale underline decoration-sky-pale/40 underline-offset-4 hover:text-white hover:decoration-white";
   return (
@@ -418,6 +429,7 @@ function TripNotice({
             <PlaceChips
               tripPlaces={onlyHere ? [] : tripHere}
               places={places}
+              island={island}
               dated={dated}
               onEditHere={editHere}
               onAnotherPlace={onAnotherPlace}
@@ -429,10 +441,10 @@ function TripNotice({
               to finish), then anything else the plan lists, counted into it, so the two add up to
               the plan button's one number (stillMissing). */}
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-            <TripNeeds trip={trip} places={places} offered={offered} />
+            <TripNeeds trip={trip} places={places} island={island} offered={offered} />
             {others > 0 && (
               <button type="button" onClick={openPlan} aria-haspopup="dialog" data-testid="trip-missing-more" className={linkStyle}>
-                {`${thingCount(others)} more in your plan`}
+                {`${others} to fix in your plan`}
               </button>
             )}
           </div>
@@ -442,7 +454,7 @@ function TripNotice({
             {openLabel}
           </ButtonLink>
           {/* The plan's way in while nothing is missing; otherwise the Still missing line opens it. */}
-          {toSort.length === 0 && (
+          {missing === 0 && (
             <button
               type="button"
               onClick={openPlan}
@@ -479,7 +491,7 @@ function TripNotice({
         >
           <span
             aria-hidden
-            className={cn("size-2 shrink-0 rounded-full", toSort.length > 0 ? "bg-sky-pale" : "bg-mint")}
+            className={cn("size-2 shrink-0 rounded-full", missing > 0 ? "bg-sky-pale" : "bg-mint")}
           />
           {/* Its name, as a guest with trips may switch here, then what it lacks, when anything,
               rather than its count here: a phone has room for one. */}
@@ -520,6 +532,7 @@ function TripNotice({
         <PlaceChips
           tripPlaces={tripHere}
           places={places}
+          island={island}
           dated={dated}
           onEditHere={editHere}
           hereLabel={onlyHere ? hereNames : undefined}
@@ -614,6 +627,7 @@ function HereItemRows({ items, tripHref: href, onEdit }: { items: TripItem[]; tr
 function PlaceChips({
   tripPlaces: list,
   places,
+  island,
   dated,
   onEditHere,
   hereLabel,
@@ -623,6 +637,7 @@ function PlaceChips({
 }: {
   tripPlaces: TripPlace[];
   places: string[];
+  island?: string | null;
   dated: string;
   onEditHere?: () => void;
   hereLabel?: string;
@@ -633,7 +648,7 @@ function PlaceChips({
   return (
     <ul aria-label="Places in this trip" data-testid={testId} className={cn("flex items-center gap-2", className)}>
       {list.map((place) => {
-        const here = places.includes(place.slug);
+        const here = places.includes(place.slug) || place.slug === island;
         const label =
           here && hereLabel ? (
             <span className="max-w-56 truncate">{hereLabel}</span>

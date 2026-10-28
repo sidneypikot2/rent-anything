@@ -39,9 +39,13 @@ type Props = {
   // creating an account): its own title in place of "Welcome back", and no link to the other form.
   title?: string;
   switchLink?: boolean;
+  // h1 on a page with no banner of its own (the guest's /login and /register); the partner and
+  // admin pages already have their h1 in a banner.
+  headingLevel?: "h1" | "h2";
 };
 
-export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = true }: Props) {
+export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = true, headingLevel = "h2" }: Props) {
+  const Heading = headingLevel;
   const router = useRouter();
   const redirectTo = next ?? DASHBOARD_PATHS[role];
   const selfServe = role !== "admin";
@@ -117,7 +121,7 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
   return (
     <Card data-testid={`${role}-${signup ? "signup" : "signin"}`} className="w-full self-start">
       <CardBody pad="lg" className="flex flex-col gap-5">
-        <h2 className={cn("font-display font-extrabold tracking-tight", title ? "text-lg" : "text-2xl")}>{title ?? TITLES[role][signup ? "signup" : "signin"]}</h2>
+        <Heading className={cn("font-display font-extrabold tracking-tight", title ? "text-lg" : "text-2xl")}>{title ?? TITLES[role][signup ? "signup" : "signin"]}</Heading>
 
         <form onSubmit={submit}>
           <fieldset disabled={pending} className="flex flex-col gap-3">
@@ -169,7 +173,7 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
 
         {role === "guest" && !signup && (
           <p className="text-center text-sm text-pretty text-muted">
-            Booked without a password?{" "}
+            No password?{" "}
             <Link href={withNext("/login/code", next)} data-testid="guest-code-link" className="tap-target font-semibold text-link hover:underline">
               Email me a code
             </Link>

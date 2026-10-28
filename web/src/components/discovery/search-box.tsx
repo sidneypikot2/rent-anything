@@ -656,7 +656,8 @@ export function SearchBox({
       {hero || bar ? (
         // The route (Search Bar Directions, A2): Where, When and Guests are stops on a dashed
         // path, like a route on the area map. A stop's dot fills once it is answered, the path
-        // between two answered stops turns solid, and a missing one asks in blue ("Add dates +").
+        // between two answered stops turns solid; When and Guests hold their value in a pill, a
+        // missing one asking with a plus ("Add dates +").
         // The button sits at the path's end. From sm it runs across a white card; on a phone it
         // runs down: on the hero's card (RAA-130), its panels under the card, and in the bar's
         // sheet, each stop's panel opening under it. A phone on its side keeps the row.
@@ -670,7 +671,9 @@ export function SearchBox({
                 : "search:shadow-lift",
           )}
         >
-          <label className={cn(STOP, "cursor-text max-search:order-1 search:flex-[1.5]", panel === "where" && STOP_ON)}>
+          <label
+            className={cn(STOP, WHERE_FOCUS, "cursor-text max-search:order-1 search:flex-[1.5]", panel === "where" && STOP_ON)}
+          >
             <RouteMark set={whereSet} open={panel === "where"} traced={whereSet && dateSet} />
             {/* It takes a place or a thing ("scooter"), which a typed Search looks for in the place. */}
             <span className={STOP_LABEL}>Where or what</span>
@@ -687,11 +690,11 @@ export function SearchBox({
             aria-controls={panel === "when" ? datesId : undefined}
             onClick={() => toggle("when")}
             data-testid="search-dates"
-            className={cn(STOP, "cursor-pointer max-search:order-3", panel === "when" && STOP_ON)}
+            className={cn(STOP, "cursor-pointer max-search:order-3 search:flex-[1.15]", panel === "when" && STOP_ON)}
           >
             <RouteMark set={dateSet} open={panel === "when"} traced={dateSet} />
             <span className={STOP_LABEL}>When</span>
-            <span className="flex min-w-0 items-center gap-1">
+            <span className={cn(STOP_PILL, panel === "when" ? STOP_PILL_ON : STOP_PILL_OFF)}>
               <span className={cn(STOP_VALUE, !dateSet && STOP_EMPTY)}>{dateLabel ?? "Add dates"}</span>
               <ChevronGlyph direction={panel === "when" ? "up" : "down"} className={STOP_CHEVRON} />
             </span>
@@ -704,13 +707,13 @@ export function SearchBox({
             aria-controls={panel === "guests" ? guestsId : undefined}
             onClick={() => toggle("guests")}
             data-testid="search-guests"
-            className={cn(STOP, "cursor-pointer max-search:order-5", panel === "guests" && STOP_ON)}
+            className={cn(STOP, "cursor-pointer max-search:order-5 search:flex-[0.85]", panel === "guests" && STOP_ON)}
           >
             {/* Guests always holds an answer (Just me), so the path to Search is solid once
                 the stops before it are. */}
             <RouteMark set open={panel === "guests"} traced={whereSet && dateSet} last />
             <span className={STOP_LABEL}>Guests</span>
-            <span className="flex min-w-0 items-center gap-1">
+            <span className={cn(STOP_PILL, panel === "guests" ? STOP_PILL_ON : STOP_PILL_OFF)}>
               <span className={STOP_VALUE}>{guestsLabel(guests, party.pets)}</span>
               <ChevronGlyph direction={panel === "guests" ? "up" : "down"} className={STOP_CHEVRON} />
             </span>
@@ -822,14 +825,23 @@ const IN_SHEET = "max-search:static max-search:shadow-none";
 const STOP =
   "group/stop relative isolate flex min-w-0 flex-col gap-px text-left focus-visible:outline-none max-search:pb-4 max-search:pl-7.5 search:flex-1 search:pt-8 search:pr-4 search:pb-2 before:absolute before:-inset-x-2 before:inset-y-0 before:-z-10 before:rounded-control before:bg-mist before:opacity-0 before:transition-opacity before:duration-300 before:ease-calm hover:before:opacity-100 focus-visible:before:opacity-100 focus-within:before:opacity-100";
 const STOP_ON = "before:opacity-100";
-// The chevron after a stop's value, saying it opens; it turns up while open.
-const STOP_CHEVRON =
-  "size-4 shrink-0 text-muted transition-colors duration-300 ease-calm group-hover/stop:text-primary";
+// Where is a text field, and the mist tint alone barely shows on the white card: focused, its
+// tint gets a ring in the action colour, as When's and Guests' pills do.
+const WHERE_FOCUS = "has-[input:focus-visible]:before:ring-2 has-[input:focus-visible]:before:ring-action-edge";
+// When and Guests hold their value in a soft pill with a chevron, so they read as something to
+// press at rest (a phone has no hover to find them by); it deepens on hover and fills while its
+// panel is open, the chevron turning up. Pulled back by its padding so the value lines up with
+// the stop's word.
+const STOP_PILL =
+  "-ml-2.5 flex max-w-full min-w-0 items-center gap-1 self-start rounded-chip px-2.5 py-1 ring-1 transition-[background-color,color,box-shadow] duration-300 ease-calm group-focus-visible/stop:ring-2 group-focus-visible/stop:ring-action-edge";
+// cn() doesn't merge, so the closed and open looks are each whole.
+const STOP_PILL_OFF = "bg-action-tint text-action-ink ring-action-edge/25 group-hover/stop:ring-action-edge/60";
+const STOP_PILL_ON = "bg-action text-white ring-action";
+const STOP_CHEVRON = "size-4 shrink-0";
 const STOP_LABEL = "text-small font-bold text-muted";
-const STOP_VALUE =
-  "truncate text-title-sm font-bold text-navy underline-offset-4 decoration-2 group-focus-visible/stop:underline group-focus-visible/stop:decoration-primary";
-// What a stop still needs, in blue, with a plus: "Add dates +".
-const STOP_EMPTY = "text-primary after:content-['_+']";
+const STOP_VALUE = "truncate text-control font-bold";
+// What a stop still needs, with a plus: "Add dates +".
+const STOP_EMPTY = "after:content-['_+']";
 
 // A stop's dot, and the path from it to the next stop (or, for the last, to Search): dashed
 // until both ends are answered, then solid navy. The open stop's dot is blue and ringed.

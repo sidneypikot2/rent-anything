@@ -9,7 +9,8 @@ import type { Trip, TripItem } from "./use-trips";
 //   stay split into rooms sleeps everyone in them, beds.ts), in
 //   runs ("a stay for Apr 7–9"). Only for a dated trip: an undated one says "a place to stay"
 //   while it has no stay at all. Stays in any place count, as the trip can sleep anywhere;
-// - on a place's page, a way to get there: no transfer here yet, while the place has some.
+// - on a place's page, a way to get there: no transfer on the island yet, while it has some
+//   (planGaps).
 // Tours, rentals and gear are the guest's choice, never missing.
 export type Missing =
   | { kind: "stay"; from: string | null; to: string | null; nights: number; short: number | null }
@@ -41,14 +42,12 @@ export function missingStays(trip: Trip, today = todayIso()): Missing[] {
   return missing;
 }
 
-// The trip's gaps from a place's page. `offered`: the groups the place has listings in, so the
-// hint only asks for what can be booked here.
-export function missingHere(trip: Trip, places: string[], offered: string[], today = todayIso()): Missing[] {
-  const stays = offered.includes("stay") ? missingStays(trip, today) : [];
-  const transfer =
-    offered.includes("transfer") &&
-    !trip.items.some((item) => item.listing.group === "transfer" && places.includes(item.area.slug) && !item.unavailable);
-  return [...stays, ...(transfer ? [{ kind: "transfer" } as const] : [])];
+// Whether an item covers a kind (a transfer, getting around, a tour, gear) for a place's page:
+// it is in the place or one inside it, or, on a town of an island (`island`: the island's slug),
+// anywhere on that island — a van to Bantayan Island or a scooter rented in Bantayan town serves
+// Santa Fe too, so the island's page and its towns' tick the same kinds.
+export function coversHere(item: TripItem, places: string[], island?: string | null) {
+  return places.includes(item.area.slug) || Boolean(island && item.destination?.slug === island);
 }
 
 // An item that sleeps someone: a stay its listing can still have.
@@ -62,9 +61,6 @@ export function missingText(gap: Missing) {
   if (!range) return "a place to stay";
   return gap.short ? `beds for ${gap.short} more, ${range}` : `a stay for ${range}`;
 }
-
-// The page section a gap's link opens on a place's page (What to book's group anchors).
-export const missingAnchor = (gap: Missing) => (gap.kind === "transfer" ? "#need-transfer" : "#need-stay");
 
 // A place to see on the page and the listings that go there (its `visited_by`).
 export type Sight = { slug: string; name: string; visitedBy: number[] };
@@ -99,6 +95,21 @@ export type PlanGap =
 export const isIdea = (gap: PlanGap) => gap.kind === "unseen";
 export const stillMissing = (gaps: PlanGap[]) => gaps.filter((gap) => !isIdea(gap));
 
+// A gap the checklist names by its kind (Stay, Transfer, Getting around, Tours, Gear), or one to
+// fix on an item already in the trip (replace, date, top up its guests).
+export const isKindGap = (gap: PlanGap) => gap.kind === "stay" || gap.kind === "need";
+
+// The one count of what the trip still lacks here, said the same on every way in (the banner's
+// phone row, its wide card, the plan's button): each kind missing once — several runs of nights
+// without a stay are one Stay on the checklist — plus each item to fix. The wide card shows the
+// kinds as chips ("Still to add: 1 of 5") and the fixes as "N to fix in your plan", which add up.
+export function missingCount(gaps: PlanGap[]) {
+  const missing = stillMissing(gaps);
+  const stays = missing.some((gap) => gap.kind === "stay") ? 1 : 0;
+  return stays + missing.filter((gap) => gap.kind !== "stay").length;
+}
+export const fixesOf = (gaps: PlanGap[]) => stillMissing(gaps).filter((gap) => !isKindGap(gap));
+
 // The section of What to book (a listing's `group`) that sorts a gap, so what's missing leads it.
 export function gapGroup(gap: PlanGap) {
   switch (gap.kind) {
@@ -125,10 +136,18 @@ export function sameItem(trip: Trip, listingId: number, from: string | undefined
   });
 }
 
-export function planGaps(trip: Trip, places: string[], offered: string[], sights: Sight[], today = todayIso()): PlanGap[] {
+export function planGaps(
+  trip: Trip,
+  places: string[],
+  offered: string[],
+  sights: Sight[],
+  island?: string | null,
+  today = todayIso(),
+): PlanGap[] {
   const here = trip.items.filter((item) => places.includes(item.area.slug));
-  // An unavailable item counts here: its own row says to find another, so its kind isn't asked twice.
-  const has = new Set(here.map((item) => item.listing.group));
+  // A kind counts as had from anywhere on the island (coversHere). An unavailable item counts too:
+  // its own row says to find another, so its kind isn't asked twice.
+  const has = new Set(trip.items.filter((item) => coversHere(item, places, island)).map((item) => item.listing.group));
   const gaps: PlanGap[] = offered.includes("stay")
     ? missingStays(trip, today).filter((gap): gap is Extract<Missing, { kind: "stay" }> => gap.kind === "stay")
     : [];

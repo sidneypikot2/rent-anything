@@ -11,6 +11,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { formatPeso } from "@/lib/money";
 import { formatDateRange, formatDay, itemAmount, todayIso } from "./format";
 import { bookable, type TripActions } from "./trip-details";
+import { tripOwnQuery } from "./trip-dates";
 import { itemProblem, itemQuote, useTripQuote, type Trip, type TripItem } from "./use-trips";
 
 // A booking that holds its days and hasn't started can be changed (Bookings::Change, RAA-134).
@@ -161,7 +162,8 @@ export function CartItemPanel({
       )}
       <ListingPanel
         listingId={item.listing.id}
-        href={`/listings/${item.listing.id}`}
+        // On the trip's own dates and guests, so the listing page prices the stay rather than asking for dates.
+        href={`/listings/${item.listing.id}${tripOwnQuery(trip)}`}
         category={item.listing.category}
         by=""
         features={[]}

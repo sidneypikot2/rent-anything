@@ -89,21 +89,6 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
               by {listing.business.name} · {listing.units_label}
             </p>
             {listing.instant_book && <InstantBookBadge className="w-fit" />}
-            {rate && (
-              <p data-testid="listing-price" className="font-semibold text-white">
-                {stayPriceLine(rate, listing.guests)}
-              </p>
-            )}
-            {tour && (
-              <p data-testid="listing-price" className="font-semibold text-white">
-                {tourPriceLine(tour)}
-              </p>
-            )}
-            {vehicleRate && (
-              <p data-testid="listing-price" className="font-semibold text-white">
-                {vehiclePriceLine(vehicleRate)}
-              </p>
-            )}
           </>
         }
       >
@@ -127,7 +112,12 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
           >
             <CardBody className="flex flex-wrap items-center justify-between gap-3 max-sm:flex-nowrap max-sm:px-4 max-sm:py-3">
               <div className="flex min-w-0 flex-col items-start gap-1">
-                {priceLine && <p className="font-semibold text-pretty max-sm:text-sm">{priceLine}</p>}
+                {/* The price once, beside the action: the banner names the listing, this card prices it. */}
+                {priceLine && (
+                  <p data-testid="listing-price" className="font-semibold text-pretty max-sm:text-sm">
+                    {priceLine}
+                  </p>
+                )}
                 <p className="text-sm text-muted max-sm:hidden">Saving to a trip is free, and there&apos;s nothing to pay yet.</p>
                 <InTripBadge listingId={listing.id} />
               </div>

@@ -246,21 +246,23 @@ export function SearchPill({
         className,
       )}
     >
-      <span ref={rowRef} className="relative flex min-w-0 flex-1 items-center">
-        <MiniStop set={Boolean(where)} className="min-w-0 shrink">
+      {/* Clipped, so large text never runs under the search button: the place gives way first
+          (shrink-8), then the dates. */}
+      <span ref={rowRef} className="relative flex min-w-0 flex-1 items-center overflow-hidden">
+        <MiniStop set={Boolean(where)} className="min-w-0 shrink-8">
           {where || "Where to?"}
         </MiniStop>
         <MiniPath traced={Boolean(where && dateLabel)} />
-        <MiniStop set={Boolean(dateLabel)} className="shrink-0">
+        <MiniStop set={Boolean(dateLabel)} className="min-w-0 shrink">
           {/* The same words as the route's empty stop; the hero's summary doesn't ask in blue, as its
               own button under it is the action. */}
           {dateLabel ??
             (summary ? (
               "Add dates"
             ) : (
-              <span className="inline-flex items-center gap-1 text-secondary">
-                Add dates
-                <PlusGlyph className="size-3.5" />
+              // Inline, not a flex row, so a narrow pill ends it in an ellipsis rather than a clip.
+              <span className="text-secondary">
+                Add dates <PlusGlyph className="inline size-3.5 align-[-0.125em]" />
               </span>
             ))}
         </MiniStop>

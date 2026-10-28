@@ -55,7 +55,12 @@ export function ListingPhotos({ photos, label, category, count = "top", inset = 
           const el = event.currentTarget;
           setIndex(Math.min(photos.length - 1, Math.round(el.scrollLeft / Math.max(1, el.clientWidth))));
         }}
-        className="flex h-full snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        // Focusable when it scrolls, so the arrow keys can swipe it too.
+        tabIndex={many ? 0 : undefined}
+        className={cn(
+          "flex h-full snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          "outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--focus)",
+        )}
       >
         {photos.map((photo, i) => (
           <div key={photo.src + i} className="relative h-full w-full shrink-0 snap-start">
