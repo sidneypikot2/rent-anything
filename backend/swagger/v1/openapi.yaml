@@ -1429,6 +1429,73 @@ paths:
                 type: array
                 items:
                   "$ref": "#/components/schemas/landmark_pin"
+  "/api/v1/listings/{listing_id}/price":
+    get:
+      summary: What adding a listing to a trip would cost
+      tags:
+      - Discovery
+      description: 'Public. What checkout would charge for a listing on these dates
+        (RAA-191), for any kind: a stay''s nights, extra guests, discount and fees;
+        a tour''s people or groups; a rental vehicle''s vehicles and days (its refundable
+        deposit apart, never in the total); gear''s items and days; a transfer''s
+        vehicles. `lines` say what the total is made of. Dates or a party that can''t
+        be had come back as `unavailable`. Money is in centavos.'
+      parameters:
+      - name: listing_id
+        in: path
+        schema:
+          type: integer
+        required: true
+      - name: starts_on
+        in: query
+        format: date
+        required: true
+        schema:
+          type: string
+      - name: ends_on
+        in: query
+        format: date
+        required: true
+        schema:
+          type: string
+      - name: quantity
+        in: query
+        required: false
+        description: The people, or gear's count; default 1
+        schema:
+          type: integer
+      - name: units
+        in: query
+        required: false
+        description: A rental vehicle's chosen vehicles
+        schema:
+          type: integer
+      - name: room_guests
+        in: query
+        required: false
+        description: A stay's split into rooms, as JSON
+        schema:
+          type: string
+      - name: pets
+        in: query
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: 'every other kind: gear, a transfer, a tour and a stay'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/listing_price"
+        '422':
+          description: missing or bad dates
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: a listing that isn't live
   "/api/v1/listings":
     get:
       summary: Active listings with their approximate location
@@ -5776,9 +5843,15 @@ components:
           allOf:
           - "$ref": "#/components/schemas/vehicle_rate"
           nullable: true
-          description: 'A vehicle rental''s pricing once it has a price (RAA-149);
-            null otherwise. Not quoted at checkout yet: the price is confirmed with
-            the partner'
+          description: A vehicle rental's pricing once it has a price (RAA-149); null
+            otherwise. Priced at checkout for each vehicle and day (RAA-191); the
+            deposit is never part of the price
+        flat_rate:
+          allOf:
+          - "$ref": "#/components/schemas/flat_rate"
+          nullable: true
+          description: Gear's price per item and day, or a transfer's per vehicle
+            and trip, once it has one (RAA-191); null otherwise
         fees:
           type: array
           items:
@@ -5809,6 +5882,7 @@ components:
       - business
       - units_count
       - units_label
+      - flat_rate
       - partner_name
       - price_from_cents
       - price_unit
@@ -5981,6 +6055,12 @@ components:
           - "$ref": "#/components/schemas/vehicle_rate"
           nullable: true
           description: A vehicle rental's pricing (RAA-149); null for any other category
+        flat_rate:
+          allOf:
+          - "$ref": "#/components/schemas/flat_rate"
+          nullable: true
+          description: Gear's or a transfer's price (RAA-191), 0 until set; null for
+            any other category
         fees:
           type: array
           items:
@@ -6042,6 +6122,7 @@ components:
       - units_count
       - stay_rate
       - vehicle_rate
+      - flat_rate
       - fees
       - tour
       - business
@@ -6460,6 +6541,12 @@ components:
             for make, model and engine_cc), and required on a new one or one moved
             into it: replaces the rate when sent; left out on a change, it stays.
             Refused for any other category.'
+        flat_rate:
+          allOf:
+          - "$ref": "#/components/schemas/flat_rate"
+          description: 'Gear (per item and day) or a transfer (per vehicle and trip)
+            only (RAA-191): replaces its price when sent, above 0; left out, it stays.
+            Refused for any other category.'
         fees:
           type: array
           items:
@@ -6500,10 +6587,11 @@ components:
       - group
       - person
       - day
+      - trip
       nullable: true
       description: 'What price_from_cents is for: a night of a stay, a private tour''s
-        whole group or one joiner, a day of a vehicle rental (RAA-149); null when
-        there is no price'
+        whole group or one joiner, a day of a vehicle rental (RAA-149) or of gear,
+        a transfer''s trip (RAA-191); null when there is no price'
     tour_inclusion:
       type: object
       properties:
@@ -6790,6 +6878,54 @@ components:
           description: Default null
       required:
       - nightly_price_cents
+    flat_rate:
+      type: object
+      properties:
+        price_cents:
+          type: integer
+          minimum: 0
+      required:
+      - price_cents
+    listing_price:
+      type: object
+      properties:
+        total_cents:
+          type: integer
+          nullable: true
+          description: What checkout would charge; null when the party can't be had
+            (see unavailable)
+        deposit_cents:
+          type: integer
+          nullable: true
+          description: A rental vehicle's refundable deposit, held at pick-up and
+            never part of the total
+        lines:
+          type: array
+          description: What the total is made of, worded for the guest
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              amount_cents:
+                type: integer
+            required:
+            - label
+            - amount_cents
+        to_be_agreed:
+          type: boolean
+          description: 'The listing has no price yet: the total is 0'
+        unavailable:
+          type: string
+          nullable: true
+          description: Why the dates or the party can't be had ("Only 4 left on Nov
+            20"); null when they can
+      required:
+      - total_cents
+      - deposit_cents
+      - lines
+      - to_be_agreed
+      - unavailable
     vehicle_rate:
       type: object
       properties:

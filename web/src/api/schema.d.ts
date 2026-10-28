@@ -2025,6 +2025,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/listings/{listing_id}/price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What adding a listing to a trip would cost
+         * @description Public. What checkout would charge for a listing on these dates (RAA-191), for any kind: a stay's nights, extra guests, discount and fees; a tour's people or groups; a rental vehicle's vehicles and days (its refundable deposit apart, never in the total); gear's items and days; a transfer's vehicles. `lines` say what the total is made of. Dates or a party that can't be had come back as `unavailable`. Money is in centavos.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** Format: date */
+                    starts_on: string;
+                    /** Format: date */
+                    ends_on: string;
+                    /** @description The people, or gear's count; default 1 */
+                    quantity?: number;
+                    /** @description A rental vehicle's chosen vehicles */
+                    units?: number;
+                    /** @description A stay's split into rooms, as JSON */
+                    room_guests?: string;
+                    pets?: number;
+                };
+                header?: never;
+                path: {
+                    listing_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description every other kind: gear, a transfer, a tour and a stay */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["listing_price"];
+                    };
+                };
+                /** @description a listing that isn't live */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description missing or bad dates */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/listings": {
         parameters: {
             query?: never;
@@ -7140,8 +7209,10 @@ export interface components {
             guests: number | null;
             /** @description Accommodation's nightly pricing once it has a price; null otherwise */
             stay_rate: components["schemas"]["stay_rate"] | null;
-            /** @description A vehicle rental's pricing once it has a price (RAA-149); null otherwise. Not quoted at checkout yet: the price is confirmed with the partner */
+            /** @description A vehicle rental's pricing once it has a price (RAA-149); null otherwise. Priced at checkout for each vehicle and day (RAA-191); the deposit is never part of the price */
             vehicle_rate: components["schemas"]["vehicle_rate"] | null;
+            /** @description Gear's price per item and day, or a transfer's per vehicle and trip, once it has one (RAA-191); null otherwise */
+            flat_rate: components["schemas"]["flat_rate"] | null;
             fees: components["schemas"]["listing_fee"][];
             /** @description A tour's details and the days it runs; null for any other category */
             tour: components["schemas"]["guest_tour"] | null;
@@ -7216,6 +7287,8 @@ export interface components {
             stay_rate: components["schemas"]["stay_rate"] | null;
             /** @description A vehicle rental's pricing (RAA-149); null for any other category */
             vehicle_rate: components["schemas"]["vehicle_rate"] | null;
+            /** @description Gear's or a transfer's price (RAA-191), 0 until set; null for any other category */
+            flat_rate: components["schemas"]["flat_rate"] | null;
             /** @description In the partner's order */
             fees: components["schemas"]["listing_fee"][];
             /** @description A tour's details (RAA-110); null for any other category */
@@ -7392,6 +7465,8 @@ export interface components {
             stay_rate?: components["schemas"]["stay_rate_body"];
             /** @description Vehicle rentals only (a category whose attribute_schema asks for make, model and engine_cc), and required on a new one or one moved into it: replaces the rate when sent; left out on a change, it stays. Refused for any other category. */
             vehicle_rate?: components["schemas"]["vehicle_rate_body"];
+            /** @description Gear (per item and day) or a transfer (per vehicle and trip) only (RAA-191): replaces its price when sent, above 0; left out, it stays. Refused for any other category. */
+            flat_rate?: components["schemas"]["flat_rate"];
             /** @description Any category. Replaces the listing's fees, in this order, when sent; left out on a change, they stay. Names are unique per listing, ignoring case. */
             fees?: components["schemas"]["listing_fee_body"][];
             /** @description Tours only (category slug `tour`), and required on a new one or one moved into it: replaces the tour's details and inclusions when sent; left out on a change, they stay. Refused for any other category. */
@@ -7402,10 +7477,10 @@ export interface components {
         /** @enum {string} */
         tour_type: "private" | "joiner";
         /**
-         * @description What price_from_cents is for: a night of a stay, a private tour's whole group or one joiner, a day of a vehicle rental (RAA-149); null when there is no price
+         * @description What price_from_cents is for: a night of a stay, a private tour's whole group or one joiner, a day of a vehicle rental (RAA-149) or of gear, a transfer's trip (RAA-191); null when there is no price
          * @enum {string|null}
          */
-        price_unit: "night" | "group" | "person" | "day" | null;
+        price_unit: "night" | "group" | "person" | "day" | "trip" | null;
         tour_inclusion: {
             /** @enum {string} */
             kind: "accommodation" | "transport" | "meal";
@@ -7508,6 +7583,24 @@ export interface components {
             min_nights?: number;
             /** @description Default null */
             max_nights?: number | null;
+        };
+        flat_rate: {
+            price_cents: number;
+        };
+        listing_price: {
+            /** @description What checkout would charge; null when the party can't be had (see unavailable) */
+            total_cents: number | null;
+            /** @description A rental vehicle's refundable deposit, held at pick-up and never part of the total */
+            deposit_cents: number | null;
+            /** @description What the total is made of, worded for the guest */
+            lines: {
+                label: string;
+                amount_cents: number;
+            }[];
+            /** @description The listing has no price yet: the total is 0 */
+            to_be_agreed: boolean;
+            /** @description Why the dates or the party can't be had ("Only 4 left on Nov 20"); null when they can */
+            unavailable: string | null;
         };
         vehicle_rate: {
             /** @description For each day (24 hours). 0 means no price yet (listings made before pricing) */

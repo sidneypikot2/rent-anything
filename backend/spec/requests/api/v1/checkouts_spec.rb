@@ -116,8 +116,10 @@ RSpec.describe "Checkouts", type: :request do
         before { click.units.create!((2..6).map { |position| { position: } }) }
 
         run_test! do |response|
-          expect(response.parsed_body["bookings"].map { _1.slice("quantity", "guests") })
-            .to eq([ { "quantity" => 5, "guests" => 10 }, { "quantity" => 6, "guests" => 10 } ])
+          # Priced for each motorbike and day: ₱500 × 5 × 1 day, and ₱500 × 6 × 1 day.
+          expect(response.parsed_body["bookings"].map { _1.slice("quantity", "guests", "total_cents", "to_be_agreed") })
+            .to eq([ { "quantity" => 5, "guests" => 10, "total_cents" => 250_000, "to_be_agreed" => false },
+              { "quantity" => 6, "guests" => 10, "total_cents" => 300_000, "to_be_agreed" => false } ])
           ledger = Availability::Ledger.new([ click.reload ], day, day + 2)
           expect([ day, day + 1, day + 2 ].map { ledger.day(click, _1)[:booked] }).to eq([ 5, 5, 6 ])
         end
@@ -133,6 +135,22 @@ RSpec.describe "Checkouts", type: :request do
         before { click.units.create!((2..4).map { |position| { position: } }) }
 
         run_test! { |response| expect(response.parsed_body["errors"].join).to include("Honda Click: Only 4 left on") }
+      end
+
+      response "201", "priced gear and a transfer: by the item and day, and by the trip (RAA-191)" do
+        schema "$ref" => "#/components/schemas/checkout"
+
+        let(:camera) { create(:listing, :gear, booking_mode: "instant").tap { create(:flat_rate, listing: _1, price_cents: 30_000) } }
+        let(:van) { create(:listing, :transfer, booking_mode: "instant") }
+        let!(:camera_item) { create(:trip_item, trip:, listing: camera, starts_on: day, ends_on: day + 2, quantity: 2) }
+        let!(:van_item) { create(:trip_item, trip:, listing: van, starts_on: day, ends_on: day, quantity: 4) }
+        let(:item_ids) { [ camera_item.id, van_item.id ] }
+
+        run_test! do |response|
+          expect(response.parsed_body["bookings"].map { _1.slice("quantity", "total_cents", "to_be_agreed") })
+            .to contain_exactly({ "quantity" => 2, "total_cents" => 120_000, "to_be_agreed" => false },
+              { "quantity" => 1, "total_cents" => 150_000, "to_be_agreed" => false })
+        end
       end
 
       response "201", "a stay for more guests than a unit sleeps takes two units" do
