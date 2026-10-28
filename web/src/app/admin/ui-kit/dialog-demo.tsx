@@ -82,7 +82,7 @@ export function DialogDemo() {
       >
         <p className="text-sm text-muted">
           placement=&quot;side&quot;: the whole of something on the page, beside it. The title and close button stay at
-          the top and the actions at the foot; what&apos;s between scrolls. A click beside it closes it.
+          the top and the actions at the foot; what&apos;s between scrolls.
         </p>
       </Dialog>
       <Dialog

@@ -127,7 +127,8 @@ function CloseDisc({ onClose, floating = false }: { onClose: () => void; floatin
 }
 
 // A modal over the page: the native <dialog>, so focus stays inside it and Escape closes it. A
-// click on the backdrop closes it too, so a side panel gives the page back with one click beside it.
+// click beside it does nothing: a click that lands there by mistake (a button that moved) must not
+// throw away what was filled in. The close disc, Escape or a drag down closes it.
 export function Dialog({
   open,
   onClose,
@@ -222,8 +223,9 @@ export function Dialog({
       aria-labelledby={titleId}
       data-testid={testId}
       data-placement={placement}
-      onClose={onClose}
-      onClick={(event) => {
+      // React bubbles a nested dialog's close (the rooms sheet inside the add sheet) up to this
+      // one; only its own close closes it.
+      onClose={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
       className={cn(

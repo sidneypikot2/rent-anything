@@ -78,14 +78,17 @@ export function RoomsAndGuests({
   const left = party ? unplacedText(party, rooms) : null;
 
 
+  // Only a floating popover closes on a click outside it. One laid out in the sheet (inline, or a
+  // ticket row) stays: closing it on pointerdown shrinks the sheet, so the click meant for the
+  // sheet's button lands on its backdrop and closes the sheet instead.
   useEffect(() => {
-    if (open !== "popover" || inline) return;
+    if (open !== "popover" || inline || row) return;
     function onPointerDown(event: PointerEvent) {
       if (!root.current?.contains(event.target as Node)) setOpen(null);
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open, inline]);
+  }, [open, inline, row]);
 
   function close() {
     setOpen(null);

@@ -628,7 +628,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
         )}
 
         {/* Pinned to the sheet's foot, so the button is on screen however long the trips list is.
-            No Cancel: the close disc, a tap beside the sheet or a drag down closes it. */}
+            No Cancel: the close disc or a drag down closes it. */}
         <DialogFooter
           summary={
             <DialogSummary
