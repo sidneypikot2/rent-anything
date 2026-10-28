@@ -438,7 +438,7 @@ function TripNotice({
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <ButtonLink href={href} variant="frosted" size="touch" arrow data-testid="trip-notice-open" className="shrink-0">
+          <ButtonLink href={href} variant="paper" size="touch" arrow data-testid="trip-notice-open" className="shrink-0">
             {openLabel}
           </ButtonLink>
           {/* The plan's way in while nothing is missing; otherwise the Still missing line opens it. */}

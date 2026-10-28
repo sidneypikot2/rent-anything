@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { formatDateRange } from "@/components/trips/format";
 import { Button } from "@/components/ui/button";
+import { CalendarGlyph } from "@/components/discovery/tag-glyphs";
 import { Dialog } from "@/components/ui/dialog";
+import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
 import { TextareaField } from "@/components/ui/textarea-field";
 import { formatPeso } from "@/lib/money";
 import { CANCELLATION_POLICY } from "./cancellation";
@@ -22,6 +24,8 @@ export function CancelDialog({
 }) {
   const cancel = useCancelBooking();
   const [reason, setReason] = useState("");
+  // The reason is optional: a link opens its field, so the dialog stays a short question.
+  const [giving, setGiving] = useState(false);
   const refund = booking.refund_if_cancelled_cents;
   // Only a confirmed booking has been paid for; a request or an unpaid hold costs nothing.
   const paid = booking.status === "confirmed";
@@ -31,6 +35,8 @@ export function CancelDialog({
       open
       onClose={() => !cancel.isPending && onClose()}
       title="Cancel this booking?"
+      meta="Its dates are freed for other travellers."
+      tone="danger"
       data-testid="booking-cancel-dialog"
       actions={
         <>
@@ -51,24 +57,37 @@ export function CancelDialog({
         </>
       }
     >
-      <p className="text-sm">
-        {booking.listing.title}, {formatDateRange(booking.starts_on, booking.ends_on)}. Its dates are freed for others.
-      </p>
-      {paid && (
-        <p className="text-sm font-semibold" data-testid="booking-cancel-refund">
-          {refund ? `You get back ${formatPeso(refund)}.` : "You get nothing back."}{" "}
-          {booking.cancellation_policy && (
-            <span className="font-normal text-muted">{CANCELLATION_POLICY[booking.cancellation_policy]?.rule}</span>
-          )}
-        </p>
+      <Ticket>
+        <TicketRow
+          icon={<CalendarGlyph />}
+          value={booking.listing.title}
+          label={[formatDateRange(booking.starts_on, booking.ends_on), booking.reference].filter(Boolean).join(" · ")}
+        />
+        {paid && (
+          <TicketNote tone={refund ? "ok" : "warning"} data-testid="booking-cancel-refund">
+            <span className="font-semibold">{refund ? `You get back ${formatPeso(refund)}.` : "You get nothing back."}</span>{" "}
+            {booking.cancellation_policy && <span>{CANCELLATION_POLICY[booking.cancellation_policy]?.rule}</span>}
+          </TicketNote>
+        )}
+      </Ticket>
+      {giving ? (
+        <TextareaField
+          label="Reason (optional)"
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          maxLength={500}
+          rows={2}
+          autoFocus
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setGiving(true)}
+          className="tap-target self-start text-sm font-semibold text-link underline underline-offset-4 hover:text-primary"
+        >
+          Add a reason (optional)
+        </button>
       )}
-      <TextareaField
-        label="Reason (optional)"
-        value={reason}
-        onChange={(event) => setReason(event.target.value)}
-        maxLength={500}
-        rows={2}
-      />
       {cancel.error && (
         <p role="alert" className="text-sm text-danger">
           {cancel.error.message}

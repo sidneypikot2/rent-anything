@@ -71,7 +71,7 @@ test("search a landmark and open its destination", async ({ page }) => {
   await bar.getByTestId("search-bar-pill").click();
   await expect(bar.getByTestId("search-input")).toHaveValue("Bantayan Island");
   await bar.getByTestId("search-guests").click();
-  await bar.getByTestId("search-guests-count-more").click();
+  await bar.getByTestId("search-adults-more").click();
   await bar.getByTestId("search-submit").click();
   await expect(page).toHaveURL(/\/bantayan-island\?guests=2$/);
   await expect(bar.getByTestId("search-bar-pill")).toContainText("2 guests");
@@ -322,8 +322,8 @@ test("sign-up and the partner guard", async ({ page }) => {
 });
 
 // Add to trip (RAA-66): signed out, the first add needs no account (RAA-177). With a trip,
-// the next add asks which trip, and the toast leads to editing it and to the cart, where the
-// item left is booked (RAA-133) after the guest gives their contact details; the trip link and
+// the next add goes to the trip the banner shows, the toast only confirms it, and in the cart
+// (renamed there) the item left is booked (RAA-133) after the guest gives their contact details; the trip link and
 // PIN that come back open the cart in a fresh browser.
 test("add to trip without an account", async ({ page, browser }) => {
   // The add, the cart, checkout, the trip link and the Trips page: more than the default 30s.
@@ -342,7 +342,7 @@ test("add to trip without an account", async ({ page, browser }) => {
   // Every add is confirmed in the add sheet, the first one too: it starts a new trip.
   const firstAdd = page.getByTestId("which-trip-sheet");
   await expect(firstAdd.getByTestId("add-sheet-listing")).toBeVisible();
-  await expect(firstAdd.getByTestId("add-sheet-trip")).toContainText("Starts a new trip");
+  await expect(firstAdd.getByTestId("add-sheet-trip")).toContainText("New trip");
   await firstAdd.getByTestId("which-trip-add").click();
   await expect(firstAdd).toHaveCount(0);
   const toast = page.getByTestId("trip-toast");
@@ -354,23 +354,28 @@ test("add to trip without an account", async ({ page, browser }) => {
   // On a place's page the next add goes to the trip the banner shows, with no trip to pick.
   await page.getByTestId("add-to-trip").nth(1).click();
   const whichTrip = page.getByTestId("which-trip-sheet");
-  await expect(whichTrip.getByTestId("add-sheet-trip")).toContainText("Adding to Bantayan Island");
+  await expect(whichTrip.getByTestId("add-sheet-trip")).toContainText("Bantayan Island");
+  await expect(whichTrip.getByTestId("which-trip-add")).toContainText("Add to Bantayan Island");
   await whichTrip.getByTestId("which-trip-add").click();
   await expect(whichTrip).toHaveCount(0);
   await expect(toast).toContainText(/Added .+ to Bantayan Island/);
 
-  // Rename from the toast.
-  await toast.getByRole("button", { name: "Rename" }).click();
+  // The toast only confirms the add: nothing in it leaves the page (on a phone it appears where
+  // the sheet's button was, so a second tap lands on it). Its checklist's "still needed" chips
+  // only scroll to their section.
+  await expect(toast.locator('a:not([href^="#"])')).toHaveCount(0);
+
+  // The cart (RAA-68, RAA-135): the header counts both items and opens the cart, the trip picked
+  // in the trips beside it; it can be renamed there and an item removed.
+  await expect(page.getByTestId("nav-cart-count")).toHaveText("2");
+  await page.getByTestId("nav-cart").click();
+  await expect(page).toHaveURL(/\/cart$/);
+  await page.getByTestId("cart-trip").first().getByTestId("cart-trip-menu").click();
+  await page.getByTestId("trip-action-edit").click();
   const edit = page.getByTestId("edit-trip-sheet");
   await edit.getByLabel("Trip name").fill(`Smoke trip ${stamp}`);
   await edit.getByTestId("edit-trip-save").click();
-  await expect(toast).toContainText(`Saved Smoke trip ${stamp}`);
-
-  // The cart (RAA-68, RAA-135): the header counts both items, View trip shows the trip, picked
-  // in the trips beside it, and an item can be removed.
-  await expect(page.getByTestId("nav-cart-count")).toHaveText("2");
-  await toast.getByTestId("trip-toast-view").click();
-  await expect(page).toHaveURL(/\/cart\?trip=\d+$/);
+  await expect(edit).toHaveCount(0);
   await expect(page.getByTestId("cart-trip-tab").filter({ hasText: `Smoke trip ${stamp}` })).toHaveAttribute(
     "aria-current",
     "page",

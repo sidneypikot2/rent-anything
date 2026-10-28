@@ -146,6 +146,32 @@
       transform: translateY(8px);
     }
   }
+  /* A dialog arriving (the modal redesign): up from where it docks and in, quicker than a
+     page's arrivals, as it answers a tap. */
+  --animate-sheet-in: sheet-in 0.45s var(--ease-calm) both;
+  @keyframes sheet-in {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+  }
+  /* A toast arriving from the foot of the screen, and leaving the same way once its time is up or
+     it is dismissed (TOAST_OUT_MS in toast.tsx matches toast-out). Quicker than an arrival: it
+     answers a tap. */
+  --animate-toast-in: toast-in 0.45s var(--ease-calm) both;
+  --animate-toast-out: toast-out 0.3s var(--ease-calm) both;
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(24px) scale(0.96);
+    }
+  }
+  @keyframes toast-out {
+    to {
+      opacity: 0;
+      transform: translateY(16px) scale(0.98);
+    }
+  }
   /* A need the trip just covered (TripNeeds): its chip pops once, with a mint ring fading out. */
   --animate-tick: tick 0.7s var(--ease-calm) both;
   @keyframes tick {

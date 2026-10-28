@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { DayPicker, type DayButtonProps } from "react-day-picker";
+import { CalendarGlyph } from "@/components/discovery/tag-glyphs";
 import { formatDateRange } from "@/lib/dates";
 import { cn } from "./cn";
 
@@ -25,6 +26,9 @@ type Props = {
   // In flow under the field rather than floating over the page: for a sheet, which
   // scrolls its own content.
   inline?: boolean;
+  // A ticket row in a dialog (the modal redesign): the calendar icon in its well, the label over
+  // the dates, a chevron; the calendar opens under it, inside the ticket.
+  row?: boolean;
   autoFocus?: boolean;
   className?: string;
   "data-testid"?: string;
@@ -102,6 +106,7 @@ export function DateRangeField({
   clearable = false,
   placeholder,
   inline = false,
+  row = false,
   autoFocus,
   className,
   "data-testid": testId,
@@ -146,7 +151,42 @@ export function DateRangeField({
         : null;
 
   return (
-    <div ref={root} onKeyDown={onKeyDown} className={cn("relative flex flex-col gap-1.5 text-sm font-semibold", className)}>
+    <div ref={root} onKeyDown={onKeyDown} className={cn("relative flex flex-col text-sm font-semibold", !row && "gap-1.5", className)}>
+      {row ? (
+        <button
+          ref={trigger}
+          type="button"
+          autoFocus={autoFocus}
+          aria-labelledby={`${labelId} ${valueId}`}
+          aria-describedby={note ? noteId : undefined}
+          aria-expanded={open}
+          aria-controls={calendarId}
+          data-testid={testId}
+          onClick={() => setOpen(!open)}
+          className="flex min-h-16 w-full items-center gap-3 px-3.5 py-3 text-left outline-none transition-colors duration-300 ease-calm hover:bg-surface-2 focus-visible:bg-surface-2"
+        >
+          <span className="flex size-9.5 shrink-0 items-center justify-center rounded-xl bg-action-tint text-action-ink">
+            <CalendarGlyph className="size-5" />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span id={labelId} className="text-xs font-semibold text-muted">
+              {label}
+            </span>
+            <span id={valueId} className={cn("text-control font-bold", !value && "text-muted")}>
+              {value ?? placeholder ?? (single ? "Add a date" : "Add dates")}
+              {note && (
+                <span id={noteId} className={cn("font-medium", error ? "text-danger" : "text-muted")}>
+                  {" "}· {note}
+                </span>
+              )}
+            </span>
+          </span>
+          <svg aria-hidden viewBox="0 0 24 24" className={cn("size-4.5 shrink-0 text-muted transition-transform duration-300 ease-calm", open ? "rotate-180" : "")} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+      ) : (
+      <>
       <span id={labelId}>{label}</span>
       <button
         ref={trigger}
@@ -175,6 +215,8 @@ export function DateRangeField({
           {note}
         </span>
       )}
+      </>
+      )}
 
       {open && (
         <div
@@ -182,8 +224,9 @@ export function DateRangeField({
           role="group"
           aria-label={label}
           className={cn(
-            "flex w-full flex-col gap-2 card-edge rounded-control bg-surface p-3 font-normal",
-            inline ? "mt-1" : "absolute left-0 top-full z-20 mt-1 shadow-lift sm:w-80",
+            "flex w-full flex-col gap-2 bg-surface p-3 font-normal",
+            row ? "border-t border-line" : "card-edge rounded-control",
+            !row && (inline ? "mt-1" : "absolute left-0 top-full z-20 mt-1 shadow-lift sm:w-80"),
           )}
         >
           <DateRangeCalendar from={from} to={to} onChange={onChange} min={min} single={single} onComplete={close} />

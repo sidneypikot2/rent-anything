@@ -2,7 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogFooter, DialogSummary } from "@/components/ui/dialog";
+import { Ticket } from "@/components/ui/ticket";
 import { tripDetails } from "./format";
 import { TripOption } from "./trip-option";
 import type { Trip } from "./use-trips";
@@ -43,24 +44,24 @@ export function PickTripSheet({
   }
 
   return (
-    <Dialog open onClose={onClose} placement="sheet" title={title} data-testid={testId}>
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        <p className="text-sm text-muted">{summary}</p>
-
+    <Dialog open onClose={onClose} placement="sheet" title={title} meta={summary} data-testid={testId}>
+      <form onSubmit={submit} className="flex flex-1 flex-col gap-4">
         {trips.length === 0 ? (
           <p className="text-sm">You have no other trips to choose from.</p>
         ) : (
-          <fieldset disabled={pending} className="flex max-h-[50dvh] flex-col gap-2 overflow-y-auto">
+          <fieldset disabled={pending} className="flex flex-col">
             <legend className="sr-only">Trip</legend>
-            {trips.map((trip) => (
-              <TripOption
-                key={trip.id}
-                checked={pickedId === trip.id}
-                onSelect={() => setPickedId(trip.id)}
-                title={trip.name}
-                detail={tripDetails(trip)}
-              />
-            ))}
+            <Ticket className="max-h-[50dvh] overflow-y-auto">
+              {trips.map((trip) => (
+                <TripOption
+                  key={trip.id}
+                  checked={pickedId === trip.id}
+                  onSelect={() => setPickedId(trip.id)}
+                  title={trip.name}
+                  detail={tripDetails(trip)}
+                />
+              ))}
+            </Ticket>
           </fieldset>
         )}
 
@@ -70,14 +71,11 @@ export function PickTripSheet({
           </p>
         )}
 
-        <div className="flex flex-wrap justify-end gap-3">
-          <Button type="button" variant="soft" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" data-testid="pick-trip-confirm" disabled={pending || !picked}>
+        <DialogFooter summary={picked && <DialogSummary value={picked.name} detail={tripDetails(picked)} />}>
+          <Button type="submit" data-testid="pick-trip-confirm" loading={pending} disabled={!picked}>
             {pending ? "Saving…" : confirmLabel}
           </Button>
-        </div>
+        </DialogFooter>
       </form>
     </Dialog>
   );

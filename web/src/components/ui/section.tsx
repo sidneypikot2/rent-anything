@@ -20,6 +20,7 @@ export function Section({
   intro,
   action,
   surface,
+  align = "start",
   className,
   children,
 }: {
@@ -30,13 +31,15 @@ export function Section({
   intro?: ReactNode;
   action?: ReactNode;
   surface?: "photo" | "glass" | "paper";
+  // "center" centres the heading over content that is itself centred (the About page's founders).
+  align?: "start" | "center";
   className?: string;
   children: ReactNode;
 }) {
   return (
     <section id={id} data-testid={testId} data-surface={surface} className={cn(!id && "reveal", "flex flex-col gap-block", className)}>
-      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-        <div className="flex max-w-prose flex-col gap-2">
+      <header className={cn("flex flex-wrap items-end gap-x-6 gap-y-3", align === "center" ? "justify-center text-center" : "justify-between")}>
+        <div className={cn("flex max-w-prose flex-col gap-2", align === "center" && "items-center")}>
           {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
           <SectionTitle>{title}</SectionTitle>
           {intro && <p className="text-pretty text-muted">{intro}</p>}

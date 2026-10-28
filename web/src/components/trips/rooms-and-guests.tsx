@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ChevronGlyph } from "@/components/discovery/tag-glyphs";
+import { CategoryGlyph, ChevronGlyph } from "@/components/discovery/tag-glyphs";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogSummary } from "@/components/ui/dialog";
 import { StepperField } from "@/components/ui/stepper-field";
 import { formatPeso } from "@/lib/money";
 import {
@@ -32,6 +32,9 @@ type Props = {
   // Inside a sheet, the desktop panel opens under the field rather than floating over the
   // sheet's edge (a phone always gets its own sheet).
   inline?: boolean;
+  // A ticket row in a dialog (the modal redesign): a bed in its well, the label over the summary,
+  // a chevron; the desktop panel opens under it, inside the ticket.
+  row?: boolean;
   // What the pets stepper says under its label; by default, the stay's limit.
   petsHint?: string;
   disabled?: boolean;
@@ -60,6 +63,7 @@ export function RoomsAndGuests({
   party,
   label = "Rooms and guests",
   inline = false,
+  row = false,
   searched,
   petsHint,
   disabled,
@@ -149,7 +153,39 @@ export function RoomsAndGuests({
   );
 
   return (
-    <div ref={root} onKeyDown={onKeyDown} className="relative flex flex-col gap-1.5 text-sm font-semibold">
+    <div ref={root} onKeyDown={onKeyDown} className={cn("relative flex flex-col text-sm font-semibold", !row && "gap-1.5")}>
+      {row ? (
+        <button
+          ref={trigger}
+          type="button"
+          disabled={disabled}
+          aria-labelledby={`${labelId} ${valueId}`}
+          aria-expanded={open !== null}
+          aria-controls={open === "popover" ? panelId : undefined}
+          data-testid={testId}
+          onClick={() => setOpen(open ? null : window.matchMedia(WIDE).matches ? "popover" : "sheet")}
+          className="flex min-h-16 w-full items-center gap-3 px-3.5 py-3 text-left outline-none transition-colors duration-300 ease-calm hover:bg-surface-2 focus-visible:bg-surface-2 disabled:opacity-50"
+        >
+          <span className="flex size-9.5 shrink-0 items-center justify-center rounded-xl bg-action-tint text-action-ink">
+            <CategoryGlyph name="Hotel or cottage" className="size-5" />
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span id={labelId} className="text-xs font-semibold text-muted">
+              {label}
+            </span>
+            <span id={valueId} className="text-control font-bold">
+              {partySummary(rooms, pets, rules.shared)}
+            </span>
+            {left && !open && (
+              <span className="text-xs font-normal text-warning" data-testid={testId && `${testId}-hint`}>
+                {left}
+              </span>
+            )}
+          </span>
+          <ChevronGlyph direction={open === "popover" ? "down" : "right"} className="size-4.5 shrink-0 text-muted" />
+        </button>
+      ) : (
+      <>
       <span id={labelId}>{label}</span>
       <button
         ref={trigger}
@@ -174,19 +210,27 @@ export function RoomsAndGuests({
           {left}
         </span>
       )}
+      </>
+      )}
 
       {open === "popover" && (
-        <Panel id={panelId} label={label} inline={inline} onDone={close}>
+        <Panel id={panelId} label={label} inline={inline || row} row={row} onDone={close}>
           {body}
         </Panel>
       )}
-      <Dialog open={open === "sheet"} onClose={() => setOpen(null)} placement="sheet" title={label}>
-        <div className="flex flex-col gap-4 font-normal">
-          {body}
-          <Button type="button" onClick={() => setOpen(null)} className="self-end" data-testid={testId && `${testId}-done`}>
+      <Dialog
+        open={open === "sheet"}
+        onClose={() => setOpen(null)}
+        placement="sheet"
+        title={label}
+        summary={<DialogSummary value={partySummary(rooms, pets, rules.shared)} />}
+        actions={
+          <Button type="button" onClick={() => setOpen(null)} data-testid={testId && `${testId}-done`}>
             Done
           </Button>
-        </div>
+        }
+      >
+        <div className="flex flex-col gap-4 font-normal">{body}</div>
       </Dialog>
     </div>
   );
@@ -257,7 +301,7 @@ export function RoomBlock({
   );
 }
 
-function Panel({ id, label, inline, onDone, children }: { id: string; label: string; inline: boolean; onDone: () => void; children: ReactNode }) {
+function Panel({ id, label, inline, row = false, onDone, children }: { id: string; label: string; inline: boolean; row?: boolean; onDone: () => void; children: ReactNode }) {
   // Opened low on the screen, it scrolls the page so it shows whole, Done included.
   const panel = useRef<HTMLDivElement>(null);
   // A block body: newer browsers return a Promise from scrollIntoView, which an effect can't return.
@@ -271,8 +315,9 @@ function Panel({ id, label, inline, onDone, children }: { id: string; label: str
       role="group"
       aria-label={label}
       className={cn(
-        "flex w-full flex-col gap-3 card-edge rounded-control bg-surface p-4 font-normal",
-        inline ? "mt-1 scroll-mb-4" : "absolute left-0 top-full z-20 mt-1 max-h-[70vh] scroll-mb-20 overflow-y-auto shadow-lift sm:w-96",
+        "flex w-full flex-col gap-3 bg-surface p-4 font-normal",
+        row ? "scroll-mb-4 border-t border-line" : "card-edge rounded-control",
+        !row && (inline ? "mt-1 scroll-mb-4" : "absolute left-0 top-full z-20 mt-1 max-h-[70vh] scroll-mb-20 overflow-y-auto shadow-lift sm:w-96"),
       )}
     >
       {children}

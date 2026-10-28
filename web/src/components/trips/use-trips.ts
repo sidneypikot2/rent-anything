@@ -24,7 +24,10 @@ export type AddRequest = {
   bookingType?: string;
   startsOn?: string;
   endsOn?: string;
+  // Its guests, or for gear how many.
   quantity: number;
+  // A new trip's guests when quantity isn't them (gear's count).
+  guests?: number;
   // Of the guests, the children and infants, and pets beside them: the page's party (RAA-184).
   children?: number;
   infants?: number;
@@ -63,6 +66,8 @@ export type AddPreview = {
   tourGuests?: { min: number; max: number } | null;
   unitsCount?: number;
   unitsLabel?: string;
+  // Gear is booked by the count: the sheet asks how many, not guests (Category#gear?).
+  gear?: boolean;
   // A stay's rules for its rooms and guests (party.ts), from its details.
   stayRules?: StayRules | null;
 };
@@ -283,6 +288,7 @@ export function useAddTripItem() {
           quantity: request.quantity,
           ...(request.roomGuests ? { room_guests: request.roomGuests } : {}),
           ...(request.pets ? { pets: request.pets } : {}),
+          ...(tripId === null && request.guests ? { guests: request.guests } : {}),
           ...trip,
         },
       });

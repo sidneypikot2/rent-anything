@@ -69,6 +69,10 @@ export function InTripBadge({ listingId }: { listingId: number }) {
       </Badge>
     );
   const item = trip.items.find((each) => each.listing.id === listingId && !each.booking);
+  // Gear is booked by the count: "2 in your trip", every line of it in this trip together.
+  const held = trip.items.filter((each) => each.listing.id === listingId);
+  const count = held[0]?.listing.group === "gear" ? held.reduce((sum, each) => sum + each.quantity, 0) : 1;
+  const label = count > 1 ? `${count} in your trip` : "In your trip";
   if (item)
     return (
       <>
@@ -80,7 +84,7 @@ export function InTripBadge({ listingId }: { listingId: number }) {
           className={cn(IN_TRIP, "tap-target z-10 transition-colors hover:bg-primary-hover")}
         >
           <TickGlyph aria-hidden className="size-3" />
-          In your trip ·<span className="underline underline-offset-2">Edit</span>
+          {label} ·<span className="underline underline-offset-2">Edit</span>
         </button>
         {editing && <ItemEditSheet trip={trip} item={item} onClose={() => setEditing(false)} onSaved={() => setEditing(false)} />}
       </>
@@ -88,7 +92,33 @@ export function InTripBadge({ listingId }: { listingId: number }) {
   return (
     <span data-testid="in-trip" className={IN_TRIP}>
       <TickGlyph aria-hidden className="size-3" />
-      In your trip
+      {label}
     </span>
   );
+}
+
+// A business card with several options shows one badge for all of them, never one per option
+// held ("In your trip" three times read as a bug): "3 in your trip" when the trip being worked
+// on holds some, otherwise "In another trip" when only another one does. Not a button: a tap
+// falls through to the card, whose panel marks each option held with "Add another"; their days
+// are edited from the banner's Edit (HereItemsSheet) or in the cart.
+export function InTripCount({ listingIds }: { listingIds: number[] }) {
+  const trips = useGuestTrips();
+  if (!trips) return null;
+  const places = listingIds.map((id) => whereIs(id, trips.current, trips.chosen).where);
+  const here = places.filter((where) => where === "this").length;
+  if (here > 0)
+    return (
+      <span data-testid="in-trip-count" className={IN_TRIP}>
+        <TickGlyph aria-hidden className="size-3" />
+        {here} in your trip
+      </span>
+    );
+  if (places.includes("other"))
+    return (
+      <Badge tone="mist" data-testid="in-other-trip" className="min-h-6 px-2.5 text-xs">
+        In another trip
+      </Badge>
+    );
+  return null;
 }

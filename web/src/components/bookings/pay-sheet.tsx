@@ -3,7 +3,7 @@
 import { formatDateRange } from "@/components/trips/format";
 import type { Trip, TripItem } from "@/components/trips/use-trips";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogSummary } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { formatPeso } from "@/lib/money";
 import { BookingStatusBadge } from "./booking-status";
@@ -54,8 +54,15 @@ export function PaySheet({ trip, items, onClose }: { trip: Trip; items: TripItem
       open
       onClose={close}
       placement="sheet"
-      title={result ? "You're booked" : leaving ? "Taking you to PayMongo…" : `Pay · ${trip.name}`}
+      // Named after the trip (the modal redesign); the button says what it pays.
+      title={result ? "You're booked" : leaving ? "Taking you to PayMongo…" : trip.name}
+      meta={result || leaving ? undefined : `${items.length === 1 ? "1 booking" : `${items.length} bookings`} to pay`}
       data-testid="pay-sheet"
+      summary={
+        result ? undefined : (
+          <DialogSummary value={<span data-testid="pay-total">{payTotal(items)}</span>} detail="Total" />
+        )
+      }
       actions={
         result ? (
           <Button type="button" onClick={onClose}>
@@ -63,13 +70,10 @@ export function PaySheet({ trip, items, onClose }: { trip: Trip; items: TripItem
           </Button>
         ) : (
           <>
-            <Button type="button" variant="soft" onClick={close} disabled={pay.isPending || leaving}>
-              Cancel
-            </Button>
             <Button
               type="button"
               data-testid="pay-confirm"
-              disabled={pay.isPending || leaving}
+              loading={pay.isPending || leaving}
               onClick={() =>
                 pay.mutate(
                   items.flatMap((item) => (item.booking ? [item.booking.id] : [])),
@@ -108,9 +112,9 @@ function ToPay({ items }: { items: TripItem[] }) {
   const by = payBy(items);
   return (
     <div className="flex flex-col gap-4">
-      <ul className="flex flex-col divide-y divide-line rounded-control border border-line">
+      <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-[1.375rem] border border-line">
         {items.map((item) => (
-          <li key={item.id} className="flex items-start justify-between gap-3 px-3 py-2.5">
+          <li key={item.id} className="flex items-start justify-between gap-3 px-3.5 py-3">
             <span className="flex min-w-0 flex-col gap-0.5">
               <span className="font-semibold">{item.listing.title}</span>
               <span className="text-sm text-muted">
@@ -123,12 +127,6 @@ function ToPay({ items }: { items: TripItem[] }) {
           </li>
         ))}
       </ul>
-      <p className="flex justify-between text-sm font-semibold">
-        <span>Total</span>
-        <span className="tabular-nums" data-testid="pay-total">
-          {payTotal(items)}
-        </span>
-      </p>
       <p className="text-sm text-muted">
         {by && <>Accepted by the partner: pay by {by} to keep your dates. </>}
         {TEST_MODE_NOTE}
@@ -139,9 +137,9 @@ function ToPay({ items }: { items: TripItem[] }) {
 
 export function Paid({ bookings }: { bookings: GuestBooking[] }) {
   return (
-    <ul className="flex flex-col divide-y divide-line rounded-control border border-line" data-testid="pay-result">
+    <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-[1.375rem] border border-line" data-testid="pay-result">
       {bookings.map((booking) => (
-        <li key={booking.id} className="flex items-start justify-between gap-3 px-3 py-2.5">
+        <li key={booking.id} className="flex items-start justify-between gap-3 px-3.5 py-3">
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className="font-semibold">{booking.listing.title}</span>
             <span className="text-sm text-muted">

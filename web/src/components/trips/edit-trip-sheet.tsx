@@ -3,8 +3,11 @@
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { DateRangeField } from "@/components/ui/date-range-field";
-import { Dialog } from "@/components/ui/dialog";
+import { GuestsGlyph } from "@/components/discovery/tag-glyphs";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
+import { Stepper } from "@/components/ui/stepper-field";
+import { Ticket, TicketRow } from "@/components/ui/ticket";
 import { todayIso } from "./format";
 import { useUpdateTrip, type Trip } from "./use-trips";
 
@@ -44,9 +47,10 @@ export function EditTripSheet({ trip, focus, onClose, onSaved }: Props) {
   }
 
   return (
-    <Dialog open onClose={onClose} placement="sheet" title="Edit trip" data-testid="edit-trip-sheet">
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        <fieldset disabled={update.isPending} className="flex flex-col gap-3">
+    // Named after the trip it edits (the modal redesign).
+    <Dialog open onClose={onClose} placement="sheet" title={trip.name} meta="Rename it, or change its dates and guests" data-testid="edit-trip-sheet">
+      <form onSubmit={submit} className="flex flex-1 flex-col gap-4">
+        <fieldset disabled={update.isPending} className="flex flex-col gap-4">
           <Field
             label="Trip name"
             name="name"
@@ -56,28 +60,36 @@ export function EditTripSheet({ trip, focus, onClose, onSaved }: Props) {
             autoFocus={focus === "name"}
             onChange={(event) => setName(event.target.value)}
           />
-          <DateRangeField
-            label="Dates"
-            // Today at the earliest: the API refuses a past date being set. An under-way
-            // trip keeps its start, and a pick moves only its end.
-            min={todayIso()}
-            from={startsOn}
-            to={endsOn}
-            onChange={setDates}
-            clearable
-            inline
-            autoFocus={focus === "dates"}
-            error={dateError}
-          />
-          <Field
-            label="Guests"
-            type="number"
-            min={1}
-            max={50}
-            value={guests}
-            onChange={(event) => setGuests(event.target.value)}
-            error={guestsValid ? undefined : "1 to 50"}
-          />
+          <Ticket>
+            <DateRangeField
+              row
+              label="Dates"
+              // Today at the earliest: the API refuses a past date being set. An under-way
+              // trip keeps its start, and a pick moves only its end.
+              min={todayIso()}
+              from={startsOn}
+              to={endsOn}
+              onChange={setDates}
+              clearable
+              autoFocus={focus === "dates"}
+              error={dateError}
+            />
+            <TicketRow
+              icon={<GuestsGlyph />}
+              value="Guests"
+              detail="up to 50"
+              control={
+                <Stepper
+                  label="Guests"
+                  value={guestsValid ? guestsNumber : 1}
+                  onChange={(value) => setGuests(String(value))}
+                  min={1}
+                  max={50}
+                  testId="edit-trip-guests"
+                />
+              }
+            />
+          </Ticket>
         </fieldset>
 
         {update.error && (
@@ -86,14 +98,11 @@ export function EditTripSheet({ trip, focus, onClose, onSaved }: Props) {
           </p>
         )}
 
-        <div className="flex flex-wrap justify-end gap-3">
-          <Button type="button" variant="soft" onClick={onClose}>
-            Cancel
+        <DialogFooter>
+          <Button type="submit" data-testid="edit-trip-save" loading={update.isPending}>
+            {update.isPending ? "Saving…" : "Save changes"}
           </Button>
-          <Button type="submit" data-testid="edit-trip-save" disabled={update.isPending}>
-            {update.isPending ? "Saving…" : "Save"}
-          </Button>
-        </div>
+        </DialogFooter>
       </form>
     </Dialog>
   );

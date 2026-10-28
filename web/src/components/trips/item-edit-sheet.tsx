@@ -4,14 +4,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { apiClient } from "@/api/client";
 import { CANCELLATION_POLICY } from "@/components/bookings/cancellation";
-import { TickGlyph } from "@/components/discovery/tag-glyphs";
+import { CategoryGlyph, GuestsGlyph, TickGlyph } from "@/components/discovery/tag-glyphs";
 import { BOOKING_STATE } from "@/components/landing/launch-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DateRangeField } from "@/components/ui/date-range-field";
-import { Dialog } from "@/components/ui/dialog";
-import { StepperField } from "@/components/ui/stepper-field";
-import { daysBetween, guestLimitHint, noNightError, RANGE_TYPES, todayIso } from "./format";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { Stepper } from "@/components/ui/stepper-field";
+import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
+import { daysBetween, guestLimitHint, noNightError, RANGE_TYPES, rentLimitHint, todayIso } from "./format";
 import { ItemThumb } from "./item-thumb";
 import { evenRooms, headcount, partyFromGuests, roomGuestsToSend, stayRules, type Room } from "./party";
 import { RoomsAndGuests } from "./rooms-and-guests";
@@ -42,7 +43,9 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
   });
   const [guests, setGuests] = useState(item.quantity);
   const update = useUpdateTripItem();
-  const maxGuests = Math.max(item.max_guests ?? 99, item.quantity);
+  // Gear is booked by the count: how many, up to the units the partner lists (max_quantity).
+  const gear = item.listing.group === "gear";
+  const maxGuests = Math.max(item.max_quantity ?? 99, item.quantity);
   const stay = item.booking_type === "stay";
   const { data: listing } = useQuery({
     queryKey: ["listing", item.listing.id],
@@ -81,68 +84,71 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
   }
 
   return (
-    <Dialog open onClose={onClose} placement="sheet" title="Change dates and guests" data-testid="item-edit-sheet">
-      <form onSubmit={submit} className="flex flex-col gap-5">
-        <div className="flex items-start gap-3 rounded-control bg-surface-2 p-3">
-          <ItemThumb item={item} />
-          <div className="flex min-w-0 flex-col gap-1">
-            <p className="font-semibold text-pretty">{item.listing.title}</p>
-            <p className="text-sm text-muted">{[item.listing.category, where].filter(Boolean).join(" · ")}</p>
-            <p className="flex items-center gap-1.5 text-sm font-medium text-primary">
-              <TickGlyph aria-hidden className="size-3.5 shrink-0" />
-              <span className="truncate">In {trip.name}</span>
-            </p>
-          </div>
-        </div>
-
-        {item.unavailable && (
-          <p role="status" className="rounded-control border border-warning/40 px-3 py-2 text-sm text-warning">
-            {item.unavailable}. Pick other dates to keep it.
-          </p>
-        )}
-
+    // Named after the listing, with the trip it is in (the modal redesign): the rows say what
+    // changes, the button says it saves.
+    <Dialog
+      open
+      onClose={onClose}
+      placement="sheet"
+      title={item.listing.title}
+      meta={
+        <>
+          {[item.listing.category, where].filter(Boolean).join(" · ")}
+          <span className="flex items-center gap-1.5 font-medium text-primary">
+            <TickGlyph aria-hidden className="size-3.5 shrink-0" />
+            <span className="truncate">In {trip.name}</span>
+          </span>
+        </>
+      }
+      thumb={<ItemThumb item={item} />}
+      data-testid="item-edit-sheet"
+    >
+      <form onSubmit={submit} className="flex flex-1 flex-col gap-4">
         <fieldset disabled={update.isPending} className="flex flex-col gap-4">
-          <DateRangeField
-            label={range ? "Dates" : "Date"}
-            single={!range}
-            min={todayIso()}
-            from={startsOn}
-            to={endsOn}
-            onChange={setDates}
-            inline
-            autoFocus
-            hint={
-              range && startsOn && !endsOn
-                ? "Pick the last day too"
-                : nights
-                  ? `${nights} ${nights === 1 ? "night" : "nights"}`
-                  : undefined
-            }
-            error={noNight}
-          />
-          {arrangement && rules ? (
-            <RoomsAndGuests
-              rooms={arrangement.rooms}
-              pets={arrangement.pets}
-              rules={rules}
-              onChange={(rooms, pets) => setRooms({ rooms, pets })}
-              inline
-              data-testid="item-edit-rooms"
+          <Ticket>
+            <DateRangeField
+              row
+              label={range ? "Dates" : "Date"}
+              single={!range}
+              min={todayIso()}
+              from={startsOn}
+              to={endsOn}
+              onChange={setDates}
+              autoFocus
+              hint={
+                range && startsOn && !endsOn
+                  ? "Pick the last day too"
+                  : nights
+                    ? `${nights} ${nights === 1 ? "night" : "nights"}`
+                    : undefined
+              }
+              error={noNight}
             />
-          ) : (
-            <StepperField
-              label="Guests"
-              hint={guestLimitHint(item.max_guests)}
-              value={guests}
-              onChange={setGuests}
-              min={1}
-              max={maxGuests}
-              data-testid="item-edit-guests"
-            />
-          )}
+            {arrangement && rules ? (
+              <RoomsAndGuests
+                row
+                rooms={arrangement.rooms}
+                pets={arrangement.pets}
+                rules={rules}
+                onChange={(rooms, pets) => setRooms({ rooms, pets })}
+                data-testid="item-edit-rooms"
+              />
+            ) : (
+              <TicketRow
+                icon={gear ? <CategoryGlyph name={item.listing.category ?? ""} /> : <GuestsGlyph />}
+                value={gear ? "How many" : "Guests"}
+                detail={(gear ? rentLimitHint(item.max_quantity) : guestLimitHint(item.max_guests))?.toLowerCase()}
+                control={
+                  <Stepper label={gear ? "How many" : "Guests"} value={guests} onChange={setGuests} min={1} max={maxGuests} testId="item-edit-guests" />
+                }
+                data-testid="item-edit-guests"
+              />
+            )}
+            {item.unavailable && <TicketNote tone="warning">{item.unavailable}. Pick other dates to keep it.</TicketNote>}
+          </Ticket>
         </fieldset>
 
-        <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4 text-sm text-muted">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
           {policy && (
             <Badge tone={item.cancellation_policy === "non_refundable" ? "fact" : "emerald"} className="min-h-6 px-2.5 text-xs">
               {policy.name}
@@ -157,14 +163,11 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
           </p>
         )}
 
-        <div className="flex flex-wrap justify-end gap-3">
-          <Button type="button" variant="soft" onClick={onClose}>
-            Cancel
-          </Button>
+        <DialogFooter>
           <Button type="submit" data-testid="item-edit-save" loading={update.isPending} disabled={!valid || (stay && !listing)}>
             {update.isPending ? "Saving…" : "Save changes"}
           </Button>
-        </div>
+        </DialogFooter>
       </form>
     </Dialog>
   );

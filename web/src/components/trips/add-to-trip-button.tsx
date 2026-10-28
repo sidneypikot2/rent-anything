@@ -1,6 +1,5 @@
 "use client";
 
-import { createContext, useContext } from "react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth/session";
 import { RANGE_TYPES } from "./format";
@@ -25,16 +24,12 @@ type Props = {
 // transfer takes the first day) into the add sheet, which shows them with the listing to confirm. Trips are for guests: a partner or admin sees nothing. A filled
 // pill with a plus after it, as the soft-UI reference's card action, in a list and a panel's foot alike; once the trip being worked on holds it, a quieter "Add another"
 // (a white pill with a teal check), as the row's InTripBadge says it is in (useListingInTrip; another trip's doesn't count).
-// True in a What to book section the shown trip doesn't need (ideas, what it has, gear): there
-// the button is the outlined second action, so a filled one marks what the trip still needs.
-export const QuietAdd = createContext(false);
 
 export function AddToTripButton({ listing, dates, preview, rooms }: Props) {
   const session = useSession();
   const { add, busyListingId } = useTripAdd();
   const isGuest = session?.user.role === "guest";
   const inTrip = useListingInTrip(listing.id).where === "this";
-  const quiet = useContext(QuietAdd);
   if (session && !isGuest) return null;
 
   const range = RANGE_TYPES.has(listing.booking_type);
@@ -42,7 +37,7 @@ export function AddToTripButton({ listing, dates, preview, rooms }: Props) {
 
   return (
     <Button
-      variant={inTrip || quiet ? "soft" : "primary"}
+      variant={inTrip ? "soft" : "primary"}
       size="touch"
       glyph={inTrip ? "check" : "plus"}
       // Never squeezed beside text, but never wider than its row either: at large text sizes

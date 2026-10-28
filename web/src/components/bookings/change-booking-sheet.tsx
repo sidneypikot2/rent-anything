@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { GuestsGlyph } from "@/components/discovery/tag-glyphs";
 import { RANGE_TYPES, todayIso } from "@/components/trips/format";
+import { ItemThumb } from "@/components/trips/item-thumb";
 import type { TripItem } from "@/components/trips/use-trips";
 import { Button } from "@/components/ui/button";
 import { DateRangeField } from "@/components/ui/date-range-field";
-import { Dialog } from "@/components/ui/dialog";
-import { StepperField } from "@/components/ui/stepper-field";
+import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { Stepper } from "@/components/ui/stepper-field";
+import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
 import { useChangeBooking, type GuestBooking } from "./use-bookings";
 
 // Changing a booked item's dates or guests (RAA-135): the change goes back to the partner as a
@@ -43,30 +46,41 @@ export function ChangeBookingSheet({
   }
 
   return (
-    <Dialog open onClose={close} placement="sheet" title="Edit booking" data-testid="change-booking-sheet">
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        <p className="text-sm text-muted">
-          {item.listing.title} · {booking.reference}
-        </p>
-
+    // Named after the booked listing (the modal redesign); the button says where the change goes.
+    <Dialog
+      open
+      onClose={close}
+      placement="sheet"
+      title={item.listing.title}
+      meta={`Booking ${booking.reference}`}
+      thumb={<ItemThumb item={item} />}
+      data-testid="change-booking-sheet"
+    >
+      <form onSubmit={submit} className="flex flex-1 flex-col gap-4">
         <fieldset disabled={change.isPending} className="flex flex-col gap-4">
-          <DateRangeField
-            label={range ? "Dates" : "Date"}
-            single={!range}
-            min={todayIso()}
-            from={from}
-            to={to}
-            onChange={setDates}
-            inline
-            hint={range && from && !to ? "Pick the last day too" : undefined}
-          />
-          <StepperField label="Guests" value={guests} onChange={setGuests} min={1} max={99} data-testid="change-booking-guests" />
+          <Ticket>
+            <DateRangeField
+              row
+              label={range ? "Dates" : "Date"}
+              single={!range}
+              min={todayIso()}
+              from={from}
+              to={to}
+              onChange={setDates}
+              hint={range && from && !to ? "Pick the last day too" : undefined}
+            />
+            <TicketRow
+              icon={<GuestsGlyph />}
+              value="Guests"
+              control={<Stepper label="Guests" value={guests} onChange={setGuests} min={1} max={99} testId="change-booking-guests" />}
+              data-testid="change-booking-guests"
+            />
+            <TicketNote>
+              The partner has to accept the change. Until they answer, your booking shows as a request and the new dates are
+              held for you.
+            </TicketNote>
+          </Ticket>
         </fieldset>
-
-        <p className="rounded-control bg-surface-2 px-3 py-2.5 text-sm">
-          The partner has to accept the change. Until they answer, your booking shows as a request and the new dates are
-          held for you.
-        </p>
 
         {change.error && (
           <p role="alert" className="text-sm text-danger">
@@ -74,14 +88,11 @@ export function ChangeBookingSheet({
           </p>
         )}
 
-        <div className="flex flex-wrap justify-end gap-3">
-          <Button type="button" variant="soft" onClick={close} disabled={change.isPending}>
-            Cancel
-          </Button>
-          <Button type="submit" data-testid="change-booking-send" disabled={change.isPending || !valid}>
+        <DialogFooter>
+          <Button type="submit" data-testid="change-booking-send" loading={change.isPending} disabled={!valid}>
             {change.isPending ? "Sending…" : "Send to the partner"}
           </Button>
-        </div>
+        </DialogFooter>
       </form>
     </Dialog>
   );

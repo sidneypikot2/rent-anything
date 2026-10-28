@@ -64,7 +64,7 @@ export function roomMax(room: Room, kind: Kind, rules: StayRules) {
   return Math.min(space, kind === "infants" && !rules.shared ? MAX_INFANTS_PER_ROOM : 99);
 }
 
-// A trip's party on its own, with no stay to fit (TripDatesBar): one group of up to 50, as
+// A trip's party on its own, with no stay to fit (the header's search): one group of up to 50, as
 // the API takes a trip's guests, and pets.
 export const PARTY_RULES: StayRules = {
   sleeps: 50,

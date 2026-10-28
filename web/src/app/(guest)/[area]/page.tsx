@@ -22,7 +22,7 @@ import type { LandmarkTour } from "@/components/discovery/landmark-tours";
 import { listingFeatures, type Feature } from "@/components/discovery/listing-features";
 import { SectionOrder } from "@/components/discovery/section-order";
 import { PlacesGrid } from "@/components/discovery/places-grid";
-import { AreaGlyph } from "@/components/discovery/tag-glyphs";
+import { AreaGlyph, ArrowGlyph } from "@/components/discovery/tag-glyphs";
 import { CurrentPlace } from "@/components/landing/current-place";
 import { LAUNCH_AREA } from "@/components/landing/launch-area";
 import { CHIP_ROW, PageBanner, STAT_CHIP, StatCount } from "@/components/landing/page-banner";
@@ -275,6 +275,8 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     <li key={stat.label} className="shrink-0">
       <a href={stat.href} className={cn(STAT_CHIP, glassClasses(), "hover:bg-glass-hover")}>
         <StatCount count={stat.count} /> {stat.label}
+        {/* Down the page, as the places inside go to their own pages (→). */}
+        <ArrowGlyph direction="down" className="size-4 text-sky-pale" />
       </a>
     </li>
   ));
@@ -396,17 +398,11 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                             icon: need.icon,
                             group: need.group,
                             // Said once here rather than on every card: what they all include, and
-                            // how the unpriced ones are priced.
-                            // Transfers also say how a traveller reaches the place at all (the
-                            // trip plan's Getting here), where they look for the ride.
-                            note:
-                              [
-                                need.group === "transfer" && GETTING_HERE[slug] && `Getting here: ${GETTING_HERE[slug].route}. ${GETTING_HERE[slug].note}`,
-                                shared.length > 0 && `All have: ${shared.join(" · ")}.`,
-                                unpricedNote,
-                              ]
-                                .filter(Boolean)
-                                .join(" ") || undefined,
+                            // how the unpriced ones are priced. Transfers also say how a traveller
+                            // reaches the place at all (the trip plan's Getting here).
+                            gettingHere: need.group === "transfer" ? GETTING_HERE[slug] : undefined,
+                            shared,
+                            note: unpricedNote || undefined,
                             items: need.businesses.map((offered) => {
                               const offers = offered.map((listing) => {
                                 const priceUnit = listing.price_from_cents ? priceUnitText(listing.price_unit) : null;

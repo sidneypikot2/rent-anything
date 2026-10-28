@@ -115,8 +115,15 @@ export function TickGlyph({ className }: Props) {
   return <Glyph paths={["M5 12.5l4.5 4.5L19 7.5"]} className={className} />;
 }
 
-export function ArrowGlyph({ direction = "right", className }: { direction?: "left" | "right" } & Props) {
-  return <Glyph paths={direction === "right" ? ["M5 12h14", "M13 6l6 6-6 6"] : ["M19 12H5", "M11 6l-6 6 6 6"]} className={className} />;
+const ARROWS = {
+  right: ["M5 12h14", "M13 6l6 6-6 6"],
+  left: ["M19 12H5", "M11 6l-6 6 6 6"],
+  // Down the page: a count on a banner that jumps to its section.
+  down: ["M12 5v14", "M6 13l6 6 6-6"],
+};
+
+export function ArrowGlyph({ direction = "right", className }: { direction?: keyof typeof ARROWS } & Props) {
+  return <Glyph paths={ARROWS[direction]} className={className} />;
 }
 
 // A magnifier: search, where a button has no room for its word.
@@ -282,4 +289,21 @@ export function WalletGlyph({ className }: Props) {
       className={className}
     />
   );
+}
+
+// The ⋯ menus' actions (the modal redesign): delete, move, merge, copy.
+export function TrashGlyph({ className }: Props) {
+  return <Glyph paths={["M4 7h16", "M10 11v6", "M14 11v6", "M6 7l1 13h10l1-13", "M9 7V4h6v3"]} className={className} />;
+}
+
+export function MoveGlyph({ className }: Props) {
+  return <Glyph paths={["M4 12h12", "m12 8 4 4-4 4", "M20 5v14"]} className={className} />;
+}
+
+export function MergeGlyph({ className }: Props) {
+  return <Glyph paths={["M6 4v5a5 5 0 0 0 5 5h7", "m15 11 3 3-3 3", "M6 20v-4"]} className={className} />;
+}
+
+export function CopyGlyph({ className }: Props) {
+  return <Glyph paths={["M8 8h12v12H8Z", "M16 8V4H4v12h4"]} className={className} />;
 }

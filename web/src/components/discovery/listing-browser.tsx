@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { cn } from "@/components/ui/cn";
@@ -10,14 +11,13 @@ import { Field } from "@/components/ui/field";
 import { formatPeso } from "@/lib/money";
 import { openPlan, usePlanSummary } from "@/components/trips/plan-open";
 import { gapGroup, planGaps, stillMissing } from "@/components/trips/trip-missing";
-import { QuietAdd } from "@/components/trips/add-to-trip-button";
 import { useTripAdd } from "@/components/trips/trip-add-provider";
 import { useTripHere } from "@/components/trips/use-trip-here";
 import { ShownOffersContext } from "./business-row";
 import { BOOKING_GROUPS } from "./categories";
 import { listingKey, MapHoverTarget, MapSwitch, useAreaMap, useBesideMap } from "./area-map-context";
 import type { Feature } from "./listing-features";
-import { AlertGlyph, CategoryGlyph, CloseGlyph, FilterGlyph, GridGlyph, ListGlyph, TickGlyph } from "./tag-glyphs";
+import { AlertGlyph, CategoryGlyph, CloseGlyph, FeatureGlyph, FilterGlyph, GridGlyph, ListGlyph, TickGlyph } from "./tag-glyphs";
 import { focusDock } from "./floating-dock";
 import { useFitRows } from "./use-fit-rows";
 
@@ -40,8 +40,19 @@ let heldOrder: { path: string; ids: string[] } | null = null;
 const pathnameNow = () => (typeof window === "undefined" ? "" : window.location.pathname);
 const heldOrderFor = (path: string) => (heldOrder && heldOrder.path === path ? heldOrder.ids : null);
 // `group` (a listing's `group`) tells the area map which pins the group's rows are.
-// `note`: a line under the section's title, once for all its rows (how unpriced ones are priced).
-export type ListingGroup = { id: string; title: string; icon: string; group?: string; note?: string; items: ListingItem[] };
+// Under the section's title, once for all its rows: `gettingHere`, how a traveller reaches the
+// place at all (Transfers, where they look for the ride); `shared`, the chips every row has
+// ("All have"); `note`, one line on how the unpriced ones are priced.
+export type ListingGroup = {
+  id: string;
+  title: string;
+  icon: string;
+  group?: string;
+  gettingHere?: { route: string; note: string };
+  shared?: string[];
+  note?: string;
+  items: ListingItem[];
+};
 
 // pets: only stays that take pets (RAA-186), offered in the stays section's filters alone.
 type Filters = { free: boolean; pets: boolean; min: string; max: string; includes: string[] };
@@ -135,7 +146,8 @@ export function ListingBrowser({
   // its nights, a transfer, an item to replace; stillMissing, the banner's count), then the ideas
   // it has nothing of yet, then what it has, and gear, never needed, last. With none, Stays lead.
   const offered = groups.filter((group) => group.group && group.items.length > 0).map((group) => group.group!);
-  const lacks = new Set<string>(trip ? stillMissing(planGaps(trip, tripPlaces ?? [], offered, [])).map(gapGroup) : []);
+  const gaps = trip ? stillMissing(planGaps(trip, tripPlaces ?? [], offered, [])) : [];
+  const lacks = new Set<string>(gaps.map(gapGroup));
   const inTrip = (group: ListingGroup) => Boolean(group.group && has.has(group.group) && !lacks.has(group.group));
   const rank = (group: ListingGroup) =>
     group.group && lacks.has(group.group) ? 0 : inTrip(group) ? 2 : group.group === "gear" ? 3 : 1;
@@ -173,6 +185,21 @@ export function ListingBrowser({
   const needOf = (group: ListingGroup) => {
     const need = BOOKING_GROUPS.find((each) => each.group === group.group)?.need ?? group.title;
     return need.charAt(0).toLowerCase() + need.slice(1);
+  };
+  // What a section's "still needs" line says. A stay or transfer the trip lacks is named as a need;
+  // when the section's only gaps are items already in the trip that can't be had (fully booked on
+  // their dates, or no date yet), the line names them instead: their nights may well be covered,
+  // and "still needs a place to stay" would send the guest looking for a stay they already have.
+  const neededLine = (group: ListingGroup) => {
+    const here = gaps.filter((gap) => gapGroup(gap) === group.group);
+    if (here.some((gap) => gap.kind === "stay" || gap.kind === "need")) return `Your trip still needs ${needOf(group)}`;
+    const items = here.flatMap((gap) => (gap.kind === "unavailable" || gap.kind === "undated" ? [gap] : []));
+    if (items.length === 1) {
+      const [gap] = items;
+      return `${gap.item.listing.title}: ${gap.kind === "unavailable" ? gap.reason : "no date yet"}`;
+    }
+    if (items.length > 1) return `${items.length} in your trip can't be booked as they are. See Your plan`;
+    return `Your trip still needs ${needOf(group)}`;
   };
   // A chip's mark: a dot for what's missing, a tick for what the trip has.
   const markOf = (group: ListingGroup) => (group.group && lacks.has(group.group) ? "missing" : inTrip(group) ? "has" : undefined);
@@ -505,18 +532,40 @@ export function ListingBrowser({
                       </>
                     )}
                   </div>
-                  {/* With a trip shown, whether it needs this section: said once under the title, and
-                      its rows' Add to trip filled only here (QuietAdd elsewhere). */}
+                  {/* With a trip shown, whether it needs this section: said once under the title. */}
                   {trip && markOf(group) === "missing" && (
                     <p data-testid="section-needed" className="-mt-1 flex items-center gap-2 text-sm font-semibold">
                       <span aria-hidden className="size-2 shrink-0 rounded-full bg-warning" />
-                      Your trip still needs {needOf(group)}
+                      {neededLine(group)}
                     </p>
                   )}
                   {trip && markOf(group) === "has" && (
                     <p className="-mt-1 flex items-center gap-1.5 text-sm text-muted">
                       <TickGlyph aria-hidden className="size-3.5 text-forest" />
                       In your trip
+                    </p>
+                  )}
+                  {group.gettingHere && (
+                    <div data-testid="getting-here" className="flex max-w-prose items-start gap-3 rounded-control border border-line bg-surface p-3">
+                      <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-xl bg-mist text-primary">
+                        <FeatureGlyph name="route" className="size-5" />
+                      </span>
+                      <div className="flex min-w-0 flex-col gap-0.5 text-sm">
+                        <p className="font-semibold">Getting here</p>
+                        <p className="text-pretty">{group.gettingHere.route}</p>
+                        <p className="text-pretty text-muted">{group.gettingHere.note}</p>
+                      </div>
+                    </div>
+                  )}
+                  {group.shared && group.shared.length > 0 && (
+                    <p className="-mt-1 flex flex-wrap items-center gap-1.5 text-sm text-muted">
+                      All have:
+                      {group.shared.map((chip) => (
+                        // Cancellation is trust, in green, as on the rows.
+                        <Badge key={chip} tone={/cancel/i.test(chip) ? "emerald" : "fact"} className="min-h-6 px-2.5 text-xs">
+                          {chip}
+                        </Badge>
+                      ))}
                     </p>
                   )}
                   {group.note && <p className="-mt-1 max-w-prose text-sm text-pretty text-muted">{group.note}</p>}
@@ -542,7 +591,7 @@ export function ListingBrowser({
                             className="border border-line bg-surface p-3 shadow-soft"
                           >
                             <ShownOffersContext.Provider value={new Set(kept(group, item).map((offer) => offer.id))}>
-                              <QuietAdd.Provider value={Boolean(trip) && markOf(group) !== "missing"}>{item.content}</QuietAdd.Provider>
+                              {item.content}
                             </ShownOffersContext.Provider>
                           </MapHoverTarget>
                         </li>
@@ -589,16 +638,19 @@ export function ListingBrowser({
         <Dialog
           open
           placement="sheet"
-          title={`Filter ${editingGroup.title}`}
+          title={editingGroup.title}
+          meta="Filter what shows here"
           onClose={() => setEditing(null)}
           data-testid="filter-dialog"
+          summary={
+            setCount(editing.draft) > 0 && (
+              <TextButton onClick={() => setEditing({ ...editing, draft: NO_FILTERS })} className="text-sm">
+                Clear all
+              </TextButton>
+            )
+          }
           actions={
             <>
-              {setCount(editing.draft) > 0 && (
-                <TextButton onClick={() => setEditing({ ...editing, draft: NO_FILTERS })} className="mr-auto self-center text-sm">
-                  Clear all
-                </TextButton>
-              )}
               <Button
                 type="button"
                 data-testid="filter-apply"

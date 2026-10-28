@@ -1,11 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
 import { useToast } from "@/components/ui/toast";
 import { startGuestSession } from "@/lib/auth/actions";
 import { useSession } from "@/lib/auth/session";
-import { EditTripSheet, type EditFocus } from "./edit-trip-sheet";
 import { formatDateRange } from "./format";
 import { readChosenTrip } from "./chosen-trip";
 import { TripNeeds } from "./trip-needs";
@@ -23,6 +21,8 @@ type Context = {
 };
 
 const TripAddContext = createContext<Context | null>(null);
+
+const ADD_TOAST_MS = 3000;
 
 export function useTripAdd() {
   const context = useContext(TripAddContext);
@@ -53,38 +53,16 @@ export function TripAddProvider({
   const [busyListingId, setBusyListingId] = useState<number | null>(null);
   const [lastAdded, setLastAdded] = useState<Context["lastAdded"]>(null);
   const toast = useToast();
-  const [editing, setEditing] = useState<{ trip: Trip; focus: EditFocus } | null>(null);
   // One add at a time: a second tap while one is under way (or its sheet is open) waits.
   const inFlight = useRef(false);
-
-  const edit = useCallback(
-    (trip: Trip, focus: EditFocus) => {
-      setEditing({ trip, focus });
-      toast.dismiss();
-    },
-    [toast],
-  );
-
-  // The toast says what was added or saved, with the trip for Rename, Change dates and View trip.
+  // The toast only confirms the add: what went where, and on a place's page the trip's checklist.
+  // Nothing in it leaves the page: on a phone it appears where the add sheet's button just was, so
+  // a quick second tap lands on it (a tester's View trip tap took her to the cart). The cart is the
+  // banner's View trip and the header's cart.
+  // Nothing to act on, so it goes sooner than a toast with buttons (3s, not 6s).
   const show = useCallback(
-    (text: ReactNode, trip: Trip) =>
-      toast.show(text, {
-        "data-testid": "trip-toast",
-        actions: (
-          <>
-            <button type="button" onClick={() => edit(trip, "name")} className="hover:underline">
-              Rename
-            </button>
-            <button type="button" onClick={() => edit(trip, "dates")} className="hover:underline">
-              Change dates
-            </button>
-            <Link href={`/cart?trip=${trip.id}`} data-testid="trip-toast-view" className="hover:underline">
-              View trip
-            </Link>
-          </>
-        ),
-      }),
-    [toast, edit],
+    (text: ReactNode) => toast.show(text, { duration: ADD_TOAST_MS, "data-testid": "trip-toast" }),
+    [toast],
   );
 
   // Names what was added, not only where: "Added Beachfront nipa cottage to Bantayan Island".
@@ -92,7 +70,12 @@ export function TripAddProvider({
     (request: AddRequest, trip: Trip, before?: Trip) => {
       const grew = before && (before.starts_on !== trip.starts_on || before.ends_on !== trip.ends_on);
       const dates = grew && formatDateRange(trip.starts_on, trip.ends_on);
-      const text = `Added ${request.title} to ${trip.name}${dates ? ` · now ${dates}` : ""}`;
+      // Gear counted into a line already there says the new count: "now 3 in Bantayan Island".
+      const line = trip.items.find(
+        (item) => item.listing.id === request.listingId && item.listing.group === "gear" && !item.booking && item.starts_on === (request.startsOn ?? null),
+      );
+      const what = line && line.quantity > 1 ? `${request.title}, now ${line.quantity} in` : `${request.title} to`;
+      const text = `Added ${what} ${trip.name}${dates ? ` · now ${dates}` : ""}`;
       // On a place's page the toast shows the trip coming together: its stay and transfer ticking.
       show(
         places && offered ? (
@@ -103,7 +86,6 @@ export function TripAddProvider({
         ) : (
           text
         ),
-        trip,
       );
       setLastAdded({ listingId: request.listingId, at: Date.now() });
     },
@@ -185,17 +167,6 @@ export function TripAddProvider({
         />
       )}
 
-      {editing && (
-        <EditTripSheet
-          trip={editing.trip}
-          focus={editing.focus}
-          onClose={() => setEditing(null)}
-          onSaved={(trip) => {
-            setEditing(null);
-            show(`Saved ${trip.name}`, trip);
-          }}
-        />
-      )}
     </TripAddContext.Provider>
   );
 }
