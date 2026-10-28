@@ -18,6 +18,8 @@ type Props = {
   // Units free on the dates, when known: + stops there.
   free?: number | null;
   onChange: (people: number, units: number) => void;
+  // The people are the trip's (RAA-191): only the vehicles are counted.
+  fixedPeople?: boolean;
   disabled?: boolean;
   "data-testid"?: string;
 };
@@ -31,7 +33,7 @@ export const MAX_PEOPLE = 50;
 // phone, as RoomsAndGuests does for a stay. People go from 1 to 50; the vehicles start at what the
 // people need (people ÷ seats, rounded up), − stops there and + at one each or what is free.
 // Under them, how the people ride: "2 riders" a motorbike, "1 rider" for any past the minimum.
-export function PeopleAndVehicles({ people, units, seats, category, free, onChange, disabled, "data-testid": testId }: Props) {
+export function PeopleAndVehicles({ people, units, seats, category, free, onChange, fixedPeople, disabled, "data-testid": testId }: Props) {
   const [open, setOpen] = useState<"popover" | "sheet" | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -39,7 +41,7 @@ export function PeopleAndVehicles({ people, units, seats, category, free, onChan
   const valueId = useId();
   const panelId = useId();
   const nouns = vehicleNoun(category, 2);
-  const label = `People and ${nouns}`;
+  const label = fixedPeople ? nouns[0].toUpperCase() + nouns.slice(1) : `People and ${nouns}`;
   const summary = vehiclePartyText(people, units, category);
 
   useEffect(() => {
@@ -63,7 +65,9 @@ export function PeopleAndVehicles({ people, units, seats, category, free, onChan
     close();
   }
 
-  const body = <VehicleCounters people={people} units={units} seats={seats} category={category} free={free} onChange={onChange} testId={testId} />;
+  const body = (
+    <VehicleCounters people={people} units={units} seats={seats} category={category} free={free} onChange={onChange} fixedPeople={fixedPeople} testId={testId} />
+  );
 
   return (
     <div ref={root} onKeyDown={onKeyDown} className="relative flex flex-col text-sm font-semibold">
@@ -125,7 +129,7 @@ export function PeopleAndVehicles({ people, units, seats, category, free, onChan
 }
 
 // The People and vehicles counters with how the people ride, for the picker and the add and edit
-// sheets.
+// sheets. `fixedPeople`: the people are the trip's (RAA-191), so only the vehicles are counted.
 export function VehicleCounters({
   people,
   units,
@@ -133,8 +137,9 @@ export function VehicleCounters({
   category,
   free,
   onChange,
+  fixedPeople = false,
   testId,
-}: Omit<Props, "disabled" | "data-testid"> & { testId?: string }) {
+}: Omit<Props, "disabled" | "data-testid"> & { testId?: string; fixedPeople?: boolean }) {
   const needed = unitsNeeded(people, seats);
   const most = Math.max(needed, Math.min(people, free ?? people));
   const noun = vehicleNoun(category);
@@ -147,6 +152,7 @@ export function VehicleCounters({
   };
   return (
     <>
+      {!fixedPeople && (
       <StepperField
         label="People"
         hint={noun === "motorbike" ? "Riders and passengers" : "Drivers and passengers"}
@@ -156,6 +162,7 @@ export function VehicleCounters({
         onChange={setPeople}
         data-testid={testId && `${testId}-people`}
       />
+      )}
       <StepperField
         label={nouns[0].toUpperCase() + nouns.slice(1)}
         hint={`At least ${needed} for ${peopleText(people)}`}

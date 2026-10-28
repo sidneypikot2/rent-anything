@@ -30,6 +30,7 @@ import { SameAsBusinessAddress, startingAddress, startingPin, useSameAsBusinessA
 import type { PartnerBusiness } from "./use-partner-businesses";
 import { useCreateListing, type ListingBody, type ListingCategory, type PartnerListing } from "./use-partner-listings";
 import { UNITS_LABEL, UnitsField } from "./units-field";
+import { FlatPriceField, isFlatPriced, toFlatRateBody } from "./flat-price-field";
 import { includedAmenities, isVehicle, NEW_VEHICLE, toVehicleAttrs, VehicleFields, type VehicleValues } from "./vehicle-fields";
 import {
   NEW_VEHICLE_PRICING,
@@ -68,6 +69,8 @@ export function ListingWizard({
 }) {
   const create = useCreateListing();
   const vehicle = isVehicle(category);
+  // Gear and transfers have one flat price (RAA-191).
+  const flat = isFlatPriced(category);
   const fields = vehicle ? [] : attributeFields(category);
   const withLandmarks = visitsLandmarks(category);
   const steps: { key: StepKey; label: string }[] = [
@@ -80,7 +83,9 @@ export function ListingWizard({
           { key: "vehicle" as const, label: "Vehicle details" },
           { key: "pricing" as const, label: "Pricing" },
         ]
-      : []),
+      : flat
+        ? [{ key: "pricing" as const, label: "Pricing" }]
+        : []),
     { key: "cancellation", label: "Cancellation policy" },
     { key: "units", label: UNITS_LABEL },
     ...SAVED_STEPS,
@@ -107,13 +112,14 @@ export function ListingWizard({
   const [landmarks, setLandmarks] = useState<PartnerLandmark[]>([]);
   const [vehicleValues, setVehicleValues] = useState<VehicleValues>(NEW_VEHICLE);
   const [pricing, setPricing] = useState<VehiclePricingValues>(NEW_VEHICLE_PRICING);
+  const [flatPrice, setFlatPrice] = useState("");
   const [priceErrors, setPriceErrors] = useState<VehiclePricingErrors>();
   const [policy, setPolicy] = useState<CancellationPolicy>(DEFAULT_CANCELLATION_POLICY);
 
   // The current step's checks: the browser's required fields, then the map pin or the pricing's rules.
   function stepIsValid() {
     if (!formRef.current?.reportValidity()) return false;
-    if (step.key === "pricing" && vehiclePricingErrors(pricing, includedAmenities(vehicleValues, category.slug))) {
+    if (step.key === "pricing" && vehicle && vehiclePricingErrors(pricing, includedAmenities(vehicleValues, category.slug))) {
       setPriceErrors(vehiclePricingErrors(pricing, includedAmenities(vehicleValues, category.slug)));
       return false;
     }
@@ -151,6 +157,7 @@ export function ListingWizard({
       units_count: units,
       ...(withLandmarks && { landmark_ids: landmarks.map((landmark) => landmark.id) }),
       ...(vehicle && { vehicle_rate: toVehicleRateBody(pricing), fees: toFeesBody(pricing) }),
+      ...(flat && { flat_rate: toFlatRateBody(flatPrice) }),
     };
     create.mutate(body, {
       onSuccess: (listing) => {
@@ -238,7 +245,11 @@ export function ListingWizard({
 
           {step.key === "vehicle" && <VehicleFields values={vehicleValues} onChange={setVehicleValues} slug={category.slug} />}
 
-          {step.key === "pricing" && (
+          {step.key === "pricing" && flat && (
+            <FlatPriceField value={flatPrice} onChange={setFlatPrice} transfer={category.booking_type === "transfer"} />
+          )}
+
+          {step.key === "pricing" && vehicle && (
             <VehiclePricingFields
               values={pricing}
               onChange={(values) => {

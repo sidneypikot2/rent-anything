@@ -406,12 +406,14 @@ function ShopPanel({
       onClose={onClose}
       data-testid="detail-panel"
       media={<ListingPhotos photos={photos} label={name} category={offers[0].category} count="bottom" className="aspect-[16/9]" />}
-      // A side panel's foot is its own: the total, then the button.
+      // A side panel's foot is its own: the total, then the button, on one row. The foot wraps,
+      // so the total takes what's left and wraps its own words, or a longer total ("₱4,800 rent
+      // + ₱5,000 refundable deposit") would push the button under it.
       actions={
-        <>
-          {summary}
-          {action}
-        </>
+        <div className="flex w-full items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">{summary}</div>
+          {action && <div className="shrink-0">{action}</div>}
+        </div>
       }
     >
       <p className="-mt-2 text-sm text-muted">{heading}</p>

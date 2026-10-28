@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
 import { useSession } from "@/lib/auth/session";
-import { formatPeso } from "@/lib/money";
 import { addPreview } from "@/components/trips/add-preview";
 import { formatDateRange } from "@/components/trips/format";
 import { PeopleAndVehicles, MAX_PEOPLE } from "@/components/trips/people-and-vehicles";
+import { PriceBreakdown, usePriceBreakdown } from "@/components/trips/price-breakdown";
 import { useOptionalTripAdd } from "@/components/trips/trip-add-provider";
 import type { TripDates } from "@/components/trips/trip-dates";
 import { peopleText, rentalDays, seatsLabel, unitsNeeded, vehicleNoun } from "@/components/trips/vehicle-party";
@@ -24,12 +24,11 @@ type Rate = NonNullable<ListingDetail["vehicle_rate"]>;
 // the page's dates, the people and the vehicles they take (PeopleAndVehicles), an estimate from
 // its rate (rent for each vehicle and day, the refundable deposit for each) and Add to trip with
 // both. A group that needs more than are free is told so and can't add; "More from this shop"
-// opens the shop's other models (ShopPopup). The price is an estimate: rentals are confirmed with
-// the partner at checkout.
+// opens the shop's other models (ShopPopup). The price is the API's, as checkout charges it.
 // `add={false}` in a side panel, whose foot holds Add to trip.
+// `rate` says the vehicle is priced; the price itself is the API's.
 export function VehicleBookingCard({
   listing,
-  rate,
   dates,
   seats,
   add: canAdd = true,
@@ -43,7 +42,8 @@ export function VehicleBookingCard({
   const session = useSession();
   const flow = useOptionalTripAdd();
   const category = listing.category.name;
-  const [people, setPeople] = useState(Math.min(Math.max(dates.guests, 1), MAX_PEOPLE));
+  // The people are the trip's (the page's guests: the trip's when one is shown, RAA-191), not asked here.
+  const people = Math.min(Math.max(dates.guests, 1), MAX_PEOPLE);
   const [units, setUnits] = useState(unitsNeeded(people, seats));
   const [shopOpen, setShopOpen] = useState(false);
   const dated = Boolean(dates.from && dates.to);
@@ -55,8 +55,8 @@ export function VehicleBookingCard({
   const needed = unitsNeeded(people, seats);
   const short = free !== null && needed > free;
   const days = rentalDays(dates.from, dates.to);
-  const rent = units * rate.daily_price_cents * days;
-  const deposit = units * (rate.security_deposit_cents ?? 0);
+  // Priced by the API as checkout will (RAA-191): the vehicles for the days, the deposit apart.
+  const breakdown = usePriceBreakdown([{ listingId: listing.id, startsOn: dates.from, endsOn: dates.to, quantity: people, units }]);
   const noun = vehicleNoun(category);
   const nouns = (count: number) => vehicleNoun(category, count);
   const when = formatDateRange(dates.from, dates.to);
@@ -92,10 +92,8 @@ export function VehicleBookingCard({
             seats={seats}
             category={category}
             free={free}
-            onChange={(nextPeople, nextUnits) => {
-              setPeople(nextPeople);
-              setUnits(nextUnits);
-            }}
+            fixedPeople
+            onChange={(_people, nextUnits) => setUnits(nextUnits)}
             data-testid="vehicle-party"
           />
           {short && (
@@ -104,30 +102,9 @@ export function VehicleBookingCard({
               available. Pick other dates or add another listing.
             </TicketNote>
           )}
+          <PriceBreakdown breakdown={breakdown} />
         </Ticket>
 
-        <dl className="flex flex-col gap-1.5 text-sm" data-testid="vehicle-estimate">
-          <div className="flex justify-between gap-4">
-            <dt>
-              {units} × {formatPeso(rate.daily_price_cents)} × {days} {days === 1 ? "day" : "days"}
-            </dt>
-            <dd className="tabular-nums">{formatPeso(rent)}</dd>
-          </div>
-          {deposit > 0 && (
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted">
-                Deposit {units} × {formatPeso(rate.security_deposit_cents ?? 0)} · refundable
-              </dt>
-              <dd className="tabular-nums">{formatPeso(deposit)}</dd>
-            </div>
-          )}
-          <div className="flex justify-between gap-4 border-t border-line pt-2 font-semibold">
-            <dt>Total</dt>
-            <dd className="tabular-nums" data-testid="vehicle-total">
-              {formatPeso(rent + deposit)}
-            </dd>
-          </div>
-        </dl>
 
         {guest && canAdd && flow && (
           <Button
@@ -165,7 +142,6 @@ export function VehicleBookingCard({
             More from this shop · {others} other {others === 1 ? "model" : "models"}
           </button>
         )}
-        <p className="text-sm text-muted">The price is an estimate: the partner confirms it when they accept your request.</p>
       </CardBody>
       {shopOpen && (
         <ShopPopup
