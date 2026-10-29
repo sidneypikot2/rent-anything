@@ -18,6 +18,9 @@ export function combinePrices(prices: (ListingPrice | undefined)[], titles?: str
     deposit: ready.reduce((sum, price) => sum + (price.deposit_cents ?? 0), 0),
     toBeAgreed: ready.some((price) => price.to_be_agreed),
     unavailable: ready.map((price) => price.unavailable).filter(Boolean).join(". ") || null,
+    // A single vehicle rental's pickup times and return (RAA-195); null for anything else.
+    pickupTimes: ready.length === 1 ? ready[0].pickup_times : null,
+    returnsAt: ready.length === 1 ? ready[0].returns_at : null,
   };
 }
 

@@ -14,6 +14,8 @@ import {
   isWeekend,
   monthShort,
   monthYear,
+  rentalMoment,
+  rentalTime,
   shortDate,
   weekdayLetter,
 } from "./calendar-dates";
@@ -386,6 +388,7 @@ function DayCell({ listing, day, today, selected, blockStart, onPointerDown, onP
       <span className="mt-1 text-[0.6875rem] leading-tight">
         <DayNote listing={listing} day={day} blockReason={blockStart ? (block?.reason ?? "") : null} />
       </span>
+      {!blocked && <ReturnsNote listing={listing} date={day.date} />}
       {seats && !blocked && day.units_available > 0 && (
         <span className="mt-1 h-1.5 overflow-hidden rounded-full bg-sky-mist" aria-hidden>
           <span
@@ -420,6 +423,25 @@ function DayNote({ listing, day, blockReason }: { listing: CalendarListing; day:
   );
 }
 
+// A vehicle rental's return day (RAA-195): when the last vehicle back that day is ready for the
+// next guest, its turnaround after the return, as the API counts it: "Ready 9:00 AM", "2 ready 9:00 AM".
+function ReturnsNote({ listing, date }: { listing: CalendarListing; date: string }) {
+  const turnaround = (listing.turnaround_minutes ?? 0) * 60_000;
+  const ready = listing.bookings
+    .filter((booking) => booking.ends_at)
+    .map((booking) => ({ at: new Date(new Date(booking.ends_at!).getTime() + turnaround).toISOString(), quantity: booking.quantity }))
+    .filter((back) => rentalMoment(back.at).date === date);
+  if (ready.length === 0) return null;
+  const last = ready.reduce((latest, back) => (back.at > latest ? back.at : latest), ready[0].at);
+  const count = ready.reduce((sum, back) => sum + back.quantity, 0);
+  return (
+    <span className="mt-0.5 text-[0.625rem] leading-tight font-semibold text-sky-deep" data-testid="calendar-returns">
+      {count > 1 ? `${count} ready ` : "Ready "}
+      {rentalTime(last)}
+    </span>
+  );
+}
+
 function dayStatus(listing: CalendarListing, day: CalendarDay) {
   const price = day.price_cents === null ? "no price" : formatPeso(day.price_cents);
   if (day.block_id !== null) return `blocked, ${price}`;
@@ -442,9 +464,14 @@ function BookingBar({
 }) {
   const stay = listing.category.booking_type === "stay";
   const span = bookingSpan(stay, booking.starts_on, booking.ends_on);
-  // A stay's bar runs from the middle of check-in to the middle of check-out, as on Airbnb.
-  const left = daysBetween(first, span.first) * DAY_W + (stay ? DAY_W / 2 : 0) + 3;
-  const width = Math.max(span.count * DAY_W - 6, 24);
+  // A stay's bar runs from the middle of check-in to the middle of check-out, as on Airbnb; a
+  // vehicle rental's from its pickup to its return, at their hours (RAA-195).
+  const pickup = booking.starts_at ? rentalMoment(booking.starts_at) : null;
+  const back = booking.ends_at ? rentalMoment(booking.ends_at) : null;
+  const start = pickup ? daysBetween(first, pickup.date) + pickup.fraction : daysBetween(first, span.first) + (stay ? 0.5 : 0);
+  const end = back ? daysBetween(first, back.date) + back.fraction : start + span.count;
+  const left = start * DAY_W + 3;
+  const width = Math.max((end - start) * DAY_W - 6, 24);
   const over = booking.ends_on < today;
   const pending = isPendingBooking(booking);
   return (
@@ -461,6 +488,7 @@ function BookingBar({
       )}
     >
       {booking.status === "requested" && "Request · "}
+      {booking.starts_at && booking.ends_at && `${rentalTime(booking.starts_at)}–${rentalTime(booking.ends_at)} · `}
       {booking.guest_name}
       {booking.quantity > 1 && ` ×${booking.quantity}`} · {formatPeso(booking.total_cents)}
     </button>

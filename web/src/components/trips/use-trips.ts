@@ -37,6 +37,8 @@ export type AddRequest = {
   // A rental vehicle's units the guest chose (RAA-191); left out, the API derives them from the
   // people (quantity) and the vehicle's seats.
   units?: number;
+  // A vehicle rental's pickup time ("08:30", RAA-195); left out, the shop's default.
+  pickupTime?: string | null;
   // What the add sheet shows of the listing, as much as the page that started the add knows.
   preview?: AddPreview;
   // Several of one partner's room types added together (RAA-188, a mix from its panel): each its
@@ -298,6 +300,7 @@ export function useAddTripItem() {
           ...(request.roomGuests ? { room_guests: request.roomGuests } : {}),
           ...(request.pets ? { pets: request.pets } : {}),
           ...(request.units ? { units: request.units } : {}),
+          ...(request.pickupTime ? { pickup_time: request.pickupTime } : {}),
           ...(tripId === null && request.guests ? { guests: request.guests } : {}),
           ...trip,
         },
@@ -401,6 +404,8 @@ export type ItemChanges = {
   pets?: number;
   // A rental vehicle's chosen units (RAA-191); null derives them from the people.
   units?: number | null;
+  // A vehicle rental's pickup time (RAA-195); null takes the shop's default.
+  pickup_time?: string | null;
   move_to_trip_id?: number;
 };
 

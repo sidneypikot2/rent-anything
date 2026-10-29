@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Pill } from "@/components/ui/pill";
+import { SelectField } from "@/components/ui/select-field";
 import { StepperField } from "@/components/ui/stepper-field";
 import { TextareaField } from "@/components/ui/textarea-field";
 import { formatDateRange } from "@/lib/dates";
@@ -23,13 +24,23 @@ import {
 } from "../use-partner-calendar";
 import { BOOKING_STATUS } from "@/components/bookings/booking-status";
 import { roomSplit } from "@/components/bookings/room-split";
-import { addDays, bookingSpan, daysBetween, shortDate } from "./calendar-dates";
+import { addDays, bookingSpan, daysBetween, rentalTime, shortDate } from "./calendar-dates";
 import type { Selection } from "./calendar-grid";
 
 type Done = (message: string) => void;
 
 const isStay = (listing: CalendarListing) => listing.category.booking_type === "stay";
 const isJoiner = (listing: CalendarListing) => listing.capacity_unit === "seats";
+// A vehicle rental (RAA-195), the one kind with a turnaround: its selected days are rental days,
+// each 24 hours from the pickup, so it comes back on the day after the last one.
+const isRental = (listing: CalendarListing) => listing.turnaround_minutes !== null;
+
+// Every half hour of the day, for an offline rental's pickup: "09:00" shown as "9:00 AM".
+const PICKUP_TIMES = Array.from({ length: 48 }, (_, index) => {
+  const hour = Math.floor(index / 2);
+  const value = `${String(hour).padStart(2, "0")}:${index % 2 ? "30" : "00"}`;
+  return { value, label: `${hour % 12 === 0 ? 12 : hour % 12}:${index % 2 ? "30" : "00"} ${hour < 12 ? "AM" : "PM"}` };
+});
 
 // What a booking's quantity counts, for labels: "joiners", "groups", "units".
 function quantityNoun(listing: CalendarListing, count = 2) {
@@ -136,7 +147,9 @@ function BookingForm({ selection, onClose, onDone }: { selection: Selection; onC
   const [quantity, setQuantity] = useState(1);
   const [total, setTotal] = useState("");
   const [notes, setNotes] = useState("");
+  const [pickupTime, setPickupTime] = useState("09:00");
   const [totalError, setTotalError] = useState<string>();
+  const rental = isRental(listing);
   const most = Math.min(listing.capacity, 100);
 
   function submit() {
@@ -148,7 +161,8 @@ function BookingForm({ selection, onClose, onDone }: { selection: Selection; onC
         body: {
           guest_name: guest.trim(),
           starts_on: from,
-          ends_on: isStay(listing) ? addDays(to, 1) : to,
+          ends_on: isStay(listing) || rental ? addDays(to, 1) : to,
+          ...(rental ? { pickup_time: pickupTime } : {}),
           quantity,
           total_cents: cents,
           notes: notes.trim(),
@@ -176,6 +190,16 @@ function BookingForm({ selection, onClose, onDone }: { selection: Selection; onC
         onChange={(event) => setGuest(event.target.value)}
         data-testid="booking-guest"
       />
+      {rental && (
+        <SelectField
+          label="Pickup time"
+          options={PICKUP_TIMES}
+          value={pickupTime}
+          onChange={(event) => setPickupTime(event.target.value)}
+          hint={`Due back ${shortDate(addDays(to, 1))} at the same time.`}
+          data-testid="booking-pickup-time"
+        />
+      )}
       <StepperField
         label={`How many ${quantityNoun(listing)}`}
         value={quantity}
@@ -363,6 +387,9 @@ function Confirm({
 }
 
 function bookingDates(listing: CalendarListing, booking: CalendarBooking) {
+  if (booking.starts_at && booking.ends_at) {
+    return `Pickup ${shortDate(booking.starts_on)}, ${rentalTime(booking.starts_at)} · Back ${shortDate(addDays(booking.starts_on, Math.max(daysBetween(booking.starts_on, booking.ends_on), 1)))}, ${rentalTime(booking.ends_at)}`;
+  }
   if (!isStay(listing)) return formatDateRange(booking.starts_on, booking.ends_on);
   const nights = bookingSpan(true, booking.starts_on, booking.ends_on).count;
   return `Check-in ${shortDate(booking.starts_on)} · Check-out ${shortDate(booking.ends_on)} · ${nights} ${nights === 1 ? "night" : "nights"}`;

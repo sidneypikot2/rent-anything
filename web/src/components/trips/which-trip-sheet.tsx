@@ -16,6 +16,7 @@ import { daysBetween, formatDateRange, guestLimitHint, itemCount, noNightError, 
 import { bedsBooked } from "./beds";
 import { evenRooms, headcount, partyFromGuests, partyOf, partySummary, roomGuestsToSend, roomText, type Room } from "./party";
 import { RoomsAndGuests } from "./rooms-and-guests";
+import { PickupTimeRow, rentalClock } from "./pickup-time";
 import { PriceBreakdown, usePriceBreakdown } from "./price-breakdown";
 import { VehicleCounters } from "./people-and-vehicles";
 import { unitsFor, vehiclePartyText } from "./vehicle-party";
@@ -276,6 +277,8 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   const vehicle = vehicleSeats !== null;
   const [typedUnits, setUnits] = useState<number | null>(null);
   const vehicleUnits = vehicleSeats ? unitsFor(quantityNumber, vehicleSeats, typedUnits ?? request.units) : undefined;
+  // Its pickup time (RAA-195): the booking card's, until the guest picks another; null takes the shop's default.
+  const [pickupTime, setPickupTime] = useState<string | null>(request.pickupTime ?? null);
   const dateError = noNight ?? (datesValid ? undefined : "Pick both dates, or neither");
   // What the add costs (RAA-191): each item of a mix, or the one listing as the sheet has it now.
   const breakdown = usePriceBreakdown(
@@ -289,6 +292,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
             units: vehicleUnits,
             roomGuests: arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null,
             pets: arrangement?.pets ?? 0,
+            pickupTime: vehicle ? pickupTime : null,
           },
         ],
     mix?.map((item) => item.title),
@@ -306,6 +310,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
           quantity: quantityNumber,
           guests: gear ? request.quantity : vehicle ? request.guests : undefined,
           units: vehicle ? vehicleUnits : undefined,
+          pickupTime: vehicle ? pickupTime : null,
           roomGuests: arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null,
           pets: arrangement?.pets ?? 0,
         },
@@ -577,6 +582,14 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
                   )}
                 </p>
               </TicketNote>
+            )}
+            {vehicle && breakdown.price?.pickupTimes && (
+              <PickupTimeRow
+                times={breakdown.price.pickupTimes}
+                value={pickupTime ?? (breakdown.price.returnsAt ? rentalClock(breakdown.price.returnsAt) : null)}
+                onChange={setPickupTime}
+                returnsAt={breakdown.price.returnsAt}
+              />
             )}
             {capacity && (
               <TicketNote tone={capacity.tone} data-testid="add-sheet-capacity">

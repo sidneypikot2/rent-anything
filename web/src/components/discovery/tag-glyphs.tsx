@@ -150,6 +150,11 @@ export function CalendarGlyph({ className }: Props) {
   return <Glyph paths={["M4 6h16v14H4Z", "M4 10h16", "M8 3v4", "M16 3v4"]} className={className} />;
 }
 
+// A clock face: a vehicle rental's pickup time (RAA-195).
+export function ClockGlyph({ className }: Props) {
+  return <Glyph paths={[circle(12, 12, 8.5), "M12 7.5V12l3 2"]} className={className} />;
+}
+
 export function GuestsGlyph({ className }: Props) {
   return (
     <Glyph

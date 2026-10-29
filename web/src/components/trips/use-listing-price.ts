@@ -1,4 +1,4 @@
-import { useQueries } from "@tanstack/react-query";
+import { keepPreviousData, useQueries } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
 import type { Room } from "./party";
@@ -15,6 +15,8 @@ export type PriceRequest = {
   units?: number;
   roomGuests?: Room[] | null;
   pets?: number;
+  // A vehicle rental's pickup time ("08:30", RAA-195); left out, the shop's default.
+  pickupTime?: string | null;
 };
 
 // What adding listings would cost (GET /listings/{id}/price, RAA-191), one query each: a single
@@ -26,6 +28,8 @@ export function useListingPrices(requests: PriceRequest[]) {
       queryKey: ["listing-price", request] as const,
       enabled: Boolean(request.startsOn && request.endsOn),
       staleTime: 60_000,
+      // A changed pickup time or count keeps the last answer on screen while it is asked again.
+      placeholderData: keepPreviousData,
       queryFn: async () => {
         const { data, error } = await apiClient().GET("/api/v1/listings/{listing_id}/price", {
           params: {
@@ -37,6 +41,7 @@ export function useListingPrices(requests: PriceRequest[]) {
               ...(request.units ? { units: request.units } : {}),
               ...(request.roomGuests ? { room_guests: JSON.stringify(request.roomGuests) } : {}),
               ...(request.pets ? { pets: request.pets } : {}),
+              ...(request.pickupTime ? { pickup_time: request.pickupTime } : {}),
             },
           },
         });

@@ -11,6 +11,7 @@ import { useSession } from "@/lib/auth/session";
 import { addPreview } from "@/components/trips/add-preview";
 import { formatDateRange } from "@/components/trips/format";
 import { PeopleAndVehicles, MAX_PEOPLE } from "@/components/trips/people-and-vehicles";
+import { PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
 import { PriceBreakdown, usePriceBreakdown } from "@/components/trips/price-breakdown";
 import { useOptionalTripAdd } from "@/components/trips/trip-add-provider";
 import type { TripDates } from "@/components/trips/trip-dates";
@@ -24,7 +25,8 @@ type Rate = NonNullable<ListingDetail["vehicle_rate"]>;
 // the page's dates, the people and the vehicles they take (PeopleAndVehicles), its price from
 // its rate (rent for each vehicle and day, the refundable deposit for each) and Add to trip with
 // both. A group that needs more than are free is told so and can't add; "More from this shop"
-// opens the shop's other models (ShopPopup). The price is the API's, as checkout charges it.
+// opens the shop's other models (ShopPopup). The price is the API's, as checkout charges it,
+// as are the pickup times free on the dates and when it is due back (RAA-195).
 // `add={false}` in a side panel, whose foot holds Add to trip.
 // `rate` says the vehicle is priced; the price itself is the API's.
 export function VehicleBookingCard({
@@ -46,6 +48,8 @@ export function VehicleBookingCard({
   const people = Math.min(Math.max(dates.guests, 1), MAX_PEOPLE);
   const [units, setUnits] = useState(unitsNeeded(people, seats));
   const [shopOpen, setShopOpen] = useState(false);
+  // Its pickup time (RAA-195): null takes the shop's default until the guest picks one.
+  const [pickupTime, setPickupTime] = useState<string | null>(null);
   const dated = Boolean(dates.from && dates.to);
   const shop = useShopListings(listing.business.id, listing.category.slug, dates.from, dates.to);
   const models = shop.data?.listings ?? [];
@@ -56,7 +60,9 @@ export function VehicleBookingCard({
   const short = free !== null && needed > free;
   const days = rentalDays(dates.from, dates.to);
   // Priced by the API as checkout will (RAA-191): the vehicles for the days, the deposit apart.
-  const breakdown = usePriceBreakdown([{ listingId: listing.id, startsOn: dates.from, endsOn: dates.to, quantity: people, units }]);
+  const breakdown = usePriceBreakdown([{ listingId: listing.id, startsOn: dates.from, endsOn: dates.to, quantity: people, units, pickupTime }]);
+  const pickupTimes = breakdown.price?.pickupTimes;
+  const returnsAt = breakdown.price?.returnsAt;
   const noun = vehicleNoun(category);
   const nouns = (count: number) => vehicleNoun(category, count);
   const when = formatDateRange(dates.from, dates.to);
@@ -102,6 +108,14 @@ export function VehicleBookingCard({
               available. Pick other dates or add another listing.
             </TicketNote>
           )}
+          {pickupTimes && (
+            <PickupTimeRow
+              times={pickupTimes}
+              value={pickupTime ?? (returnsAt ? rentalClock(returnsAt) : null)}
+              onChange={setPickupTime}
+              returnsAt={returnsAt}
+            />
+          )}
           <PriceBreakdown breakdown={breakdown} />
         </Ticket>
 
@@ -123,6 +137,7 @@ export function VehicleBookingCard({
                 endsOn: dates.to,
                 quantity: people,
                 units,
+                pickupTime,
                 guests: dates.guests,
                 preview: addPreview(listing),
               })
