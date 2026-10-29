@@ -120,9 +120,60 @@ RSpec.describe "Checkouts", type: :request do
           expect(response.parsed_body["bookings"].map { _1.slice("quantity", "guests", "total_cents", "to_be_agreed") })
             .to eq([ { "quantity" => 5, "guests" => 10, "total_cents" => 250_000, "to_be_agreed" => false },
               { "quantity" => 6, "guests" => 10, "total_cents" => 300_000, "to_be_agreed" => false } ])
+          # A rental counts on the days it starts (RAA-195): the first is back on day + 1.
           ledger = Availability::Ledger.new([ click.reload ], day, day + 2)
-          expect([ day, day + 1, day + 2 ].map { ledger.day(click, _1)[:booked] }).to eq([ 5, 5, 6 ])
+          expect([ day, day + 1, day + 2 ].map { ledger.day(click, _1)[:booked] }).to eq([ 5, 0, 6 ])
         end
+      end
+
+      response "201", "back-to-back rentals of one motorbike, each 24 hours from its pickup time (RAA-195)" do
+        schema "$ref" => "#/components/schemas/checkout"
+
+        let(:click) { create(:listing, :vehicle, booking_mode: "instant") }
+        let!(:first) { create(:trip_item, trip:, listing: click, starts_on: day, ends_on: day + 1, quantity: 1, pickup_time: "08:00") }
+        let!(:second) { create(:trip_item, trip:, listing: click, starts_on: day + 1, ends_on: day + 2, quantity: 1, pickup_time: "08:00") }
+        let(:item_ids) { [ first.id, second.id ] }
+
+        run_test! do |response|
+          periods = response.parsed_body["bookings"].map { [ Time.zone.parse(_1["starts_at"]), Time.zone.parse(_1["ends_at"]) ] }
+          expected = [ day, day + 1 ].map { |on| Booking.rental_period(on, on + 1, "08:00") }.map { [ _1.begin, _1.end ] }
+          expect(periods).to eq(expected)
+        end
+      end
+
+      # Delivery and pick-up (RAA-195): the fees for each of the 2 motorbikes, and the booking
+      # keeps the choice and the address for the partner.
+      response "201", "a rental delivered and collected, its fees in the total" do
+        schema "$ref" => "#/components/schemas/checkout"
+
+        let(:click) { create(:listing, :vehicle, booking_mode: "instant").tap { _1.units.create!(position: 2) } }
+        let!(:item) do
+          create(:trip_item, trip:, listing: click, starts_on: day, ends_on: day + 1, quantity: 2, units: 2,
+            delivery: true, return_pickup: true, delivery_address: "Kota Beach Resort")
+        end
+        let(:item_ids) { [ item.id ] }
+
+        before { click.vehicle_rate.update!(delivery_fee_cents: 15_000, return_pickup_fee_cents: 10_000) }
+
+        run_test! do |response|
+          booking = response.parsed_body["bookings"].sole
+          daily = click.vehicle_rate.daily_price_cents
+          expect(booking["total_cents"]).to eq((daily * 2) + 30_000 + 20_000)
+          expect(booking.slice("delivery", "return_pickup", "delivery_address"))
+            .to eq("delivery" => true, "return_pickup" => true, "delivery_address" => "Kota Beach Resort")
+          expect(Booking.find(booking["id"]).price_breakdown).to include("delivery_cents" => 30_000, "return_pickup_cents" => 20_000)
+        end
+      end
+
+      response "422", "a pickup before the motorbike is back" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:click) { create(:listing, :vehicle, booking_mode: "instant", title: "Honda Click") }
+        let!(:first) { create(:trip_item, trip:, listing: click, starts_on: day, ends_on: day + 1, quantity: 1, pickup_time: "08:00") }
+        let!(:second) { create(:trip_item, trip:, listing: click, starts_on: day + 1, ends_on: day + 2, quantity: 1, pickup_time: "07:00") }
+        let(:item_ids) { [ first.id, second.id ] }
+
+        run_test! { |response| expect(response.parsed_body["errors"].join).to include("Honda Click: Available from 8:00 AM") }
       end
 
       response "422", "more motorbikes than are free" do

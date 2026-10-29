@@ -18,7 +18,20 @@ export function combinePrices(prices: (ListingPrice | undefined)[], titles?: str
     deposit: ready.reduce((sum, price) => sum + (price.deposit_cents ?? 0), 0),
     toBeAgreed: ready.some((price) => price.to_be_agreed),
     unavailable: ready.map((price) => price.unavailable).filter(Boolean).join(". ") || null,
+    // Vehicle rentals' pickup times (RAA-195): those free for every one of them, as several
+    // models picked together go at one time; and when they are due back. Null for anything else.
+    pickupTimes: pickupTimesOf(ready),
+    returnsAt: ready.find((price) => price.returns_at)?.returns_at ?? null,
   };
+}
+
+function pickupTimesOf(prices: ListingPrice[]) {
+  const lists = prices.map((price) => price.pickup_times).filter((times) => times !== null);
+  if (lists.length === 0) return null;
+  return lists[0].map((slot) => ({
+    time: slot.time,
+    available: lists.every((times) => times.some((each) => each.time === slot.time && each.available)),
+  }));
 }
 
 // What the add sheet asks the API for (RAA-191), and the combined price for its summary.

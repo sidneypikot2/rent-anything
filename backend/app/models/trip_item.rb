@@ -21,6 +21,12 @@ class TripItem < ApplicationRecord
     booking.present?
   end
 
+  # A dated vehicle rental's period (RAA-195), from the pickup time the guest picked or the
+  # shop's default; nil for anything else.
+  def rental_period
+    starts_on && listing.rental_period(starts_on, ends_on, pickup_time)
+  end
+
   MAX_QUANTITY = 99
 
   validates :quantity, numericality: { only_integer: true, in: 1..MAX_QUANTITY }

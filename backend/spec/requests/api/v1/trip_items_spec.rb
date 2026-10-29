@@ -37,6 +37,8 @@ RSpec.describe "Trip items", type: :request do
           room_guests: ROOM_GUESTS_BODY,
           pets: PETS_BODY,
           units: UNITS_BODY,
+          pickup_time: PICKUP_TIME_BODY,
+          **DELIVERY_FIELDS,
           items: {
             type: :array, minItems: 1, maxItems: 10, description: "Instead of listing_id and the fields above",
             items: {
@@ -48,7 +50,9 @@ RSpec.describe "Trip items", type: :request do
                 quantity: { type: :integer },
                 room_guests: ROOM_GUESTS_BODY,
                 pets: PETS_BODY,
-                units: UNITS_BODY
+                units: UNITS_BODY,
+                pickup_time: PICKUP_TIME_BODY,
+                **DELIVERY_FIELDS
               },
               required: %w[listing_id]
             }
@@ -190,6 +194,70 @@ RSpec.describe "Trip items", type: :request do
           let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, quantity: 10, units: 6 } }
 
           run_test! { |response| expect(response.parsed_body["items"].sole.slice("units", "units_chosen")).to eq("units" => 6, "units_chosen" => 6) }
+        end
+
+        response "201", "picked up at 8:30, due back at 8:30 the next day (RAA-195)" do
+          schema "$ref" => "#/components/schemas/trip"
+          let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, quantity: 1, pickup_time: "08:30" } }
+
+          run_test! do |response|
+            item = response.parsed_body["items"].sole
+            expect(item["pickup_time"]).to eq("08:30")
+            expect(Time.zone.parse(item["returns_at"])).to eq(Booking.rental_period(day, day + 1, "08:30").end)
+          end
+        end
+
+        # Delivery and pick-up (RAA-195), where the shop offers them, to the address typed.
+        response "201", "delivered to the guest's hotel and collected there at the end" do
+          schema "$ref" => "#/components/schemas/trip"
+          let(:body) do
+            { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, quantity: 2,
+              delivery: true, return_pickup: true, delivery_address: "  Kota Beach Resort, Santa Fe " }
+          end
+
+          before { click.vehicle_rate.update!(delivery_fee_cents: 15_000, return_pickup_fee_cents: 10_000) }
+
+          run_test! do |response|
+            expect(response.parsed_body["items"].sole.slice("delivery", "return_pickup", "delivery_address"))
+              .to eq("delivery" => true, "return_pickup" => true, "delivery_address" => "Kota Beach Resort, Santa Fe")
+          end
+        end
+
+        response "422", "delivery the shop doesn't offer, or with no address" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+          let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, delivery: true, delivery_address: "Kota" } }
+
+          context "with a shop that doesn't deliver" do
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "This shop doesn't deliver" ]) }
+          end
+
+          context "with no address" do
+            let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, return_pickup: true } }
+
+            before { click.vehicle_rate.update!(return_pickup_fee_cents: 0) }
+
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Add the address for the delivery or pick-up" ]) }
+          end
+
+          context "with delivery as text" do
+            let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, delivery: "yes" } }
+
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Delivery must be true or false" ]) }
+          end
+        end
+
+        response "422", "a pickup time off the half hour, outside the shop's hours, or for a stay" do
+          let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, pickup_time: "08:15" } }
+
+          context "with one off the half hour" do
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Pickup time must be a time on the half hour, like 08:30" ]) }
+          end
+
+          context "with one before the shop opens" do
+            let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, pickup_time: "06:00" } }
+
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Pickup is from 07:00 to 19:00" ]) }
+          end
         end
 
         response "422", "too few motorbikes, more than the people, units on a tour, or more people than the fleet seats" do
@@ -402,6 +470,8 @@ RSpec.describe "Trip items", type: :request do
           room_guests: ROOM_GUESTS_BODY,
           pets: PETS_BODY,
           units: UNITS_BODY,
+          pickup_time: PICKUP_TIME_BODY,
+          **DELIVERY_FIELDS,
           move_to_trip_id: { type: :integer }
         }
       }

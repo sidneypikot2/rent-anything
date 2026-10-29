@@ -12,7 +12,10 @@ import { Stepper } from "@/components/ui/stepper-field";
 import { Ticket, TicketRow } from "@/components/ui/ticket";
 import { useSession } from "@/lib/auth/session";
 import { formatPeso } from "@/lib/money";
-import { formatDateRange } from "@/components/trips/format";
+import { DateRangeField } from "@/components/ui/date-range-field";
+import { addDays, formatDateRange, todayIso } from "@/components/trips/format";
+import { DeliveryOptions, NO_DELIVERY, sharedFees, wantsDelivery, type Delivery } from "@/components/trips/delivery-options";
+import { formatRentalSpan, PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
 import { useOptionalTripAdd } from "@/components/trips/trip-add-provider";
 import type { TripDates } from "@/components/trips/trip-dates";
 import { usePriceBreakdown } from "@/components/trips/price-breakdown";
@@ -55,25 +58,46 @@ export function splitPeople(picked: { units: number; seats: number }[], people: 
 // and how the seats picked compare with the people. `summary` (the API's total, the deposits apart)
 // and `action` ("Add N to trip": one item per model through the add sheet, as a mix of room types
 // is) go in the dialog's action bar. The shop pop-up and a vehicle business's side panel show it.
+// The rental's dates start as the trip's and can be changed (a bike for 1 day of a week-long
+// trip), and everything picked goes at one pickup time (RAA-195): each model says how many are
+// free from that pickup to the return.
 export function useShopModels({ business, category, dates, people, listingIds, onOpen, onAdding }: Options) {
   const session = useSession();
   const flow = useOptionalTripAdd();
-  const shop = useShopListings(business.id, category.slug ?? "", dates.from, dates.to);
+  // The rental's own dates, the trip's at first; one date is one day, back the next.
+  const [rental, setRental] = useState({ from: dates.from ?? "", to: dates.to ?? "" });
+  const from = rental.from || undefined;
+  const to = rental.from ? rental.to || addDays(rental.from, 1) : undefined;
+  const [pickupTime, setPickupTime] = useState<string | null>(null);
+  const shop = useShopListings(business.id, category.slug ?? "", from, to, pickupTime);
   const models = (shop.data?.listings ?? []).filter((model) => !listingIds || listingIds.includes(model.id));
   const [counts, setCounts] = useState<Record<number, number>>({});
   const [transmission, setTransmission] = useState<string | null>(null);
   const transmissions = [...new Set(models.map((model) => model.details.transmission).filter((value): value is string => typeof value === "string"))];
   const shown = transmission ? models.filter((model) => model.details.transmission === transmission) : models;
 
-  const days = rentalDays(dates.from, dates.to);
+  const days = rentalDays(from, to);
   const picked = models.filter((model) => (counts[model.id] ?? 0) > 0).map((model) => ({ model, units: counts[model.id], seats: seatsOf(model) }));
   const units = picked.reduce((sum, each) => sum + each.units, 0);
   const seats = picked.reduce((sum, each) => sum + each.units * each.seats, 0);
   const split = splitPeople(picked, people);
+  // Delivery and pick-up (RAA-195): offered while every model picked (or, before any is, every
+  // model here) offers it; a choice no longer offered isn't sent.
+  const [delivery, setDelivery] = useState<Delivery>(NO_DELIVERY);
+  const fees = sharedFees((picked.length > 0 ? picked.map((each) => each.model) : models).map((model) => model.vehicle_rate));
+  const chosen = {
+    ...delivery,
+    delivery: delivery.delivery && fees.delivery !== null,
+    returnPickup: delivery.returnPickup && fees.returnPickup !== null,
+  };
+  const chosenDelivery = wantsDelivery(chosen) ? chosen : null;
   // Priced by the API, each model as the add will send it: its vehicles and the people on them.
   const breakdown = usePriceBreakdown(
-    picked.map((each, index) => ({ listingId: each.model.id, startsOn: dates.from, endsOn: dates.to, quantity: split[index], units: each.units })),
+    picked.map((each, index) => ({ listingId: each.model.id, startsOn: from, endsOn: to, quantity: split[index], units: each.units, pickupTime, delivery: chosenDelivery })),
   );
+  // The pickup times free for every model picked; before one is, the shop's (any model free then).
+  const pickupTimes = (picked.length > 0 ? breakdown.price?.pickupTimes : null) ?? shop.data?.pickup_times ?? null;
+  const returnsAt = (picked.length > 0 ? breakdown.price?.returnsAt : null) ?? models.find((model) => model.ends_at)?.ends_at ?? null;
   const total = breakdown.price?.total ?? null;
   const deposit = breakdown.price?.deposit ?? 0;
   const short = people - seats;
@@ -90,8 +114,8 @@ export function useShopModels({ business, category, dates, people, listingIds, o
       title: business.name,
       range: true,
       bookingType: "rental",
-      startsOn: dates.from,
-      endsOn: dates.to,
+      startsOn: from,
+      endsOn: to,
       quantity: split.reduce((sum, count) => sum + count, 0),
       guests: people,
       preview: { category: category.name, by: `by ${business.name}`, photo: null, price: total !== null ? formatPeso(total) : undefined },
@@ -103,6 +127,8 @@ export function useShopModels({ business, category, dates, people, listingIds, o
         roomGuests: null,
         pets: 0,
         shared: false,
+        pickupTime: pickupTime ?? (returnsAt ? rentalClock(returnsAt) : null),
+        delivery: chosenDelivery,
       })),
     });
     onAdding?.();
@@ -133,12 +159,23 @@ export function useShopModels({ business, category, dates, people, listingIds, o
           {helmets && <Badge tone="kind">Helmets included</Badge>}
         </div>
       )}
-      <div className="flex flex-wrap justify-between gap-2 text-sm">
-        <span>{dates.from && dates.to ? `${formatDateRange(dates.from, dates.to)} · ${days} ${days === 1 ? "day" : "days"}` : "No dates yet"}</span>
-        <span className="text-muted">
-          Your trip: <span className="font-semibold text-foreground">{peopleText(people)}</span>
-        </span>
-      </div>
+      <Ticket>
+        <DateRangeField
+          row
+          label="Rental dates"
+          min={todayIso()}
+          from={rental.from}
+          to={rental.to}
+          onChange={setRental}
+          placeholder="Pick dates"
+          hint={from && to ? `${days} ${days === 1 ? "day" : "days"} · back ${formatDateRange(to, to)}` : undefined}
+          data-testid="shop-dates"
+        />
+      </Ticket>
+      <p className="text-sm text-muted">
+        Your trip: <span className="font-semibold text-foreground">{peopleText(people)}</span>
+        {dates.from && dates.to && from && (from !== dates.from || to !== dates.to) ? ` · its dates stay ${formatDateRange(dates.from, dates.to)}` : ""}
+      </p>
 
       {transmissions.length > 1 && (
         <div role="group" aria-label="Transmission" className="flex flex-wrap gap-2">
@@ -197,8 +234,19 @@ export function useShopModels({ business, category, dates, people, listingIds, o
                       model.title
                     )}
                     <span className="text-sm font-medium text-muted">
-                      <span className="font-bold text-action-ink">{formatPeso(model.vehicle_rate?.daily_price_cents ?? 0)}</span> a day ·{" "}
-                      {free ? `${free} ${free === 1 ? "unit" : "units"} available` : "none available on your dates"}
+                      <span className="font-bold text-action-ink">{formatPeso(model.vehicle_rate?.daily_price_cents ?? 0)}</span> a day
+                    </span>
+                    <span className="text-sm font-medium text-muted" data-testid="shop-model-free">
+                      {free ? (
+                        <>
+                          <span className="font-semibold text-foreground">{free} available</span>
+                          {model.starts_at && model.ends_at && ` · ${formatRentalSpan(model.starts_at, model.ends_at)}`}
+                        </>
+                      ) : model.starts_at ? (
+                        "None free for these times"
+                      ) : (
+                        "None available on your dates"
+                      )}
                     </span>
                   </span>
                 }
@@ -213,7 +261,7 @@ export function useShopModels({ business, category, dates, people, listingIds, o
                       testId={`shop-model-${model.id}`}
                     />
                   ) : (
-                    <span className="shrink-0 text-sm text-muted">Sold out</span>
+                    <span className="shrink-0 text-sm text-muted">{model.starts_at ? "Taken" : "Sold out"}</span>
                   )
                 }
                 data-testid="shop-model"
@@ -222,6 +270,21 @@ export function useShopModels({ business, category, dates, people, listingIds, o
           })}
         </Ticket>
       )}
+
+      {((from && to && pickupTimes) || fees.delivery !== null || fees.returnPickup !== null) && (
+        <Ticket>
+          {from && to && pickupTimes && (
+            <PickupTimeRow
+              times={pickupTimes}
+              value={pickupTime ?? (returnsAt ? rentalClock(returnsAt) : null)}
+              onChange={setPickupTime}
+              returnsAt={returnsAt}
+            />
+          )}
+          <DeliveryOptions fees={fees} value={chosen} onChange={setDelivery} address={false} />
+        </Ticket>
+      )}
+      {breakdown.price?.unavailable && <p className="text-sm font-semibold text-warning">{breakdown.price.unavailable}</p>}
 
       <div className="flex flex-col gap-2" data-testid="shop-seats">
         <div className="flex flex-wrap justify-between gap-2 text-sm">

@@ -17,6 +17,8 @@ import { ItemThumb } from "./item-thumb";
 import { evenRooms, headcount, partyFromGuests, roomGuestsToSend, stayRules, type Room } from "./party";
 import { RoomsAndGuests } from "./rooms-and-guests";
 import { VehicleCounters } from "./people-and-vehicles";
+import { PickupTimeRow, rentalClock } from "./pickup-time";
+import { useListingPrices } from "./use-listing-price";
 import { unitsFor } from "./vehicle-party";
 import { useUpdateTripItem, type Trip, type TripItem } from "./use-trips";
 
@@ -34,7 +36,8 @@ type Props = {
 // photo, name and kind, the trip it is in, then the nights the new dates make, its cancellation
 // policy and that nothing is paid yet, so a guest changing it from a card knows what they hold.
 // A stay's guests are its rooms (RAA-184): the split it was added with, or its guests spread
-// evenly, in the rooms picker under the listing's rules (fetched, as the panel does).
+// evenly, in the rooms picker under the listing's rules (fetched, as the panel does). A vehicle
+// rental's pickup time changes here too (RAA-195).
 export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
   const range = RANGE_TYPES.has(item.booking_type);
   // The trip's dates are a starting point only while they're still ahead.
@@ -46,6 +49,10 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
   const [guests, setGuests] = useState(item.quantity);
   // A rental vehicle's units once the guest changes them (RAA-191).
   const [units, setUnits] = useState<number | null>(null);
+  // A vehicle rental's pickup time (RAA-195): its own, until the guest picks another; the API
+  // says which of the shop's are free on the dates and when it is due back.
+  const vehicle = item.seats !== null || item.returns_at !== null;
+  const [pickupTime, setPickupTime] = useState<string | null>(item.pickup_time);
   const update = useUpdateTripItem();
   // Gear is booked by the count: how many, up to the units the partner lists (max_quantity).
   const gear = item.listing.group === "gear";
@@ -71,6 +78,11 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
   const valid = Boolean(startsOn && itemEnds) && !noNight;
   const nights = item.booking_type === "stay" && valid ? daysBetween(startsOn, endsOn) : null;
   const policy = CANCELLATION_POLICY[item.cancellation_policy];
+  const [rental] = useListingPrices(
+    vehicle
+      ? [{ listingId: item.listing.id, startsOn: valid ? startsOn : undefined, endsOn: valid ? itemEnds : undefined, quantity: guests, units: units ?? item.units_chosen ?? undefined, pickupTime }]
+      : [],
+  );
   const where = item.destination?.name ?? item.area.name;
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -80,7 +92,10 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
     // A split sets the guests; a shared room takes none, so its guests go as they are.
     const split = arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null;
     // A vehicle's units go with its people: the ones chosen, or null to derive them (RAA-191).
-    const vehicleUnits = item.seats ? { units: units ?? item.units_chosen } : {};
+    const vehicleUnits = {
+      ...(item.seats ? { units: units ?? item.units_chosen } : {}),
+      ...(vehicle && pickupTime !== item.pickup_time ? { pickup_time: pickupTime } : {}),
+    };
     const changes = !arrangement
       ? { ...dates, quantity: guests, ...vehicleUnits }
       : split
@@ -164,6 +179,15 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
                 data-testid="item-edit-guests"
               />
             )}
+            {rental?.data?.pickup_times && (
+              <PickupTimeRow
+                times={rental.data.pickup_times}
+                value={pickupTime ?? (rental.data.returns_at ? rentalClock(rental.data.returns_at) : null)}
+                onChange={setPickupTime}
+                returnsAt={rental.data.returns_at}
+              />
+            )}
+            {rental?.data?.unavailable && <TicketNote tone="warning">{rental.data.unavailable}</TicketNote>}
             {item.unavailable && <TicketNote tone="warning">{item.unavailable}. Pick other dates to keep it.</TicketNote>}
           </Ticket>
         </fieldset>

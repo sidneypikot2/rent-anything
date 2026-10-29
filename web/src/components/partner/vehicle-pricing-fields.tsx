@@ -24,6 +24,17 @@ const HALF_DAY_HOURS = { min: 2, max: 12 };
 const MAX_DAYS = 365;
 const MAX_KM = 2000;
 
+// When guests can pick a vehicle up, on the hour, and the time a returned one needs before the
+// next rental (RAA-195): a rental runs 24 hours a day from its pickup.
+const HOURS = Array.from({ length: 24 }, (_, hour) => ({
+  value: String(hour),
+  label: `${hour % 12 === 0 ? 12 : hour % 12}:00 ${hour < 12 ? "AM" : "PM"}`,
+}));
+const TURNAROUNDS = [0, 30, 60, 90, 120, 180, 240, 360, 480, 720].map((minutes) => ({
+  value: String(minutes),
+  label: minutes === 0 ? "None: ready at once" : minutes < 60 ? `${minutes} minutes` : `${minutes / 60} ${minutes === 60 ? "hour" : "hours"}`,
+}));
+
 // Bringing the vehicle to the guest, or collecting it at the end: not offered (null), free (0)
 // or a fee.
 export type Service = "none" | "free" | "fee";
@@ -54,6 +65,9 @@ export type VehiclePricingValues = {
   pickupFee: string;
   driving: Driving;
   driverFee: string;
+  pickupFrom: string;
+  pickupUntil: string;
+  turnaround: string;
   fees: FeeValues[];
 };
 
@@ -80,6 +94,9 @@ export const NEW_VEHICLE_PRICING: VehiclePricingValues = {
   pickupFee: "",
   driving: "self_drive",
   driverFee: "",
+  pickupFrom: "7",
+  pickupUntil: "19",
+  turnaround: "0",
   fees: [],
 };
 
@@ -112,6 +129,9 @@ export function toVehiclePricingValues(rate: VehicleRate | null, fees: ListingFe
     pickupFee: peso(rate.return_pickup_fee_cents),
     driving: rate.driving,
     driverFee: peso(rate.driver_fee_cents),
+    pickupFrom: String(rate.pickup_from_hour),
+    pickupUntil: String(rate.pickup_until_hour),
+    turnaround: String(rate.turnaround_minutes),
     fees: toFeeValues(fees),
   };
 }
@@ -142,6 +162,9 @@ export function toVehicleRateBody(values: VehiclePricingValues): VehicleRateBody
     excess_km_fee_cents: kmLimit ? optionalCents(values.excessKmFee) : null,
     driving: values.driving,
     driver_fee_cents: values.driving === "either" ? toCents(values.driverFee) : null,
+    pickup_from_hour: Number(values.pickupFrom),
+    pickup_until_hour: Number(values.pickupUntil),
+    turnaround_minutes: Number(values.turnaround),
   };
 }
 
@@ -160,6 +183,7 @@ export type VehiclePricingErrors = Partial<
     | "minDays"
     | "kmLimit"
     | "excessKmFee"
+    | "pickupUntil"
     | "fees",
     string
   >
@@ -210,6 +234,7 @@ export function vehiclePricingErrors(values: VehiclePricingValues, included: str
     if (values.excessKmFee.trim() && toCents(values.excessKmFee) === null) errors.excessKmFee = "Enter an amount in pesos";
   }
 
+  if (Number(values.pickupUntil) < Number(values.pickupFrom)) errors.pickupUntil = "Can't be before the first pickup";
   if (values.delivery === "fee" && !toCents(values.deliveryFee)) errors.deliveryFee = "Set a fee above ₱0, or choose Free";
   if (values.pickup === "fee" && !toCents(values.pickupFee)) errors.pickupFee = "Set a fee above ₱0, or choose Free";
   if (values.driving === "either" && !toCents(values.driverFee)) {
@@ -347,6 +372,39 @@ export function VehiclePricingFields({
             value={values.minDays}
             onChange={(event) => set({ minDays: event.target.value })}
             error={errors?.minDays}
+          />
+        </div>
+      </PricingSection>
+
+      <PricingSection
+        title="Pickup and return"
+        intro="A rental runs 24 hours a day from its pickup: picked up at 8:00 AM, it comes back at 8:00 AM. Once it's back, the next guest can take it."
+        data-testid="pricing-pickup"
+      >
+        <div className="grid gap-4 sm:grid-cols-3">
+          <SelectField
+            label="First pickup"
+            name="pickup_from_hour"
+            options={HOURS}
+            value={values.pickupFrom}
+            onChange={(event) => set({ pickupFrom: event.target.value })}
+          />
+          <SelectField
+            label="Last pickup"
+            name="pickup_until_hour"
+            options={HOURS}
+            value={values.pickupUntil}
+            onChange={(event) => set({ pickupUntil: event.target.value })}
+            error={errors?.pickupUntil}
+          />
+          <SelectField
+            label="Ready again after return"
+            name="turnaround_minutes"
+            options={TURNAROUNDS}
+            value={values.turnaround}
+            onChange={(event) => set({ turnaround: event.target.value })}
+            hint="Time to check, clean and refuel."
+            data-testid="pricing-turnaround"
           />
         </div>
       </PricingSection>

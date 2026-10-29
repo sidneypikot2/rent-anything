@@ -8,6 +8,7 @@ import { useErrorToast } from "@/components/ui/toast";
 import { useSession } from "@/lib/auth/session";
 import { formatPeso } from "@/lib/money";
 import type { Room, StayRules } from "./party";
+import { deliveryBody, type Delivery, type DeliveryFees } from "./delivery-options";
 
 export type Trip = components["schemas"]["trip"];
 export type TripItem = components["schemas"]["trip_item"];
@@ -37,6 +38,10 @@ export type AddRequest = {
   // A rental vehicle's units the guest chose (RAA-191); left out, the API derives them from the
   // people (quantity) and the vehicle's seats.
   units?: number;
+  // A vehicle rental's pickup time ("08:30", RAA-195); left out, the shop's default.
+  pickupTime?: string | null;
+  // A vehicle rental's delivery and pick-up and their address (RAA-195).
+  delivery?: Delivery | null;
   // What the add sheet shows of the listing, as much as the page that started the add knows.
   preview?: AddPreview;
   // Several of one partner's room types added together (RAA-188, a mix from its panel): each its
@@ -51,14 +56,18 @@ export type MixItem = {
   roomGuests: Room[] | null;
   pets: number;
   shared: boolean;
-  // A vehicle model from a shop's pop-up (RAA-191): how many of it.
+  // A vehicle model from a shop's pop-up (RAA-191): how many of it, and its pickup time (RAA-195).
   units?: number;
+  pickupTime?: string | null;
+  delivery?: Delivery | null;
 };
 
 export type AddPreview = {
   category?: string;
   // A rental vehicle's seats (RAA-191): the add sheet asks for people and vehicles.
   vehicleSeats?: number | null;
+  // Its shop's delivery and pick-up fees (RAA-195), each nil when not offered.
+  deliveryFees?: DeliveryFees | null;
   // "by Santa Fe Island Adventures · in Santa Fe"
   by?: string;
   photo?: { src: string; alt: string } | null;
@@ -285,6 +294,8 @@ export function useAddTripItem() {
               ...(item.roomGuests ? { room_guests: item.roomGuests } : {}),
               ...(item.pets ? { pets: item.pets } : {}),
               ...(item.units ? { units: item.units } : {}),
+              ...(item.pickupTime ? { pickup_time: item.pickupTime } : {}),
+              ...deliveryBody(item.delivery),
             })),
             ...trip,
           }
@@ -298,6 +309,8 @@ export function useAddTripItem() {
           ...(request.roomGuests ? { room_guests: request.roomGuests } : {}),
           ...(request.pets ? { pets: request.pets } : {}),
           ...(request.units ? { units: request.units } : {}),
+          ...(request.pickupTime ? { pickup_time: request.pickupTime } : {}),
+          ...deliveryBody(request.delivery),
           ...(tripId === null && request.guests ? { guests: request.guests } : {}),
           ...trip,
         },
@@ -401,6 +414,8 @@ export type ItemChanges = {
   pets?: number;
   // A rental vehicle's chosen units (RAA-191); null derives them from the people.
   units?: number | null;
+  // A vehicle rental's pickup time (RAA-195); null takes the shop's default.
+  pickup_time?: string | null;
   move_to_trip_id?: number;
 };
 

@@ -32,3 +32,23 @@ export const isWeekend = (iso: string) => [0, 6].includes(parse(iso).getUTCDay()
 export function bookingSpan(stay: boolean, startsOn: string, endsOn: string) {
   return { first: startsOn, count: daysBetween(startsOn, endsOn) + (stay ? 0 : 1) };
 }
+
+// A vehicle rental runs 24 hours a day from its pickup (RAA-195), in the area's time: its bar
+// starts at the pickup's hour on its first day and ends at the same hour on its return day.
+const RENTAL_TIME_ZONE = "Asia/Manila";
+
+// A moment's date and its share of the day, in the area's time: "2026-11-03" and 0.33 for 8:00 AM.
+export function rentalMoment(iso: string) {
+  const at = new Date(iso);
+  const date = at.toLocaleDateString("en-CA", { timeZone: RENTAL_TIME_ZONE });
+  const [hour, minute] = at
+    .toLocaleTimeString("en-GB", { timeZone: RENTAL_TIME_ZONE, hour: "2-digit", minute: "2-digit", hour12: false })
+    .split(":")
+    .map(Number);
+  return { date, fraction: ((hour % 24) * 60 + minute) / 1440 };
+}
+
+// "8:00 AM", in the area's time.
+export function rentalTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("en-US", { timeZone: RENTAL_TIME_ZONE, hour: "numeric", minute: "2-digit" });
+}

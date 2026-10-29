@@ -554,7 +554,8 @@ RSpec.describe "Partner listings", type: :request do
           run_test! do |response|
             expect(response.parsed_body["attrs"]).to eq(attrs.deep_stringify_keys)
             expect(response.parsed_body["vehicle_rate"])
-              .to eq(vehicle_rate.stringify_keys.merge("driving" => "self_drive", "driver_fee_cents" => nil))
+              .to eq(vehicle_rate.stringify_keys.merge("driving" => "self_drive", "driver_fee_cents" => nil,
+                "pickup_from_hour" => 7, "pickup_until_hour" => 19, "turnaround_minutes" => 0))
             expect(response.parsed_body["stay_rate"]).to be_nil
             expect(response.parsed_body["fees"].pluck("charged_per")).to eq(%w[day hour])
           end
@@ -571,7 +572,8 @@ RSpec.describe "Partner listings", type: :request do
               "hourly_price_cents" => nil, "weekly_price_cents" => nil, "monthly_price_cents" => nil,
               "security_deposit_cents" => 0, "delivery_fee_cents" => nil, "return_pickup_fee_cents" => nil,
               "min_rental_days" => 1, "km_limit_per_day" => nil, "excess_km_fee_cents" => nil,
-              "driving" => "self_drive", "driver_fee_cents" => nil
+              "driving" => "self_drive", "driver_fee_cents" => nil, "pickup_from_hour" => 7, "pickup_until_hour" => 19,
+              "turnaround_minutes" => 0
             )
           end
         end

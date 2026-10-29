@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 import type { ListingDetail } from "@/api/discovery";
-import { CalendarGlyph } from "@/components/discovery/tag-glyphs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
-import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
+import { Ticket, TicketNote } from "@/components/ui/ticket";
 import { useSession } from "@/lib/auth/session";
 import { addPreview } from "@/components/trips/add-preview";
-import { formatDateRange } from "@/components/trips/format";
+import { addDays, formatDateRange, todayIso } from "@/components/trips/format";
 import { PeopleAndVehicles, MAX_PEOPLE } from "@/components/trips/people-and-vehicles";
+import { DeliveryOptions, needsAddress, NO_DELIVERY, type Delivery } from "@/components/trips/delivery-options";
+import { formatRentalSpan, PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
+import { DateRangeField } from "@/components/ui/date-range-field";
 import { PriceBreakdown, usePriceBreakdown } from "@/components/trips/price-breakdown";
 import { useOptionalTripAdd } from "@/components/trips/trip-add-provider";
 import type { TripDates } from "@/components/trips/trip-dates";
@@ -24,11 +26,13 @@ type Rate = NonNullable<ListingDetail["vehicle_rate"]>;
 // the page's dates, the people and the vehicles they take (PeopleAndVehicles), its price from
 // its rate (rent for each vehicle and day, the refundable deposit for each) and Add to trip with
 // both. A group that needs more than are free is told so and can't add; "More from this shop"
-// opens the shop's other models (ShopPopup). The price is the API's, as checkout charges it.
+// opens the shop's other models (ShopPopup). The price is the API's, as checkout charges it,
+// as are the pickup times free on the dates and when it is due back (RAA-195).
 // `add={false}` in a side panel, whose foot holds Add to trip.
 // `rate` says the vehicle is priced; the price itself is the API's.
 export function VehicleBookingCard({
   listing,
+  rate,
   dates,
   seats,
   add: canAdd = true,
@@ -46,20 +50,34 @@ export function VehicleBookingCard({
   const people = Math.min(Math.max(dates.guests, 1), MAX_PEOPLE);
   const [units, setUnits] = useState(unitsNeeded(people, seats));
   const [shopOpen, setShopOpen] = useState(false);
-  const dated = Boolean(dates.from && dates.to);
-  const shop = useShopListings(listing.business.id, listing.category.slug, dates.from, dates.to);
+  // Its pickup time (RAA-195): null takes the shop's default until the guest picks one.
+  const [pickupTime, setPickupTime] = useState<string | null>(null);
+  // Delivery and pick-up (RAA-195), where the shop offers them. In a side panel (`add={false}`)
+  // the add sheet asks them instead, as its foot's Add to trip opens it.
+  const [delivery, setDelivery] = useState<Delivery>(NO_DELIVERY);
+  const fees = { delivery: rate.delivery_fee_cents, returnPickup: rate.return_pickup_fee_cents };
+  const chosenDelivery = canAdd ? delivery : null;
+  // Its own dates, the page's at first: a bike for 1 day of a week-long trip. One date is one day.
+  const [rental, setRental] = useState({ from: dates.from ?? "", to: dates.to ?? "" });
+  const from = rental.from || undefined;
+  const to = rental.from ? rental.to || addDays(rental.from, 1) : undefined;
+  const dated = Boolean(from && to);
+  const shop = useShopListings(listing.business.id, listing.category.slug, from, to, pickupTime);
   const models = shop.data?.listings ?? [];
   const free = dated ? (models.find((model) => model.id === listing.id)?.units_free ?? null) : null;
   const others = models.filter((model) => model.id !== listing.id).length;
 
   const needed = unitsNeeded(people, seats);
   const short = free !== null && needed > free;
-  const days = rentalDays(dates.from, dates.to);
+  const days = rentalDays(from, to);
   // Priced by the API as checkout will (RAA-191): the vehicles for the days, the deposit apart.
-  const breakdown = usePriceBreakdown([{ listingId: listing.id, startsOn: dates.from, endsOn: dates.to, quantity: people, units }]);
+  const breakdown = usePriceBreakdown([{ listingId: listing.id, startsOn: from, endsOn: to, quantity: people, units, pickupTime, delivery: chosenDelivery }]);
+  const pickupTimes = breakdown.price?.pickupTimes;
+  const returnsAt = breakdown.price?.returnsAt;
   const noun = vehicleNoun(category);
   const nouns = (count: number) => vehicleNoun(category, count);
-  const when = formatDateRange(dates.from, dates.to);
+  const model = models.find((each) => each.id === listing.id);
+  const span = model?.starts_at && model.ends_at ? formatRentalSpan(model.starts_at, model.ends_at) : formatDateRange(from, to);
   const guest = !session || session.user.role === "guest";
   const busy = flow?.busyListingId === listing.id;
 
@@ -75,16 +93,21 @@ export function VehicleBookingCard({
           </div>
           <p className="text-sm text-muted" data-testid="vehicle-free">
             {seats} per {noun}
-            {free !== null && ` · ${free} ${free === 1 ? "unit" : "units"} available ${when}`}
+            {free !== null && ` · ${free} available · ${span}`}
           </p>
         </div>
 
         <Ticket>
-          <TicketRow
-            icon={<CalendarGlyph />}
-            label="Dates"
-            value={when ?? "Pick dates in the search"}
-            detail={dated ? `${days} ${days === 1 ? "day" : "days"}` : undefined}
+          <DateRangeField
+            row
+            label="Rental dates"
+            min={todayIso()}
+            from={rental.from}
+            to={rental.to}
+            onChange={setRental}
+            placeholder="Pick dates"
+            hint={from && to ? `${days} ${days === 1 ? "day" : "days"} · back ${formatDateRange(to, to)}` : undefined}
+            data-testid="vehicle-dates"
           />
           <PeopleAndVehicles
             people={people}
@@ -102,6 +125,15 @@ export function VehicleBookingCard({
               available. Pick other dates or add another listing.
             </TicketNote>
           )}
+          {pickupTimes && (
+            <PickupTimeRow
+              times={pickupTimes}
+              value={pickupTime ?? (returnsAt ? rentalClock(returnsAt) : null)}
+              onChange={setPickupTime}
+              returnsAt={returnsAt}
+            />
+          )}
+          {canAdd && <DeliveryOptions fees={fees} value={delivery} onChange={setDelivery} />}
           <PriceBreakdown breakdown={breakdown} />
         </Ticket>
 
@@ -112,17 +144,19 @@ export function VehicleBookingCard({
             glyph="plus"
             data-testid="add-to-trip"
             loading={busy}
-            disabled={session === undefined || short}
+            disabled={session === undefined || short || needsAddress(delivery)}
             onClick={() =>
               flow.add({
                 listingId: listing.id,
                 title: listing.title,
                 range: true,
                 bookingType: listing.booking_type,
-                startsOn: dates.from,
-                endsOn: dates.to,
+                startsOn: from,
+                endsOn: to,
                 quantity: people,
                 units,
+                pickupTime,
+                delivery: chosenDelivery,
                 guests: dates.guests,
                 preview: addPreview(listing),
               })
@@ -148,7 +182,7 @@ export function VehicleBookingCard({
           business={listing.business}
           category={listing.category}
           area={listing.area.name}
-          dates={dates}
+          dates={{ ...dates, from, to }}
           people={people}
           onClose={() => setShopOpen(false)}
         />

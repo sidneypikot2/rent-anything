@@ -6,6 +6,8 @@ import { useState } from "react";
 import { BAND_PHOTO } from "@/components/landing/sample-photos";
 import { CalendarGlyph, CopyGlyph, InfoGlyph, MergeGlyph, MoveGlyph, PencilGlyph, TrashGlyph } from "@/components/discovery/tag-glyphs";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
+import { rentalTimes } from "./pickup-time";
+import { deliveryText } from "./delivery-options";
 import { CANCELLATION_POLICY } from "@/components/bookings/cancellation";
 import { checkoutLabel } from "@/components/bookings/checkout-sheet";
 import { payable, payBy, payTotal } from "@/components/bookings/pay-sheet";
@@ -594,6 +596,16 @@ function ItemCard({
                 <span>No date</span>
               )}
             </p>
+            {rentalTimes(item) && (
+              <p className="text-small text-muted" data-testid="cart-item-rental-times">
+                {rentalTimes(item)}
+              </p>
+            )}
+            {deliveryText(item) && (
+              <p className="text-small text-muted" data-testid="cart-item-delivery">
+                {deliveryText(item)}
+              </p>
+            )}
             {!booking && policy && (
               <p
                 className={`hidden text-small font-semibold sm:block ${item.cancellation_policy === "non_refundable" ? "text-muted" : "text-emerald"}`}
