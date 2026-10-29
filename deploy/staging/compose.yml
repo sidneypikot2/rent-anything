@@ -2,7 +2,8 @@
 # /opt/tripkonext/ on the instance; .github/workflows/deploy-staging.yml copies this file and
 # the Caddyfile there and runs `docker compose pull && up -d` on every merge into staging.
 # Images come from GHCR, built by that workflow — the instance never builds anything.
-# Postgres runs here too (RAA-174, after Neon's free tier ran out); Redis (Upstash) is outside.
+# Postgres runs here too (RAA-174, after Neon's free tier ran out), and so does Valkey (RAA-199,
+# instead of Upstash).
 # Secrets are in backend.env and db.env next to this file on the instance, never in the
 # repository. Not .env: the deploy rewrites that one with IMAGE_TAG on every run.
 services:
@@ -56,6 +57,28 @@ services:
       timeout: 5s
       retries: 5
 
+  valkey:
+    # Action Cable's pub/sub (chat, notifications): Valkey is the open-source fork of Redis and
+    # speaks the same protocol, so cable.yml's redis adapter talks to it unchanged. Pub/sub
+    # keeps no data, so nothing is saved to disk. Only the Compose network reaches it: no
+    # ports are published and no password is set. A hosted Redis (production) only changes
+    # REDIS_URL.
+    image: valkey/valkey:9.1-alpine
+    restart: unless-stopped
+    command:
+      - valkey-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - 32mb
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     image: ghcr.io/sidneypikot2/rent-anything-backend:${IMAGE_TAG:-staging}
     restart: unless-stopped
@@ -75,6 +98,9 @@ services:
       BOOKINGS_AUTO_ACCEPT: "true"
       # Sentry tags each error with the deployed commit (the DSN is in backend.env).
       SENTRY_RELEASE: ${IMAGE_TAG:-staging}
+      # The valkey service above. Set here, not in backend.env, so it overrides the Upstash
+      # URL an older backend.env may still hold.
+      REDIS_URL: redis://valkey:6379/1
     healthcheck:
       # assume_ssl in production.rb keeps force_ssl from redirecting this plain-HTTP check.
       test: ["CMD", "curl", "-fsS", "http://localhost:3000/up"]
@@ -85,6 +111,8 @@ services:
     depends_on:
       # db:prepare runs on boot (bin/docker-entrypoint) and needs the database up.
       db:
+        condition: service_healthy
+      valkey:
         condition: service_healthy
 
   web:

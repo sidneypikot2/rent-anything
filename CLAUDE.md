@@ -39,7 +39,7 @@ Rent-Anything makes a trip to one area easy: a traveller picks an area (Bantayan
 
 Work is tracked in Jira, not in this repo: project `RAA` (Rent-Anything-Anywhere), site `https://sidneypikot2.atlassian.net`, cloudId `ca2c20d7-9b28-45c4-a475-81e449242242`. Statuses: To Do → In Progress → In Review → Done.
 
-**Hosting**: the hosted environment is staging — every merge into `staging` deploys the API and the web app to one AWS Lightsail instance (`deploy/staging/`, `.github/workflows/deploy-staging.yml`), with Postgres on the instance too and Redis on Upstash; `main` deploys nowhere until a production host exists. Treat migrations, CORS / `FRONTEND_ORIGIN`, `web/src/lib/config.ts`, `deploy/staging/`, the Dockerfiles and new environment variables as deploy changes: they go live when the PR merges, so say so in the PR. Details in `.claude/rules/infra.md`.
+**Hosting**: the hosted environment is staging — every merge into `staging` deploys the API and the web app to one AWS Lightsail instance (`deploy/staging/`, `.github/workflows/deploy-staging.yml`), with Postgres and Valkey (Action Cable's Redis) on the instance too; `main` deploys nowhere until a production host exists. Treat migrations, CORS / `FRONTEND_ORIGIN`, `web/src/lib/config.ts`, `deploy/staging/`, the Dockerfiles and new environment variables as deploy changes: they go live when the PR merges, so say so in the PR. Details in `.claude/rules/infra.md`.
 
 ## Running and checking
 

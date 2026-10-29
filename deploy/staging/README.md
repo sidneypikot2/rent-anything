@@ -1,6 +1,6 @@
 # Staging on AWS Lightsail
 
-The hosted staging environment (RAA-156): one Lightsail instance running `compose.yml` — Caddy (HTTPS), Postgres with PostGIS, the Rails API and the Next.js web app. Redis is on Upstash. Postgres moved here from Neon in RAA-174, after Neon's free tier ran out. Every merge into `staging` that touches `backend/`, `web/` or this folder runs `.github/workflows/deploy-staging.yml`: it builds both images, pushes them to GHCR and restarts the instance on them.
+The hosted staging environment (RAA-156): one Lightsail instance running `compose.yml` — Caddy (HTTPS), Postgres with PostGIS, Valkey (Action Cable's Redis, RAA-199), the Rails API and the Next.js web app. Postgres moved here from Neon in RAA-174, after Neon's free tier ran out. Every merge into `staging` that touches `backend/`, `web/` or this folder runs `.github/workflows/deploy-staging.yml`: it builds both images, pushes them to GHCR and restarts the instance on them.
 
 - Web: https://staging.tripkonext.com
 - API: https://api.staging.tripkonext.com (`/up`, `/api/v1/health`)
@@ -11,7 +11,7 @@ The hosted staging environment (RAA-156): one Lightsail instance running `compos
 
 In the Lightsail console, under the team's AWS account:
 
-1. Create an instance: Linux, **Ubuntu 24.04 LTS**, region **Singapore** (`ap-southeast-1`, next to Upstash), the **1 GB** plan (move up to 2 GB from a snapshot if memory runs short).
+1. Create an instance: Linux, **Ubuntu 24.04 LTS**, region **Singapore** (`ap-southeast-1`), the **1 GB** plan (move up to 2 GB from a snapshot if memory runs short).
 2. Networking → **Create static IP** and attach it to the instance.
 3. Networking → IPv4 firewall: keep SSH (22), add HTTP (80) and HTTPS (443). Nothing else.
 
