@@ -53,8 +53,9 @@ export type MixItem = {
   roomGuests: Room[] | null;
   pets: number;
   shared: boolean;
-  // A vehicle model from a shop's pop-up (RAA-191): how many of it.
+  // A vehicle model from a shop's pop-up (RAA-191): how many of it, and its pickup time (RAA-195).
   units?: number;
+  pickupTime?: string | null;
 };
 
 export type AddPreview = {
@@ -287,6 +288,7 @@ export function useAddTripItem() {
               ...(item.roomGuests ? { room_guests: item.roomGuests } : {}),
               ...(item.pets ? { pets: item.pets } : {}),
               ...(item.units ? { units: item.units } : {}),
+              ...(item.pickupTime ? { pickup_time: item.pickupTime } : {}),
             })),
             ...trip,
           }

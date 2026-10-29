@@ -143,11 +143,12 @@ class Listing < ApplicationRecord
   end
 
   # A vehicle rental's period from starts_on to ends_on (RAA-195, Booking.rental_period), from
-  # the pickup time or the shop's default. Nil for anything else. Reads category and vehicle_rate.
+  # the pickup time or the shop's default for that day (one still ahead today). Nil for anything
+  # else. Reads category and vehicle_rate.
   def rental_period(starts_on, ends_on, pickup_time)
     return unless category.vehicle?
 
-    Booking.rental_period(starts_on, ends_on, pickup_time || vehicle_rate&.default_pickup_time)
+    Booking.rental_period(starts_on, ends_on, pickup_time || vehicle_rate&.default_pickup_time(on: starts_on))
   end
 
   # The most one trip item's quantity can be: for gear, booked by the count, the units it has;

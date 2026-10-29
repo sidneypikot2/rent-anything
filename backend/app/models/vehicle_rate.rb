@@ -65,9 +65,21 @@ class VehicleRate < ApplicationRecord
       .first(((pickup_until_hour - pickup_from_hour) * 2) + 1)
   end
 
-  # Booking::DEFAULT_PICKUP_TIME, or the first pickup time when the shop opens later.
-  def default_pickup_time
-    pickup_times.include?(Booking::DEFAULT_PICKUP_TIME) ? Booking::DEFAULT_PICKUP_TIME : pickup_times.first
+  # The pickup times still ahead on a day, in the area's time: all of them on a later day, those
+  # after now today, none on a day gone by.
+  def pickup_times_on(on)
+    now = Time.current.in_time_zone(Booking::RENTAL_TIME_ZONE)
+    return pickup_times if on > now.to_date
+    return [] if on < now.to_date
+
+    pickup_times.select { _1 > now.strftime("%H:%M") }
+  end
+
+  # Booking::DEFAULT_PICKUP_TIME, or the first pickup time when the shop opens later. On a day
+  # (`on`), only a time still ahead: today, the next free half hour once 9:00 has gone.
+  def default_pickup_time(on: nil)
+    times = on ? pickup_times_on(on).presence || pickup_times : pickup_times
+    times.include?(Booking::DEFAULT_PICKUP_TIME) ? Booking::DEFAULT_PICKUP_TIME : times.first
   end
 
   private

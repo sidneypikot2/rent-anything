@@ -30,6 +30,9 @@ RSpec.describe "Business listings", type: :request do
       parameter name: :category, in: :query, type: :string, required: false, description: "A category slug, e.g. motorcycle"
       parameter name: :starts_on, in: :query, type: :string, format: :date, required: false
       parameter name: :ends_on, in: :query, type: :string, format: :date, required: false
+      parameter name: :pickup_time, in: :query, type: :string, required: false,
+        description: "A rental vehicle's pickup (\"08:30\", RAA-195); left out, the shop's default for the day"
+      let(:pickup_time) { nil }
 
       let(:business_id) { click.business_id }
       let(:category) { "motorcycle" }
@@ -51,6 +54,35 @@ RSpec.describe "Business listings", type: :request do
           ])
           expect(body["listings"].first["details"]).to include("seats" => 2, "transmission" => "automatic", "engine_cc" => 125)
           expect(body["listings"].first["vehicle_rate"]).to include("daily_price_cents" => 50_000)
+        end
+      end
+
+      # Counted from the pickup to the return (RAA-195): on day + 1, 2 Clicks are still out until
+      # 9:00 (the later rental cancelled, so nothing else is out that day).
+      response "200", "a rental's units free from its pickup time to its return" do
+        schema type: :object, properties: {
+          business: { "$ref" => "#/components/schemas/business_ref" },
+          listings: { type: :array, items: { "$ref" => "#/components/schemas/business_listing" } }
+        }, required: %w[business listings]
+        let(:starts_on) { (day + 1).iso8601 }
+        let(:ends_on) { (day + 2).iso8601 }
+
+        before { click.bookings.find_by!(quantity: 3).update_column(:status, "cancelled") }
+
+        context "with a pickup before the first 2 are back" do
+          let(:pickup_time) { "08:00" }
+
+          run_test! do |response|
+            row = response.parsed_body["listings"].find { _1["id"] == click.id }
+            expect(row["units_free"]).to eq(4)
+            expect(Time.zone.parse(row["starts_at"])).to eq(Booking.rental_period(day + 1, day + 2, "08:00").begin)
+          end
+        end
+
+        context "with a pickup once they are back" do
+          let(:pickup_time) { "09:00" }
+
+          run_test! { |response| expect(response.parsed_body["listings"].find { _1["id"] == click.id }["units_free"]).to eq(6) }
         end
       end
 
@@ -88,6 +120,12 @@ RSpec.describe "Business listings", type: :request do
           let(:starts_on) { (Date.current - 1).iso8601 }
 
           run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "The start date can't be in the past" ]) }
+        end
+
+        context "with a pickup time off the half hour" do
+          let(:pickup_time) { "08:15" }
+
+          run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Pickup time must be a time on the half hour, like 08:30" ]) }
         end
       end
 

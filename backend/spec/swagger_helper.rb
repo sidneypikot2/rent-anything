@@ -1305,10 +1305,20 @@ RSpec.configure do |config|
               units_count: { type: :integer, minimum: 1 },
               units_free: {
                 type: :integer, nullable: true, minimum: 0,
-                description: "Its units free on every one of the dates; null without dates"
+                description: "Its units free on every one of the dates; a rental vehicle's from pickup to return " \
+                  "(starts_at to ends_at, RAA-195), its turnaround after it included; null without dates"
+              },
+              starts_at: {
+                type: :string, format: "date-time", nullable: true,
+                description: "A rental vehicle's pickup the count is for; null for anything else, or without dates"
+              },
+              ends_at: {
+                type: :string, format: "date-time", nullable: true,
+                description: "When that rental is due back; null for anything else, or without dates"
               }
             },
-            required: %w[id title category area cover_photo_url price_from_cents price_unit vehicle_rate details units_count units_free]
+            required: %w[id title category area cover_photo_url price_from_cents price_unit vehicle_rate details units_count units_free
+              starts_at ends_at]
           },
           # A mix of one business's room types for a party (RAA-187).
           stay_mix: {

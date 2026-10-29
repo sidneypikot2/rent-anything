@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import type { ListingDetail } from "@/api/discovery";
-import { CalendarGlyph } from "@/components/discovery/tag-glyphs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
-import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
+import { Ticket, TicketNote } from "@/components/ui/ticket";
 import { useSession } from "@/lib/auth/session";
 import { addPreview } from "@/components/trips/add-preview";
-import { formatDateRange } from "@/components/trips/format";
+import { addDays, formatDateRange, todayIso } from "@/components/trips/format";
 import { PeopleAndVehicles, MAX_PEOPLE } from "@/components/trips/people-and-vehicles";
-import { PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
+import { formatRentalSpan, PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
+import { DateRangeField } from "@/components/ui/date-range-field";
 import { PriceBreakdown, usePriceBreakdown } from "@/components/trips/price-breakdown";
 import { useOptionalTripAdd } from "@/components/trips/trip-add-provider";
 import type { TripDates } from "@/components/trips/trip-dates";
@@ -50,22 +50,27 @@ export function VehicleBookingCard({
   const [shopOpen, setShopOpen] = useState(false);
   // Its pickup time (RAA-195): null takes the shop's default until the guest picks one.
   const [pickupTime, setPickupTime] = useState<string | null>(null);
-  const dated = Boolean(dates.from && dates.to);
-  const shop = useShopListings(listing.business.id, listing.category.slug, dates.from, dates.to);
+  // Its own dates, the page's at first: a bike for 1 day of a week-long trip. One date is one day.
+  const [rental, setRental] = useState({ from: dates.from ?? "", to: dates.to ?? "" });
+  const from = rental.from || undefined;
+  const to = rental.from ? rental.to || addDays(rental.from, 1) : undefined;
+  const dated = Boolean(from && to);
+  const shop = useShopListings(listing.business.id, listing.category.slug, from, to, pickupTime);
   const models = shop.data?.listings ?? [];
   const free = dated ? (models.find((model) => model.id === listing.id)?.units_free ?? null) : null;
   const others = models.filter((model) => model.id !== listing.id).length;
 
   const needed = unitsNeeded(people, seats);
   const short = free !== null && needed > free;
-  const days = rentalDays(dates.from, dates.to);
+  const days = rentalDays(from, to);
   // Priced by the API as checkout will (RAA-191): the vehicles for the days, the deposit apart.
-  const breakdown = usePriceBreakdown([{ listingId: listing.id, startsOn: dates.from, endsOn: dates.to, quantity: people, units, pickupTime }]);
+  const breakdown = usePriceBreakdown([{ listingId: listing.id, startsOn: from, endsOn: to, quantity: people, units, pickupTime }]);
   const pickupTimes = breakdown.price?.pickupTimes;
   const returnsAt = breakdown.price?.returnsAt;
   const noun = vehicleNoun(category);
   const nouns = (count: number) => vehicleNoun(category, count);
-  const when = formatDateRange(dates.from, dates.to);
+  const model = models.find((each) => each.id === listing.id);
+  const span = model?.starts_at && model.ends_at ? formatRentalSpan(model.starts_at, model.ends_at) : formatDateRange(from, to);
   const guest = !session || session.user.role === "guest";
   const busy = flow?.busyListingId === listing.id;
 
@@ -81,16 +86,21 @@ export function VehicleBookingCard({
           </div>
           <p className="text-sm text-muted" data-testid="vehicle-free">
             {seats} per {noun}
-            {free !== null && ` · ${free} ${free === 1 ? "unit" : "units"} available ${when}`}
+            {free !== null && ` · ${free} available · ${span}`}
           </p>
         </div>
 
         <Ticket>
-          <TicketRow
-            icon={<CalendarGlyph />}
-            label="Dates"
-            value={when ?? "Pick dates in the search"}
-            detail={dated ? `${days} ${days === 1 ? "day" : "days"}` : undefined}
+          <DateRangeField
+            row
+            label="Rental dates"
+            min={todayIso()}
+            from={rental.from}
+            to={rental.to}
+            onChange={setRental}
+            placeholder="Pick dates"
+            hint={from && to ? `${days} ${days === 1 ? "day" : "days"} · back ${formatDateRange(to, to)}` : undefined}
+            data-testid="vehicle-dates"
           />
           <PeopleAndVehicles
             people={people}
@@ -133,8 +143,8 @@ export function VehicleBookingCard({
                 title: listing.title,
                 range: true,
                 bookingType: listing.booking_type,
-                startsOn: dates.from,
-                endsOn: dates.to,
+                startsOn: from,
+                endsOn: to,
                 quantity: people,
                 units,
                 pickupTime,
@@ -163,7 +173,7 @@ export function VehicleBookingCard({
           business={listing.business}
           category={listing.category}
           area={listing.area.name}
-          dates={dates}
+          dates={{ ...dates, from, to }}
           people={people}
           onClose={() => setShopOpen(false)}
         />

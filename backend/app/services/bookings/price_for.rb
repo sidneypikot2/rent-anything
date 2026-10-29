@@ -37,7 +37,7 @@ module Bookings
       ledger = Availability::Ledger.new([ listing ], starts_on, ends_on)
       days = Booking.days_for(listing, starts_on, ends_on)
       rental = rental(listing, ledger, days, units, starts_on, ends_on, pickup_time)
-      refusal = ledger.refusal(listing, days, units, period: rental[:period])
+      refusal = rental[:none_left] || ledger.refusal(listing, days, units, period: rental[:period])
       price = Price.call(listing, starts_on:, ends_on:, quantity: units, guests:, room_guests:, pets:)
       answer(listing, price, refusal, rental)
     rescue ActiveRecord::RecordInvalid => e
@@ -68,11 +68,13 @@ module Bookings
       rate = listing.vehicle_rate
       return {} unless listing.category.vehicle? && rate
 
-      times = rate.pickup_times.map do |time|
+      # Only times still ahead: today's past ones aren't taken, just gone.
+      times = rate.pickup_times_on(starts_on).map do |time|
         period = Booking.rental_period(starts_on, ends_on, time)
         { time:, available: ledger.refusal(listing, days, units, period:).nil? }
       end
-      { period: listing.rental_period(starts_on, ends_on, pickup_time), pickup_times: times }
+      none_left = "No pickups left on #{starts_on.strftime('%b %-d')}: pick a later date" if times.empty?
+      { period: listing.rental_period(starts_on, ends_on, pickup_time), pickup_times: times, none_left: }
     end
 
     # What the total is made of, in the words the cart uses: "5 motorbikes × ₱500 × 2 days".

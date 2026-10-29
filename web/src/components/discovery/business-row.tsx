@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { InTripBadge, InTripCount } from "@/components/trips/in-trip-badge";
 import type { TripDates } from "@/components/trips/trip-dates";
+import { vehicleNoun } from "@/components/trips/vehicle-party";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
@@ -58,7 +59,9 @@ const CARD_PHOTOS = 6;
 // side panel listing them, each with Add to trip, whose titles open their details in the same
 // panel ("← <business>" goes back), so the guest never leaves the page. A business with one
 // listing here opens that listing's details at once, and its card keeps that listing's Add to
-// trip; with more, See N options takes its place, as there is more than one thing to add.
+// trip; with more, See N options takes its place, as there is more than one thing to add. A shop
+// of rental vehicles (`shop`) always opens on its models to pick from ("Choose motorbikes"), one
+// model or several, rather than one model's details (RAA-195).
 export function BusinessRow({
   name,
   place,
@@ -167,7 +170,21 @@ export function BusinessRow({
         ) : (
           offers[0].unpriced && <span className="text-sm text-pretty text-muted @2xl:max-w-36 @2xl:text-right">{TO_BE_AGREED}</span>
         )}
-        {single?.action ?? (
+        {shop ? (
+          <Button
+            type="button"
+            size="touch"
+            arrow
+            tabIndex={-1}
+            aria-hidden
+            onClick={() => setOpen(true)}
+            data-testid="business-choose"
+            className="max-w-full shrink-0"
+          >
+            Choose {vehicleNoun(categories[0], 2)}
+          </Button>
+        ) : (
+          single?.action ?? (
           // The same slot as a listing's Add to trip, so every card ends in an action. The title's
           // button already opens the panel for the keyboard and a screen reader.
           <Button
@@ -183,6 +200,7 @@ export function BusinessRow({
           >
             See {offers.length} options
           </Button>
+          )
         )}
       </div>
       {open &&
@@ -221,7 +239,8 @@ function BusinessPanel({
   onClose: () => void;
 }) {
   const single = offers.length === 1;
-  const [pickedId, setPickedId] = useState<number | null>(single ? offers[0].listingId : null);
+  // A vehicle shop opens on its models, even just one; anything else with one listing on its details.
+  const [pickedId, setPickedId] = useState<number | null>(single && !shop ? offers[0].listingId : null);
   const picked = offers.find((offer) => offer.listingId === pickedId) ?? null;
   // Each step opens at its top, wherever the last one was scrolled to.
   const body = useRef<HTMLDivElement>(null);
@@ -254,7 +273,7 @@ function BusinessPanel({
         actions={<PanelActions price={picked.price} unpriced={picked.unpriced} action={picked.panelAction} listingId={picked.listingId} dates={dates} />}
       >
         <div ref={body} className="contents">
-          {!single && (
+          {(!single || shop) && (
             <button
               type="button"
               data-testid="business-back"
@@ -286,7 +305,7 @@ function BusinessPanel({
     ...offers.flatMap((offer) => offer.photos.slice(0, 1)),
     ...offers.flatMap((offer) => offer.photos.slice(1)),
   ].slice(0, CARD_PHOTOS);
-  const heading = [groupTitle, `${offers.length} options`, place].filter(Boolean).join(" · ");
+  const heading = [groupTitle, `${offers.length} ${offers.length === 1 ? "option" : "options"}`, place].filter(Boolean).join(" · ");
   // A shop's vehicles are picked together, a counter each, rather than added one card at a time.
   if (shop)
     return (

@@ -2,8 +2,10 @@ module Businesses
   # A business's active listings as guests see them (GET /businesses/:id/listings, RAA-191):
   # the shop pop-up, where a group picks how many of each of a motorbike shop's models. Only
   # `category` (a slug) narrows them; with both dates (ISO 8601, from today) each says how many
-  # of its units are free on all of them (Availability::Ledger). A query string carries
-  # everything as text; a parameter sent empty counts as not sent.
+  # of its units are free on all of them (Availability::Ledger). A rental vehicle's are counted
+  # from a pickup_time (RAA-195, "08:30"; the shop's default for the day when left out) to its
+  # return, with the period it counted (starts_at, ends_at). A query string carries everything
+  # as text; a parameter sent empty counts as not sent.
   class ListingsFor < ApplicationService
     include Trips::Values
 
@@ -20,6 +22,7 @@ module Businesses
       starts_on, ends_on = read_dates("The listings")
       error("The end date can't be before the start date") if starts_on && ends_on && ends_on < starts_on
       error("The start date can't be in the past") if starts_on && starts_on < Date.current
+      pickup_time = read_pickup_time
       raise_errors!(business)
 
       listings = business.listings.active.includes(*ASSOCIATIONS).order(:title, :id).to_a
@@ -27,14 +30,23 @@ module Businesses
       ledger = Availability::Ledger.new(listings, starts_on, ends_on) if starts_on && listings.any?
       {
         business: { id: business.id, name: business.name },
-        listings: listings.map { |listing| row(listing, ledger, starts_on, ends_on) }
+        listings: listings.map { |listing| row(listing, ledger, starts_on, ends_on, pickup_time) }
       }
     end
 
     private
 
-    def row(listing, ledger, starts_on, ends_on)
+    def read_pickup_time
+      value = @params[:pickup_time]
+      return if value.nil?
+      return value if value.is_a?(String) && value.match?(Booking::PICKUP_TIME_FORMAT)
+
+      error("Pickup time must be a time on the half hour, like 08:30")
+    end
+
+    def row(listing, ledger, starts_on, ends_on, pickup_time)
       days = ledger && Booking.days_for(listing, starts_on, ends_on)
+      period = ledger && listing.rental_period(starts_on, ends_on, pickup_time)
       {
         id: listing.id,
         title: listing.title,
@@ -46,7 +58,9 @@ module Businesses
         vehicle_rate: listing.vehicle_rate&.priced? ? PricingSerializer.vehicle_rate(listing.vehicle_rate) : nil,
         details: ListingDetailSerializer.details(listing),
         units_count: listing.units.size,
-        units_free: days&.any? ? ledger.units_free(listing, days) : nil
+        units_free: days&.any? ? ledger.units_free(listing, days, period:) : nil,
+        starts_at: period&.begin,
+        ends_at: period&.end
       }
     end
   end

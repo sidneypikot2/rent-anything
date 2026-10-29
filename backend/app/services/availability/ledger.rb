@@ -93,9 +93,16 @@ module Availability
       period && listing.category.vehicle? ? rental_refusal(listing, period, quantity) : nil
     end
 
-    # The units free on every one of the dates (RAA-191): the fewest left on any of them.
-    def units_free(listing, dates)
-      dates.map { day(listing, _1)[:units_left] }.min
+    # The units free on every one of the dates (RAA-191): the fewest left on any of them. A
+    # vehicle rental's `period` (RAA-195) also counts by the hour: the units, less the most out
+    # at once from pickup to return and the turnaround after it.
+    def units_free(listing, dates, period: nil)
+      free = dates.map { day(listing, _1)[:units_left] }.min
+      return free unless free && period && listing.category.vehicle?
+
+      load = 0
+      peak = rental_out(listing, period).last.map { load += _2 }.max || 0
+      [ [ free, self.class.capacity(listing) - peak ].min, 0 ].max
     end
 
     def default_min_nights(listing)
@@ -122,14 +129,8 @@ module Availability
       return "That pickup time has passed" if period.begin < Time.current
 
       capacity = self.class.capacity(listing)
-      turnaround = (listing.vehicle_rate&.turnaround_minutes || 0).minutes
-      ends = period.end + turnaround
-      out = rental_bookings(listing).filter_map do |booking|
-        from = [ booking.starts_at, period.begin ].max
-        to = [ booking.ends_at + turnaround, ends ].min
-        [ from, to, booking ] if from < to
-      end
-      events = out.flat_map { |from, to, booking| [ [ from, booking.quantity ], [ to, -booking.quantity ] ] }.sort
+      turnaround = turnaround(listing)
+      out, events = rental_out(listing, period)
       load = 0
       events.each do |at, change|
         load += change
@@ -138,6 +139,22 @@ module Availability
         return at == period.begin ? free_from(out, period, quantity, capacity, turnaround) : "Booked from #{moment(at)}"
       end
       nil
+    end
+
+    def turnaround(listing) = (listing.vehicle_rate&.turnaround_minutes || 0).minutes
+
+    # The listing's rentals out during the period and the turnaround after it, each clipped to
+    # it, and the moments the vehicles out change, in time order (a return and a pickup at the
+    # same moment don't overlap).
+    def rental_out(listing, period)
+      turnaround = turnaround(listing)
+      ends = period.end + turnaround
+      out = rental_bookings(listing).filter_map do |booking|
+        from = [ booking.starts_at, period.begin ].max
+        to = [ booking.ends_at + turnaround, ends ].min
+        [ from, to, booking ] if from < to
+      end
+      [ out, out.flat_map { |from, to, booking| [ [ from, booking.quantity ], [ to, -booking.quantity ] ] }.sort ]
     end
 
     # When enough of the vehicles out at the pickup are back for `quantity` of them.

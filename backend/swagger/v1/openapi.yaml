@@ -1216,6 +1216,13 @@ paths:
         required: false
         schema:
           type: string
+      - name: pickup_time
+        in: query
+        required: false
+        description: A rental vehicle's pickup ("08:30", RAA-195); left out, the shop's
+          default for the day
+        schema:
+          type: string
       responses:
         '200':
           description: every active listing without a category; no dates, nothing
@@ -7440,7 +7447,21 @@ components:
           type: integer
           nullable: true
           minimum: 0
-          description: Its units free on every one of the dates; null without dates
+          description: Its units free on every one of the dates; a rental vehicle's
+            from pickup to return (starts_at to ends_at, RAA-195), its turnaround
+            after it included; null without dates
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: A rental vehicle's pickup the count is for; null for anything
+            else, or without dates
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When that rental is due back; null for anything else, or without
+            dates
       required:
       - id
       - title
@@ -7453,6 +7474,8 @@ components:
       - details
       - units_count
       - units_free
+      - starts_at
+      - ends_at
     stay_mix:
       type: object
       properties:

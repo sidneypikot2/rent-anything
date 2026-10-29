@@ -1693,6 +1693,8 @@ export interface paths {
                     starts_on?: string;
                     /** Format: date */
                     ends_on?: string;
+                    /** @description A rental vehicle's pickup ("08:30", RAA-195); left out, the shop's default for the day */
+                    pickup_time?: string;
                 };
                 header?: never;
                 path: {
@@ -7796,8 +7798,18 @@ export interface components {
             vehicle_rate: components["schemas"]["vehicle_rate"] | null;
             details: components["schemas"]["listing_details"];
             units_count: number;
-            /** @description Its units free on every one of the dates; null without dates */
+            /** @description Its units free on every one of the dates; a rental vehicle's from pickup to return (starts_at to ends_at, RAA-195), its turnaround after it included; null without dates */
             units_free: number | null;
+            /**
+             * Format: date-time
+             * @description A rental vehicle's pickup the count is for; null for anything else, or without dates
+             */
+            starts_at: string | null;
+            /**
+             * Format: date-time
+             * @description When that rental is due back; null for anything else, or without dates
+             */
+            ends_at: string | null;
         };
         stay_mix: {
             /**

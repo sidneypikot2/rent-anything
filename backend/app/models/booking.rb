@@ -162,7 +162,7 @@ class Booking < ApplicationRecord
   def assign_rental_period
     return unless starts_at.nil? && starts_on && ends_on && listing&.category&.vehicle?
 
-    period = Booking.rental_period(starts_on, ends_on, nil)
+    period = listing.rental_period(starts_on, ends_on, nil)
     self.starts_at = period.begin
     self.ends_at = period.end
   end

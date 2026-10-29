@@ -31,6 +31,13 @@ export function rentalClock(iso: string) {
   return new Date(iso).toLocaleTimeString("en-GB", { timeZone: RENTAL_TIME_ZONE, hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
+// A rental's pickup to return, in the area's time: "Nov 12, 8:00 AM – Nov 13, 8:00 AM".
+export function formatRentalSpan(startsAt: string, endsAt: string) {
+  const at = (iso: string) =>
+    new Date(iso).toLocaleString("en-US", { timeZone: RENTAL_TIME_ZONE, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  return `${at(startsAt)} – ${at(endsAt)}`;
+}
+
 // A dated vehicle rental's times on its card: "Pickup 8:30 AM · back by Tue, Nov 4 · 8:30 AM".
 export function rentalTimes(item: { returns_at: string | null }) {
   if (!item.returns_at) return null;
@@ -51,6 +58,9 @@ export function PickupTimeRow({
   returnsAt?: string | null;
 }) {
   const id = useId();
+  // Today after the shop's last pickup: no time to pick (the API says to pick a later date).
+  if (times.length === 0)
+    return <TicketRow icon={<ClockGlyph />} label="Pickup time" value="No pickups left that day" data-testid="pickup-row" />;
   const firstFree = times.find((slot) => slot.available);
   const taken = times.length > 0 && !times[0].available && firstFree;
   return (

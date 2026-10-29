@@ -1,6 +1,8 @@
 require "swagger_helper"
 
 RSpec.describe "Listing prices", type: :request do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:day) { 20.days.from_now.to_date }
   let(:click) do
     create(:listing, :vehicle, title: "Honda Click").tap do |listing|
@@ -69,6 +71,36 @@ RSpec.describe "Listing prices", type: :request do
           expect(times.values_at("07:00", "07:30", "08:00", "19:00")).to eq([ false, false, true, true ])
           expect(response.parsed_body["unavailable"]).to be_nil
           expect(Time.zone.parse(response.parsed_body["returns_at"])).to eq(Booking.rental_period(day, day + 1, "08:00").end)
+        end
+      end
+
+      # Today's times already past aren't offered, and the default is the next one still ahead.
+      response "200", "a rental picked up today: only the times still ahead" do
+        schema "$ref" => "#/components/schemas/listing_price"
+        let(:listing_id) { create(:listing, :vehicle).id }
+        let(:quantity) { 1 }
+        let(:starts_on) { Date.new(2026, 11, 2).iso8601 }
+        let(:ends_on) { Date.new(2026, 11, 3).iso8601 }
+
+        context "with the morning gone" do
+          # 10:10 AM in Manila.
+          before { travel_to Time.utc(2026, 11, 2, 2, 10) }
+
+          run_test! do |response|
+            expect(response.parsed_body["pickup_times"].first).to eq("time" => "10:30", "available" => true)
+            expect(response.parsed_body["unavailable"]).to be_nil
+            expect(Time.zone.parse(response.parsed_body["returns_at"])).to eq(Booking.rental_period(Date.new(2026, 11, 2), Date.new(2026, 11, 3), "10:30").end)
+          end
+        end
+
+        context "after the last pickup" do
+          # 8:10 PM in Manila.
+          before { travel_to Time.utc(2026, 11, 2, 12, 10) }
+
+          run_test! do |response|
+            expect(response.parsed_body["pickup_times"]).to eq([])
+            expect(response.parsed_body["unavailable"]).to eq("No pickups left on Nov 2: pick a later date")
+          end
         end
       end
 

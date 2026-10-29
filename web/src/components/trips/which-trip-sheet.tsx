@@ -283,7 +283,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   // What the add costs (RAA-191): each item of a mix, or the one listing as the sheet has it now.
   const breakdown = usePriceBreakdown(
     mix
-      ? mix.map((item) => ({ ...dated, listingId: item.listingId, quantity: item.quantity, units: item.units, roomGuests: item.roomGuests, pets: item.pets }))
+      ? mix.map((item) => ({ ...dated, listingId: item.listingId, quantity: item.quantity, units: item.units, roomGuests: item.roomGuests, pets: item.pets, pickupTime: item.pickupTime }))
       : [
           {
             ...dated,

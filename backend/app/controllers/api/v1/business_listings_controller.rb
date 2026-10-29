@@ -4,7 +4,7 @@ module Api
     # listing's page. The web app's shop pop-up reads it.
     class BusinessListingsController < ApplicationController
       def index
-        render json: Businesses::ListingsFor.call(params[:business_id], params.slice(:category, :starts_on, :ends_on))
+        render json: Businesses::ListingsFor.call(params[:business_id], params.slice(:category, :starts_on, :ends_on, :pickup_time))
       end
     end
   end

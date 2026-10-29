@@ -1,6 +1,8 @@
 require "rails_helper"
 
 RSpec.describe VehicleRate do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:listing) { create(:listing, :vehicle, with_rate: false) }
 
   def rate(**attributes)
@@ -78,5 +80,24 @@ RSpec.describe VehicleRate do
   it "goes with its listing" do
     rate.save!
     expect { listing.destroy! }.to change(described_class, :count).by(-1)
+  end
+
+  describe "pickup times on a day (RAA-195)" do
+    # 10:10 AM in Manila.
+    before { travel_to Time.utc(2026, 11, 2, 2, 10) }
+
+    let(:today) { Date.new(2026, 11, 2) }
+
+    it "keeps only the times still ahead today, all of them later, none on a day gone by" do
+      expect(rate.pickup_times_on(today).first(2)).to eq(%w[10:30 11:00])
+      expect(rate.pickup_times_on(today).last).to eq("19:00")
+      expect(rate.pickup_times_on(today + 1).first).to eq("07:00")
+      expect(rate.pickup_times_on(today - 1)).to eq([])
+    end
+
+    it "defaults to 9:00, or today to the next half hour once 9:00 has gone" do
+      expect(rate.default_pickup_time(on: today + 1)).to eq("09:00")
+      expect(rate.default_pickup_time(on: today)).to eq("10:30")
+    end
   end
 end
