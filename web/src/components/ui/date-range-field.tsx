@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { DayPicker, type DayButtonProps } from "react-day-picker";
-import { CalendarGlyph } from "@/components/discovery/tag-glyphs";
+import { CalendarGlyph, ChevronGlyph } from "@/components/discovery/tag-glyphs";
 import { formatDateRange } from "@/lib/dates";
 import { cn } from "./cn";
 
@@ -181,9 +181,7 @@ export function DateRangeField({
               )}
             </span>
           </span>
-          <svg aria-hidden viewBox="0 0 24 24" className={cn("size-4.5 shrink-0 text-muted transition-transform duration-300 ease-calm", open ? "rotate-180" : "")} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-            <path d="m6 9 6 6 6-6" />
-          </svg>
+          <ChevronGlyph direction={open ? "down" : "right"} className="size-4.5 shrink-0 text-muted" />
         </button>
       ) : (
       <>

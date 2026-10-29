@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BOOKING_GROUPS } from "@/components/discovery/categories";
 import { AlertGlyph, CalendarGlyph, CategoryGlyph, TickGlyph } from "@/components/discovery/tag-glyphs";
@@ -9,6 +8,7 @@ import { GETTING_HERE, tripHref } from "@/components/landing/launch-area";
 import { Dialog } from "@/components/ui/dialog";
 import { formatDateRange, localTodayIso } from "@/lib/dates";
 import { guestCount, guestsLabel } from "./format";
+import { TripDatesSheet } from "./trip-dates-sheet";
 import { ItemEditSheet } from "./item-edit-sheet";
 import { ItemThumb } from "./item-thumb";
 import { closePlan, setPlanSummary, usePlanOpen } from "./plan-open";
@@ -44,6 +44,7 @@ export function TripPlan({
 }) {
   const open = usePlanOpen();
   const [dating, setDating] = useState<TripItem | null>(null);
+  const [datingTrip, setDatingTrip] = useState(false);
   const gaps = planGaps(trip, places, offered, sights, island);
   const missing = stillMissing(gaps);
   const count = missingCount(gaps);
@@ -85,7 +86,10 @@ export function TripPlan({
             guestsLabel(trip.guests),
           ]
             .filter(Boolean)
-            .join(" · ")}
+            .join(" · ")}{" "}
+          <button type="button" onClick={then(() => setDatingTrip(true))} data-testid="trip-plan-dates" className={cn(LINK, "font-semibold")}>
+            {range ? "Change dates" : "Add dates"}
+          </button>
         </p>
         {missing.length > 0 ? (
           <p className="text-sm text-pretty" data-testid="trip-plan-left">
@@ -107,9 +111,9 @@ export function TripPlan({
         ) : (
           <>
             {gettingHere && <GettingHereCard {...gettingHere} onFind={has.has("transfer") ? undefined : then(() => jumpTo("#need-transfer"))} done={has.has("transfer")} />}
-            <Link href={tripHref(trip.id)} className={cn(LINK, "self-start text-sm")}>
+            <button type="button" onClick={then(() => setDatingTrip(true))} data-testid="trip-plan-add-dates" className={cn(LINK, "self-start text-sm")}>
               Set your trip&apos;s dates to see it day by day
-            </Link>
+            </button>
             {missing.length > 0 && <ul className="flex flex-col gap-2">{missing.map(row)}</ul>}
             {covered.length > 0 && (
               <ul aria-label="In your trip" className="flex flex-col gap-1 border-t border-line pt-3">
@@ -129,6 +133,7 @@ export function TripPlan({
           </>
         )}
       </Dialog>
+      {datingTrip && <TripDatesSheet trip={trip} onClose={() => setDatingTrip(false)} />}
       {dating && <ItemEditSheet trip={trip} item={dating} onClose={() => setDating(null)} onSaved={() => setDating(null)} />}
     </>
   );

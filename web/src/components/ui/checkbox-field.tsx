@@ -8,7 +8,7 @@ export function CheckboxField({
   aside,
   className,
   ...props
-}: { label: string; aside?: ReactNode } & Omit<ComponentProps<"input">, "type">) {
+}: { label: ReactNode; aside?: ReactNode } & Omit<ComponentProps<"input">, "type">) {
   return (
     <label className={cn("flex min-h-11 items-center gap-3 text-sm font-medium", className)}>
       <input type="checkbox" className="size-5 shrink-0 rounded border-line-strong accent-primary" {...props} />

@@ -430,9 +430,10 @@ export function ListingCard({
   // A row on a phone: the photo a column on the left and the text beside it, so a short list
   // of them shows whole in a screen or so (the home page's From partners).
   rowOnPhone?: boolean;
-  // From sm, the photo over the text rather than behind it, the text on the card's own navy: the
-  // partner's photo shows whole, and the card reads apart from the sample-photo cards around it
-  // (the home page's From partners, RAA-130 critique).
+  // From sm, the photo over the text rather than behind it, and at every width the text on white
+  // (dark text, navy only under the photo while it loads): the partner's photo shows whole, and
+  // the card stands out from the dark page and the sample-photo cards around it (the home page's
+  // From partners, RAA-130 critique; white since 2026-10-29, as navy read too dark).
   stacked?: boolean;
   instantBook?: boolean;
 }) {
@@ -457,25 +458,26 @@ export function ListingCard({
       // drops the photo's room and is a short row: the icon beside the title says what it is.
       photoClassName={cn(
         rowOnPhone && "max-sm:w-28! max-sm:h-full",
-        stacked && "sm:h-40! sm:rounded-b-control",
+        stacked && "bg-navy sm:h-40! sm:rounded-b-control",
         "group-data-photo-missing:hidden",
       )}
       className={cn(
         rowOnPhone && "max-sm:h-auto max-sm:min-h-36 max-sm:pl-31",
-        // The text starts under the photo, and the card takes its row's height, so a row's
-        // actions line up whatever its titles.
-        stacked && "sm:h-full sm:pt-44 sm:data-photo-missing:pt-3",
+        // The text starts just under the photo, and the card takes its row's height with its
+        // foot pinned down, so a row's actions line up and a short title leaves no gap above it.
+        stacked && "sm:h-full sm:justify-start sm:pt-42 sm:data-photo-missing:pt-3",
         "data-photo-missing:h-full data-photo-missing:min-h-0 data-photo-missing:justify-start data-photo-missing:pl-3",
       )}
       scrimClassName={cn(rowOnPhone && "max-sm:hidden", stacked && "sm:hidden")}
       // No photo to read over, so no glass: a frame inside the navy card would be a card in a card.
       glassClassName={cn(
         rowOnPhone && "max-sm:border-transparent max-sm:bg-transparent max-sm:p-2",
-        stacked && "sm:border-transparent sm:bg-transparent sm:px-2 sm:pt-2 sm:pb-1 sm:backdrop-blur-none",
+        stacked && "sm:flex-1 sm:border-transparent sm:bg-transparent sm:px-2 sm:pt-2 sm:pb-1 sm:backdrop-blur-none",
         "group-data-photo-missing:border-transparent group-data-photo-missing:bg-transparent group-data-photo-missing:p-2",
       )}
       sizes={sizes}
       label={title}
+      paper={stacked}
       head={
         <div className="flex items-start gap-3">
           {/* Narrow (under 18rem, in an @container such as the home page's row of four) the title
@@ -483,7 +485,8 @@ export function ListingCard({
           <span
             aria-hidden
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-control border border-glass-edge bg-glass-fill text-white @max-2xs:hidden",
+              "flex size-9 shrink-0 items-center justify-center rounded-control @max-2xs:hidden",
+              stacked ? "bg-mist text-primary" : "border border-glass-edge bg-glass-fill text-white",
               // A phone's row shows the category in its photo column instead.
               rowOnPhone && "max-sm:hidden",
               "group-data-photo-missing:flex",
@@ -496,20 +499,31 @@ export function ListingCard({
             <HeroTripLink
               href={href}
               data-testid="listing-link"
-              className="line-clamp-2 font-display text-title-sm leading-snug font-extrabold tracking-tight break-words text-white underline-offset-4 hover:underline"
+              className={cn(
+                "line-clamp-2 font-display text-title-sm leading-snug font-extrabold tracking-tight break-words underline-offset-4 hover:underline",
+                stacked ? "text-foreground" : "text-white",
+              )}
             >
               {title}
             </HeroTripLink>
-            <span className="block truncate text-sm text-sky-mist">{note}</span>
+            <span className={cn("block truncate text-sm", stacked ? "text-muted" : "text-sky-mist")}>{note}</span>
             {instantBook && <InstantBookBadge small className="mt-1.5" />}
           </span>
         </div>
       }
-      details={summary ? <p className="line-clamp-4 text-sm text-white/90">{summary}</p> : undefined}
+      details={
+        summary ? <p className={cn("line-clamp-4 text-sm", stacked ? "text-muted" : "text-white/90")}>{summary}</p> : undefined
+      }
       foot={
         (price || unpriced || action) && (
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-            {price ? <Price onDark {...price} /> : unpriced ? <span className="text-sm text-sky-mist">{unpriced}</span> : <span />}
+          <div className={cn("flex flex-wrap items-center justify-between gap-x-3 gap-y-2", stacked && "sm:mt-auto")}>
+            {price ? (
+              <Price onDark={!stacked} {...price} />
+            ) : unpriced ? (
+              <span className={cn("text-sm", stacked ? "text-muted" : "text-sky-mist")}>{unpriced}</span>
+            ) : (
+              <span />
+            )}
             {/* On its own line once the row wraps (a phone's narrow card), it keeps to the right. */}
             {action && <div className="ml-auto">{action}</div>}
           </div>
@@ -586,7 +600,6 @@ export function ListingRow({
                 features={features}
                 instantBook={instantBook}
                 dates={dates}
-                unpriced={price ? undefined : unpriced}
               />
             }
             actions={<PanelActions price={price} unpriced={unpriced} action={panelAction} listingId={listingId} dates={dates} />}

@@ -10,7 +10,7 @@ import { planGaps, stillMissing, type PlanGap } from "./trip-missing";
 import type { Trip } from "./use-trips";
 
 // The kinds a trip is checked for, in the order it needs them (getting there first): transfer,
-// stay, getting around, tours, gear — all five count (2026-10-28, until the team decides
+// stay, tours, getting around, gear — all five count (2026-10-28, until the team decides
 // otherwise). One checklist wherever a trip is summed up on a photo: the home hero's trip card,
 // a place's trip card and the add toast.
 export const TRIP_KINDS = TRIP_ORDER_GROUPS;
@@ -81,7 +81,7 @@ export function kindsLine(needs: { done: boolean }[]) {
 
 // The checklist on a place's page (its trip card), for the kinds the place offers, from the
 // plan's own gaps (planGaps), so its "N of 5" and the plan's count are one number: a stay for
-// every night ahead, and a transfer, getting around, tours and gear anywhere on the island
+// every night ahead, and a transfer, tours, getting around and gear anywhere on the island
 // (`island`). Each lacking one links to its section of What to book.
 export function TripNeeds({
   trip,

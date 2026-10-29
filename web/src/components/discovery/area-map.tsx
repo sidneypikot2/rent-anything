@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
+import { MENU_ROW } from "@/components/ui/menu";
 import { Price } from "@/components/ui/typography";
 import { circlePolygon, fromLngLat, MAP_STYLE_URL, setMapWorker, toLngLat, type LatLng } from "@/lib/map";
 import { useAreaMap } from "./area-map-context";
@@ -864,19 +865,20 @@ function StackList({
       )}
     >
       <div className="flex items-center justify-between gap-3 border-b border-line py-1.5 pr-1.5 pl-4">
-        <p className="text-sm font-semibold">
+        <p className="font-semibold">
           {pins.length} listings {place ? `in ${place}` : "here"}
         </p>
         <button
           type="button"
           aria-label="Close"
           onClick={onClose}
-          className="flex size-11 items-center justify-center rounded-full text-muted hover:bg-surface-2"
+          className="flex size-11 items-center justify-center rounded-full text-muted transition-colors duration-300 ease-calm hover:bg-mist"
         >
           <CloseGlyph className="size-4" />
         </button>
       </div>
-      <ul className="overflow-y-auto overscroll-contain p-1.5">
+      {/* The menus' rows (MENU_ROW): 16px medium, mist on hover, inside the card's 8px inset. */}
+      <ul className="overflow-y-auto overscroll-contain p-2 text-base font-medium">
         {pins.map((pin) => (
           <li key={pin.key}>
             <button
@@ -884,7 +886,7 @@ function StackList({
               onClick={() => onPick(pin)}
               onPointerEnter={() => onHover(pin.key)}
               onPointerLeave={() => onHover(null)}
-              className="flex min-h-11 w-full items-center gap-3 rounded-control px-2.5 py-1.5 text-left hover:bg-surface-2"
+              className={cn(MENU_ROW, "py-1.5 text-foreground")}
             >
               <span
                 aria-hidden
@@ -895,9 +897,9 @@ function StackList({
               >
                 <CategoryGlyph name={pin.category} className="size-3.5" />
               </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{pin.title}</span>
+              <span className="min-w-0 flex-1 truncate">{pin.title}</span>
               {pin.price && (
-                <span className="shrink-0 text-sm font-semibold tabular-nums text-muted">{pin.price.amount}</span>
+                <span className="shrink-0 text-sm tabular-nums text-muted">{pin.price.amount}</span>
               )}
             </button>
           </li>

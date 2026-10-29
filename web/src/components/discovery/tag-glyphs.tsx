@@ -312,3 +312,28 @@ export function MergeGlyph({ className }: Props) {
 export function CopyGlyph({ className }: Props) {
   return <Glyph paths={["M8 8h12v12H8Z", "M16 8V4H4v12h4"]} className={className} />;
 }
+
+// The header's account menu: trips (a suitcase), profile (a person), settings (a cog), sign out.
+export function SuitcaseGlyph({ className }: Props) {
+  return <Glyph paths={["M4 8h16v11H4Z", "M9 8V5h6v3", "M4 13h16"]} className={className} />;
+}
+
+export function PersonGlyph({ className }: Props) {
+  return <Glyph paths={[circle(12, 8, 4), "M4 21a8 8 0 0 1 16 0"]} className={className} />;
+}
+
+export function CogGlyph({ className }: Props) {
+  return (
+    <Glyph
+      paths={[
+        circle(12, 12, 3),
+        "M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1",
+      ]}
+      className={className}
+    />
+  );
+}
+
+export function SignOutGlyph({ className }: Props) {
+  return <Glyph paths={["M14 4H5v16h9", "M10 12h11", "M17 8l4 4-4 4"]} className={className} />;
+}

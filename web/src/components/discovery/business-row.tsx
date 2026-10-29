@@ -293,7 +293,6 @@ function BusinessPanel({
             features={picked.features}
             instantBook={picked.instantBook}
             dates={dates}
-            unpriced={picked.price ? undefined : picked.unpriced}
           />
         </div>
       </Dialog>

@@ -54,7 +54,12 @@ export function DialogDemo() {
       </Dialog>
       <Dialog
         open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
+        onClose={() => {
+          setSheetOpen(false);
+          setGuests(2);
+        }}
+        // Change the guests, then close it: a sheet holding changes asks "Discard changes?" first.
+        dirty={guests !== 2}
         placement="sheet"
         title="Virgin Island hopping"
         meta="Tour · Kota Beach Boat Tours"
@@ -70,7 +75,7 @@ export function DialogDemo() {
             detail="up to 12"
             control={<Stepper label="Guests" value={guests} onChange={setGuests} min={1} max={12} />}
           />
-          <TicketNote>A Ticket: the choices as rows, notes in its foot. Named after the thing, never the action.</TicketNote>
+          <TicketNote>A Ticket: the choices as rows, notes in its foot. Named after the thing, never the action. Change the guests and close it: it asks first.</TicketNote>
         </Ticket>
       </Dialog>
       <Dialog

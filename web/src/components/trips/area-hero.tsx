@@ -20,6 +20,7 @@ import { chooseTrip } from "./chosen-trip";
 import { HereItemsSheet } from "./here-items-sheet";
 import { guestsLabel, thingCount } from "./format";
 import { tripOwnQuery } from "./trip-dates";
+import { TripDatesSheet } from "./trip-dates-sheet";
 import { fixesOf, missingCount, planGaps, stillMissing, type PlanGap, type Sight } from "./trip-missing";
 import { TripNeeds } from "./trip-needs";
 import { openPlan } from "./plan-open";
@@ -34,7 +35,7 @@ import type { Trip, TripItem } from "./use-trips";
 // place, books what they need from What to book, and checks out from the cart: the banner never
 // becomes a trip's own page. With no trip here yet (signed out, none yet, or still loading) the
 // line says the trip starts with the first add (no account needed, RAA-177); once the guest has a trip
-// with something here, or chose one to work on, it is TripNotice, whose Checkout opens it in the
+// with something here, or chose one to work on, it is TripNotice, whose Review and send opens it in the
 // cart ("View trip" once all of it is booked). A guest with trips switches which one they work on
 // here (Switch trip, TripChoiceSheet): the page takes that trip's dates and guests, and the add
 // sheet preselects it. A trip shown on a page opened with no dates or guests (a bare link, the
@@ -343,6 +344,7 @@ function TripNotice({
 }) {
   const [editing, setEditing] = useState(false);
   const closeEditing = useCallback(() => setEditing(false), []);
+  const [dating, setDating] = useState(false);
   const tripHere = tripPlaces(trip);
   const dated = tripOwnQuery(trip);
   // The phone row's count: the plan button's (missingCount), so the two never disagree.
@@ -380,10 +382,11 @@ function TripNotice({
     (!onlyHere || items === 0 || total > items) && here,
   ].filter((part): part is string => Boolean(part));
   const href = tripHref(trip.id);
-  // The link opens the trip in the cart, where it's booked: while anything in it can still be
-  // booked that's the next step, so it says so; once all of it is booked it only shows the trip.
+  // The link opens the trip in the cart, where its requests are sent: while anything in it can
+  // still be sent, it says that is the next step (the cart's button says "Send requests"); once
+  // all of it is booked it only shows the trip. Never "Checkout", which reads as paying.
   const toBook = trip.items.some(bookable);
-  const openLabel = toBook ? "Checkout" : "View trip";
+  const openLabel = toBook ? "Review and send" : "View trip";
   // The wide card's checklist names the kinds missing; what is left to fix on items already in
   // the trip (replace, date, top up) is counted as "N to fix in your plan", which opens it, so
   // the chips and that line add up to the phone row's one number (missingCount).
@@ -400,7 +403,7 @@ function TripNotice({
         data-testid="trip-notice"
         className={cn(
           glassClasses("forest"),
-          // As wide as what it holds, so Checkout sits by the trip rather than across the banner.
+          // As wide as what it holds, so its button sits by the trip rather than across the banner.
           // Actions at the top, beside the trip's name, rather than floating mid-card.
           "flex w-fit max-w-full flex-wrap items-start justify-between gap-x-10 gap-y-2 rounded-card px-4 py-3 sm:px-5",
           WIDE_ONLY,
@@ -422,7 +425,17 @@ function TripNotice({
                 {index > 0 && " · "}
                 <span className="whitespace-nowrap">{part}</span>
               </Fragment>
-            ))}
+            ))}{" "}
+            {/* The trip's own dates and guests, set here: one started by an add has none yet. */}
+            <button
+              type="button"
+              onClick={() => setDating(true)}
+              aria-haspopup="dialog"
+              data-testid="trip-dates-edit"
+              className={cn(linkStyle, "ml-1 font-semibold")}
+            >
+              {range ? "Change dates" : "Add dates"}
+            </button>
           </p>
           {editHere && <HereItemRows items={hereItems} tripHref={href} onEdit={editHere} />}
           {(!onlyHere || onAnotherPlace) && (
@@ -479,7 +492,7 @@ function TripNotice({
         </div>
       </div>
       {/* Compact: the row is the way into the plan (TripPlan), what it lacks on its second line;
-          Checkout (or View, beside Switch) is its own button on the right. */}
+          Review and send (or View, beside Switch) is its own button on the right. */}
       <div className={cn(glassClasses("forest"), COMPACT_ONLY, "min-h-11 items-stretch rounded-card text-sm")}>
         <button
           type="button"
@@ -544,6 +557,7 @@ function TripNotice({
         />
       )}
       {editing && <HereItemsSheet trip={trip} places={places} placeName={placeName} onClose={closeEditing} />}
+      {dating && <TripDatesSheet trip={trip} onClose={() => setDating(false)} />}
     </>
   );
 }

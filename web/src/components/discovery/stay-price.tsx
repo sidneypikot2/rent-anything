@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { apiClient } from "@/api/client";
 import type { ListingDetail, StayQuote } from "@/api/discovery";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
@@ -87,6 +87,7 @@ export function StayPrice({
   initialQuote,
   headline = true,
   add = false,
+  aside,
 }: {
   listing: ListingDetail;
   rate: Rate;
@@ -95,6 +96,8 @@ export function StayPrice({
   initialQuote?: QuoteResult;
   headline?: boolean;
   add?: boolean;
+  // Beside Add to trip: on the listing page, what saving costs and whether the trip holds it.
+  aside?: ReactNode;
 }) {
   const [start] = useState(() => startingArrangement(listing, dates));
   const [picked, setPicked] = useState<Arrangement>(start);
@@ -244,7 +247,8 @@ export function StayPrice({
         )}
 
         {add && (
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {aside ?? <span />}
             <AddToTripButton listing={listing} dates={dates} rooms={nightsSet ? picked : undefined} />
           </div>
         )}

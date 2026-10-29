@@ -57,6 +57,9 @@ type Mode = "book" | "block" | "price" | "units" | "min";
 export function DayActionsSheet({ selection, onClose, onDone }: { selection: Selection; onClose: () => void; onDone: Done }) {
   const { listing, from, to } = selection;
   const [mode, setMode] = useState<Mode>("book");
+  // Whether the partner has typed into the open form: closing then asks first. Another mode
+  // starts a fresh form, so it starts clean.
+  const [typed, setTyped] = useState(false);
   const days = listing.days.filter((day) => day.date >= from && day.date <= to);
   const count = days.length;
   const stay = isStay(listing);
@@ -75,22 +78,29 @@ export function DayActionsSheet({ selection, onClose, onDone }: { selection: Sel
       : `${formatDateRange(from, to)} · ${count} ${count === 1 ? "day" : "days"}`;
 
   return (
-    <Dialog open onClose={onClose} placement="sheet" title={listing.title} data-testid="day-actions-sheet">
+    <Dialog open onClose={onClose} dirty={typed} placement="sheet" title={listing.title} data-testid="day-actions-sheet">
       <p className="-mt-2 text-sm text-muted" data-testid="day-actions-dates">
         {summary}
       </p>
       <div className="flex flex-wrap gap-2" role="group" aria-label="What to do">
         {modes.map(([value, label]) => (
-          <Pill key={value} on={mode === value} onClick={() => setMode(value)} data-testid={`day-action-${value}`}>
+          <Pill key={value} on={mode === value} onClick={() => {
+              setMode(value);
+              setTyped(false);
+            }}
+            data-testid={`day-action-${value}`}
+          >
             {label}
           </Pill>
         ))}
       </div>
-      {mode === "book" && <BookingForm selection={selection} onClose={onClose} onDone={onDone} />}
-      {mode === "block" && <BlockForm selection={selection} onClose={onClose} onDone={onDone} />}
-      {(mode === "price" || mode === "units" || mode === "min") && (
-        <DaysForm key={mode} mode={mode} selection={selection} onClose={onClose} onDone={onDone} />
-      )}
+      <div className="contents" onInput={() => setTyped(true)}>
+        {mode === "book" && <BookingForm selection={selection} onClose={onClose} onDone={onDone} />}
+        {mode === "block" && <BlockForm selection={selection} onClose={onClose} onDone={onDone} />}
+        {(mode === "price" || mode === "units" || mode === "min") && (
+          <DaysForm key={mode} mode={mode} selection={selection} onClose={onClose} onDone={onDone} />
+        )}
+      </div>
     </Dialog>
   );
 }
@@ -555,7 +565,7 @@ export function BlockSheet({
   );
 
   return (
-    <Dialog open onClose={onClose} placement="sheet" title="Blocked" data-testid="block-sheet">
+    <Dialog open onClose={onClose} dirty={reason !== (block.reason ?? "")} placement="sheet" title="Blocked" data-testid="block-sheet">
       <p className="-mt-2 text-sm text-muted">
         {listing.title} · {formatDateRange(block.starts_on, block.ends_on)} · {days} {days === 1 ? "day" : "days"}
       </p>

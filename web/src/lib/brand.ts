@@ -14,3 +14,11 @@ export const SOCIALS = {
   instagram: "https://www.instagram.com/tripkonext",
   tiktok: "https://www.tiktok.com/@tripkonext",
 } as const;
+
+// Where people write to us: support, and partners asking to close their account. The team's
+// mailbox (production's mail account, .claude/rules/email.md).
+export const SUPPORT_EMAIL = "team@tripkonext.com";
+
+// Where the business is, shown in the guest footer with the name and SUPPORT_EMAIL, so
+// travellers can see who runs the site.
+export const BUSINESS_ADDRESS = "Santa Fe, Bantayan Island, Cebu";

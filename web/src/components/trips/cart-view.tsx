@@ -12,6 +12,7 @@ import { PaySheet } from "@/components/bookings/pay-sheet";
 import { PaymentReturn } from "@/components/bookings/payment-return";
 import type { GuestBooking } from "@/components/bookings/use-bookings";
 import { CartItemPanel } from "./cart-item-panel";
+import { cn } from "@/components/ui/cn";
 import { CartTripNav, TripSwitchSheet } from "./cart-trip-nav";
 import { EditTripSheet, type EditFocus } from "./edit-trip-sheet";
 import { FindMoreSheet } from "./find-more-sheet";
@@ -148,8 +149,9 @@ export function CartView({ expandTripId, paymentId }: { expandTripId?: number; p
           </CardBody>
         </Card>
       ) : (
-        <div className="grid gap-gutter lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start">
-          <CartTripNav {...nav} />
+        // The trips' list from lg only once there is a choice: one trip alone takes the width.
+        <div className={cn("grid gap-gutter lg:items-start", list.length > 1 && "lg:grid-cols-[17rem_minmax(0,1fr)]")}>
+          {list.length > 1 && <CartTripNav {...nav} />}
           {selected && (
             <TripDetails
               key={selected.id}

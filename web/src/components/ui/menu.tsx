@@ -27,6 +27,21 @@ type Props = {
   "data-testid"?: string;
 };
 
+// One look for every dropdown menu (this one and the header's AccountMenu, 2026-10-29): a white
+// card, 44px rows with a plain lagoon icon and a medium label, tinting mist on hover and focus
+// inside the card's 8px inset. Its type is set here (16px, medium), not inherited: the header's
+// nav is text-sm, which made the account menu smaller than the ⋯ menu.
+// MENU_SURFACE is the card alone, for a list as wide as what it hangs from (a field's suggestions).
+export const MENU_SURFACE = "card-edge rounded-card bg-surface p-2 text-base font-medium shadow-lift";
+export const MENU_PANEL = `w-72 ${MENU_SURFACE}`;
+// A destructive row (Remove, Sign out): red, with a red tint on hover and focus.
+export const MENU_DANGER = "text-danger hover:bg-danger/5 focus-visible:bg-danger/5";
+export const MENU_ROW =
+  "flex min-h-11 w-full items-center gap-3 rounded-control px-3 text-left font-medium transition-colors duration-300 ease-calm hover:bg-mist focus-visible:bg-mist";
+// The icon's size; its colour is text-primary (text-danger on a destructive row).
+export const MENU_ICON = "size-5 shrink-0";
+export const MENU_DIVIDER = "mx-1 my-1 border-t border-line";
+
 // Room the list needs below its button before it opens upward instead.
 const ROOM_BELOW = 280;
 
@@ -34,9 +49,8 @@ const ROOM_BELOW = 280;
 // disclosure like the account menu, not an ARIA menu widget: it closes on Escape, on a click
 // outside it, on scrolling and once an action is picked. The list is a popover in the browser's
 // top layer, placed beside its button, so no sticky bar or card around it can cover it (the
-// cart's send foot did), and it opens upward when the window has no room below. Each action
-// has its icon in a tinted well, so the list reads apart from the white page under it; a
-// destructive one comes last, under a divider.
+// cart's send foot did), and it opens upward when the window has no room below. It looks like
+// the account menu (MENU_ROW above); a destructive action comes last, in red, under a divider.
 export function Menu({ label, items, tone = "light", "data-testid": testId }: Props) {
   const [open, setOpen] = useState(false);
   const [place, setPlace] = useState<CSSProperties>({});
@@ -91,26 +105,17 @@ export function Menu({ label, items, tone = "light", "data-testid": testId }: Pr
     const content = (
       <>
         {item.icon && (
-          <span
-            aria-hidden
-            className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-xl [&>svg]:size-4.5",
-              item.danger ? "bg-danger/10 text-danger" : "bg-action-tint text-action-ink",
-            )}
-          >
+          <span aria-hidden className={cn(MENU_ICON, "flex items-center justify-center [&>svg]:size-5", item.danger ? "text-danger" : "text-primary")}>
             {item.icon}
           </span>
         )}
         <span className="flex min-w-0 flex-col">
-          <span className={cn("font-semibold", item.danger ? "text-danger" : "text-foreground")}>{item.label}</span>
-          {item.detail && <span className="text-xs text-muted">{item.detail}</span>}
+          <span className={item.danger ? "text-danger" : "text-foreground"}>{item.label}</span>
+          {item.detail && <span className="text-sm font-normal text-muted">{item.detail}</span>}
         </span>
       </>
     );
-    const rowClass = cn(
-      "flex min-h-11 w-full items-center gap-3 rounded-control px-2.5 py-2 text-left transition-colors duration-150 ease-calm",
-      item.danger ? "hover:bg-danger/5" : "hover:bg-action-tint",
-    );
+    const rowClass = cn(MENU_ROW, item.detail && "py-2", item.danger && MENU_DANGER);
     return (
       <li key={item.label}>
         {item.href ? (
@@ -159,10 +164,10 @@ export function Menu({ label, items, tone = "light", "data-testid": testId }: Pr
           id={listId}
           popover="manual"
           style={place}
-          className="fixed inset-auto m-0 flex w-64 flex-col gap-0.5 rounded-card border border-line bg-surface p-1.5 text-sm text-foreground shadow-float motion-safe:animate-drop-in"
+          className={cn(MENU_PANEL, "fixed inset-auto m-0 flex flex-col text-foreground motion-safe:animate-drop-in")}
         >
           {safe.map(row)}
-          {danger.length > 0 && safe.length > 0 && <li aria-hidden className="mx-2.5 my-1 border-t border-line" />}
+          {danger.length > 0 && safe.length > 0 && <li aria-hidden className={MENU_DIVIDER} />}
           {danger.map(row)}
         </ul>
       )}

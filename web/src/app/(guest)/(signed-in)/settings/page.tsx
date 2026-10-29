@@ -1,3 +1,4 @@
+import { DeleteAccount } from "@/components/account/delete-account";
 import { PlaceholderBlock } from "@/components/landing/placeholder-block";
 import { DisplayTitle } from "@/components/ui/typography";
 import { PageSheet } from "@/components/landing/page-sheet";
@@ -7,7 +8,8 @@ const PANELS = [
   { title: "Notifications", note: "Booking updates and messages from partners" },
 ];
 
-// The guest's settings: a skeleton until account settings exist.
+// The guest's settings: deleting the account, and placeholders for the account settings still
+// to come.
 export default function GuestSettings() {
   return (
     <main data-testid="guest-settings" className="flex flex-1 flex-col pt-3 sm:pt-6">
@@ -18,6 +20,9 @@ export default function GuestSettings() {
             {PANELS.map((panel) => (
               <PlaceholderBlock key={panel.title} {...panel} />
             ))}
+          </div>
+          <div className="mt-4 w-full max-w-narrow">
+            <DeleteAccount />
           </div>
         </div>
       </PageSheet>

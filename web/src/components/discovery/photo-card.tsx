@@ -50,6 +50,7 @@ export function PhotoCardFrame({
   details,
   foot,
   label,
+  paper = false,
   height = "h-80",
   scrimClassName,
   glassClassName,
@@ -68,6 +69,9 @@ export function PhotoCardFrame({
   foot?: ReactNode;
   // What the card is, for the info button's name ("Details of Kota Beach").
   label: string;
+  // White under the photo rather than navy, for a card whose text sits beside or below its
+  // photo rather than over it (the home page's From partners).
+  paper?: boolean;
   // The card's height: fixed, so a grid's cards match. The lead destination's is a minimum, as
   // the home grid stretches it over two rows.
   height?: string;
@@ -105,7 +109,7 @@ export function PhotoCardFrame({
     <Card
       ref={cardRef}
       bordered={false}
-      photo
+      photo={!paper}
       data-open={open || undefined}
       data-photo-missing={failed || undefined}
       className={cn(PHOTO_CARD, "flex flex-col justify-end p-3", height, className)}

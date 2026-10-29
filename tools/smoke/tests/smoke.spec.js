@@ -159,6 +159,11 @@ test("sign-up and the partner guard", async ({ page }) => {
     await page.goto(path);
     await page.getByLabel("Email").fill(email);
     await password().fill("password123");
+    await confirmation().fill("password123");
+    // The Terms and Privacy policy must be agreed to: the form isn't sent without it.
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(page).toHaveURL(new RegExp(`${path}$`));
+    await page.getByTestId("consent").check();
 
     if (checkConfirmation) {
       // The two fields show and hide together.
@@ -357,7 +362,8 @@ test("add to trip without an account", async ({ page, browser }) => {
   await page.getByTestId("add-to-trip").nth(1).click();
   const whichTrip = page.getByTestId("which-trip-sheet");
   await expect(whichTrip.getByTestId("add-sheet-trip")).toContainText("Bantayan Island");
-  await expect(whichTrip.getByTestId("which-trip-add")).toContainText("Add to Bantayan Island");
+  // The trip is named after its place and dates, so the button says "your trip", not the island.
+  await expect(whichTrip.getByTestId("which-trip-add")).toContainText("Add to your trip");
   await whichTrip.getByTestId("which-trip-add").click();
   await expect(whichTrip).toHaveCount(0);
   await expect(added).toContainText(/Added .+ to Bantayan Island/);
@@ -373,10 +379,9 @@ test("add to trip without an account", async ({ page, browser }) => {
   await edit.getByLabel("Trip name").fill(`Smoke trip ${stamp}`);
   await edit.getByTestId("edit-trip-save").click();
   await expect(edit).toHaveCount(0);
-  await expect(page.getByTestId("cart-trip-tab").filter({ hasText: `Smoke trip ${stamp}` })).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
+  // One trip: no list of trips beside it, its header carries the new name.
+  await expect(page.getByTestId("cart-trip-nav")).toHaveCount(0);
+  await expect(page.getByTestId("cart-trip").first()).toContainText(`Smoke trip ${stamp}`);
   const trip = page.getByTestId("cart-trip").filter({ hasText: `Smoke trip ${stamp}` });
   await expect(trip.getByTestId("cart-item")).toHaveCount(2);
   await trip.getByTestId("cart-item-menu").first().click();
@@ -398,6 +403,7 @@ test("add to trip without an account", async ({ page, browser }) => {
   await contact.getByLabel("Full name").fill("Smoke Guest");
   await contact.getByLabel("Email").fill(`trip-${stamp}@example.com`);
   await contact.getByLabel("Phone").fill("9171234567");
+  await contact.getByTestId("consent").check();
   await checkout.getByTestId("checkout-confirm").click();
   await expect(checkout.getByTestId("checkout-result").getByTestId("booking-status")).toHaveText("Request sent");
   await expect(page.getByTestId("checkout-toast")).toContainText("Request sent to the partner");

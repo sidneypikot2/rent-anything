@@ -6,7 +6,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { DisplayTitle } from "@/components/ui/typography";
 
 export const metadata: Metadata = {
-  title: "Trips",
+  title: "Booked trips",
 };
 
 // The guest's booked trips, happening now, upcoming and past, laid out like the cart (RAA-68,
@@ -15,9 +15,9 @@ export default async function Trips(props: PageProps<"/trips">) {
   const trip = Number((await props.searchParams).trip);
   return (
     <main data-testid="trips" className="flex flex-1 flex-col">
-      <PageBanner title={<DisplayTitle size="compact">Trips</DisplayTitle>} search={false} compact>
+      <PageBanner title={<DisplayTitle size="compact">Booked trips</DisplayTitle>} search={false} compact>
         <ButtonLink href="/cart" variant="soft" size="sm" className="shrink-0 self-start">
-          Cart
+          Trips you&apos;re planning
         </ButtonLink>
       </PageBanner>
       <PageSheet tone="paper">

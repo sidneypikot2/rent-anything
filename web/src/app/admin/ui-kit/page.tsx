@@ -226,7 +226,7 @@ export default function UiKit() {
 
       <Showcase title="Glass">
         <div className="relative isolate overflow-hidden rounded-card p-6">
-          <Image src="/images/hero.jpg" alt="" fill sizes="(min-width: 1024px) 64rem, 100vw" className="-z-20 object-cover" />
+          <Image src="/images/bantayan-port.jpg" alt="" fill sizes="(min-width: 1024px) 64rem, 100vw" className="-z-20 object-cover" />
           <div aria-hidden className="absolute inset-0 -z-10 bg-scrim/30" />
           <div className="flex flex-wrap gap-3">
             <GlassPanel className="rounded-card px-4 py-3 font-semibold">Dark</GlassPanel>

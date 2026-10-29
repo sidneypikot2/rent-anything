@@ -76,7 +76,7 @@ export function useChangeBooking() {
   });
 }
 
-export type Contact = { name: string; email: string; phone: string };
+export type Contact = { name: string; email: string; phone: string; terms_accepted: boolean };
 export type CheckoutRequest = { tripId: number; itemIds: number[]; idempotencyKey: string; contact?: Contact };
 
 // A guest without an account gave an email another guest has (409): the API emailed it a

@@ -11,7 +11,8 @@ import { PasswordField } from "@/components/ui/password-field";
 import { oauthSignIn, signIn, signUp, type OauthProvider, type Role } from "@/lib/auth/actions";
 import { DASHBOARD_PATHS, LOGIN_PATHS, REGISTER_PATHS, withNext } from "@/lib/auth/paths";
 import { isAnonymous, useSession } from "@/lib/auth/session";
-import { OauthButtons, hasOauthProviders } from "./oauth-buttons";
+import { ConsentField, ConsentNote } from "@/components/legal/consent-field";
+import { OauthButtons, hasOauthProviders, oauthProviderNames } from "./oauth-buttons";
 
 type Mode = "signin" | "signup";
 
@@ -55,6 +56,9 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
   // Sign-up's two password fields show and hide together, so they can be compared.
   const [showPasswords, setShowPasswords] = useState(false);
   const signup = selfServe && mode === "signup";
+  // Sign-up needs the Terms and Privacy policy agreed to, for the form and for Google or
+  // Facebook alike, which would otherwise make the account without it.
+  const [agreed, setAgreed] = useState(false);
 
   // Already signed in with this role (back button, a second tab): skip the form. A guest with
   // no account yet (RAA-177) is signed out here.
@@ -149,6 +153,7 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
                 required
               />
             )}
+            {signup && <ConsentField partner={role === "partner"} checked={agreed} onChange={(event) => setAgreed(event.target.checked)} />}
             {error && (
               <p role="alert" data-testid="auth-error" className="text-sm text-danger">
                 {error}
@@ -167,7 +172,14 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
               or
               <span className="h-px flex-1 bg-line" />
             </div>
-            <OauthButtons disabled={pending} onToken={onOauthToken} />
+            <OauthButtons disabled={pending || (signup && !agreed)} onToken={onOauthToken} />
+            {signup && !agreed && (
+              <p className="text-center text-xs text-muted" data-testid="consent-oauth-hint">
+                To sign up with {oauthProviderNames()}, first tick &ldquo;I agree to the {role === "partner" ? "Terms, the Partner terms" : "Terms"} and
+                the Privacy policy&rdquo; above.
+              </p>
+            )}
+            {!signup && <ConsentNote partner={role === "partner"} />}
           </div>
         )}
 

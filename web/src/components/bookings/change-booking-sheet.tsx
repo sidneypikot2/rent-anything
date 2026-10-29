@@ -50,6 +50,8 @@ export function ChangeBookingSheet({
     <Dialog
       open
       onClose={close}
+      // Closing asks first once the dates or guests differ from the booking's.
+      dirty={!unchanged}
       placement="sheet"
       title={item.listing.title}
       meta={`Booking ${booking.reference}`}

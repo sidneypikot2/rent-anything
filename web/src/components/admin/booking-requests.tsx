@@ -516,6 +516,7 @@ function DeclineDialog({
     <Dialog
       open
       onClose={() => !pending && onClose()}
+      dirty={reason.trim() !== ""}
       title="Decline this request?"
       data-testid="admin-booking-decline-dialog"
       actions={
