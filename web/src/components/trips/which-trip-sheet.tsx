@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, type FormEvent } from "react";
-import { BagGlyph, CategoryGlyph, GuestsGlyph } from "@/components/discovery/tag-glyphs";
+import { BagGlyph, CategoryGlyph, GuestsGlyph, MapGlyph } from "@/components/discovery/tag-glyphs";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { Button } from "@/components/ui/button";
 import { DateRangeField } from "@/components/ui/date-range-field";
@@ -16,11 +16,13 @@ import { daysBetween, formatDateRange, guestLimitHint, itemCount, noNightError, 
 import { bedsBooked } from "./beds";
 import { evenRooms, headcount, partyFromGuests, partyOf, partySummary, roomGuestsToSend, roomText, type Room } from "./party";
 import { RoomsAndGuests } from "./rooms-and-guests";
+import { PickupTimeRow, rentalClock } from "./pickup-time";
 import { PriceBreakdown, usePriceBreakdown } from "./price-breakdown";
 import { VehicleCounters } from "./people-and-vehicles";
 import { unitsFor, vehiclePartyText } from "./vehicle-party";
 import { sameItem } from "./trip-missing";
 import { TripOption } from "./trip-option";
+import { deliveryHow, DeliveryOptions, DropOffAddress, needsAddress, NO_DELIVERY, wantsDelivery, type Delivery } from "./delivery-options";
 import {
   useAddTripItem,
   useTripSuggestion,
@@ -276,11 +278,21 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   const vehicle = vehicleSeats !== null;
   const [typedUnits, setUnits] = useState<number | null>(null);
   const vehicleUnits = vehicleSeats ? unitsFor(quantityNumber, vehicleSeats, typedUnits ?? request.units) : undefined;
+  // Its pickup time (RAA-195): the booking card's, until the guest picks another; null takes the shop's default.
+  const [pickupTime, setPickupTime] = useState<string | null>(request.pickupTime ?? null);
+  // Its delivery and pick-up (RAA-195): the booking card's, until the guest changes them here.
+  const [delivery, setDelivery] = useState<Delivery>(request.delivery ?? NO_DELIVERY);
+  const deliveryFees = vehicle ? (request.preview?.deliveryFees ?? null) : null;
+  // A shop's models added together: delivery and pick-up were picked in the shop sheet, the
+  // drop-off address is asked here, once for all of them.
+  const mixDelivery = mix?.find((item) => wantsDelivery(item.delivery))?.delivery ?? null;
+  const [mixAddress, setMixAddress] = useState(mixDelivery?.address ?? "");
+  const addressMissing = deliveryFees ? needsAddress(delivery) : mixDelivery !== null && !mixAddress.trim();
   const dateError = noNight ?? (datesValid ? undefined : "Pick both dates, or neither");
   // What the add costs (RAA-191): each item of a mix, or the one listing as the sheet has it now.
   const breakdown = usePriceBreakdown(
     mix
-      ? mix.map((item) => ({ ...dated, listingId: item.listingId, quantity: item.quantity, units: item.units, roomGuests: item.roomGuests, pets: item.pets }))
+      ? mix.map((item) => ({ ...dated, listingId: item.listingId, quantity: item.quantity, units: item.units, roomGuests: item.roomGuests, pets: item.pets, pickupTime: item.pickupTime, delivery: item.delivery }))
       : [
           {
             ...dated,
@@ -289,6 +301,8 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
             units: vehicleUnits,
             roomGuests: arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null,
             pets: arrangement?.pets ?? 0,
+            pickupTime: vehicle ? pickupTime : null,
+            delivery: deliveryFees ? delivery : null,
           },
         ],
     mix?.map((item) => item.title),
@@ -296,16 +310,21 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!datesValid || !quantityValid || choice === null) return;
+    if (!datesValid || !quantityValid || choice === null || addressMissing) return;
     const tripId = choice === "new" ? null : choice;
     addItem.mutate(
       {
         request: {
           ...request,
           ...dated,
+          mix: mixDelivery
+            ? mix?.map((item) => (item.delivery ? { ...item, delivery: { ...item.delivery, address: mixAddress } } : item))
+            : mix,
           quantity: quantityNumber,
           guests: gear ? request.quantity : vehicle ? request.guests : undefined,
           units: vehicle ? vehicleUnits : undefined,
+          pickupTime: vehicle ? pickupTime : null,
+          delivery: deliveryFees ? delivery : (request.delivery ?? null),
           roomGuests: arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null,
           pets: arrangement?.pets ?? 0,
         },
@@ -578,6 +597,26 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
                 </p>
               </TicketNote>
             )}
+            {vehicle && breakdown.price?.pickupTimes && (
+              <PickupTimeRow
+                times={breakdown.price.pickupTimes}
+                value={pickupTime ?? (breakdown.price.returnsAt ? rentalClock(breakdown.price.returnsAt) : null)}
+                onChange={setPickupTime}
+                returnsAt={breakdown.price.returnsAt}
+              />
+            )}
+            {deliveryFees && <DeliveryOptions fees={deliveryFees} value={delivery} onChange={setDelivery} />}
+            {mixDelivery && (
+              <>
+                <TicketRow
+                  icon={<MapGlyph />}
+                  label="Delivery"
+                  value={deliveryHow(mixDelivery.delivery, mixDelivery.returnPickup)}
+                  data-testid="which-trip-delivery"
+                />
+                <DropOffAddress value={mixAddress} onChange={setMixAddress} />
+              </>
+            )}
             {capacity && (
               <TicketNote tone={capacity.tone} data-testid="add-sheet-capacity">
                 {capacity.text}
@@ -643,7 +682,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
             glyph="plus"
             data-testid="which-trip-add"
             loading={addItem.isPending}
-            disabled={choice === null || !datesValid || !quantityValid || full}
+            disabled={choice === null || !datesValid || !quantityValid || full || addressMissing}
           >
             {submitLabel}
           </Button>

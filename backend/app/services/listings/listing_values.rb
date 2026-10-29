@@ -36,7 +36,7 @@ module Listings
     VEHICLE_RATE_FIELDS = %i[
       half_day_price_cents half_day_hours hourly_price_cents weekly_price_cents monthly_price_cents
       security_deposit_cents delivery_fee_cents return_pickup_fee_cents min_rental_days km_limit_per_day
-      excess_km_fee_cents driver_fee_cents
+      excess_km_fee_cents driver_fee_cents pickup_from_hour pickup_until_hour turnaround_minutes
     ].freeze
 
     private

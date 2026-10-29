@@ -38,6 +38,33 @@ ROOM_GUESTS_BODY = {
 }.freeze
 PETS_BODY = { type: :integer, minimum: 0, maximum: 20, description: "A stay only, where its listing allows pets (RAA-182)" }.freeze
 # How many vehicles a rental vehicle's people take (RAA-191), when the guest chose more than they need.
+# A vehicle rental's pickup time (RAA-195), in the area's time on the half hour.
+PICKUP_TIME_BODY = {
+  type: :string, nullable: true, pattern: "^([01][0-9]|2[0-3]):(00|30)$",
+  description: "A vehicle rental only: one of the shop's pickup times (\"08:30\"); it runs 24 hours a day from " \
+    "then. Null or omitted takes the shop's default (9:00, or its first pickup time)"
+}.freeze
+
+# Pickup times on a day (RAA-195), each with whether a rental could start then.
+PICKUP_TIMES = {
+  type: :array, nullable: true,
+  items: {
+    type: :object,
+    properties: { time: { type: :string, example: "08:30" }, available: { type: :boolean } },
+    required: %w[time available]
+  }
+}.freeze
+
+# A vehicle rental's delivery and pick-up (RAA-195), as an item or a booking keeps them.
+DELIVERY_FIELDS = {
+  delivery: { type: :boolean, description: "A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195)" },
+  return_pickup: { type: :boolean, description: "A vehicle rental collected from the guest at the end, for the shop's fee each vehicle" },
+  delivery_address: {
+    type: :string, nullable: true, maxLength: 200,
+    description: "Where it is brought to and collected from; set only with delivery or return_pickup"
+  }
+}.freeze
+
 UNITS_BODY = {
   type: :integer, nullable: true, minimum: 1, maximum: 99,
   description: "A rental vehicle only: at least quantity ÷ seats rounded up, at most one each; null or omitted derives it"
@@ -288,6 +315,7 @@ RSpec.configure do |config|
               quantity: { type: :integer },
               room_guests: ROOM_GUESTS,
               pets: { type: :integer, description: "A stay's pets (RAA-182)" },
+              **DELIVERY_FIELDS,
               sleeps: {
                 type: :integer, nullable: true,
                 description: "A stay: the most guests it sleeps, all its units together (a shared room's beds); " \
@@ -321,6 +349,15 @@ RSpec.configure do |config|
                 description: "A rental vehicle's units free on all of its days still to come (RAA-191); null when " \
                   "undated, booked, past or not a vehicle"
               },
+              pickup_time: {
+                type: :string, nullable: true,
+                description: "A vehicle rental's pickup time the guest picked (RAA-195, \"08:30\"); null for the " \
+                  "shop's default, or anything else"
+              },
+              returns_at: {
+                type: :string, format: "date-time", nullable: true,
+                description: "When a dated vehicle rental is due back: 24 hours a day from its pickup; null otherwise"
+              },
               business: { "$ref" => "#/components/schemas/business_ref" },
               booking_type: {
                 type: :string, enum: %w[rental stay activity transfer],
@@ -350,7 +387,7 @@ RSpec.configure do |config|
               },
               listing_active: { type: :boolean, description: "False once the listing is paused or delisted: it can't be booked" }
             },
-            required: %w[id starts_on ends_on quantity room_guests pets sleeps max_guests max_quantity seats units units_chosen units_free business booking_type area destination listing booking unavailable cancellation_policy listing_active]
+            required: %w[id starts_on ends_on quantity room_guests pets delivery return_pickup delivery_address sleeps max_guests max_quantity seats units units_chosen units_free pickup_time returns_at business booking_type area destination listing booking unavailable cancellation_policy listing_active]
           },
           # A trip's view-only share link (RAA-176), as its guest sees it.
           trip_share: {
@@ -1052,10 +1089,19 @@ RSpec.configure do |config|
               to_be_agreed: { type: :boolean, description: "The listing has no price yet: the total is 0" },
               unavailable: {
                 type: :string, nullable: true,
-                description: "Why the dates or the party can't be had (\"Only 4 left on Nov 20\"); null when they can"
+                description: "Why the dates or the party can't be had (\"Only 4 left on Nov 20\", \"Available from " \
+                  "9:00 AM on Nov 3\"); null when they can"
+              },
+              pickup_times: PICKUP_TIMES.merge(
+                description: "A vehicle rental's pickup times (RAA-195), each with whether the rental could start then; " \
+                  "null for anything else"
+              ),
+              returns_at: {
+                type: :string, format: "date-time", nullable: true,
+                description: "When a vehicle rental from the pickup time asked for (or the default) is due back"
               }
             },
-            required: %w[total_cents deposit_cents lines to_be_agreed unavailable]
+            required: %w[total_cents deposit_cents lines to_be_agreed unavailable pickup_times returns_at]
           },
           # A vehicle rental's pricing (RAA-149). Money is in centavos; a weekly or monthly price is
           # the total for 7 or 30 days.
@@ -1095,11 +1141,22 @@ RSpec.configure do |config|
               driver_fee_cents: {
                 type: :integer, minimum: 1, nullable: true,
                 description: "A driver per day when the guest can choose one (either); otherwise null"
+              },
+              pickup_from_hour: {
+                type: :integer, minimum: 0, maximum: 23, description: "The first pickup, on the hour (RAA-195, area time)"
+              },
+              pickup_until_hour: {
+                type: :integer, minimum: 0, maximum: 23, description: "The last pickup, on the hour; pickups go by the half hour"
+              },
+              turnaround_minutes: {
+                type: :integer, minimum: 0, maximum: VehicleRate::MAX_TURNAROUND_MINUTES,
+                description: "How long a returned vehicle needs before the next rental can take it"
               }
             },
             required: %w[daily_price_cents half_day_price_cents half_day_hours hourly_price_cents weekly_price_cents
               monthly_price_cents security_deposit_cents delivery_fee_cents return_pickup_fee_cents min_rental_days
-              km_limit_per_day excess_km_fee_cents driving driver_fee_cents]
+              km_limit_per_day excess_km_fee_cents driving driver_fee_cents pickup_from_hour pickup_until_hour
+              turnaround_minutes]
           },
           vehicle_rate_body: {
             type: :object,
@@ -1123,6 +1180,11 @@ RSpec.configure do |config|
               driving: { "$ref" => "#/components/schemas/vehicle_driving", description: "Default self_drive" },
               driver_fee_cents: {
                 type: :integer, minimum: 1, nullable: true, description: "Per day; required with either, null otherwise"
+              },
+              pickup_from_hour: { type: :integer, minimum: 0, maximum: 23, description: "Default 7" },
+              pickup_until_hour: { type: :integer, minimum: 0, maximum: 23, description: "Default 19; not before pickup_from_hour" },
+              turnaround_minutes: {
+                type: :integer, minimum: 0, maximum: VehicleRate::MAX_TURNAROUND_MINUTES, multipleOf: 30, description: "Default 0"
               }
             },
             required: %w[daily_price_cents]
@@ -1258,10 +1320,20 @@ RSpec.configure do |config|
               units_count: { type: :integer, minimum: 1 },
               units_free: {
                 type: :integer, nullable: true, minimum: 0,
-                description: "Its units free on every one of the dates; null without dates"
+                description: "Its units free on every one of the dates; a rental vehicle's from pickup to return " \
+                  "(starts_at to ends_at, RAA-195), its turnaround after it included; null without dates"
+              },
+              starts_at: {
+                type: :string, format: "date-time", nullable: true,
+                description: "A rental vehicle's pickup the count is for; null for anything else, or without dates"
+              },
+              ends_at: {
+                type: :string, format: "date-time", nullable: true,
+                description: "When that rental is due back; null for anything else, or without dates"
               }
             },
-            required: %w[id title category area cover_photo_url price_from_cents price_unit vehicle_rate details units_count units_free]
+            required: %w[id title category area cover_photo_url price_from_cents price_unit vehicle_rate details units_count units_free
+              starts_at ends_at]
           },
           # A mix of one business's room types for a party (RAA-187).
           stay_mix: {
@@ -1758,6 +1830,10 @@ RSpec.configure do |config|
                 description: "What capacity, units on sale and a booking's quantity count"
               },
               price_unit: { "$ref" => "#/components/schemas/price_unit" },
+              turnaround_minutes: {
+                type: :integer, nullable: true,
+                description: "A vehicle rental's time between a return and the next pickup (RAA-195); null for anything else"
+              },
               days: { type: :array, items: { "$ref" => "#/components/schemas/calendar_day" } },
               blocks: {
                 type: :array, items: { "$ref" => "#/components/schemas/availability_block" },
@@ -1768,7 +1844,8 @@ RSpec.configure do |config|
                 description: "Confirmed bookings touching the window"
               }
             },
-            required: %w[id title status business category tour_type capacity capacity_unit price_unit days blocks bookings]
+            required: %w[id title status business category tour_type capacity capacity_unit price_unit turnaround_minutes days blocks
+              bookings]
           },
           calendar_day: {
             type: :object,
@@ -1847,10 +1924,19 @@ RSpec.configure do |config|
                 type: :string, format: :date,
                 description: "A stay's check-out (it takes the nights before); otherwise the last day it takes"
               },
+              starts_at: {
+                type: :string, format: "date-time", nullable: true,
+                description: "A vehicle rental's pickup (RAA-195); null for anything else"
+              },
+              ends_at: {
+                type: :string, format: "date-time", nullable: true,
+                description: "When a vehicle rental is due back, 24 hours a day from its pickup; null for anything else"
+              },
               quantity: { type: :integer, description: "Units, a private tour's groups or a joiner tour's joiners" },
               guests: { type: :integer, nullable: true, description: "Null for one taken offline" },
               room_guests: ROOM_GUESTS,
               pets: { type: :integer, description: "A stay's pets, beside its guests (RAA-182)" },
+              **DELIVERY_FIELDS,
               status: { "$ref" => "#/components/schemas/booking_status" },
               source: { type: :string, enum: Booking::SOURCES, description: "offline: taken by the partner outside the app" },
               booking_mode: {
@@ -1874,7 +1960,7 @@ RSpec.configure do |config|
               },
               created_at: { type: :string, format: "date-time" }
             },
-            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on quantity guests room_guests pets status source
+            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address status source
               booking_mode total_cents to_be_agreed commission_cents refund_cents cancelled_by expires_at notes listing
               created_at]
           },
@@ -1925,10 +2011,19 @@ RSpec.configure do |config|
                 type: :string, format: :date,
                 description: "A stay's check-out (it takes the nights before); otherwise the last day it takes"
               },
+              starts_at: {
+                type: :string, format: "date-time", nullable: true,
+                description: "A vehicle rental's pickup (RAA-195); null for anything else"
+              },
+              ends_at: {
+                type: :string, format: "date-time", nullable: true,
+                description: "When a vehicle rental is due back, 24 hours a day from its pickup; null for anything else"
+              },
               quantity: { type: :integer, description: "Units, a private tour's groups or a joiner tour's joiners" },
               guests: { type: :integer, nullable: true, description: "Null for one taken offline" },
               room_guests: ROOM_GUESTS,
               pets: { type: :integer, description: "A stay's pets, beside its guests (RAA-182)" },
+              **DELIVERY_FIELDS,
               status: { "$ref" => "#/components/schemas/booking_status" },
               source: { type: :string, enum: Booking::SOURCES, description: "offline: taken by the partner outside the app" },
               booking_mode: { type: :string, enum: Booking::BOOKING_MODES, nullable: true },
@@ -1978,7 +2073,7 @@ RSpec.configure do |config|
               },
               created_at: { type: :string, format: "date-time" }
             },
-            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on quantity guests room_guests pets status source
+            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address status source
               booking_mode booking_type
               total_cents to_be_agreed commission_cents refund_cents cancelled_by cancellation_policy expires_at
               responded_at notes listing partner traveller created_at]
@@ -1992,10 +2087,13 @@ RSpec.configure do |config|
               booking_mode: { type: :string, enum: Booking::BOOKING_MODES, nullable: true },
               starts_on: { type: :string, format: :date },
               ends_on: { type: :string, format: :date, description: "A stay's check-out; otherwise the last day" },
+              starts_at: { type: :string, format: "date-time", nullable: true, description: "A vehicle rental's pickup (RAA-195)" },
+              ends_at: { type: :string, format: "date-time", nullable: true, description: "When a vehicle rental is due back" },
               quantity: { type: :integer },
               guests: { type: :integer, nullable: true },
               room_guests: ROOM_GUESTS,
               pets: { type: :integer, description: "A stay's pets (RAA-182)" },
+              **DELIVERY_FIELDS,
               total_cents: { type: :integer },
               to_be_agreed: { type: :boolean, description: "Not priced in the app yet (rentals, transfers): settled with the partner" },
               cancellation_policy: {
@@ -2028,7 +2126,7 @@ RSpec.configure do |config|
                 description: "Its history, oldest first"
               }
             },
-            required: %w[id reference status booking_mode starts_on ends_on quantity guests room_guests pets total_cents to_be_agreed
+            required: %w[id reference status booking_mode starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address total_cents to_be_agreed
               cancellation_policy expires_at confirmed_at cancelled_at cancelled_by refund_cents cancellable
               refund_if_cancelled_cents free_cancellation_until trip_id trip_item_id booking_type area listing created_at events]
           },
@@ -2139,7 +2237,8 @@ RSpec.configure do |config|
               ends_on: { type: :string, format: :date, description: "A stay's check-out; otherwise the last day" },
               guests: { type: :integer, minimum: 1, maximum: Bookings::Change::MAX_GUESTS },
               room_guests: ROOM_GUESTS_BODY,
-              pets: PETS_BODY
+              pets: PETS_BODY,
+              pickup_time: PICKUP_TIME_BODY
             }
           },
           offline_booking_body: {
@@ -2150,7 +2249,8 @@ RSpec.configure do |config|
               ends_on: { type: :string, format: :date, description: "A stay's check-out; otherwise the last day" },
               quantity: { type: :integer, minimum: 1, maximum: Booking::MAX_QUANTITY },
               total_cents: { type: :integer, minimum: 0, description: "What the guest pays the partner" },
-              notes: { type: :string, maxLength: Booking::NOTES_LENGTH }
+              notes: { type: :string, maxLength: Booking::NOTES_LENGTH },
+              pickup_time: PICKUP_TIME_BODY
             },
             required: %w[guest_name starts_on ends_on quantity total_cents]
           },

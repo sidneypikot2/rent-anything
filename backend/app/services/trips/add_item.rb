@@ -8,7 +8,7 @@ module Trips
   # trip's, and gear the trip already holds unbooked on the same dates takes the added count
   # rather than a second item, so the cart has one line and the partner one request.
   # A stay can come with the guest's split into rooms and pets (RAA-182); the split sets
-  # its quantity.
+  # its quantity. A vehicle rental can come with its pickup time (RAA-195).
   class AddItem < ApplicationService
     include Values
 
@@ -77,10 +77,12 @@ module Trips
       room_guests = room_guests_value
       pets = count_value(:pets, "Pets", max: 20) || 0
       units = units_value
+      pickup_time = pickup_time_value(listing) if listing
+      delivery = listing ? delivery_values(listing) : {}
       quantity = guests_for(room_guests, quantity, sent: @params.key?(:quantity))
       check_stay_party(listing, quantity, room_guests, pets) if listing && @errors.empty?
       check_vehicle_units(listing, quantity, units) if listing && @errors.empty?
-      { listing:, starts_on:, ends_on:, quantity:, room_guests:, pets:, units: }
+      { listing:, starts_on:, ends_on:, quantity:, room_guests:, pets:, units:, pickup_time:, **delivery }
     end
   end
 end

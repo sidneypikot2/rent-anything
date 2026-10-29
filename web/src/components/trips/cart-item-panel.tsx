@@ -4,6 +4,8 @@ import { Fragment, type ReactNode } from "react";
 import { BOOKING_STATUS, BookingStatusBadge } from "@/components/bookings/booking-status";
 import { CANCELLATION_POLICY } from "@/components/bookings/cancellation";
 import { payable } from "@/components/bookings/pay-sheet";
+import { rentalTimes } from "./pickup-time";
+import { deliveryText } from "./delivery-options";
 import { useBooking, type GuestBooking } from "@/components/bookings/use-bookings";
 import { ListingPanel, PanelPhoto } from "@/components/discovery/detail-panel";
 import { Button } from "@/components/ui/button";
@@ -149,6 +151,8 @@ export function CartItemPanel({
           <p className="text-sm">
             {[formatDateRange(item.starts_on, item.ends_on) ?? "No date yet", itemAmount(item)].join(" · ")}
           </p>
+          {rentalTimes(item) && <p className="text-sm text-muted">{rentalTimes(item)}</p>}
+          {deliveryText(item) && <p className="text-sm text-muted">{deliveryText(item)}</p>}
           {problem && (
             <p className="text-sm font-semibold text-warning" data-testid="item-panel-problem">
               {problem}

@@ -4,8 +4,12 @@ module Bookings
   # total, with whether the dates can be had (Availability::Ledger). The query carries
   # everything as text: starts_on and ends_on (ISO 8601, both required), quantity (the people,
   # or gear's count; default 1), units (a rental vehicle's chosen vehicles), room_guests (a
-  # stay's split, as JSON) and pets. A refused party or dates comes back as `unavailable`, not
-  # an error, so the sheet can say why next to its total.
+  # stay's split, as JSON), pets and a vehicle rental's pickup_time (RAA-195, "08:30"), delivery
+  # and return_pickup ("true" adds the shop's fee for each vehicle, a line each). A refused
+  # party or dates comes back as `unavailable`, not an error, so the sheet can say why next to
+  # its total. A vehicle rental also answers its `pickup_times`, each of the shop's with whether
+  # the rental could start then, and when it `returns_at` from the pickup time asked for (or the
+  # shop's default); both nil for anything else.
   class PriceFor < ApplicationService
     include Trips::Values
 
@@ -26,31 +30,54 @@ module Bookings
       chosen = integer_value(:units, "Units", digits: true)
       room_guests = room_guests_value(json: true)
       pets = count_value(:pets, "Pets", max: 20, digits: true) || 0
+      pickup_time = pickup_time_value(listing)
+      delivery = delivery_values(listing, address: false)
       raise_errors!(listing)
 
       guests = guests_for(room_guests, guests, sent: false)
       units = Booking.units_for(listing, guests, room_guests:, chosen:)
-      stay = listing.category.accommodation?
-      refusal = Availability::Ledger.new([ listing ], starts_on, ends_on).refusal(listing, Booking.days_for(stay, starts_on, ends_on), units)
-      price = Price.call(listing, starts_on:, ends_on:, quantity: units, guests:, room_guests:, pets:)
-      answer(listing, price, refusal)
+      ledger = Availability::Ledger.new([ listing ], starts_on, ends_on)
+      days = Booking.days_for(listing, starts_on, ends_on)
+      rental = rental(listing, ledger, days, units, starts_on, ends_on, pickup_time)
+      refusal = rental[:none_left] || ledger.refusal(listing, days, units, period: rental[:period])
+      price = Price.call(listing, starts_on:, ends_on:, quantity: units, guests:, room_guests:, pets:,
+        **delivery.slice(:delivery, :return_pickup))
+      answer(listing, price, refusal, rental)
     rescue ActiveRecord::RecordInvalid => e
       raise if e.record == listing || listing.nil?
 
-      { total_cents: nil, deposit_cents: nil, lines: [], to_be_agreed: false, unavailable: e.record.errors.full_messages.join(". ") }
+      { total_cents: nil, deposit_cents: nil, lines: [], to_be_agreed: false, unavailable: e.record.errors.full_messages.join(". "),
+        pickup_times: nil, returns_at: nil }
     end
 
     private
 
-    def answer(listing, price, refusal)
+    def answer(listing, price, refusal, rental)
       breakdown = price[:breakdown]
       {
         total_cents: price[:total_cents],
         deposit_cents: breakdown[:deposit_cents],
         lines: lines(listing, breakdown),
         to_be_agreed: breakdown[:to_be_agreed] == true,
-        unavailable: refusal
+        unavailable: refusal,
+        pickup_times: rental[:pickup_times],
+        returns_at: rental[:period]&.end
       }
+    end
+
+    # A vehicle rental's period from the pickup time asked for, and each of the shop's pickup
+    # times with whether `units` of it could start then.
+    def rental(listing, ledger, days, units, starts_on, ends_on, pickup_time)
+      rate = listing.vehicle_rate
+      return {} unless listing.category.vehicle? && rate
+
+      # Only times still ahead: today's past ones aren't taken, just gone.
+      times = rate.pickup_times_on(starts_on).map do |time|
+        period = Booking.rental_period(starts_on, ends_on, time)
+        { time:, available: ledger.refusal(listing, days, units, period:).nil? }
+      end
+      none_left = "No pickups left on #{starts_on.strftime('%b %-d')}: pick a later date" if times.empty?
+      { period: listing.rental_period(starts_on, ends_on, pickup_time), pickup_times: times, none_left: }
     end
 
     # What the total is made of, in the words the cart uses: "5 motorbikes × ₱500 × 2 days".
@@ -64,7 +91,11 @@ module Bookings
         [ line("#{quantity} #{each.pluralize(quantity)} × #{peso(unit)}", unit * quantity) ]
       when "vehicle"
         noun = Trips::Values.vehicle_noun(listing)
-        [ line("#{quantity} #{noun.pluralize(quantity)} × #{peso(unit)} × #{days(breakdown[:days])}", unit * quantity * breakdown[:days]) ]
+        [
+          line("#{quantity} #{noun.pluralize(quantity)} × #{peso(unit)} × #{days(breakdown[:days])}", unit * quantity * breakdown[:days]),
+          (line("Delivery · #{quantity} × #{peso(breakdown[:delivery_cents] / quantity)}", breakdown[:delivery_cents]) if breakdown[:delivery_cents]),
+          (line("Pick-up at the end · #{quantity} × #{peso(breakdown[:return_pickup_cents] / quantity)}", breakdown[:return_pickup_cents]) if breakdown[:return_pickup_cents])
+        ].compact
       when "gear" then [ line("#{quantity} × #{peso(unit)} × #{days(breakdown[:days])}", unit * quantity * breakdown[:days]) ]
       when "transfer" then [ line("#{quantity} × #{peso(unit)} a trip", unit * quantity) ]
       else []

@@ -112,6 +112,59 @@ module Trips
       error("#{units} #{noun.pluralize(units)} is more than one each for #{guests}") if units > guests
     end
 
+    # A vehicle rental's pickup time (RAA-195): "08:30", one of the shop's (VehicleRate#pickup_times).
+    # Nil when not sent or sent as null, which takes the shop's default.
+    def pickup_time_value(listing)
+      value = @params[:pickup_time]
+      return if value.nil?
+      return error("Only a vehicle rental has a pickup time") unless listing.category.vehicle?
+      unless value.is_a?(String) && value.match?(Booking::PICKUP_TIME_FORMAT)
+        return error("Pickup time must be a time on the half hour, like 08:30")
+      end
+
+      times = listing.vehicle_rate&.pickup_times
+      return error("Pickup is from #{times.first} to #{times.last}") if times && !times.include?(value)
+
+      value
+    end
+
+    DELIVERY_KEYS = %i[delivery return_pickup delivery_address].freeze
+
+    # A vehicle rental's delivery and pick-up (RAA-195): delivery (brought to the guest) and
+    # return_pickup (collected from them at the end), each only where the shop offers it, and the
+    # address they go to, required with either and dropped without. Fields not sent keep
+    # `current`'s; none sent is {}. A query string carries the booleans as "true" / "false".
+    # A price (address: false) needs no address.
+    def delivery_values(listing, current = {}, address: true)
+      return {} unless DELIVERY_KEYS.any? { @params.key?(_1) }
+
+      delivery = boolean_value(:delivery, "Delivery", current.fetch(:delivery, false))
+      return_pickup = boolean_value(:return_pickup, "Pick-up", current.fetch(:return_pickup, false))
+      place = @params.key?(:delivery_address) ? @params[:delivery_address] : current[:delivery_address]
+      return error("The address must be text") unless place.nil? || place.is_a?(String)
+
+      place = place&.strip.presence
+      return { delivery: false, return_pickup: false, delivery_address: nil } unless delivery || return_pickup
+      return error("Only a vehicle rental can be delivered or picked up") unless listing.category.vehicle?
+
+      rate = listing.vehicle_rate
+      error("This shop doesn't deliver") if delivery && !rate&.delivers?
+      error("This shop doesn't pick up at the end") if return_pickup && !rate&.picks_up?
+      error("Add the address for the delivery or pick-up") if place.nil? && address
+      error("The address must be 200 characters or fewer") if place && place.length > 200
+      { delivery:, return_pickup:, delivery_address: place }
+    end
+
+    def boolean_value(key, label, default)
+      return default unless @params.key?(key)
+
+      value = @params[key]
+      return value if [ true, false ].include?(value)
+      return value == "true" if %w[true false].include?(value)
+
+      error("#{label} must be true or false")
+    end
+
     # Units sent for an item (RAA-191): 1 to 99, or nil when not sent or sent as null.
     def units_value
       units = integer_value(:units, "Units")

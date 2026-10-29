@@ -5,7 +5,7 @@ module Api
       # or later, adding one taken offline (Bookings::CreateOffline) and cancelling one
       # (Bookings::ChangeStatus). Another partner's listing or booking is a 404.
       class BookingsController < ApplicationController
-        BOOKING_PARAMS = %i[guest_name starts_on ends_on quantity total_cents notes].freeze
+        BOOKING_PARAMS = %i[guest_name starts_on ends_on pickup_time quantity total_cents notes].freeze
 
         before_action :authenticate_user!
         before_action -> { require_role!("partner") }

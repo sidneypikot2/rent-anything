@@ -4,7 +4,8 @@ module Bookings
   # private tour's groups or a joiner tour's joiners; 1 to Booking::MAX_QUANTITY), total_cents (what the guest pays the
   # partner, 0 or more) and optional notes. Refused on any day it would take that is blocked
   # or hasn't `quantity` left, and for a stay shorter than the check-in day's minimum nights
-  # or longer than the listing's maximum. It is confirmed from the start; guests' own bookings
+  # or longer than the listing's maximum. A vehicle rental can have a pickup_time (RAA-195,
+  # "08:30", the shop's default when left out) and is checked by the hour from it. It is confirmed from the start; guests' own bookings
   # come from checkout (Checkouts::Create, RAA-132).
   class CreateOffline < ApplicationService
     include Trips::Values
@@ -26,12 +27,15 @@ module Bookings
       quantity = read_quantity
       total_cents = read_total
       notes = read_notes
+      pickup_time = pickup_time_value(@listing)
       raise_errors!(Booking.new)
 
+      period = @listing.rental_period(from, to, pickup_time)
       Listing.transaction do
         @listing.lock!
-        check_available!(from, to, quantity)
+        check_available!(from, to, quantity, period)
         booking = @listing.bookings.create!(guest_name:, starts_on: from, ends_on: to, quantity:, total_cents:,
+          starts_at: period&.begin, ends_at: period&.end,
           notes:, source: "offline", status: "confirmed", confirmed_at: Time.current)
         Transition.record_start(booking, actor: "partner", user: @listing.partner)
         booking
@@ -78,10 +82,10 @@ module Bookings
       notes
     end
 
-    def check_available!(from, to, quantity)
+    def check_available!(from, to, quantity, period)
       ledger = Availability::Ledger.new([ @listing ], from, to)
-      days = Booking.days_for(@stay, from, to)
-      error(ledger.refusal(@listing, days, quantity))
+      days = Booking.days_for(@listing, from, to)
+      error(ledger.refusal(@listing, days, quantity, period:))
       check_nights(ledger.day(@listing, from)[:min_nights], days.count) if @stay
       raise_errors!(Booking.new)
     end

@@ -1,6 +1,9 @@
 # A booking of a listing (RAA-118, RAA-132): `quantity` of its units (a private tour's groups,
 # a joiner tour's joiners) on the days it takes. A stay's dates are check-in and check-out, so
-# it takes the nights between; any other booking takes every day from starts_on to ends_on.
+# it takes the nights between. A vehicle rental (RAA-195) runs 24 hours a day from its pickup
+# time (starts_at to ends_at), so it takes the days it starts on, like a stay's nights, and its
+# vehicles are free again on the return day once they are back. Any other booking takes every
+# day from starts_on to ends_on.
 #
 # A guest's checkout (Checkouts::Create) makes one per trip item; a partner can also record one
 # taken offline (Bookings::CreateOffline), which is confirmed from the start. Its lifecycle,
@@ -32,6 +35,11 @@ class Booking < ApplicationRecord
   REQUEST_TTL = 24.hours
   PAYMENT_TTL = 15.minutes
   ACCEPTED_PAYMENT_TTL = 24.hours
+  # A vehicle rental's pickup time (RAA-195): on the half hour, in the area's time (every area
+  # is in the Philippines so far); 9:00 when none was picked.
+  RENTAL_TIME_ZONE = "Asia/Manila"
+  DEFAULT_PICKUP_TIME = "09:00"
+  PICKUP_TIME_FORMAT = /\A([01]\d|2[0-3]):(00|30)\z/
 
   belongs_to :listing, inverse_of: :bookings
   belongs_to :user, optional: true
@@ -44,6 +52,7 @@ class Booking < ApplicationRecord
   enum :source, SOURCES.index_with(&:itself), validate: true, prefix: true
 
   before_validation :assign_reference, on: :create
+  before_validation :assign_rental_period
 
   scope :holding, -> { where(status: HOLDING) }
   scope :unsettled, -> { where(status: UNSETTLED) }
@@ -77,8 +86,35 @@ class Booking < ApplicationRecord
     units.clamp(1, MAX_QUANTITY)
   end
 
-  def self.days_for(stay, starts_on, ends_on)
-    stay ? (starts_on...ends_on) : (starts_on..ends_on)
+  # The days a booking of the listing from starts_on to ends_on takes: a stay's nights, a vehicle
+  # rental's days (each 24 hours from the pickup, so Nov 3 to Nov 5 takes Nov 3 and 4, and a
+  # single date one day), anything else every day.
+  def self.days_for(listing, starts_on, ends_on)
+    if listing.category.accommodation?
+      starts_on...ends_on
+    elsif listing.category.vehicle?
+      starts_on...(starts_on + rental_days(starts_on, ends_on))
+    else
+      starts_on..ends_on
+    end
+  end
+
+  # A rental's days, at least one: Nov 3 to Nov 5 is 2, a single date 1 (Bookings::Price).
+  def self.rental_days(starts_on, ends_on)
+    [ (ends_on - starts_on).to_i, 1 ].max
+  end
+
+  # A vehicle rental's period: from the pickup time (DEFAULT_PICKUP_TIME when nil) on starts_on,
+  # 24 hours for each of its days, so it is due back at the pickup time on its last date.
+  def self.rental_period(starts_on, ends_on, pickup_time)
+    hour, minute = (pickup_time || DEFAULT_PICKUP_TIME).split(":").map { Integer(_1, 10) }
+    starts_at = ActiveSupport::TimeZone[RENTAL_TIME_ZONE].local(starts_on.year, starts_on.month, starts_on.day, hour, minute)
+    starts_at...(starts_at + rental_days(starts_on, ends_on).days)
+  end
+
+  # A time as a pickup time in the area's time: "08:30".
+  def self.local_time(time)
+    time.in_time_zone(RENTAL_TIME_ZONE).strftime("%H:%M")
   end
 
   # A short code a guest and a partner can quote, e.g. BK7F3K9Q2A.
@@ -87,13 +123,25 @@ class Booking < ApplicationRecord
   end
 
   def days
-    Booking.days_for(listing.category.accommodation?, starts_on, ends_on)
+    Booking.days_for(listing, starts_on, ends_on)
   end
 
-  # The last day it takes: a stay's last night, the one before check-out (a one-night stay's
-  # is its check-in). Not `days.last`, which is the check-out for a stay's exclusive range.
+  # The last day it is under way: a stay's last night, the one before check-out (a one-night
+  # stay's is its check-in); a vehicle rental's return day. Not `days.last`, which is the
+  # check-out for a stay's exclusive range.
   def last_day
-    listing.category.accommodation? ? [ ends_on - 1, starts_on ].max : ends_on
+    if listing.category.accommodation?
+      [ ends_on - 1, starts_on ].max
+    elsif listing.category.vehicle?
+      starts_on + Booking.rental_days(starts_on, ends_on)
+    else
+      ends_on
+    end
+  end
+
+  # A vehicle rental's pickup time ("08:30"); nil for anything else.
+  def pickup_time
+    starts_at && Booking.local_time(starts_at)
   end
 
   def holding?
@@ -108,5 +156,14 @@ class Booking < ApplicationRecord
 
   def assign_reference
     self.reference ||= Booking.new_reference
+  end
+
+  # A vehicle rental always has its period: the default pickup time when nothing set one.
+  def assign_rental_period
+    return unless starts_at.nil? && starts_on && ends_on && listing&.category&.vehicle?
+
+    period = listing.rental_period(starts_on, ends_on, nil)
+    self.starts_at = period.begin
+    self.ends_at = period.end
   end
 end
