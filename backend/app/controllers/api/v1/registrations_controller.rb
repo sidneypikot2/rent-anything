@@ -6,7 +6,7 @@ module Api
       before_action :authenticate_user, only: :create
 
       def create
-        tokens = Auth::Register.call(params.permit(:email, :name, :phone, :password), role: params[:role], current_user:)
+        tokens = Auth::Register.call(params.permit(:email, :name, :phone, :password, :terms_accepted), role: params[:role], current_user:)
         render json: tokens, status: :created
       end
     end

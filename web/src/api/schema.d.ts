@@ -2508,7 +2508,57 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete the signed-in guest's account
+         * @description Guests only: deletes the account, its trips, sign-ins and sessions at once, and emails a confirmation. Partners' records of past bookings stay. 409 while a booking is still open; 403 for partners and admins, whose accounts the team closes on request.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description account deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a booking is still open */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         /**
@@ -2634,7 +2684,7 @@ export interface paths {
         put?: never;
         /**
          * Sign in or sign up with Google or Facebook
-         * @description `token` is a Google Identity Services ID token or a Facebook Login access token. It signs in to, links or creates an account of `role` only, so one Google account can have a guest and a partner account.
+         * @description `token` is a Google Identity Services ID token or a Facebook Login access token. It signs in to, links or creates an account of `role` only, so one Google account can have a guest and a partner account. Creating an account needs `terms_accepted: true` (the web app sends it: sign-up asks first, and a sign-in page says that continuing agrees); signing in to or linking an existing account doesn't.
          */
         post: {
             parameters: {
@@ -2654,11 +2704,13 @@ export interface paths {
                         token: string;
                         /** @enum {string} */
                         role: "guest" | "partner";
+                        /** @description Agreed to the Terms and Privacy policy; needed to create an account */
+                        terms_accepted?: boolean;
                     };
                 };
             };
             responses: {
-                /** @description a new user is created with the entry point's role */
+                /** @description an existing account signs in without the terms flag */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -5113,7 +5165,7 @@ export interface paths {
         put?: never;
         /**
          * Sign up with email and password
-         * @description `role` is the entry point: `guest` from /login, `partner` from /partner/login. Admin accounts are never self-made. `name` and `phone` are optional; the account starts with `registration_complete: false` until PUT /api/v1/me/complete_profile.
+         * @description `role` is the entry point: `guest` from /login, `partner` from /partner/login. Admin accounts are never self-made. `name` and `phone` are optional; the account starts with `registration_complete: false` until PUT /api/v1/me/complete_profile. `terms_accepted` must be true: the account records when it agreed to the Terms and Privacy policy, and which version.
          */
         post: {
             parameters: {
@@ -5134,6 +5186,8 @@ export interface paths {
                         password: string;
                         /** @enum {string} */
                         role: "guest" | "partner";
+                        /** @description Agreed to the Terms and Privacy policy (and, for a partner, the Partner terms) */
+                        terms_accepted: boolean;
                     };
                 };
             };
@@ -8571,6 +8625,8 @@ export interface components {
                 name: string;
                 email: string;
                 phone: string;
+                /** @description Agreed to the Terms and Privacy policy; must be true */
+                terms_accepted: boolean;
             };
         };
         checkout: {

@@ -8,13 +8,16 @@ RSpec.describe "OAuth", type: :request do
       produces "application/json"
       description "`token` is a Google Identity Services ID token or a Facebook Login access token. " \
         "It signs in to, links or creates an account of `role` only, so one Google account can " \
-        "have a guest and a partner account."
+        "have a guest and a partner account. Creating an account needs `terms_accepted: true` (the web app " \
+        "sends it: sign-up asks first, and a sign-in page says that continuing agrees); signing in to or linking " \
+        "an existing account doesn't."
       parameter name: :provider, in: :path, schema: { type: :string, enum: %w[google facebook] }
       parameter name: :body, in: :body, schema: {
         type: :object,
         properties: {
           token: { type: :string },
-          role: { type: :string, enum: %w[guest partner] }
+          role: { type: :string, enum: %w[guest partner] },
+          terms_accepted: { type: :boolean, description: "Agreed to the Terms and Privacy policy; needed to create an account" }
         },
         required: %w[token role]
       }
@@ -22,14 +25,14 @@ RSpec.describe "OAuth", type: :request do
         description: "A guest with no account yet (RAA-175): their trips move into the account signed in to"
 
       let(:provider) { "google" }
-      let(:body) { { token: "google-id-token", role: "guest" } }
+      let(:body) { { token: "google-id-token", role: "guest", terms_accepted: true } }
       let(:profile) { { uid: "g-123", email: "ana@example.com", email_verified: true, name: "Ana Reyes" } }
 
       before { allow(Auth::Providers::Google).to receive(:verify).with("google-id-token").and_return(profile) }
 
       response "200", "a guest's Google account on /partner/login gets its own partner account" do
         schema "$ref" => "#/components/schemas/auth_tokens"
-        let(:body) { { token: "google-id-token", role: "partner" } }
+        let(:body) { { token: "google-id-token", role: "partner", terms_accepted: true } }
         let!(:guest) do
           create(:user, :oauth_only, email: "ana@example.com").tap do |user|
             user.oauth_identities.create!(provider: "google", uid: "g-123")
@@ -45,7 +48,7 @@ RSpec.describe "OAuth", type: :request do
 
       response "200", "a guest with no account yet signs in with Google: their trips move into the account" do
         schema "$ref" => "#/components/schemas/auth_tokens"
-        let(:body) { { token: "google-id-token", role: "guest" } }
+        let(:body) { { token: "google-id-token", role: "guest", terms_accepted: true } }
         let(:anonymous) { User.create!(role: "guest") }
         let!(:trip) { create(:trip, user: anonymous) }
         let(:Authorization) { bearer_for(anonymous) }
@@ -58,12 +61,37 @@ RSpec.describe "OAuth", type: :request do
 
       response "200", "a new user is created with the entry point's role" do
         schema "$ref" => "#/components/schemas/auth_tokens"
-        let(:body) { { token: "google-id-token", role: "partner" } }
+        let(:body) { { token: "google-id-token", role: "partner", terms_accepted: true } }
 
         run_test! do |response|
           expect(response.parsed_body["user"]).to include("email" => "ana@example.com", "role" => "partner",
             "name" => "Ana Reyes", "registration_complete" => false)
           expect(OauthIdentity.find_by(provider: "google", uid: "g-123")).to be_present
+          expect(User.find(response.parsed_body.dig("user", "id")).terms_version).to eq(User::TERMS_VERSION)
+        end
+      end
+
+      response "200", "an existing account signs in without the terms flag" do
+        schema "$ref" => "#/components/schemas/auth_tokens"
+        let(:body) { { token: "google-id-token", role: "guest" } }
+        let!(:existing) do
+          create(:user, :oauth_only, email: "ana@example.com").tap do |user|
+            user.oauth_identities.create!(provider: "google", uid: "g-123")
+          end
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body.dig("user", "id")).to eq(existing.id)
+        end
+      end
+
+      response "422", "a new account without the terms agreed to" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { { token: "google-id-token", role: "guest" } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include(a_string_matching(/Terms/))
+          expect(User.count).to eq(0)
         end
       end
 

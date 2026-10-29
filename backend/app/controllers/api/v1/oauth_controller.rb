@@ -7,7 +7,7 @@ module Api
 
       def create
         render json: Auth::OauthSignIn.call(provider: params[:provider], token: params[:token], role: params[:role],
-          current_user:)
+          terms_accepted: params[:terms_accepted], current_user:)
       end
     end
   end

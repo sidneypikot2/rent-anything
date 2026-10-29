@@ -4,13 +4,16 @@ module Auth
   # identity, else by email when the provider vouches for it (Google's email_verified), else a
   # new user. So the same provider account can have one guest and one partner account. A guest
   # with no account yet (current_user, RAA-175) brings their trips into it (Guests::Absorb).
+  # Making a new account needs terms_accepted: true, recorded on it; signing in to or linking
+  # an existing one doesn't.
   class OauthSignIn < Base
     PROVIDERS = { "google" => Providers::Google, "facebook" => Providers::Facebook }.freeze
 
-    def initialize(provider:, token:, role:, current_user: nil)
+    def initialize(provider:, token:, role:, terms_accepted: nil, current_user: nil)
       @provider = provider
       @token = token
       @role = role
+      @terms_accepted = terms_accepted
       @current_user = current_user
     end
 
@@ -53,7 +56,9 @@ module Auth
         # the real owner's account once they used Google.
         invalid!(existing_account_message(user)) unless profile[:email_verified] && user.password_digest.nil?
       else
-        user = User.create!(email: profile[:email], name: profile[:name].presence || profile[:email], role: @role)
+        invalid!(User::TERMS_REQUIRED) unless @terms_accepted == true
+        user = User.create!(email: profile[:email], name: profile[:name].presence || profile[:email], role: @role,
+          **User.terms_acceptance)
       end
 
       user.oauth_identities.create!(provider: @provider, uid: profile[:uid])

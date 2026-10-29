@@ -68,11 +68,7 @@ module Guests
     def delete_user(user)
       return if Booking.unsettled.where(user:).exists?
 
-      user.refresh_tokens.delete_all
-      user.guest_profile&.destroy!
-      # trip_accesses and sign_in_codes cascade; bookings, checkouts and booking events keep
-      # their rows with user_id null.
-      user.delete
+      Users::Erase.call(user)
     end
   end
 end

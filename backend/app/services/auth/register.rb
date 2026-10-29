@@ -1,6 +1,7 @@
 module Auth
   # Email + password sign-up. Admins are never self-made. A guest with no account yet signing
-  # up (current_user, RAA-175) brings their trips into the new account (Guests::Absorb).
+  # up (current_user, RAA-175) brings their trips into the new account (Guests::Absorb). The
+  # account must agree to the Terms and Privacy policy (terms_accepted: true), recorded on it.
   class Register < Base
     def initialize(params, role:, current_user: nil)
       @params = params
@@ -14,7 +15,8 @@ module Auth
       require_string!(@params[:password], "Password")
       require_string!(@params[:name], "Name") unless @params[:name].nil?
       require_string!(@params[:phone], "Phone") unless @params[:phone].nil?
-      user = User.new(@params.slice(:email, :name, :phone, :password).merge(role: @role))
+      invalid!(User::TERMS_REQUIRED) unless @params[:terms_accepted] == true
+      user = User.new(@params.slice(:email, :name, :phone, :password).merge(role: @role, **User.terms_acceptance))
       user.save!(context: :password_signup)
       Guests::Absorb.call(from: @current_user, into: user) if @current_user
       IssueTokens.call(user)
