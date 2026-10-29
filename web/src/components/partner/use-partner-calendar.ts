@@ -25,7 +25,7 @@ const BEFORE_TODAY = 14;
 const AFTER_TODAY = 45;
 const STEP = 31;
 
-function partnerCalendarKey(userId: number | undefined) {
+export function partnerCalendarKey(userId: number | undefined) {
   return ["partner-calendar", userId] as const;
 }
 

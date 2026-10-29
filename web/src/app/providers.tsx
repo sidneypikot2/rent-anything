@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { LiveUpdates } from "@/components/live-updates";
 import { ToastProvider } from "@/components/ui/toast";
 
 let browserQueryClient: QueryClient | undefined;
@@ -17,6 +18,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={getQueryClient()}>
       <ToastProvider>{children}</ToastProvider>
+      <LiveUpdates />
     </QueryClientProvider>
   );
 }
