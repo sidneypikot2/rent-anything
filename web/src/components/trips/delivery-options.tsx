@@ -47,15 +47,29 @@ export function deliveryBody(choice?: Delivery | null) {
 // What an item or a booking says of it: "Delivered to Kota Beach Resort · collected at the end".
 export function deliveryText(record: { delivery?: boolean; return_pickup?: boolean; delivery_address?: string | null }) {
   if (!record.delivery && !record.return_pickup) return null;
-  const how = record.delivery ? (record.return_pickup ? "Delivered and collected" : "Delivered") : "Collected at the end";
-  return `${how} · ${record.delivery_address ?? ""}`;
+  return `${deliveryHow(record.delivery, record.return_pickup)} · ${record.delivery_address ?? ""}`;
+}
+
+export function deliveryHow(delivery?: boolean, returnPickup?: boolean) {
+  return delivery ? (returnPickup ? "Delivered and collected" : "Delivered") : "Collected at the end";
 }
 
 const feeText = (cents: number, from?: boolean) => (cents === 0 && !from ? "Free" : `${from ? "from " : ""}${formatPeso(cents)} a vehicle`);
 
 // The two choices as ticket rows, each only when the shop offers it, and the address under them
-// once one is ticked. Renders nothing when the shop offers neither.
-export function DeliveryOptions({ fees, value, onChange }: { fees: DeliveryFees; value: Delivery; onChange: (value: Delivery) => void }) {
+// once one is ticked (`address={false}`: not yet, the add sheet asks it). Renders nothing when the
+// shop offers neither.
+export function DeliveryOptions({
+  fees,
+  value,
+  onChange,
+  address = true,
+}: {
+  fees: DeliveryFees;
+  value: Delivery;
+  onChange: (value: Delivery) => void;
+  address?: boolean;
+}) {
   const deliveryId = useId();
   const pickupId = useId();
   if (fees.delivery === null && fees.returnPickup === null) return null;
@@ -100,19 +114,24 @@ export function DeliveryOptions({ fees, value, onChange }: { fees: DeliveryFees;
           data-testid="return-pickup-row"
         />
       )}
-      {wantsDelivery(value) && (
-        <div className="px-3.5 py-3">
-          <Field
-            label="Where to"
-            placeholder="Hotel or address"
-            value={value.address}
-            maxLength={ADDRESS_LENGTH}
-            onChange={(event) => onChange({ ...value, address: event.currentTarget.value })}
-            hint={value.address.trim() ? undefined : "The shop brings it here and collects it from here"}
-            data-testid="delivery-address"
-          />
-        </div>
-      )}
+      {address && wantsDelivery(value) && <DropOffAddress value={value.address} onChange={(text) => onChange({ ...value, address: text })} />}
     </>
+  );
+}
+
+// Where the shop brings the vehicles and collects them from.
+export function DropOffAddress({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <div className="px-3.5 py-3">
+      <Field
+        label="Drop-off address"
+        placeholder="Hotel or address"
+        value={value}
+        maxLength={ADDRESS_LENGTH}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        hint={value.trim() ? undefined : "The shop brings it here and collects it from here"}
+        data-testid="delivery-address"
+      />
+    </div>
   );
 }

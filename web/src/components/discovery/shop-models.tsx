@@ -14,7 +14,7 @@ import { useSession } from "@/lib/auth/session";
 import { formatPeso } from "@/lib/money";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { addDays, formatDateRange, todayIso } from "@/components/trips/format";
-import { DeliveryOptions, needsAddress, NO_DELIVERY, sharedFees, wantsDelivery, type Delivery } from "@/components/trips/delivery-options";
+import { DeliveryOptions, NO_DELIVERY, sharedFees, wantsDelivery, type Delivery } from "@/components/trips/delivery-options";
 import { formatRentalSpan, PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
 import { useOptionalTripAdd } from "@/components/trips/trip-add-provider";
 import type { TripDates } from "@/components/trips/trip-dates";
@@ -146,7 +146,7 @@ export function useShopModels({ business, category, dates, people, listingIds, o
 
   const action =
     guest && flow ? (
-      <Button glyph="plus" disabled={units === 0 || session === undefined || needsAddress(chosenDelivery)} onClick={addPicked} data-testid="shop-add">
+      <Button glyph="plus" disabled={units === 0 || session === undefined} onClick={addPicked} data-testid="shop-add">
         {units ? `Add ${units} to trip` : `Pick a ${nouns(1)}`}
       </Button>
     ) : null;
@@ -281,7 +281,7 @@ export function useShopModels({ business, category, dates, people, listingIds, o
               returnsAt={returnsAt}
             />
           )}
-          <DeliveryOptions fees={fees} value={chosen} onChange={setDelivery} />
+          <DeliveryOptions fees={fees} value={chosen} onChange={setDelivery} address={false} />
         </Ticket>
       )}
       {breakdown.price?.unavailable && <p className="text-sm font-semibold text-warning">{breakdown.price.unavailable}</p>}
