@@ -33,7 +33,7 @@ is_claimed() { grep -qx "$1" <<<"$claimed"; }
 if [[ ! -f "$env_file" ]]; then
   offset=""
   for n in $(seq 1 30); do
-    if ! is_claimed $((8100 + n)) && ! in_use $((8100 + n)) && ! in_use $((3100 + n)) && ! in_use $((5532 + n)) && ! in_use $((6479 + n)); then
+    if ! is_claimed $((8100 + n)) && ! in_use $((8100 + n)) && ! in_use $((3100 + n)) && ! in_use $((5532 + n)) && ! in_use $((6479 + n)) && ! in_use $((8200 + n)); then
       offset="$n"; break
     fi
   done
@@ -47,6 +47,7 @@ FRONTEND_PORT=$((8100 + offset))
 BACKEND_PORT=$((3100 + offset))
 DB_PORT=$((5532 + offset))
 REDIS_PORT=$((6479 + offset))
+CABLE_PORT=$((8200 + offset))
 EOF
 fi
 
@@ -66,6 +67,7 @@ get() { sed -n "s/^$1=//p" "$env_file" | head -n1; }
 echo "project:  $(get COMPOSE_PROJECT_NAME)"
 echo "web:      http://localhost:$(get FRONTEND_PORT)"
 echo "backend:  http://localhost:$(get BACKEND_PORT)"
+echo "cable:    ws://localhost:$(get CABLE_PORT)/cable"
 echo "db:       localhost:$(get DB_PORT)   redis: localhost:$(get REDIS_PORT)"
 
 if [[ -n "$copied" ]]; then

@@ -35,7 +35,7 @@ Rent-Anything makes a trip to one area easy: a traveller picks an area (Bantayan
 - **Backend**: Ruby on Rails 8.1 (API-only, `/api/v1`), Ruby 4.0.6, PostgreSQL 18 + PostGIS 3.6, RSpec + FactoryBot + rswag — `backend/`
 - **Web**: Next.js 16 (App Router), TypeScript, Tailwind CSS 4, TanStack Query, openapi-fetch; Node 24 — `web/`
 - **Mobile**: later; it will use the same API and OpenAPI contract
-- **Infra**: Docker Compose runs four services (db, redis, backend, web); Redis is the Action Cable adapter
+- **Infra**: Docker Compose runs five services (db, redis, backend, anycable, web); `anycable` is the AnyCable WebSocket server (real-time, RAA-201)
 
 Work is tracked in Jira, not in this repo: project `RAA` (Rent-Anything-Anywhere), site `https://sidneypikot2.atlassian.net`, cloudId `ca2c20d7-9b28-45c4-a475-81e449242242`. Statuses: To Do → In Progress → In Review → Done.
 
@@ -43,7 +43,7 @@ Work is tracked in Jira, not in this repo: project `RAA` (Rent-Anything-Anywhere
 
 ## Running and checking
 
-Requires Docker Desktop only (and `jq`, `gh`). `docker compose up` — web at http://localhost:8100, backend at http://localhost:3100 (health check `/up`, API health `/api/v1/health`, OpenAPI at `/api-docs/v1/openapi.yaml`; the team reads the docs on Scalar, published from `staging` by `.github/workflows/api-docs.yml`). The ports differ from PikotChat's so both stacks can run at once. First run creates the databases via `db:prepare`; the web container installs its dependencies into a volume.
+Requires Docker Desktop only (and `jq`, `gh`). `docker compose up` — web at http://localhost:8100, backend at http://localhost:3100, WebSockets at ws://localhost:8200/cable (health check `/up`, API health `/api/v1/health`, OpenAPI at `/api-docs/v1/openapi.yaml`; the team reads the docs on Scalar, published from `staging` by `.github/workflows/api-docs.yml`). The ports differ from PikotChat's so both stacks can run at once. First run creates the databases via `db:prepare`; the web container installs its dependencies into a volume.
 
 ```bash
 script/test [spec/path_spec.rb[:LINE]]    # backend specs; no argument: the full suite
@@ -52,7 +52,7 @@ script/check [frontend|backend|tooling]   # everything CI runs for that area (no
 script/check-api [--write]    # the API contract: request specs -> openapi.yaml -> web types
 script/smoke                  # browser smoke test (Playwright container) against this checkout's stack
 script/check-docs             # these instruction files vs the repo: dead paths, rules that never load
-script/worktree-env           # in a worktree, once: own ports (8100+N / 3100+N), project name, main checkout's env files
+script/worktree-env           # in a worktree, once: own ports (8100+N / 3100+N / 8200+N), project name, main checkout's env files
 script/docker-sweep           # Docker stacks left behind by removed worktrees (--apply deletes them)
 docker compose run --rm backend bin/rails db:migrate
 docker compose run --rm backend bundle install && docker compose build backend   # after a Gemfile change

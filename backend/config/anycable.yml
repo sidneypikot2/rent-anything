@@ -1,0 +1,26 @@
+# AnyCable's Rails side (RAA-201): anycable-go holds the WebSockets at /cable and asks Rails,
+# over HTTP at /_anycable, to approve each connection and subscription; Rails broadcasts to
+# anycable-go's /_broadcast. Both are authorised by keys derived from ANYCABLE_SECRET, which
+# anycable-go must share. Environment variables (ANYCABLE_*) override these values.
+default: &default
+  broadcast_adapter: http
+
+development:
+  <<: *default
+  http_rpc: true
+  secret: "anycable-local-secret"
+  http_broadcast_url: "http://anycable:8080/_broadcast"
+
+test:
+  <<: *default
+  http_rpc: true
+  secret: "anycable-test-secret"
+
+# Without ANYCABLE_SECRET the /_anycable endpoint would take requests from anyone, so it is
+# only mounted when the secret is set. ANYCABLE_HTTP_BROADCAST_URL says where anycable-go is.
+staging: &deployed
+  <<: *default
+  http_rpc: <%= ENV["ANYCABLE_SECRET"].present? %>
+
+production:
+  <<: *deployed

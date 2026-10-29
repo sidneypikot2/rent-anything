@@ -222,7 +222,11 @@ after a booking is paid (keeps deals on the platform).
   published; a listing's area is the smallest published one whose boundary covers its pin.
 - **Files**: Active Storage on S3-compatible storage (Cloudflare R2). ID documents are not
   stored here: Didit holds them.
-- **Chat**: Action Cable over Redis, one conversation per listing + guest.
+- **Real-time — AnyCable** (RAA-201): self-hosted `anycable-go` holds the WebSockets and asks
+  Rails to approve them; channels are plain Action Cable, one stream per user. Booking changes
+  first; chat (one conversation per listing + guest) uses the same stream. Chosen over Pusher
+  (billed per connection and message) and plain Action Cable (sockets inside Puma); AnyCable+,
+  its managed service, is the fallback. Email stays how people off the page hear of a change.
 
 ## Roadmap
 
