@@ -10,6 +10,7 @@ import { useSession } from "@/lib/auth/session";
 import { addPreview } from "@/components/trips/add-preview";
 import { addDays, formatDateRange, todayIso } from "@/components/trips/format";
 import { PeopleAndVehicles, MAX_PEOPLE } from "@/components/trips/people-and-vehicles";
+import { DeliveryOptions, needsAddress, NO_DELIVERY, type Delivery } from "@/components/trips/delivery-options";
 import { formatRentalSpan, PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { PriceBreakdown, usePriceBreakdown } from "@/components/trips/price-breakdown";
@@ -31,6 +32,7 @@ type Rate = NonNullable<ListingDetail["vehicle_rate"]>;
 // `rate` says the vehicle is priced; the price itself is the API's.
 export function VehicleBookingCard({
   listing,
+  rate,
   dates,
   seats,
   add: canAdd = true,
@@ -50,6 +52,11 @@ export function VehicleBookingCard({
   const [shopOpen, setShopOpen] = useState(false);
   // Its pickup time (RAA-195): null takes the shop's default until the guest picks one.
   const [pickupTime, setPickupTime] = useState<string | null>(null);
+  // Delivery and pick-up (RAA-195), where the shop offers them. In a side panel (`add={false}`)
+  // the add sheet asks them instead, as its foot's Add to trip opens it.
+  const [delivery, setDelivery] = useState<Delivery>(NO_DELIVERY);
+  const fees = { delivery: rate.delivery_fee_cents, returnPickup: rate.return_pickup_fee_cents };
+  const chosenDelivery = canAdd ? delivery : null;
   // Its own dates, the page's at first: a bike for 1 day of a week-long trip. One date is one day.
   const [rental, setRental] = useState({ from: dates.from ?? "", to: dates.to ?? "" });
   const from = rental.from || undefined;
@@ -64,7 +71,7 @@ export function VehicleBookingCard({
   const short = free !== null && needed > free;
   const days = rentalDays(from, to);
   // Priced by the API as checkout will (RAA-191): the vehicles for the days, the deposit apart.
-  const breakdown = usePriceBreakdown([{ listingId: listing.id, startsOn: from, endsOn: to, quantity: people, units, pickupTime }]);
+  const breakdown = usePriceBreakdown([{ listingId: listing.id, startsOn: from, endsOn: to, quantity: people, units, pickupTime, delivery: chosenDelivery }]);
   const pickupTimes = breakdown.price?.pickupTimes;
   const returnsAt = breakdown.price?.returnsAt;
   const noun = vehicleNoun(category);
@@ -126,6 +133,7 @@ export function VehicleBookingCard({
               returnsAt={returnsAt}
             />
           )}
+          {canAdd && <DeliveryOptions fees={fees} value={delivery} onChange={setDelivery} />}
           <PriceBreakdown breakdown={breakdown} />
         </Ticket>
 
@@ -136,7 +144,7 @@ export function VehicleBookingCard({
             glyph="plus"
             data-testid="add-to-trip"
             loading={busy}
-            disabled={session === undefined || short}
+            disabled={session === undefined || short || needsAddress(delivery)}
             onClick={() =>
               flow.add({
                 listingId: listing.id,
@@ -148,6 +156,7 @@ export function VehicleBookingCard({
                 quantity: people,
                 units,
                 pickupTime,
+                delivery: chosenDelivery,
                 guests: dates.guests,
                 preview: addPreview(listing),
               })

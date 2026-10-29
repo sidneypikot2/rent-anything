@@ -26,6 +26,7 @@ import { BOOKING_STATUS } from "@/components/bookings/booking-status";
 import { roomSplit } from "@/components/bookings/room-split";
 import { addDays, bookingSpan, daysBetween, rentalTime, shortDate } from "./calendar-dates";
 import type { Selection } from "./calendar-grid";
+import { deliveryText } from "@/components/trips/delivery-options";
 
 type Done = (message: string) => void;
 
@@ -422,6 +423,7 @@ export function BookingSheet({
     [capitalize(quantityNoun(listing)), String(booking.quantity)],
     ...(booking.guests ? [["Guests", String(booking.guests)] as [string, string]] : []),
     ...(rooms ? [["Rooms and pets", rooms] as [string, string]] : []),
+    ...(deliveryText(booking) ? [["Delivery", deliveryText(booking) ?? ""] as [string, string]] : []),
     ["Total", booking.to_be_agreed ? "To be agreed with the guest" : formatPeso(booking.total_cents)],
     ...(booking.source === "checkout" && !booking.to_be_agreed
       ? [["Commission", formatPeso(booking.commission_cents)] as [string, string]]

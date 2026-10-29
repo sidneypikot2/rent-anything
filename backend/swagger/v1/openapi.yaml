@@ -1238,9 +1238,27 @@ paths:
                     type: array
                     items:
                       "$ref": "#/components/schemas/business_listing"
+                  pickup_times:
+                    type: array
+                    nullable: true
+                    items:
+                      type: object
+                      properties:
+                        time:
+                          type: string
+                          example: '08:30'
+                        available:
+                          type: boolean
+                      required:
+                      - time
+                      - available
+                    description: A shop of rental vehicles' pickup times on the first
+                      day, still ahead, each available when one of its models could
+                      start then; null without dates or rental vehicles
                 required:
                 - business
                 - listings
+                - pickup_times
         '422':
           description: bad dates
           content:
@@ -1494,6 +1512,20 @@ paths:
         description: A vehicle rental's pickup time ("08:30"); default the shop's
         schema:
           type: string
+      - name: delivery
+        in: query
+        required: false
+        description: 'A vehicle rental brought to the guest: adds the shop''s delivery
+          fee for each vehicle (RAA-195)'
+        schema:
+          type: boolean
+      - name: return_pickup
+        in: query
+        required: false
+        description: 'A vehicle rental collected from the guest at the end: adds the
+          shop''s fee for each vehicle'
+        schema:
+          type: boolean
       responses:
         '200':
           description: 'every other kind: gear, a transfer, a tour and a stay'
@@ -4252,6 +4284,20 @@ paths:
                   description: 'A vehicle rental only: one of the shop''s pickup times
                     ("08:30"); it runs 24 hours a day from then. Null or omitted takes
                     the shop''s default (9:00, or its first pickup time)'
+                delivery:
+                  type: boolean
+                  description: A vehicle rental brought to the guest, for the shop's
+                    delivery fee each vehicle (RAA-195)
+                return_pickup:
+                  type: boolean
+                  description: A vehicle rental collected from the guest at the end,
+                    for the shop's fee each vehicle
+                delivery_address:
+                  type: string
+                  nullable: true
+                  maxLength: 200
+                  description: Where it is brought to and collected from; set only
+                    with delivery or return_pickup
                 items:
                   type: array
                   minItems: 1
@@ -4315,6 +4361,20 @@ paths:
                           times ("08:30"); it runs 24 hours a day from then. Null
                           or omitted takes the shop''s default (9:00, or its first
                           pickup time)'
+                      delivery:
+                        type: boolean
+                        description: A vehicle rental brought to the guest, for the
+                          shop's delivery fee each vehicle (RAA-195)
+                      return_pickup:
+                        type: boolean
+                        description: A vehicle rental collected from the guest at
+                          the end, for the shop's fee each vehicle
+                      delivery_address:
+                        type: string
+                        nullable: true
+                        maxLength: 200
+                        description: Where it is brought to and collected from; set
+                          only with delivery or return_pickup
                     required:
                     - listing_id
                 trip_id:
@@ -4427,6 +4487,20 @@ paths:
                   description: 'A vehicle rental only: one of the shop''s pickup times
                     ("08:30"); it runs 24 hours a day from then. Null or omitted takes
                     the shop''s default (9:00, or its first pickup time)'
+                delivery:
+                  type: boolean
+                  description: A vehicle rental brought to the guest, for the shop's
+                    delivery fee each vehicle (RAA-195)
+                return_pickup:
+                  type: boolean
+                  description: A vehicle rental collected from the guest at the end,
+                    for the shop's fee each vehicle
+                delivery_address:
+                  type: string
+                  nullable: true
+                  maxLength: 200
+                  description: Where it is brought to and collected from; set only
+                    with delivery or return_pickup
                 move_to_trip_id:
                   type: integer
     delete:
@@ -5466,6 +5540,20 @@ components:
         pets:
           type: integer
           description: A stay's pets (RAA-182)
+        delivery:
+          type: boolean
+          description: A vehicle rental brought to the guest, for the shop's delivery
+            fee each vehicle (RAA-195)
+        return_pickup:
+          type: boolean
+          description: A vehicle rental collected from the guest at the end, for the
+            shop's fee each vehicle
+        delivery_address:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: Where it is brought to and collected from; set only with delivery
+            or return_pickup
         sleeps:
           type: integer
           nullable: true
@@ -5570,6 +5658,9 @@ components:
       - quantity
       - room_guests
       - pets
+      - delivery
+      - return_pickup
+      - delivery_address
       - sleeps
       - max_guests
       - max_quantity
@@ -6971,8 +7062,6 @@ components:
         pickup_times:
           type: array
           nullable: true
-          description: A vehicle rental's pickup times (RAA-195), each with whether
-            the rental could start then; null for anything else
           items:
             type: object
             properties:
@@ -6984,6 +7073,8 @@ components:
             required:
             - time
             - available
+          description: A vehicle rental's pickup times (RAA-195), each with whether
+            the rental could start then; null for anything else
         returns_at:
           type: string
           format: date-time
@@ -8702,6 +8793,20 @@ components:
         pets:
           type: integer
           description: A stay's pets, beside its guests (RAA-182)
+        delivery:
+          type: boolean
+          description: A vehicle rental brought to the guest, for the shop's delivery
+            fee each vehicle (RAA-195)
+        return_pickup:
+          type: boolean
+          description: A vehicle rental collected from the guest at the end, for the
+            shop's fee each vehicle
+        delivery_address:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: Where it is brought to and collected from; set only with delivery
+            or return_pickup
         status:
           "$ref": "#/components/schemas/booking_status"
         source:
@@ -8772,6 +8877,9 @@ components:
       - guests
       - room_guests
       - pets
+      - delivery
+      - return_pickup
+      - delivery_address
       - status
       - source
       - booking_mode
@@ -8919,6 +9027,20 @@ components:
         pets:
           type: integer
           description: A stay's pets, beside its guests (RAA-182)
+        delivery:
+          type: boolean
+          description: A vehicle rental brought to the guest, for the shop's delivery
+            fee each vehicle (RAA-195)
+        return_pickup:
+          type: boolean
+          description: A vehicle rental collected from the guest at the end, for the
+            shop's fee each vehicle
+        delivery_address:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: Where it is brought to and collected from; set only with delivery
+            or return_pickup
         status:
           "$ref": "#/components/schemas/booking_status"
         source:
@@ -9052,6 +9174,9 @@ components:
       - guests
       - room_guests
       - pets
+      - delivery
+      - return_pickup
+      - delivery_address
       - status
       - source
       - booking_mode
@@ -9127,6 +9252,20 @@ components:
         pets:
           type: integer
           description: A stay's pets (RAA-182)
+        delivery:
+          type: boolean
+          description: A vehicle rental brought to the guest, for the shop's delivery
+            fee each vehicle (RAA-195)
+        return_pickup:
+          type: boolean
+          description: A vehicle rental collected from the guest at the end, for the
+            shop's fee each vehicle
+        delivery_address:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: Where it is brought to and collected from; set only with delivery
+            or return_pickup
         total_cents:
           type: integer
         to_be_agreed:
@@ -9212,6 +9351,9 @@ components:
       - guests
       - room_guests
       - pets
+      - delivery
+      - return_pickup
+      - delivery_address
       - total_cents
       - to_be_agreed
       - cancellation_policy

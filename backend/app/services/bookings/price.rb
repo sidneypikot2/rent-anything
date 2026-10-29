@@ -7,7 +7,8 @@ module Bookings
   #   or too short a stay, and a party the rooms can't take);
   # - a tour: its base price per group (private) or per joiner, times quantity;
   # - a rental vehicle (RAA-191): its daily price for each of its units and day; the refundable
-  #   deposit for each is in the breakdown, never in the total (VehicleRate);
+  #   deposit for each is in the breakdown, never in the total (VehicleRate); with `delivery`
+  #   and `return_pickup` (RAA-195), the shop's fee for each, for each vehicle;
   # - gear: its flat price for each item and day; a transfer: its flat price for each vehicle;
   # - anything still without a price (a rate of 0): 0 and `to_be_agreed`, settled with the partner.
   #
@@ -16,8 +17,11 @@ module Bookings
   # category: :parent, units, stay_rate, vehicle_rate, flat_rate, tour_detail and fees. `except_booking` is
   # a booking being re-priced for new dates (Bookings::Change), whose own nights stay free to it.
   class Price < ApplicationService
-    def initialize(listing, starts_on:, ends_on:, quantity:, guests:, room_guests: nil, pets: 0, except_booking: nil)
+    def initialize(listing, starts_on:, ends_on:, quantity:, guests:, room_guests: nil, pets: 0, except_booking: nil,
+      delivery: false, return_pickup: false)
       @listing = listing
+      @delivery = delivery
+      @return_pickup = return_pickup
       @except_booking = except_booking
       @starts_on = starts_on
       @ends_on = ends_on
@@ -35,9 +39,7 @@ module Bookings
         { total_cents: unit_price * @quantity,
           breakdown: { kind: "tour", price_unit: tour.price_unit, unit_price_cents: unit_price, quantity: @quantity } }
       elsif (rate = @listing.vehicle_rate)&.priced?
-        { total_cents: rate.daily_price_cents * @quantity * days,
-          breakdown: { kind: "vehicle", unit_price_cents: rate.daily_price_cents, quantity: @quantity, days:,
-                       deposit_cents: rate.security_deposit_cents * @quantity } }
+        vehicle(rate)
       elsif (flat = @listing.flat_rate)&.priced?
         gear = @listing.category.gear?
         { total_cents: flat.price_cents * @quantity * (gear ? days : 1),
@@ -49,6 +51,16 @@ module Bookings
     end
 
     private
+
+    def vehicle(rate)
+      extras = {
+        delivery_cents: (rate.delivery_fee_cents * @quantity if @delivery && rate.delivers?),
+        return_pickup_cents: (rate.return_pickup_fee_cents * @quantity if @return_pickup && rate.picks_up?)
+      }.compact
+      { total_cents: (rate.daily_price_cents * @quantity * days) + extras.values.sum,
+        breakdown: { kind: "vehicle", unit_price_cents: rate.daily_price_cents, quantity: @quantity, days:,
+                     deposit_cents: rate.security_deposit_cents * @quantity, **extras } }
+    end
 
     def days
       return 1 unless @starts_on && @ends_on

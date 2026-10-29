@@ -4,7 +4,8 @@ module Bookings
   # total, with whether the dates can be had (Availability::Ledger). The query carries
   # everything as text: starts_on and ends_on (ISO 8601, both required), quantity (the people,
   # or gear's count; default 1), units (a rental vehicle's chosen vehicles), room_guests (a
-  # stay's split, as JSON), pets and a vehicle rental's pickup_time (RAA-195, "08:30"). A refused
+  # stay's split, as JSON), pets and a vehicle rental's pickup_time (RAA-195, "08:30"), delivery
+  # and return_pickup ("true" adds the shop's fee for each vehicle, a line each). A refused
   # party or dates comes back as `unavailable`, not an error, so the sheet can say why next to
   # its total. A vehicle rental also answers its `pickup_times`, each of the shop's with whether
   # the rental could start then, and when it `returns_at` from the pickup time asked for (or the
@@ -30,6 +31,7 @@ module Bookings
       room_guests = room_guests_value(json: true)
       pets = count_value(:pets, "Pets", max: 20, digits: true) || 0
       pickup_time = pickup_time_value(listing)
+      delivery = delivery_values(listing, address: false)
       raise_errors!(listing)
 
       guests = guests_for(room_guests, guests, sent: false)
@@ -38,7 +40,8 @@ module Bookings
       days = Booking.days_for(listing, starts_on, ends_on)
       rental = rental(listing, ledger, days, units, starts_on, ends_on, pickup_time)
       refusal = rental[:none_left] || ledger.refusal(listing, days, units, period: rental[:period])
-      price = Price.call(listing, starts_on:, ends_on:, quantity: units, guests:, room_guests:, pets:)
+      price = Price.call(listing, starts_on:, ends_on:, quantity: units, guests:, room_guests:, pets:,
+        **delivery.slice(:delivery, :return_pickup))
       answer(listing, price, refusal, rental)
     rescue ActiveRecord::RecordInvalid => e
       raise if e.record == listing || listing.nil?
@@ -88,7 +91,11 @@ module Bookings
         [ line("#{quantity} #{each.pluralize(quantity)} × #{peso(unit)}", unit * quantity) ]
       when "vehicle"
         noun = Trips::Values.vehicle_noun(listing)
-        [ line("#{quantity} #{noun.pluralize(quantity)} × #{peso(unit)} × #{days(breakdown[:days])}", unit * quantity * breakdown[:days]) ]
+        [
+          line("#{quantity} #{noun.pluralize(quantity)} × #{peso(unit)} × #{days(breakdown[:days])}", unit * quantity * breakdown[:days]),
+          (line("Delivery · #{quantity} × #{peso(breakdown[:delivery_cents] / quantity)}", breakdown[:delivery_cents]) if breakdown[:delivery_cents]),
+          (line("Pick-up at the end · #{quantity} × #{peso(breakdown[:return_pickup_cents] / quantity)}", breakdown[:return_pickup_cents]) if breakdown[:return_pickup_cents])
+        ].compact
       when "gear" then [ line("#{quantity} × #{peso(unit)} × #{days(breakdown[:days])}", unit * quantity * breakdown[:days]) ]
       when "transfer" then [ line("#{quantity} × #{peso(unit)} a trip", unit * quantity) ]
       else []

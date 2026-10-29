@@ -16,6 +16,7 @@ import { DisplayTitle } from "@/components/ui/typography";
 import { formatPeso } from "@/lib/money";
 import { bookingsCsv, downloadCsv } from "./bookings-csv";
 import { useAdminBookings, useAnswerBooking, type AdminBooking, type AdminBookingFilter } from "./use-admin-bookings";
+import { deliveryText } from "@/components/trips/delivery-options";
 
 const FILTERS: { key: AdminBookingFilter; label: string }[] = [
   { key: "requested", label: "Requests" },
@@ -410,6 +411,7 @@ function BookingPanel({ error, onClose, ...row }: RowProps & { error: string | u
         <PanelSection title="Booking">
           <Row label="Dates">{dates}</Row>
           <Row label="Party">{party}</Row>
+          {deliveryText(booking) && <Row label="Delivery">{deliveryText(booking)}</Row>}
           <Row label="How">
             {booking.source === "offline"
               ? "Taken offline"

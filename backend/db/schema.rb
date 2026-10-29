@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_29_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_29_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -147,6 +147,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_100000) do
     t.integer "pets", default: 0, null: false
     t.datetime "starts_at"
     t.datetime "ends_at"
+    t.boolean "delivery", default: false, null: false
+    t.boolean "return_pickup", default: false, null: false
+    t.string "delivery_address"
     t.index ["checkout_id"], name: "index_bookings_on_checkout_id"
     t.index ["listing_id", "starts_at", "ends_at"], name: "index_bookings_on_listing_id_and_starts_at_and_ends_at"
     t.index ["listing_id", "starts_on", "ends_on"], name: "index_bookings_on_listing_id_and_starts_on_and_ends_on"
@@ -155,10 +158,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_100000) do
     t.index ["status", "expires_at"], name: "index_bookings_on_status_and_expires_at"
     t.index ["trip_item_id"], name: "index_bookings_on_trip_item_id_holding", unique: true, where: "(status = ANY (ARRAY['requested'::booking_status, 'accepted'::booking_status, 'awaiting_payment'::booking_status, 'confirmed'::booking_status, 'in_progress'::booking_status, 'completed'::booking_status]))"
     t.index ["user_id"], name: "index_bookings_on_user_id"
+    t.check_constraint "(delivery OR return_pickup) = (delivery_address IS NOT NULL)", name: "bookings_delivery_address_check"
     t.check_constraint "(starts_at IS NULL) = (ends_at IS NULL)", name: "bookings_period_both_or_neither_check"
     t.check_constraint "booking_mode::text = ANY (ARRAY['instant'::character varying::text, 'request'::character varying::text])", name: "bookings_booking_mode_check"
     t.check_constraint "cancelled_by::text = ANY (ARRAY['guest'::character varying::text, 'partner'::character varying::text, 'system'::character varying::text])", name: "bookings_cancelled_by_check"
     t.check_constraint "char_length(cancellation_reason) <= 500", name: "bookings_cancellation_reason_check"
+    t.check_constraint "char_length(delivery_address::text) <= 200", name: "bookings_delivery_address_length_check"
     t.check_constraint "char_length(guest_name::text) >= 1 AND char_length(guest_name::text) <= 80", name: "bookings_guest_name_length_check"
     t.check_constraint "char_length(notes) <= 500", name: "bookings_notes_length_check"
     t.check_constraint "commission_bps >= 0 AND commission_bps <= 10000", name: "bookings_commission_bps_check"
@@ -631,9 +636,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_100000) do
     t.integer "pets", default: 0, null: false
     t.integer "units"
     t.string "pickup_time"
+    t.boolean "delivery", default: false, null: false
+    t.boolean "return_pickup", default: false, null: false
+    t.string "delivery_address"
     t.index ["listing_id"], name: "index_trip_items_on_listing_id"
     t.index ["trip_id"], name: "index_trip_items_on_trip_id"
+    t.check_constraint "(delivery OR return_pickup) = (delivery_address IS NOT NULL)", name: "trip_items_delivery_address_check"
     t.check_constraint "(starts_on IS NULL) = (ends_on IS NULL)", name: "trip_items_dates_both_or_neither_check"
+    t.check_constraint "char_length(delivery_address::text) <= 200", name: "trip_items_delivery_address_length_check"
     t.check_constraint "ends_on >= starts_on", name: "trip_items_dates_order_check"
     t.check_constraint "pets >= 0 AND pets <= 20", name: "trip_items_pets_check"
     t.check_constraint "pickup_time::text ~ '^([01][0-9]|2[0-3]):(00|30)$'::text", name: "trip_items_pickup_time_check"

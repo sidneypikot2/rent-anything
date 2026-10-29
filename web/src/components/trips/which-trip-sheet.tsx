@@ -22,6 +22,7 @@ import { VehicleCounters } from "./people-and-vehicles";
 import { unitsFor, vehiclePartyText } from "./vehicle-party";
 import { sameItem } from "./trip-missing";
 import { TripOption } from "./trip-option";
+import { DeliveryOptions, needsAddress, NO_DELIVERY, type Delivery } from "./delivery-options";
 import {
   useAddTripItem,
   useTripSuggestion,
@@ -279,11 +280,14 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   const vehicleUnits = vehicleSeats ? unitsFor(quantityNumber, vehicleSeats, typedUnits ?? request.units) : undefined;
   // Its pickup time (RAA-195): the booking card's, until the guest picks another; null takes the shop's default.
   const [pickupTime, setPickupTime] = useState<string | null>(request.pickupTime ?? null);
+  // Its delivery and pick-up (RAA-195): the booking card's, until the guest changes them here.
+  const [delivery, setDelivery] = useState<Delivery>(request.delivery ?? NO_DELIVERY);
+  const deliveryFees = vehicle ? (request.preview?.deliveryFees ?? null) : null;
   const dateError = noNight ?? (datesValid ? undefined : "Pick both dates, or neither");
   // What the add costs (RAA-191): each item of a mix, or the one listing as the sheet has it now.
   const breakdown = usePriceBreakdown(
     mix
-      ? mix.map((item) => ({ ...dated, listingId: item.listingId, quantity: item.quantity, units: item.units, roomGuests: item.roomGuests, pets: item.pets, pickupTime: item.pickupTime }))
+      ? mix.map((item) => ({ ...dated, listingId: item.listingId, quantity: item.quantity, units: item.units, roomGuests: item.roomGuests, pets: item.pets, pickupTime: item.pickupTime, delivery: item.delivery }))
       : [
           {
             ...dated,
@@ -293,6 +297,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
             roomGuests: arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null,
             pets: arrangement?.pets ?? 0,
             pickupTime: vehicle ? pickupTime : null,
+            delivery: deliveryFees ? delivery : null,
           },
         ],
     mix?.map((item) => item.title),
@@ -300,7 +305,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!datesValid || !quantityValid || choice === null) return;
+    if (!datesValid || !quantityValid || choice === null || (deliveryFees && needsAddress(delivery))) return;
     const tripId = choice === "new" ? null : choice;
     addItem.mutate(
       {
@@ -311,6 +316,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
           guests: gear ? request.quantity : vehicle ? request.guests : undefined,
           units: vehicle ? vehicleUnits : undefined,
           pickupTime: vehicle ? pickupTime : null,
+          delivery: deliveryFees ? delivery : (request.delivery ?? null),
           roomGuests: arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null,
           pets: arrangement?.pets ?? 0,
         },
@@ -591,6 +597,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
                 returnsAt={breakdown.price.returnsAt}
               />
             )}
+            {deliveryFees && <DeliveryOptions fees={deliveryFees} value={delivery} onChange={setDelivery} />}
             {capacity && (
               <TicketNote tone={capacity.tone} data-testid="add-sheet-capacity">
                 {capacity.text}
@@ -656,7 +663,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
             glyph="plus"
             data-testid="which-trip-add"
             loading={addItem.isPending}
-            disabled={choice === null || !datesValid || !quantityValid || full}
+            disabled={choice === null || !datesValid || !quantityValid || full || (deliveryFees !== null && needsAddress(delivery))}
           >
             {submitLabel}
           </Button>

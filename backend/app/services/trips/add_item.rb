@@ -78,10 +78,11 @@ module Trips
       pets = count_value(:pets, "Pets", max: 20) || 0
       units = units_value
       pickup_time = pickup_time_value(listing) if listing
+      delivery = listing ? delivery_values(listing) : {}
       quantity = guests_for(room_guests, quantity, sent: @params.key?(:quantity))
       check_stay_party(listing, quantity, room_guests, pets) if listing && @errors.empty?
       check_vehicle_units(listing, quantity, units) if listing && @errors.empty?
-      { listing:, starts_on:, ends_on:, quantity:, room_guests:, pets:, units:, pickup_time: }
+      { listing:, starts_on:, ends_on:, quantity:, room_guests:, pets:, units:, pickup_time:, **delivery }
     end
   end
 end

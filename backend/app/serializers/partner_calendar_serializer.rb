@@ -32,10 +32,11 @@ module PartnerCalendarSerializer
   # A booking as its partner sees it: a pending one (Booking::PENDING) holds its days until it
   # is answered, paid or expires at expires_at. commission_cents is the platform's share. A stay's
   # room_guests and pets show how its guests split into rooms and what pets come (RAA-182). A
-  # vehicle rental's starts_at and ends_at are its pickup and return (RAA-195), nil for anything else.
+  # vehicle rental's starts_at and ends_at are its pickup and return (RAA-195), nil for anything else,
+  # and delivery / return_pickup whether the shop brings it and collects it, to delivery_address.
   def self.booking(booking, listing = booking.listing)
     booking.slice(:id, :reference, :guest_name, :guest_email, :guest_phone, :starts_on, :ends_on, :starts_at, :ends_at, :quantity, :guests,
-      :room_guests, :pets, :status, :source, :booking_mode, :total_cents, :commission_cents, :refund_cents, :cancelled_by,
+      :room_guests, :pets, :delivery, :return_pickup, :delivery_address, :status, :source, :booking_mode, :total_cents, :commission_cents, :refund_cents, :cancelled_by,
       :expires_at, :notes, :created_at).symbolize_keys.merge(to_be_agreed: booking.price_breakdown["to_be_agreed"] == true,
         listing: { id: listing.id, title: listing.title })
   end

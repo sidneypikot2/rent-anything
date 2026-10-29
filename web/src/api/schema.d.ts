@@ -1713,6 +1713,12 @@ export interface paths {
                         "application/json": {
                             business: components["schemas"]["business_ref"];
                             listings: components["schemas"]["business_listing"][];
+                            /** @description A shop of rental vehicles' pickup times on the first day, still ahead, each available when one of its models could start then; null without dates or rental vehicles */
+                            pickup_times: {
+                                /** @example 08:30 */
+                                time: string;
+                                available: boolean;
+                            }[] | null;
                         };
                     };
                 };
@@ -2054,6 +2060,10 @@ export interface paths {
                     pets?: number;
                     /** @description A vehicle rental's pickup time ("08:30"); default the shop's */
                     pickup_time?: string;
+                    /** @description A vehicle rental brought to the guest: adds the shop's delivery fee for each vehicle (RAA-195) */
+                    delivery?: boolean;
+                    /** @description A vehicle rental collected from the guest at the end: adds the shop's fee for each vehicle */
+                    return_pickup?: boolean;
                 };
                 header?: never;
                 path: {
@@ -5856,6 +5866,12 @@ export interface paths {
                         units?: number | null;
                         /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
                         pickup_time?: string | null;
+                        /** @description A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195) */
+                        delivery?: boolean;
+                        /** @description A vehicle rental collected from the guest at the end, for the shop's fee each vehicle */
+                        return_pickup?: boolean;
+                        /** @description Where it is brought to and collected from; set only with delivery or return_pickup */
+                        delivery_address?: string | null;
                         /** @description Instead of listing_id and the fields above */
                         items?: {
                             listing_id: number;
@@ -5876,6 +5892,12 @@ export interface paths {
                             units?: number | null;
                             /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
                             pickup_time?: string | null;
+                            /** @description A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195) */
+                            delivery?: boolean;
+                            /** @description A vehicle rental collected from the guest at the end, for the shop's fee each vehicle */
+                            return_pickup?: boolean;
+                            /** @description Where it is brought to and collected from; set only with delivery or return_pickup */
+                            delivery_address?: string | null;
                         }[];
                         /** @description Omit or null for a new trip */
                         trip_id?: number | null;
@@ -6018,6 +6040,12 @@ export interface paths {
                         units?: number | null;
                         /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
                         pickup_time?: string | null;
+                        /** @description A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195) */
+                        delivery?: boolean;
+                        /** @description A vehicle rental collected from the guest at the end, for the shop's fee each vehicle */
+                        return_pickup?: boolean;
+                        /** @description Where it is brought to and collected from; set only with delivery or return_pickup */
+                        delivery_address?: string | null;
                         move_to_trip_id?: number;
                     };
                 };
@@ -7061,6 +7089,12 @@ export interface components {
             }[] | null;
             /** @description A stay's pets (RAA-182) */
             pets: number;
+            /** @description A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195) */
+            delivery: boolean;
+            /** @description A vehicle rental collected from the guest at the end, for the shop's fee each vehicle */
+            return_pickup: boolean;
+            /** @description Where it is brought to and collected from; set only with delivery or return_pickup */
+            delivery_address: string | null;
             /** @description A stay: the most guests it sleeps, all its units together (a shared room's beds); null for anything else, or a stay that doesn't say */
             sleeps: number | null;
             /** @description The most guests the item can be for: a tour's group, the guests a stay sleeps, or a transfer's or a trike's seats (one vehicle a booking); null when the listing doesn't say */
@@ -8292,6 +8326,12 @@ export interface components {
             }[] | null;
             /** @description A stay's pets, beside its guests (RAA-182) */
             pets: number;
+            /** @description A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195) */
+            delivery: boolean;
+            /** @description A vehicle rental collected from the guest at the end, for the shop's fee each vehicle */
+            return_pickup: boolean;
+            /** @description Where it is brought to and collected from; set only with delivery or return_pickup */
+            delivery_address: string | null;
             status: components["schemas"]["booking_status"];
             /**
              * @description offline: taken by the partner outside the app
@@ -8390,6 +8430,12 @@ export interface components {
             }[] | null;
             /** @description A stay's pets, beside its guests (RAA-182) */
             pets: number;
+            /** @description A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195) */
+            delivery: boolean;
+            /** @description A vehicle rental collected from the guest at the end, for the shop's fee each vehicle */
+            return_pickup: boolean;
+            /** @description Where it is brought to and collected from; set only with delivery or return_pickup */
+            delivery_address: string | null;
             status: components["schemas"]["booking_status"];
             /**
              * @description offline: taken by the partner outside the app
@@ -8474,6 +8520,12 @@ export interface components {
             }[] | null;
             /** @description A stay's pets (RAA-182) */
             pets: number;
+            /** @description A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195) */
+            delivery: boolean;
+            /** @description A vehicle rental collected from the guest at the end, for the shop's fee each vehicle */
+            return_pickup: boolean;
+            /** @description Where it is brought to and collected from; set only with delivery or return_pickup */
+            delivery_address: string | null;
             total_cents: number;
             /** @description Not priced in the app yet (rentals, transfers): settled with the partner */
             to_be_agreed: boolean;

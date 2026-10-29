@@ -14,6 +14,7 @@ import { useSession } from "@/lib/auth/session";
 import { formatPeso } from "@/lib/money";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { addDays, formatDateRange, todayIso } from "@/components/trips/format";
+import { DeliveryOptions, needsAddress, NO_DELIVERY, sharedFees, wantsDelivery, type Delivery } from "@/components/trips/delivery-options";
 import { formatRentalSpan, PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
 import { useOptionalTripAdd } from "@/components/trips/trip-add-provider";
 import type { TripDates } from "@/components/trips/trip-dates";
@@ -80,12 +81,23 @@ export function useShopModels({ business, category, dates, people, listingIds, o
   const units = picked.reduce((sum, each) => sum + each.units, 0);
   const seats = picked.reduce((sum, each) => sum + each.units * each.seats, 0);
   const split = splitPeople(picked, people);
+  // Delivery and pick-up (RAA-195): offered while every model picked (or, before any is, every
+  // model here) offers it; a choice no longer offered isn't sent.
+  const [delivery, setDelivery] = useState<Delivery>(NO_DELIVERY);
+  const fees = sharedFees((picked.length > 0 ? picked.map((each) => each.model) : models).map((model) => model.vehicle_rate));
+  const chosen = {
+    ...delivery,
+    delivery: delivery.delivery && fees.delivery !== null,
+    returnPickup: delivery.returnPickup && fees.returnPickup !== null,
+  };
+  const chosenDelivery = wantsDelivery(chosen) ? chosen : null;
   // Priced by the API, each model as the add will send it: its vehicles and the people on them.
   const breakdown = usePriceBreakdown(
-    picked.map((each, index) => ({ listingId: each.model.id, startsOn: from, endsOn: to, quantity: split[index], units: each.units, pickupTime })),
+    picked.map((each, index) => ({ listingId: each.model.id, startsOn: from, endsOn: to, quantity: split[index], units: each.units, pickupTime, delivery: chosenDelivery })),
   );
-  const pickupTimes = breakdown.price?.pickupTimes;
-  const returnsAt = breakdown.price?.returnsAt;
+  // The pickup times free for every model picked; before one is, the shop's (any model free then).
+  const pickupTimes = (picked.length > 0 ? breakdown.price?.pickupTimes : null) ?? shop.data?.pickup_times ?? null;
+  const returnsAt = (picked.length > 0 ? breakdown.price?.returnsAt : null) ?? models.find((model) => model.ends_at)?.ends_at ?? null;
   const total = breakdown.price?.total ?? null;
   const deposit = breakdown.price?.deposit ?? 0;
   const short = people - seats;
@@ -116,6 +128,7 @@ export function useShopModels({ business, category, dates, people, listingIds, o
         pets: 0,
         shared: false,
         pickupTime: pickupTime ?? (returnsAt ? rentalClock(returnsAt) : null),
+        delivery: chosenDelivery,
       })),
     });
     onAdding?.();
@@ -133,7 +146,7 @@ export function useShopModels({ business, category, dates, people, listingIds, o
 
   const action =
     guest && flow ? (
-      <Button glyph="plus" disabled={units === 0 || session === undefined} onClick={addPicked} data-testid="shop-add">
+      <Button glyph="plus" disabled={units === 0 || session === undefined || needsAddress(chosenDelivery)} onClick={addPicked} data-testid="shop-add">
         {units ? `Add ${units} to trip` : `Pick a ${nouns(1)}`}
       </Button>
     ) : null;
@@ -258,14 +271,17 @@ export function useShopModels({ business, category, dates, people, listingIds, o
         </Ticket>
       )}
 
-      {picked.length > 0 && pickupTimes && (
+      {((from && to && pickupTimes) || fees.delivery !== null || fees.returnPickup !== null) && (
         <Ticket>
-          <PickupTimeRow
-            times={pickupTimes}
-            value={pickupTime ?? (returnsAt ? rentalClock(returnsAt) : null)}
-            onChange={setPickupTime}
-            returnsAt={returnsAt}
-          />
+          {from && to && pickupTimes && (
+            <PickupTimeRow
+              times={pickupTimes}
+              value={pickupTime ?? (returnsAt ? rentalClock(returnsAt) : null)}
+              onChange={setPickupTime}
+              returnsAt={returnsAt}
+            />
+          )}
+          <DeliveryOptions fees={fees} value={chosen} onChange={setDelivery} />
         </Ticket>
       )}
       {breakdown.price?.unavailable && <p className="text-sm font-semibold text-warning">{breakdown.price.unavailable}</p>}

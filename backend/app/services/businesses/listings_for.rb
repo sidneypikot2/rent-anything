@@ -4,8 +4,11 @@ module Businesses
   # `category` (a slug) narrows them; with both dates (ISO 8601, from today) each says how many
   # of its units are free on all of them (Availability::Ledger). A rental vehicle's are counted
   # from a pickup_time (RAA-195, "08:30"; the shop's default for the day when left out) to its
-  # return, with the period it counted (starts_at, ends_at). A query string carries everything
-  # as text; a parameter sent empty counts as not sent.
+  # return, with the period it counted (starts_at, ends_at). With dates, a shop of rental
+  # vehicles also answers its `pickup_times` on the first day, still ahead, each available when
+  # at least one of its models could start then (the pop-up's pickup time before a model is
+  # picked); nil otherwise. A query string carries everything as text; a parameter sent empty
+  # counts as not sent.
   class ListingsFor < ApplicationService
     include Trips::Values
 
@@ -30,7 +33,8 @@ module Businesses
       ledger = Availability::Ledger.new(listings, starts_on, ends_on) if starts_on && listings.any?
       {
         business: { id: business.id, name: business.name },
-        listings: listings.map { |listing| row(listing, ledger, starts_on, ends_on, pickup_time) }
+        listings: listings.map { |listing| row(listing, ledger, starts_on, ends_on, pickup_time) },
+        pickup_times: ledger && pickup_times(listings, ledger, starts_on, ends_on)
       }
     end
 
@@ -42,6 +46,20 @@ module Businesses
       return value if value.is_a?(String) && value.match?(Booking::PICKUP_TIME_FORMAT)
 
       error("Pickup time must be a time on the half hour, like 08:30")
+    end
+
+    def pickup_times(listings, ledger, starts_on, ends_on)
+      rentals = listings.select { _1.category.vehicle? && _1.vehicle_rate }
+      return if rentals.empty?
+
+      rentals.flat_map { _1.vehicle_rate.pickup_times_on(starts_on) }.uniq.sort.map do |time|
+        period = Booking.rental_period(starts_on, ends_on, time)
+        free = rentals.any? do |listing|
+          listing.vehicle_rate.pickup_times_on(starts_on).include?(time) &&
+            ledger.refusal(listing, Booking.days_for(listing, starts_on, ends_on), 1, period:).nil?
+        end
+        { time:, available: free }
+      end
     end
 
     def row(listing, ledger, starts_on, ends_on, pickup_time)

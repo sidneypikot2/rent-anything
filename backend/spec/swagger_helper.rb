@@ -45,6 +45,26 @@ PICKUP_TIME_BODY = {
     "then. Null or omitted takes the shop's default (9:00, or its first pickup time)"
 }.freeze
 
+# Pickup times on a day (RAA-195), each with whether a rental could start then.
+PICKUP_TIMES = {
+  type: :array, nullable: true,
+  items: {
+    type: :object,
+    properties: { time: { type: :string, example: "08:30" }, available: { type: :boolean } },
+    required: %w[time available]
+  }
+}.freeze
+
+# A vehicle rental's delivery and pick-up (RAA-195), as an item or a booking keeps them.
+DELIVERY_FIELDS = {
+  delivery: { type: :boolean, description: "A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195)" },
+  return_pickup: { type: :boolean, description: "A vehicle rental collected from the guest at the end, for the shop's fee each vehicle" },
+  delivery_address: {
+    type: :string, nullable: true, maxLength: 200,
+    description: "Where it is brought to and collected from; set only with delivery or return_pickup"
+  }
+}.freeze
+
 UNITS_BODY = {
   type: :integer, nullable: true, minimum: 1, maximum: 99,
   description: "A rental vehicle only: at least quantity ÷ seats rounded up, at most one each; null or omitted derives it"
@@ -295,6 +315,7 @@ RSpec.configure do |config|
               quantity: { type: :integer },
               room_guests: ROOM_GUESTS,
               pets: { type: :integer, description: "A stay's pets (RAA-182)" },
+              **DELIVERY_FIELDS,
               sleeps: {
                 type: :integer, nullable: true,
                 description: "A stay: the most guests it sleeps, all its units together (a shared room's beds); " \
@@ -366,7 +387,7 @@ RSpec.configure do |config|
               },
               listing_active: { type: :boolean, description: "False once the listing is paused or delisted: it can't be booked" }
             },
-            required: %w[id starts_on ends_on quantity room_guests pets sleeps max_guests max_quantity seats units units_chosen units_free pickup_time returns_at business booking_type area destination listing booking unavailable cancellation_policy listing_active]
+            required: %w[id starts_on ends_on quantity room_guests pets delivery return_pickup delivery_address sleeps max_guests max_quantity seats units units_chosen units_free pickup_time returns_at business booking_type area destination listing booking unavailable cancellation_policy listing_active]
           },
           # A trip's view-only share link (RAA-176), as its guest sees it.
           trip_share: {
@@ -1071,16 +1092,10 @@ RSpec.configure do |config|
                 description: "Why the dates or the party can't be had (\"Only 4 left on Nov 20\", \"Available from " \
                   "9:00 AM on Nov 3\"); null when they can"
               },
-              pickup_times: {
-                type: :array, nullable: true,
+              pickup_times: PICKUP_TIMES.merge(
                 description: "A vehicle rental's pickup times (RAA-195), each with whether the rental could start then; " \
-                  "null for anything else",
-                items: {
-                  type: :object,
-                  properties: { time: { type: :string, example: "08:30" }, available: { type: :boolean } },
-                  required: %w[time available]
-                }
-              },
+                  "null for anything else"
+              ),
               returns_at: {
                 type: :string, format: "date-time", nullable: true,
                 description: "When a vehicle rental from the pickup time asked for (or the default) is due back"
@@ -1921,6 +1936,7 @@ RSpec.configure do |config|
               guests: { type: :integer, nullable: true, description: "Null for one taken offline" },
               room_guests: ROOM_GUESTS,
               pets: { type: :integer, description: "A stay's pets, beside its guests (RAA-182)" },
+              **DELIVERY_FIELDS,
               status: { "$ref" => "#/components/schemas/booking_status" },
               source: { type: :string, enum: Booking::SOURCES, description: "offline: taken by the partner outside the app" },
               booking_mode: {
@@ -1944,7 +1960,7 @@ RSpec.configure do |config|
               },
               created_at: { type: :string, format: "date-time" }
             },
-            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets status source
+            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address status source
               booking_mode total_cents to_be_agreed commission_cents refund_cents cancelled_by expires_at notes listing
               created_at]
           },
@@ -2007,6 +2023,7 @@ RSpec.configure do |config|
               guests: { type: :integer, nullable: true, description: "Null for one taken offline" },
               room_guests: ROOM_GUESTS,
               pets: { type: :integer, description: "A stay's pets, beside its guests (RAA-182)" },
+              **DELIVERY_FIELDS,
               status: { "$ref" => "#/components/schemas/booking_status" },
               source: { type: :string, enum: Booking::SOURCES, description: "offline: taken by the partner outside the app" },
               booking_mode: { type: :string, enum: Booking::BOOKING_MODES, nullable: true },
@@ -2056,7 +2073,7 @@ RSpec.configure do |config|
               },
               created_at: { type: :string, format: "date-time" }
             },
-            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets status source
+            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address status source
               booking_mode booking_type
               total_cents to_be_agreed commission_cents refund_cents cancelled_by cancellation_policy expires_at
               responded_at notes listing partner traveller created_at]
@@ -2076,6 +2093,7 @@ RSpec.configure do |config|
               guests: { type: :integer, nullable: true },
               room_guests: ROOM_GUESTS,
               pets: { type: :integer, description: "A stay's pets (RAA-182)" },
+              **DELIVERY_FIELDS,
               total_cents: { type: :integer },
               to_be_agreed: { type: :boolean, description: "Not priced in the app yet (rentals, transfers): settled with the partner" },
               cancellation_policy: {
@@ -2108,7 +2126,7 @@ RSpec.configure do |config|
                 description: "Its history, oldest first"
               }
             },
-            required: %w[id reference status booking_mode starts_on ends_on starts_at ends_at quantity guests room_guests pets total_cents to_be_agreed
+            required: %w[id reference status booking_mode starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address total_cents to_be_agreed
               cancellation_policy expires_at confirmed_at cancelled_at cancelled_by refund_cents cancellable
               refund_if_cancelled_cents free_cancellation_until trip_id trip_item_id booking_type area listing created_at events]
           },

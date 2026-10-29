@@ -46,6 +46,7 @@ module Trips
       read_party(attributes) if @errors.empty?
       read_units(attributes) if @errors.empty?
       attributes[:pickup_time] = pickup_time_value(@item.listing) if @params.key?(:pickup_time)
+      attributes.merge!(delivery_values(@item.listing, @item.slice(*DELIVERY_KEYS).symbolize_keys))
       attributes
     end
 

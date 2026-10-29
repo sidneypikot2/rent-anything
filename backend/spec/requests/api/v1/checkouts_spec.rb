@@ -141,6 +141,30 @@ RSpec.describe "Checkouts", type: :request do
         end
       end
 
+      # Delivery and pick-up (RAA-195): the fees for each of the 2 motorbikes, and the booking
+      # keeps the choice and the address for the partner.
+      response "201", "a rental delivered and collected, its fees in the total" do
+        schema "$ref" => "#/components/schemas/checkout"
+
+        let(:click) { create(:listing, :vehicle, booking_mode: "instant").tap { _1.units.create!(position: 2) } }
+        let!(:item) do
+          create(:trip_item, trip:, listing: click, starts_on: day, ends_on: day + 1, quantity: 2, units: 2,
+            delivery: true, return_pickup: true, delivery_address: "Kota Beach Resort")
+        end
+        let(:item_ids) { [ item.id ] }
+
+        before { click.vehicle_rate.update!(delivery_fee_cents: 15_000, return_pickup_fee_cents: 10_000) }
+
+        run_test! do |response|
+          booking = response.parsed_body["bookings"].sole
+          daily = click.vehicle_rate.daily_price_cents
+          expect(booking["total_cents"]).to eq((daily * 2) + 30_000 + 20_000)
+          expect(booking.slice("delivery", "return_pickup", "delivery_address"))
+            .to eq("delivery" => true, "return_pickup" => true, "delivery_address" => "Kota Beach Resort")
+          expect(Booking.find(booking["id"]).price_breakdown).to include("delivery_cents" => 30_000, "return_pickup_cents" => 20_000)
+        end
+      end
+
       response "422", "a pickup before the motorbike is back" do
         schema "$ref" => "#/components/schemas/validation_errors"
 

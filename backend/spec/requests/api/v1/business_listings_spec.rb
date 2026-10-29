@@ -42,8 +42,12 @@ RSpec.describe "Business listings", type: :request do
       response "200", "the shop's motorbikes, each with its units free on the dates" do
         schema type: :object, properties: {
           business: { "$ref" => "#/components/schemas/business_ref" },
-          listings: { type: :array, items: { "$ref" => "#/components/schemas/business_listing" } }
-        }, required: %w[business listings]
+          listings: { type: :array, items: { "$ref" => "#/components/schemas/business_listing" } },
+          pickup_times: PICKUP_TIMES.merge(
+            description: "A shop of rental vehicles' pickup times on the first day, still ahead, each available " \
+              "when one of its models could start then; null without dates or rental vehicles"
+          )
+        }, required: %w[business listings pickup_times]
 
         run_test! do |response|
           body = response.parsed_body
@@ -52,6 +56,9 @@ RSpec.describe "Business listings", type: :request do
             { "title" => "Honda Click 125i", "units_count" => 6, "units_free" => 4 },
             { "title" => "Yamaha NMAX 155", "units_count" => 1, "units_free" => 1 }
           ])
+          # The shop's pickup times on the first day (RAA-195), 7:00 to 19:00 by the half hour.
+          expect(body["pickup_times"].first).to eq("time" => "07:00", "available" => true)
+          expect(body["pickup_times"].pluck("time")).to include("09:00", "19:00")
           expect(body["listings"].first["details"]).to include("seats" => 2, "transmission" => "automatic", "engine_cc" => 125)
           expect(body["listings"].first["vehicle_rate"]).to include("daily_price_cents" => 50_000)
         end
@@ -62,8 +69,12 @@ RSpec.describe "Business listings", type: :request do
       response "200", "a rental's units free from its pickup time to its return" do
         schema type: :object, properties: {
           business: { "$ref" => "#/components/schemas/business_ref" },
-          listings: { type: :array, items: { "$ref" => "#/components/schemas/business_listing" } }
-        }, required: %w[business listings]
+          listings: { type: :array, items: { "$ref" => "#/components/schemas/business_listing" } },
+          pickup_times: PICKUP_TIMES.merge(
+            description: "A shop of rental vehicles' pickup times on the first day, still ahead, each available " \
+              "when one of its models could start then; null without dates or rental vehicles"
+          )
+        }, required: %w[business listings pickup_times]
         let(:starts_on) { (day + 1).iso8601 }
         let(:ends_on) { (day + 2).iso8601 }
 
@@ -89,8 +100,12 @@ RSpec.describe "Business listings", type: :request do
       response "200", "every active listing without a category; no dates, nothing free counted" do
         schema type: :object, properties: {
           business: { "$ref" => "#/components/schemas/business_ref" },
-          listings: { type: :array, items: { "$ref" => "#/components/schemas/business_listing" } }
-        }, required: %w[business listings]
+          listings: { type: :array, items: { "$ref" => "#/components/schemas/business_listing" } },
+          pickup_times: PICKUP_TIMES.merge(
+            description: "A shop of rental vehicles' pickup times on the first day, still ahead, each available " \
+              "when one of its models could start then; null without dates or rental vehicles"
+          )
+        }, required: %w[business listings pickup_times]
         let(:category) { nil }
         let(:starts_on) { nil }
         let(:ends_on) { nil }
@@ -98,6 +113,7 @@ RSpec.describe "Business listings", type: :request do
         run_test! do |response|
           expect(response.parsed_body["listings"].map { _1["id"] }).to contain_exactly(click.id, nmax.id, stay.id)
           expect(response.parsed_body["listings"].map { _1["units_free"] }.uniq).to eq([ nil ])
+          expect(response.parsed_body["pickup_times"]).to be_nil
         end
       end
 

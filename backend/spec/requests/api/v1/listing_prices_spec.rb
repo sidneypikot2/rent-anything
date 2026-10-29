@@ -34,6 +34,10 @@ RSpec.describe "Listing prices", type: :request do
       parameter name: :pets, in: :query, type: :integer, required: false
       parameter name: :pickup_time, in: :query, type: :string, required: false,
         description: "A vehicle rental's pickup time (\"08:30\"); default the shop's"
+      parameter name: :delivery, in: :query, type: :boolean, required: false,
+        description: "A vehicle rental brought to the guest: adds the shop's delivery fee for each vehicle (RAA-195)"
+      parameter name: :return_pickup, in: :query, type: :boolean, required: false,
+        description: "A vehicle rental collected from the guest at the end: adds the shop's fee for each vehicle"
 
       let(:listing_id) { click.id }
       let(:starts_on) { day.iso8601 }
@@ -53,6 +57,24 @@ RSpec.describe "Listing prices", type: :request do
 
       # A rental runs 24 hours a day from its pickup (RAA-195): Tuesday's pickups open up once
       # Monday's bike is back.
+      # Delivery and pick-up (RAA-195): the shop's fee for each, for each of the 5 motorbikes.
+      response "200", "delivery and pick-up at the end, a line each" do
+        schema "$ref" => "#/components/schemas/listing_price"
+        let(:delivery) { true }
+        let(:return_pickup) { true }
+
+        before { click.vehicle_rate.update!(delivery_fee_cents: 15_000, return_pickup_fee_cents: 0) }
+
+        run_test! do |response|
+          expect(response.parsed_body["total_cents"]).to eq(500_000 + 75_000)
+          expect(response.parsed_body["lines"]).to eq([
+            { "label" => "5 motorbikes × ₱500 × 2 days", "amount_cents" => 500_000 },
+            { "label" => "Delivery · 5 × ₱150", "amount_cents" => 75_000 },
+            { "label" => "Pick-up at the end · 5 × ₱0", "amount_cents" => 0 }
+          ])
+        end
+      end
+
       response "200", "a vehicle rental's pickup times, taken until the bike is back" do
         schema "$ref" => "#/components/schemas/listing_price"
         let(:listing_id) { bike.id }
@@ -185,6 +207,12 @@ RSpec.describe "Listing prices", type: :request do
           let(:pickup_time) { "05:00" }
 
           run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Pickup is from 07:00 to 19:00" ]) }
+        end
+
+        context "with delivery from a shop that doesn't deliver" do
+          let(:delivery) { true }
+
+          run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "This shop doesn't deliver" ]) }
         end
 
         context "with a pickup time for a stay" do

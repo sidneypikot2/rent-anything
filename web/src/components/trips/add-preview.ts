@@ -23,6 +23,8 @@ export type AddListing = {
   units_label?: string;
   // Where guests find it (the API's `group`): "gear" is booked by the count.
   group?: string;
+  // A rental vehicle's rate: its delivery and pick-up fees (RAA-195).
+  vehicle_rate?: { delivery_fee_cents: number | null; return_pickup_fee_cents: number | null } | null;
 };
 
 // What the add sheet shows of a listing. Plain, so server pages build it too.
@@ -42,6 +44,10 @@ export function addPreview(listing: AddListing, by?: string): AddPreview {
     // as many as its people need instead.
     seats: rentalVehicle ? null : count(listing.details?.seats),
     vehicleSeats: rentalVehicle ? count(listing.details?.seats) : null,
+    deliveryFees:
+      rentalVehicle && listing.vehicle_rate
+        ? { delivery: listing.vehicle_rate.delivery_fee_cents, returnPickup: listing.vehicle_rate.return_pickup_fee_cents }
+        : null,
     sleeps: listing.booking_type === "stay" ? count(listing.details?.guests) : null,
     sharedRoom: listing.details?.place_type === "shared_room",
     tourGuests: listing.tour ? { min: listing.tour.min_guests, max: listing.tour.max_guests } : null,
