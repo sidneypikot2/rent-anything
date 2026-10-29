@@ -2147,8 +2147,11 @@ RSpec.configure do |config|
                 description: "Required from a guest without an email yet (their first checkout); ignored otherwise. " \
                   "Partners see these on each booking. An email another guest has answers 409 and emails it a code " \
                   "(POST /api/v1/sign_in_codes/verify)",
-                properties: { name: { type: :string }, email: { type: :string }, phone: { type: :string } },
-                required: %w[name email phone]
+                properties: {
+                  name: { type: :string }, email: { type: :string }, phone: { type: :string },
+                  terms_accepted: { type: :boolean, description: "Agreed to the Terms and Privacy policy; must be true" }
+                },
+                required: %w[name email phone terms_accepted]
               }
             },
             required: %w[trip_id item_ids idempotency_key]

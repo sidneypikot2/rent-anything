@@ -1,5 +1,6 @@
 # Mail to guests who book without an account (RAA-175): their trip link and PIN, sign-in
-# codes, and the reminder before an unregistered guest's trip is deleted. Links go to the
+# codes, the reminder before an unregistered guest's trip is deleted, and the note that an
+# account was deleted. Links go to the
 # web app's pages for them (RAA-177).
 class GuestMailer < ApplicationMailer
   def sign_in_code(user, code)
@@ -24,6 +25,12 @@ class GuestMailer < ApplicationMailer
     @purge_on = trip.purge_on
     @keep_link = web_url("/trips/keep")
     mail(to: @user.email, subject: "#{trip.name} will be deleted on #{@purge_on.to_fs(:long)}")
+  end
+
+  # Sent once the account is gone (Users::DeleteAccount), so it takes plain values.
+  def account_deleted(email, name)
+    @name = name
+    mail(to: email, subject: "Your TripKoNext account has been deleted")
   end
 
   private

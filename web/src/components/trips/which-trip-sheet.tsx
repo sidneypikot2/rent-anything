@@ -6,11 +6,12 @@ import { BagGlyph, CategoryGlyph, GuestsGlyph, MapGlyph } from "@/components/dis
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { Button } from "@/components/ui/button";
 import { DateRangeField } from "@/components/ui/date-range-field";
-import { Dialog, DialogFooter, DialogSummary } from "@/components/ui/dialog";
+import { Dialog, DialogFooter, DialogSummary, useChanged } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Stepper } from "@/components/ui/stepper-field";
 import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
 import { formatPeso } from "@/lib/money";
+import { TO_BE_AGREED } from "@/lib/pricing";
 import { chooseTrip, useChosenTrip } from "./chosen-trip";
 import { daysBetween, formatDateRange, guestLimitHint, itemCount, noNightError, rentLimitHint, todayIso, tripDetails } from "./format";
 import { bedsBooked } from "./beds";
@@ -277,6 +278,9 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   const vehicleSeats = mix ? null : (request.preview?.vehicleSeats ?? null);
   const vehicle = vehicleSeats !== null;
   const [typedUnits, setUnits] = useState<number | null>(null);
+  // Closing asks first once the guest has changed what the sheet opened with. The picked trip
+  // isn't counted: it can settle after the first render (the chosen trip is read on mount).
+  const dirty = useChanged({ startsOn, endsOn, typedQuantity, typedRooms, typedUnits, tripName });
   const vehicleUnits = vehicleSeats ? unitsFor(quantityNumber, vehicleSeats, typedUnits ?? request.units) : undefined;
   // Its pickup time (RAA-195): the booking card's, until the guest picks another; null takes the shop's default.
   const [pickupTime, setPickupTime] = useState<string | null>(request.pickupTime ?? null);
@@ -371,8 +375,13 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
     ? capacityNote(request.preview, quantityNumber, wanted, booked, arrangement?.rooms)
     : null;
 
-  // The trip's short name for the button: "Bantayan Island", not its dates too.
-  const goingTo = choice === "new" ? null : (pickedTrip ?? (typeof target === "object" ? target : undefined))?.name.split(" · ")[0];
+  // The trip's short name for the button: "Bantayan Island", not its dates too. A trip the
+  // server named after its first place and dates ("Bantayan Island · Oct 29–31") is "your trip":
+  // "Add to Bantayan Island" read as adding to the island itself.
+  const goingToTrip = choice === "new" ? null : (pickedTrip ?? (typeof target === "object" ? target : undefined));
+  const goingToRange = goingToTrip && formatDateRange(goingToTrip.starts_on, goingToTrip.ends_on);
+  const goingTo =
+    goingToTrip && (goingToRange && goingToTrip.name.endsWith(` · ${goingToRange}`) ? "your trip" : goingToTrip.name.split(" · ")[0]);
   // A shop's models (RAA-191) are vehicles, not stays.
   const mixNoun = mix?.some((item) => item.units) ? (mix.length === 1 ? "model" : "models") : "stays";
   const mixUnits = mix?.reduce((sum, item) => sum + (item.units ?? 0), 0) ?? 0;
@@ -426,6 +435,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
     <Dialog
       open
       onClose={onClose}
+      dirty={dirty}
       placement="sheet"
       title={request.title}
       meta={
@@ -671,8 +681,20 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
         <DialogFooter
           summary={
             <DialogSummary
-              value={breakdown.price?.total != null ? formatPeso(breakdown.price.total) : (when ?? "No date yet")}
-              detail={breakdown.price?.total != null ? [when, amount].filter(Boolean).join(" · ") : amount}
+              value={
+                breakdown.price?.total != null
+                  ? formatPeso(breakdown.price.total)
+                  : breakdown.price?.toBeAgreed
+                    ? TO_BE_AGREED
+                    : (when ?? "No date yet")
+              }
+              detail={
+                breakdown.price?.total != null || breakdown.price?.toBeAgreed
+                  ? [when, amount, breakdown.price?.total != null && breakdown.price?.toBeAgreed && "plus a price to agree"]
+                      .filter(Boolean)
+                      .join(" · ")
+                  : amount
+              }
               data-testid="which-trip-summary"
             />
           }

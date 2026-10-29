@@ -278,7 +278,7 @@ async function PartnerListings() {
   );
 }
 
-const HERO_ORDER = ["transfer", "stay", "rental", "activity"] as const;
+const HERO_ORDER = ["transfer", "stay", "activity", "rental"] as const;
 
 // What the hero's lede and the example trip promise for each kind, so the proof tells the same
 // story: the van from the port, a cottage, a scooter. The nearest one that matches leads; a kind

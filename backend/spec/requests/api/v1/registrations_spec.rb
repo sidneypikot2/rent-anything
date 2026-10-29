@@ -8,7 +8,8 @@ RSpec.describe "Registrations", type: :request do
       produces "application/json"
       description "`role` is the entry point: `guest` from /login, `partner` from /partner/login. " \
         "Admin accounts are never self-made. `name` and `phone` are optional; the account starts with " \
-        "`registration_complete: false` until PUT /api/v1/me/complete_profile."
+        "`registration_complete: false` until PUT /api/v1/me/complete_profile. `terms_accepted` must be true: " \
+        "the account records when it agreed to the Terms and Privacy policy, and which version."
       parameter name: :body, in: :body, schema: {
         type: :object,
         properties: {
@@ -16,12 +17,15 @@ RSpec.describe "Registrations", type: :request do
           name: { type: :string },
           phone: { type: :string },
           password: { type: :string, minLength: 8 },
-          role: { type: :string, enum: %w[guest partner] }
+          role: { type: :string, enum: %w[guest partner] },
+          terms_accepted: { type: :boolean, description: "Agreed to the Terms and Privacy policy (and, for a partner, the Partner terms)" }
         },
-        required: %w[email password role]
+        required: %w[email password role terms_accepted]
       }
 
-      let(:body) { { email: "Ana@Example.com", name: "Ana Reyes", phone: "+639171234567", password: "password123", role: "guest" } }
+      let(:body) do
+        { email: "Ana@Example.com", name: "Ana Reyes", phone: "+639171234567", password: "password123", role: "guest", terms_accepted: true }
+      end
 
       parameter name: :Authorization, in: :header, required: false, schema: { type: :string },
         description: "A guest with no account yet (RAA-175): their trips move into the account signed in to"
@@ -37,10 +41,11 @@ RSpec.describe "Registrations", type: :request do
         end
       end
 
-      response "201", "account created and signed in" do
+      response "201", "account created and signed in, with the terms it agreed to" do
         schema "$ref" => "#/components/schemas/auth_tokens"
 
         run_test! do |response|
+          expect(User.last).to have_attributes(terms_version: User::TERMS_VERSION, terms_accepted_at: be_within(1.minute).of(Time.current))
           json = response.parsed_body
           expect(json["user"]).to include("email" => "ana@example.com", "role" => "guest")
           expect(User.find_by(email: "ana@example.com")).to be_present
@@ -49,7 +54,7 @@ RSpec.describe "Registrations", type: :request do
 
       response "201", "a guest with no account yet signs up: their trips move into the new account" do
         schema "$ref" => "#/components/schemas/auth_tokens"
-        let(:body) { { email: "ana@example.com", password: "password123", role: "guest" } }
+        let(:body) { { email: "ana@example.com", password: "password123", role: "guest", terms_accepted: true } }
         let(:anonymous) { User.create!(role: "guest") }
         let!(:trip) { create(:trip, user: anonymous) }
         let(:Authorization) { bearer_for(anonymous) }
@@ -62,11 +67,28 @@ RSpec.describe "Registrations", type: :request do
 
       response "201", "email and password alone; the profile is completed later" do
         schema "$ref" => "#/components/schemas/auth_tokens"
-        let(:body) { { email: "ana@example.com", password: "password123", role: "guest" } }
+        let(:body) { { email: "ana@example.com", password: "password123", role: "guest", terms_accepted: true } }
 
         run_test! do |response|
           expect(response.parsed_body["user"]).to include("name" => nil, "phone" => nil, "registration_complete" => false)
         end
+      end
+
+      response "422", "the terms not agreed to" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { super().except(:terms_accepted) }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include(a_string_matching(/Terms/))
+          expect(User.count).to eq(0)
+        end
+      end
+
+      response "422", "the terms given as a string" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { super().merge(terms_accepted: "true") }
+
+        run_test!
       end
 
       response "422", "name given as a number" do

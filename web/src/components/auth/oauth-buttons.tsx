@@ -40,6 +40,11 @@ export function hasOauthProviders() {
   return Boolean(GOOGLE_CLIENT_ID || FACEBOOK_APP_ID);
 }
 
+// The buttons shown, by name, for text about them: "Google", "Facebook" or "Google or Facebook".
+export function oauthProviderNames() {
+  return [GOOGLE_CLIENT_ID && "Google", FACEBOOK_APP_ID && "Facebook"].filter(Boolean).join(" or ");
+}
+
 // "Continue with Google / Facebook". Each provider hands the browser a token, which the
 // backend verifies (POST /api/v1/oauth/:provider) before signing the user in.
 const noSubscribe = () => () => {};

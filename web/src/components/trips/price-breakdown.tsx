@@ -12,9 +12,15 @@ export function combinePrices(prices: (ListingPrice | undefined)[], titles?: str
   const lines = ready.flatMap((price, index) =>
     price.lines.map((line) => ({ ...line, label: titles ? `${titles[index]}: ${line.label}` : line.label })),
   );
+  // A price to be agreed comes back as 0: it adds nothing to the total, and with nothing else
+  // priced there is no total at all, rather than a ₱0 that reads as free.
+  const priced = ready.filter((price) => !price.to_be_agreed);
   return {
     lines,
-    total: ready.every((price) => price.total_cents !== null) ? ready.reduce((sum, price) => sum + (price.total_cents ?? 0), 0) : null,
+    total:
+      priced.length > 0 && priced.every((price) => price.total_cents !== null)
+        ? priced.reduce((sum, price) => sum + (price.total_cents ?? 0), 0)
+        : null,
     deposit: ready.reduce((sum, price) => sum + (price.deposit_cents ?? 0), 0),
     toBeAgreed: ready.some((price) => price.to_be_agreed),
     unavailable: ready.map((price) => price.unavailable).filter(Boolean).join(". ") || null,
@@ -76,7 +82,7 @@ export function PriceBreakdown({ breakdown }: { breakdown: ReturnType<typeof use
         )}
         {price.total !== null && (
           <div className="flex justify-between gap-4 border-t border-line pt-1.5 font-semibold">
-            <dt>Total</dt>
+            <dt>{price.toBeAgreed ? "Total so far" : "Total"}</dt>
             <dd className="tabular-nums" data-testid="add-sheet-total">
               {formatPeso(price.total)}
             </dd>

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { ChoiceCards } from "@/components/ui/choice-cards";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, useChanged } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
 import {
@@ -35,16 +35,19 @@ export function PayoutAccountSheet({
   onClose: () => void;
   onSaved: (account: PayoutAccount) => void;
 }) {
+  // The form's changes, so closing asks first (the form lives below the dialog).
+  const [dirty, setDirty] = useState(false);
   return (
     <Dialog
       open={open}
       onClose={onClose}
+      dirty={open && dirty}
       title={account ? "Edit payout account" : "Add a payout account"}
       placement="sheet"
       data-testid="payout-account-sheet"
     >
       {/* Remounted per opening, so a closed sheet starts again from the account. */}
-      {open && <PayoutAccountForm key={account?.id ?? "new"} account={account} onCancel={onClose} onSaved={onSaved} />}
+      {open && <PayoutAccountForm key={account?.id ?? "new"} account={account} onCancel={onClose} onSaved={onSaved} onDirty={setDirty} />}
     </Dialog>
   );
 }
@@ -53,10 +56,12 @@ function PayoutAccountForm({
   account,
   onCancel,
   onSaved,
+  onDirty,
 }: {
   account?: PayoutAccount;
   onCancel: () => void;
   onSaved: (account: PayoutAccount) => void;
+  onDirty: (dirty: boolean) => void;
 }) {
   const options = usePayoutOptions();
   const create = useCreatePayoutAccount();
@@ -67,6 +72,8 @@ function PayoutAccountForm({
   const [bankCode, setBankCode] = useState(account?.bank_code ?? "");
   const [accountName, setAccountName] = useState(account?.account_name ?? "");
   const [accountNumber, setAccountNumber] = useState("");
+  const dirty = useChanged({ kind, bankCode, accountName, accountNumber });
+  useEffect(() => onDirty(dirty), [dirty, onDirty]);
   const bank = kind === "bank";
   const numberRequired = !account || kind !== account.kind;
 

@@ -178,7 +178,6 @@ export function ListingPanel({
   features,
   instantBook = false,
   dates,
-  unpriced,
 }: {
   listingId: number;
   href: string;
@@ -188,8 +187,6 @@ export function ListingPanel({
   features: Feature[];
   instantBook?: boolean;
   dates?: TripDates;
-  // Set while it has no price: the panel says what adding and booking it mean.
-  unpriced?: string;
 }) {
   const { data: listing, isPending, isError } = useQuery({
     queryKey: ["listing", listingId],
@@ -242,14 +239,6 @@ export function ListingPanel({
             View full listing
           </Link>
         </p>
-      )}
-      {unpriced && (
-        <PanelSection title="Price">
-          <p className="text-sm text-pretty">
-            The partner hasn&apos;t listed a price yet. Saving it to your trip is free, and when you book it, the price
-            is agreed with them.
-          </p>
-        </PanelSection>
       )}
       {listing?.tour && <TourFacts listing={listing} tour={listing.tour} head={false} />}
       {listing?.stay_rate && (
@@ -308,7 +297,11 @@ export function PanelActions({
       ) : price ? (
         <Price {...price} />
       ) : unpriced ? (
-        <span className="text-sm text-muted">{unpriced}</span>
+        // The one place the panel says it: how it is priced, and that saving it costs nothing.
+        <span className="flex flex-col text-sm text-pretty">
+          <span className="font-semibold">{unpriced}</span>
+          <span className="text-muted">Free to save to your trip</span>
+        </span>
       ) : (
         <span />
       )}

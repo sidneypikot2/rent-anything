@@ -40,7 +40,7 @@ export type BookingGroup = (typeof BOOKING_GROUPS)[number];
 // The same groups in the order a trip needs them, getting there first, as the example trip
 // lists them: an area page's What to book and wherever the kinds are offered as shortcuts (the
 // home hero, a search that finds nothing), so they never appear in two orders.
-export const TRIP_ORDER_GROUPS = (["transfer", "stay", "rental", "activity", "gear"] as const).map((key) =>
+export const TRIP_ORDER_GROUPS = (["transfer", "stay", "activity", "rental", "gear"] as const).map((key) =>
   BOOKING_GROUPS.find(({ group }) => group === key)!,
 );
 

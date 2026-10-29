@@ -140,6 +140,7 @@ export function TripCard({
   items,
   needs,
   caption,
+  scroll = false,
 }: {
   compact?: boolean;
   className?: string;
@@ -149,6 +150,9 @@ export function TripCard({
   // What the trip has and lacks of the kinds a trip needs (the hero's own trip), under its items.
   needs?: ReactNode;
   caption: ReactNode;
+  // A long trip's items scroll inside the card (about three rows show), so the card never grows
+  // past the search beside it.
+  scroll?: boolean;
 }) {
   return (
     <figure className={cn("m-0", className)}>
@@ -163,7 +167,16 @@ export function TripCard({
         </div>
         {/* The items hang on one rail through their icons, first stop to last, so the card reads as
             a trip in order rather than a list of purchases. */}
-        <ul className={cn("flex flex-col border-t border-glass-edge", compact ? "pt-1" : "pt-2")}>
+        <ul
+          className={cn(
+            "flex flex-col border-t border-glass-edge",
+            compact ? "pt-1" : "pt-2",
+            scroll && "scroll-glass max-h-64 pr-1 focus-light fold:max-h-44",
+          )}
+          // Focusable while it scrolls, so a keyboard can scroll it too.
+          tabIndex={scroll ? 0 : undefined}
+          aria-label={scroll ? `${title}: items` : undefined}
+        >
           {items.map((item) => (
             <li key={item.key} className={cn("group flex items-stretch", compact ? "gap-2.5" : "gap-3")}>
               <span aria-hidden className="flex shrink-0 flex-col items-center">

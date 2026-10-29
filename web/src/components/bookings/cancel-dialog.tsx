@@ -34,6 +34,8 @@ export function CancelDialog({
     <Dialog
       open
       onClose={() => !cancel.isPending && onClose()}
+      // Asks before throwing away a reason the guest has typed.
+      dirty={reason.trim() !== ""}
       title="Cancel this booking?"
       meta="Its dates are freed for other travellers."
       tone="danger"

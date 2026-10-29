@@ -10,6 +10,7 @@ import { rentalTimes } from "./pickup-time";
 import { deliveryText } from "./delivery-options";
 import { CANCELLATION_POLICY } from "@/components/bookings/cancellation";
 import { checkoutLabel } from "@/components/bookings/checkout-sheet";
+import { BOOKING_STATE } from "@/components/landing/launch-area";
 import { payable, payBy, payTotal } from "@/components/bookings/pay-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -161,13 +162,18 @@ export function TripDetails({
     <Card edge="line" className="flex flex-wrap items-center justify-end gap-x-4 gap-y-3 px-card py-4">
       <div className="min-w-0 flex-1 text-sm">
         <p className="text-muted">
-          {picked.length} of {itemCount(canBook.length)} ticked
+          {picked.length} of {itemCount(canBook.length)} ticked<span className="max-sm:hidden"> to send</span>
         </p>
         {picked.length > 0 && pickedPrice && (
           <p className="font-semibold" data-testid="cart-picked-total">
             {pickedPrice}
           </p>
         )}
+        {/* What sending commits to, beside the button that does it (the critique, 2026-10-29). Not
+            on a phone, where it made the sticky foot cover the items; the sheet it opens says it. */}
+        <p className="text-muted text-pretty max-sm:hidden" data-testid="cart-send-note">
+          A request isn&apos;t a booking yet: {BOOKING_STATE.answer}, and {BOOKING_STATE.unpaid}.
+        </p>
       </div>
       <Button
         type="button"

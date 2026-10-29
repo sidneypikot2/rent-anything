@@ -210,6 +210,19 @@ export function ListingBrowser({
   const [current, setCurrent] = useState<string>(() =>
     initial && groups.some((group) => group.id === initial) ? initial : "all",
   );
+  // Picking a section from the rail or the chips while scrolled into the list: the list gets
+  // shorter, so the window would be left below it, on the next section. Back to its top instead.
+  const root = useRef<HTMLDivElement>(null);
+  const [picked, setPicked] = useState(0);
+  const pick = (id: string) => {
+    setCurrent(id);
+    setPicked((count) => count + 1);
+  };
+  useEffect(() => {
+    if (picked === 0) return;
+    const section = root.current?.closest("section") ?? root.current;
+    if (section && section.getBoundingClientRect().top < 0) section.scrollIntoView({ block: "start" });
+  }, [picked]);
   // Once another section is picked, its rows ease in (animate-swap-in), never on the first paint.
   const [seen, setSeen] = useState(current);
   const [switched, setSwitched] = useState(false);
@@ -334,7 +347,7 @@ export function ListingBrowser({
   const openFilters = (id: string) => setEditing({ id, draft: filtersOf(id) });
 
   return (
-    <div className={cn("relative grid gap-5", rail && "lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-6")}>
+    <div ref={root} className={cn("relative grid gap-5", rail && "lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-6")}>
       <MapSkipLink />
       {/* Under the stuck search bar, scrolling on its own if the window is short. */}
       {/* Below lg its contents join the grid, so the chips can stick for the whole list. */}
@@ -392,7 +405,7 @@ export function ListingBrowser({
                   key={option.id}
                   type="button"
                   aria-pressed={on}
-                  onClick={() => setCurrent(option.id)}
+                  onClick={() => pick(option.id)}
                   className={cn(
                     // On a phone each is a chip, so the row reads as something to tap on the pale section.
                     "flex min-h-11 shrink-0 items-center gap-2 rounded-chip px-3.5 text-sm whitespace-nowrap transition-colors duration-150 ease-calm",
@@ -419,7 +432,7 @@ export function ListingBrowser({
                     {option.icon ? <CategoryGlyph name={option.icon} className="size-4" /> : <GridGlyph className="size-4" />}
                   </span>
                   <span className="flex items-center gap-1.5">
-                    {option.mark === "missing" && <span aria-hidden className="size-2 shrink-0 rounded-full bg-warning" />}
+                    {option.mark === "missing" && <span aria-hidden className="size-2 shrink-0 rounded-full bg-danger" />}
                     {option.title}
                     {option.mark === "has" && <TickGlyph className={cn("size-3.5 shrink-0", on ? "text-mint" : "text-forest", rail && on && "lg:text-forest")} />}
                     {option.mark && <span className="sr-only">{option.mark === "missing" ? ", missing from your trip" : ", in your trip"}</span>}
@@ -437,7 +450,7 @@ export function ListingBrowser({
             {rail && options.some((option) => option.mark) && (
               <p aria-hidden className="hidden flex-wrap items-center gap-x-3 gap-y-1 border-t border-line px-2.5 pt-2.5 pb-1 text-xs text-muted lg:flex">
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-warning" />
+                  <span className="size-2 rounded-full bg-danger" />
                   Your trip still needs
                 </span>
                 <span className="flex items-center gap-1.5">
@@ -476,7 +489,7 @@ export function ListingBrowser({
               Showing <span className="font-semibold text-foreground">{opened.title}</span>
               {placeName && <> on {placeName}</>}
             </span>
-            <TextButton onClick={() => setCurrent("all")} className="min-h-11">
+            <TextButton onClick={() => pick("all")} className="min-h-11">
               Show everything
             </TextButton>
           </p>
@@ -538,7 +551,7 @@ export function ListingBrowser({
                   {/* With a trip shown, whether it needs this section: said once under the title. */}
                   {trip && markOf(group) === "missing" && (
                     <p data-testid="section-needed" className="-mt-1 flex items-center gap-2 text-sm font-semibold">
-                      <span aria-hidden className="size-2 shrink-0 rounded-full bg-warning" />
+                      <span aria-hidden className="size-2 shrink-0 rounded-full bg-danger" />
                       {neededLine(group)}
                     </p>
                   )}

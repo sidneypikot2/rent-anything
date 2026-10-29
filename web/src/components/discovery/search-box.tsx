@@ -672,7 +672,7 @@ export function SearchBox({
           )}
         >
           <label
-            className={cn(STOP, WHERE_FOCUS, "cursor-text max-search:order-1 search:flex-[1.5]", panel === "where" && STOP_ON)}
+            className={cn(STOP, "cursor-text max-search:order-1 search:flex-[1.5]", panel === "where" && STOP_ON)}
           >
             <RouteMark set={whereSet} open={panel === "where"} traced={whereSet && dateSet} />
             {/* It takes a place or a thing ("scooter"), which a typed Search looks for in the place. */}
@@ -823,11 +823,8 @@ const IN_SHEET = "max-search:static max-search:shadow-none";
 // Each stop is a control, so it tints like a field on hover, on focus and while its panel is open
 // (STOP_ON), behind its dot and words.
 const STOP =
-  "group/stop relative isolate flex min-w-0 flex-col gap-px text-left focus-visible:outline-none max-search:pb-4 max-search:pl-7.5 search:flex-1 search:pt-8 search:pr-4 search:pb-2 before:absolute before:-inset-x-2 before:inset-y-0 before:-z-10 before:rounded-control before:bg-mist before:opacity-0 before:transition-opacity before:duration-300 before:ease-calm hover:before:opacity-100 focus-visible:before:opacity-100 focus-within:before:opacity-100";
+  "group/stop relative isolate flex min-w-0 flex-col gap-px text-left focus-visible:outline-none max-search:pb-4 max-search:pl-7.5 search:flex-1 search:pt-8 search:pr-4 search:pb-2 before:absolute before:-left-2 before:-right-2 search:before:right-2 before:inset-y-0 before:-z-10 before:rounded-control before:bg-mist before:opacity-0 before:transition-opacity before:duration-300 before:ease-calm hover:before:opacity-100 focus-visible:before:opacity-100 focus-within:before:opacity-100";
 const STOP_ON = "before:opacity-100";
-// Where is a text field, and the mist tint alone barely shows on the white card: focused, its
-// tint gets a ring in the action colour, as When's and Guests' pills do.
-const WHERE_FOCUS = "has-[input:focus-visible]:before:ring-2 has-[input:focus-visible]:before:ring-action-edge";
 // When and Guests hold their value in a soft pill with a chevron, so they read as something to
 // press at rest (a phone has no hover to find them by); it deepens on hover and fills while its
 // panel is open, the chevron turning up. Pulled back by its padding so the value lines up with

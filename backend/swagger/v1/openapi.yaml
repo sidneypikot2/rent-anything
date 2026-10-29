@@ -1864,6 +1864,42 @@ paths:
                 phone:
                   type: string
                   nullable: true
+    delete:
+      summary: Delete the signed-in guest's account
+      tags:
+      - Auth
+      description: 'Guests only: deletes the account, its trips, sign-ins and sessions
+        at once, and emails a confirmation. Partners'' records of past bookings stay.
+        409 while a booking is still open; 403 for partners and admins, whose accounts
+        the team closes on request.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '204':
+          description: account deleted
+        '409':
+          description: a booking is still open
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/partner/me":
     get:
       summary: The signed-in partner
@@ -1903,7 +1939,10 @@ paths:
       - Auth
       description: "`token` is a Google Identity Services ID token or a Facebook Login
         access token. It signs in to, links or creates an account of `role` only,
-        so one Google account can have a guest and a partner account."
+        so one Google account can have a guest and a partner account. Creating an
+        account needs `terms_accepted: true` (the web app sends it: sign-up asks first,
+        and a sign-in page says that continuing agrees); signing in to or linking
+        an existing account doesn't."
       parameters:
       - name: provider
         in: path
@@ -1922,11 +1961,17 @@ paths:
           the account signed in to'
       responses:
         '200':
-          description: a new user is created with the entry point's role
+          description: an existing account signs in without the terms flag
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/auth_tokens"
+        '422':
+          description: token missing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
         '401':
           description: the provider rejects the token
           content:
@@ -1939,12 +1984,6 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
-        '422':
-          description: token missing
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/validation_errors"
         '429':
           description: too many attempts from one IP
           content:
@@ -1964,6 +2003,10 @@ paths:
                   enum:
                   - guest
                   - partner
+                terms_accepted:
+                  type: boolean
+                  description: Agreed to the Terms and Privacy policy; needed to create
+                    an account
               required:
               - token
               - role
@@ -3636,7 +3679,8 @@ paths:
       description: "`role` is the entry point: `guest` from /login, `partner` from
         /partner/login. Admin accounts are never self-made. `name` and `phone` are
         optional; the account starts with `registration_complete: false` until PUT
-        /api/v1/me/complete_profile."
+        /api/v1/me/complete_profile. `terms_accepted` must be true: the account records
+        when it agreed to the Terms and Privacy policy, and which version."
       parameters:
       - name: Authorization
         in: header
@@ -3684,10 +3728,15 @@ paths:
                   enum:
                   - guest
                   - partner
+                terms_accepted:
+                  type: boolean
+                  description: Agreed to the Terms and Privacy policy (and, for a
+                    partner, the Partner terms)
               required:
               - email
               - password
               - role
+              - terms_accepted
   "/api/v1/search_events":
     post:
       summary: Record a search
@@ -9402,10 +9451,14 @@ components:
               type: string
             phone:
               type: string
+            terms_accepted:
+              type: boolean
+              description: Agreed to the Terms and Privacy policy; must be true
           required:
           - name
           - email
           - phone
+          - terms_accepted
       required:
       - trip_id
       - item_ids

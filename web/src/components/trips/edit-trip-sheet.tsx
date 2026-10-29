@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { GuestsGlyph } from "@/components/discovery/tag-glyphs";
-import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogFooter, useChanged } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Stepper } from "@/components/ui/stepper-field";
 import { Ticket, TicketRow } from "@/components/ui/ticket";
@@ -27,6 +27,8 @@ export function EditTripSheet({ trip, focus, onClose, onSaved }: Props) {
   const [name, setName] = useState(trip.name);
   const [{ from: startsOn, to: endsOn }, setDates] = useState({ from: trip.starts_on ?? "", to: trip.ends_on ?? "" });
   const [guests, setGuests] = useState(String(trip.guests));
+  // Closing asks first once something here has changed.
+  const dirty = useChanged({ name, startsOn, endsOn, guests });
   const update = useUpdateTrip();
 
   const dateError = Boolean(startsOn) !== Boolean(endsOn) ? "Pick both dates, or neither" : undefined;
@@ -48,7 +50,7 @@ export function EditTripSheet({ trip, focus, onClose, onSaved }: Props) {
 
   return (
     // Named after the trip it edits (the modal redesign).
-    <Dialog open onClose={onClose} placement="sheet" title={trip.name} meta="Rename it, or change its dates and guests" data-testid="edit-trip-sheet">
+    <Dialog open onClose={onClose} dirty={dirty} placement="sheet" title={trip.name} meta="Rename it, or change its dates and guests" data-testid="edit-trip-sheet">
       <form onSubmit={submit} className="flex flex-1 flex-col gap-4">
         <fieldset disabled={update.isPending} className="flex flex-col gap-4">
           <Field

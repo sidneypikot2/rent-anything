@@ -9,6 +9,7 @@ import { startingArrangement, stayPriceLine, stayQuoteQuery } from "@/components
 import { TourFacts, tourPriceLine } from "@/components/discovery/tour-facts";
 import { VehicleBookingCard } from "@/components/discovery/vehicle-booking-card";
 import { VehiclePrice, vehiclePriceLine } from "@/components/discovery/vehicle-price";
+import { BookJumpBar } from "@/components/discovery/book-jump-bar";
 import { CurrentPlace } from "@/components/landing/current-place";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
@@ -38,6 +39,8 @@ export async function generateMetadata(props: PageProps<"/listings/[id]">): Prom
 // only; it never shows the location. A priced stay shows its nightly price and, with the trip's
 // dates, what the stay costs from /quotes (RAA-105); a tour shows its facts and price (RAA-111);
 // a vehicle its rates, confirmed with the partner (RAA-150); other categories have no price yet.
+const FREE_TO_SAVE = "Saving to a trip is free, and there's nothing to pay yet.";
+
 export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   const id = listingId((await props.params).id);
   if (!id) notFound();
@@ -67,6 +70,15 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
       : tour
         ? tourPriceLine(tour)
         : vehicleRate && vehiclePriceLine(vehicleRate);
+
+  // A stay's or a vehicle's own card holds its price and Add to trip, so the page prices it once.
+  const booker = Boolean(rate || (vehicleRate && vehicleSeats));
+  const addAside = (
+    <div id="book-add" className="flex flex-col items-start gap-1">
+      <p className="text-sm text-muted">{FREE_TO_SAVE}</p>
+      <InTripBadge listingId={listing.id} />
+    </div>
+  );
 
   return (
     <main className="flex flex-1 flex-col">
@@ -103,37 +115,67 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
       <PageSheet>
         <div className="mx-auto flex w-full max-w-narrow flex-col gap-block px-gutter py-page-pad">
         <TripAddProvider>
-          {/* The page's one action. On a phone it comes last and sticks to the window's foot, so
-              Add to trip is on the first screen and stays in reach while the guest reads; the
-              header's search owns the dates and guests, and the add sheet confirms them. */}
-          <Card
-            data-testid="listing-add"
-            className="max-sm:sticky max-sm:bottom-[calc(0.5rem+env(safe-area-inset-bottom))] max-sm:z-20 max-sm:order-last max-sm:shadow-float"
-          >
-            <CardBody className="flex flex-wrap items-center justify-between gap-3 max-sm:flex-nowrap max-sm:px-4 max-sm:py-3">
-              <div className="flex min-w-0 flex-col items-start gap-1">
-                {/* The price once, beside the action: the banner names the listing, this card prices it. */}
+          {booker ? (
+            <>
+              {/* A stay picks its rooms and a vehicle its party in its own card, which holds Add to
+                  trip and leads the sheet; on a phone the foot points down to it. */}
+              <BookJumpBar target="book" watch="book-add" label={rate ? "Choose rooms" : "Choose vehicles"}>
                 {priceLine && (
-                  <p data-testid="listing-price" className="font-semibold text-pretty max-sm:text-sm">
+                  <p data-testid="listing-price" className="text-sm font-semibold text-pretty">
                     {priceLine}
                   </p>
                 )}
-                <p className="text-sm text-muted max-sm:hidden">Saving to a trip is free, and there&apos;s nothing to pay yet.</p>
-                <InTripBadge listingId={listing.id} />
+              </BookJumpBar>
+              <div id="book" className="flex flex-col">
+                {rate ? (
+                  <StayPrice
+                    key={tripDatesQuery(dates)}
+                    listing={listing}
+                    rate={rate}
+                    dates={dates}
+                    initialQuote={quote}
+                    add
+                    aside={addAside}
+                  />
+                ) : (
+                  vehicleRate &&
+                  vehicleSeats && (
+                    <VehicleBookingCard
+                      key={tripDatesQuery(dates)}
+                      listing={listing}
+                      rate={vehicleRate}
+                      dates={dates}
+                      seats={vehicleSeats}
+                      aside={addAside}
+                    />
+                  )
+                )}
               </div>
-              {/* A stay's Add to trip ends its price card, under the rooms picked there. */}
-              {!rate && !vehicleSeats && <AddToTripButton listing={listing} dates={dates} />}
-            </CardBody>
-          </Card>
+            </>
+          ) : (
+            // The page's one action. On a phone it comes last and sticks to the window's foot, so
+            // Add to trip is on the first screen and stays in reach while the guest reads; the
+            // header's search owns the dates and guests, and the add sheet confirms them.
+            <Card
+              data-testid="listing-add"
+              className="max-sm:sticky max-sm:bottom-[calc(0.5rem+env(safe-area-inset-bottom))] max-sm:z-20 max-sm:order-last max-sm:shadow-float"
+            >
+              <CardBody className="flex flex-wrap items-center justify-between gap-3 max-sm:flex-nowrap max-sm:px-4 max-sm:py-3">
+                <div className="flex min-w-0 flex-col items-start gap-1">
+                  {priceLine && (
+                    <p data-testid="listing-price" className="font-semibold text-pretty max-sm:text-sm">
+                      {priceLine}
+                    </p>
+                  )}
+                  <p className="text-sm text-muted max-sm:hidden">{FREE_TO_SAVE}</p>
+                  <InTripBadge listingId={listing.id} />
+                </div>
+                <AddToTripButton listing={listing} dates={dates} />
+              </CardBody>
+            </Card>
+          )}
 
           {tour && <TourFacts listing={listing} tour={tour} />}
-
-          {rate && (
-            <StayPrice key={tripDatesQuery(dates)} listing={listing} rate={rate} dates={dates} initialQuote={quote} add />
-          )}
-          {vehicleRate && vehicleSeats && (
-            <VehicleBookingCard key={tripDatesQuery(dates)} listing={listing} rate={vehicleRate} dates={dates} seats={vehicleSeats} />
-          )}
         </TripAddProvider>
 
         {vehicleRate && <VehiclePrice listing={listing} rate={vehicleRate} />}

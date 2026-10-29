@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { GuestsGlyph } from "@/components/discovery/tag-glyphs";
-import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogFooter, useChanged } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Stepper } from "@/components/ui/stepper-field";
 import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
@@ -37,6 +37,8 @@ export function RecreateTripSheet({
   const [name, setName] = useState(`${trip.name.slice(0, 74)} again`);
   const [startsOn, setStartsOn] = useState("");
   const [guests, setGuests] = useState(trip.guests);
+  // Closing asks first once something here has changed.
+  const dirty = useChanged({ name, startsOn, guests });
   const copy = useCopyTrip();
   const shift = dated && startsOn ? daysBetween(trip.starts_on!, startsOn) : null;
   const ready = Boolean(name.trim()) && (!dated || Boolean(startsOn));
@@ -58,7 +60,7 @@ export function RecreateTripSheet({
     // Named after the trip being planned again (the modal redesign).
     <Dialog
       open
-      onClose={onClose}
+      onClose={onClose} dirty={dirty}
       placement="sheet"
       title={trip.name}
       meta={`Plan it again: the same ${trip.items.length === 1 ? "item" : "items"} in a new trip, nothing booked`}

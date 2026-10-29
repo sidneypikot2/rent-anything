@@ -9,7 +9,7 @@ import { BOOKING_STATE } from "@/components/landing/launch-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DateRangeField } from "@/components/ui/date-range-field";
-import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogFooter, useChanged } from "@/components/ui/dialog";
 import { Stepper } from "@/components/ui/stepper-field";
 import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
 import { daysBetween, guestLimitHint, noNightError, RANGE_TYPES, rentLimitHint, todayIso } from "./format";
@@ -70,6 +70,8 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
   });
   const rules = stay && listing ? stayRules(listing.details, listing.units_count, listing.fees) : null;
   const [typedRooms, setRooms] = useState<{ rooms: Room[]; pets: number } | null>(null);
+  // Closing asks first once something here has changed.
+  const dirty = useChanged({ startsOn, endsOn, guests, units, typedRooms });
   const arrangement = rules ? (typedRooms ?? { rooms: startingRooms(trip, item, rules), pets: item.pets }) : null;
 
   // A single-day booking has one date; the API takes it as from–to of that day.
@@ -109,7 +111,7 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
     // changes, the button says it saves.
     <Dialog
       open
-      onClose={onClose}
+      onClose={onClose} dirty={dirty}
       placement="sheet"
       title={item.listing.title}
       meta={

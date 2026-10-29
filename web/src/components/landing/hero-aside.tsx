@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { GROUP_ICON } from "@/components/discovery/categories";
+import { GROUP_ICON, TRIP_ORDER_GROUPS } from "@/components/discovery/categories";
 import { KindChip, kindsLine, TRIP_KINDS } from "@/components/trips/trip-needs";
 import { readTripDates, tripDatesQuery, withDates } from "@/components/trips/trip-dates";
 import type { Trip } from "@/components/trips/use-trips";
@@ -18,12 +18,12 @@ import { LAUNCH_AREA, tripHref } from "./launch-area";
 export function HeroAside({ children }: { children: ReactNode }) {
   const trip = useContinueTrip();
   if (!trip || trip.items.length === 0) return children;
-  const shown = trip.items.slice(0, SHOWN);
-  const more = trip.items.length - shown.length;
+  const shown = byKind(trip.items);
   return (
     <TripCard
       compact
       title={trip.name}
+      scroll={shown.length > SHOWN}
       details={[trip.starts_on ? tripWhen(trip) : "No dates yet", guestCount(trip.guests)].filter(Boolean).join(" · ")}
       items={shown.map((item) => ({
         key: item.id,
@@ -36,7 +36,7 @@ export function HeroAside({ children }: { children: ReactNode }) {
       needs={<TripKinds trip={trip} />}
       caption={
         <span className="flex items-center justify-between gap-3">
-          <span>Your trip{more > 0 && `, and ${more} more`}.</span>
+          <span>Your trip.</span>
           <Link
             href={tripHref(trip.id)}
             className="-my-3 flex min-h-11 items-center font-semibold text-white underline underline-offset-4 hover:text-sky-pale"
@@ -49,8 +49,23 @@ export function HeroAside({ children }: { children: ReactNode }) {
   );
 }
 
-// As many as the example shows, so the card is never taller than the search beside it.
-const SHOWN = 5;
+// Past as many as the example shows, the items scroll, so the card is never taller than the
+// search beside it.
+const SHOWN = 3;
+
+// In the order a trip needs them (TRIP_ORDER_GROUPS, as the chips under them), by date within a
+// kind.
+const KIND_ORDER: string[] = TRIP_ORDER_GROUPS.map(({ group }) => group);
+
+function byKind(items: TripItem[]) {
+  const rank = (item: TripItem) => {
+    const at = KIND_ORDER.indexOf(item.listing.group);
+    return at === -1 ? KIND_ORDER.length : at;
+  };
+  return [...items].sort(
+    (a, b) => rank(a) - rank(b) || (a.starts_on ?? "\uffff").localeCompare(b.starts_on ?? "\uffff"),
+  );
+}
 
 function itemWhen(item: TripItem) {
   if (!item.starts_on) return "No date";

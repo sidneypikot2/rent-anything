@@ -1,6 +1,8 @@
 import { PlaceholderBlock } from "@/components/landing/placeholder-block";
 import { PayoutSettings } from "@/components/partner/payout-settings";
+import { Card, CardBody } from "@/components/ui/card";
 import { DisplayTitle } from "@/components/ui/typography";
+import { SUPPORT_EMAIL } from "@/lib/brand";
 
 const PANELS = [
   { title: "Sign-in methods", note: "Password, Google and Facebook (M1)" },
@@ -22,6 +24,19 @@ export default function PartnerSettings() {
           <PlaceholderBlock key={panel.title} {...panel} />
         ))}
       </div>
+      {/* Partners can't delete themselves: their listings, businesses and payouts are closed by the team. */}
+      <Card className="w-full max-w-narrow" data-testid="partner-close-account">
+        <CardBody>
+          <h2 className="font-semibold">Close your account</h2>
+          <p className="mt-1 text-sm text-pretty text-muted">
+            Email{" "}
+            <a href={`mailto:${SUPPORT_EMAIL}?subject=Close my partner account`} className="font-semibold text-link underline underline-offset-4">
+              {SUPPORT_EMAIL}
+            </a>{" "}
+            from your account&apos;s email address. We finish your open bookings and payouts with you, then delete your account.
+          </p>
+        </CardBody>
+      </Card>
     </main>
   );
 }

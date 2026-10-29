@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState, type ComponentProps, type KeyboardEvent } from "react";
+import { MENU_ROW, MENU_SURFACE } from "./menu";
 import { cn } from "./cn";
 import { FieldNote, useFieldError } from "./field-error";
 import { controlClasses, floatingLabelClasses, useFieldLook } from "./field-look";
@@ -124,7 +125,8 @@ export function ComboboxField({
           id={listId}
           role="listbox"
           aria-label={label}
-          className="absolute top-full z-20 mt-1 max-h-60 w-full overflow-y-auto card-edge rounded-control bg-surface py-1 font-normal shadow-lift"
+          // The menus' card and rows (MENU_SURFACE, MENU_ROW), so every list that drops open looks the same.
+          className={cn(MENU_SURFACE, "absolute top-full z-20 mt-1 max-h-64 w-full overflow-y-auto")}
         >
           {shown.map((option, index) => (
             <li
@@ -137,7 +139,7 @@ export function ComboboxField({
                 event.preventDefault();
                 pick(option);
               }}
-              className={cn("cursor-pointer px-4 py-2.5 text-foreground", index === active && "bg-surface-2")}
+              className={cn(MENU_ROW, "cursor-pointer text-foreground", index === active && "bg-mist")}
             >
               {option.label}
             </li>

@@ -21,7 +21,7 @@ export default async function Cart(props: PageProps<"/cart">) {
     <main data-testid="cart" className="flex flex-1 flex-col">
       <PageBanner title={<DisplayTitle size="compact">Trips you&apos;re planning</DisplayTitle>} search={false} compact>
         <ButtonLink href="/trips" variant="soft" size="sm" className="shrink-0">
-          All trips
+          Booked trips
         </ButtonLink>
       </PageBanner>
       <PageSheet tone="paper">

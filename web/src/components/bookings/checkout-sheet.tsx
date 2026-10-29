@@ -8,11 +8,13 @@ import {
   itemPriceLabel,
   itemQuote,
   pickedTotal,
+  quoteTotal,
   useTripQuote,
   type Trip,
   type TripItem,
 } from "@/components/trips/use-trips";
 import { Button } from "@/components/ui/button";
+import { ConsentField } from "@/components/legal/consent-field";
 import { Dialog, DialogSummary } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { TripLinkCard } from "@/components/guest/trip-link-card";
@@ -51,6 +53,8 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
   const [codeFor, setCodeFor] = useState<string | null>(null);
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState<string>();
+  // Whether the guest has typed their contact details: closing then asks first, until it's sent.
+  const [typed, setTyped] = useState(false);
   const result = checkout.data;
   const error = checkout.error instanceof CodeRequiredError ? null : checkout.error;
   // What the picked items come to, from the trip's quote (cached from the cart), for the action bar.
@@ -84,13 +88,19 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
     const form = new FormData(event.currentTarget);
     const e164 = toE164(phone);
     if (!e164) return setPhoneError(PHONE_ERROR);
-    send({ name: String(form.get("name") ?? "").trim(), email: String(form.get("email") ?? "").trim(), phone: e164 });
+    send({
+      name: String(form.get("name") ?? "").trim(),
+      email: String(form.get("email") ?? "").trim(),
+      phone: e164,
+      terms_accepted: form.get("terms") === "on",
+    });
   }
 
   return (
     <Dialog
       open
       onClose={close}
+      dirty={typed && !result}
       placement="sheet"
       // Named after the trip (the modal redesign); the button says what happens to its items.
       title={result ? bookedTitle(result) : codeFor ? "Check your email" : trip.name}
@@ -98,7 +108,10 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
       data-testid="checkout-sheet"
       summary={
         result ? (
-          <DialogSummary value={formatPeso(result.total_cents)} detail="Total" />
+          <DialogSummary
+            value={quoteTotal(result.total_cents, result.bookings.filter((booking) => booking.to_be_agreed).length)}
+            detail="Total"
+          />
         ) : codeFor ? undefined : (
           <DialogSummary
             value={<span data-testid="checkout-total">{total ?? (quote.isPending ? "Working out the total…" : "—")}</span>}
@@ -130,7 +143,7 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
           }}
         />
       ) : (
-        <form id="checkout-form" onSubmit={submit} className="flex flex-col gap-4">
+        <form id="checkout-form" onSubmit={submit} onInput={() => setTyped(true)} className="flex flex-col gap-4">
           <Picked trip={trip} items={items} />
           {anonymous && (
             <fieldset disabled={checkout.isPending} data-testid="checkout-contact" className="flex flex-col gap-3">
@@ -151,6 +164,7 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
                 }}
                 error={phoneError}
               />
+              <ConsentField />
             </fieldset>
           )}
         </form>

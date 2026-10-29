@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { GuestsGlyph } from "@/components/discovery/tag-glyphs";
-import { Dialog, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogFooter, useChanged } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Stepper } from "@/components/ui/stepper-field";
 import { Ticket, TicketRow } from "@/components/ui/ticket";
@@ -22,6 +22,8 @@ export function NewTripSheet({ onClose, onCreated }: Props) {
   const [name, setName] = useState("");
   const [{ from: startsOn, to: endsOn }, setDates] = useState({ from: "", to: "" });
   const [guests, setGuests] = useState("1");
+  // Closing asks first once something here has changed.
+  const dirty = useChanged({ name, startsOn, endsOn, guests });
   const create = useCreateTrip();
 
   const dateError = Boolean(startsOn) !== Boolean(endsOn) ? "Pick both dates, or neither" : undefined;
@@ -38,7 +40,7 @@ export function NewTripSheet({ onClose, onCreated }: Props) {
   }
 
   return (
-    <Dialog open onClose={onClose} placement="sheet" title="A new trip" meta="Name it, then add things from any place" data-testid="new-trip-sheet">
+    <Dialog open onClose={onClose} dirty={dirty} placement="sheet" title="A new trip" meta="Name it, then add things from any place" data-testid="new-trip-sheet">
       <form onSubmit={submit} className="flex flex-1 flex-col gap-4">
         <fieldset disabled={create.isPending} className="flex flex-col gap-4">
           <Field

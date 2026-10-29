@@ -9,7 +9,7 @@ RSpec.describe Auth::OauthSignIn do
   end
 
   def sign_in(provider: "google", role: "guest")
-    described_class.call(provider: provider, token: "token", role: role)
+    described_class.call(provider: provider, token: "token", role: role, terms_accepted: true)
   end
 
   it "signs in the user already linked to the identity" do

@@ -9,14 +9,14 @@ import Image from "next/image";
 // a phone's toolbar collapses. Navy stands in until the photo arrives, so the first paint is
 // dark under the white text rather than grey. The photo is decorative.
 // The home hero shows this photo too, with these sizes: different sizes pick different widths
-// from the srcset, and the browser downloads both. `placeholder` is the photo at 8×5, which the
+// from the srcset, and the browser downloads both. `placeholder` is the photo at 8×4, which the
 // browser blurs and shows until the photo arrives, so the hero opens on the sea's colours
-// rather than a black frame.
+// rather than a black frame. The photo is Bantayan Island's own lagoon and village.
 export const BACKDROP_PHOTO = {
-  src: "/images/hero.jpg",
+  src: "/images/bantayan-port.jpg",
   sizes: "100vw",
   placeholder:
-    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAFCAIAAAD38zoCAAAAiElEQVQIHQF9AIL/AWuGYOEkKsITGST38uoLIhTu7SjUyQn/+AT7+fnZ9fkJCgbeARjx6err+fvjFCMG1dsDMDgnAfz0Bv773vYGAPf5B/8AAAwLBQsIAyghECkRCgjk2wjy9fj19/f9/grz9Q7p6wQDAhHm3uTn6/0OAMsU7QgXEQvuFg/3+ghudz22hg+71QAAAABJRU5ErkJggg==" as const,
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAECAIAAAA8r+mnAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAACKADAAQAAAABAAAABAAAAABQdJZTAAAAb0lEQVQIHQFkAJv/AWyr5fn+APr+//oAAgYD/goD/gUCAAcB+wSl1NsUEPsh/uMG790bAOwH/uwIAwj19PMD+RY57efs4vwB7A4NCRkWAw0QDg8PAwT+BAHp5QD+//zrBOwXDrr8FAAWFQz69hf9Eh1oLJOTI/izAAAAAElFTkSuQmCC" as const,
 };
 
 export function SiteBackdrop() {

@@ -1,7 +1,16 @@
 "use client";
 
-import { useEffect, useId, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import { AlertGlyph, CloseGlyph } from "@/components/discovery/tag-glyphs";
+import { Button } from "./button";
 import { cn } from "./cn";
 
 // Every dialog is one anatomy (the modal redesign, 2026-10-28): a grab handle on a phone, a
@@ -10,6 +19,11 @@ import { cn } from "./cn";
 // total, what the button will do) and the actions. On a phone the dialog docks to the bottom
 // and can be dragged down to close; from sm it is a centred card. A side panel and the drawer
 // keep their places but share the close disc and action bar.
+//
+// Closing (2026-10-29, the team's pick after RAA-194): a click outside, Escape, a drag down or
+// the close disc all close a dialog, as on iOS and Android, unless it is `dirty` (a form holding
+// changes): then any of them asks "Discard changes?" first. Only a click pressed and released
+// outside counts, so a selection or a press that slid out (a button that moved) never closes one.
 const PLACEMENTS = {
   // A confirmation or short step: docked on a phone like a sheet, a narrower card from sm.
   center:
@@ -64,8 +78,19 @@ type Props = {
   // while only the body scrolls. Opt-in, as a scrolling body clips a field's popover (the date
   // picker), so a sheet holding fields keeps scrolling as a whole (its action bar still sticks).
   pinned?: boolean;
+  // A form holding changes that closing would lose: closing then asks "Discard changes?" first.
+  // useChanged() gives it from the form's values. Closing it yourself (open={false}, after a
+  // save) never asks.
+  dirty?: boolean;
   "data-testid"?: string;
 };
+
+// Whether a form's values differ from those it opened with, for Dialog's `dirty`. The values
+// are compared as JSON, so pass a small object of what the person can change.
+export function useChanged(values: unknown) {
+  const [first] = useState(() => JSON.stringify(values));
+  return JSON.stringify(values) !== first;
+}
 
 // The action bar's classes, for a sheet whose buttons live in its own <form> (DialogFooter).
 export const ACTION_BAR =
@@ -126,9 +151,8 @@ function CloseDisc({ onClose, floating = false }: { onClose: () => void; floatin
   );
 }
 
-// A modal over the page: the native <dialog>, so focus stays inside it and Escape closes it. A
-// click beside it does nothing: a click that lands there by mistake (a button that moved) must not
-// throw away what was filled in. The close disc, Escape or a drag down closes it.
+// A modal over the page: the native <dialog>, so focus stays inside it. Every way of closing
+// goes through requestClose (see Closing, above).
 export function Dialog({
   open,
   onClose,
@@ -142,11 +166,26 @@ export function Dialog({
   tone,
   placement = "center",
   pinned = false,
+  dirty = false,
   "data-testid": testId,
 }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const drag = useRef<{ y: number; dy: number } | null>(null);
+  const [asking, setAsking] = useState(false);
+  // Whether the press being followed began outside the dialog, on its backdrop.
+  const pressedOutside = useRef(false);
+
+  const requestClose = () => (dirty ? setAsking(true) : onClose());
+
+  // The backdrop is the <dialog> itself: a point on it but outside its box is outside. A nested
+  // dialog's events bubble here through React, so only this dialog's own count.
+  const outside = (event: ReactMouseEvent<HTMLDialogElement>) => {
+    const dialog = event.currentTarget;
+    if (event.target !== dialog) return false;
+    const box = dialog.getBoundingClientRect();
+    return event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom;
+  };
 
   useEffect(() => {
     const dialog = ref.current;
@@ -178,7 +217,7 @@ export function Dialog({
     if (!dialog) return;
     dialog.style.transition = "transform 300ms var(--ease-calm)";
     dialog.style.transform = "";
-    if (dy > DRAG_CLOSE) onClose();
+    if (dy > DRAG_CLOSE) requestClose();
   };
   const dragHandlers = { onPointerDown: onDragStart, onPointerMove: onDragMove, onPointerUp: onDragEnd, onPointerCancel: onDragEnd };
 
@@ -202,7 +241,7 @@ export function Dialog({
         </h2>
         {meta && <div className="text-sm text-pretty text-muted">{meta}</div>}
       </div>
-      <CloseDisc onClose={onClose} />
+      <CloseDisc onClose={requestClose} />
     </div>
   );
 
@@ -228,6 +267,20 @@ export function Dialog({
       onClose={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
+      // Escape: with changes, ask instead of closing.
+      onCancel={(event) => {
+        if (event.target !== event.currentTarget || !dirty) return;
+        event.preventDefault();
+        setAsking(true);
+      }}
+      onPointerDown={(event) => {
+        pressedOutside.current = outside(event);
+      }}
+      onClick={(event) => {
+        const both = pressedOutside.current && outside(event);
+        pressedOutside.current = false;
+        if (both) requestClose();
+      }}
       className={cn(
         "card-edge bg-surface text-foreground shadow-float backdrop:bg-navy/50 backdrop:backdrop-blur-sm",
         placement === "side" ? "open:animate-panel-in" : placement === "drawer" ? "open:animate-sheet-in sm:open:animate-panel-in" : "open:animate-sheet-in",
@@ -236,7 +289,7 @@ export function Dialog({
     >
       {placement === "side" ? (
         <div className="relative flex h-full flex-col">
-          <CloseDisc onClose={onClose} floating />
+          <CloseDisc onClose={requestClose} floating />
           {/* Nothing in the body shrinks to fit; it scrolls. A `contents` wrapper's children are
               flex items too, so they're held as well (a clipped card would otherwise be squashed). */}
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-5 *:shrink-0 [&>.contents>*]:shrink-0">
@@ -275,6 +328,34 @@ export function Dialog({
           </div>
           {actionBar}
         </div>
+      )}
+      {asking && (
+        <Dialog
+          open
+          onClose={() => setAsking(false)}
+          title="Discard changes?"
+          meta="What you changed here won't be saved."
+          tone="danger"
+          data-testid="discard-changes"
+          actions={
+            <>
+              <Button type="button" variant="soft" onClick={() => setAsking(false)} data-testid="discard-keep">
+                Keep editing
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                data-testid="discard-confirm"
+                onClick={() => {
+                  setAsking(false);
+                  onClose();
+                }}
+              >
+                Discard
+              </Button>
+            </>
+          }
+        />
       )}
     </dialog>
   );

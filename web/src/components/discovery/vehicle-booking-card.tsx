@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { ListingDetail } from "@/api/discovery";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,12 +36,15 @@ export function VehicleBookingCard({
   dates,
   seats,
   add: canAdd = true,
+  aside,
 }: {
   listing: ListingDetail;
   rate: Rate;
   dates: TripDates;
   seats: number;
   add?: boolean;
+  // Over Add to trip: on the listing page, what saving costs and whether the trip holds it.
+  aside?: ReactNode;
 }) {
   const session = useSession();
   const flow = useOptionalTripAdd();
@@ -138,6 +141,7 @@ export function VehicleBookingCard({
         </Ticket>
 
 
+        {canAdd && aside}
         {guest && canAdd && flow && (
           <Button
             size="touch"

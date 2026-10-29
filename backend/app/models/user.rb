@@ -9,6 +9,16 @@
 class User < ApplicationRecord
   ROLES = %w[guest partner admin].freeze
   SELF_SERVE_ROLES = %w[guest partner].freeze
+  # The Terms and Privacy policy an account agrees to when it is made (sign-up, Google or
+  # Facebook, a guest's first checkout): the date of the version shown. Bump it when the
+  # policies change, so terms_version says which one each account agreed to.
+  TERMS_VERSION = "2026-10-29".freeze
+  TERMS_REQUIRED = "Agree to the Terms and Privacy policy to continue".freeze
+
+  # The columns that record an agreement made now.
+  def self.terms_acceptance
+    { terms_accepted_at: Time.current, terms_version: TERMS_VERSION }
+  end
 
   has_secure_password validations: false
 

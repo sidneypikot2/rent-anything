@@ -286,6 +286,15 @@
   background-image: repeating-linear-gradient(135deg, transparent 0 6px, var(--line) 6px 8px);
 }
 
+/* A list that scrolls inside dark glass (the home hero's trip card): a thin, faint scrollbar,
+   so it reads as part of the card rather than a window's. */
+@utility scroll-glass {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--color-sky-mist) 40%, transparent) transparent;
+}
+
 /* Keyboard focus on a dark surface (photo, glass, navy or forest): the ring turns sky-pale,
    11:1 there, where the primary blue is under 3:1. A white surface inside resets it (below). */
 @utility focus-light {

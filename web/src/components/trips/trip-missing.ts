@@ -68,7 +68,7 @@ export type Sight = { slug: string; name: string; visitedBy: number[] };
 // The kinds of booking the plan asks for by name when the trip has none of them here. A stay is
 // asked for by its nights instead (missingStays). Gear counts too (team call pending, 2026-10-28:
 // all five kinds count, until the team says otherwise).
-export const PLAN_NEEDS = ["transfer", "rental", "activity", "gear"] as const;
+export const PLAN_NEEDS = ["transfer", "activity", "rental", "gear"] as const;
 
 // Everything the trip still lacks from a place's page, for the floating "Your plan" panel (the
 // banner's "Still missing" links the stays and the transfer, and counts the rest as "N more in
@@ -95,7 +95,7 @@ export type PlanGap =
 export const isIdea = (gap: PlanGap) => gap.kind === "unseen";
 export const stillMissing = (gaps: PlanGap[]) => gaps.filter((gap) => !isIdea(gap));
 
-// A gap the checklist names by its kind (Stay, Transfer, Getting around, Tours, Gear), or one to
+// A gap the checklist names by its kind (Transfer, Stay, Tours, Getting around, Gear), or one to
 // fix on an item already in the trip (replace, date, top up its guests).
 export const isKindGap = (gap: PlanGap) => gap.kind === "stay" || gap.kind === "need";
 

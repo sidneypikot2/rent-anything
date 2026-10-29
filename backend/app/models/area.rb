@@ -13,7 +13,7 @@ class Area < ApplicationRecord
   # The areas a pin can be served by, and how far a center reaches without a boundary.
   SERVING_KINDS = %w[city town island].freeze
   SERVING_RADIUS_METERS = 50_000
-  RESERVED_SLUGS = %w[partner admin search login register dashboard profile settings nearby cart trips listings about].freeze
+  RESERVED_SLUGS = %w[partner admin search login register dashboard profile settings nearby cart trips listings about privacy terms partner-terms refunds].freeze
 
   belongs_to :parent, class_name: "Area", optional: true
   has_many :children, class_name: "Area", foreign_key: :parent_id, inverse_of: :parent,

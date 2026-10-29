@@ -3,10 +3,10 @@ import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 import { BRAND } from "@/lib/brand";
 
 const STEPS = [
-  { title: "1. Verify your ID", note: "Government ID and a selfie, reviewed by our team" },
-  { title: "2. List what you offer", note: "Each listing is approved before it goes live" },
+  { title: "1. Verify your ID", note: "Government ID and a selfie, checked by Didit before you list" },
+  { title: "2. List what you offer", note: "Publish each listing yourself once it's complete" },
   { title: "3. Get booked", note: "Instant book or accept requests from guests" },
-  { title: "4. Get paid", note: "Payouts after each completed booking, minus commission" },
+  { title: "4. Get paid", note: "Earn from each completed booking, minus commission" },
 ];
 
 // What partners read beside the form on /partner/login and /partner/register.

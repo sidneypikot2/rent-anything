@@ -34,9 +34,10 @@ export async function signIn(body: { email: string; password: string; role: Role
 }
 
 // Email and password only; name and phone are set later (PUT /api/v1/me/complete_profile).
+// Called once the form's required ConsentField is ticked, so the agreement goes with it.
 export async function signUp(body: { email: string; password: string; role: SelfServeRole }) {
   await sendGuestToken();
-  const { data, error } = await apiClient().POST("/api/v1/registrations", { body });
+  const { data, error } = await apiClient().POST("/api/v1/registrations", { body: { ...body, terms_accepted: true } });
   return finish(data, error);
 }
 
@@ -44,7 +45,9 @@ export async function oauthSignIn(provider: OauthProvider, token: string, role: 
   await sendGuestToken();
   const { data, error } = await apiClient().POST("/api/v1/oauth/{provider}", {
     params: { path: { provider } },
-    body: { token, role },
+    // Needed only if this makes a new account: sign-up enables the buttons once ConsentField is
+    // ticked, and a sign-in page says under them that continuing agrees (ConsentNote).
+    body: { token, role, terms_accepted: true },
   });
   return finish(data, error);
 }

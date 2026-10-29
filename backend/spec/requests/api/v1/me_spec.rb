@@ -146,6 +146,53 @@ RSpec.describe "Me", type: :request do
     end
   end
 
+
+  path "/api/v1/me" do
+    delete "Delete the signed-in guest's account" do
+      tags "Auth"
+      produces "application/json"
+      description "Guests only: deletes the account, its trips, sign-ins and sessions at once, and emails a " \
+        "confirmation. Partners' records of past bookings stay. 409 while a booking is still open; 403 for " \
+        "partners and admins, whose accounts the team closes on request."
+      security [ { bearer: [] } ]
+      parameter name: :Authorization, in: :header, schema: { type: :string }
+
+      let(:user) { create(:user, :profile_complete) }
+      let(:Authorization) { bearer_for(user) }
+
+      response "204", "account deleted" do
+        run_test! do
+          expect(User.exists?(user.id)).to be(false)
+        end
+      end
+
+      response "409", "a booking is still open" do
+        schema "$ref" => "#/components/schemas/error"
+        before { create(:booking, :checkout, user:, status: "requested") }
+
+        run_test! do |response|
+          expect(response.parsed_body["error"]).to match(/1 open booking/)
+          expect(User.exists?(user.id)).to be(true)
+        end
+      end
+
+      response "403", "a partner" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:user) { create(:user, :partner) }
+
+        run_test! do
+          expect(User.exists?(user.id)).to be(true)
+        end
+      end
+
+      response "401", "signed out" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:Authorization) { nil }
+
+        run_test!
+      end
+    end
+  end
   path "/api/v1/partner/me" do
     get "The signed-in partner" do
       tags "Auth"

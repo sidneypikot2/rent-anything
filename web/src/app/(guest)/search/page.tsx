@@ -31,6 +31,8 @@ export default async function SearchPage(props: PageProps<"/search">) {
   // Characters, not UTF-16 units, to match the API's minimum (an emoji is one).
   const results = [...query].length >= 2 ? await search(query) : null;
   const top = results && topDestination(results);
+  // Said in the title, so an empty search never reads as a list of results.
+  const empty = results !== null && Object.values(results).every((group) => group.length === 0);
   const [explore, destinations] = await Promise.all([
     top ? getExplore(top.anchor) : null,
     // For the places a search that finds nothing offers; the page works without them.
@@ -40,7 +42,13 @@ export default async function SearchPage(props: PageProps<"/search">) {
   return (
     <main className="flex flex-1 flex-col">
       {/* The header's search is this page's search box (RAA-126). */}
-      <PageBanner title={<DisplayTitle>{query ? <>Results for “{query}”</> : "Search"}</DisplayTitle>} />
+      <PageBanner
+        title={
+          <DisplayTitle>
+            {!query ? "Search" : empty ? <>Nothing found for “{query}”</> : <>Results for “{query}”</>}
+          </DisplayTitle>
+        }
+      />
       <PageSheet tone="clear">
         <div className="page-sections mx-auto flex w-full max-w-page flex-col gap-section py-page-pad">
         {results === null ? (
@@ -165,6 +173,9 @@ function Results({
                   note={listingNote(listing, results)}
                   photo={listing.cover_photo_url ? { src: listing.cover_photo_url, alt: listing.title } : undefined}
                   rowOnPhone
+                  // White under its own photo, as the home page's partner cards: real listings
+                  // read apart from the dark page (the critique, 2026-10-29).
+                  stacked
                   instantBook={listing.instant_book}
                 />
               </li>

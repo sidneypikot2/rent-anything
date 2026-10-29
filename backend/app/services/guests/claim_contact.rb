@@ -1,6 +1,7 @@
 module Guests
   # A guest's contact details at their first checkout (RAA-175): `contact` is
-  # {name, email, phone}, all required, for a guest who has no email yet (User#anonymous?).
+  # {name, email, phone, terms_accepted}, all required, for a guest who has no email yet
+  # (User#anonymous?); terms_accepted must be true, and the agreement is recorded on them.
   # Partners see them on each booking.
   #
   # An email no other guest has is set on this guest, whose profile is then complete. One
@@ -18,6 +19,7 @@ module Guests
       name = required_string(:name, "Name")
       email = required_string(:email, "Email")
       phone = required_string(:phone, "Phone")
+      invalid!(User::TERMS_REQUIRED) unless @contact[:terms_accepted] == true
 
       owner = User.guest.where.not(id: @user.id).find_by(email: email.downcase)
       if owner
@@ -25,7 +27,7 @@ module Guests
         raise CodeRequiredError
       end
 
-      @user.update!(name:, email:, phone:, registration_complete: true)
+      @user.update!(name:, email:, phone:, registration_complete: true, **User.terms_acceptance)
       @user
     rescue ActiveRecord::RecordNotUnique
       invalid!("Email has already been taken")

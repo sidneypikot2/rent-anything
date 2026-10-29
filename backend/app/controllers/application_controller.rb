@@ -3,6 +3,7 @@ class ApplicationController < ActionController::API
   rescue_from NotAuthenticatedError, with: :render_unauthorized
   rescue_from NotAuthorizedError, with: :render_forbidden
   rescue_from CodeRequiredError, with: :render_conflict
+  rescue_from OpenBookingsError, with: :render_conflict
   rescue_from TripLinkLockedError, with: :render_locked
   rescue_from ActiveRecord::RecordInvalid, with: :render_unprocessable
   rescue_from Didit::Error, with: :render_bad_gateway
