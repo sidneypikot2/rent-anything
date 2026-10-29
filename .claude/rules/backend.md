@@ -17,6 +17,8 @@ Topic rules load on top of this one when their files are read: `backend-migratio
 
 **Request values**: don't coerce a value from the request with `.to_s`, `.to_i` or the like in a service — `nil.to_s` turns a missing key into a deliberate empty value, and a hash or array gets stringified and saved. A missing or wrong-typed value is a 422 (add an error and raise `ActiveRecord::RecordInvalid`), with a spec for it. A write that only accepts published (or otherwise live) references must still accept the ones the record already has, so unpublishing something later doesn't block every edit of it (RAA-70).
 
+**Secrets in requests**: a new request parameter that carries a secret (a PIN, a code, a token, an account number) goes in `config/initializers/filter_parameter_logging.rb` in the same PR. Match a short name whole (`/\Apin\z/`), so fields like `postal_code` stay readable in the logs.
+
 **Money** is integer centavos in `*_cents` columns, PHP only. Never floats. A booking snapshots its price breakdown and commission rate when it is created.
 
 **Geo**: locations are PostGIS `geography(Point, 4326)` columns (`activerecord-postgis-adapter`); search with `ST_DWithin` / bounding boxes against a GiST index, not by loading rows into Ruby. A listing's exact point is only returned to a guest with a paid booking; everyone else gets the rounded one.
