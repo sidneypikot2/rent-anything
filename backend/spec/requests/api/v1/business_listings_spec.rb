@@ -12,7 +12,9 @@ RSpec.describe "Business listings", type: :request do
 
   before do
     click.units.create!((2..6).map { |position| { position: } })
-    create(:booking, listing: click, quantity: 2, starts_on: day + 1, ends_on: day + 1)
+    create(:booking, listing: click, quantity: 2, starts_on: day, ends_on: day + 1)
+    # Picked up on the return day (RAA-195): Nov 3 to Nov 4 takes Nov 3 only.
+    create(:booking, listing: click, quantity: 3, starts_on: day + 1, ends_on: day + 2)
     create(:listing, :vehicle, :paused, area:, partner: click.partner, title: "Honda Beat 110")
   end
 

@@ -112,6 +112,22 @@ module Trips
       error("#{units} #{noun.pluralize(units)} is more than one each for #{guests}") if units > guests
     end
 
+    # A vehicle rental's pickup time (RAA-195): "08:30", one of the shop's (VehicleRate#pickup_times).
+    # Nil when not sent or sent as null, which takes the shop's default.
+    def pickup_time_value(listing)
+      value = @params[:pickup_time]
+      return if value.nil?
+      return error("Only a vehicle rental has a pickup time") unless listing.category.vehicle?
+      unless value.is_a?(String) && value.match?(Booking::PICKUP_TIME_FORMAT)
+        return error("Pickup time must be a time on the half hour, like 08:30")
+      end
+
+      times = listing.vehicle_rate&.pickup_times
+      return error("Pickup is from #{times.first} to #{times.last}") if times && !times.include?(value)
+
+      value
+    end
+
     # Units sent for an item (RAA-191): 1 to 99, or nil when not sent or sent as null.
     def units_value
       units = integer_value(:units, "Units")

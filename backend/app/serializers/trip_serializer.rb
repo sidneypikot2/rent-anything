@@ -55,8 +55,9 @@ module TripSerializer
     listing = item.listing
     return "No longer offered" unless listing.active?
 
-    days = Booking.days_for(listing.category.accommodation?, item.starts_on, item.ends_on).select { _1 >= Date.current }
-    ledger.refusal(listing, days, 1)
+    days = Booking.days_for(listing, item.starts_on, item.ends_on).select { _1 >= Date.current }
+    period = item.rental_period
+    ledger.refusal(listing, days, 1, period: period && period.begin > Time.current ? period : nil)
   end
 
   def self.item(item, ledger, destinations)
@@ -68,6 +69,8 @@ module TripSerializer
       quantity: item.quantity,
       room_guests: item.room_guests,
       pets: item.pets,
+      pickup_time: item.pickup_time,
+      returns_at: item.rental_period&.end,
       sleeps: item.listing.sleeps,
       max_guests: item.listing.max_guests,
       max_quantity: item.listing.max_quantity,
@@ -92,7 +95,7 @@ module TripSerializer
     seats = listing.vehicle_seats
     return { seats: nil, units: nil, units_chosen: nil, units_free: nil } unless seats
 
-    days = open?(item) && Booking.days_for(false, item.starts_on, item.ends_on).select { _1 >= Date.current }
+    days = open?(item) && Booking.days_for(listing, item.starts_on, item.ends_on).select { _1 >= Date.current }
     {
       seats:,
       units: Booking.units_for(listing, item.quantity, chosen: item.units),

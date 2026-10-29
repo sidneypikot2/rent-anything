@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_29_090000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_29_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -145,13 +145,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_090000) do
     t.string "guest_phone"
     t.jsonb "room_guests"
     t.integer "pets", default: 0, null: false
+    t.datetime "starts_at"
+    t.datetime "ends_at"
     t.index ["checkout_id"], name: "index_bookings_on_checkout_id"
+    t.index ["listing_id", "starts_at", "ends_at"], name: "index_bookings_on_listing_id_and_starts_at_and_ends_at"
     t.index ["listing_id", "starts_on", "ends_on"], name: "index_bookings_on_listing_id_and_starts_on_and_ends_on"
     t.index ["payment_id"], name: "index_bookings_on_payment_id"
     t.index ["reference"], name: "index_bookings_on_reference", unique: true
     t.index ["status", "expires_at"], name: "index_bookings_on_status_and_expires_at"
     t.index ["trip_item_id"], name: "index_bookings_on_trip_item_id_holding", unique: true, where: "(status = ANY (ARRAY['requested'::booking_status, 'accepted'::booking_status, 'awaiting_payment'::booking_status, 'confirmed'::booking_status, 'in_progress'::booking_status, 'completed'::booking_status]))"
     t.index ["user_id"], name: "index_bookings_on_user_id"
+    t.check_constraint "(starts_at IS NULL) = (ends_at IS NULL)", name: "bookings_period_both_or_neither_check"
     t.check_constraint "booking_mode::text = ANY (ARRAY['instant'::character varying::text, 'request'::character varying::text])", name: "bookings_booking_mode_check"
     t.check_constraint "cancelled_by::text = ANY (ARRAY['guest'::character varying::text, 'partner'::character varying::text, 'system'::character varying::text])", name: "bookings_cancelled_by_check"
     t.check_constraint "char_length(cancellation_reason) <= 500", name: "bookings_cancellation_reason_check"
@@ -159,6 +163,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_090000) do
     t.check_constraint "char_length(notes) <= 500", name: "bookings_notes_length_check"
     t.check_constraint "commission_bps >= 0 AND commission_bps <= 10000", name: "bookings_commission_bps_check"
     t.check_constraint "commission_cents >= 0 AND commission_cents <= total_cents", name: "bookings_commission_check"
+    t.check_constraint "ends_at > starts_at", name: "bookings_period_order_check"
     t.check_constraint "ends_on >= starts_on", name: "bookings_dates_check"
     t.check_constraint "guests >= 1 AND guests <= 100", name: "bookings_guests_check"
     t.check_constraint "pets >= 0 AND pets <= 20", name: "bookings_pets_check"
@@ -625,11 +630,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_090000) do
     t.jsonb "room_guests"
     t.integer "pets", default: 0, null: false
     t.integer "units"
+    t.string "pickup_time"
     t.index ["listing_id"], name: "index_trip_items_on_listing_id"
     t.index ["trip_id"], name: "index_trip_items_on_trip_id"
     t.check_constraint "(starts_on IS NULL) = (ends_on IS NULL)", name: "trip_items_dates_both_or_neither_check"
     t.check_constraint "ends_on >= starts_on", name: "trip_items_dates_order_check"
     t.check_constraint "pets >= 0 AND pets <= 20", name: "trip_items_pets_check"
+    t.check_constraint "pickup_time::text ~ '^([01][0-9]|2[0-3]):(00|30)$'::text", name: "trip_items_pickup_time_check"
     t.check_constraint "quantity >= 1 AND quantity <= 99", name: "trip_items_quantity_check"
     t.check_constraint "room_guests IS NULL OR jsonb_typeof(room_guests) = 'array'::text AND jsonb_array_length(room_guests) >= 1 AND jsonb_array_length(room_guests) <= 99", name: "trip_items_room_guests_check"
     t.check_constraint "units IS NULL OR units >= 1 AND units <= 99", name: "trip_items_units_range"
@@ -693,6 +700,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_090000) do
     t.datetime "updated_at", null: false
     t.string "driving", default: "self_drive", null: false
     t.bigint "driver_fee_cents"
+    t.integer "pickup_from_hour", default: 7, null: false
+    t.integer "pickup_until_hour", default: 19, null: false
+    t.integer "turnaround_minutes", default: 0, null: false
     t.index ["listing_id"], name: "index_vehicle_rates_on_listing_id", unique: true
     t.check_constraint "(driving::text = 'either'::text) = (driver_fee_cents IS NOT NULL)", name: "vehicle_rates_driver_fee_needs_choice_check"
     t.check_constraint "daily_price_cents >= 0", name: "vehicle_rates_daily_price_check"
@@ -706,8 +716,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_090000) do
     t.check_constraint "km_limit_per_day >= 1 AND km_limit_per_day <= 2000", name: "vehicle_rates_km_limit_check"
     t.check_constraint "min_rental_days >= 1 AND min_rental_days <= 365", name: "vehicle_rates_min_rental_days_check"
     t.check_constraint "monthly_price_cents > 0", name: "vehicle_rates_monthly_price_check"
+    t.check_constraint "pickup_from_hour >= 0 AND pickup_until_hour <= 23 AND pickup_from_hour <= pickup_until_hour", name: "vehicle_rates_pickup_hours_check"
     t.check_constraint "return_pickup_fee_cents >= 0", name: "vehicle_rates_return_pickup_fee_check"
     t.check_constraint "security_deposit_cents >= 0", name: "vehicle_rates_security_deposit_check"
+    t.check_constraint "turnaround_minutes >= 0 AND turnaround_minutes <= 720 AND (turnaround_minutes % 30) = 0", name: "vehicle_rates_turnaround_check"
     t.check_constraint "weekly_price_cents > 0", name: "vehicle_rates_weekly_price_check"
   end
 

@@ -142,6 +142,14 @@ class Listing < ApplicationRecord
     seats if category.vehicle? && seats.is_a?(Integer) && seats.positive?
   end
 
+  # A vehicle rental's period from starts_on to ends_on (RAA-195, Booking.rental_period), from
+  # the pickup time or the shop's default. Nil for anything else. Reads category and vehicle_rate.
+  def rental_period(starts_on, ends_on, pickup_time)
+    return unless category.vehicle?
+
+    Booking.rental_period(starts_on, ends_on, pickup_time || vehicle_rate&.default_pickup_time)
+  end
+
   # The most one trip item's quantity can be: for gear, booked by the count, the units it has;
   # otherwise its guests (max_guests). Reads category: :parent and units.
   def max_quantity

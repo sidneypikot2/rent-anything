@@ -34,7 +34,7 @@ module Businesses
     private
 
     def row(listing, ledger, starts_on, ends_on)
-      days = ledger && Booking.days_for(listing.category.accommodation?, starts_on, ends_on)
+      days = ledger && Booking.days_for(listing, starts_on, ends_on)
       {
         id: listing.id,
         title: listing.title,

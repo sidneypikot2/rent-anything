@@ -59,8 +59,9 @@ module Trips
       return "Pick a date to book it" if item.starts_on.nil?
       return "Its dates have passed" if item.starts_on < Date.current
 
-      days = Booking.days_for(listing.category.accommodation?, item.starts_on, item.ends_on)
-      @ledger.refusal(listing, days, Booking.units_for(listing, item.quantity, room_guests: item.room_guests, chosen: item.units))
+      days = Booking.days_for(listing, item.starts_on, item.ends_on)
+      @ledger.refusal(listing, days, Booking.units_for(listing, item.quantity, room_guests: item.room_guests, chosen: item.units),
+        period: item.rental_period)
     end
   end
 end

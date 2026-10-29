@@ -127,20 +127,22 @@ module Checkouts
     end
 
     # Checked against the calendar again here, after the bookings made before it in this
-    # checkout, so two items of one listing can't take its last unit twice.
+    # checkout, so two items of one listing can't take its last unit twice. A vehicle rental is
+    # checked by the hour from its pickup time, and keeps its period (RAA-195).
     def create_booking(checkout, line)
       item = line[:item]
       listing = line[:listing]
-      stay = listing.category.accommodation?
       ledger = Availability::Ledger.new([ listing ], item.starts_on, item.ends_on)
-      refusal = ledger.refusal(listing, Booking.days_for(stay, item.starts_on, item.ends_on), line[:units])
+      period = item.rental_period
+      refusal = ledger.refusal(listing, Booking.days_for(listing, item.starts_on, item.ends_on), line[:units], period:)
       return error("#{listing.title}: #{refusal}") if refusal
 
       instant = listing.booking_mode == "instant"
       booking = listing.bookings.create!(
         source: "checkout", checkout:, user: @user, trip_item: item, guest_name: guest_name,
         guest_email: @user.email, guest_phone: @user.phone,
-        starts_on: item.starts_on, ends_on: item.ends_on, quantity: line[:units], guests: guests_of(item, listing),
+        starts_on: item.starts_on, ends_on: item.ends_on, starts_at: period&.begin, ends_at: period&.end,
+        quantity: line[:units], guests: guests_of(item, listing),
         room_guests: item.room_guests, pets: item.pets,
         status: instant ? "awaiting_payment" : "requested", expires_at: expires_at(instant, item),
         total_cents: line[:total_cents], price_breakdown: line[:breakdown],

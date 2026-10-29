@@ -1481,6 +1481,12 @@ paths:
         required: false
         schema:
           type: integer
+      - name: pickup_time
+        in: query
+        required: false
+        description: A vehicle rental's pickup time ("08:30"); default the shop's
+        schema:
+          type: string
       responses:
         '200':
           description: 'every other kind: gear, a transfer, a tour and a stay'
@@ -4232,6 +4238,13 @@ paths:
                   maximum: 99
                   description: 'A rental vehicle only: at least quantity ÷ seats rounded
                     up, at most one each; null or omitted derives it'
+                pickup_time:
+                  type: string
+                  nullable: true
+                  pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+                  description: 'A vehicle rental only: one of the shop''s pickup times
+                    ("08:30"); it runs 24 hours a day from then. Null or omitted takes
+                    the shop''s default (9:00, or its first pickup time)'
                 items:
                   type: array
                   minItems: 1
@@ -4287,6 +4300,14 @@ paths:
                         maximum: 99
                         description: 'A rental vehicle only: at least quantity ÷ seats
                           rounded up, at most one each; null or omitted derives it'
+                      pickup_time:
+                        type: string
+                        nullable: true
+                        pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+                        description: 'A vehicle rental only: one of the shop''s pickup
+                          times ("08:30"); it runs 24 hours a day from then. Null
+                          or omitted takes the shop''s default (9:00, or its first
+                          pickup time)'
                     required:
                     - listing_id
                 trip_id:
@@ -4392,6 +4413,13 @@ paths:
                   maximum: 99
                   description: 'A rental vehicle only: at least quantity ÷ seats rounded
                     up, at most one each; null or omitted derives it'
+                pickup_time:
+                  type: string
+                  nullable: true
+                  pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+                  description: 'A vehicle rental only: one of the shop''s pickup times
+                    ("08:30"); it runs 24 hours a day from then. Null or omitted takes
+                    the shop''s default (9:00, or its first pickup time)'
                 move_to_trip_id:
                   type: integer
     delete:
@@ -5469,6 +5497,17 @@ components:
           nullable: true
           description: A rental vehicle's units free on all of its days still to come
             (RAA-191); null when undated, booked, past or not a vehicle
+        pickup_time:
+          type: string
+          nullable: true
+          description: A vehicle rental's pickup time the guest picked (RAA-195, "08:30");
+            null for the shop's default, or anything else
+        returns_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'When a dated vehicle rental is due back: 24 hours a day from
+            its pickup; null otherwise'
         business:
           "$ref": "#/components/schemas/business_ref"
         booking_type:
@@ -5531,6 +5570,8 @@ components:
       - units
       - units_chosen
       - units_free
+      - pickup_time
+      - returns_at
       - business
       - booking_type
       - area
@@ -6919,13 +6960,37 @@ components:
           type: string
           nullable: true
           description: Why the dates or the party can't be had ("Only 4 left on Nov
-            20"); null when they can
+            20", "Available from 9:00 AM on Nov 3"); null when they can
+        pickup_times:
+          type: array
+          nullable: true
+          description: A vehicle rental's pickup times (RAA-195), each with whether
+            the rental could start then; null for anything else
+          items:
+            type: object
+            properties:
+              time:
+                type: string
+                example: '08:30'
+              available:
+                type: boolean
+            required:
+            - time
+            - available
+        returns_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a vehicle rental from the pickup time asked for (or the
+            default) is due back
       required:
       - total_cents
       - deposit_cents
       - lines
       - to_be_agreed
       - unavailable
+      - pickup_times
+      - returns_at
     vehicle_rate:
       type: object
       properties:
@@ -6996,6 +7061,22 @@ components:
           nullable: true
           description: A driver per day when the guest can choose one (either); otherwise
             null
+        pickup_from_hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+          description: The first pickup, on the hour (RAA-195, area time)
+        pickup_until_hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+          description: The last pickup, on the hour; pickups go by the half hour
+        turnaround_minutes:
+          type: integer
+          minimum: 0
+          maximum: 720
+          description: How long a returned vehicle needs before the next rental can
+            take it
       required:
       - daily_price_cents
       - half_day_price_cents
@@ -7011,6 +7092,9 @@ components:
       - excess_km_fee_cents
       - driving
       - driver_fee_cents
+      - pickup_from_hour
+      - pickup_until_hour
+      - turnaround_minutes
     vehicle_rate_body:
       type: object
       description: A half day costs less than a day and an hour less than a half day
@@ -7085,6 +7169,22 @@ components:
           minimum: 1
           nullable: true
           description: Per day; required with either, null otherwise
+        pickup_from_hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+          description: Default 7
+        pickup_until_hour:
+          type: integer
+          minimum: 0
+          maximum: 23
+          description: Default 19; not before pickup_from_hour
+        turnaround_minutes:
+          type: integer
+          minimum: 0
+          maximum: 720
+          multipleOf: 30
+          description: Default 0
       required:
       - daily_price_cents
     vehicle_driving:
@@ -8360,6 +8460,11 @@ components:
           description: What capacity, units on sale and a booking's quantity count
         price_unit:
           "$ref": "#/components/schemas/price_unit"
+        turnaround_minutes:
+          type: integer
+          nullable: true
+          description: A vehicle rental's time between a return and the next pickup
+            (RAA-195); null for anything else
         days:
           type: array
           items:
@@ -8384,6 +8489,7 @@ components:
       - capacity
       - capacity_unit
       - price_unit
+      - turnaround_minutes
       - days
       - blocks
       - bookings
@@ -8534,6 +8640,17 @@ components:
           format: date
           description: A stay's check-out (it takes the nights before); otherwise
             the last day it takes
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: A vehicle rental's pickup (RAA-195); null for anything else
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a vehicle rental is due back, 24 hours a day from its
+            pickup; null for anything else
         quantity:
           type: integer
           description: Units, a private tour's groups or a joiner tour's joiners
@@ -8626,6 +8743,8 @@ components:
       - guest_phone
       - starts_on
       - ends_on
+      - starts_at
+      - ends_at
       - quantity
       - guests
       - room_guests
@@ -8738,6 +8857,17 @@ components:
           format: date
           description: A stay's check-out (it takes the nights before); otherwise
             the last day it takes
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: A vehicle rental's pickup (RAA-195); null for anything else
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a vehicle rental is due back, 24 hours a day from its
+            pickup; null for anything else
         quantity:
           type: integer
           description: Units, a private tour's groups or a joiner tour's joiners
@@ -8893,6 +9023,8 @@ components:
       - guest_phone
       - starts_on
       - ends_on
+      - starts_at
+      - ends_at
       - quantity
       - guests
       - room_guests
@@ -8936,6 +9068,16 @@ components:
           type: string
           format: date
           description: A stay's check-out; otherwise the last day
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: A vehicle rental's pickup (RAA-195)
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a vehicle rental is due back
         quantity:
           type: integer
         guests:
@@ -9041,6 +9183,8 @@ components:
       - booking_mode
       - starts_on
       - ends_on
+      - starts_at
+      - ends_at
       - quantity
       - guests
       - room_guests
@@ -9294,6 +9438,13 @@ components:
           minimum: 0
           maximum: 20
           description: A stay only, where its listing allows pets (RAA-182)
+        pickup_time:
+          type: string
+          nullable: true
+          pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+          description: 'A vehicle rental only: one of the shop''s pickup times ("08:30");
+            it runs 24 hours a day from then. Null or omitted takes the shop''s default
+            (9:00, or its first pickup time)'
     offline_booking_body:
       type: object
       properties:
@@ -9319,6 +9470,13 @@ components:
         notes:
           type: string
           maxLength: 500
+        pickup_time:
+          type: string
+          nullable: true
+          pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+          description: 'A vehicle rental only: one of the shop''s pickup times ("08:30");
+            it runs 24 hours a day from then. Null or omitted takes the shop''s default
+            (9:00, or its first pickup time)'
       required:
       - guest_name
       - starts_on

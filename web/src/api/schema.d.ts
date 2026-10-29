@@ -2050,6 +2050,8 @@ export interface paths {
                     /** @description A stay's split into rooms, as JSON */
                     room_guests?: string;
                     pets?: number;
+                    /** @description A vehicle rental's pickup time ("08:30"); default the shop's */
+                    pickup_time?: string;
                 };
                 header?: never;
                 path: {
@@ -5850,6 +5852,8 @@ export interface paths {
                         pets?: number;
                         /** @description A rental vehicle only: at least quantity ÷ seats rounded up, at most one each; null or omitted derives it */
                         units?: number | null;
+                        /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
+                        pickup_time?: string | null;
                         /** @description Instead of listing_id and the fields above */
                         items?: {
                             listing_id: number;
@@ -5868,6 +5872,8 @@ export interface paths {
                             pets?: number;
                             /** @description A rental vehicle only: at least quantity ÷ seats rounded up, at most one each; null or omitted derives it */
                             units?: number | null;
+                            /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
+                            pickup_time?: string | null;
                         }[];
                         /** @description Omit or null for a new trip */
                         trip_id?: number | null;
@@ -6008,6 +6014,8 @@ export interface paths {
                         pets?: number;
                         /** @description A rental vehicle only: at least quantity ÷ seats rounded up, at most one each; null or omitted derives it */
                         units?: number | null;
+                        /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
+                        pickup_time?: string | null;
                         move_to_trip_id?: number;
                     };
                 };
@@ -7065,6 +7073,13 @@ export interface components {
             units_chosen: number | null;
             /** @description A rental vehicle's units free on all of its days still to come (RAA-191); null when undated, booked, past or not a vehicle */
             units_free: number | null;
+            /** @description A vehicle rental's pickup time the guest picked (RAA-195, "08:30"); null for the shop's default, or anything else */
+            pickup_time: string | null;
+            /**
+             * Format: date-time
+             * @description When a dated vehicle rental is due back: 24 hours a day from its pickup; null otherwise
+             */
+            returns_at: string | null;
             business: components["schemas"]["business_ref"];
             /**
              * @description Its listing's: rentals and stays take a range of days, the others one day
@@ -7599,8 +7614,19 @@ export interface components {
             }[];
             /** @description The listing has no price yet: the total is 0 */
             to_be_agreed: boolean;
-            /** @description Why the dates or the party can't be had ("Only 4 left on Nov 20"); null when they can */
+            /** @description Why the dates or the party can't be had ("Only 4 left on Nov 20", "Available from 9:00 AM on Nov 3"); null when they can */
             unavailable: string | null;
+            /** @description A vehicle rental's pickup times (RAA-195), each with whether the rental could start then; null for anything else */
+            pickup_times: {
+                /** @example 08:30 */
+                time: string;
+                available: boolean;
+            }[] | null;
+            /**
+             * Format: date-time
+             * @description When a vehicle rental from the pickup time asked for (or the default) is due back
+             */
+            returns_at: string | null;
         };
         vehicle_rate: {
             /** @description For each day (24 hours). 0 means no price yet (listings made before pricing) */
@@ -7628,6 +7654,12 @@ export interface components {
             driving: components["schemas"]["vehicle_driving"];
             /** @description A driver per day when the guest can choose one (either); otherwise null */
             driver_fee_cents: number | null;
+            /** @description The first pickup, on the hour (RAA-195, area time) */
+            pickup_from_hour: number;
+            /** @description The last pickup, on the hour; pickups go by the half hour */
+            pickup_until_hour: number;
+            /** @description How long a returned vehicle needs before the next rental can take it */
+            turnaround_minutes: number;
         };
         /** @description A half day costs less than a day and an hour less than a half day (or a day); a week at most 7 days and a month at most 30 at the daily price. A fee per km above the limit needs a limit. A choice of driver (either) needs a driver fee, and a motorcycle is self-drive only. Optional fields left out take their defaults. */
         vehicle_rate_body: {
@@ -7658,6 +7690,12 @@ export interface components {
             driving?: components["schemas"]["vehicle_driving"];
             /** @description Per day; required with either, null otherwise */
             driver_fee_cents?: number | null;
+            /** @description Default 7 */
+            pickup_from_hour?: number;
+            /** @description Default 19; not before pickup_from_hour */
+            pickup_until_hour?: number;
+            /** @description Default 0 */
+            turnaround_minutes?: number;
         };
         /**
          * @description Self-drive only, with a driver only (in the price), or either at a driver fee (RAA-150)
@@ -8135,6 +8173,8 @@ export interface components {
              */
             capacity_unit: "units" | "groups" | "seats";
             price_unit: components["schemas"]["price_unit"];
+            /** @description A vehicle rental's time between a return and the next pickup (RAA-195); null for anything else */
+            turnaround_minutes: number | null;
             days: components["schemas"]["calendar_day"][];
             /** @description Blocks touching the window */
             blocks: components["schemas"]["availability_block"][];
@@ -8218,6 +8258,16 @@ export interface components {
              * @description A stay's check-out (it takes the nights before); otherwise the last day it takes
              */
             ends_on: string;
+            /**
+             * Format: date-time
+             * @description A vehicle rental's pickup (RAA-195); null for anything else
+             */
+            starts_at: string | null;
+            /**
+             * Format: date-time
+             * @description When a vehicle rental is due back, 24 hours a day from its pickup; null for anything else
+             */
+            ends_at: string | null;
             /** @description Units, a private tour's groups or a joiner tour's joiners */
             quantity: number;
             /** @description Null for one taken offline */
@@ -8306,6 +8356,16 @@ export interface components {
              * @description A stay's check-out (it takes the nights before); otherwise the last day it takes
              */
             ends_on: string;
+            /**
+             * Format: date-time
+             * @description A vehicle rental's pickup (RAA-195); null for anything else
+             */
+            starts_at: string | null;
+            /**
+             * Format: date-time
+             * @description When a vehicle rental is due back, 24 hours a day from its pickup; null for anything else
+             */
+            ends_at: string | null;
             /** @description Units, a private tour's groups or a joiner tour's joiners */
             quantity: number;
             /** @description Null for one taken offline */
@@ -8382,6 +8442,16 @@ export interface components {
              * @description A stay's check-out; otherwise the last day
              */
             ends_on: string;
+            /**
+             * Format: date-time
+             * @description A vehicle rental's pickup (RAA-195)
+             */
+            starts_at: string | null;
+            /**
+             * Format: date-time
+             * @description When a vehicle rental is due back
+             */
+            ends_at: string | null;
             quantity: number;
             guests: number | null;
             /** @description A stay's guests room by room, as the guest split them; null when spread evenly */
@@ -8512,6 +8582,8 @@ export interface components {
             }[] | null;
             /** @description A stay only, where its listing allows pets (RAA-182) */
             pets?: number;
+            /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
+            pickup_time?: string | null;
         };
         offline_booking_body: {
             guest_name: string;
@@ -8529,6 +8601,8 @@ export interface components {
             /** @description What the guest pays the partner */
             total_cents: number;
             notes?: string;
+            /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
+            pickup_time?: string | null;
         };
         booking_status_body: {
             /**

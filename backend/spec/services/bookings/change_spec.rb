@@ -103,4 +103,28 @@ RSpec.describe Bookings::Change do
       expect(booking.reload.refund_cents).to be_nil
     end
   end
+
+  context "with a vehicle rental (RAA-195)" do
+    let(:listing) { create(:listing, :vehicle) }
+
+    it "moves its pickup time, and its trip item's, keeping it 24 hours a day" do
+      booking = booking_with(status: "confirmed")
+
+      change_booking(booking, pickup_time: "14:00")
+
+      expect(booking.reload.pickup_time).to eq("14:00")
+      expect(booking.ends_at - booking.starts_at).to eq(48.hours)
+      expect(item.reload.pickup_time).to eq("14:00")
+    end
+
+    it "keeps its pickup time when only the dates change" do
+      booking = booking_with(status: "confirmed")
+      change_booking(booking, pickup_time: "14:00")
+
+      change_booking(booking.reload, starts_on: (today + 11).iso8601, ends_on: (today + 12).iso8601)
+
+      expect(booking.reload).to have_attributes(pickup_time: "14:00", starts_on: today + 11)
+      expect(booking.ends_at - booking.starts_at).to eq(24.hours)
+    end
+  end
 end

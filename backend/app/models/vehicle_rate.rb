@@ -7,13 +7,18 @@
 # tricycle can come with a driver (driving): with_driver has the driver in the price, either
 # lets the guest choose, a driver then costing driver_fee_cents a day. A motorcycle is always
 # self-drive. A daily price of 0 is "no
-# price yet": existing listings were given one, and a partner sets the real price. It isn't
-# quoted at checkout yet: a rental is still agreed with the partner (Bookings::Price).
+# price yet": existing listings were given one, and a partner sets the real price.
+#
+# A rental runs 24 hours a day from its pickup (RAA-195): the guest picks a pickup time on the
+# half hour from pickup_from_hour to pickup_until_hour (the shop's hours, in the area's time),
+# and a returned vehicle needs turnaround_minutes (0 to 12 hours, by the half hour) before the
+# next rental can take it.
 class VehicleRate < ApplicationRecord
   WEEK_DAYS = 7
   MONTH_DAYS = 30
   DRIVING = %w[self_drive with_driver either].freeze
   SELF_DRIVE_ONLY_SLUGS = %w[motorcycle].freeze
+  MAX_TURNAROUND_MINUTES = 720
 
   belongs_to :listing, inverse_of: :vehicle_rate
 
@@ -28,6 +33,10 @@ class VehicleRate < ApplicationRecord
   validates :km_limit_per_day, numericality: { only_integer: true, in: 1..2000 }, allow_nil: true
   validates :driving, inclusion: { in: DRIVING }
   validates :driver_fee_cents, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
+  validates :pickup_from_hour, :pickup_until_hour, numericality: { only_integer: true, in: 0..23 }
+  validates :turnaround_minutes, numericality: { only_integer: true, in: 0..MAX_TURNAROUND_MINUTES }
+  validate :pickup_hours_in_order
+  validate :turnaround_by_the_half_hour
   validate :listing_is_a_vehicle
   validate :longer_rentals_cost_less_per_day
   validate :shorter_rentals_cost_less
@@ -48,6 +57,17 @@ class VehicleRate < ApplicationRecord
 
   def self_drive?
     driving == "self_drive"
+  end
+
+  # The pickup times a guest can pick: every half hour from pickup_from_hour to pickup_until_hour.
+  def pickup_times
+    (pickup_from_hour..pickup_until_hour).flat_map { [ format("%02d:00", _1), format("%02d:30", _1) ] }
+      .first(((pickup_until_hour - pickup_from_hour) * 2) + 1)
+  end
+
+  # Booking::DEFAULT_PICKUP_TIME, or the first pickup time when the shop opens later.
+  def default_pickup_time
+    pickup_times.include?(Booking::DEFAULT_PICKUP_TIME) ? Booking::DEFAULT_PICKUP_TIME : pickup_times.first
   end
 
   private
@@ -76,6 +96,16 @@ class VehicleRate < ApplicationRecord
     return unless hourly_price_cents.is_a?(Integer) && shortest_above.is_a?(Integer) && hourly_price_cents >= shortest_above
 
     errors.add(:hourly_price_cents, "must be less than the #{half_day_price_cents ? 'half-day' : 'daily'} price")
+  end
+
+  def pickup_hours_in_order
+    return unless pickup_from_hour.is_a?(Integer) && pickup_until_hour.is_a?(Integer) && pickup_until_hour < pickup_from_hour
+
+    errors.add(:pickup_until_hour, "can't be before the first pickup hour")
+  end
+
+  def turnaround_by_the_half_hour
+    errors.add(:turnaround_minutes, "must be in half hours") if turnaround_minutes.is_a?(Integer) && turnaround_minutes % 30 != 0
   end
 
   def excess_km_fee_has_a_limit

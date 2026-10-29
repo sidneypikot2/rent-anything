@@ -15,6 +15,8 @@ module BookingSerializer
       booking_mode: booking.booking_mode,
       starts_on: booking.starts_on,
       ends_on: booking.ends_on,
+      starts_at: booking.starts_at,
+      ends_at: booking.ends_at,
       quantity: booking.quantity,
       guests: booking.guests,
       room_guests: booking.room_guests,

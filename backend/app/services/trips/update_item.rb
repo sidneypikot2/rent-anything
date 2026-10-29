@@ -1,5 +1,6 @@
 module Trips
-  # Changes an item's dates, quantity, split into rooms or pets (RAA-182), or moves it to another of the guest's trips
+  # Changes an item's dates, quantity, split into rooms or pets (RAA-182), a vehicle rental's
+  # pickup time (RAA-195, null for the shop's default), or moves it to another of the guest's trips
   # (PATCH /trip_items/:id, RAA-64). Only the keys sent change; the trip it ends up in
   # grows to cover its dates. The trip it left keeps its dates.
   class UpdateItem < ApplicationService
@@ -44,6 +45,7 @@ module Trips
       attributes[:quantity] = integer_value(:quantity, "Quantity", required: true) if @params.key?(:quantity)
       read_party(attributes) if @errors.empty?
       read_units(attributes) if @errors.empty?
+      attributes[:pickup_time] = pickup_time_value(@item.listing) if @params.key?(:pickup_time)
       attributes
     end
 
