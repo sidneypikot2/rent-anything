@@ -1,5 +1,6 @@
 "use client";
 
+import type { CountryCode } from "libphonenumber-js";
 import { useState, type FormEvent } from "react";
 import { CodeForm } from "@/components/auth/email-code-form";
 import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
@@ -23,7 +24,7 @@ import { PhoneField } from "@/components/ui/phone-field";
 import { refreshSessionUser } from "@/lib/auth/actions";
 import { getSession, isAnonymous, useSession } from "@/lib/auth/session";
 import { formatPeso } from "@/lib/money";
-import { PHONE_ERROR, toE164 } from "@/lib/ph-phone";
+import { phoneError as phoneErrorFor, toE164 } from "@/lib/ph-phone";
 import { BookingStatusBadge } from "./booking-status";
 import { CodeRequiredError, newIdempotencyKey, useCheckout, type Checkout, type Contact } from "./use-bookings";
 
@@ -52,6 +53,7 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
   // The email waiting for its code (a 409), while the code step shows.
   const [codeFor, setCodeFor] = useState<string | null>(null);
   const [phone, setPhone] = useState("");
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>("PH");
   const [phoneError, setPhoneError] = useState<string>();
   // Whether the guest has typed their contact details: closing then asks first, until it's sent.
   const [typed, setTyped] = useState(false);
@@ -86,8 +88,8 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
     // Read when sent, not from render: a code just verified has made the session another's.
     if (!isAnonymous(getSession())) return send();
     const form = new FormData(event.currentTarget);
-    const e164 = toE164(phone);
-    if (!e164) return setPhoneError(PHONE_ERROR);
+    const e164 = toE164(phone, phoneCountry);
+    if (!e164) return setPhoneError(phoneErrorFor(phoneCountry));
     send({
       name: String(form.get("name") ?? "").trim(),
       email: String(form.get("email") ?? "").trim(),
@@ -160,6 +162,11 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
                 number={phone}
                 onNumberChange={(next) => {
                   setPhone(next);
+                  setPhoneError(undefined);
+                }}
+                country={phoneCountry}
+                onCountryChange={(next) => {
+                  setPhoneCountry(next);
                   setPhoneError(undefined);
                 }}
                 error={phoneError}

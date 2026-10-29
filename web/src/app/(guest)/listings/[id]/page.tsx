@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getListing, getQuote } from "@/api/discovery";
 import { categoryIcon } from "@/components/discovery/icons";
+import { listingFeatures } from "@/components/discovery/listing-features";
+import { FeatureGlyph } from "@/components/discovery/tag-glyphs";
 import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
 import { StayPrice } from "@/components/discovery/stay-price";
 import { startingArrangement, stayPriceLine, stayQuoteQuery } from "@/components/discovery/stay-quote";
@@ -18,10 +20,11 @@ import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { readTripDates, tripDatesQuery } from "@/components/trips/trip-dates";
 import { InTripBadge } from "@/components/trips/in-trip-badge";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
 import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 import { formatPeso } from "@/lib/money";
-import { plural } from "@/lib/pricing";
+import { plural, pricedByText } from "@/lib/pricing";
 
 // Only a positive integer can be a listing id; anything else is a 404 without asking the API.
 function listingId(param: string): number | null {
@@ -38,7 +41,10 @@ export async function generateMetadata(props: PageProps<"/listings/[id]">): Prom
 // One listing, for a traveller deciding whether to add it to a trip (RAA-90). Active listings
 // only; it never shows the location. A priced stay shows its nightly price and, with the trip's
 // dates, what the stay costs from /quotes (RAA-105); a tour shows its facts and price (RAA-111);
-// a vehicle its rates, confirmed with the partner (RAA-150); other categories have no price yet.
+// a vehicle its rates, confirmed with the partner (RAA-150); a rental or transfer without one
+// says how it is priced, as its row does. Under the add card, everything its details say (the
+// row's chips, all of them here: seats, bags, route, engine, helmets), so the page never shows
+// less than the row that led to it.
 const FREE_TO_SAVE = "Saving to a trip is free, and there's nothing to pay yet.";
 
 export default async function ListingPage(props: PageProps<"/listings/[id]">) {
@@ -69,7 +75,11 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
       ? stayPriceLine(rate, listing.guests)
       : tour
         ? tourPriceLine(tour)
-        : vehicleRate && vehiclePriceLine(vehicleRate);
+        : vehicleRate
+          ? vehiclePriceLine(vehicleRate)
+          : pricedByText(listing.booking_type);
+  // The detail API sends no cancellation policy, so only the listing's own details make chips.
+  const features = listingFeatures({ details: listing.details, cancellation_policy: "" });
 
   // A stay's or a vehicle's own card holds its price and Add to trip, so the page prices it once.
   const booker = Boolean(rate || (vehicleRate && vehicleSeats));
@@ -98,7 +108,9 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
           <>
             <DisplayTitle className="break-words text-balance">{listing.title}</DisplayTitle>
             <p className="text-sky-mist">
-              by {listing.business.name} · {listing.units_label}
+              {/* A tour's "1 unit" means nothing to a traveller: its facts say how many it takes. */}
+              by {listing.business.name}
+              {listing.booking_type !== "activity" && ` · ${listing.units_label}`}
             </p>
             {listing.instant_book && <InstantBookBadge className="w-fit" />}
           </>
@@ -179,6 +191,22 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
         </TripAddProvider>
 
         {vehicleRate && <VehiclePrice listing={listing} rate={vehicleRate} />}
+
+        {features.length > 0 && (
+          <section data-testid="listing-features" className="flex flex-col gap-3">
+            <SectionTitle>What you get</SectionTitle>
+            <ul aria-label="Includes" className="flex flex-wrap gap-2">
+              {features.map((feature) => (
+                <li key={feature.label}>
+                  <Badge tone="fact">
+                    <FeatureGlyph name={feature.icon} className="size-4 text-primary" />
+                    {feature.label}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {listing.photos.length > 1 && <ListingGallery title={listing.title} photos={listing.photos} />}
 

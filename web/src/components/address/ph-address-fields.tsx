@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import type { components } from "@/api/schema";
 import { ComboboxField, type ComboboxOption } from "@/components/ui/combobox-field";
 import { Field } from "@/components/ui/field";
-import { countryName } from "@/lib/countries";
+import { SelectField } from "@/components/ui/select-field";
+import { COUNTRIES, countryFlag, countryName } from "@/lib/countries";
 import type { ReversePlace } from "@/lib/map";
 import {
   citiesOf,
@@ -19,13 +20,13 @@ import {
 
 // A Philippine address, from region down to street, each field suggesting places inside
 // the one above (RAA-40). Shared by the guest's and the partner's profile forms: each
-// form keeps the state with usePhAddress and sends address.toBody().
+// form keeps the state with usePhAddress and sends address.toBody(). A guest can pick
+// another country (`abroad`), which gets plain fields instead of the PSA suggestions.
 
 type SavedAddress = components["schemas"]["profile_address"];
 export type PhAddress = ReturnType<typeof usePhAddress>;
 
-// Partners and guests are in the Philippines for now. The API accepts any country, so
-// adding others back is a change here only.
+// Partners are in the Philippines; guests come from anywhere. The API accepts any country.
 const COUNTRY = "PH";
 
 function toOptions(places: Place[]): ComboboxOption[] {
@@ -46,6 +47,8 @@ function usePhAddressData() {
 }
 
 export function usePhAddress(saved: SavedAddress) {
+  const [country, setCountry] = useState(saved.country ?? COUNTRY);
+  const inPh = country === COUNTRY;
   const [region, setRegion] = useState(saved.region ?? "");
   const [province, setProvince] = useState(saved.province ?? "");
   const [city, setCity] = useState(saved.city ?? "");
@@ -63,7 +66,7 @@ export function usePhAddress(saved: SavedAddress) {
   const provincePlace = findByName(provinces, province);
   const provinceCode = provincePlace?.code;
   // Metro Manila has no provinces: its cities hang off the region.
-  const hasProvinces = !ph || !regionCode || provinces.length > 0;
+  const hasProvinces = inPh && (!ph || !regionCode || provinces.length > 0);
   const cities = ph && regionCode && (provinceCode || !hasProvinces) ? citiesOf(ph, regionCode, provinceCode) : [];
   const cityCode = findByName(cities, city)?.code;
   const zips = ph ? zipsOf(ph, cityCode) : [];
@@ -71,8 +74,10 @@ export function usePhAddress(saved: SavedAddress) {
   // Changing a field clears the ones below it.
   function changeRegion(text: string, option?: ComboboxOption) {
     setFromMap(false);
-    const next = option?.value ?? (ph && findByName(ph.regions, text)?.code);
     setRegion(text);
+    // Abroad the fields are plain text: nothing below depends on them.
+    if (!inPh) return;
+    const next = option?.value ?? (ph && findByName(ph.regions, text)?.code);
     if (next !== regionCode) {
       setProvince("");
       setCity("");
@@ -92,6 +97,7 @@ export function usePhAddress(saved: SavedAddress) {
 
   function changeCity(text: string, option?: ComboboxOption) {
     setFromMap(false);
+    if (!inPh) return setCity(text);
     const next = option?.value ?? findByName(cities, text)?.code;
     setCity(text);
     if (next === cityCode) return;
@@ -100,8 +106,21 @@ export function usePhAddress(saved: SavedAddress) {
     setZip(cityZips.length === 1 ? cityZips[0] : "");
   }
 
+  // Another country starts the address over: Philippine places mean nothing there.
+  function changeCountry(next: string) {
+    setFromMap(false);
+    setCountry(next);
+    if ((next === COUNTRY) === inPh) return;
+    setRegion("");
+    setProvince("");
+    setCity("");
+    setZip("");
+  }
+
   return {
-    values: { region, province, city, zip, street },
+    values: { country, region, province, city, zip, street },
+    inPh,
+    changeCountry,
     ph,
     regionPlace,
     provinces,
@@ -149,6 +168,7 @@ export function usePhAddress(saved: SavedAddress) {
     // RAA-101), without the cascade above clearing the fields below.
     setAll: (next: SavedAddress) => {
       setFromMap(false);
+      setCountry(next.country ?? COUNTRY);
       setRegion(next.region ?? "");
       setProvince(next.province ?? "");
       setCity(next.city ?? "");
@@ -156,7 +176,7 @@ export function usePhAddress(saved: SavedAddress) {
       setStreet(next.street ?? "");
     },
     toBody: () => ({
-      country: COUNTRY,
+      country,
       region: region.trim(),
       province: hasProvinces ? province.trim() || null : null,
       city: city.trim(),
@@ -167,16 +187,98 @@ export function usePhAddress(saved: SavedAddress) {
 }
 
 // `disabled` shows the address without letting it change (a listing using its business's).
-export function PhAddressFields({ address, disabled }: { address: PhAddress; disabled?: boolean }) {
-  const { values, ph, regionPlace, provinces, provincePlace, hasProvinces, cities, zips } = address;
-
+// `abroad` lets the country change (guests); partners keep the Philippines.
+export function PhAddressFields({
+  address,
+  disabled,
+  abroad,
+}: {
+  address: PhAddress;
+  disabled?: boolean;
+  abroad?: boolean;
+}) {
   return (
     // Six columns so each field is about as wide as what goes in it; one column on phones.
     <fieldset disabled={disabled} className="grid gap-3 sm:grid-cols-6">
       <legend className="mb-3 font-semibold">Address</legend>
       <div className="sm:col-span-2">
-        <Field label="Country" name="country" value={`🇵🇭 ${countryName(COUNTRY)}`} disabled readOnly />
+        {abroad ? (
+          <SelectField
+            label="Country"
+            name="country"
+            data-testid="address-country"
+            value={address.values.country}
+            onChange={(event) => address.changeCountry(event.target.value)}
+            options={COUNTRIES.map((item) => ({ value: item.code, label: `${countryFlag(item.code)} ${item.name}` }))}
+          />
+        ) : (
+          <Field label="Country" name="country" value={`🇵🇭 ${countryName(COUNTRY)}`} disabled readOnly />
+        )}
       </div>
+      {address.inPh ? (
+        <PhPlaceFields address={address} />
+      ) : (
+        <AbroadFields address={address} />
+      )}
+    </fieldset>
+  );
+}
+
+// An address outside the Philippines: plain fields, in the order most countries write them.
+function AbroadFields({ address }: { address: PhAddress }) {
+  const { values } = address;
+  return (
+    <>
+      <div className="sm:col-span-4">
+        <Field
+          label="Street"
+          name="street"
+          required
+          autoComplete="street-address"
+          value={values.street}
+          onChange={(event) => address.setStreet(event.target.value)}
+          hint="House or flat number and street"
+        />
+      </div>
+      <div className="sm:col-span-2">
+        <Field
+          label="City"
+          name="city"
+          required
+          autoComplete="address-level2"
+          value={values.city}
+          onChange={(event) => address.changeCity(event.target.value)}
+        />
+      </div>
+      <div className="sm:col-span-2">
+        <Field
+          label="State / province / region"
+          name="region"
+          required
+          autoComplete="address-level1"
+          value={values.region}
+          onChange={(event) => address.changeRegion(event.target.value)}
+        />
+      </div>
+      <div className="sm:col-span-2">
+        <Field
+          label="Postal code"
+          name="postal_code"
+          required
+          autoComplete="postal-code"
+          value={values.zip}
+          onChange={(event) => address.setZip(event.target.value)}
+        />
+      </div>
+    </>
+  );
+}
+
+// A Philippine address, each field suggesting places inside the one above.
+function PhPlaceFields({ address }: { address: PhAddress }) {
+  const { values, ph, regionPlace, provinces, provincePlace, hasProvinces, cities, zips } = address;
+  return (
+    <>
       <div className="sm:col-span-4">
         <ComboboxField
           label="Region"
@@ -267,6 +369,6 @@ export function PhAddressFields({ address, disabled }: { address: PhAddress; dis
         </a>{" "}
         (CC BY 4.0).
       </p>
-    </fieldset>
+    </>
   );
 }
