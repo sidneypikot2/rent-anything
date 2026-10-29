@@ -70,20 +70,32 @@ export function PickupTimeRow({
       value={returnsAt ? `Return by ${formatRentalMoment(returnsAt)}` : "24 hours a day from pickup"}
       detail={taken ? `free from ${formatPickupTime(firstFree.time)}` : undefined}
       control={
-        <select
-          id={id}
-          value={value ?? ""}
-          onChange={(event) => onChange(event.currentTarget.value)}
-          className="min-h-11 rounded-control border border-line-strong bg-surface px-3 text-control font-semibold focus:border-primary focus:ring-4 focus:ring-sky-mist focus:outline-none"
-          data-testid="pickup-time"
-        >
-          {times.map((slot) => (
-            <option key={slot.time} value={slot.time} disabled={!slot.available}>
-              {formatPickupTime(slot.time)}
-              {slot.available ? "" : " · taken"}
-            </option>
-          ))}
-        </select>
+        // Our own chevron in the right padding, as SelectField's: the browser's arrow sat against
+        // the time and the border.
+        <span className="relative shrink-0">
+          <select
+            id={id}
+            value={value ?? ""}
+            onChange={(event) => onChange(event.currentTarget.value)}
+            className="min-h-11 appearance-none rounded-control border border-line-strong bg-surface pr-10 pl-4 text-control font-semibold focus:border-primary focus:ring-4 focus:ring-sky-mist focus:outline-none"
+            data-testid="pickup-time"
+          >
+            {times.map((slot) => (
+              <option key={slot.time} value={slot.time} disabled={!slot.available}>
+                {formatPickupTime(slot.time)}
+                {slot.available ? "" : " · taken"}
+              </option>
+            ))}
+          </select>
+          <svg
+            aria-hidden
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted"
+          >
+            <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" />
+          </svg>
+        </span>
       }
       data-testid="pickup-row"
     />

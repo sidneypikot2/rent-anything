@@ -2238,10 +2238,13 @@ RSpec.configure do |config|
             properties: {
               starts_on: { type: :string, format: :date, description: "Today or later; a stay's check-in" },
               ends_on: { type: :string, format: :date, description: "A stay's check-out; otherwise the last day" },
-              guests: { type: :integer, minimum: 1, maximum: Bookings::Change::MAX_GUESTS },
+              guests: { type: :integer, minimum: 1, maximum: Bookings::Change::MAX_GUESTS,
+                        description: "The people it is for; gear's is how many" },
               room_guests: ROOM_GUESTS_BODY,
               pets: PETS_BODY,
-              pickup_time: PICKUP_TIME_BODY
+              pickup_time: PICKUP_TIME_BODY,
+              units: { type: :integer, minimum: 1, maximum: 99,
+                       description: "A vehicle's: how many it takes, enough to seat the guests and at most one each" }
             }
           },
           offline_booking_body: {

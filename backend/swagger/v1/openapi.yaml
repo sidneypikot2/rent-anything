@@ -9628,6 +9628,7 @@ components:
           type: integer
           minimum: 1
           maximum: 99
+          description: The people it is for; gear's is how many
         room_guests:
           type: array
           nullable: true
@@ -9663,6 +9664,12 @@ components:
           description: 'A vehicle rental only: one of the shop''s pickup times ("08:30");
             it runs 24 hours a day from then. Null or omitted takes the shop''s default
             (9:00, or its first pickup time)'
+        units:
+          type: integer
+          minimum: 1
+          maximum: 99
+          description: 'A vehicle''s: how many it takes, enough to seat the guests
+            and at most one each'
     offline_booking_body:
       type: object
       properties:

@@ -126,5 +126,51 @@ RSpec.describe Bookings::Change do
       expect(booking.reload).to have_attributes(pickup_time: "14:00", starts_on: today + 11)
       expect(booking.ends_at - booking.starts_at).to eq(24.hours)
     end
+
+    context "with two motorbikes (RAA-200)" do
+      before { listing.units.create!(position: 2) }
+
+      it "takes the vehicles sent, and its trip item keeps them" do
+        booking = booking_with(status: "confirmed")
+
+        change_booking(booking, guests: 2, units: 2)
+
+        expect(booking.reload).to have_attributes(guests: 2, quantity: 2)
+        expect(item.reload).to have_attributes(quantity: 2, units: 2)
+      end
+
+      it "drops chosen vehicles that no longer fit the guests" do
+        item.update!(quantity: 2, units: 2)
+        booking = booking_with(status: "confirmed")
+
+        change_booking(booking, guests: 1)
+
+        expect(booking.reload).to have_attributes(guests: 1, quantity: 1)
+        expect(item.reload.units).to be_nil
+      end
+
+      it "refuses too few vehicles for the guests" do
+        booking = booking_with(status: "confirmed")
+
+        expect { change_booking(booking, guests: 4, units: 1) }
+          .to raise_error(ActiveRecord::RecordInvalid, /4 people need at least 2 motorbikes/)
+      end
+    end
+  end
+
+  context "with gear (RAA-200)" do
+    let(:listing) { create(:listing, :gear) }
+
+    it "changes how many, keeping no guests, and keeps the count when only the dates change" do
+      booking = booking_with(status: "confirmed")
+      booking.update!(guests: nil)
+
+      change_booking(booking, guests: 2)
+      expect(booking.reload).to have_attributes(guests: nil, quantity: 2)
+      expect(item.reload.quantity).to eq(2)
+
+      change_booking(booking, starts_on: (today + 11).iso8601, ends_on: (today + 12).iso8601)
+      expect(booking.reload).to have_attributes(guests: nil, quantity: 2, starts_on: today + 11)
+    end
   end
 end

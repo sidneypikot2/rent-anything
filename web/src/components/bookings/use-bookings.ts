@@ -55,7 +55,7 @@ export function useBooking(id: number | undefined) {
   });
 }
 
-export type BookingChanges = { starts_on: string; ends_on: string; guests: number };
+export type BookingChanges = components["schemas"]["booking_change_body"];
 
 // PATCH /bookings/:id (RAA-134): new dates or guests. The booking goes back to its partner as
 // a request, holding the new dates until they answer; its trip item follows.

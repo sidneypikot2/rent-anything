@@ -8693,6 +8693,7 @@ export interface components {
              * @description A stay's check-out; otherwise the last day
              */
             ends_on?: string;
+            /** @description The people it is for; gear's is how many */
             guests?: number;
             /** @description A stay only (RAA-182): its guests room by room, adding up to its guests, which it then sets; null for an even split over the fewest rooms that sleep them */
             room_guests?: {
@@ -8704,6 +8705,8 @@ export interface components {
             pets?: number;
             /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
             pickup_time?: string | null;
+            /** @description A vehicle's: how many it takes, enough to seat the guests and at most one each */
+            units?: number;
         };
         offline_booking_body: {
             guest_name: string;
