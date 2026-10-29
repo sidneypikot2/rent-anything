@@ -6,14 +6,14 @@ import { AlertGlyph } from "@/components/discovery/tag-glyphs";
 import { useSession } from "@/lib/auth/session";
 import { useGuestProfile } from "./use-guest-profile";
 
-// Under the header on every signed-in guest page until the profile is complete; not on
-// the profile page itself, which is where it leads. Not for a guest without an account
-// (RAA-177): checkout asks them for what partners need.
+// Under the header on the guest's dashboard until the profile is complete. Not on the cart
+// or trips, where they plan: checkout asks for what partners need and never waits on the
+// address. Not for a guest without an account (RAA-177).
 export function GuestProfileBanner() {
   const pathname = usePathname();
   const registered = useSession()?.user.registered;
   const { data } = useGuestProfile();
-  if (!registered || !data || data.complete || pathname === "/profile") return null;
+  if (!registered || !data || data.complete || pathname !== "/dashboard") return null;
 
   // Over the photo backdrop, so light text on a warm glass strip. A phone gets one short line
   // (RAA-161); from sm the whole sentence.

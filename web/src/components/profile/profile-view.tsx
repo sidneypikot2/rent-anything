@@ -27,13 +27,14 @@ export function ProfileItem({ label, value }: { label: string; value: string | n
 
 // From country down to street, the order the form asks in.
 export function AddressSection({ address }: { address: components["schemas"]["profile_address"] }) {
+  const inPh = !address.country || address.country === "PH";
   return (
     <ProfileSection title="Address">
       <ProfileItem label="Country" value={address.country && countryName(address.country)} />
-      <ProfileItem label="Region" value={address.region} />
+      <ProfileItem label={inPh ? "Region" : "State / province / region"} value={address.region} />
       {address.province && <ProfileItem label="Province" value={address.province} />}
-      <ProfileItem label="City / Municipality" value={address.city} />
-      <ProfileItem label="ZIP code" value={address.postal_code} />
+      <ProfileItem label={inPh ? "City / Municipality" : "City"} value={address.city} />
+      <ProfileItem label={inPh ? "ZIP code" : "Postal code"} value={address.postal_code} />
       <ProfileItem label="Street" value={address.street} />
     </ProfileSection>
   );

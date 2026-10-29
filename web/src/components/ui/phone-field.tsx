@@ -1,4 +1,6 @@
 import { useId } from "react";
+import type { CountryCode } from "libphonenumber-js";
+import { COUNTRIES, countryFlag } from "@/lib/countries";
 import { cn } from "./cn";
 import { FieldNote, useFieldError } from "./field-error";
 
@@ -9,11 +11,23 @@ type Props = {
   required?: boolean;
   hint?: string;
   error?: string;
+  // With these, the code in front is a picker (guests from anywhere); without, a fixed +63.
+  country?: CountryCode;
+  onCountryChange?: (country: CountryCode) => void;
 };
 
-// A Philippine phone number: a fixed +63 in front of the number, drawn as one field. The
-// caller checks it (libphonenumber-js) and sends one international number.
-export function PhoneField({ label, number, onNumberChange, required, hint, error: apiError }: Props) {
+// A phone number: the country code in front of the number, drawn as one field. The caller
+// checks it (libphonenumber-js) and sends one international number.
+export function PhoneField({
+  label,
+  number,
+  onNumberChange,
+  required,
+  hint,
+  error: apiError,
+  country = "PH",
+  onCountryChange,
+}: Props) {
   const inputId = useId();
   const noteId = useId();
   const native = useFieldError(label);
@@ -29,9 +43,35 @@ export function PhoneField({ label, number, onNumberChange, required, hint, erro
           error ? "border-danger focus-within:border-danger focus-within:ring-danger/10" : "border-line-strong focus-within:border-primary focus-within:ring-sky-mist",
         )}
       >
-        <span aria-hidden className="flex items-center border-r-[1.5px] border-line-strong bg-surface-2 px-3 font-normal text-muted">
-          🇵🇭 +63
-        </span>
+        {onCountryChange ? (
+          // The native picker sits invisibly over the code it shows, so a phone opens its own
+          // list; the field's focus ring shows it's focused.
+          <span className="relative flex items-center gap-1 border-r-[1.5px] border-line-strong bg-surface-2 px-3 font-normal text-foreground">
+            <span aria-hidden>
+              {countryFlag(country)} +{COUNTRIES.find((item) => item.code === country)?.dial}
+            </span>
+            <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="size-4 text-muted">
+              <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" />
+            </svg>
+            <select
+              aria-label="Country code"
+              data-testid="phone-country"
+              value={country}
+              onChange={(event) => onCountryChange(event.target.value as CountryCode)}
+              className="absolute inset-0 cursor-pointer opacity-0"
+            >
+              {COUNTRIES.map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.name} +{item.dial}
+                </option>
+              ))}
+            </select>
+          </span>
+        ) : (
+          <span aria-hidden className="flex items-center border-r-[1.5px] border-line-strong bg-surface-2 px-3 font-normal text-muted">
+            🇵🇭 +63
+          </span>
+        )}
         <input
           id={inputId}
           type="tel"

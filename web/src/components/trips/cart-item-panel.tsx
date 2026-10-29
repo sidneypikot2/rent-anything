@@ -4,8 +4,9 @@ import { Fragment, type ReactNode } from "react";
 import { BOOKING_STATUS, BookingStatusBadge } from "@/components/bookings/booking-status";
 import { CANCELLATION_POLICY } from "@/components/bookings/cancellation";
 import { payable } from "@/components/bookings/pay-sheet";
-import { rentalTimes } from "./pickup-time";
+import { formatRentalSpan, rentalTimes } from "./pickup-time";
 import { deliveryText } from "./delivery-options";
+import { roomSplit } from "@/components/bookings/room-split";
 import { useBooking, type GuestBooking } from "@/components/bookings/use-bookings";
 import { ListingPanel, PanelPhoto } from "@/components/discovery/detail-panel";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { formatPeso } from "@/lib/money";
 import { formatDateRange, formatDay, itemAmount, todayIso } from "./format";
 import { bookable, type TripActions } from "./trip-details";
+import { vehicleNoun } from "./vehicle-party";
 import { tripOwnQuery } from "./trip-dates";
 import { itemProblem, itemQuote, useTripQuote, type Trip, type TripItem } from "./use-trips";
 
@@ -143,6 +145,7 @@ export function CartItemPanel({
           booking={details}
           reference={item.booking.reference}
           status={item.booking.status}
+          category={item.listing.category}
           loading={booking.isPending}
           failed={booking.isError}
         />
@@ -244,6 +247,22 @@ function dateRows(booking: GuestBooking): [string, string][] {
   return [["Date", formatDateRange(booking.starts_on, booking.ends_on) ?? day(booking.starts_on)]];
 }
 
+// Who or how many a booking is for, as the sheets ask it (RAA-200): gear's count, a vehicle's
+// people, vehicles and pickup, a stay's guests and how they split into rooms, anyone else's guests.
+function partyRows(booking: GuestBooking, category: string | undefined): [string, string][] {
+  if (booking.guests == null) return [["How many", String(booking.quantity)]];
+  if (booking.starts_at && booking.ends_at) {
+    const vehicles = vehicleNoun(category, 2);
+    return [
+      ["People", String(booking.guests)],
+      [vehicles[0].toUpperCase() + vehicles.slice(1), String(booking.quantity)],
+      ["Pickup", formatRentalSpan(booking.starts_at, booking.ends_at)],
+    ];
+  }
+  const rooms = booking.booking_type === "stay" ? roomSplit(booking) : null;
+  return [["Guests", String(booking.guests)], ...(rooms ? [["Rooms", rooms] as [string, string]] : [])];
+}
+
 function Rows({ rows }: { rows: [string, ReactNode][] }) {
   return (
     <dl className="grid grid-cols-[minmax(6.5rem,auto)_1fr] gap-x-4 gap-y-1 text-sm">
@@ -274,12 +293,14 @@ function BookingSection({
   booking,
   reference,
   status,
+  category,
   loading,
   failed,
 }: {
   booking: GuestBooking | undefined;
   reference: string;
   status: GuestBooking["status"];
+  category: string | undefined;
   loading: boolean;
   failed: boolean;
 }) {
@@ -291,12 +312,12 @@ function BookingSection({
       </p>
       {loading && <div role="status" aria-busy className="h-16 rounded-control bg-mist motion-safe:animate-pulse" />}
       {failed && <p className="text-sm text-muted">Couldn&apos;t load the rest of this booking.</p>}
-      {booking && <BookingDetails booking={booking} />}
+      {booking && <BookingDetails booking={booking} category={category} />}
     </PanelBlock>
   );
 }
 
-function BookingDetails({ booking }: { booking: GuestBooking }) {
+function BookingDetails({ booking, category }: { booking: GuestBooking; category: string | undefined }) {
   const policy = booking.cancellation_policy ? CANCELLATION_POLICY[booking.cancellation_policy] : undefined;
   const freeUntil = booking.free_cancellation_until;
   const paid = PAID.has(booking.status);
@@ -318,7 +339,7 @@ function BookingDetails({ booking }: { booking: GuestBooking }) {
         <Rows
           rows={[
             ...dateRows(booking),
-            booking.guests == null ? ["Quantity", String(booking.quantity)] : ["Guests", String(booking.guests)],
+            ...partyRows(booking, category),
             [
               "Total",
               <span key="total" className="font-semibold tabular-nums">

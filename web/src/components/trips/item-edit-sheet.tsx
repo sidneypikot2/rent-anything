@@ -1,8 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { apiClient } from "@/api/client";
 import { CANCELLATION_POLICY } from "@/components/bookings/cancellation";
 import { CategoryGlyph, GuestsGlyph, TickGlyph } from "@/components/discovery/tag-glyphs";
 import { BOOKING_STATE } from "@/components/landing/launch-area";
@@ -14,11 +12,12 @@ import { Stepper } from "@/components/ui/stepper-field";
 import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
 import { daysBetween, guestLimitHint, noNightError, RANGE_TYPES, rentLimitHint, todayIso } from "./format";
 import { ItemThumb } from "./item-thumb";
-import { evenRooms, headcount, partyFromGuests, roomGuestsToSend, stayRules, type Room } from "./party";
+import { evenRooms, headcount, partyFromGuests, roomGuestsToSend, type Room, type StayRules } from "./party";
 import { RoomsAndGuests } from "./rooms-and-guests";
 import { VehicleCounters } from "./people-and-vehicles";
 import { PickupTimeRow, rentalClock } from "./pickup-time";
 import { useListingPrices } from "./use-listing-price";
+import { useStayRules } from "./use-stay-rules";
 import { unitsFor } from "./vehicle-party";
 import { useUpdateTripItem, type Trip, type TripItem } from "./use-trips";
 
@@ -58,17 +57,7 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
   const gear = item.listing.group === "gear";
   const maxGuests = Math.max(item.max_quantity ?? 99, item.quantity);
   const stay = item.booking_type === "stay";
-  const { data: listing } = useQuery({
-    queryKey: ["listing", item.listing.id],
-    queryFn: async () => {
-      const { data, error } = await apiClient().GET("/api/v1/listings/{id}", { params: { path: { id: item.listing.id } } });
-      if (error || !data) throw new Error("Couldn't load this listing");
-      return data;
-    },
-    enabled: stay,
-    staleTime: 5 * 60_000,
-  });
-  const rules = stay && listing ? stayRules(listing.details, listing.units_count, listing.fees) : null;
+  const rules = useStayRules(item.listing.id, stay);
   const [typedRooms, setRooms] = useState<{ rooms: Room[]; pets: number } | null>(null);
   // Closing asks first once something here has changed.
   const dirty = useChanged({ startsOn, endsOn, guests, units, typedRooms });
@@ -210,7 +199,7 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
         )}
 
         <DialogFooter>
-          <Button type="submit" data-testid="item-edit-save" loading={update.isPending} disabled={!valid || (stay && !listing)}>
+          <Button type="submit" data-testid="item-edit-save" loading={update.isPending} disabled={!valid || (stay && !rules)}>
             {update.isPending ? "Saving…" : "Save changes"}
           </Button>
         </DialogFooter>
@@ -221,7 +210,7 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
 
 // A stay's rooms as it was added: its own split, or its guests spread evenly — the trip's party
 // when the stay is for all of it, otherwise adults.
-function startingRooms(trip: Trip, item: TripItem, rules: ReturnType<typeof stayRules>): Room[] {
+function startingRooms(trip: Trip, item: TripItem, rules: StayRules): Room[] {
   if (item.room_guests) return item.room_guests;
   const party = item.quantity === trip.guests ? partyFromGuests(trip.guests, trip) : partyFromGuests(item.quantity);
   return evenRooms(party, rules);

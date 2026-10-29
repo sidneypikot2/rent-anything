@@ -23,7 +23,7 @@ module Api
       end
 
       def update
-        Bookings::Change.call(@booking, user: current_user, params: params.slice(:starts_on, :ends_on, :guests, :room_guests, :pets, :pickup_time))
+        Bookings::Change.call(@booking, user: current_user, params: params.slice(:starts_on, :ends_on, :guests, :room_guests, :pets, :pickup_time, :units))
         render json: BookingSerializer.call(@booking.reload)
       end
 

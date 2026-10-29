@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { PhoneField } from "@/components/ui/phone-field";
 import { useSession } from "@/lib/auth/session";
-import { PHONE_ERROR, editablePhone, formatPhone, toE164 } from "@/lib/ph-phone";
+import { formatPhone, phoneError as phoneErrorFor, phoneParts, toE164 } from "@/lib/ph-phone";
 import { guestProfileKey, type GuestProfile } from "./use-guest-profile";
 
 // The guest's profile (RAA-40): read-only once complete, with Edit to change it; an
@@ -66,7 +66,10 @@ function GuestProfileForm({
 
   const firstName = useNameField("First name", profile.legal_first_name);
   const lastName = useNameField("Last name", profile.legal_last_name);
-  const [phoneNumber, setPhoneNumber] = useState(editablePhone(profile.phone));
+  // Guests come from anywhere: the phone and the address each take a country.
+  const savedPhone = phoneParts(profile.phone);
+  const [phoneCountry, setPhoneCountry] = useState(savedPhone.country);
+  const [phoneNumber, setPhoneNumber] = useState(savedPhone.number);
   const [phoneError, setPhoneError] = useState<string>();
   const address = usePhAddress(profile.address);
 
@@ -88,8 +91,8 @@ function GuestProfileForm({
     event.preventDefault();
     const firstOk = firstName.validate();
     const lastOk = lastName.validate();
-    const phone = toE164(phoneNumber);
-    setPhoneError(phone ? undefined : PHONE_ERROR);
+    const phone = toE164(phoneNumber, phoneCountry);
+    setPhoneError(phone ? undefined : phoneErrorFor(phoneCountry));
     if (!firstOk) return firstName.focus();
     if (!lastOk) return lastName.focus();
     if (!phone) return;
@@ -139,13 +142,18 @@ function GuestProfileForm({
             setPhoneNumber(next);
             setPhoneError(undefined);
           }}
+          country={phoneCountry}
+          onCountryChange={(next) => {
+            setPhoneCountry(next);
+            setPhoneError(undefined);
+          }}
           error={phoneError}
-          hint="e.g. 917 123 4567"
+          hint={phoneCountry === "PH" ? "e.g. 917 123 4567" : undefined}
         />
         <Field label="Email" name="email" type="email" value={profile.email} disabled readOnly hint="Your sign-in email" />
       </fieldset>
 
-      <PhAddressFields address={address} />
+      <PhAddressFields address={address} abroad />
 
       <div className="flex gap-2">
         <Button size="sm" type="submit" data-testid="guest-profile-save" disabled={save.isPending}>
