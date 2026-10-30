@@ -1,6 +1,6 @@
 module Users
   # A guest deletes their own account (DELETE /me): what Users::Erase deletes goes at once,
-  # and every device is signed out. Partners' records of past bookings stay. Refused while a
+  # and every device is signed out, its open WebSockets closed too (RAA-201). Partners' records of past bookings stay. Refused while a
   # booking is still open (Booking::UNSETTLED), so no partner is left with a booking whose
   # guest is gone. Partners and admins can't delete themselves: a partner's listings and
   # payouts are closed by the team, on request by email.
@@ -24,6 +24,7 @@ module Users
         Erase.call(user)
       end
       GuestMailer.account_deleted(email, name).deliver_later if email
+      UserChannel.disconnect(@user)
       nil
     end
   end

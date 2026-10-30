@@ -49,8 +49,13 @@ gem "image_processing", "~> 1.2"
 # Cloudflare R2, through its S3 API, for listing photos (PhotoStorage, RAA-106)
 gem "aws-sdk-s3"
 
-# Redis-backed Action Cable adapter (chat). actioncable's redis adapter requires "< 6".
+# Unused since AnyCable (RAA-201) broadcasts over HTTP; kept for its redisx broadcaster once
+# several anycable-go nodes share Valkey. actioncable's redis adapter requires "< 6".
 gem "redis", "< 6"
+
+# AnyCable (RAA-201): anycable-go holds the WebSockets and asks Rails over HTTP RPC to approve
+# them; "-core" leaves out the gRPC server we don't run.
+gem "anycable-rails-core", "~> 1.6"
 
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 gem "rack-cors"

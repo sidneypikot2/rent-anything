@@ -1,17 +1,12 @@
+# AnyCable (RAA-201): anycable-go serves the WebSockets; config/anycable.yml has its settings.
 development:
-  adapter: redis
-  url: <%= ENV.fetch("REDIS_URL") { "redis://localhost:6379/1" } %>
-  channel_prefix: rent_anything_development
+  adapter: any_cable
 
 test:
   adapter: test
 
 production:
-  adapter: redis
-  url: <%= ENV.fetch("REDIS_URL") { "redis://localhost:6379/1" } %>
-  channel_prefix: rent_anything_production
+  adapter: any_cable
 
 staging:
-  adapter: redis
-  url: <%= ENV.fetch("REDIS_URL") { "redis://localhost:6379/1" } %>
-  channel_prefix: rent_anything_staging
+  adapter: any_cable

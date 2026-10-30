@@ -173,4 +173,13 @@ RSpec.describe Bookings::Change do
       expect(booking.reload).to have_attributes(guests: nil, quantity: 2, starts_on: today + 11)
     end
   end
+
+  it "tells the partner when a waiting request is changed (RAA-201)" do
+    booking = booking_with(status: "requested")
+    booking.update!(expires_at: 1.hour.from_now)
+
+    expect { change_booking(booking, guests: 3) }
+      .to have_broadcasted_to(listing.partner).from_channel(UserChannel)
+      .with(type: "booking.updated", booking_id: booking.id, status: "requested")
+  end
 end
