@@ -47,7 +47,25 @@ module Trips
       read_units(attributes) if @errors.empty?
       attributes[:pickup_time] = pickup_time_value(@item.listing) if @params.key?(:pickup_time)
       attributes.merge!(delivery_values(@item.listing, @item.slice(*DELIVERY_KEYS).symbolize_keys))
+      read_child_helmets(attributes) if @errors.empty?
       attributes
+    end
+
+    # Child helmets sent are checked against the item's vehicles; fewer vehicles than the helmets
+    # it has take the extra ones off (RAA-205).
+    def read_child_helmets(attributes)
+      helmets = @params.key?(:child_helmets) ? child_helmets_value(@item.listing) : @item.child_helmets
+      return if helmets.nil?
+
+      guests = attributes.fetch(:quantity, @item.quantity)
+      units = Booking.units_for(@item.listing, guests, room_guests: attributes.fetch(:room_guests, @item.room_guests),
+        chosen: attributes.fetch(:units, @item.units))
+      if @params.key?(:child_helmets)
+        check_child_helmets(helmets, units)
+        attributes[:child_helmets] = helmets
+      elsif helmets > units
+        attributes[:child_helmets] = units
+      end
     end
 
     # A vehicle's units (RAA-191): sent ones are checked against the guests; a new guest count

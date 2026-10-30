@@ -186,7 +186,7 @@ export function ListingForm({
       ...(stayCategory
         ? { stay_rate: toStayRateBody(pricing, stay.placeType, stay.guests), fees: toFeesBody(pricing) }
         : {}),
-      ...(vehicleCategory ? { vehicle_rate: toVehicleRateBody(vehiclePricing), fees: toFeesBody(vehiclePricing) } : {}),
+      ...(vehicleCategory ? { vehicle_rate: toVehicleRateBody(vehiclePricing, category?.slug), fees: toFeesBody(vehiclePricing) } : {}),
       ...(flatCategory && flatPrice ? { flat_rate: toFlatRateBody(flatPrice) } : {}),
       ...(tourCategory ? toTourListingBody(tour, extras) : {}),
       // Sent only once moved: a body's photos deletes any photo it leaves out.
@@ -471,6 +471,7 @@ export function ListingForm({
                 </p>
               )}
               <VehiclePricingFields
+                location={location}
                 values={vehiclePricing}
                 onChange={(values) => {
                   setVehiclePricing(values);

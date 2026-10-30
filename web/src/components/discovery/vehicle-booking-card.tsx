@@ -10,7 +10,7 @@ import { useSession } from "@/lib/auth/session";
 import { addPreview } from "@/components/trips/add-preview";
 import { addDays, formatDateRange, todayIso } from "@/components/trips/format";
 import { PeopleAndVehicles, MAX_PEOPLE } from "@/components/trips/people-and-vehicles";
-import { DeliveryOptions, needsAddress, NO_DELIVERY, type Delivery } from "@/components/trips/delivery-options";
+import { AtTheShopRow, ChildHelmetsRow, DeliveryOptions, needsAddress, NO_DELIVERY, wantsDelivery, type Delivery } from "@/components/trips/delivery-options";
 import { formatRentalSpan, PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { PriceBreakdown, usePriceBreakdown } from "@/components/trips/price-breakdown";
@@ -27,7 +27,8 @@ type Rate = NonNullable<ListingDetail["vehicle_rate"]>;
 // its rate (rent for each vehicle and day, the refundable deposit for each) and Add to trip with
 // both. A group that needs more than are free is told so and can't add; "More from this shop"
 // opens the shop's other models (ShopPopup). The price is the API's, as checkout charges it,
-// as are the pickup times free on the dates and when it is due back (RAA-195).
+// as are the pickup times free on the dates and when it is due back (RAA-195), asked right under
+// the dates (RAA-205).
 // `add={false}` in a side panel, whose foot holds Add to trip.
 // `rate` says the vehicle is priced; the price itself is the API's.
 export function VehicleBookingCard({
@@ -55,11 +56,13 @@ export function VehicleBookingCard({
   const [shopOpen, setShopOpen] = useState(false);
   // Its pickup time (RAA-195): null takes the shop's default until the guest picks one.
   const [pickupTime, setPickupTime] = useState<string | null>(null);
-  // Delivery and pick-up (RAA-195), where the shop offers them. In a side panel (`add={false}`)
-  // the add sheet asks them instead, as its foot's Add to trip opens it.
+  // Delivery and pick-up (RAA-195), where the shop offers them, to a pin on its zones (RAA-205).
+  // In a side panel (`add={false}`) there are none: the guest collects it at the shop.
   const [delivery, setDelivery] = useState<Delivery>(NO_DELIVERY);
   const fees = { delivery: rate.delivery_fee_cents, returnPickup: rate.return_pickup_fee_cents };
   const chosenDelivery = canAdd ? delivery : null;
+  // A motorcycle's child helmets (RAA-205), one a vehicle at most; the add sheet asks them in a panel.
+  const [childHelmets, setChildHelmets] = useState(0);
   // Its own dates, the page's at first: a bike for 1 day of a week-long trip. One date is one day.
   const [rental, setRental] = useState({ from: dates.from ?? "", to: dates.to ?? "" });
   const from = rental.from || undefined;
@@ -74,7 +77,10 @@ export function VehicleBookingCard({
   const short = free !== null && needed > free;
   const days = rentalDays(from, to);
   // Priced by the API as checkout will (RAA-191): the vehicles for the days, the deposit apart.
-  const breakdown = usePriceBreakdown([{ listingId: listing.id, startsOn: from, endsOn: to, quantity: people, units, pickupTime, delivery: chosenDelivery }]);
+  const helmets = canAdd ? Math.min(childHelmets, units) : 0;
+  const breakdown = usePriceBreakdown([
+    { listingId: listing.id, startsOn: from, endsOn: to, quantity: people, units, pickupTime, delivery: chosenDelivery, childHelmets: helmets },
+  ]);
   const pickupTimes = breakdown.price?.pickupTimes;
   const returnsAt = breakdown.price?.returnsAt;
   const noun = vehicleNoun(category);
@@ -112,6 +118,14 @@ export function VehicleBookingCard({
             hint={from && to ? `${days} ${days === 1 ? "day" : "days"} · back ${formatDateRange(to, to)}` : undefined}
             data-testid="vehicle-dates"
           />
+          {pickupTimes && (
+            <PickupTimeRow
+              times={pickupTimes}
+              value={pickupTime ?? (returnsAt ? rentalClock(returnsAt) : null)}
+              onChange={setPickupTime}
+              returnsAt={returnsAt}
+            />
+          )}
           <PeopleAndVehicles
             people={people}
             units={units}
@@ -128,15 +142,17 @@ export function VehicleBookingCard({
               available. Pick other dates or add another listing.
             </TicketNote>
           )}
-          {pickupTimes && (
-            <PickupTimeRow
-              times={pickupTimes}
-              value={pickupTime ?? (returnsAt ? rentalClock(returnsAt) : null)}
-              onChange={setPickupTime}
-              returnsAt={returnsAt}
+          {canAdd && (
+            <DeliveryOptions
+              fees={fees}
+              value={delivery}
+              onChange={setDelivery}
+              zones={rate.delivery_zones}
+              center={models.find((model) => model.id === listing.id)?.approx_location}
             />
           )}
-          {canAdd && <DeliveryOptions fees={fees} value={delivery} onChange={setDelivery} />}
+          {!wantsDelivery(chosenDelivery) && <AtTheShopRow place={listing.area.name} />}
+          {canAdd && <ChildHelmetsRow fee={rate.child_helmet_fee_cents} value={helmets} max={units} onChange={setChildHelmets} />}
           <PriceBreakdown breakdown={breakdown} />
         </Ticket>
 
@@ -148,7 +164,7 @@ export function VehicleBookingCard({
             glyph="plus"
             data-testid="add-to-trip"
             loading={busy}
-            disabled={session === undefined || short || needsAddress(delivery)}
+            disabled={session === undefined || short || needsAddress(delivery) || Boolean(wantsDelivery(delivery) && breakdown.price?.unavailable)}
             onClick={() =>
               flow.add({
                 listingId: listing.id,
@@ -161,6 +177,7 @@ export function VehicleBookingCard({
                 units,
                 pickupTime,
                 delivery: chosenDelivery,
+                childHelmets: helmets,
                 guests: dates.guests,
                 preview: addPreview(listing),
               })

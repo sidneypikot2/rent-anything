@@ -8,7 +8,8 @@ module Bookings
   # - a tour: its base price per group (private) or per joiner, times quantity;
   # - a rental vehicle (RAA-191): its daily price for each of its units and day; the refundable
   #   deposit for each is in the breakdown, never in the total (VehicleRate); with `delivery`
-  #   and `return_pickup` (RAA-195), the shop's fee for each, for each vehicle;
+  #   and `return_pickup` (RAA-195), the shop's fee for each, for each vehicle; `child_helmets`
+  #   (RAA-205) at the shop's fee for each helmet and day, nothing when it gives them free;
   # - gear: its flat price for each item and day; a transfer: its flat price for each vehicle;
   # - anything still without a price (a rate of 0): 0 and `to_be_agreed`, settled with the partner.
   #
@@ -18,10 +19,12 @@ module Bookings
   # a booking being re-priced for new dates (Bookings::Change), whose own nights stay free to it.
   class Price < ApplicationService
     def initialize(listing, starts_on:, ends_on:, quantity:, guests:, room_guests: nil, pets: 0, except_booking: nil,
-      delivery: false, return_pickup: false)
+      delivery: false, return_pickup: false, delivery_distance_m: nil, child_helmets: 0)
       @listing = listing
+      @child_helmets = child_helmets
       @delivery = delivery
       @return_pickup = return_pickup
+      @delivery_distance_m = delivery_distance_m
       @except_booking = except_booking
       @starts_on = starts_on
       @ends_on = ends_on
@@ -53,13 +56,27 @@ module Bookings
     private
 
     def vehicle(rate)
+      fee = handover_fee(rate)
       extras = {
-        delivery_cents: (rate.delivery_fee_cents * @quantity if @delivery && rate.delivers?),
-        return_pickup_cents: (rate.return_pickup_fee_cents * @quantity if @return_pickup && rate.picks_up?)
+        delivery_cents: (fee * @quantity if @delivery && rate.delivers?),
+        return_pickup_cents: (fee * @quantity if @return_pickup && rate.picks_up?),
+        child_helmets_cents: (rate.child_helmet_fee_cents * @child_helmets * days if @child_helmets.positive? && rate.child_helmets?)
       }.compact
+      helmets = extras.key?(:child_helmets_cents) ? { child_helmets: @child_helmets } : {}
       { total_cents: (rate.daily_price_cents * @quantity * days) + extras.values.sum,
         breakdown: { kind: "vehicle", unit_price_cents: rate.daily_price_cents, quantity: @quantity, days:,
-                     deposit_cents: rate.security_deposit_cents * @quantity, **extras } }
+                     deposit_cents: rate.security_deposit_cents * @quantity, **extras, **helmets } }
+    end
+
+    # The zone's fee for the guest's pin (RAA-205); a pin beyond the farthest zone is refused.
+    def handover_fee(rate)
+      return unless (@delivery && rate.delivers?) || (@return_pickup && rate.picks_up?)
+
+      fee = rate.handover_fee_for(@delivery_distance_m)
+      return fee if fee
+
+      rate.errors.add(:base, Trips::Values.out_of_reach(rate))
+      raise ActiveRecord::RecordInvalid, rate
     end
 
     def days

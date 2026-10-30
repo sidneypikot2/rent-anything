@@ -155,7 +155,7 @@ export function CartItemPanel({
             {[formatDateRange(item.starts_on, item.ends_on) ?? "No date yet", itemAmount(item)].join(" · ")}
           </p>
           {rentalTimes(item) && <p className="text-sm text-muted">{rentalTimes(item)}</p>}
-          {deliveryText(item) && <p className="text-sm text-muted">{deliveryText(item)}</p>}
+          {deliveryText(item, item.seats !== null) && <p className="text-sm text-muted">{deliveryText(item, item.seats !== null)}</p>}
           {problem && (
             <p className="text-sm font-semibold text-warning" data-testid="item-panel-problem">
               {problem}

@@ -92,6 +92,11 @@ export function isFourWheel(slug: string | undefined) {
   return slug === "car" || slug === "van-rental" || slug === "multicab";
 }
 
+// A motorbike's shop can offer child helmets, free or for a fee (RAA-205); no other vehicle.
+export function hasChildHelmets(slug: string | undefined) {
+  return slug === "motorcycle";
+}
+
 // The vehicles a partner can rent out with a driver; a motorbike is always self-drive.
 export function hasDriverOption(slug: string | undefined) {
   return isFourWheel(slug) || slug === "tricycle";

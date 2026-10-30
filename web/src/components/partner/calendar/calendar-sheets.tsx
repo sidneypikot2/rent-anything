@@ -433,7 +433,7 @@ export function BookingSheet({
     [capitalize(quantityNoun(listing)), String(booking.quantity)],
     ...(booking.guests ? [["Guests", String(booking.guests)] as [string, string]] : []),
     ...(rooms ? [["Rooms and pets", rooms] as [string, string]] : []),
-    ...(deliveryText(booking) ? [["Delivery", deliveryText(booking) ?? ""] as [string, string]] : []),
+    ...(deliveryText(booking, Boolean(booking.starts_at)) ? [["Delivery", deliveryText(booking, Boolean(booking.starts_at)) ?? ""] as [string, string]] : []),
     ["Total", booking.to_be_agreed ? "To be agreed with the guest" : formatPeso(booking.total_cents)],
     ...(booking.source === "checkout" && !booking.to_be_agreed
       ? [["Commission", formatPeso(booking.commission_cents)] as [string, string]]

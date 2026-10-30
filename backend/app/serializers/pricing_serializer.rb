@@ -9,15 +9,17 @@ module PricingSerializer
   VEHICLE_RATE_FIELDS = %w[
     daily_price_cents half_day_price_cents half_day_hours hourly_price_cents weekly_price_cents monthly_price_cents
     security_deposit_cents delivery_fee_cents return_pickup_fee_cents min_rental_days km_limit_per_day
-    excess_km_fee_cents driving driver_fee_cents pickup_from_hour pickup_until_hour turnaround_minutes
+    excess_km_fee_cents driving driver_fee_cents pickup_from_hour pickup_until_hour turnaround_minutes child_helmet_fee_cents
   ].freeze
 
   def self.stay_rate(rate)
     rate&.slice(*STAY_RATE_FIELDS)&.symbolize_keys
   end
 
+  # With its delivery zones (RAA-205), nearest first; preload vehicle_rate: :delivery_zones.
   def self.vehicle_rate(rate)
-    rate&.slice(*VEHICLE_RATE_FIELDS)&.symbolize_keys
+    rate && rate.slice(*VEHICLE_RATE_FIELDS).symbolize_keys
+      .merge(delivery_zones: rate.zones.map { { max_distance_m: _1.max_distance_m, fee_cents: _1.fee_cents } })
   end
 
   # Gear's or a transfer's price (RAA-191): the `flat_rate` schema.

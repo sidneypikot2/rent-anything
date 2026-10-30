@@ -66,6 +66,52 @@ RSpec.describe VehicleRate do
     expect(rate(delivery_fee_cents: 0, return_pickup_fee_cents: 10_000)).to have_attributes(delivers?: true, picks_up?: true)
   end
 
+  # Delivery zones (RAA-205): free within 1 km, ₱150 up to 3 km, nothing beyond.
+  describe "delivery zones" do
+    let(:zoned) do
+      rate.tap do |record|
+        record.assign_delivery(delivers: true, picks_up: false, zones: [ { max_distance_m: 3000, fee_cents: 15_000 },
+                                                                         { max_distance_m: 1000, fee_cents: 0 } ])
+        record.save!
+      end
+    end
+
+    it "charges the fee of the zone a distance falls in, up to and including its edge" do
+      expect([ 0, 1000, 1001, 3000 ].map { zoned.handover_fee_for(_1) }).to eq([ 0, 0, 15_000, 15_000 ])
+      expect(zoned.handover_fee_for(3001)).to be_nil
+      expect(zoned.max_delivery_m).to eq(3000)
+    end
+
+    it "keeps the nearest zone's fee as the delivery fee, and charges it without a distance" do
+      expect(zoned.reload).to have_attributes(delivery_fee_cents: 0, return_pickup_fee_cents: nil)
+      expect(zoned.handover_fee_for(nil)).to eq(0)
+    end
+
+    it "replaces the zones when assigned again" do
+      zoned.assign_delivery(delivers: true, picks_up: true, zones: [ { max_distance_m: 2000, fee_cents: 5_000 } ])
+      zoned.save!
+      expect(zoned.reload.delivery_zones.map { [ _1.max_distance_m, _1.fee_cents ] }).to eq([ [ 2000, 5_000 ] ])
+      expect(zoned).to have_attributes(delivery_fee_cents: 5_000, return_pickup_fee_cents: 5_000)
+    end
+
+    it "refuses two zones at the same distance and more than five" do
+      same = rate.tap { _1.assign_delivery(delivers: true, picks_up: false, zones: [ { max_distance_m: 1000, fee_cents: 0 } ] * 2) }
+      expect(messages(same)).to include("Delivery zones can't end at the same distance")
+      many = (1..6).map { { max_distance_m: _1 * 1000, fee_cents: 0 } }
+      expect(messages(rate.tap { _1.assign_delivery(delivers: true, picks_up: false, zones: many) }))
+        .to include("Delivery zones can be at most 5")
+    end
+  end
+
+  it "offers child helmets on a motorcycle only, 0 being included (RAA-205)" do
+    expect(rate(child_helmet_fee_cents: 0)).to be_child_helmets
+    expect(rate(child_helmet_fee_cents: nil)).not_to be_child_helmets
+    expect(messages(rate(child_helmet_fee_cents: -1))).to include("Child helmet fee cents must be greater than or equal to 0")
+    car = create(:listing, :vehicle, category: create(:category, :car), with_rate: false)
+    expect(messages(described_class.new(listing: car, daily_price_cents: 250_000, child_helmet_fee_cents: 5_000)))
+      .to include("Child helmets are only for a motorcycle")
+  end
+
   it "is back-filled at zero for vehicle listings without one, and for nothing else" do
     require Rails.root.join("db/migrate/20261023090000_create_vehicle_rates").to_s
     listing

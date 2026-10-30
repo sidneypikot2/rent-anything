@@ -8,6 +8,8 @@ import { CheckboxField } from "@/components/ui/checkbox-field";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
+import { Pill } from "@/components/ui/pill";
+import { transmissionLabel } from "@/components/listings/vehicle-labels";
 import { formatPeso } from "@/lib/money";
 import { openPlan, usePlanSummary } from "@/components/trips/plan-open";
 import { gapGroup, planGaps, stillMissing } from "@/components/trips/trip-missing";
@@ -29,6 +31,15 @@ export type ListingOffer = {
   priceUnit?: string | null;
   features: Feature[];
   text?: string;
+  // A rental vehicle's facts for Getting around's filters (RAA-205); left out for anything else.
+  vehicle?: VehicleFacts;
+};
+export type VehicleFacts = {
+  kind: string;
+  transmission: string | null;
+  delivery: boolean;
+  returnPickup: boolean;
+  childHelmets: boolean;
 };
 // A row: a business with its listings in the group (the team's business-first list). `key` is
 // its anchor, unique on the page; `content` is the card itself, rendered on the server, which
@@ -55,14 +66,23 @@ export type ListingGroup = {
 };
 
 // pets: only stays that take pets (RAA-186), offered in the stays section's filters alone.
-type Filters = { free: boolean; pets: boolean; min: string; max: string; includes: string[] };
-const NO_FILTERS: Filters = { free: false, pets: false, min: "", max: "", includes: [] };
+// vehicle: Getting around's own (RAA-205): the kinds and transmissions picked (any of them), and
+// what the shop must offer — drop-off, pick-up at the end, child helmets.
+type VehicleFilters = { kinds: string[]; transmissions: string[]; delivery: boolean; pickup: boolean; childHelmets: boolean };
+type Filters = { free: boolean; pets: boolean; min: string; max: string; includes: string[]; vehicle: VehicleFilters };
+const NO_VEHICLE_FILTERS: VehicleFilters = { kinds: [], transmissions: [], delivery: false, pickup: false, childHelmets: false };
+const NO_FILTERS: Filters = { free: false, pets: false, min: "", max: "", includes: [], vehicle: NO_VEHICLE_FILTERS };
+const VEHICLE_CHECKS = [
+  { key: "delivery", label: "Drops off at your stay", has: (facts: VehicleFacts) => facts.delivery },
+  { key: "pickup", label: "Picks up at the end", has: (facts: VehicleFacts) => facts.returnPickup },
+  { key: "childHelmets", label: "Child helmets", has: (facts: VehicleFacts) => facts.childHelmets },
+] as const;
 // Includes listed before "Show all".
 const FIRST_INCLUDES = 6;
 // Chips that describe a listing (its size, its route, a tour's group) rather than say what comes
 // with it: shown on the row, never offered under Includes.
-// Pets allowed has its own Pet-friendly choice.
-const NOT_INCLUDES = new Set(["guests", "seats", "luggage", "route", "engine", "sizes", "bed", "pets"]);
+// Pets allowed has its own Pet-friendly choice, a vehicle's transmission its Transmission one.
+const NOT_INCLUDES = new Set(["guests", "seats", "luggage", "route", "engine", "sizes", "bed", "pets", "transmission"]);
 const takesPets = (offer: ListingOffer) => offer.features.some((feature) => feature.icon === "pets");
 // Rows a section shows under "All" before its "Show all N": the page stays short enough to reach
 // the places to see below it, on a phone too, and the section's own chip shows the rest.
@@ -86,12 +106,28 @@ function matcher(query: string | undefined) {
   };
 }
 
+const vehicleCount = ({ kinds, transmissions, delivery, pickup, childHelmets }: VehicleFilters) =>
+  kinds.length + transmissions.length + Number(delivery) + Number(pickup) + Number(childHelmets);
+
 const setCount = (filters: Filters) =>
-  Number(filters.free) + Number(filters.pets) + Number(Boolean(filters.min || filters.max)) + filters.includes.length;
+  Number(filters.free) +
+  Number(filters.pets) +
+  Number(Boolean(filters.min || filters.max)) +
+  filters.includes.length +
+  vehicleCount(filters.vehicle);
+
+function passesVehicle(facts: VehicleFacts | undefined, filters: VehicleFilters) {
+  if (vehicleCount(filters) === 0) return true;
+  if (!facts) return false;
+  if (filters.kinds.length > 0 && !filters.kinds.includes(facts.kind)) return false;
+  if (filters.transmissions.length > 0 && !(facts.transmission && filters.transmissions.includes(facts.transmission))) return false;
+  return VEHICLE_CHECKS.every((check) => !filters[check.key] || check.has(facts));
+}
 
 function passes(item: ListingOffer, filters: Filters, skipIncludes = false) {
   if (filters.free && !item.features.some((feature) => feature.trust)) return false;
   if (filters.pets && !takesPets(item)) return false;
+  if (!passesVehicle(item.vehicle, filters.vehicle)) return false;
   const min = Number(filters.min) || 0;
   const max = Number(filters.max) || 0;
   if (min || max) {
@@ -821,6 +857,9 @@ function FilterPanel({
           data-testid="pet-friendly-filter"
         />
       )}
+      {group.group === "rental" && (
+        <VehicleFilterFields group={group} filters={filters.vehicle} onChange={(vehicle) => onChange({ ...filters, vehicle })} />
+      )}
       {prices.length > 0 && (
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-2 text-sm font-semibold">
@@ -879,6 +918,77 @@ function FilterPanel({
   );
 }
 
+// Getting around's own filters (RAA-205): the kind of vehicle and its transmission as pills, any
+// of those picked, then what the shop offers. Each shows only when it splits the section (or is
+// set), with how many businesses have it, as the other filters count.
+function VehicleFilterFields({
+  group,
+  filters,
+  onChange,
+}: {
+  group: ListingGroup;
+  filters: VehicleFilters;
+  onChange: (next: VehicleFilters) => void;
+}) {
+  const businesses = group.items.length;
+  const having = (has: (facts: VehicleFacts) => boolean) =>
+    group.items.filter((item) => item.offers.some((offer) => offer.vehicle && has(offer.vehicle))).length;
+  const facts = group.items.flatMap((item) => item.offers.flatMap((offer) => (offer.vehicle ? [offer.vehicle] : [])));
+  const kinds = [...new Set([...facts.map((fact) => fact.kind), ...filters.kinds])].sort();
+  const transmissions = [
+    ...new Set([...facts.flatMap((fact) => (fact.transmission ? [fact.transmission] : [])), ...filters.transmissions]),
+  ].sort();
+  const toggle = (list: string[], value: string) => (list.includes(value) ? list.filter((each) => each !== value) : [...list, value]);
+  const pills = (legend: string, values: string[], picked: string[], label: (value: string) => string, set: (next: string[]) => void, has: (value: string) => (fact: VehicleFacts) => boolean) =>
+    values.length > 1 || picked.length > 0 ? (
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-2 text-sm font-semibold">{legend}</legend>
+        <div className="flex flex-wrap gap-2">
+          {values.map((value) => (
+            <Pill key={value} on={picked.includes(value)} onClick={() => set(toggle(picked, value))}>
+              {label(value)} <span className="font-normal text-muted">{having(has(value))}</span>
+            </Pill>
+          ))}
+        </div>
+      </fieldset>
+    ) : null;
+
+  return (
+    <>
+      {pills(
+        "Vehicle",
+        kinds,
+        filters.kinds,
+        (kind) => kind,
+        (next) => onChange({ ...filters, kinds: next }),
+        (kind) => (fact) => fact.kind === kind,
+      )}
+      {pills(
+        "Transmission",
+        transmissions,
+        filters.transmissions,
+        (value) => transmissionLabel(value) ?? value,
+        (next) => onChange({ ...filters, transmissions: next }),
+        (value) => (fact) => fact.transmission === value,
+      )}
+      {VEHICLE_CHECKS.map((check) => {
+        const count = having(check.has);
+        if (!filters[check.key] && (count === 0 || count === businesses)) return null;
+        return (
+          <CheckboxField
+            key={check.key}
+            label={check.label}
+            aside={count}
+            checked={filters[check.key]}
+            onChange={(event) => onChange({ ...filters, [check.key]: event.target.checked })}
+            data-testid={`vehicle-filter-${check.key}`}
+          />
+        );
+      })}
+    </>
+  );
+}
+
 // What is set in a section's filters, as pills each removing its own, kept to one row: what
 // doesn't fit is counted in "+N more", which opens the filters.
 function FilterMarkers({
@@ -903,6 +1013,22 @@ function FilterMarkers({
       label: min && max ? `${peso(min)}–${peso(max)}` : max ? `Up to ${peso(max)}` : `From ${peso(min)}`,
       remove: () => onChange({ ...filters, min: "", max: "" }),
     },
+    ...filters.vehicle.kinds.map((kind) => ({
+      key: `kind:${kind}`,
+      label: kind,
+      remove: () => onChange({ ...filters, vehicle: { ...filters.vehicle, kinds: filters.vehicle.kinds.filter((each) => each !== kind) } }),
+    })),
+    ...filters.vehicle.transmissions.map((value) => ({
+      key: `transmission:${value}`,
+      label: transmissionLabel(value) ?? value,
+      remove: () =>
+        onChange({ ...filters, vehicle: { ...filters.vehicle, transmissions: filters.vehicle.transmissions.filter((each) => each !== value) } }),
+    })),
+    ...VEHICLE_CHECKS.filter((check) => filters.vehicle[check.key]).map((check) => ({
+      key: `vehicle:${check.key}`,
+      label: check.label,
+      remove: () => onChange({ ...filters, vehicle: { ...filters.vehicle, [check.key]: false } }),
+    })),
     ...filters.includes.map((label) => ({
       key: `includes:${label}`,
       label,

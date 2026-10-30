@@ -79,7 +79,14 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
           ? vehiclePriceLine(vehicleRate)
           : pricedByText(listing.booking_type);
   // The detail API sends no cancellation policy, so only the listing's own details make chips.
-  const features = listingFeatures({ details: listing.details, cancellation_policy: "" });
+  // A motorcycle shop's child helmets (RAA-205) are on its rate, not its details.
+  const helmetFee = vehicleRate?.child_helmet_fee_cents;
+  const features = [
+    ...listingFeatures({ details: listing.details, cancellation_policy: "" }),
+    ...(helmetFee !== null && helmetFee !== undefined
+      ? [{ icon: "helmet", label: helmetFee === 0 ? "Child helmets included" : `Child helmets, ${formatPeso(helmetFee)} a helmet a day` }]
+      : []),
+  ];
 
   // A stay's or a vehicle's own card holds its price and Add to trip, so the page prices it once.
   const booker = Boolean(rate || (vehicleRate && vehicleSeats));

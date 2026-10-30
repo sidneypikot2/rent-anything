@@ -156,7 +156,7 @@ export function ListingWizard({
       cancellation_policy: policy,
       units_count: units,
       ...(withLandmarks && { landmark_ids: landmarks.map((landmark) => landmark.id) }),
-      ...(vehicle && { vehicle_rate: toVehicleRateBody(pricing), fees: toFeesBody(pricing) }),
+      ...(vehicle && { vehicle_rate: toVehicleRateBody(pricing, category.slug), fees: toFeesBody(pricing) }),
       ...(flat && { flat_rate: toFlatRateBody(flatPrice) }),
     };
     create.mutate(body, {
@@ -251,6 +251,7 @@ export function ListingWizard({
 
           {step.key === "pricing" && vehicle && (
             <VehiclePricingFields
+              location={location}
               values={pricing}
               onChange={(values) => {
                 setPricing(values);

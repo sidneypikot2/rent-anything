@@ -38,6 +38,12 @@ RSpec.describe "Listing prices", type: :request do
         description: "A vehicle rental brought to the guest: adds the shop's delivery fee for each vehicle (RAA-195)"
       parameter name: :return_pickup, in: :query, type: :boolean, required: false,
         description: "A vehicle rental collected from the guest at the end: adds the shop's fee for each vehicle"
+      parameter name: :delivery_lat, in: :query, type: :number, required: false,
+        description: "The guest's pin for delivery or pick-up, with delivery_lng: the fee of the shop's zone it is in, " \
+          "`unavailable` beyond the farthest; without one, the nearest zone's fee (RAA-205)"
+      parameter name: :delivery_lng, in: :query, type: :number, required: false
+      parameter name: :child_helmets, in: :query, type: :integer, required: false,
+        description: "A motorcycle rental's child helmets, at most one a vehicle: the shop's fee for each a day (RAA-205)"
 
       let(:listing_id) { click.id }
       let(:starts_on) { day.iso8601 }
@@ -57,21 +63,73 @@ RSpec.describe "Listing prices", type: :request do
 
       # A rental runs 24 hours a day from its pickup (RAA-195): Tuesday's pickups open up once
       # Monday's bike is back.
-      # Delivery and pick-up (RAA-195): the shop's fee for each, for each of the 5 motorbikes.
-      response "200", "delivery and pick-up at the end, a line each" do
+      # Delivery and pick-up (RAA-195) by distance (RAA-205): the fee of the zone the guest's pin
+      # is in, for each, for each of the 5 motorbikes; free within 1 km, ₱150 up to 3 km.
+      response "200", "delivery and pick-up at the end to a pin 2 km away, a line each" do
         schema "$ref" => "#/components/schemas/listing_price"
         let(:delivery) { true }
         let(:return_pickup) { true }
+        let(:delivery_lat) { pin_north_of(click, 2000)[:lat] }
+        let(:delivery_lng) { pin_north_of(click, 2000)[:lng] }
 
-        before { click.vehicle_rate.update!(delivery_fee_cents: 15_000, return_pickup_fee_cents: 0) }
+        before { deliver_within(click.vehicle_rate, [ [ 1000, 0 ], [ 3000, 15_000 ] ]) }
 
         run_test! do |response|
-          expect(response.parsed_body["total_cents"]).to eq(500_000 + 75_000)
+          expect(response.parsed_body["total_cents"]).to eq(500_000 + 75_000 + 75_000)
           expect(response.parsed_body["lines"]).to eq([
             { "label" => "5 motorbikes × ₱500 × 2 days", "amount_cents" => 500_000 },
             { "label" => "Delivery · 5 × ₱150", "amount_cents" => 75_000 },
-            { "label" => "Pick-up at the end · 5 × ₱0", "amount_cents" => 0 }
+            { "label" => "Pick-up at the end · 5 × ₱150", "amount_cents" => 75_000 }
           ])
+        end
+
+        context "with the pin inside the free zone" do
+          let(:delivery_lat) { pin_north_of(click, 500)[:lat] }
+
+          run_test! do |response|
+            expect(response.parsed_body["lines"].drop(1).pluck("amount_cents")).to eq([ 0, 0 ])
+          end
+        end
+
+        context "with no pin yet" do
+          let(:delivery_lat) { nil }
+          let(:delivery_lng) { nil }
+
+          run_test! { |response| expect(response.parsed_body["total_cents"]).to eq(500_000) }
+        end
+
+        context "with the pin beyond the farthest zone" do
+          let(:delivery_lat) { pin_north_of(click, 5000)[:lat] }
+
+          run_test! do |response|
+            expect(response.parsed_body).to include("total_cents" => nil,
+              "unavailable" => "This shop doesn't deliver here: it delivers up to 3 km away")
+          end
+        end
+      end
+
+      # Child helmets (RAA-205): the shop's fee for each helmet and day, or a line saying they're included.
+      response "200", "child helmets, a fee each a day" do
+        schema "$ref" => "#/components/schemas/listing_price"
+        let(:child_helmets) { 2 }
+
+        before { click.vehicle_rate.update!(child_helmet_fee_cents: 5_000) }
+
+        run_test! do |response|
+          expect(response.parsed_body["total_cents"]).to eq(500_000 + 20_000)
+          expect(response.parsed_body["lines"].last).to eq("label" => "Child helmets · 2 × ₱50 × 2 days", "amount_cents" => 20_000)
+        end
+      end
+
+      response "200", "child helmets the shop includes" do
+        schema "$ref" => "#/components/schemas/listing_price"
+        let(:child_helmets) { 2 }
+
+        before { click.vehicle_rate.update!(child_helmet_fee_cents: 0) }
+
+        run_test! do |response|
+          expect(response.parsed_body["total_cents"]).to eq(500_000)
+          expect(response.parsed_body["lines"].last).to eq("label" => "Child helmets · 2, included", "amount_cents" => 0)
         end
       end
 
@@ -213,6 +271,20 @@ RSpec.describe "Listing prices", type: :request do
           let(:delivery) { true }
 
           run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "This shop doesn't deliver" ]) }
+        end
+
+        context "with child helmets from a shop that has none" do
+          let(:child_helmets) { 1 }
+
+          run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "This shop doesn't offer child helmets" ]) }
+        end
+
+        context "with more child helmets than motorbikes" do
+          let(:child_helmets) { 6 }
+
+          before { click.vehicle_rate.update!(child_helmet_fee_cents: 0) }
+
+          run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Child helmets can't be more than the vehicles (5)" ]) }
         end
 
         context "with a pickup time for a stay" do

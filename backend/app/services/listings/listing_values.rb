@@ -35,8 +35,7 @@ module Listings
     ].freeze
     VEHICLE_RATE_FIELDS = %i[
       half_day_price_cents half_day_hours hourly_price_cents weekly_price_cents monthly_price_cents
-      security_deposit_cents delivery_fee_cents return_pickup_fee_cents min_rental_days km_limit_per_day
-      excess_km_fee_cents driver_fee_cents pickup_from_hour pickup_until_hour turnaround_minutes
+      security_deposit_cents min_rental_days km_limit_per_day excess_km_fee_cents driver_fee_cents pickup_from_hour pickup_until_hour turnaround_minutes child_helmet_fee_cents
     ].freeze
 
     private
@@ -102,7 +101,10 @@ module Listings
       return listing.vehicle_rate&.destroy! unless listing.category.vehicle?
 
       rate = listing.vehicle_rate || listing.build_vehicle_rate
-      rate.assign_attributes(@vehicle_rate) if @vehicle_rate
+      if @vehicle_rate
+        rate.assign_attributes(@vehicle_rate.except(:delivery))
+        rate.assign_delivery(**@vehicle_rate[:delivery])
+      end
       rate.save!
     end
 
@@ -313,7 +315,8 @@ module Listings
     end
 
     # nil keeps the listing's rate as it is. A rate sent replaces it whole: the optional
-    # fields left out take their defaults.
+    # fields left out take their defaults, and the shop neither delivers nor collects without
+    # delivers / picks_up and the delivery_zones they go by (RAA-205).
     def vehicle_rate_for(category)
       value = @params[:vehicle_rate]
       vehicle = category&.vehicle?
@@ -333,7 +336,34 @@ module Listings
         next field if field.is_a?(Integer)
 
         error("#{VehicleRate.human_attribute_name(key)} must be a whole number")
-      end.merge(daily_price_cents: price, driving: driving_for(value[:driving]))
+      end.merge(daily_price_cents: price, driving: driving_for(value[:driving]), delivery: delivery_for(value))
+    end
+
+    def delivery_for(value)
+      delivers, picks_up = [ [ :delivers, "Delivers" ], [ :picks_up, "Picks up" ] ].map do |key, label|
+        next false if value[key].nil?
+        next value[key] if [ true, false ].include?(value[key])
+
+        error("#{label} must be true or false")
+      end
+      { delivers:, picks_up:, zones: delivery_zones_for(value[:delivery_zones]) }
+    end
+
+    # Each zone's max_distance_m and fee_cents, whole numbers; the rate checks the rest.
+    def delivery_zones_for(zones)
+      return [] if zones.nil?
+      return error("Delivery zones must be a list") || [] unless zones.is_a?(Array)
+      return error("A shop can have at most #{VehicleRate::MAX_DELIVERY_ZONES} delivery zones") || [] if zones.size > VehicleRate::MAX_DELIVERY_ZONES
+
+      zones.filter_map do |zone|
+        next error("Each delivery zone must be an object") unless zone.respond_to?(:key?)
+
+        distance, fee = zone[:max_distance_m], zone[:fee_cents]
+        next error("A delivery zone's distance must be a whole number of metres") unless distance.is_a?(Integer)
+        next error("A delivery zone's fee must be a whole number of centavos") unless fee.is_a?(Integer)
+
+        { max_distance_m: distance, fee_cents: fee }
+      end
     end
 
     # nil keeps the listing's price as it is. Only gear and transfers have one (Category#flat_priced?).

@@ -17,7 +17,7 @@ type Props = {
 // A shop's models in a pop-up (RAA-191, the plan's mock 2), opened from a vehicle's "More from this
 // shop": the shop's name and initials over its models (useShopModels).
 export function ShopPopup({ business, category, area, dates, people, onClose }: Props) {
-  const { body, summary, action } = useShopModels({ business, category, dates, people, onAdding: onClose });
+  const { body, summary, action } = useShopModels({ business, category, dates, people, place: area, onAdding: onClose });
   const initials = business.name
     .split(/\s+/)
     .filter(Boolean)

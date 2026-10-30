@@ -411,7 +411,7 @@ function BookingPanel({ error, onClose, ...row }: RowProps & { error: string | u
         <PanelSection title="Booking">
           <Row label="Dates">{dates}</Row>
           <Row label="Party">{party}</Row>
-          {deliveryText(booking) && <Row label="Delivery">{deliveryText(booking)}</Row>}
+          {deliveryText(booking, Boolean(booking.starts_at)) && <Row label="Delivery">{deliveryText(booking, Boolean(booking.starts_at))}</Row>}
           <Row label="How">
             {booking.source === "offline"
               ? "Taken offline"

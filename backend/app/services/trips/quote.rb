@@ -42,7 +42,8 @@ module Trips
       units = Booking.units_for(listing, item.quantity, room_guests: item.room_guests, chosen: item.units)
       price = Bookings::Price.call(listing, starts_on: item.starts_on, ends_on: item.ends_on, quantity: units,
         guests: item.quantity, room_guests: item.room_guests, pets: item.pets,
-        delivery: item.delivery, return_pickup: item.return_pickup)
+        delivery: item.delivery, return_pickup: item.return_pickup, delivery_distance_m: item.delivery_distance_m,
+        child_helmets: item.child_helmets)
       { trip_item_id: item.id, total_cents: price[:total_cents], to_be_agreed: price.dig(:breakdown, :to_be_agreed) == true,
         problem: nil }
     rescue ActiveRecord::RecordInvalid => e

@@ -79,14 +79,23 @@ test("search a landmark and open its destination", async ({ page }) => {
   // What to book lists businesses: a card opens a side panel (RAA-126) with the business's
   // listings in that group, or, for a business with one, that listing's details at once. A
   // listing's details link to its page, also rendered on the server, with its own Add to trip.
+  // A vehicle shop's models open their details in place instead (RAA-205), with the same link.
   await page.getByTestId("business-open").first().click();
   const panel = page.getByTestId("detail-panel");
   const offers = panel.getByTestId("business-offer");
-  if (await offers.count()) {
-    await offers.first().click();
-    await expect(panel.getByTestId("business-back")).toBeVisible();
+  const models = panel.getByTestId("shop-model-toggle");
+  let listingTitle;
+  if (await models.count()) {
+    listingTitle = (await models.first().textContent()).trim();
+    await models.first().click();
+    await expect(models.first()).toHaveAttribute("aria-expanded", "true");
+  } else {
+    if (await offers.count()) {
+      await offers.first().click();
+      await expect(panel.getByTestId("business-back")).toBeVisible();
+    }
+    listingTitle = (await panel.getByRole("heading", { level: 2 }).textContent()).trim();
   }
-  const listingTitle = (await panel.getByRole("heading", { level: 2 }).textContent()).trim();
   await panel.getByTestId("listing-link").click();
   await expect(page).toHaveURL(/\/listings\/\d+\?guests=2$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(listingTitle);
