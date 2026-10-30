@@ -8140,9 +8140,15 @@ components:
                     nullable: true
                     description: To collect it from the guest at the end (0 is free);
                       null when the shop doesn't
+                  child_helmet_fee_cents:
+                    type: integer
+                    nullable: true
+                    description: A motorcycle's child helmet per helmet and day (0
+                      is included); null when the shop has none (RAA-205)
                 required:
                 - delivery_fee_cents
                 - return_pickup_fee_cents
+                - child_helmet_fee_cents
             required:
             - id
             - title

@@ -1608,9 +1608,13 @@ RSpec.configure do |config|
                       description: "A vehicle's delivery and pick-up fees, priced or not, so its card says how it reaches the guest (RAA-204, RAA-205); null for anything else",
                       properties: {
                         delivery_fee_cents: { type: :integer, nullable: true, description: "To bring it to the guest (0 is free); null when the shop doesn't" },
-                        return_pickup_fee_cents: { type: :integer, nullable: true, description: "To collect it from the guest at the end (0 is free); null when the shop doesn't" }
+                        return_pickup_fee_cents: { type: :integer, nullable: true, description: "To collect it from the guest at the end (0 is free); null when the shop doesn't" },
+                        child_helmet_fee_cents: {
+                          type: :integer, nullable: true,
+                          description: "A motorcycle's child helmet per helmet and day (0 is included); null when the shop has none (RAA-205)"
+                        }
                       },
-                      required: %w[delivery_fee_cents return_pickup_fee_cents]
+                      required: %w[delivery_fee_cents return_pickup_fee_cents child_helmet_fee_cents]
                     }
                   },
                   required: %w[id title category group area_slug area_name instant_book cover_photo_url booking_type summary business units_count units_label

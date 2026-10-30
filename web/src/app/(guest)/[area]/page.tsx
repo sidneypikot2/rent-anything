@@ -436,6 +436,16 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                   instantBook: listing.instant_book,
                                   place: listing.area_name,
                                   handover: listing.handover,
+                                  // What Getting around's filters ask of a rental vehicle (RAA-205).
+                                  vehicle: listing.handover
+                                    ? {
+                                        kind: listing.category,
+                                        transmission: typeof listing.details?.transmission === "string" ? listing.details.transmission : null,
+                                        delivery: listing.handover.delivery_fee_cents !== null,
+                                        returnPickup: listing.handover.return_pickup_fee_cents !== null,
+                                        childHelmets: listing.handover.child_helmet_fee_cents !== null,
+                                      }
+                                    : undefined,
                                   stay:
                                     listing.booking_type === "stay"
                                       ? {
@@ -473,12 +483,13 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                   : undefined;
                               return {
                                 key: `${need.id}-business-${first.business.id}`,
-                                offers: offers.map(({ listingId, priceCents, priceUnit, features, text }) => ({
+                                offers: offers.map(({ listingId, priceCents, priceUnit, features, text, vehicle }) => ({
                                   id: listingId,
                                   priceCents,
                                   priceUnit,
                                   features,
                                   text,
+                                  vehicle,
                                 })),
                                 content: (
                                   <BusinessRow

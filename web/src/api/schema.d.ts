@@ -8099,6 +8099,8 @@ export interface components {
                     delivery_fee_cents: number | null;
                     /** @description To collect it from the guest at the end (0 is free); null when the shop doesn't */
                     return_pickup_fee_cents: number | null;
+                    /** @description A motorcycle's child helmet per helmet and day (0 is included); null when the shop has none (RAA-205) */
+                    child_helmet_fee_cents: number | null;
                 } | null;
             }[];
         };

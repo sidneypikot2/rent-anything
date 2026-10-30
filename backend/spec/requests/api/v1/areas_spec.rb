@@ -174,7 +174,8 @@ RSpec.describe "Areas", type: :request do
         let(:slug) { "bantayan-island" }
 
         before do
-          create(:listing, :vehicle, area: bantayan, title: "Door-to-door bike").vehicle_rate.update!(delivery_fee_cents: 0, return_pickup_fee_cents: 15_000)
+          create(:listing, :vehicle, area: bantayan, title: "Door-to-door bike").vehicle_rate
+            .update!(delivery_fee_cents: 0, return_pickup_fee_cents: 15_000, child_helmet_fee_cents: 0)
           create(:listing, :vehicle, area: bantayan, title: "Drop-off bike").vehicle_rate.update!(delivery_fee_cents: 10_000)
           create(:listing, :vehicle, area: bantayan, title: "Shop-only bike")
           create(:listing, :vehicle, area: bantayan, title: "Unpriced shop bike").vehicle_rate.update_columns(daily_price_cents: 0)
@@ -189,6 +190,8 @@ RSpec.describe "Areas", type: :request do
           expect(handover.call("Shop-only bike")).to eq([ nil, nil ])
           expect(handover.call("Unpriced shop bike")).to eq([ nil, nil ])
           expect(handover.call("Kota Beach house")).to be_nil
+          expect(rows["Door-to-door bike"]["handover"]["child_helmet_fee_cents"]).to eq(0)
+          expect(rows["Drop-off bike"]["handover"]["child_helmet_fee_cents"]).to be_nil
         end
       end
 
