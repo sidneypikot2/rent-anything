@@ -26,6 +26,7 @@ class User < ApplicationRecord
   has_many :refresh_tokens, dependent: :delete_all
   has_one :trip_access, dependent: :delete
   has_many :sign_in_codes, dependent: :delete_all
+  has_many :notifications, foreign_key: :recipient_id, inverse_of: :recipient, dependent: :delete_all
   has_one :partner_profile, dependent: :destroy
   has_one :guest_profile, dependent: :destroy
   has_one :partner_verification, dependent: :destroy

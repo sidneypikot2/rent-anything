@@ -143,6 +143,7 @@ module Bookings
         @booking.update!(changes)
         @booking.events.create!(from_status: "requested", to_status: "requested", actor: "guest", user: @user, reason:)
         UserChannel.booking_updated(@booking)
+        Notifications::BookingChanged.call(@booking, from: "requested", to: "requested", actor: "guest")
       else
         Transition.call(@booking, "requested", actor: "guest", user: @user, reason:, attributes: changes)
       end

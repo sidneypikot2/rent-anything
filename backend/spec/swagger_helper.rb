@@ -264,6 +264,32 @@ RSpec.configure do |config|
             properties: { errors: { type: :array, items: { type: :string } } },
             required: %w[errors]
           },
+          # One notification in the bell: its wording and the web app page it opens.
+          notification: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              kind: { type: :string, description: "What happened, e.g. booking.requested or booking.accepted" },
+              title: { type: :string },
+              body: { type: :string },
+              path: { type: :string, description: "The web app page it opens, e.g. /cart?trip=12 or /partner/calendar?booking=34" },
+              read: { type: :boolean },
+              created_at: { type: :string, format: "date-time" }
+            },
+            required: %w[id kind title body path read created_at]
+          },
+          notification_page: {
+            type: :object,
+            properties: {
+              notifications: { type: :array, items: { "$ref" => "#/components/schemas/notification" } },
+              unread_count: { type: :integer },
+              next_before: {
+                type: :integer, nullable: true,
+                description: "Pass as `before` for the next, older page; null on the last page"
+              }
+            },
+            required: %w[notifications unread_count next_before]
+          },
           area_ref: {
             type: :object,
             properties: { slug: { type: :string }, name: { type: :string } },
