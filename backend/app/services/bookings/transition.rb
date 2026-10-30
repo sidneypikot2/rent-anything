@@ -2,7 +2,8 @@ module Bookings
   # Moves a booking to another status (RAA-132): the only place one changes. It locks the
   # booking, refuses a move the lifecycle doesn't allow (ALLOWED, after Airbnb's and
   # Booking.com's), sets the times that go with the new status and records a BookingEvent
-  # saying who made it and why. Moving a booking to the status it has changes nothing.
+  # saying who made it and why, and tells its guest and partner once committed (UserChannel,
+  # RAA-201). Moving a booking to the status it has changes nothing.
   #
   #   Transition.call(booking, "cancelled", actor: "guest", user: guest, reason: "Plans changed")
   #
@@ -31,6 +32,7 @@ module Bookings
     # Records a new booking's first status, with no status before it.
     def self.record_start(booking, actor:, user: nil, reason: nil)
       booking.events.create!(from_status: nil, to_status: booking.status, actor:, user:, reason:)
+      UserChannel.booking_updated(booking)
     end
 
     def self.allowed?(from, to)
@@ -57,6 +59,7 @@ module Bookings
         @booking.update!(status: @to, **times(from), **@attributes)
         @booking.events.create!(from_status: from, to_status: @to, actor: @actor, user: @user, reason: @reason,
           metadata: @metadata)
+        UserChannel.booking_updated(@booking)
         @booking
       end
     end

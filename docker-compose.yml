@@ -1,7 +1,8 @@
 # Host ports are overridable so a second checkout (a git worktree) can run its own stack
 # next to this one: `script/worktree-env` writes a root .env with a free set, which
 # Compose reads automatically. Without a .env the defaults below apply. The web app finds
-# its backend by the same offset (web/src/lib/config.ts): 8100+N talks to 3100+N.
+# its backend by the same offset (web/src/lib/config.ts): 8100+N talks to 3100+N, and its
+# WebSocket server (anycable) is 8200+N.
 # The defaults differ from PikotChat's (8080/3000/5432/6379) so both stacks can run at once.
 services:
   db:
@@ -67,6 +68,26 @@ services:
       redis:
         condition: service_healthy
 
+  # The WebSocket server (RAA-201): holds the connections at ws://localhost:<cable port>/cable,
+  # asks the backend over HTTP (/_anycable) to approve each one, and takes the backend's
+  # broadcasts at /_broadcast. The secret is a development value shared with
+  # backend/config/anycable.yml.
+  anycable:
+    image: anycable/anycable-go:1.6-alpine
+    ports:
+      - "${CABLE_PORT:-8200}:8080"
+    environment:
+      ANYCABLE_HOST: 0.0.0.0
+      ANYCABLE_PORT: 8080
+      ANYCABLE_SECRET: anycable-local-secret
+      ANYCABLE_RPC_HOST: http://backend:3000/_anycable
+      ANYCABLE_BROADCAST_ADAPTER: http
+      # Keeps each stream's recent messages, so a client that reconnects gets what it missed.
+      ANYCABLE_BROKER: memory
+      ANYCABLE_ALLOWED_ORIGINS: localhost:${FRONTEND_PORT:-8100}
+    depends_on:
+      - backend
+
   web:
     image: node:24-alpine
     working_dir: /web
@@ -105,6 +126,7 @@ services:
     environment:
       FRONTEND_PORT: ${FRONTEND_PORT:-8100}
       BACKEND_PORT: ${BACKEND_PORT:-3100}
+      CABLE_PORT: ${CABLE_PORT:-8200}
       CI: ${CI:-}
     command: >
       sh -c "cmp -s package-lock.json node_modules/.installed-lock 2>/dev/null
@@ -113,6 +135,7 @@ services:
     depends_on:
       - web
       - backend
+      - anycable
 
 volumes:
   postgres_data:

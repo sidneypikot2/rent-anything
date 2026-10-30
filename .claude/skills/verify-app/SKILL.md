@@ -41,10 +41,11 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3100/up   # expect 200
 |------|-----|
 | Web app | http://localhost:8100 |
 | Backend API | http://localhost:3100 (OpenAPI document at `/api-docs/v1/openapi.yaml`) |
+| WebSockets (anycable) | ws://localhost:8200/cable |
 
 **In a git worktree** the stack runs on its own ports: run `script/worktree-env` first (it
-prints the URLs — web `8100+N`, backend `3100+N`) and use those everywhere this skill
-says 8100 / 3100.
+prints the URLs — web `8100+N`, backend `3100+N`, WebSockets `8200+N`) and use those
+everywhere this skill says 8100 / 3100 / 8200.
 
 After backend changes or a branch switch: `docker compose restart backend` (re-runs
 `db:prepare`, so pending migrations apply). The web container runs `next dev`, which

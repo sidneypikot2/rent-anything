@@ -140,6 +140,7 @@ module Bookings
         # starts again. Recorded as an event, since its status doesn't change.
         @booking.update!(changes)
         @booking.events.create!(from_status: "requested", to_status: "requested", actor: "guest", user: @user, reason:)
+        UserChannel.booking_updated(@booking)
       else
         Transition.call(@booking, "requested", actor: "guest", user: @user, reason:, attributes: changes)
       end

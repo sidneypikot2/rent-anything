@@ -63,4 +63,9 @@ RSpec.describe Users::DeleteAccount do
     expect { described_class.call(partner) }.to raise_error(NotAuthorizedError)
     expect(User.exists?(partner.id)).to be(true)
   end
+
+  it "closes the guest's open WebSocket connections (RAA-201)" do
+    expect { described_class.call(guest) }
+      .to have_broadcasted_to("action_cable/#{guest.to_gid_param}").with(type: "disconnect", reconnect: false)
+  end
 end
