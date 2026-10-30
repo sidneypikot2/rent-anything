@@ -26,20 +26,27 @@ export function PartnerCalendar() {
   const [toast, setToast] = useState<{ message: string; id: number } | null>(null);
   const [today] = useState(todayIso);
   // ?booking=<id> (a notification's link) opens that booking once the calendar has it, then
-  // leaves the URL; a booking outside the loaded weeks just shows the calendar.
+  // leaves the URL. Cached weeks may predate the booking, so it waits for the refetch before
+  // giving up; a booking outside the loaded weeks just shows the calendar.
   const bookingParam = useSearchParams().get("booking");
   const [openedParam, setOpenedParam] = useState<string | null>(null);
   if (!bookingParam && openedParam) setOpenedParam(null);
   if (bookingParam && bookingParam !== openedParam && calendar) {
-    setOpenedParam(bookingParam);
     const id = Number(bookingParam);
-    for (const listing of calendar.listings) {
-      const booking = listing.bookings.find((item) => item.id === id);
-      if (booking) setSheet({ kind: "booking", listing, booking });
+    const listing = calendar.listings.find((item) => item.bookings.some((b) => b.id === id));
+    const booking = listing?.bookings.find((item) => item.id === id);
+    if (listing && booking) {
+      setOpenedParam(bookingParam);
+      setSheet({ kind: "booking", listing, booking });
+    } else if (!query.isFetching) {
+      setOpenedParam(bookingParam);
     }
   }
   useEffect(() => {
-    if (openedParam) history.replaceState(null, "", window.location.pathname);
+    if (!openedParam) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("booking");
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
   }, [openedParam]);
 
   const loadEarlier = useCallback(() => {

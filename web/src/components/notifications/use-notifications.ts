@@ -61,6 +61,8 @@ export function useMarkRead() {
 
   return useMutation({
     mutationFn: async (id: number | "all") => {
+      // A refetch already on its way would land after this and show them unread again.
+      await queryClient.cancelQueries({ queryKey: key });
       markLocally(id);
       const { response } =
         id === "all"
