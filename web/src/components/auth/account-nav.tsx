@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AccountMenu } from "@/components/auth/account-menu";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { signOut } from "@/lib/auth/actions";
 import { DASHBOARD_PATHS, LOGIN_PATHS, REGISTER_PATHS } from "@/lib/auth/paths";
 import { isAnonymous, useSession } from "@/lib/auth/session";
 import type { Section } from "@/components/landing/section-header";
 
 // The header's account links. Signed in, guests and partners get their account menu
-// (guests also Trips; Profile, Settings, Sign out) and admins their name and "Sign out". Signed out,
+// (guests also Trips; Profile, Settings, Sign out) beside the notifications bell, and admins their name and "Sign out". Signed out,
 // "Sign in" and "Sign up" show in the guest section only (partner and admin
 // pages show their own form), and not on /login or /register, where the card already is
 // that form. A guest with no account yet (RAA-177, made by their first add) gets the
@@ -44,7 +45,14 @@ export function AccountNav({ section }: { section: Section }) {
     ) : null;
   }
 
-  if (section !== "admin") return <AccountMenu section={section} />;
+  if (section !== "admin") {
+    return (
+      <>
+        <NotificationBell />
+        <AccountMenu section={section} />
+      </>
+    );
+  }
 
   async function onSignOut() {
     await signOut();

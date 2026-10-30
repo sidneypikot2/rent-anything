@@ -4,6 +4,7 @@ import { createCable, type Cable } from "@anycable/web";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { bookingsKey, paymentKey } from "@/components/bookings/use-bookings";
+import { notificationsKey } from "@/components/notifications/use-notifications";
 import { partnerCalendarKey } from "@/components/partner/use-partner-calendar";
 import { tripsKey } from "@/components/trips/use-trips";
 import { refreshSession } from "@/lib/auth/middleware";
@@ -36,7 +37,8 @@ function urlFor(token: string) {
 }
 
 // Keeps the signed-in user's WebSocket open (anycable, RAA-203) and refreshes what a booking
-// change touches: the guest's bookings, trips and payments, the partner's calendar. Inactive
+// change touches: the guest's bookings, trips and payments, the partner's calendar; and the
+// bell's notifications when one comes in (notification.created). Inactive
 // queries are only marked stale. Renders nothing; a page works the same without it.
 //
 // One connection per user. The server checks the access token only when a connection opens,
@@ -82,12 +84,19 @@ export function LiveUpdates() {
       logLevel: "error",
     });
     cableRef.current = cable;
+    const refetchNotifications = () => void queryClient.invalidateQueries({ queryKey: notificationsKey(userId) });
+
     cable.subscribeTo("UserChannel").on("message", (message) => {
-      if ((message as LiveMessage | null)?.type === "booking.updated") refetch();
+      const type = (message as LiveMessage | null)?.type;
+      if (type === "booking.updated") refetch();
+      if (type === "notification.created") refetchNotifications();
     });
     cable.on("connect", (event) => {
       refreshedRef.current = false;
-      if (event.reconnect && !event.restored) refetch();
+      if (event.reconnect && !event.restored) {
+        refetch();
+        refetchNotifications();
+      }
     });
     // Dropped: anycable refuses an expired token at the handshake (a 403 the client takes for
     // a network failure and retries), so renew it first; the retry then uses the new one.
