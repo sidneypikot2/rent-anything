@@ -6,8 +6,18 @@ staging.tripkonext.com {
 	reverse_proxy web:3000
 }
 
-# Action Cable's WebSocket goes through reverse_proxy as is.
+# /cable is the WebSocket server (anycable, RAA-202); reverse_proxy passes the upgrade as is.
+# /_anycable is where anycable asks Rails to approve a connection, inside Compose only.
+# No access log: the WebSocket URL carries the access token (?token=).
 api.staging.tripkonext.com {
 	encode zstd gzip
-	reverse_proxy backend:3000
+	handle /cable {
+		reverse_proxy anycable:8080
+	}
+	handle /_anycable* {
+		respond 404
+	}
+	handle {
+		reverse_proxy backend:3000
+	}
 }

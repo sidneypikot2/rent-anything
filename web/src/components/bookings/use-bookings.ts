@@ -16,6 +16,10 @@ export function bookingsKey(userId: number | undefined) {
   return ["bookings", userId] as const;
 }
 
+export function paymentKey(userId: number | undefined) {
+  return ["payment", userId] as const;
+}
+
 // A checkout changes the guest's bookings and the cart's items (each now shows its booking).
 function useInvalidateBookings() {
   const queryClient = useQueryClient();
@@ -134,7 +138,7 @@ export function usePayment(id: number | undefined) {
   const invalidate = useInvalidateBookings();
   const userId = useSession()?.user.id;
   return useQuery({
-    queryKey: ["payment", userId, id],
+    queryKey: [...paymentKey(userId), id],
     queryFn: async () => {
       const { data } = await apiClient().GET("/api/v1/payments/{id}", { params: { path: { id: id! } } });
       if (!data) throw new Error("Couldn't load that payment. Try again.");

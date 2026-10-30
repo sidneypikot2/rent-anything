@@ -20,6 +20,10 @@ type Props = {
   min: string;
   // One day rather than a range: a tap sets both ends.
   single?: boolean;
+  // A start already before `min` stays and taps move only the end (a trip under way). False
+  // for something whose past start is of no use, like a cart item that can't be booked any
+  // more: a tap then picks a new start.
+  keepStart?: boolean;
   // Offers Clear, for dates that are optional.
   clearable?: boolean;
   placeholder?: string;
@@ -92,7 +96,7 @@ function Day({ day, modifiers, className, ...props }: DayButtonProps) {
 // One field for a stretch of days: it opens a month calendar (react-day-picker) where the
 // first tap picks the start and the second the end (RAA-92). A tap before the start starts
 // again from there. A start already before `min` (a trip under way) is kept, and taps move
-// only the end. A plain disclosure like Menu: it closes on Escape, on a click outside it
+// only the end, unless `keepStart` is false. A plain disclosure like Menu: it closes on Escape, on a click outside it
 // and once the range is complete.
 export function DateRangeField({
   label,
@@ -103,6 +107,7 @@ export function DateRangeField({
   onChange,
   min,
   single = false,
+  keepStart = true,
   clearable = false,
   placeholder,
   inline = false,
@@ -227,7 +232,7 @@ export function DateRangeField({
             !row && (inline ? "mt-1" : "absolute left-0 top-full z-20 mt-1 shadow-lift sm:w-80"),
           )}
         >
-          <DateRangeCalendar from={from} to={to} onChange={onChange} min={min} single={single} onComplete={close} />
+          <DateRangeCalendar from={from} to={to} onChange={onChange} min={min} single={single} keepStart={keepStart} onComplete={close} />
 
           <div className="flex justify-end gap-1 text-sm">
             {clearable && from && (
@@ -261,12 +266,13 @@ export function DateRangeCalendar({
   onChange,
   min,
   single = false,
+  keepStart = true,
   months = 1,
   onComplete,
-}: Pick<Props, "from" | "to" | "onChange" | "min" | "single"> & { months?: number; onComplete?: () => void }) {
+}: Pick<Props, "from" | "to" | "onChange" | "min" | "single" | "keepStart"> & { months?: number; onComplete?: () => void }) {
   // The day under the pointer, shown as the end while one is picked.
   const [hovered, setHovered] = useState<string>();
-  const keepsStart = !single && Boolean(from) && from < min;
+  const keepsStart = keepStart && !single && Boolean(from) && from < min;
 
   // DayPicker's own range rules differ (it stretches a complete range), so a pick is
   // worked out here from the day tapped.
