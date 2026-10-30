@@ -27,7 +27,8 @@ type Rate = NonNullable<ListingDetail["vehicle_rate"]>;
 // its rate (rent for each vehicle and day, the refundable deposit for each) and Add to trip with
 // both. A group that needs more than are free is told so and can't add; "More from this shop"
 // opens the shop's other models (ShopPopup). The price is the API's, as checkout charges it,
-// as are the pickup times free on the dates and when it is due back (RAA-195).
+// as are the pickup times free on the dates and when it is due back (RAA-195), asked right under
+// the dates (RAA-205).
 // `add={false}` in a side panel, whose foot holds Add to trip.
 // `rate` says the vehicle is priced; the price itself is the API's.
 export function VehicleBookingCard({
@@ -112,6 +113,14 @@ export function VehicleBookingCard({
             hint={from && to ? `${days} ${days === 1 ? "day" : "days"} · back ${formatDateRange(to, to)}` : undefined}
             data-testid="vehicle-dates"
           />
+          {pickupTimes && (
+            <PickupTimeRow
+              times={pickupTimes}
+              value={pickupTime ?? (returnsAt ? rentalClock(returnsAt) : null)}
+              onChange={setPickupTime}
+              returnsAt={returnsAt}
+            />
+          )}
           <PeopleAndVehicles
             people={people}
             units={units}
@@ -127,14 +136,6 @@ export function VehicleBookingCard({
               {peopleText(people)} {people === 1 ? "needs" : "need"} {needed} {nouns(needed)}, and only {free} {free === 1 ? "is" : "are"}{" "}
               available. Pick other dates or add another listing.
             </TicketNote>
-          )}
-          {pickupTimes && (
-            <PickupTimeRow
-              times={pickupTimes}
-              value={pickupTime ?? (returnsAt ? rentalClock(returnsAt) : null)}
-              onChange={setPickupTime}
-              returnsAt={returnsAt}
-            />
           )}
           {canAdd && <DeliveryOptions fees={fees} value={delivery} onChange={setDelivery} />}
           <PriceBreakdown breakdown={breakdown} />

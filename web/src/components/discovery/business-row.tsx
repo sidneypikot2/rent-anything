@@ -4,6 +4,7 @@ import Image from "next/image";
 import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { isApiPhoto } from "@/components/landing/sample-photos";
+import { handoverLabel, sharedFees } from "@/components/trips/delivery-options";
 import { InTripBadge, InTripCount } from "@/components/trips/in-trip-badge";
 import type { TripDates } from "@/components/trips/trip-dates";
 import { vehicleNoun } from "@/components/trips/vehicle-party";
@@ -21,7 +22,7 @@ import { ListingRowDetails } from "./listing-row-details";
 import type { Photo } from "./photo-card";
 import { useShopModels } from "./shop-models";
 import { StayMixPicker, type MixOffer } from "./stay-mix-picker";
-import { ArrowGlyph, CategoryGlyph } from "./tag-glyphs";
+import { ArrowGlyph, CategoryGlyph, MapGlyph, PlaceGlyph } from "./tag-glyphs";
 
 // One of a business's listings in a What to book group, as its card and panel show it.
 export type Offer = {
@@ -40,6 +41,9 @@ export type Offer = {
   // says "Price to be agreed" and its section's note says what that means.
   unpriced?: string;
   instantBook: boolean;
+  // A rental vehicle's delivery and pick-up fees (RAA-205), each null when the shop doesn't;
+  // left out for anything else.
+  handover?: { delivery_fee_cents: number | null; return_pickup_fee_cents: number | null } | null;
   // Add to trip in the panel's list, and the prominent one in its details' foot.
   action: ReactNode;
   panelAction: ReactNode;
@@ -109,6 +113,9 @@ export function BusinessRow({
   // ("DJI Osmo Action 4 + 5 more"), as their titles in a row read as clutter; the panel lists them all.
   const title = single ? single.title : `${offers[0].title} + ${offers.length - 1} more`;
   const instant = offers.every((offer) => offer.instantBook);
+  // How its vehicles reach the guest (RAA-205): what every one of them here offers.
+  const rates = offers.map((offer) => offer.handover ?? null);
+  const handover = rates.every((rate) => rate) ? sharedFees(rates) : null;
 
   return (
     // A row of What to book's list, on its white sheet: no card of its own (the list divides the
@@ -157,6 +164,16 @@ export function BusinessRow({
             </Badge>
           ))}
           {instant && <InstantBookBadge small />}
+          {handover && (
+            <Badge
+              tone={handover.delivery !== null || handover.returnPickup !== null ? "aqua" : "mist"}
+              className="min-h-6 px-2.5 text-xs"
+              data-testid="handover-badge"
+            >
+              {handover.delivery !== null ? <MapGlyph className="size-3.5" /> : <PlaceGlyph className="size-3.5" />}
+              {handoverLabel(handover)}
+            </Badge>
+          )}
           <span>
             by <span className="font-medium text-foreground">{name}</span>
             {place && ` · ${place}`}
@@ -315,7 +332,6 @@ function BusinessPanel({
         photos={photos}
         offers={offers}
         dates={dates}
-        onOpen={setPickedId}
         onClose={onClose}
       />
     );
@@ -387,7 +403,7 @@ function BusinessPanel({
 
 // A vehicle shop's panel (RAA-191, the plan's mock 2): its photos and name over its models, each
 // with a counter, the seats they make for the trip's people, the total and one Add for them all.
-// A model's title opens its details in the same panel.
+// A model's title opens its details in place (RAA-205).
 function ShopPanel({
   name,
   businessId,
@@ -395,7 +411,6 @@ function ShopPanel({
   photos,
   offers,
   dates,
-  onOpen,
   onClose,
 }: {
   name: string;
@@ -404,7 +419,6 @@ function ShopPanel({
   photos: Photo[];
   offers: Offer[];
   dates?: TripDates;
-  onOpen: (listingId: number) => void;
   onClose: () => void;
 }) {
   const tripDates = dates ?? { guests: 1 };
@@ -414,7 +428,6 @@ function ShopPanel({
     dates: tripDates,
     people: tripDates.guests,
     listingIds: offers.map((offer) => offer.listingId),
-    onOpen,
   });
   return (
     <Dialog

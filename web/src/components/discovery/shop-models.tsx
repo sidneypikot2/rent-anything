@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
-import { CategoryGlyph } from "@/components/discovery/tag-glyphs";
+import Link from "next/link";
+import { Fragment, useState } from "react";
+import { CategoryGlyph, ChevronGlyph, FeatureGlyph } from "@/components/discovery/tag-glyphs";
+import { listingFeatures } from "@/components/discovery/listing-features";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { transmissionLabel } from "@/components/listings/vehicle-labels";
 import { Badge } from "@/components/ui/badge";
@@ -14,10 +16,10 @@ import { useSession } from "@/lib/auth/session";
 import { formatPeso } from "@/lib/money";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { addDays, formatDateRange, todayIso } from "@/components/trips/format";
-import { DeliveryOptions, NO_DELIVERY, sharedFees, wantsDelivery, type Delivery } from "@/components/trips/delivery-options";
+import { DeliveryOptions, handoverLabel, NO_DELIVERY, sharedFees, wantsDelivery, type Delivery } from "@/components/trips/delivery-options";
 import { formatRentalSpan, PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
 import { useOptionalTripAdd } from "@/components/trips/trip-add-provider";
-import type { TripDates } from "@/components/trips/trip-dates";
+import { tripDatesQuery, type TripDates } from "@/components/trips/trip-dates";
 import { usePriceBreakdown } from "@/components/trips/price-breakdown";
 import { useShopListings } from "@/components/trips/use-shop-listings";
 import { peopleText, rentalDays, seatsLabel, vehicleNoun, type ShopListing } from "@/components/trips/vehicle-party";
@@ -31,8 +33,6 @@ type Options = {
   people: number;
   // Only these of the shop's listings (What to book's filters); left out, all in the category.
   listingIds?: number[];
-  // A model's title opens its details (the business panel); left out, it is plain text.
-  onOpen?: (listingId: number) => void;
   // After the add has started (the add sheet takes over): a pop-up closes.
   onAdding?: () => void;
 };
@@ -59,9 +59,10 @@ export function splitPeople(picked: { units: number; seats: number }[], people: 
 // and `action` ("Add N to trip": one item per model through the add sheet, as a mix of room types
 // is) go in the dialog's action bar. The shop pop-up and a vehicle business's side panel show it.
 // The rental's dates start as the trip's and can be changed (a bike for 1 day of a week-long
-// trip), and everything picked goes at one pickup time (RAA-195): each model says how many are
-// free from that pickup to the return.
-export function useShopModels({ business, category, dates, people, listingIds, onOpen, onAdding }: Options) {
+// trip), and everything picked goes at one pickup time (RAA-195), asked right under the dates
+// (RAA-205): each model says how many are free from that pickup to the return. A model's row
+// opens its details in place (RAA-205), so the guest compares models without leaving the list.
+export function useShopModels({ business, category, dates, people, listingIds, onAdding }: Options) {
   const session = useSession();
   const flow = useOptionalTripAdd();
   // The rental's own dates, the trip's at first; one date is one day, back the next.
@@ -73,6 +74,7 @@ export function useShopModels({ business, category, dates, people, listingIds, o
   const models = (shop.data?.listings ?? []).filter((model) => !listingIds || listingIds.includes(model.id));
   const [counts, setCounts] = useState<Record<number, number>>({});
   const [transmission, setTransmission] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<number | null>(null);
   const transmissions = [...new Set(models.map((model) => model.details.transmission).filter((value): value is string => typeof value === "string"))];
   const shown = transmission ? models.filter((model) => model.details.transmission === transmission) : models;
 
@@ -171,6 +173,14 @@ export function useShopModels({ business, category, dates, people, listingIds, o
           hint={from && to ? `${days} ${days === 1 ? "day" : "days"} · back ${formatDateRange(to, to)}` : undefined}
           data-testid="shop-dates"
         />
+        {from && to && pickupTimes && (
+          <PickupTimeRow
+            times={pickupTimes}
+            value={pickupTime ?? (returnsAt ? rentalClock(returnsAt) : null)}
+            onChange={setPickupTime}
+            returnsAt={returnsAt}
+          />
+        )}
       </Ticket>
       <p className="text-sm text-muted">
         Your trip: <span className="font-semibold text-foreground">{peopleText(people)}</span>
@@ -206,9 +216,18 @@ export function useShopModels({ business, category, dates, people, listingIds, o
               typeof model.details.engine_cc === "number" ? `${model.details.engine_cc} cc` : null,
               seatsLabel(seatsOf(model), category.name).toLowerCase(),
             ].filter(Boolean);
+            const open = expanded === model.id;
+            const detailsId = `shop-model-details-${model.id}`;
+            const rate = model.vehicle_rate;
+            const terms = [
+              rate?.security_deposit_cents ? `${formatPeso(rate.security_deposit_cents)} refundable deposit` : null,
+              rate?.km_limit_per_day ? `${rate.km_limit_per_day} km a day` : null,
+              rate && rate.min_rental_days > 1 ? `at least ${rate.min_rental_days} days` : null,
+            ].filter(Boolean);
+            const features = open ? listingFeatures({ details: model.details, cancellation_policy: "" }) : [];
             return (
+              <Fragment key={model.id}>
               <TicketRow
-                key={model.id}
                 media={
                   <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-action-tint text-action-ink">
                     {model.cover_photo_url ? (
@@ -221,18 +240,17 @@ export function useShopModels({ business, category, dates, people, listingIds, o
                 label={facts.join(" · ")}
                 value={
                   <span className="flex flex-col">
-                    {onOpen ? (
-                      <button
-                        type="button"
-                        data-testid="business-offer"
-                        onClick={() => onOpen(model.id)}
-                        className="w-fit text-left text-link underline-offset-4 hover:underline"
-                      >
-                        {model.title}
-                      </button>
-                    ) : (
-                      model.title
-                    )}
+                    <button
+                      type="button"
+                      aria-expanded={open}
+                      aria-controls={detailsId}
+                      onClick={() => setExpanded(open ? null : model.id)}
+                      className="flex w-fit items-center gap-1 text-left underline-offset-4 hover:underline"
+                      data-testid="shop-model-toggle"
+                    >
+                      {model.title}
+                      <ChevronGlyph direction={open ? "up" : "down"} className="size-4 shrink-0 text-muted" />
+                    </button>
                     <span className="text-sm font-medium text-muted">
                       <span className="font-bold text-action-ink">{formatPeso(model.vehicle_rate?.daily_price_cents ?? 0)}</span> a day
                     </span>
@@ -266,21 +284,39 @@ export function useShopModels({ business, category, dates, people, listingIds, o
                 }
                 data-testid="shop-model"
               />
+              {open && (
+                <div id={detailsId} className="flex flex-col gap-2.5 border-t-0! px-3.5 pt-1 pb-4 text-sm text-muted" data-testid="shop-model-details">
+                  {features.length > 0 && (
+                    <ul className="flex flex-wrap gap-1.5">
+                      {features.map((feature) => (
+                        <li key={feature.label}>
+                          <Badge tone="fact" className="min-h-6 px-2.5 text-xs">
+                            <FeatureGlyph name={feature.icon} className="size-3.5" />
+                            {feature.label}
+                          </Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {terms.length > 0 && <p>{terms.join(" · ")}</p>}
+                  {rate && (
+                    <p className="font-semibold text-foreground">
+                      {handoverLabel({ delivery: rate.delivery_fee_cents, returnPickup: rate.return_pickup_fee_cents })}
+                    </p>
+                  )}
+                  <Link href={`/listings/${model.id}${tripDatesQuery({ ...dates, from, to })}`} className="w-fit font-semibold text-link underline underline-offset-4" data-testid="listing-link">
+                    See full details
+                  </Link>
+                </div>
+              )}
+              </Fragment>
             );
           })}
         </Ticket>
       )}
 
-      {((from && to && pickupTimes) || fees.delivery !== null || fees.returnPickup !== null) && (
+      {(fees.delivery !== null || fees.returnPickup !== null) && (
         <Ticket>
-          {from && to && pickupTimes && (
-            <PickupTimeRow
-              times={pickupTimes}
-              value={pickupTime ?? (returnsAt ? rentalClock(returnsAt) : null)}
-              onChange={setPickupTime}
-              returnsAt={returnsAt}
-            />
-          )}
           <DeliveryOptions fees={fees} value={chosen} onChange={setDelivery} address={false} />
         </Ticket>
       )}

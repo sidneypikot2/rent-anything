@@ -234,7 +234,7 @@ export function vehiclePricingErrors(values: VehiclePricingValues, included: str
     if (values.excessKmFee.trim() && toCents(values.excessKmFee) === null) errors.excessKmFee = "Enter an amount in pesos";
   }
 
-  if (Number(values.pickupUntil) < Number(values.pickupFrom)) errors.pickupUntil = "Can't be before the first pickup";
+  if (Number(values.pickupUntil) < Number(values.pickupFrom)) errors.pickupUntil = "Can't be before opening";
   if (values.delivery === "fee" && !toCents(values.deliveryFee)) errors.deliveryFee = "Set a fee above ₱0, or choose Free";
   if (values.pickup === "fee" && !toCents(values.pickupFee)) errors.pickupFee = "Set a fee above ₱0, or choose Free";
   if (values.driving === "either" && !toCents(values.driverFee)) {
@@ -377,20 +377,20 @@ export function VehiclePricingFields({
       </PricingSection>
 
       <PricingSection
-        title="Pickup and return"
-        intro="A rental runs 24 hours a day from its pickup: picked up at 8:00 AM, it comes back at 8:00 AM. Once it's back, the next guest can take it."
+        title="Operating hours"
+        intro="Guests pick up and return vehicles while you're open. A rental runs 24 hours a day from its pickup: picked up at 8:00 AM, it comes back at 8:00 AM. Once it's back, the next guest can take it."
         data-testid="pricing-pickup"
       >
         <div className="grid gap-4 sm:grid-cols-3">
           <SelectField
-            label="First pickup"
+            label="Opens"
             name="pickup_from_hour"
             options={HOURS}
             value={values.pickupFrom}
             onChange={(event) => set({ pickupFrom: event.target.value })}
           />
           <SelectField
-            label="Last pickup"
+            label="Closes"
             name="pickup_until_hour"
             options={HOURS}
             value={values.pickupUntil}

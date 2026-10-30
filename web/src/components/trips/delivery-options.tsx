@@ -44,14 +44,25 @@ export function deliveryBody(choice?: Delivery | null) {
   return { delivery: choice.delivery, return_pickup: choice.returnPickup, delivery_address: choice.address.trim() };
 }
 
-// What an item or a booking says of it: "Delivered to Kota Beach Resort · collected at the end".
-export function deliveryText(record: { delivery?: boolean; return_pickup?: boolean; delivery_address?: string | null }) {
-  if (!record.delivery && !record.return_pickup) return null;
+// What a vehicle item or booking says of it, whether or not the shop brings it (RAA-205):
+// "Dropped off and picked up · Kota Beach Resort", or that the guest goes to the shop. Nothing
+// for anything else (`vehicle` false).
+export function deliveryText(record: { delivery?: boolean; return_pickup?: boolean; delivery_address?: string | null }, vehicle: boolean) {
+  if (!record.delivery && !record.return_pickup) return vehicle ? AT_THE_SHOP : null;
   return `${deliveryHow(record.delivery, record.return_pickup)} · ${record.delivery_address ?? ""}`;
 }
 
+export const AT_THE_SHOP = "You collect and return it at the shop";
+
 export function deliveryHow(delivery?: boolean, returnPickup?: boolean) {
-  return delivery ? (returnPickup ? "Delivered and collected" : "Delivered") : "Collected at the end";
+  return delivery ? (returnPickup ? "Dropped off and picked up" : "Dropped off") : "Picked up at the end";
+}
+
+// How a vehicle reaches the guest, as its card's badge says it (RAA-205), from what the shop
+// offers (several models: what they all offer, `sharedFees`).
+export function handoverLabel(fees: Pick<DeliveryFees, "delivery" | "returnPickup">) {
+  if (fees.delivery !== null) return fees.returnPickup !== null ? "Drop-off and pick-up" : "Drop-off only";
+  return fees.returnPickup !== null ? "Pick-up only" : "Collect at the shop";
 }
 
 const feeText = (cents: number, from?: boolean) => (cents === 0 && !from ? "Free" : `${from ? "from " : ""}${formatPeso(cents)} a vehicle`);

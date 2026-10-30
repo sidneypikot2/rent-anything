@@ -607,9 +607,9 @@ function ItemCard({
                 {rentalTimes(item)}
               </p>
             )}
-            {deliveryText(item) && (
+            {deliveryText(item, item.seats !== null) && (
               <p className="text-small text-muted" data-testid="cart-item-delivery">
-                {deliveryText(item)}
+                {deliveryText(item, item.seats !== null)}
               </p>
             )}
             {!booking && policy && (
