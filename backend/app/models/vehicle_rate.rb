@@ -2,7 +2,9 @@
 # vans: a daily price, and optionally a half-day one (for half_day_hours), an hourly one,
 # and weekly and monthly totals that come out cheaper per day. The security deposit is
 # refundable and never part of the price. Delivery to the guest and picking the vehicle up
-# from them at the end are each not offered (nil), free (0) or a fee. min_rental_days bounds
+# from them at the end are each offered or not (delivery_fee_cents, return_pickup_fee_cents:
+# nil when not), priced by distance in its delivery_zones (RAA-205); either fee is the nearest
+# zone's, kept from them on save. min_rental_days bounds
 # a rental; a daily km limit may come with a fee per km above it. A car, van, multicab or
 # tricycle can come with a driver (driving): with_driver has the driver in the price, either
 # lets the guest choose, a driver then costing driver_fee_cents a day. A motorcycle is always
@@ -24,7 +26,13 @@ class VehicleRate < ApplicationRecord
   MAX_TURNAROUND_MINUTES = 720
   CHILD_HELMET_SLUGS = %w[motorcycle].freeze
 
+  MAX_DELIVERY_ZONES = 5
+
   belongs_to :listing, inverse_of: :vehicle_rate
+  has_many :delivery_zones, -> { order(:max_distance_m) }, class_name: "VehicleDeliveryZone",
+    inverse_of: :vehicle_rate, dependent: :delete_all, autosave: true
+
+  before_validation :fees_from_zones
 
   validates :daily_price_cents, :security_deposit_cents,
     numericality: { only_integer: true, greater_than_or_equal_to: 0 }
@@ -47,6 +55,7 @@ class VehicleRate < ApplicationRecord
   validate :excess_km_fee_has_a_limit
   validate :driver_fee_goes_with_a_choice
   validate :child_helmets_on_a_motorcycle
+  validate :zones_in_order
 
   def priced?
     daily_price_cents.positive?
@@ -62,6 +71,35 @@ class VehicleRate < ApplicationRecord
 
   def child_helmets?
     !child_helmet_fee_cents.nil?
+  end
+
+  # Replaces the zones (max_distance_m and fee_cents each) and whether the shop delivers and
+  # collects with them; saved with the rate.
+  def assign_delivery(delivers:, picks_up:, zones:)
+    delivery_zones.each(&:mark_for_destruction)
+    zones.each { delivery_zones.build(_1) }
+    self.delivery_fee_cents = (0 if delivers)
+    self.return_pickup_fee_cents = (0 if picks_up)
+  end
+
+  # The zone a point `distance_m` from the shop falls in, nil beyond the farthest.
+  def zone_for(distance_m)
+    zones.find { _1.max_distance_m >= distance_m }
+  end
+
+  # What delivery or pick-up costs a vehicle `distance_m` away; nil out of reach. Without a
+  # distance (an item from before zones), the nearest zone's fee.
+  def handover_fee_for(distance_m)
+    distance_m.nil? ? (delivery_fee_cents || return_pickup_fee_cents) : zone_for(distance_m)&.fee_cents
+  end
+
+  def max_delivery_m
+    zones.last&.max_distance_m
+  end
+
+  # The zones as they will be saved, nearest first.
+  def zones
+    delivery_zones.reject(&:marked_for_destruction?).sort_by { _1.max_distance_m.to_i }
   end
 
   def self_drive?
@@ -92,6 +130,28 @@ class VehicleRate < ApplicationRecord
   end
 
   private
+
+  def fees_from_zones
+    nearest = zones.first&.fee_cents
+    return if nearest.nil?
+
+    self.delivery_fee_cents = nearest if delivers?
+    self.return_pickup_fee_cents = nearest if picks_up?
+  end
+
+  def zones_in_order
+    list = zones
+    errors.add(:delivery_zones, "need at least one zone to deliver or collect") if (delivers? || picks_up?) && list.empty?
+    errors.add(:delivery_zones, "can be at most #{MAX_DELIVERY_ZONES}") if list.size > MAX_DELIVERY_ZONES
+    list.each_cons(2) do |near, far|
+      next unless near.max_distance_m.is_a?(Integer) && far.max_distance_m.is_a?(Integer)
+
+      errors.add(:delivery_zones, "can't end at the same distance") if near.max_distance_m == far.max_distance_m
+      if near.fee_cents.is_a?(Integer) && far.fee_cents.is_a?(Integer) && far.fee_cents < near.fee_cents
+        errors.add(:delivery_zones, "can't cost less farther from the shop")
+      end
+    end
+  end
 
   def listing_is_a_vehicle
     errors.add(:base, "Only a vehicle rental has a vehicle rate") if listing && !listing.category&.vehicle?

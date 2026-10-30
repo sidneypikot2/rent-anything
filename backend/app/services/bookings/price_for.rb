@@ -5,7 +5,9 @@ module Bookings
   # everything as text: starts_on and ends_on (ISO 8601, both required), quantity (the people,
   # or gear's count; default 1), units (a rental vehicle's chosen vehicles), room_guests (a
   # stay's split, as JSON), pets and a vehicle rental's pickup_time (RAA-195, "08:30"), delivery
-  # and return_pickup ("true" adds the shop's fee for each vehicle, a line each). A refused
+  # and return_pickup ("true" adds the shop's fee for each vehicle, a line each) and the guest's
+  # pin, delivery_lat and delivery_lng (RAA-205: the fee of its zone, or `unavailable` beyond
+  # the farthest; without one, the nearest zone's). A refused
   # party or dates comes back as `unavailable`, not an error, so the sheet can say why next to
   # its total. A vehicle rental also answers its `pickup_times`, each of the shop's with whether
   # the rental could start then, and when it `returns_at` from the pickup time asked for (or the
@@ -17,6 +19,9 @@ module Bookings
       @listing_id = listing_id
       @params = params.compact_blank
       @errors = []
+      return unless @params.key?(:delivery_lat) || @params.key?(:delivery_lng)
+
+      @params[:delivery_location] = { lat: @params.delete(:delivery_lat), lng: @params.delete(:delivery_lng) }
     end
 
     def call
@@ -44,7 +49,7 @@ module Bookings
       rental = rental(listing, ledger, days, units, starts_on, ends_on, pickup_time)
       refusal = rental[:none_left] || ledger.refusal(listing, days, units, period: rental[:period])
       price = Price.call(listing, starts_on:, ends_on:, quantity: units, guests:, room_guests:, pets:,
-        child_helmets:, **delivery.slice(:delivery, :return_pickup))
+        child_helmets:, **delivery.slice(:delivery, :return_pickup, :delivery_distance_m))
       answer(listing, price, refusal, rental)
     rescue ActiveRecord::RecordInvalid => e
       raise if e.record == listing || listing.nil?

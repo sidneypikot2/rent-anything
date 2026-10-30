@@ -56,8 +56,8 @@ export function VehicleBookingCard({
   const [shopOpen, setShopOpen] = useState(false);
   // Its pickup time (RAA-195): null takes the shop's default until the guest picks one.
   const [pickupTime, setPickupTime] = useState<string | null>(null);
-  // Delivery and pick-up (RAA-195), where the shop offers them. In a side panel (`add={false}`)
-  // the add sheet asks them instead, as its foot's Add to trip opens it.
+  // Delivery and pick-up (RAA-195), where the shop offers them, to a pin on its zones (RAA-205).
+  // In a side panel (`add={false}`) there are none: the guest collects it at the shop.
   const [delivery, setDelivery] = useState<Delivery>(NO_DELIVERY);
   const fees = { delivery: rate.delivery_fee_cents, returnPickup: rate.return_pickup_fee_cents };
   const chosenDelivery = canAdd ? delivery : null;
@@ -142,7 +142,15 @@ export function VehicleBookingCard({
               available. Pick other dates or add another listing.
             </TicketNote>
           )}
-          {canAdd && <DeliveryOptions fees={fees} value={delivery} onChange={setDelivery} />}
+          {canAdd && (
+            <DeliveryOptions
+              fees={fees}
+              value={delivery}
+              onChange={setDelivery}
+              zones={rate.delivery_zones}
+              center={models.find((model) => model.id === listing.id)?.approx_location}
+            />
+          )}
           {!wantsDelivery(chosenDelivery) && <AtTheShopRow place={listing.area.name} />}
           {canAdd && <ChildHelmetsRow fee={rate.child_helmet_fee_cents} value={helmets} max={units} onChange={setChildHelmets} />}
           <PriceBreakdown breakdown={breakdown} />
@@ -156,7 +164,7 @@ export function VehicleBookingCard({
             glyph="plus"
             data-testid="add-to-trip"
             loading={busy}
-            disabled={session === undefined || short || needsAddress(delivery)}
+            disabled={session === undefined || short || needsAddress(delivery) || Boolean(wantsDelivery(delivery) && breakdown.price?.unavailable)}
             onClick={() =>
               flow.add({
                 listingId: listing.id,

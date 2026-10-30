@@ -128,31 +128,71 @@ module Trips
       value
     end
 
-    DELIVERY_KEYS = %i[delivery return_pickup delivery_address].freeze
+    DELIVERY_KEYS = %i[delivery return_pickup delivery_address delivery_location delivery_notes].freeze
+    NO_DELIVERY = { delivery: false, return_pickup: false, delivery_address: nil, delivery_location: nil,
+                    delivery_distance_m: nil, delivery_notes: nil }.freeze
 
     # A vehicle rental's delivery and pick-up (RAA-195): delivery (brought to the guest) and
-    # return_pickup (collected from them at the end), each only where the shop offers it, and the
-    # address they go to, required with either and dropped without. Fields not sent keep
-    # `current`'s; none sent is {}. A query string carries the booleans as "true" / "false".
-    # A price (address: false) needs no address.
+    # return_pickup (collected from them at the end), each only where the shop offers it, to the
+    # guest's pin (delivery_location, { lat, lng }) within the shop's farthest zone (RAA-205),
+    # with the address it is at and notes for the rider; all of them required with either, but
+    # the notes, and dropped without. Fields not sent keep `current`'s; none sent is {}. A query
+    # string carries the booleans as "true" / "false" and the pin's lat and lng as text. A price
+    # (address: false) needs neither address nor pin, and a pin out of reach is Price's to refuse.
     def delivery_values(listing, current = {}, address: true)
       return {} unless DELIVERY_KEYS.any? { @params.key?(_1) }
 
+      refused = @errors.size
       delivery = boolean_value(:delivery, "Delivery", current.fetch(:delivery, false))
       return_pickup = boolean_value(:return_pickup, "Pick-up", current.fetch(:return_pickup, false))
-      place = @params.key?(:delivery_address) ? @params[:delivery_address] : current[:delivery_address]
-      return error("The address must be text") unless place.nil? || place.is_a?(String)
-
-      place = place&.strip.presence
-      return { delivery: false, return_pickup: false, delivery_address: nil } unless delivery || return_pickup
+      place = text_value(:delivery_address, "The address", current[:delivery_address])
+      notes = text_value(:delivery_notes, "The notes", current[:delivery_notes])
+      unread = @errors.size
+      point = @params.key?(:delivery_location) ? delivery_point(text: !address) : current[:delivery_location]
+      pin_refused = @errors.size > unread
+      return NO_DELIVERY.dup unless delivery || return_pickup
       return error("Only a vehicle rental can be delivered or picked up") unless listing.category.vehicle?
 
       rate = listing.vehicle_rate
       error("This shop doesn't deliver") if delivery && !rate&.delivers?
       error("This shop doesn't pick up at the end") if return_pickup && !rate&.picks_up?
       error("Add the address for the delivery or pick-up") if place.nil? && address
+      error("Drop a pin where the rider meets you") if point.nil? && address && !pin_refused
       error("The address must be 200 characters or fewer") if place && place.length > 200
-      { delivery:, return_pickup:, delivery_address: place }
+      error("The notes must be 200 characters or fewer") if notes && notes.length > 200
+      distance = point && listing.distance_m_to(point)
+      if address && distance && @errors.size == refused && rate.handover_fee_for(distance).nil?
+        error(Trips::Values.out_of_reach(rate))
+      end
+      { delivery:, return_pickup:, delivery_address: place, delivery_location: point, delivery_distance_m: distance,
+        delivery_notes: notes }
+    end
+
+    def self.out_of_reach(rate)
+      km = rate.max_delivery_m.to_i / 1000.0
+      "This shop doesn't deliver here: it delivers up to #{km % 1 == 0 ? km.to_i : km.round(1)} km away"
+    end
+
+    # A trimmed text field, or `current` when not sent; nil when blank.
+    def text_value(key, label, current)
+      value = @params.key?(key) ? @params[key] : current
+      return value&.strip.presence if value.nil? || value.is_a?(String)
+
+      error("#{label} must be text")
+    end
+
+    # The guest's pin as WKT, from numbers (or, in a query string, text that is a number).
+    def delivery_point(text:)
+      value = @params[:delivery_location]
+      return nil if value.nil?
+      return error("The delivery pin must have a lat and lng") unless value.respond_to?(:key?)
+
+      lat, lng = [ value[:lat], value[:lng] ].map do |part|
+        text && part.is_a?(String) && part.match?(/\A-?\d+(\.\d+)?\z/) ? part.to_f : part
+      end
+      lat = coordinate(lat, 90, "Latitude")
+      lng = coordinate(lng, 180, "Longitude")
+      "POINT(#{lng} #{lat})" if lat && lng
     end
 
     # Child helmets for a motorcycle rental (RAA-205): 0 to 99, any but 0 only where the shop

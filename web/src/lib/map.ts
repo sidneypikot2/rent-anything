@@ -64,6 +64,30 @@ export async function geocodeAddress(query: string, signal?: AbortSignal): Promi
   return coordinates ? { lat: coordinates[1], lng: coordinates[0] } : null;
 }
 
+// A place a guest picks while typing an address (RAA-205): its name, where it is ("Santa Fe,
+// Cebu") and its point.
+export type PlaceSuggestion = { name: string; detail: string; point: LatLng };
+
+const NEAR_DEGREES = 0.3;
+
+// Places matching what is typed so far, from Photon, nearest `near` first and within about
+// 30 km of it, so a search for a resort stays on the island. Throws when Photon can't be reached.
+export async function searchPlaces(query: string, near: LatLng, signal?: AbortSignal): Promise<PlaceSuggestion[]> {
+  const box = [near.lng - NEAR_DEGREES, near.lat - NEAR_DEGREES, near.lng + NEAR_DEGREES, near.lat + NEAR_DEGREES];
+  const params = new URLSearchParams({ q: query, limit: "5", lat: String(near.lat), lon: String(near.lng), bbox: box.join(",") });
+  const response = await fetch(`${PHOTON}/api?${params}`, { signal });
+  if (!response.ok) throw new Error(`Photon: ${response.status}`);
+  const body: { features?: { geometry?: { coordinates?: [number, number] }; properties?: ReversePlace }[] } = await response.json();
+  return (body.features ?? []).flatMap((feature) => {
+    const coordinates = feature.geometry?.coordinates;
+    const place = feature.properties ?? {};
+    const name = place.name ?? [place.housenumber, place.street].filter(Boolean).join(" ");
+    if (!coordinates || !name) return [];
+    const detail = [place.locality ?? place.district, place.city, place.state].filter((part) => part && part !== name).join(", ");
+    return [{ name, detail, point: { lat: coordinates[1], lng: coordinates[0] } }];
+  }).filter((place, index, places) => places.findIndex((other) => other.name === place.name && other.detail === place.detail) === index);
+}
+
 // What Photon knows about the place at a point (RAA-111), as OpenStreetMap names it: in the
 // Philippines `state` is the province and `locality` or `district` the barangay. Null when
 // nothing is near; throws when Photon can't be reached.

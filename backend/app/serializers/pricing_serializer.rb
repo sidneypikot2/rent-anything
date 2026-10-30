@@ -16,8 +16,10 @@ module PricingSerializer
     rate&.slice(*STAY_RATE_FIELDS)&.symbolize_keys
   end
 
+  # With its delivery zones (RAA-205), nearest first; preload vehicle_rate: :delivery_zones.
   def self.vehicle_rate(rate)
-    rate&.slice(*VEHICLE_RATE_FIELDS)&.symbolize_keys
+    rate && rate.slice(*VEHICLE_RATE_FIELDS).symbolize_keys
+      .merge(delivery_zones: rate.zones.map { { max_distance_m: _1.max_distance_m, fee_cents: _1.fee_cents } })
   end
 
   # Gear's or a transfer's price (RAA-191): the `flat_rate` schema.

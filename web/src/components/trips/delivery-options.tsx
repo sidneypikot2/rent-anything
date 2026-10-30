@@ -1,18 +1,27 @@
 "use client";
 
-import { useId } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useId, useRef, useState } from "react";
 import { FeatureGlyph, MapGlyph, MoveGlyph, PlaceGlyph } from "@/components/discovery/tag-glyphs";
+import { ComboboxField } from "@/components/ui/combobox-field";
 import { Stepper } from "@/components/ui/stepper-field";
 import { Field } from "@/components/ui/field";
 import { TicketRow } from "@/components/ui/ticket";
+import { reverseGeocode, searchPlaces, type LatLng, type PlaceSuggestion } from "@/lib/map";
 import { formatPeso } from "@/lib/money";
+import { zonesText, type DeliveryZone } from "./delivery-zones";
+
+// MapLibre loads only once a delivery is picked.
+const ZoneMap = dynamic(() => import("./zone-map"), { ssr: false, loading: () => <div className="h-64 w-full rounded-control bg-mist" /> });
 
 // A vehicle rental's delivery and pick-up (RAA-195): the shop brings it to the guest and/or
-// collects it from them at the end, each for its fee per vehicle (the shop's, nil when not
-// offered), to the address they type. The API prices it; the browser only says the fee.
-export type Delivery = { delivery: boolean; returnPickup: boolean; address: string };
+// collects it from them at the end, each for the fee of the delivery zone their pin is in
+// (RAA-205: the shop's, nil when not offered), at the address they picked, with notes for the
+// rider. The API prices it and refuses a pin out of reach; the browser only says the fees.
+export type Delivery = { delivery: boolean; returnPickup: boolean; address: string; location: LatLng | null; notes: string };
 
-export const NO_DELIVERY: Delivery = { delivery: false, returnPickup: false, address: "" };
+export const NO_DELIVERY: Delivery = { delivery: false, returnPickup: false, address: "", location: null, notes: "" };
+
 
 export const ADDRESS_LENGTH = 200;
 
@@ -43,15 +52,21 @@ export function wantsDelivery(choice?: Delivery | null) {
   return Boolean(choice && (choice.delivery || choice.returnPickup));
 }
 
-// Ticked but with no address yet: the add waits for one.
+// Ticked but with no address or pin yet: the add waits for both.
 export function needsAddress(choice?: Delivery | null) {
-  return wantsDelivery(choice) && !choice?.address.trim();
+  return wantsDelivery(choice) && (!choice?.address.trim() || !choice.location);
 }
 
 // The fields an add or an item change sends; nothing when neither is ticked.
 export function deliveryBody(choice?: Delivery | null) {
   if (!choice || !wantsDelivery(choice)) return {};
-  return { delivery: choice.delivery, return_pickup: choice.returnPickup, delivery_address: choice.address.trim() };
+  return {
+    delivery: choice.delivery,
+    return_pickup: choice.returnPickup,
+    delivery_address: choice.address.trim(),
+    ...(choice.location ? { delivery_location: choice.location } : {}),
+    delivery_notes: choice.notes.trim() || null,
+  };
 }
 
 // What a vehicle item or booking says of it, whether or not the shop brings it (RAA-205):
@@ -90,19 +105,21 @@ export function handoverLabel(fees: Pick<DeliveryFees, "delivery" | "returnPicku
 
 const feeText = (cents: number, from?: boolean) => (cents === 0 && !from ? "Free" : `${from ? "from " : ""}${formatPeso(cents)} a vehicle`);
 
-// The two choices as ticket rows, each only when the shop offers it, and the address under them
-// once one is ticked (`address={false}`: not yet, the add sheet asks it). Renders nothing when the
-// shop offers neither.
+// The two choices as ticket rows, each only when the shop offers it, then where the rider goes
+// once one is ticked (`DeliveryPlace`: the address, the pin on the shop's zones, notes; around
+// `center`, the listing's rounded point). Renders nothing when the shop offers neither.
 export function DeliveryOptions({
   fees,
   value,
   onChange,
-  address = true,
+  zones,
+  center,
 }: {
   fees: DeliveryFees;
   value: Delivery;
   onChange: (value: Delivery) => void;
-  address?: boolean;
+  zones?: DeliveryZone[] | null;
+  center?: LatLng | null;
 }) {
   const deliveryId = useId();
   const pickupId = useId();
@@ -115,7 +132,7 @@ export function DeliveryOptions({
           icon={<MapGlyph />}
           label={<label htmlFor={deliveryId}>Delivery</label>}
           value="Bring it to me"
-          detail={feeText(fees.delivery, fees.from)}
+          detail={zones?.length ? zonesText(zones) : feeText(fees.delivery, fees.from)}
           control={
             <input
               id={deliveryId}
@@ -134,7 +151,7 @@ export function DeliveryOptions({
           icon={<MoveGlyph />}
           label={<label htmlFor={pickupId}>Pick-up at the end</label>}
           value="Collect it from me"
-          detail={feeText(fees.returnPickup, fees.from)}
+          detail={zones?.length ? "Same zones as delivery" : feeText(fees.returnPickup, fees.from)}
           control={
             <input
               id={pickupId}
@@ -148,7 +165,7 @@ export function DeliveryOptions({
           data-testid="return-pickup-row"
         />
       )}
-      {address && wantsDelivery(value) && <DropOffAddress value={value.address} onChange={(text) => onChange({ ...value, address: text })} />}
+      {wantsDelivery(value) && center && <DeliveryPlace value={value} onChange={onChange} zones={zones ?? []} center={center} />}
     </>
   );
 }
@@ -195,18 +212,101 @@ export function AtTheShopRow({ place }: { place?: string | null }) {
   );
 }
 
-// Where the shop brings the vehicles and collects them from.
-export function DropOffAddress({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+const SEARCH_DELAY_MS = 200;
+
+// Where the shop brings the vehicles and collects them from (RAA-205): an address picked as it is
+// typed (places near the shop), which drops the pin; the pin, tapped or dragged to the exact spot,
+// fills an empty address from what is there; and notes for the rider. The rings around the shop's
+// rounded point are approximate: the API prices the pin.
+export function DeliveryPlace({
+  value,
+  onChange,
+  zones,
+  center,
+}: {
+  value: Delivery;
+  onChange: (value: Delivery) => void;
+  zones: DeliveryZone[];
+  center: LatLng;
+}) {
+  const [found, setFound] = useState<PlaceSuggestion[]>([]);
+  const [unreachable, setUnreachable] = useState(false);
+  // The latest value, for the address looked up after a drag.
+  const valueRef = useRef(value);
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+  // The address the pin filled in, replaced by the next drag; one the guest typed is kept.
+  const filledRef = useRef<string | null>(null);
+
+  const query = value.address.trim();
+  const { lat, lng } = center;
+  useEffect(() => {
+    if (query.length < 2) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      searchPlaces(query, { lat, lng }, controller.signal)
+        .then((places) => {
+          setFound(places);
+          setUnreachable(false);
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setUnreachable(true);
+        });
+    }, SEARCH_DELAY_MS);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [query, lat, lng]);
+
+  const lookupRef = useRef<AbortController | undefined>(undefined);
+  function placePin(point: LatLng) {
+    onChange({ ...valueRef.current, location: point });
+    const typed = valueRef.current.address.trim();
+    if (typed && typed !== filledRef.current) return;
+    lookupRef.current?.abort();
+    const controller = new AbortController();
+    lookupRef.current = controller;
+    reverseGeocode(point, controller.signal)
+      .then((place) => {
+        if (!place || controller.signal.aborted) return;
+        const name = place.name ?? ([place.housenumber, place.street].filter(Boolean).join(" ") || place.locality || place.city);
+        if (!name) return;
+        filledRef.current = name;
+        onChange({ ...valueRef.current, address: name.slice(0, ADDRESS_LENGTH) });
+      })
+      .catch(() => undefined);
+  }
+
+  const options = found.map((place, index) => ({ value: String(index), label: place.detail ? `${place.name} · ${place.detail}` : place.name }));
   return (
-    <div className="px-3.5 py-3">
-      <Field
-        label="Drop-off address"
-        placeholder="Hotel or address"
-        value={value}
+    <div className="flex flex-col gap-3 px-3.5 py-3" data-testid="delivery-place">
+      <ComboboxField
+        label={value.delivery ? "Where should the rider bring it?" : "Where should the rider collect it?"}
+        placeholder="Kota Beach Resort"
+        value={value.address}
         maxLength={ADDRESS_LENGTH}
-        onChange={(event) => onChange(event.currentTarget.value)}
-        hint={value.trim() ? undefined : "The shop brings it here and collects it from here"}
+        options={query.length >= 2 ? options : []}
+        onChange={(text, option) => {
+          const place = option ? found[Number(option.value)] : undefined;
+          filledRef.current = null;
+          onChange(place ? { ...value, address: place.name, location: place.point } : { ...value, address: text });
+        }}
+        hint={unreachable ? "Place search isn't answering: drop the pin on the map instead." : undefined}
         data-testid="delivery-address"
+      />
+      <ZoneMap center={center} zones={zones} pin={value.location} onPin={placePin} approximate />
+      <p className="text-small text-muted">
+        {value.location ? "Drag the pin to the exact spot." : "Pick a place above, or tap the map where the rider meets you."} Rings are approximate.
+      </p>
+      <Field
+        label="Notes for the rider"
+        placeholder="Room 12, beside the sari-sari store"
+        value={value.notes}
+        maxLength={ADDRESS_LENGTH}
+        onChange={(event) => onChange({ ...value, notes: event.currentTarget.value })}
+        data-testid="delivery-notes"
       />
     </div>
   );

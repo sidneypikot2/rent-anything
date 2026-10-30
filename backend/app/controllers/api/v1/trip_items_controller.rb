@@ -10,13 +10,13 @@ module Api
 
       # `items` adds several at once (RAA-187), all or none.
       def create
-        fields = params.slice(:listing_id, :starts_on, :ends_on, :quantity, :room_guests, :pets, :units, :pickup_time, :delivery, :return_pickup, :delivery_address, :child_helmets, :guests, :trip_id, :trip_name)
+        fields = params.slice(:listing_id, :starts_on, :ends_on, :quantity, :room_guests, :pets, :units, :pickup_time, :delivery, :return_pickup, :delivery_address, :delivery_location, :delivery_notes, :child_helmets, :guests, :trip_id, :trip_name)
         trip = params.key?(:items) ? Trips::AddItems.call(current_user, fields.merge(items: params[:items])) : Trips::AddItem.call(current_user, fields)
         render json: TripSerializer.reloaded(trip), status: :created
       end
 
       def update
-        trip = Trips::UpdateItem.call(@item, params.slice(:starts_on, :ends_on, :quantity, :room_guests, :pets, :units, :pickup_time, :delivery, :return_pickup, :delivery_address, :child_helmets, :move_to_trip_id))
+        trip = Trips::UpdateItem.call(@item, params.slice(:starts_on, :ends_on, :quantity, :room_guests, :pets, :units, :pickup_time, :delivery, :return_pickup, :delivery_address, :delivery_location, :delivery_notes, :child_helmets, :move_to_trip_id))
         render json: TripSerializer.reloaded(trip)
       end
 

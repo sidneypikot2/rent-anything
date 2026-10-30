@@ -2064,6 +2064,9 @@ export interface paths {
                     delivery?: boolean;
                     /** @description A vehicle rental collected from the guest at the end: adds the shop's fee for each vehicle */
                     return_pickup?: boolean;
+                    /** @description The guest's pin for delivery or pick-up, with delivery_lng: the fee of the shop's zone it is in, `unavailable` beyond the farthest; without one, the nearest zone's fee (RAA-205) */
+                    delivery_lat?: number;
+                    delivery_lng?: number;
                     /** @description A motorcycle rental's child helmets, at most one a vehicle: the shop's fee for each a day (RAA-205) */
                     child_helmets?: number;
                 };
@@ -5930,6 +5933,13 @@ export interface paths {
                         return_pickup?: boolean;
                         /** @description Where it is brought to and collected from; set only with delivery or return_pickup */
                         delivery_address?: string | null;
+                        /** @description The guest's pin the rider brings it to (RAA-205); null without delivery or pick-up, or from before pins */
+                        delivery_location?: {
+                            lat: number;
+                            lng: number;
+                        } | null;
+                        /** @description For the rider: a room, a landmark (RAA-205) */
+                        delivery_notes?: string | null;
                         /** @description Instead of listing_id and the fields above */
                         items?: {
                             listing_id: number;
@@ -5958,6 +5968,13 @@ export interface paths {
                             return_pickup?: boolean;
                             /** @description Where it is brought to and collected from; set only with delivery or return_pickup */
                             delivery_address?: string | null;
+                            /** @description The guest's pin the rider brings it to (RAA-205); null without delivery or pick-up, or from before pins */
+                            delivery_location?: {
+                                lat: number;
+                                lng: number;
+                            } | null;
+                            /** @description For the rider: a room, a landmark (RAA-205) */
+                            delivery_notes?: string | null;
                         }[];
                         /** @description Omit or null for a new trip */
                         trip_id?: number | null;
@@ -6108,6 +6125,13 @@ export interface paths {
                         return_pickup?: boolean;
                         /** @description Where it is brought to and collected from; set only with delivery or return_pickup */
                         delivery_address?: string | null;
+                        /** @description The guest's pin the rider brings it to (RAA-205); null without delivery or pick-up, or from before pins */
+                        delivery_location?: {
+                            lat: number;
+                            lng: number;
+                        } | null;
+                        /** @description For the rider: a room, a landmark (RAA-205) */
+                        delivery_notes?: string | null;
                         move_to_trip_id?: number;
                     };
                 };
@@ -7159,6 +7183,13 @@ export interface components {
             return_pickup: boolean;
             /** @description Where it is brought to and collected from; set only with delivery or return_pickup */
             delivery_address: string | null;
+            /** @description The guest's pin the rider brings it to (RAA-205); null without delivery or pick-up, or from before pins */
+            delivery_location: {
+                lat: number;
+                lng: number;
+            } | null;
+            /** @description For the rider: a room, a landmark (RAA-205) */
+            delivery_notes: string | null;
             /** @description A stay: the most guests it sleeps, all its units together (a shared room's beds); null for anything else, or a stay that doesn't say */
             sleeps: number | null;
             /** @description The most guests the item can be for: a tour's group, the guests a stay sleeps, or a transfer's or a trike's seats (one vehicle a booking); null when the listing doesn't say */
@@ -7742,10 +7773,12 @@ export interface components {
             monthly_price_cents: number | null;
             /** @description Refundable, held at pick-up; never part of the price */
             security_deposit_cents: number;
-            /** @description Bringing the vehicle to the guest: null not offered, 0 free */
+            /** @description Bringing the vehicle to the guest: null not offered, else the nearest zone's fee (0 free) */
             delivery_fee_cents: number | null;
-            /** @description Collecting it from the guest at the end: null not offered, 0 free */
+            /** @description Collecting it from the guest at the end: null not offered, else the nearest zone's fee */
             return_pickup_fee_cents: number | null;
+            /** @description Nearest first: delivery and pick-up each cost the fee of the zone the guest's pin is in, none beyond the last (RAA-205) */
+            delivery_zones: components["schemas"]["delivery_zone"][];
             /** @description A motorcycle's child helmet per helmet and day: null not offered, 0 included (RAA-205) */
             child_helmet_fee_cents: number | null;
             min_rental_days: number;
@@ -7763,6 +7796,12 @@ export interface components {
             /** @description How long a returned vehicle needs before the next rental can take it */
             turnaround_minutes: number;
         };
+        delivery_zone: {
+            /** @description How far it reaches from the listing's pin, in a straight line */
+            max_distance_m: number;
+            /** @description For each vehicle, delivered or collected; 0 free */
+            fee_cents: number;
+        };
         /** @description A half day costs less than a day and an hour less than a half day (or a day); a week at most 7 days and a month at most 30 at the daily price. A fee per km above the limit needs a limit. A choice of driver (either) needs a driver fee, and a motorcycle is self-drive only. Optional fields left out take their defaults. */
         vehicle_rate_body: {
             daily_price_cents: number;
@@ -7778,10 +7817,12 @@ export interface components {
             monthly_price_cents?: number | null;
             /** @description Default 0 */
             security_deposit_cents?: number;
-            /** @description Default null: not offered */
-            delivery_fee_cents?: number | null;
-            /** @description Default null: not offered */
-            return_pickup_fee_cents?: number | null;
+            /** @description Brings the vehicle to the guest by delivery_zones; default false */
+            delivers?: boolean;
+            /** @description Collects it from them at the end by the same zones; default false */
+            picks_up?: boolean;
+            /** @description At least one with delivers or picks_up; each a different distance, none cheaper than a nearer one. Default none (RAA-205) */
+            delivery_zones?: components["schemas"]["delivery_zone"][];
             /** @description A motorcycle only, per helmet and day: default null not offered, 0 included (RAA-205) */
             child_helmet_fee_cents?: number | null;
             /** @description Default 1 */
@@ -7900,6 +7941,11 @@ export interface components {
             vehicle_rate: components["schemas"]["vehicle_rate"] | null;
             details: components["schemas"]["listing_details"];
             units_count: number;
+            /** @description Its pin rounded to two decimals (about 1 km), as on the map: the delivery zones' rings are drawn around it (RAA-205). Never the exact point */
+            approx_location: {
+                lat: number;
+                lng: number;
+            };
             /** @description Its units free on every one of the dates; a rental vehicle's from pickup to return (starts_at to ends_at, RAA-195), its turnaround after it included; null without dates */
             units_free: number | null;
             /**
@@ -8095,7 +8141,7 @@ export interface components {
                 cancellation_policy: components["schemas"]["cancellation_policy"];
                 /** @description A vehicle's delivery and pick-up fees, priced or not, so its card says how it reaches the guest (RAA-204, RAA-205); null for anything else */
                 handover: {
-                    /** @description To bring it to the guest (0 is free); null when the shop doesn't */
+                    /** @description To bring it to the guest, in its nearest zone (0 is free); null when the shop doesn't */
                     delivery_fee_cents: number | null;
                     /** @description To collect it from the guest at the end (0 is free); null when the shop doesn't */
                     return_pickup_fee_cents: number | null;
@@ -8411,6 +8457,15 @@ export interface components {
             return_pickup: boolean;
             /** @description Where it is brought to and collected from; set only with delivery or return_pickup */
             delivery_address: string | null;
+            /** @description The guest's pin the rider brings it to (RAA-205); null without delivery or pick-up, or from before pins */
+            delivery_location: {
+                lat: number;
+                lng: number;
+            } | null;
+            /** @description For the rider: a room, a landmark (RAA-205) */
+            delivery_notes: string | null;
+            /** @description In a straight line from the listing's pin */
+            delivery_distance_m: number | null;
             status: components["schemas"]["booking_status"];
             /**
              * @description offline: taken by the partner outside the app
@@ -8517,6 +8572,15 @@ export interface components {
             return_pickup: boolean;
             /** @description Where it is brought to and collected from; set only with delivery or return_pickup */
             delivery_address: string | null;
+            /** @description The guest's pin the rider brings it to (RAA-205); null without delivery or pick-up, or from before pins */
+            delivery_location: {
+                lat: number;
+                lng: number;
+            } | null;
+            /** @description For the rider: a room, a landmark (RAA-205) */
+            delivery_notes: string | null;
+            /** @description In a straight line from the listing's pin */
+            delivery_distance_m: number | null;
             status: components["schemas"]["booking_status"];
             /**
              * @description offline: taken by the partner outside the app
@@ -8609,6 +8673,13 @@ export interface components {
             return_pickup: boolean;
             /** @description Where it is brought to and collected from; set only with delivery or return_pickup */
             delivery_address: string | null;
+            /** @description The guest's pin the rider brings it to (RAA-205); null without delivery or pick-up, or from before pins */
+            delivery_location: {
+                lat: number;
+                lng: number;
+            } | null;
+            /** @description For the rider: a room, a landmark (RAA-205) */
+            delivery_notes: string | null;
             total_cents: number;
             /** @description Not priced in the app yet (rentals, transfers): settled with the partner */
             to_be_agreed: boolean;

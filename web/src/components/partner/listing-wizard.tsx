@@ -251,6 +251,7 @@ export function ListingWizard({
 
           {step.key === "pricing" && vehicle && (
             <VehiclePricingFields
+              location={location}
               values={pricing}
               onChange={(values) => {
                 setPricing(values);

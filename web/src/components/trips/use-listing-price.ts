@@ -18,7 +18,7 @@ export type PriceRequest = {
   pets?: number;
   // A vehicle rental's pickup time ("08:30", RAA-195); left out, the shop's default.
   pickupTime?: string | null;
-  // A vehicle rental's delivery and pick-up (RAA-195): each adds the shop's fee per vehicle.
+  // A vehicle rental's delivery and pick-up (RAA-195): each adds the shop's fee per vehicle, by its pin's zone.
   delivery?: Delivery | null;
   // A motorcycle rental's child helmets (RAA-205): the shop's fee for each a day.
   childHelmets?: number;
@@ -51,6 +51,10 @@ export function useListingPrices(requests: PriceRequest[]) {
               ...(request.pickupTime ? { pickup_time: request.pickupTime } : {}),
               ...(request.delivery?.delivery ? { delivery: true } : {}),
               ...(request.delivery?.returnPickup ? { return_pickup: true } : {}),
+              // The guest's pin (RAA-205): the fee of the zone it is in, `unavailable` beyond the shop's reach.
+              ...((request.delivery?.delivery || request.delivery?.returnPickup) && request.delivery.location
+                ? { delivery_lat: request.delivery.location.lat, delivery_lng: request.delivery.location.lng }
+                : {}),
               ...(request.childHelmets ? { child_helmets: request.childHelmets } : {}),
             },
           },

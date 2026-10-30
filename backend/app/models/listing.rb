@@ -142,6 +142,15 @@ class Listing < ApplicationRecord
     seats if category.vehicle? && seats.is_a?(Integer) && seats.positive?
   end
 
+  # How far `point` (WKT, or a point read from a geography column) is from the listing's pin, in
+  # whole metres in a straight line (RAA-205: delivery zones). Measured in PostGIS.
+  def distance_m_to(point)
+    wkt = point.respond_to?(:as_text) ? point.as_text : point
+    Listing.where(id:).pick(Arel.sql(Listing.sanitize_sql_array(
+      [ "ROUND(ST_Distance(location, ST_GeogFromText(?)))::integer", wkt ]
+    )))
+  end
+
   # A vehicle rental's period from starts_on to ends_on (RAA-195, Booking.rental_period), from
   # the pickup time or the shop's default for that day (one still ahead today). Nil for anything
   # else. Reads category and vehicle_rate.

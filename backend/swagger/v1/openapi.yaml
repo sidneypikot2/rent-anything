@@ -1526,6 +1526,19 @@ paths:
           shop''s fee for each vehicle'
         schema:
           type: boolean
+      - name: delivery_lat
+        in: query
+        required: false
+        description: 'The guest''s pin for delivery or pick-up, with delivery_lng:
+          the fee of the shop''s zone it is in, `unavailable` beyond the farthest;
+          without one, the nearest zone''s fee (RAA-205)'
+        schema:
+          type: number
+      - name: delivery_lng
+        in: query
+        required: false
+        schema:
+          type: number
       - name: child_helmets
         in: query
         required: false
@@ -4360,6 +4373,24 @@ paths:
                   maxLength: 200
                   description: Where it is brought to and collected from; set only
                     with delivery or return_pickup
+                delivery_location:
+                  type: object
+                  nullable: true
+                  properties:
+                    lat:
+                      type: number
+                    lng:
+                      type: number
+                  required:
+                  - lat
+                  - lng
+                  description: The guest's pin the rider brings it to (RAA-205); null
+                    without delivery or pick-up, or from before pins
+                delivery_notes:
+                  type: string
+                  nullable: true
+                  maxLength: 200
+                  description: 'For the rider: a room, a landmark (RAA-205)'
                 items:
                   type: array
                   minItems: 1
@@ -4443,6 +4474,24 @@ paths:
                         maxLength: 200
                         description: Where it is brought to and collected from; set
                           only with delivery or return_pickup
+                      delivery_location:
+                        type: object
+                        nullable: true
+                        properties:
+                          lat:
+                            type: number
+                          lng:
+                            type: number
+                        required:
+                        - lat
+                        - lng
+                        description: The guest's pin the rider brings it to (RAA-205);
+                          null without delivery or pick-up, or from before pins
+                      delivery_notes:
+                        type: string
+                        nullable: true
+                        maxLength: 200
+                        description: 'For the rider: a room, a landmark (RAA-205)'
                     required:
                     - listing_id
                 trip_id:
@@ -4575,6 +4624,24 @@ paths:
                   maxLength: 200
                   description: Where it is brought to and collected from; set only
                     with delivery or return_pickup
+                delivery_location:
+                  type: object
+                  nullable: true
+                  properties:
+                    lat:
+                      type: number
+                    lng:
+                      type: number
+                  required:
+                  - lat
+                  - lng
+                  description: The guest's pin the rider brings it to (RAA-205); null
+                    without delivery or pick-up, or from before pins
+                delivery_notes:
+                  type: string
+                  nullable: true
+                  maxLength: 200
+                  description: 'For the rider: a room, a landmark (RAA-205)'
                 move_to_trip_id:
                   type: integer
     delete:
@@ -5634,6 +5701,24 @@ components:
           maxLength: 200
           description: Where it is brought to and collected from; set only with delivery
             or return_pickup
+        delivery_location:
+          type: object
+          nullable: true
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+          - lat
+          - lng
+          description: The guest's pin the rider brings it to (RAA-205); null without
+            delivery or pick-up, or from before pins
+        delivery_notes:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: 'For the rider: a room, a landmark (RAA-205)'
         sleeps:
           type: integer
           nullable: true
@@ -5741,6 +5826,8 @@ components:
       - delivery
       - return_pickup
       - delivery_address
+      - delivery_location
+      - delivery_notes
       - child_helmets
       - sleeps
       - max_guests
@@ -7210,13 +7297,20 @@ components:
           type: integer
           minimum: 0
           nullable: true
-          description: 'Bringing the vehicle to the guest: null not offered, 0 free'
+          description: 'Bringing the vehicle to the guest: null not offered, else
+            the nearest zone''s fee (0 free)'
         return_pickup_fee_cents:
           type: integer
           minimum: 0
           nullable: true
           description: 'Collecting it from the guest at the end: null not offered,
-            0 free'
+            else the nearest zone''s fee'
+        delivery_zones:
+          type: array
+          items:
+            "$ref": "#/components/schemas/delivery_zone"
+          description: 'Nearest first: delivery and pick-up each cost the fee of the
+            zone the guest''s pin is in, none beyond the last (RAA-205)'
         child_helmet_fee_cents:
           type: integer
           minimum: 0
@@ -7281,6 +7375,22 @@ components:
       - pickup_until_hour
       - turnaround_minutes
       - child_helmet_fee_cents
+      - delivery_zones
+    delivery_zone:
+      type: object
+      properties:
+        max_distance_m:
+          type: integer
+          minimum: 100
+          maximum: 50000
+          description: How far it reaches from the listing's pin, in a straight line
+        fee_cents:
+          type: integer
+          minimum: 0
+          description: For each vehicle, delivered or collected; 0 free
+      required:
+      - max_distance_m
+      - fee_cents
     vehicle_rate_body:
       type: object
       description: A half day costs less than a day and an hour less than a half day
@@ -7321,16 +7431,21 @@ components:
           type: integer
           minimum: 0
           description: Default 0
-        delivery_fee_cents:
-          type: integer
-          minimum: 0
-          nullable: true
-          description: 'Default null: not offered'
-        return_pickup_fee_cents:
-          type: integer
-          minimum: 0
-          nullable: true
-          description: 'Default null: not offered'
+        delivers:
+          type: boolean
+          description: Brings the vehicle to the guest by delivery_zones; default
+            false
+        picks_up:
+          type: boolean
+          description: Collects it from them at the end by the same zones; default
+            false
+        delivery_zones:
+          type: array
+          maxItems: 5
+          items:
+            "$ref": "#/components/schemas/delivery_zone"
+          description: At least one with delivers or picks_up; each a different distance,
+            none cheaper than a nearer one. Default none (RAA-205)
         child_helmet_fee_cents:
           type: integer
           minimum: 0
@@ -7628,6 +7743,19 @@ components:
         units_count:
           type: integer
           minimum: 1
+        approx_location:
+          type: object
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+          - lat
+          - lng
+          description: 'Its pin rounded to two decimals (about 1 km), as on the map:
+            the delivery zones'' rings are drawn around it (RAA-205). Never the exact
+            point'
         units_free:
           type: integer
           nullable: true
@@ -7658,6 +7786,7 @@ components:
       - vehicle_rate
       - details
       - units_count
+      - approx_location
       - units_free
       - starts_at
       - ends_at
@@ -8133,8 +8262,8 @@ components:
                   delivery_fee_cents:
                     type: integer
                     nullable: true
-                    description: To bring it to the guest (0 is free); null when the
-                      shop doesn't
+                    description: To bring it to the guest, in its nearest zone (0
+                      is free); null when the shop doesn't
                   return_pickup_fee_cents:
                     type: integer
                     nullable: true
@@ -8934,6 +9063,29 @@ components:
           maxLength: 200
           description: Where it is brought to and collected from; set only with delivery
             or return_pickup
+        delivery_location:
+          type: object
+          nullable: true
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+          - lat
+          - lng
+          description: The guest's pin the rider brings it to (RAA-205); null without
+            delivery or pick-up, or from before pins
+        delivery_notes:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: 'For the rider: a room, a landmark (RAA-205)'
+        delivery_distance_m:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: In a straight line from the listing's pin
         status:
           "$ref": "#/components/schemas/booking_status"
         source:
@@ -9007,6 +9159,9 @@ components:
       - delivery
       - return_pickup
       - delivery_address
+      - delivery_location
+      - delivery_notes
+      - delivery_distance_m
       - child_helmets
       - status
       - source
@@ -9175,6 +9330,29 @@ components:
           maxLength: 200
           description: Where it is brought to and collected from; set only with delivery
             or return_pickup
+        delivery_location:
+          type: object
+          nullable: true
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+          - lat
+          - lng
+          description: The guest's pin the rider brings it to (RAA-205); null without
+            delivery or pick-up, or from before pins
+        delivery_notes:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: 'For the rider: a room, a landmark (RAA-205)'
+        delivery_distance_m:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: In a straight line from the listing's pin
         status:
           "$ref": "#/components/schemas/booking_status"
         source:
@@ -9311,6 +9489,9 @@ components:
       - delivery
       - return_pickup
       - delivery_address
+      - delivery_location
+      - delivery_notes
+      - delivery_distance_m
       - child_helmets
       - status
       - source
@@ -9407,6 +9588,24 @@ components:
           maxLength: 200
           description: Where it is brought to and collected from; set only with delivery
             or return_pickup
+        delivery_location:
+          type: object
+          nullable: true
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+          - lat
+          - lng
+          description: The guest's pin the rider brings it to (RAA-205); null without
+            delivery or pick-up, or from before pins
+        delivery_notes:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: 'For the rider: a room, a landmark (RAA-205)'
         total_cents:
           type: integer
         to_be_agreed:
@@ -9495,6 +9694,8 @@ components:
       - delivery
       - return_pickup
       - delivery_address
+      - delivery_location
+      - delivery_notes
       - child_helmets
       - total_cents
       - to_be_agreed

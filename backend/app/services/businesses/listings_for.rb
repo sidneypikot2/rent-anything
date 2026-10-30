@@ -12,7 +12,7 @@ module Businesses
   class ListingsFor < ApplicationService
     include Trips::Values
 
-    ASSOCIATIONS = [ :area, :business, :cover_photo, :units, :stay_rate, :vehicle_rate, :flat_rate, :tour_detail, { category: :parent } ].freeze
+    ASSOCIATIONS = [ :area, :business, :cover_photo, :units, :stay_rate, { vehicle_rate: :delivery_zones }, :flat_rate, :tour_detail, { category: :parent } ].freeze
 
     def initialize(business_id, params)
       @business_id = business_id
@@ -76,6 +76,7 @@ module Businesses
         vehicle_rate: listing.vehicle_rate&.priced? ? PricingSerializer.vehicle_rate(listing.vehicle_rate) : nil,
         details: ListingDetailSerializer.details(listing),
         units_count: listing.units.size,
+        approx_location: { lat: listing.location.y.round(2), lng: listing.location.x.round(2) },
         units_free: days&.any? ? ledger.units_free(listing, days, period:) : nil,
         starts_at: period&.begin,
         ends_at: period&.end

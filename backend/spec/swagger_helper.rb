@@ -67,7 +67,17 @@ DELIVERY_FIELDS = {
   delivery_address: {
     type: :string, nullable: true, maxLength: 200,
     description: "Where it is brought to and collected from; set only with delivery or return_pickup"
-  }
+  },
+  delivery_location: {
+    type: :object, nullable: true, properties: { lat: { type: :number }, lng: { type: :number } }, required: %w[lat lng],
+    description: "The guest's pin the rider brings it to (RAA-205); null without delivery or pick-up, or from before pins"
+  },
+  delivery_notes: { type: :string, nullable: true, maxLength: 200, description: "For the rider: a room, a landmark (RAA-205)" }
+}.freeze
+
+# How far the guest's pin is from the listing, for its partner only: guests never get it (RAA-205).
+DELIVERY_DISTANCE = {
+  delivery_distance_m: { type: :integer, nullable: true, minimum: 0, description: "In a straight line from the listing's pin" }
 }.freeze
 
 UNITS_BODY = {
@@ -392,7 +402,7 @@ RSpec.configure do |config|
               },
               listing_active: { type: :boolean, description: "False once the listing is paused or delisted: it can't be booked" }
             },
-            required: %w[id starts_on ends_on quantity room_guests pets delivery return_pickup delivery_address child_helmets sleeps max_guests max_quantity seats units units_chosen units_free pickup_time returns_at business booking_type area destination listing booking unavailable cancellation_policy listing_active]
+            required: %w[id starts_on ends_on quantity room_guests pets delivery return_pickup delivery_address delivery_location delivery_notes child_helmets sleeps max_guests max_quantity seats units units_chosen units_free pickup_time returns_at business booking_type area destination listing booking unavailable cancellation_policy listing_active]
           },
           # A trip's view-only share link (RAA-176), as its guest sees it.
           trip_share: {
@@ -1133,11 +1143,16 @@ RSpec.configure do |config|
               },
               delivery_fee_cents: {
                 type: :integer, minimum: 0, nullable: true,
-                description: "Bringing the vehicle to the guest: null not offered, 0 free"
+                description: "Bringing the vehicle to the guest: null not offered, else the nearest zone's fee (0 free)"
               },
               return_pickup_fee_cents: {
                 type: :integer, minimum: 0, nullable: true,
-                description: "Collecting it from the guest at the end: null not offered, 0 free"
+                description: "Collecting it from the guest at the end: null not offered, else the nearest zone's fee"
+              },
+              delivery_zones: {
+                type: :array, items: { "$ref" => "#/components/schemas/delivery_zone" },
+                description: "Nearest first: delivery and pick-up each cost the fee of the zone the guest's pin is in, " \
+                  "none beyond the last (RAA-205)"
               },
               child_helmet_fee_cents: {
                 type: :integer, minimum: 0, nullable: true,
@@ -1165,7 +1180,18 @@ RSpec.configure do |config|
             required: %w[daily_price_cents half_day_price_cents half_day_hours hourly_price_cents weekly_price_cents
               monthly_price_cents security_deposit_cents delivery_fee_cents return_pickup_fee_cents min_rental_days
               km_limit_per_day excess_km_fee_cents driving driver_fee_cents pickup_from_hour pickup_until_hour
-              turnaround_minutes child_helmet_fee_cents]
+              turnaround_minutes child_helmet_fee_cents delivery_zones]
+          },
+          delivery_zone: {
+            type: :object,
+            properties: {
+              max_distance_m: {
+                type: :integer, minimum: VehicleDeliveryZone::MIN_DISTANCE_M, maximum: VehicleDeliveryZone::MAX_DISTANCE_M,
+                description: "How far it reaches from the listing's pin, in a straight line"
+              },
+              fee_cents: { type: :integer, minimum: 0, description: "For each vehicle, delivered or collected; 0 free" }
+            },
+            required: %w[max_distance_m fee_cents]
           },
           vehicle_rate_body: {
             type: :object,
@@ -1181,8 +1207,13 @@ RSpec.configure do |config|
               weekly_price_cents: { type: :integer, minimum: 1, nullable: true, description: "Default null" },
               monthly_price_cents: { type: :integer, minimum: 1, nullable: true, description: "Default null" },
               security_deposit_cents: { type: :integer, minimum: 0, description: "Default 0" },
-              delivery_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Default null: not offered" },
-              return_pickup_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Default null: not offered" },
+              delivers: { type: :boolean, description: "Brings the vehicle to the guest by delivery_zones; default false" },
+              picks_up: { type: :boolean, description: "Collects it from them at the end by the same zones; default false" },
+              delivery_zones: {
+                type: :array, maxItems: VehicleRate::MAX_DELIVERY_ZONES, items: { "$ref" => "#/components/schemas/delivery_zone" },
+                description: "At least one with delivers or picks_up; each a different distance, none cheaper than a " \
+                  "nearer one. Default none (RAA-205)"
+              },
               child_helmet_fee_cents: {
                 type: :integer, minimum: 0, nullable: true,
                 description: "A motorcycle only, per helmet and day: default null not offered, 0 included (RAA-205)"
@@ -1331,6 +1362,11 @@ RSpec.configure do |config|
               },
               details: { "$ref" => "#/components/schemas/listing_details" },
               units_count: { type: :integer, minimum: 1 },
+              approx_location: {
+                type: :object, properties: { lat: { type: :number }, lng: { type: :number } }, required: %w[lat lng],
+                description: "Its pin rounded to two decimals (about 1 km), as on the map: the delivery zones' rings " \
+                  "are drawn around it (RAA-205). Never the exact point"
+              },
               units_free: {
                 type: :integer, nullable: true, minimum: 0,
                 description: "Its units free on every one of the dates; a rental vehicle's from pickup to return " \
@@ -1345,8 +1381,8 @@ RSpec.configure do |config|
                 description: "When that rental is due back; null for anything else, or without dates"
               }
             },
-            required: %w[id title category area cover_photo_url price_from_cents price_unit vehicle_rate details units_count units_free
-              starts_at ends_at]
+            required: %w[id title category area cover_photo_url price_from_cents price_unit vehicle_rate details units_count approx_location
+              units_free starts_at ends_at]
           },
           # A mix of one business's room types for a party (RAA-187).
           stay_mix: {
@@ -1607,7 +1643,7 @@ RSpec.configure do |config|
                       type: :object, nullable: true,
                       description: "A vehicle's delivery and pick-up fees, priced or not, so its card says how it reaches the guest (RAA-204, RAA-205); null for anything else",
                       properties: {
-                        delivery_fee_cents: { type: :integer, nullable: true, description: "To bring it to the guest (0 is free); null when the shop doesn't" },
+                        delivery_fee_cents: { type: :integer, nullable: true, description: "To bring it to the guest, in its nearest zone (0 is free); null when the shop doesn't" },
                         return_pickup_fee_cents: { type: :integer, nullable: true, description: "To collect it from the guest at the end (0 is free); null when the shop doesn't" },
                         child_helmet_fee_cents: {
                           type: :integer, nullable: true,
@@ -1963,6 +1999,7 @@ RSpec.configure do |config|
               room_guests: ROOM_GUESTS,
               pets: { type: :integer, description: "A stay's pets, beside its guests (RAA-182)" },
               **DELIVERY_FIELDS,
+              **DELIVERY_DISTANCE,
               status: { "$ref" => "#/components/schemas/booking_status" },
               source: { type: :string, enum: Booking::SOURCES, description: "offline: taken by the partner outside the app" },
               booking_mode: {
@@ -1986,7 +2023,7 @@ RSpec.configure do |config|
               },
               created_at: { type: :string, format: "date-time" }
             },
-            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address child_helmets status source
+            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address delivery_location delivery_notes delivery_distance_m child_helmets status source
               booking_mode total_cents to_be_agreed commission_cents refund_cents cancelled_by expires_at notes listing
               created_at]
           },
@@ -2050,6 +2087,7 @@ RSpec.configure do |config|
               room_guests: ROOM_GUESTS,
               pets: { type: :integer, description: "A stay's pets, beside its guests (RAA-182)" },
               **DELIVERY_FIELDS,
+              **DELIVERY_DISTANCE,
               status: { "$ref" => "#/components/schemas/booking_status" },
               source: { type: :string, enum: Booking::SOURCES, description: "offline: taken by the partner outside the app" },
               booking_mode: { type: :string, enum: Booking::BOOKING_MODES, nullable: true },
@@ -2099,7 +2137,7 @@ RSpec.configure do |config|
               },
               created_at: { type: :string, format: "date-time" }
             },
-            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address child_helmets status source
+            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address delivery_location delivery_notes delivery_distance_m child_helmets status source
               booking_mode booking_type
               total_cents to_be_agreed commission_cents refund_cents cancelled_by cancellation_policy expires_at
               responded_at notes listing partner traveller created_at]
@@ -2152,7 +2190,7 @@ RSpec.configure do |config|
                 description: "Its history, oldest first"
               }
             },
-            required: %w[id reference status booking_mode starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address child_helmets total_cents to_be_agreed
+            required: %w[id reference status booking_mode starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address delivery_location delivery_notes child_helmets total_cents to_be_agreed
               cancellation_policy expires_at confirmed_at cancelled_at cancelled_by refund_cents cancellable
               refund_if_cancelled_cents free_cancellation_until trip_id trip_item_id booking_type area listing created_at events]
           },

@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 import type { components } from "@/api/schema";
 import { hasChildHelmets, hasDriverOption, isFourWheel, VEHICLE_AMENITY_LABELS } from "@/components/listings/vehicle-labels";
@@ -8,6 +9,7 @@ import { CheckboxField } from "@/components/ui/checkbox-field";
 import { ChoiceCards } from "@/components/ui/choice-cards";
 import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
+import type { LatLng } from "@/lib/map";
 import { formatPeso, fromCents, toCents } from "@/lib/money";
 import { VEHICLE_CHARGED_PER } from "@/lib/pricing";
 import { FeeFields, feesError, newFee, toFeeValues, type FeeValues } from "./fee-fields";
@@ -16,6 +18,16 @@ type VehicleRate = components["schemas"]["vehicle_rate"];
 type VehicleRateBody = components["schemas"]["vehicle_rate_body"];
 type ListingFee = components["schemas"]["listing_fee"];
 type Driving = components["schemas"]["vehicle_driving"];
+
+// MapLibre loads only once the shop delivers or collects.
+const ZoneMap = dynamic(() => import("@/components/trips/zone-map"), { ssr: false, loading: () => <div className="h-64 w-full rounded-control bg-mist" /> });
+
+// VehicleRate's delivery zones (RAA-205).
+const MAX_ZONES = 5;
+const ZONE_KM = { min: 0.1, max: 50 };
+
+// A delivery zone as typed: how far it reaches, in km, and its fee in pesos (empty: free).
+export type ZoneValues = { km: string; fee: string };
 
 // VehicleRate's limits (RAA-149).
 const WEEK_DAYS = 7;
@@ -59,10 +71,9 @@ export type VehiclePricingValues = {
   kmLimitOn: boolean;
   kmLimit: string;
   excessKmFee: string;
-  delivery: Service;
-  deliveryFee: string;
-  pickup: Service;
-  pickupFee: string;
+  delivers: boolean;
+  picksUp: boolean;
+  zones: ZoneValues[];
   childHelmets: Service;
   childHelmetFee: string;
   driving: Driving;
@@ -90,10 +101,9 @@ export const NEW_VEHICLE_PRICING: VehiclePricingValues = {
   kmLimitOn: false,
   kmLimit: "",
   excessKmFee: "",
-  delivery: "none",
-  deliveryFee: "",
-  pickup: "none",
-  pickupFee: "",
+  delivers: false,
+  picksUp: false,
+  zones: [{ km: "1", fee: "" }],
   childHelmets: "none",
   childHelmetFee: "",
   driving: "self_drive",
@@ -127,10 +137,11 @@ export function toVehiclePricingValues(rate: VehicleRate | null, fees: ListingFe
     kmLimitOn: !!rate.km_limit_per_day,
     kmLimit: rate.km_limit_per_day ? String(rate.km_limit_per_day) : "",
     excessKmFee: peso(rate.excess_km_fee_cents),
-    delivery: service(rate.delivery_fee_cents),
-    deliveryFee: peso(rate.delivery_fee_cents),
-    pickup: service(rate.return_pickup_fee_cents),
-    pickupFee: peso(rate.return_pickup_fee_cents),
+    delivers: rate.delivery_fee_cents !== null,
+    picksUp: rate.return_pickup_fee_cents !== null,
+    zones: rate.delivery_zones.length
+      ? rate.delivery_zones.map((zone) => ({ km: String(zone.max_distance_m / 1000), fee: peso(zone.fee_cents) }))
+      : NEW_VEHICLE_PRICING.zones,
     childHelmets: service(rate.child_helmet_fee_cents),
     childHelmetFee: peso(rate.child_helmet_fee_cents),
     driving: rate.driving,
@@ -150,6 +161,13 @@ const optionalCents = (text: string) => (text.trim() ? toCents(text) : null);
 const switchedCents = (on: boolean, text: string) => (on ? optionalCents(text) : null);
 const serviceCents = (choice: Service, fee: string) => (choice === "none" ? null : choice === "free" ? 0 : toCents(fee));
 
+// The zones as the API takes them, nearest first.
+function zoneBody(zones: ZoneValues[]) {
+  return zones
+    .map((zone) => ({ max_distance_m: Math.round(Number(zone.km) * 1000), fee_cents: optionalCents(zone.fee) ?? 0 }))
+    .sort((a, b) => a.max_distance_m - b.max_distance_m);
+}
+
 // What the API takes. Call it after vehiclePricingErrors has passed. Child helmets are a
 // motorcycle's only (RAA-205): any other vehicle sends none.
 export function toVehicleRateBody(values: VehiclePricingValues, slug?: string): VehicleRateBody {
@@ -162,8 +180,9 @@ export function toVehicleRateBody(values: VehiclePricingValues, slug?: string): 
     weekly_price_cents: switchedCents(values.weeklyOn, values.weekly),
     monthly_price_cents: switchedCents(values.monthlyOn, values.monthly),
     security_deposit_cents: switchedCents(values.depositOn, values.deposit) ?? 0,
-    delivery_fee_cents: serviceCents(values.delivery, values.deliveryFee),
-    return_pickup_fee_cents: serviceCents(values.pickup, values.pickupFee),
+    delivers: values.delivers,
+    picks_up: values.picksUp,
+    delivery_zones: values.delivers || values.picksUp ? zoneBody(values.zones) : [],
     child_helmet_fee_cents: hasChildHelmets(slug) ? serviceCents(values.childHelmets, values.childHelmetFee) : null,
     min_rental_days: wholeNumber(values.minDays) ?? 1,
     km_limit_per_day: kmLimit,
@@ -185,8 +204,7 @@ export type VehiclePricingErrors = Partial<
     | "weekly"
     | "monthly"
     | "deposit"
-    | "deliveryFee"
-    | "pickupFee"
+    | "zones"
     | "childHelmetFee"
     | "driverFee"
     | "minDays"
@@ -244,8 +262,7 @@ export function vehiclePricingErrors(values: VehiclePricingValues, included: str
   }
 
   if (Number(values.pickupUntil) < Number(values.pickupFrom)) errors.pickupUntil = "Can't be before opening";
-  if (values.delivery === "fee" && !toCents(values.deliveryFee)) errors.deliveryFee = "Set a fee above ₱0, or choose Free";
-  if (values.pickup === "fee" && !toCents(values.pickupFee)) errors.pickupFee = "Set a fee above ₱0, or choose Free";
+  if (values.delivers || values.picksUp) errors.zones = zonesError(values.zones);
   if (values.childHelmets === "fee" && !toCents(values.childHelmetFee)) errors.childHelmetFee = "Set a fee above ₱0, or choose Free";
   if (values.driving === "either" && !toCents(values.driverFee)) {
     errors.driverFee = "Set the driver's fee per day, or pick another option";
@@ -257,6 +274,19 @@ export function vehiclePricingErrors(values: VehiclePricingValues, included: str
   for (const key of Object.keys(errors) as (keyof VehiclePricingErrors)[]) if (!errors[key]) delete errors[key];
   return Object.keys(errors).length > 0 ? errors : undefined;
 }
+
+// The rules VehicleRate checks for its zones (RAA-205), said for the form.
+function zonesError(zones: ZoneValues[]): string | undefined {
+  const distances = zones.map((zone) => Number(zone.km));
+  if (distances.some((km) => !zoneOk(km))) return `Each zone reaches from ${ZONE_KM.min} to ${ZONE_KM.max} km`;
+  if (zones.some((zone) => zone.fee.trim() && toCents(zone.fee) === null)) return "Enter each fee in pesos, or leave it empty for free";
+  const body = zoneBody(zones);
+  if (new Set(body.map((zone) => zone.max_distance_m)).size < body.length) return "Two zones can't end at the same distance";
+  if (body.some((zone, index) => index > 0 && zone.fee_cents < body[index - 1].fee_cents)) return "A farther zone can't cost less than a nearer one";
+  return undefined;
+}
+
+const zoneOk = (km: number) => Number.isFinite(km) && km >= ZONE_KM.min && km <= ZONE_KM.max;
 
 // The fees PH rental shops charge on top, one click each: a row with its name and how it's
 // charged, the partner types the amount. Motorbikes and trikes have their own list. Delivery and
@@ -335,7 +365,10 @@ export function VehiclePricingFields({
   errors,
   included,
   slug,
+  location,
 }: {
+  // The listing's pin, which the delivery zones are drawn around (RAA-205).
+  location?: LatLng | null;
   values: VehiclePricingValues;
   onChange: (values: VehiclePricingValues) => void;
   errors?: VehiclePricingErrors;
@@ -558,26 +591,29 @@ export function VehiclePricingFields({
         </OptionalRate>
       </PricingSection>
 
-      <PricingSection title="Delivery and pick-up" intro="Bringing the vehicle to the guest, and collecting it at the end." data-testid="pricing-delivery">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <ServiceFields
-            label="Delivery to the guest"
-            feeLabel="Delivery fee (₱)"
-            name="delivery"
-            choice={values.delivery}
-            fee={values.deliveryFee}
-            error={errors?.deliveryFee}
-            onChange={(delivery, deliveryFee) => set({ delivery, deliveryFee })}
-          />
-          <ServiceFields
-            label="Pick-up from the guest at the end"
-            feeLabel="Pick-up fee (₱)"
-            name="return_pickup"
-            choice={values.pickup}
-            fee={values.pickupFee}
-            error={errors?.pickupFee}
-            onChange={(pickup, pickupFee) => set({ pickup, pickupFee })}
-          />
+      <PricingSection
+        title="Delivery and pick-up"
+        intro="Bringing the vehicle to the guest, and collecting it at the end, priced by how far they are from your pin."
+        data-testid="pricing-delivery"
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <CheckboxField
+              label="Deliver to the guest"
+              checked={values.delivers}
+              onChange={(event) => set({ delivers: event.currentTarget.checked })}
+              data-testid="pricing-delivers"
+            />
+            <CheckboxField
+              label="Collect it from them at the end"
+              checked={values.picksUp}
+              onChange={(event) => set({ picksUp: event.currentTarget.checked })}
+              data-testid="pricing-picks-up"
+            />
+          </div>
+          {(values.delivers || values.picksUp) && (
+            <DeliveryZoneFields zones={values.zones} onChange={(zones) => set({ zones })} error={errors?.zones} location={location} />
+          )}
         </div>
       </PricingSection>
 
@@ -630,6 +666,89 @@ export function VehiclePricingFields({
           )}
         </div>
       </PricingSection>
+    </div>
+  );
+}
+
+// The delivery zones (RAA-205): rows of "Up to [1] km · ₱ [ ]" (empty is free), at most five,
+// and, once the listing has a pin, the rings they make around it, redrawn as they are typed.
+function DeliveryZoneFields({
+  zones,
+  onChange,
+  error,
+  location,
+}: {
+  zones: ZoneValues[];
+  onChange: (zones: ZoneValues[]) => void;
+  error?: string;
+  location?: LatLng | null;
+}) {
+  const set = (index: number, patch: Partial<ZoneValues>) => onChange(zones.map((zone, at) => (at === index ? { ...zone, ...patch } : zone)));
+  const body = zoneBody(zones.filter((zone) => zoneOk(Number(zone.km))));
+  const farthest = body.at(-1);
+  return (
+    <div className="flex flex-col gap-3" data-testid="pricing-zones">
+      {zones.map((zone, index) => (
+        <div key={index} className="grid grid-cols-[1fr_1fr_auto] items-end gap-3" data-testid="pricing-zone">
+          <Field
+            label={index === 0 ? "Up to (km)" : "Then up to (km)"}
+            type="number"
+            min={ZONE_KM.min}
+            max={ZONE_KM.max}
+            step="0.1"
+            inputMode="decimal"
+            value={zone.km}
+            onChange={(event) => set(index, { km: event.target.value })}
+            data-testid="pricing-zone-km"
+          />
+          <Field
+            label="Fee a vehicle (₱)"
+            type="number"
+            min={0}
+            step="0.01"
+            inputMode="decimal"
+            placeholder="Free"
+            value={zone.fee}
+            onChange={(event) => set(index, { fee: event.target.value })}
+            data-testid="pricing-zone-fee"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={zones.length === 1}
+            onClick={() => onChange(zones.filter((_, at) => at !== index))}
+            aria-label="Remove this zone"
+          >
+            Remove
+          </Button>
+        </div>
+      ))}
+      {error && <p className="text-sm font-semibold text-danger">{error}</p>}
+      {zones.length < MAX_ZONES && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="self-start"
+          onClick={() => {
+            const last = zones.at(-1);
+            onChange([...zones, { km: String(Math.min(Number(last?.km || 0) + 2, ZONE_KM.max)), fee: last?.fee ?? "" }]);
+          }}
+          data-testid="pricing-zone-add"
+        >
+          + Add a zone
+        </Button>
+      )}
+      <p className="text-sm text-muted">
+        {farthest ? `No delivery beyond ${farthest.max_distance_m / 1000} km, in a straight line from your pin. ` : ""}
+        Guests see these rings around an approximate point, never your exact pin.
+      </p>
+      {location ? (
+        <ZoneMap center={location} zones={body} shop />
+      ) : (
+        <p className="text-sm text-muted">Drop the listing&apos;s pin to see the zones on a map.</p>
+      )}
     </div>
   );
 }

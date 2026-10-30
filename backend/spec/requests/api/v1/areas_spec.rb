@@ -174,9 +174,11 @@ RSpec.describe "Areas", type: :request do
         let(:slug) { "bantayan-island" }
 
         before do
-          create(:listing, :vehicle, area: bantayan, title: "Door-to-door bike").vehicle_rate
-            .update!(delivery_fee_cents: 0, return_pickup_fee_cents: 15_000, child_helmet_fee_cents: 0)
-          create(:listing, :vehicle, area: bantayan, title: "Drop-off bike").vehicle_rate.update!(delivery_fee_cents: 10_000)
+          door = create(:listing, :vehicle, area: bantayan, title: "Door-to-door bike").vehicle_rate
+          door.update!(child_helmet_fee_cents: 0)
+          deliver_within(door, [ [ 1000, 0 ], [ 3000, 15_000 ] ])
+          deliver_within(create(:listing, :vehicle, area: bantayan, title: "Drop-off bike").vehicle_rate, [ [ 2000, 10_000 ] ],
+            picks_up: false)
           create(:listing, :vehicle, area: bantayan, title: "Shop-only bike")
           create(:listing, :vehicle, area: bantayan, title: "Unpriced shop bike").vehicle_rate.update_columns(daily_price_cents: 0)
           create(:listing, :stay, area: bantayan, title: "Kota Beach house")
@@ -185,7 +187,7 @@ RSpec.describe "Areas", type: :request do
         run_test! do |response|
           rows = response.parsed_body["listings"].index_by { _1["title"] }
           handover = ->(title) { rows[title]["handover"]&.values_at("delivery_fee_cents", "return_pickup_fee_cents") }
-          expect(handover.call("Door-to-door bike")).to eq([ 0, 15_000 ])
+          expect(handover.call("Door-to-door bike")).to eq([ 0, 0 ])
           expect(handover.call("Drop-off bike")).to eq([ 10_000, nil ])
           expect(handover.call("Shop-only bike")).to eq([ nil, nil ])
           expect(handover.call("Unpriced shop bike")).to eq([ nil, nil ])

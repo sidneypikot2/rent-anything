@@ -471,6 +471,7 @@ export function ListingForm({
                 </p>
               )}
               <VehiclePricingFields
+                location={location}
                 values={vehiclePricing}
                 onChange={(values) => {
                   setVehiclePricing(values);

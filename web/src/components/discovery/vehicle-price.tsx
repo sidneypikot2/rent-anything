@@ -1,4 +1,5 @@
 import type { ListingDetail } from "@/api/discovery";
+import { zonesText } from "@/components/trips/delivery-zones";
 import { Card, CardBody } from "@/components/ui/card";
 import { Price } from "@/components/ui/typography";
 import { formatPeso } from "@/lib/money";
@@ -45,8 +46,12 @@ export function VehiclePrice({ listing, rate }: { listing: ListingDetail; rate: 
   const terms: [string, string][] = [
     ["Security deposit", rate.security_deposit_cents ? `${formatPeso(rate.security_deposit_cents)}, refunded on return` : "None"],
     ["Driving", drivingText(rate)],
-    ["Delivery to you", serviceText(rate.delivery_fee_cents)],
-    ["Pick-up at the end", serviceText(rate.return_pickup_fee_cents)],
+    // By distance from the shop (RAA-205): "Free up to 1 km, ₱150 up to 3 km".
+    ["Delivery to you", rate.delivery_fee_cents !== null && rate.delivery_zones.length ? zonesText(rate.delivery_zones) : serviceText(rate.delivery_fee_cents)],
+    [
+      "Pick-up at the end",
+      rate.return_pickup_fee_cents !== null && rate.delivery_zones.length ? zonesText(rate.delivery_zones) : serviceText(rate.return_pickup_fee_cents),
+    ],
     ...(rate.min_rental_days > 1 ? [["Minimum rental", plural(rate.min_rental_days, "day")] as [string, string]] : []),
     [
       "Km limit",

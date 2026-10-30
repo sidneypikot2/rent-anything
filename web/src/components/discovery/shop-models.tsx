@@ -22,6 +22,7 @@ import {
   ChildHelmetsRow,
   DeliveryOptions,
   handoverLabel,
+  needsAddress,
   NO_DELIVERY,
   sharedFees,
   wantsDelivery,
@@ -105,6 +106,9 @@ export function useShopModels({ business, category, dates, people, listingIds, p
     returnPickup: delivery.returnPickup && fees.returnPickup !== null,
   };
   const chosenDelivery = wantsDelivery(chosen) ? chosen : null;
+  // The rings (RAA-205) are the first picked model's (or, before any is, the first model's): one
+  // shop's models share its pin; the API prices each from its own.
+  const ringModel = picked[0]?.model ?? models[0];
   // Child helmets (RAA-205), where every model picked has them: one a motorbike at most, given to
   // the models in order, as many as each has bikes.
   const [childHelmets, setChildHelmets] = useState(0);
@@ -133,7 +137,12 @@ export function useShopModels({ business, category, dates, people, listingIds, p
   const deposit = breakdown.price?.deposit ?? 0;
   const short = people - seats;
   const nouns = (count: number) => vehicleNoun(category.name, count);
-  const freeDelivery = models.length > 0 && models.every((model) => model.vehicle_rate?.delivery_fee_cents === 0);
+  // Free nearby with every model (its nearest zone, RAA-205): as far as the shortest of them reaches.
+  const freeReach =
+    models.length > 0 && models.every((model) => model.vehicle_rate?.delivery_fee_cents === 0)
+      ? Math.min(...models.map((model) => model.vehicle_rate?.delivery_zones[0]?.max_distance_m ?? 0))
+      : null;
+  const freeDelivery = freeReach !== null && freeReach > 0;
   const helmets = models.length > 0 && models.every((model) => Array.isArray(model.details.amenities) && model.details.amenities.includes("rider_helmet"));
   const guest = !session || session.user.role === "guest";
 
@@ -178,7 +187,12 @@ export function useShopModels({ business, category, dates, people, listingIds, p
 
   const action =
     guest && flow ? (
-      <Button glyph="plus" disabled={units === 0 || session === undefined} onClick={addPicked} data-testid="shop-add">
+      <Button
+        glyph="plus"
+        disabled={units === 0 || session === undefined || needsAddress(chosen) || Boolean(chosenDelivery && breakdown.price?.unavailable)}
+        onClick={addPicked}
+        data-testid="shop-add"
+      >
         {units ? `Add ${units} to trip` : `Pick a ${nouns(1)}`}
       </Button>
     ) : null;
@@ -187,7 +201,7 @@ export function useShopModels({ business, category, dates, people, listingIds, p
     <div className="flex flex-col gap-4" data-testid="shop-models-body">
       {(freeDelivery || helmets) && (
         <div className="flex flex-wrap gap-2">
-          {freeDelivery && <Badge tone="emerald">Free delivery to your stay</Badge>}
+          {freeDelivery && <Badge tone="emerald">Free delivery up to {Math.round(freeReach / 100) / 10} km</Badge>}
           {helmets && <Badge tone="kind">Helmets included</Badge>}
         </div>
       )}
@@ -347,7 +361,13 @@ export function useShopModels({ business, category, dates, people, listingIds, p
       )}
 
       <Ticket>
-        <DeliveryOptions fees={fees} value={chosen} onChange={setDelivery} address={false} />
+        <DeliveryOptions
+          fees={fees}
+          value={chosen}
+          onChange={setDelivery}
+          zones={ringModel?.vehicle_rate?.delivery_zones}
+          center={ringModel?.approx_location}
+        />
         {!chosenDelivery && <AtTheShopRow place={place} />}
         <ChildHelmetsRow fee={fees.childHelmet} from={fees.from} value={childHelmetCount} max={units} onChange={setChildHelmets} />
       </Ticket>

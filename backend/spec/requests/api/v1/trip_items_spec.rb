@@ -207,36 +207,69 @@ RSpec.describe "Trip items", type: :request do
           end
         end
 
-        # Delivery and pick-up (RAA-195), where the shop offers them, to the address typed.
+        # Delivery and pick-up (RAA-195), where the shop offers them, to the guest's pin within its
+        # zones (RAA-205), at the address they picked, with notes for the rider. The distance is
+        # the partner's: the guest's item never says it.
         response "201", "delivered to the guest's hotel and collected there at the end" do
           schema "$ref" => "#/components/schemas/trip"
+          let(:pin) { pin_north_of(click, 2000) }
           let(:body) do
             { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, quantity: 2,
-              delivery: true, return_pickup: true, delivery_address: "  Kota Beach Resort, Santa Fe " }
+              delivery: true, return_pickup: true, delivery_address: "  Kota Beach Resort, Santa Fe ",
+              delivery_location: pin, delivery_notes: " Room 12 " }
           end
 
-          before { click.vehicle_rate.update!(delivery_fee_cents: 15_000, return_pickup_fee_cents: 10_000) }
+          before { deliver_within(click.vehicle_rate, [ [ 1000, 0 ], [ 3000, 15_000 ] ]) }
 
           run_test! do |response|
-            expect(response.parsed_body["items"].sole.slice("delivery", "return_pickup", "delivery_address"))
-              .to eq("delivery" => true, "return_pickup" => true, "delivery_address" => "Kota Beach Resort, Santa Fe")
+            item = response.parsed_body["items"].sole
+            expect(item.slice("delivery", "return_pickup", "delivery_address", "delivery_notes"))
+              .to eq("delivery" => true, "return_pickup" => true, "delivery_address" => "Kota Beach Resort, Santa Fe",
+                "delivery_notes" => "Room 12")
+            expect(item["delivery_location"]["lat"]).to be_within(0.000001).of(pin[:lat])
+            expect(item).not_to have_key("delivery_distance_m")
+            expect(TripItem.last.delivery_distance_m).to be_within(20).of(2000)
           end
         end
 
-        response "422", "delivery the shop doesn't offer, or with no address" do
+        response "422", "delivery the shop doesn't offer, with no address or pin, or out of its reach" do
           schema "$ref" => "#/components/schemas/validation_errors"
-          let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, delivery: true, delivery_address: "Kota" } }
+          let(:body) do
+            { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, delivery: true, delivery_address: "Kota",
+              delivery_location: pin_north_of(click, 500) }
+          end
 
           context "with a shop that doesn't deliver" do
             run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "This shop doesn't deliver" ]) }
           end
 
-          context "with no address" do
+          context "with no address or pin" do
             let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, return_pickup: true } }
 
-            before { click.vehicle_rate.update!(return_pickup_fee_cents: 0) }
+            before { deliver_within(click.vehicle_rate, [ [ 1000, 0 ] ], delivers: false) }
 
-            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Add the address for the delivery or pick-up" ]) }
+            run_test! do |response|
+              expect(response.parsed_body["errors"])
+                .to eq([ "Add the address for the delivery or pick-up", "Drop a pin where the rider meets you" ])
+            end
+          end
+
+          context "with the pin beyond the shop's farthest zone" do
+            let(:body) { super().merge(delivery_location: pin_north_of(click, 4000)) }
+
+            before { deliver_within(click.vehicle_rate, [ [ 1000, 0 ], [ 2500, 10_000 ] ]) }
+
+            run_test! do |response|
+              expect(response.parsed_body["errors"]).to eq([ "This shop doesn't deliver here: it delivers up to 2.5 km away" ])
+            end
+          end
+
+          context "with a pin that isn't a point" do
+            let(:body) { super().merge(delivery_location: { lat: "north", lng: 124 }) }
+
+            before { deliver_within(click.vehicle_rate, [ [ 1000, 0 ] ]) }
+
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Latitude must be a number between -90 and 90" ]) }
           end
 
           context "with delivery as text" do

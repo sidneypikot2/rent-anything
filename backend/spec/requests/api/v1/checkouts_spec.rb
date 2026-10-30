@@ -141,27 +141,55 @@ RSpec.describe "Checkouts", type: :request do
         end
       end
 
-      # Delivery and pick-up (RAA-195): the fees for each of the 2 motorbikes, and the booking
-      # keeps the choice and the address for the partner.
+      # Delivery and pick-up (RAA-195): the fee of the zone the guest's pin is in (RAA-205) for
+      # each of the 2 motorbikes, and the booking keeps the choice, the address, the pin and its
+      # distance, and the notes for the partner.
       response "201", "a rental delivered and collected, its fees in the total" do
         schema "$ref" => "#/components/schemas/checkout"
 
         let(:click) { create(:listing, :vehicle, booking_mode: "instant").tap { _1.units.create!(position: 2) } }
+        let(:pin) { pin_north_of(click, 2000) }
         let!(:item) do
+          point = "POINT(#{pin[:lng]} #{pin[:lat]})"
           create(:trip_item, trip:, listing: click, starts_on: day, ends_on: day + 1, quantity: 2, units: 2,
-            delivery: true, return_pickup: true, delivery_address: "Kota Beach Resort")
+            delivery: true, return_pickup: true, delivery_address: "Kota Beach Resort", delivery_notes: "Room 12",
+            delivery_location: point, delivery_distance_m: click.distance_m_to(point))
         end
         let(:item_ids) { [ item.id ] }
 
-        before { click.vehicle_rate.update!(delivery_fee_cents: 15_000, return_pickup_fee_cents: 10_000) }
+        before { deliver_within(click.vehicle_rate, [ [ 1000, 0 ], [ 3000, 15_000 ] ]) }
 
         run_test! do |response|
           booking = response.parsed_body["bookings"].sole
           daily = click.vehicle_rate.daily_price_cents
-          expect(booking["total_cents"]).to eq((daily * 2) + 30_000 + 20_000)
-          expect(booking.slice("delivery", "return_pickup", "delivery_address"))
-            .to eq("delivery" => true, "return_pickup" => true, "delivery_address" => "Kota Beach Resort")
-          expect(Booking.find(booking["id"]).price_breakdown).to include("delivery_cents" => 30_000, "return_pickup_cents" => 20_000)
+          expect(booking["total_cents"]).to eq((daily * 2) + 30_000 + 30_000)
+          expect(booking.slice("delivery", "return_pickup", "delivery_address", "delivery_notes"))
+            .to eq("delivery" => true, "return_pickup" => true, "delivery_address" => "Kota Beach Resort", "delivery_notes" => "Room 12")
+          expect(booking).not_to have_key("delivery_distance_m")
+          saved = Booking.find(booking["id"])
+          expect(saved.price_breakdown).to include("delivery_cents" => 30_000, "return_pickup_cents" => 30_000)
+          expect(saved.delivery_distance_m).to eq(item.delivery_distance_m)
+          expect(saved.delivery_location.y).to be_within(0.000001).of(pin[:lat])
+        end
+      end
+
+      # The shop may have pulled its zones in since the item was added: checkout prices it again.
+      response "422", "a rental to a pin the shop no longer reaches" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:click) { create(:listing, :vehicle, booking_mode: "instant", title: "Honda Click") }
+        let!(:item) do
+          pin = pin_north_of(click, 2000)
+          point = "POINT(#{pin[:lng]} #{pin[:lat]})"
+          create(:trip_item, trip:, listing: click, starts_on: day, ends_on: day + 1, quantity: 1,
+            delivery: true, delivery_address: "Kota Beach Resort", delivery_location: point, delivery_distance_m: click.distance_m_to(point))
+        end
+        let(:item_ids) { [ item.id ] }
+
+        before { deliver_within(click.vehicle_rate, [ [ 1000, 0 ] ], picks_up: false) }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "Honda Click: This shop doesn't deliver here: it delivers up to 1 km away" ])
         end
       end
 

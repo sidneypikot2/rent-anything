@@ -531,8 +531,9 @@ RSpec.describe "Partner listings", type: :request do
         let(:vehicle_rate) do
           { daily_price_cents: 50_000, half_day_price_cents: 35_000, half_day_hours: 5, hourly_price_cents: 10_000,
             weekly_price_cents: 300_000, monthly_price_cents: 1_000_000, security_deposit_cents: 200_000,
-            delivery_fee_cents: 0, return_pickup_fee_cents: 15_000, min_rental_days: 1, km_limit_per_day: 150,
-            excess_km_fee_cents: 500, child_helmet_fee_cents: 5_000 }
+            delivers: true, picks_up: true, min_rental_days: 1, km_limit_per_day: 150,
+            excess_km_fee_cents: 500, child_helmet_fee_cents: 5_000,
+            delivery_zones: [ { max_distance_m: 3000, fee_cents: 15_000 }, { max_distance_m: 1000, fee_cents: 0 } ] }
         end
         let(:attrs) do
           { make: "Honda", model: "Click 125", engine_cc: 125, transmission: "automatic", seats: 2,
@@ -554,8 +555,10 @@ RSpec.describe "Partner listings", type: :request do
           run_test! do |response|
             expect(response.parsed_body["attrs"]).to eq(attrs.deep_stringify_keys)
             expect(response.parsed_body["vehicle_rate"])
-              .to eq(vehicle_rate.stringify_keys.merge("driving" => "self_drive", "driver_fee_cents" => nil,
-                "pickup_from_hour" => 7, "pickup_until_hour" => 19, "turnaround_minutes" => 0))
+              .to eq(vehicle_rate.except(:delivers, :picks_up).deep_stringify_keys.merge("driving" => "self_drive", "driver_fee_cents" => nil,
+                "pickup_from_hour" => 7, "pickup_until_hour" => 19, "turnaround_minutes" => 0,
+                "delivery_fee_cents" => 0, "return_pickup_fee_cents" => 0,
+                "delivery_zones" => [ { "max_distance_m" => 1000, "fee_cents" => 0 }, { "max_distance_m" => 3000, "fee_cents" => 15_000 } ]))
             expect(response.parsed_body["stay_rate"]).to be_nil
             expect(response.parsed_body["fees"].pluck("charged_per")).to eq(%w[day hour])
           end
@@ -573,7 +576,7 @@ RSpec.describe "Partner listings", type: :request do
               "security_deposit_cents" => 0, "delivery_fee_cents" => nil, "return_pickup_fee_cents" => nil,
               "min_rental_days" => 1, "km_limit_per_day" => nil, "excess_km_fee_cents" => nil,
               "driving" => "self_drive", "driver_fee_cents" => nil, "pickup_from_hour" => 7, "pickup_until_hour" => 19,
-              "turnaround_minutes" => 0, "child_helmet_fee_cents" => nil
+              "turnaround_minutes" => 0, "child_helmet_fee_cents" => nil, "delivery_zones" => []
             )
           end
         end
@@ -654,13 +657,16 @@ RSpec.describe "Partner listings", type: :request do
         response "422", "no daily price, and wrong-typed fields" do
           schema "$ref" => "#/components/schemas/validation_errors"
 
-          let(:vehicle_rate) { { daily_price_cents: 0, half_day_price_cents: "350", delivery_fee_cents: 1.5 } }
+          let(:vehicle_rate) do
+            { daily_price_cents: 0, half_day_price_cents: "350", delivers: "yes", delivery_zones: [ { max_distance_m: 1.5, fee_cents: 0 } ] }
+          end
 
           run_test! do |refused|
             expect(refused.parsed_body["errors"]).to include(
               "Daily price must be a whole number of centavos above 0",
               "Half-day price must be a whole number",
-              "Delivery fee must be a whole number"
+              "Delivers must be true or false",
+              "A delivery zone's distance must be a whole number of metres"
             )
             vehicle_rate.delete(:daily_price_cents)
             post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
@@ -680,6 +686,29 @@ RSpec.describe "Partner listings", type: :request do
               "Half-day price must be less than the daily price"
             )
             expect(VehicleRate.count).to eq(0)
+          end
+        end
+
+        # Delivery zones (RAA-205): one at least to deliver or collect, a farther one never cheaper.
+        response "422", "delivery with no zones, or zones that cost less farther out" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          let(:vehicle_rate) { { daily_price_cents: 50_000, picks_up: true } }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to eq([ "Delivery zones need at least one zone to deliver or collect" ])
+          end
+
+          context "with a farther zone cheaper than a nearer one" do
+            let(:vehicle_rate) do
+              { daily_price_cents: 50_000, delivers: true,
+                delivery_zones: [ { max_distance_m: 1000, fee_cents: 10_000 }, { max_distance_m: 3000, fee_cents: 5_000 } ] }
+            end
+
+            run_test! do |response|
+              expect(response.parsed_body["errors"]).to eq([ "Delivery zones can't cost less farther from the shop" ])
+              expect(VehicleDeliveryZone.count).to eq(0)
+            end
           end
         end
       end
@@ -1341,10 +1370,13 @@ RSpec.describe "Partner listings", type: :request do
         response "200", "the vehicle rate replaced when sent, kept when left out" do
           schema "$ref" => "#/components/schemas/partner_listing"
 
-          before { body[:vehicle_rate] = { daily_price_cents: 60_000, delivery_fee_cents: 10_000 } }
+          before do
+            body[:vehicle_rate] = { daily_price_cents: 60_000, delivers: true, delivery_zones: [ { max_distance_m: 2000, fee_cents: 10_000 } ] }
+          end
 
           run_test! do |saved|
-            expect(saved.parsed_body["vehicle_rate"]).to include("daily_price_cents" => 60_000, "delivery_fee_cents" => 10_000)
+            expect(saved.parsed_body["vehicle_rate"]).to include("daily_price_cents" => 60_000, "delivery_fee_cents" => 10_000,
+              "return_pickup_fee_cents" => nil, "delivery_zones" => [ { "max_distance_m" => 2000, "fee_cents" => 10_000 } ])
             body.delete(:vehicle_rate)
             patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
             expect(response.parsed_body["vehicle_rate"]).to include("daily_price_cents" => 60_000)
