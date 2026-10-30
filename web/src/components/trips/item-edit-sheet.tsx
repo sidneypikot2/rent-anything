@@ -123,6 +123,8 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
               label={range ? "Dates" : "Date"}
               single={!range}
               min={todayIso()}
+              // An unbooked item can't be booked once it has started, so its start isn't kept.
+              keepStart={false}
               from={startsOn}
               to={endsOn}
               onChange={setDates}
