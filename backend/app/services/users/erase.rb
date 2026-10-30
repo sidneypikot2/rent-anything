@@ -1,6 +1,6 @@
 module Users
   # Deletes a guest and everything that is only theirs: trips with their items, Google and
-  # Facebook sign-ins, sessions, profile; trip_accesses and sign_in_codes cascade. Partners'
+  # Facebook sign-ins, sessions, profile; trip_accesses, sign_in_codes and notifications cascade. Partners'
   # records stay: bookings (with their own copy of the guest's name, email and phone),
   # checkouts, payments and booking events, whose user_id the foreign keys nullify.
   #

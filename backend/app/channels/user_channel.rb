@@ -1,4 +1,5 @@
-# Each signed-in user's own stream (RAA-201): booking changes now, chat messages later (M6).
+# Each signed-in user's own stream (RAA-201): booking changes and new notifications now, chat
+# messages later (M6).
 # A message only says what changed; the client refetches it through the API, so who may see
 # what stays in the controllers.
 class UserChannel < ApplicationCable::Channel
@@ -24,6 +25,16 @@ class UserChannel < ApplicationCable::Channel
         Rails.error.report(e, handled: true)
       end
     end
+  end
+
+  # Tells a user's open tabs they have a new notification (Notifications::Notify, which calls
+  # it once the notification is committed), so the bell refetches.
+  def self.notification_created(notification)
+    return unless live?
+
+    broadcast_to(notification.recipient, { type: "notification.created", notification_id: notification.id })
+  rescue StandardError => e
+    Rails.error.report(e, handled: true)
   end
 
   # Closes a user's open connections, as when their account is deleted: a connection is only

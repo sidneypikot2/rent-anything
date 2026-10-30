@@ -32,12 +32,4 @@ class GuestMailer < ApplicationMailer
     @name = name
     mail(to: email, subject: "Your TripKoNext account has been deleted")
   end
-
-  private
-
-  def web_url(path)
-    options = default_url_options
-    port = options[:port] ? ":#{options[:port]}" : ""
-    "#{options.fetch(:protocol, 'http')}://#{options.fetch(:host)}#{port}#{path}"
-  end
 end

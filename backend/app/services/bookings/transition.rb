@@ -3,7 +3,7 @@ module Bookings
   # booking, refuses a move the lifecycle doesn't allow (ALLOWED, after Airbnb's and
   # Booking.com's), sets the times that go with the new status and records a BookingEvent
   # saying who made it and why, and tells its guest and partner once committed (UserChannel,
-  # RAA-201). Moving a booking to the status it has changes nothing.
+  # RAA-201), notifying whoever should hear of it (Notifications::BookingChanged). Moving a booking to the status it has changes nothing.
   #
   #   Transition.call(booking, "cancelled", actor: "guest", user: guest, reason: "Plans changed")
   #
@@ -33,6 +33,7 @@ module Bookings
     def self.record_start(booking, actor:, user: nil, reason: nil)
       booking.events.create!(from_status: nil, to_status: booking.status, actor:, user:, reason:)
       UserChannel.booking_updated(booking)
+      Notifications::BookingChanged.call(booking, from: nil, to: booking.status, actor:)
     end
 
     def self.allowed?(from, to)
@@ -60,6 +61,7 @@ module Bookings
         @booking.events.create!(from_status: from, to_status: @to, actor: @actor, user: @user, reason: @reason,
           metadata: @metadata)
         UserChannel.booking_updated(@booking)
+        Notifications::BookingChanged.call(@booking, from:, to: @to, actor: @actor)
         @booking
       end
     end

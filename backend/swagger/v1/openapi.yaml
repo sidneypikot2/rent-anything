@@ -1952,6 +1952,112 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+  "/api/v1/notifications":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    - name: before
+      in: query
+      required: false
+      schema:
+        type: integer
+      description: 'Only notifications older than this id: the last page''s next_before'
+    get:
+      summary: The signed-in user's notifications
+      tags:
+      - Notifications
+      description: Guests and partners. Newest first, 20 at a time, with how many
+        are unread. Each has its wording and the web app page it opens.
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: a page older than `before`
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/notification_page"
+        '422':
+          description: a `before` that isn't an id
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/notifications/{id}/read":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    post:
+      summary: Marks one notification read
+      tags:
+      - Notifications
+      description: Another user's notification is a 404.
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: read
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/notification"
+        '404':
+          description: another user's notification
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/notifications/read_all":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    post:
+      summary: Marks all of the signed-in user's notifications read
+      tags:
+      - Notifications
+      security:
+      - bearer: []
+      responses:
+        '200':
+          description: all read; other users' untouched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unread_count:
+                    type: integer
+                required:
+                - unread_count
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/oauth/{provider}":
     post:
       summary: Sign in or sign up with Google or Facebook
@@ -5516,6 +5622,52 @@ components:
             type: string
       required:
       - errors
+    notification:
+      type: object
+      properties:
+        id:
+          type: integer
+        kind:
+          type: string
+          description: What happened, e.g. booking.requested or booking.accepted
+        title:
+          type: string
+        body:
+          type: string
+        path:
+          type: string
+          description: The web app page it opens, e.g. /cart?trip=12 or /partner/calendar?booking=34
+        read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - kind
+      - title
+      - body
+      - path
+      - read
+      - created_at
+    notification_page:
+      type: object
+      properties:
+        notifications:
+          type: array
+          items:
+            "$ref": "#/components/schemas/notification"
+        unread_count:
+          type: integer
+        next_before:
+          type: integer
+          nullable: true
+          description: Pass as `before` for the next, older page; null on the last
+            page
+      required:
+      - notifications
+      - unread_count
+      - next_before
     area_ref:
       type: object
       properties:

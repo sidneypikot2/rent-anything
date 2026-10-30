@@ -35,6 +35,14 @@ production:
   expire_bookings:
     class: Bookings::ExpireJob
     schedule: every 5 minutes
+  # Reminders before a request expires, a payment is due and a booking starts (notifications).
+  remind_notifications:
+    class: Notifications::RemindJob
+    schedule: every 15 minutes
+  # Notifications read more than 90 days ago.
+  prune_notifications:
+    class: Notifications::PruneJob
+    schedule: every day at 4:30am Asia/Manila
   # Bookings start on their first day and complete after their last (RAA-132), on the UTC
   # date as the calendar's dates are.
   progress_bookings:

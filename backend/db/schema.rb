@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_30_110000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_30_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -420,6 +420,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_110000) do
     t.check_constraint "partner_role::text = 'partner'::text", name: "listings_partner_role_check"
   end
 
+  create_table "notifications", force: :cascade do |t|
+    t.bigint "recipient_id", null: false
+    t.string "kind", null: false
+    t.string "subject_type", null: false
+    t.bigint "subject_id", null: false
+    t.jsonb "params", default: {}, null: false
+    t.string "dedupe_key"
+    t.datetime "read_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["recipient_id", "created_at"], name: "index_notifications_on_recipient_id_and_created_at"
+    t.index ["recipient_id", "kind", "subject_type", "subject_id", "dedupe_key"], name: "index_notifications_dedupe", unique: true, where: "(dedupe_key IS NOT NULL)"
+    t.index ["recipient_id"], name: "index_notifications_unread", where: "(read_at IS NULL)"
+    t.index ["subject_type", "subject_id"], name: "index_notifications_on_subject"
+    t.check_constraint "char_length(kind::text) <= 60", name: "notifications_kind_length_check"
+  end
+
   create_table "oauth_identities", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "provider", null: false
@@ -803,6 +820,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_110000) do
   add_foreign_key "listings", "categories"
   add_foreign_key "listings", "users", column: "partner_id"
   add_foreign_key "listings", "users", column: ["partner_id", "partner_role"], primary_key: ["id", "role"], name: "fk_listings_partner_role"
+  add_foreign_key "notifications", "users", column: "recipient_id", on_delete: :cascade
   add_foreign_key "oauth_identities", "users"
   add_foreign_key "oauth_identities", "users", column: ["user_id", "role"], primary_key: ["id", "role"], name: "fk_oauth_identities_user_role"
   add_foreign_key "partner_profiles", "users"

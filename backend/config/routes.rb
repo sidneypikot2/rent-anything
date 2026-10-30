@@ -72,6 +72,11 @@ Rails.application.routes.draw do
         post :pay, on: :collection
         post :cancel, on: :member
       end
+      # The signed-in user's notifications, for the bell: guests and partners alike.
+      resources :notifications, only: :index do
+        post :read, on: :member
+        post :read_all, on: :collection
+      end
       # A payment on PayMongo's checkout, read when the guest comes back from it.
       resources :payments, only: :show
 
