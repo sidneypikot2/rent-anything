@@ -104,7 +104,8 @@ jobs:
         env:
           HOST: ${{ secrets.LIGHTSAIL_HOST }}
           SHA: ${{ github.sha }}
-        # The commit SHA is meant to expand here, on the runner (SC2029).
+        # The commit SHA is meant to expand here, on the runner (SC2029). `up -d` leaves Caddy
+        # running when only the Caddyfile changed, so it is reloaded on every deploy (RAA-206).
         run: |
           scp deploy/staging/compose.yml deploy/staging/Caddyfile "deploy@$HOST:/opt/tripkonext/"
           # shellcheck disable=SC2029
@@ -112,6 +113,7 @@ jobs:
             && echo IMAGE_TAG=$SHA > .env \
             && docker compose pull --quiet \
             && docker compose up -d --remove-orphans \
+            && docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile \
             && docker image prune -f"
 
       - name: Check the API and the web app answer
