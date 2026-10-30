@@ -4,8 +4,8 @@
 # Images come from GHCR, built by that workflow — the instance never builds anything.
 # Postgres runs here too (RAA-174, after Neon's free tier ran out), and so does Valkey (RAA-199,
 # instead of Upstash).
-# Secrets are in backend.env and db.env next to this file on the instance, never in the
-# repository. Not .env: the deploy rewrites that one with IMAGE_TAG on every run.
+# Secrets are in backend.env, db.env and anycable.env next to this file on the instance, never
+# in the repository. Not .env: the deploy rewrites that one with IMAGE_TAG on every run.
 services:
   caddy:
     image: caddy:2.11-alpine
@@ -21,6 +21,7 @@ services:
       - caddy_config:/config
     depends_on:
       - backend
+      - anycable
       - web
 
   db:
@@ -58,11 +59,11 @@ services:
       retries: 5
 
   valkey:
-    # Action Cable's pub/sub (chat, notifications): Valkey is the open-source fork of Redis and
-    # speaks the same protocol, so cable.yml's redis adapter talks to it unchanged. Pub/sub
-    # keeps no data, so nothing is saved to disk. Only the Compose network reaches it: no
-    # ports are published and no password is set. A hosted Redis (production) only changes
-    # REDIS_URL.
+    # Valkey, the open-source fork of Redis. Unused since AnyCable (RAA-201) took over the
+    # WebSockets and broadcasts over HTTP; kept for AnyCable's redisx broadcasts once several
+    # anycable-go nodes share it. Pub/sub keeps no data, so nothing is saved to disk. Only the
+    # Compose network reaches it: no ports are published and no password is set. A hosted
+    # Redis (production) only changes REDIS_URL.
     image: valkey/valkey:9.1-alpine
     restart: unless-stopped
     command:
@@ -82,7 +83,11 @@ services:
   backend:
     image: ghcr.io/sidneypikot2/rent-anything-backend:${IMAGE_TAG:-staging}
     restart: unless-stopped
-    env_file: ./backend.env
+    env_file:
+      - ./backend.env
+      # ANYCABLE_SECRET, shared with the anycable service below.
+      - path: ./anycable.env
+        required: false
     environment:
       # Its own Rails env (RAA-172): config/environments/staging.rb loads production.rb.
       RAILS_ENV: staging
@@ -101,6 +106,8 @@ services:
       # The valkey service above. Set here, not in backend.env, so it overrides the Upstash
       # URL an older backend.env may still hold.
       REDIS_URL: redis://valkey:6379/1
+      # Where Rails sends broadcasts: the anycable service below (RAA-202).
+      ANYCABLE_HTTP_BROADCAST_URL: http://anycable:8080/_broadcast
     healthcheck:
       # assume_ssl in production.rb keeps force_ssl from redirecting this plain-HTTP check.
       test: ["CMD", "curl", "-fsS", "http://localhost:3000/up"]
@@ -113,6 +120,39 @@ services:
       db:
         condition: service_healthy
       valkey:
+        condition: service_healthy
+
+  anycable:
+    # The WebSocket server (RAA-201, RAA-202): Caddy sends api.staging.tripkonext.com/cable here.
+    # It asks the backend over HTTP (/_anycable) to approve each connection and subscription,
+    # and takes the backend's broadcasts at /_broadcast. Both are authorised by keys derived
+    # from ANYCABLE_SECRET in anycable.env, which the backend reads too; without that file
+    # Rails doesn't mount /_anycable, so every connection is refused. No ports are published.
+    image: anycable/anycable-go:1.6-alpine
+    restart: unless-stopped
+    env_file:
+      - path: ./anycable.env
+        required: false
+    environment:
+      ANYCABLE_HOST: 0.0.0.0
+      ANYCABLE_PORT: "8080"
+      ANYCABLE_RPC_HOST: http://backend:3000/_anycable
+      # Puma has 3 threads (RAILS_MAX_THREADS): more approvals at once would only queue behind
+      # API requests, as after a deploy, when every client reconnects.
+      ANYCABLE_RPC_CONCURRENCY: "3"
+      ANYCABLE_BROADCAST_ADAPTER: http
+      # Keeps each stream's recent messages, so a client that reconnects gets what it missed.
+      ANYCABLE_BROKER: memory
+      # The web host without a scheme ("https://..." is refused with a 403).
+      ANYCABLE_ALLOWED_ORIGINS: staging.tripkonext.com
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      backend:
         condition: service_healthy
 
   web:

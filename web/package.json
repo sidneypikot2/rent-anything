@@ -11,6 +11,7 @@
     "api:types": "openapi-typescript ../backend/swagger/v1/openapi.yaml -o src/api/schema.d.ts"
   },
   "dependencies": {
+    "@anycable/web": "^1.1.1",
     "@sentry/nextjs": "^11.9.0",
     "@tanstack/react-query": "^5.104.1",
     "libphonenumber-js": "^1.13.14",
