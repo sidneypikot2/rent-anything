@@ -8079,6 +8079,13 @@ export interface components {
                     max_guests: number;
                 } | null;
                 cancellation_policy: components["schemas"]["cancellation_policy"];
+                /** @description A priced vehicle's delivery and pick-up fees, so its card says how it reaches the guest (RAA-204); null for anything else */
+                handover: {
+                    /** @description To bring it to the guest (0 is free); null when the shop doesn't */
+                    delivery_fee_cents: number | null;
+                    /** @description To collect it from the guest at the end (0 is free); null when the shop doesn't */
+                    return_pickup_fee_cents: number | null;
+                } | null;
             }[];
         };
         activity: {

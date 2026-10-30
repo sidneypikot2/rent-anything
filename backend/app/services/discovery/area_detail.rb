@@ -34,7 +34,8 @@ module Discovery
             photos: listing.ready_photos.first(ROW_PHOTOS).map { |photo| ListingPhotoSerializer.call(photo) },
             details: ListingDetailSerializer.details(listing),
             tour: tour_json(listing.tour_detail),
-            cancellation_policy: listing.cancellation_policy
+            cancellation_policy: listing.cancellation_policy,
+            handover: handover_json(listing.vehicle_rate)
           )
         end
       }
@@ -63,6 +64,11 @@ module Discovery
     # A tour's kind and the group it takes, for its row's chips; nil for anything else.
     def tour_json(detail)
       detail&.slice(:tour_type, :min_guests, :max_guests)&.symbolize_keys
+    end
+
+    # A priced vehicle's delivery and pick-up fees (RAA-204), for its card; nil for anything else.
+    def handover_json(rate)
+      rate&.priced? ? rate.slice(:delivery_fee_cents, :return_pickup_fee_cents).symbolize_keys : nil
     end
 
     def landmark_json(landmark)
