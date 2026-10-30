@@ -1,6 +1,6 @@
 # Staging on AWS Lightsail
 
-The hosted staging environment (RAA-156): one Lightsail instance running `compose.yml` — Caddy (HTTPS), Postgres with PostGIS, Valkey (Action Cable's Redis, RAA-199), the Rails API and the Next.js web app. Postgres moved here from Neon in RAA-174, after Neon's free tier ran out. Every merge into `staging` that touches `backend/`, `web/` or this folder runs `.github/workflows/deploy-staging.yml`: it builds both images, pushes them to GHCR and restarts the instance on them.
+The hosted staging environment (RAA-156): one Lightsail instance running `compose.yml` — Caddy (HTTPS), Postgres with PostGIS, Valkey (RAA-199; unused since AnyCable, kept for scaling it out), AnyCable's WebSocket server (RAA-202), the Rails API and the Next.js web app. Postgres moved here from Neon in RAA-174, after Neon's free tier ran out. Every merge into `staging` that touches `backend/`, `web/` or this folder runs `.github/workflows/deploy-staging.yml`: it builds both images, pushes them to GHCR and restarts the instance on them.
 
 - Web: https://staging.tripkonext.com
 - API: https://api.staging.tripkonext.com (`/up`, `/api/v1/health`)
@@ -57,8 +57,9 @@ Put `deploy_staging.pub` into `/home/deploy/.ssh/authorized_keys` on the instanc
 As `deploy` (`sudo -iu deploy`):
 
 1. Fill in `/opt/tripkonext/db.env` from `db.env.example` in this folder, with a new password (`openssl rand -hex 24`).
-2. Fill in `/opt/tripkonext/backend.env` from `backend.env.example`, using the same password in the three database URLs. Then run `chmod 600 db.env backend.env`.
-3. Let the instance pull the private images: create a GitHub personal access token (classic) with only `read:packages`, then:
+2. Fill in `/opt/tripkonext/backend.env` from `backend.env.example`, using the same password in the three database URLs.
+3. Create `/opt/tripkonext/anycable.env` (`anycable.env.example`) with a new secret, without printing it: `printf 'ANYCABLE_SECRET=%s\n' "$(openssl rand -hex 32)" > anycable.env`. Then run `chmod 600 db.env backend.env anycable.env`.
+4. Let the instance pull the private images: create a GitHub personal access token (classic) with only `read:packages`, then:
 
    ```bash
    echo "<token>" | docker login ghcr.io -u <github user> --password-stdin
@@ -93,7 +94,7 @@ Each of these must name the new web or API URL:
 ssh deploy@<static IP>
 cd /opt/tripkonext
 docker compose ps
-docker compose logs -f backend     # or web, caddy
+docker compose logs -f backend     # or web, caddy, anycable
 docker compose exec backend bin/rails console
 ```
 
@@ -101,7 +102,7 @@ docker compose exec backend bin/rails console
 
 **Postgres**: `docker compose exec db psql -U postgres rent_anything_staging`. The data lives in the `postgres_data` volume. `docker compose down -v` deletes it, so never run that here.
 
-**Changing a secret**: edit `backend.env`, then run `docker compose up -d backend`. A `NEXT_PUBLIC_*` value is a GitHub variable baked into the web image, so it only takes effect after the workflow runs again.
+**Changing a secret**: edit `backend.env`, then run `docker compose up -d backend` (for `anycable.env`, `docker compose up -d backend anycable`). A `NEXT_PUBLIC_*` value is a GitHub variable baked into the web image, so it only takes effect after the workflow runs again.
 
 ## Database backups
 
