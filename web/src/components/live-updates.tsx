@@ -4,6 +4,7 @@ import { createCable, type Cable } from "@anycable/web";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { bookingsKey, paymentKey } from "@/components/bookings/use-bookings";
+import { playNotificationSound } from "@/components/notifications/notification-sound";
 import { notificationsKey } from "@/components/notifications/use-notifications";
 import { partnerCalendarKey } from "@/components/partner/use-partner-calendar";
 import { tripsKey } from "@/components/trips/use-trips";
@@ -13,7 +14,7 @@ import { cableUrl } from "@/lib/config";
 
 // What the API's UserChannel sends (RAA-201): only what changed, so the page refetches it
 // through the API, which decides what this user may see.
-type LiveMessage = { type?: string };
+type LiveMessage = { type?: string; notification_id?: number };
 
 // Whether a JWT's exp has passed (read, not verified: the server checks it).
 function expired(token: string | undefined): boolean {
@@ -38,7 +39,7 @@ function urlFor(token: string) {
 
 // Keeps the signed-in user's WebSocket open (anycable, RAA-203) and refreshes what a booking
 // change touches: the guest's bookings, trips and payments, the partner's calendar; and the
-// bell's notifications when one comes in (notification.created). Inactive
+// bell's notifications when one comes in (notification.created), with a sound. Inactive
 // queries are only marked stale. Renders nothing; a page works the same without it.
 //
 // One connection per user. The server checks the access token only when a connection opens,
@@ -87,9 +88,12 @@ export function LiveUpdates() {
     const refetchNotifications = () => void queryClient.invalidateQueries({ queryKey: notificationsKey(userId) });
 
     cable.subscribeTo("UserChannel").on("message", (message) => {
-      const type = (message as LiveMessage | null)?.type;
+      const { type, notification_id } = (message as LiveMessage | null) ?? {};
       if (type === "booking.updated") refetch();
-      if (type === "notification.created") refetchNotifications();
+      if (type === "notification.created") {
+        refetchNotifications();
+        playNotificationSound(notification_id);
+      }
     });
     cable.on("connect", (event) => {
       refreshedRef.current = false;

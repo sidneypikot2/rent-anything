@@ -17,6 +17,6 @@ paths:
 
 **Links**: a guest's go to `/cart?trip=` while a booking is asked for or paid, `/trips?trip=` once confirmed; a partner's to `/partner/calendar?booking=`, which opens that booking's sheet. A notification never carries more than its recipient can already see; the page it opens checks access.
 
-**Web**: `NotificationBell` in the header (`AccountNav`, guests and partners) reads `GET /notifications` (`useNotifications`, a page of 20, `before` for older), marks read on open (`useMarkRead`, shown at once) and is refetched by `LiveUpdates` on `notification.created`.
+**Web**: `NotificationBell` in the header (`AccountNav`, guests and partners) reads `GET /notifications` (`useNotifications`, a page of 20, `before` for older), marks read on open (`useMarkRead`, shown at once) and is refetched by `LiveUpdates` on `notification.created`, which also plays `public/sounds/notification.mp3` (`playNotificationSound`: once across open tabs, by the notification's id; silent where the browser blocks sound).
 
 **Not yet**: chat messages (M6) are not notifications (their own unread counts, per trip), push, per-kind email opt-outs, and grouping several bookings of one checkout or payment into one email.
