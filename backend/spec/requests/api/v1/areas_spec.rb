@@ -86,14 +86,14 @@ RSpec.describe "Areas", type: :request do
               "instant_book" => false, "cover_photo_url" => nil, "booking_type" => "activity", "summary" => "Four islands and a sandbar in one day.",
               "business" => { "id" => hopping.business_id, "name" => "Moalboal Gear Rentals" }, "units_count" => 1, "units_label" => "1 unit",
               "partner_name" => "Moalboal Gear Rentals", "price_from_cents" => nil, "price_unit" => nil,
-              "photos" => [], "details" => {}, "tour" => nil, "cancellation_policy" => "free_cancellation" },
+              "photos" => [], "details" => {}, "tour" => nil, "cancellation_policy" => "free_cancellation", "handover" => nil },
             { "id" => honda.id, "title" => "Honda Click 125", "category" => "Motorcycle", "group" => "rental",
               "area_slug" => "bantayan-island", "area_name" => "Bantayan Island", "instant_book" => false, "cover_photo_url" => nil,
               "booking_type" => "rental", "summary" => "",
               "business" => { "id" => basilia.id, "name" => "Basilia Motor Rentals" }, "units_count" => 50, "units_label" => "50 motorcycles",
               "partner_name" => "Basilia Motor Rentals", "price_from_cents" => nil, "price_unit" => nil,
               "photos" => [], "details" => { "engine_cc" => 125, "transmission" => "automatic", "amenities" => [ "rider_helmet" ] }, "tour" => nil,
-              "cancellation_policy" => "free_cancellation" }
+              "cancellation_policy" => "free_cancellation", "handover" => nil }
           )
         end
       end
@@ -166,6 +166,27 @@ RSpec.describe "Areas", type: :request do
           rows = response.parsed_body["listings"].index_by { _1["title"] }
           expect(rows["Kota Beach house"].values_at("price_from_cents", "price_unit")).to eq([ 200_000, "night" ])
           expect(rows["Unpriced house"]["price_from_cents"]).to be_nil
+        end
+      end
+
+      response "200", "a vehicle's row says whether the shop delivers and collects it (RAA-204)" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "bantayan-island" }
+
+        before do
+          create(:listing, :vehicle, area: bantayan, title: "Door-to-door bike").vehicle_rate.update!(delivery_fee_cents: 0, return_pickup_fee_cents: 15_000)
+          create(:listing, :vehicle, area: bantayan, title: "Drop-off bike").vehicle_rate.update!(delivery_fee_cents: 10_000)
+          create(:listing, :vehicle, area: bantayan, title: "Shop-only bike")
+          create(:listing, :stay, area: bantayan, title: "Kota Beach house")
+        end
+
+        run_test! do |response|
+          rows = response.parsed_body["listings"].index_by { _1["title"] }
+          handover = ->(title) { rows[title]["handover"]&.values_at("delivery_fee_cents", "return_pickup_fee_cents") }
+          expect(handover.call("Door-to-door bike")).to eq([ 0, 15_000 ])
+          expect(handover.call("Drop-off bike")).to eq([ 10_000, nil ])
+          expect(handover.call("Shop-only bike")).to eq([ nil, nil ])
+          expect(handover.call("Kota Beach house")).to be_nil
         end
       end
 

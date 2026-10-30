@@ -1589,10 +1589,19 @@ RSpec.configure do |config|
                       },
                       required: %w[tour_type min_guests max_guests]
                     },
-                    cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" }
+                    cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" },
+                    handover: {
+                      type: :object, nullable: true,
+                      description: "A priced vehicle's delivery and pick-up fees, so its card says how it reaches the guest (RAA-204); null for anything else",
+                      properties: {
+                        delivery_fee_cents: { type: :integer, nullable: true, description: "To bring it to the guest (0 is free); null when the shop doesn't" },
+                        return_pickup_fee_cents: { type: :integer, nullable: true, description: "To collect it from the guest at the end (0 is free); null when the shop doesn't" }
+                      },
+                      required: %w[delivery_fee_cents return_pickup_fee_cents]
+                    }
                   },
                   required: %w[id title category group area_slug area_name instant_book cover_photo_url booking_type summary business units_count units_label
-                    partner_name price_from_cents price_unit photos details tour cancellation_policy]
+                    partner_name price_from_cents price_unit photos details tour cancellation_policy handover]
                 }
               }
             },
