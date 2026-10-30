@@ -73,6 +73,7 @@ module TripSerializer
       delivery: item.delivery,
       return_pickup: item.return_pickup,
       delivery_address: item.delivery_address,
+      child_helmets: item.child_helmets,
       returns_at: item.rental_period&.end,
       sleeps: item.listing.sleeps,
       max_guests: item.listing.max_guests,

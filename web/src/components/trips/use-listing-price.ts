@@ -20,6 +20,8 @@ export type PriceRequest = {
   pickupTime?: string | null;
   // A vehicle rental's delivery and pick-up (RAA-195): each adds the shop's fee per vehicle.
   delivery?: Delivery | null;
+  // A motorcycle rental's child helmets (RAA-205): the shop's fee for each a day.
+  childHelmets?: number;
 };
 
 // What adding listings would cost (GET /listings/{id}/price, RAA-191), one query each: a single
@@ -49,6 +51,7 @@ export function useListingPrices(requests: PriceRequest[]) {
               ...(request.pickupTime ? { pickup_time: request.pickupTime } : {}),
               ...(request.delivery?.delivery ? { delivery: true } : {}),
               ...(request.delivery?.returnPickup ? { return_pickup: true } : {}),
+              ...(request.childHelmets ? { child_helmets: request.childHelmets } : {}),
             },
           },
         });

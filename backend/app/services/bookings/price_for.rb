@@ -32,16 +32,19 @@ module Bookings
       pets = count_value(:pets, "Pets", max: 20, digits: true) || 0
       pickup_time = pickup_time_value(listing)
       delivery = delivery_values(listing, address: false)
+      child_helmets = child_helmets_value(listing, digits: true) || 0
       raise_errors!(listing)
 
       guests = guests_for(room_guests, guests, sent: false)
       units = Booking.units_for(listing, guests, room_guests:, chosen:)
+      check_child_helmets(child_helmets, units)
+      raise_errors!(listing)
       ledger = Availability::Ledger.new([ listing ], starts_on, ends_on)
       days = Booking.days_for(listing, starts_on, ends_on)
       rental = rental(listing, ledger, days, units, starts_on, ends_on, pickup_time)
       refusal = rental[:none_left] || ledger.refusal(listing, days, units, period: rental[:period])
       price = Price.call(listing, starts_on:, ends_on:, quantity: units, guests:, room_guests:, pets:,
-        **delivery.slice(:delivery, :return_pickup))
+        child_helmets:, **delivery.slice(:delivery, :return_pickup))
       answer(listing, price, refusal, rental)
     rescue ActiveRecord::RecordInvalid => e
       raise if e.record == listing || listing.nil?
@@ -94,12 +97,24 @@ module Bookings
         [
           line("#{quantity} #{noun.pluralize(quantity)} × #{peso(unit)} × #{days(breakdown[:days])}", unit * quantity * breakdown[:days]),
           (line("Delivery · #{quantity} × #{peso(breakdown[:delivery_cents] / quantity)}", breakdown[:delivery_cents]) if breakdown[:delivery_cents]),
-          (line("Pick-up at the end · #{quantity} × #{peso(breakdown[:return_pickup_cents] / quantity)}", breakdown[:return_pickup_cents]) if breakdown[:return_pickup_cents])
+          (line("Pick-up at the end · #{quantity} × #{peso(breakdown[:return_pickup_cents] / quantity)}", breakdown[:return_pickup_cents]) if breakdown[:return_pickup_cents]),
+          child_helmets_line(breakdown)
         ].compact
       when "gear" then [ line("#{quantity} × #{peso(unit)} × #{days(breakdown[:days])}", unit * quantity * breakdown[:days]) ]
       when "transfer" then [ line("#{quantity} × #{peso(unit)} a trip", unit * quantity) ]
       else []
       end
+    end
+
+    # "Child helmets · 2 × ₱50 × 3 days", or "Child helmets · 2, included" when the shop gives them free.
+    def child_helmets_line(breakdown)
+      helmets = breakdown[:child_helmets].to_i
+      return if helmets.zero?
+
+      cents = breakdown[:child_helmets_cents].to_i
+      return line("Child helmets · #{helmets}, included", 0) if cents.zero?
+
+      line("Child helmets · #{helmets} × #{peso(cents / helmets / breakdown[:days])} × #{days(breakdown[:days])}", cents)
     end
 
     def stay_lines(quote)

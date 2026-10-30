@@ -120,7 +120,7 @@ module Checkouts
       units = Booking.units_for(listing, item.quantity, room_guests: item.room_guests, chosen: item.units)
       price = Bookings::Price.call(listing, starts_on: item.starts_on, ends_on: item.ends_on, quantity: units,
         guests: item.quantity, room_guests: item.room_guests, pets: item.pets,
-        delivery: item.delivery, return_pickup: item.return_pickup)
+        delivery: item.delivery, return_pickup: item.return_pickup, child_helmets: item.child_helmets)
       price.merge(item:, listing:, units:)
     rescue ActiveRecord::RecordInvalid => e
       e.record.errors.full_messages.each { error("#{listing.title}: #{_1}") }
@@ -146,6 +146,7 @@ module Checkouts
         quantity: line[:units], guests: guests_of(item, listing),
         room_guests: item.room_guests, pets: item.pets,
         delivery: item.delivery, return_pickup: item.return_pickup, delivery_address: item.delivery_address,
+        child_helmets: item.child_helmets,
         status: instant ? "awaiting_payment" : "requested", expires_at: expires_at(instant, item),
         total_cents: line[:total_cents], price_breakdown: line[:breakdown],
         commission_bps: listing.category.commission_bps,

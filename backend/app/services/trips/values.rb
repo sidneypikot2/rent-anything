@@ -155,6 +155,21 @@ module Trips
       { delivery:, return_pickup:, delivery_address: place }
     end
 
+    # Child helmets for a motorcycle rental (RAA-205): 0 to 99, any but 0 only where the shop
+    # offers them; nil when not sent. A query string carries it as digits.
+    def child_helmets_value(listing, digits: false)
+      helmets = count_value(:child_helmets, "Child helmets", max: 99, digits:)
+      return helmets unless helmets&.positive?
+      return error("This shop doesn't offer child helmets") unless listing.vehicle_rate&.child_helmets?
+
+      helmets
+    end
+
+    # One child helmet at most for each vehicle: a motorbike takes one child.
+    def check_child_helmets(helmets, units)
+      error("Child helmets can't be more than the vehicles (#{units})") if helmets && units && helmets > units
+    end
+
     def boolean_value(key, label, default)
       return default unless @params.key?(key)
 

@@ -36,7 +36,7 @@ module PartnerCalendarSerializer
   # and delivery / return_pickup whether the shop brings it and collects it, to delivery_address.
   def self.booking(booking, listing = booking.listing)
     booking.slice(:id, :reference, :guest_name, :guest_email, :guest_phone, :starts_on, :ends_on, :starts_at, :ends_at, :quantity, :guests,
-      :room_guests, :pets, :delivery, :return_pickup, :delivery_address, :status, :source, :booking_mode, :total_cents, :commission_cents, :refund_cents, :cancelled_by,
+      :room_guests, :pets, :delivery, :return_pickup, :delivery_address, :child_helmets, :status, :source, :booking_mode, :total_cents, :commission_cents, :refund_cents, :cancelled_by,
       :expires_at, :notes, :created_at).symbolize_keys.merge(to_be_agreed: booking.price_breakdown["to_be_agreed"] == true,
         listing: { id: listing.id, title: listing.title })
   end

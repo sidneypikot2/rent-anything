@@ -106,7 +106,8 @@ module Bookings
       guests, room_guests, pets = party.values_at(:guests, :room_guests, :pets)
       units = Booking.units_for(listing, guests, room_guests:, chosen:)
       line = Bookings::Price.call(listing, starts_on:, ends_on:, quantity: units, guests:, room_guests:, pets:,
-        except_booking: @booking, delivery: @booking.delivery, return_pickup: @booking.return_pickup)
+        except_booking: @booking, delivery: @booking.delivery, return_pickup: @booking.return_pickup,
+        child_helmets: @booking.child_helmets)
       ledger = Availability::Ledger.new([ listing ], starts_on, ends_on, except: @booking)
       refusal = ledger.refusal(listing, Booking.days_for(listing, starts_on, ends_on), units, period:)
       return error("#{listing.title}: #{refusal}") if refusal

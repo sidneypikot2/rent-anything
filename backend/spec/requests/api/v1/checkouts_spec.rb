@@ -165,6 +165,23 @@ RSpec.describe "Checkouts", type: :request do
         end
       end
 
+      response "201", "a motorbike rental with child helmets, their fee in the total (RAA-205)" do
+        schema "$ref" => "#/components/schemas/checkout"
+
+        let(:click) { create(:listing, :vehicle, booking_mode: "instant").tap { _1.units.create!(position: 2) } }
+        let!(:item) { create(:trip_item, trip:, listing: click, starts_on: day, ends_on: day + 1, quantity: 2, units: 2, child_helmets: 1) }
+        let(:item_ids) { [ item.id ] }
+
+        before { click.vehicle_rate.update!(child_helmet_fee_cents: 5_000) }
+
+        run_test! do |response|
+          booking = response.parsed_body["bookings"].sole
+          expect(booking["total_cents"]).to eq((click.vehicle_rate.daily_price_cents * 2) + 5_000)
+          expect(booking["child_helmets"]).to eq(1)
+          expect(Booking.find(booking["id"]).price_breakdown).to include("child_helmets_cents" => 5_000, "child_helmets" => 1)
+        end
+      end
+
       response "422", "a pickup before the motorbike is back" do
         schema "$ref" => "#/components/schemas/validation_errors"
 

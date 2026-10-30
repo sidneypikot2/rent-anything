@@ -169,7 +169,7 @@ RSpec.describe "Areas", type: :request do
         end
       end
 
-      response "200", "a vehicle's row says whether the shop delivers and collects it (RAA-204)" do
+      response "200", "a vehicle's row says whether the shop delivers and collects it, priced or not (RAA-204)" do
         schema "$ref" => "#/components/schemas/area_detail"
         let(:slug) { "bantayan-island" }
 
@@ -177,6 +177,7 @@ RSpec.describe "Areas", type: :request do
           create(:listing, :vehicle, area: bantayan, title: "Door-to-door bike").vehicle_rate.update!(delivery_fee_cents: 0, return_pickup_fee_cents: 15_000)
           create(:listing, :vehicle, area: bantayan, title: "Drop-off bike").vehicle_rate.update!(delivery_fee_cents: 10_000)
           create(:listing, :vehicle, area: bantayan, title: "Shop-only bike")
+          create(:listing, :vehicle, area: bantayan, title: "Unpriced shop bike").vehicle_rate.update_columns(daily_price_cents: 0)
           create(:listing, :stay, area: bantayan, title: "Kota Beach house")
         end
 
@@ -186,6 +187,7 @@ RSpec.describe "Areas", type: :request do
           expect(handover.call("Door-to-door bike")).to eq([ 0, 15_000 ])
           expect(handover.call("Drop-off bike")).to eq([ 10_000, nil ])
           expect(handover.call("Shop-only bike")).to eq([ nil, nil ])
+          expect(handover.call("Unpriced shop bike")).to eq([ nil, nil ])
           expect(handover.call("Kota Beach house")).to be_nil
         end
       end

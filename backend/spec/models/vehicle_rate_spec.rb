@@ -66,6 +66,15 @@ RSpec.describe VehicleRate do
     expect(rate(delivery_fee_cents: 0, return_pickup_fee_cents: 10_000)).to have_attributes(delivers?: true, picks_up?: true)
   end
 
+  it "offers child helmets on a motorcycle only, 0 being included (RAA-205)" do
+    expect(rate(child_helmet_fee_cents: 0)).to be_child_helmets
+    expect(rate(child_helmet_fee_cents: nil)).not_to be_child_helmets
+    expect(messages(rate(child_helmet_fee_cents: -1))).to include("Child helmet fee cents must be greater than or equal to 0")
+    car = create(:listing, :vehicle, category: create(:category, :car), with_rate: false)
+    expect(messages(described_class.new(listing: car, daily_price_cents: 250_000, child_helmet_fee_cents: 5_000)))
+      .to include("Child helmets are only for a motorcycle")
+  end
+
   it "is back-filled at zero for vehicle listings without one, and for nothing else" do
     require Rails.root.join("db/migrate/20261023090000_create_vehicle_rates").to_s
     listing

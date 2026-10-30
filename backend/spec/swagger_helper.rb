@@ -55,8 +55,13 @@ PICKUP_TIMES = {
   }
 }.freeze
 
-# A vehicle rental's delivery and pick-up (RAA-195), as an item or a booking keeps them.
+# A vehicle rental's delivery and pick-up (RAA-195), and its child helmets (RAA-205), as an
+# item or a booking keeps them.
 DELIVERY_FIELDS = {
+  child_helmets: {
+    type: :integer, minimum: 0, maximum: 99,
+    description: "A motorcycle rental's child helmets, at most one a vehicle, where the shop offers them (RAA-205)"
+  },
   delivery: { type: :boolean, description: "A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195)" },
   return_pickup: { type: :boolean, description: "A vehicle rental collected from the guest at the end, for the shop's fee each vehicle" },
   delivery_address: {
@@ -387,7 +392,7 @@ RSpec.configure do |config|
               },
               listing_active: { type: :boolean, description: "False once the listing is paused or delisted: it can't be booked" }
             },
-            required: %w[id starts_on ends_on quantity room_guests pets delivery return_pickup delivery_address sleeps max_guests max_quantity seats units units_chosen units_free pickup_time returns_at business booking_type area destination listing booking unavailable cancellation_policy listing_active]
+            required: %w[id starts_on ends_on quantity room_guests pets delivery return_pickup delivery_address child_helmets sleeps max_guests max_quantity seats units units_chosen units_free pickup_time returns_at business booking_type area destination listing booking unavailable cancellation_policy listing_active]
           },
           # A trip's view-only share link (RAA-176), as its guest sees it.
           trip_share: {
@@ -1134,6 +1139,10 @@ RSpec.configure do |config|
                 type: :integer, minimum: 0, nullable: true,
                 description: "Collecting it from the guest at the end: null not offered, 0 free"
               },
+              child_helmet_fee_cents: {
+                type: :integer, minimum: 0, nullable: true,
+                description: "A motorcycle's child helmet per helmet and day: null not offered, 0 included (RAA-205)"
+              },
               min_rental_days: { type: :integer, minimum: 1, maximum: 365 },
               km_limit_per_day: { type: :integer, minimum: 1, maximum: 2000, nullable: true, description: "Null: unlimited" },
               excess_km_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Per km above the daily limit" },
@@ -1156,7 +1165,7 @@ RSpec.configure do |config|
             required: %w[daily_price_cents half_day_price_cents half_day_hours hourly_price_cents weekly_price_cents
               monthly_price_cents security_deposit_cents delivery_fee_cents return_pickup_fee_cents min_rental_days
               km_limit_per_day excess_km_fee_cents driving driver_fee_cents pickup_from_hour pickup_until_hour
-              turnaround_minutes]
+              turnaround_minutes child_helmet_fee_cents]
           },
           vehicle_rate_body: {
             type: :object,
@@ -1174,6 +1183,10 @@ RSpec.configure do |config|
               security_deposit_cents: { type: :integer, minimum: 0, description: "Default 0" },
               delivery_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Default null: not offered" },
               return_pickup_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Default null: not offered" },
+              child_helmet_fee_cents: {
+                type: :integer, minimum: 0, nullable: true,
+                description: "A motorcycle only, per helmet and day: default null not offered, 0 included (RAA-205)"
+              },
               min_rental_days: { type: :integer, minimum: 1, maximum: 365, description: "Default 1" },
               km_limit_per_day: { type: :integer, minimum: 1, maximum: 2000, nullable: true, description: "Default null" },
               excess_km_fee_cents: { type: :integer, minimum: 0, nullable: true, description: "Default null" },
@@ -1592,7 +1605,7 @@ RSpec.configure do |config|
                     cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" },
                     handover: {
                       type: :object, nullable: true,
-                      description: "A priced vehicle's delivery and pick-up fees, so its card says how it reaches the guest (RAA-204); null for anything else",
+                      description: "A vehicle's delivery and pick-up fees, priced or not, so its card says how it reaches the guest (RAA-204, RAA-205); null for anything else",
                       properties: {
                         delivery_fee_cents: { type: :integer, nullable: true, description: "To bring it to the guest (0 is free); null when the shop doesn't" },
                         return_pickup_fee_cents: { type: :integer, nullable: true, description: "To collect it from the guest at the end (0 is free); null when the shop doesn't" }
@@ -1969,7 +1982,7 @@ RSpec.configure do |config|
               },
               created_at: { type: :string, format: "date-time" }
             },
-            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address status source
+            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address child_helmets status source
               booking_mode total_cents to_be_agreed commission_cents refund_cents cancelled_by expires_at notes listing
               created_at]
           },
@@ -2082,7 +2095,7 @@ RSpec.configure do |config|
               },
               created_at: { type: :string, format: "date-time" }
             },
-            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address status source
+            required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address child_helmets status source
               booking_mode booking_type
               total_cents to_be_agreed commission_cents refund_cents cancelled_by cancellation_policy expires_at
               responded_at notes listing partner traveller created_at]
@@ -2135,7 +2148,7 @@ RSpec.configure do |config|
                 description: "Its history, oldest first"
               }
             },
-            required: %w[id reference status booking_mode starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address total_cents to_be_agreed
+            required: %w[id reference status booking_mode starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address child_helmets total_cents to_be_agreed
               cancellation_policy expires_at confirmed_at cancelled_at cancelled_by refund_cents cancellable
               refund_if_cancelled_cents free_cancellation_until trip_id trip_item_id booking_type area listing created_at events]
           },

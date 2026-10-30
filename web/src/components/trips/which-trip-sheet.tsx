@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, type FormEvent } from "react";
-import { BagGlyph, CategoryGlyph, GuestsGlyph, MapGlyph } from "@/components/discovery/tag-glyphs";
+import { BagGlyph, CategoryGlyph, FeatureGlyph, GuestsGlyph, MapGlyph } from "@/components/discovery/tag-glyphs";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { Button } from "@/components/ui/button";
 import { DateRangeField } from "@/components/ui/date-range-field";
@@ -23,7 +23,18 @@ import { VehicleCounters } from "./people-and-vehicles";
 import { unitsFor, vehiclePartyText } from "./vehicle-party";
 import { sameItem } from "./trip-missing";
 import { TripOption } from "./trip-option";
-import { deliveryHow, DeliveryOptions, DropOffAddress, needsAddress, NO_DELIVERY, wantsDelivery, type Delivery } from "./delivery-options";
+import {
+  AtTheShopRow,
+  childHelmetsText,
+  ChildHelmetsRow,
+  deliveryHow,
+  DeliveryOptions,
+  DropOffAddress,
+  needsAddress,
+  NO_DELIVERY,
+  wantsDelivery,
+  type Delivery,
+} from "./delivery-options";
 import {
   useAddTripItem,
   useTripSuggestion,
@@ -292,11 +303,17 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   const mixDelivery = mix?.find((item) => wantsDelivery(item.delivery))?.delivery ?? null;
   const [mixAddress, setMixAddress] = useState(mixDelivery?.address ?? "");
   const addressMissing = deliveryFees ? needsAddress(delivery) : mixDelivery !== null && !mixAddress.trim();
+  // A motorcycle's child helmets (RAA-205): the booking card's, until changed here, one a vehicle
+  // at most. A shop's models keep what the shop sheet picked.
+  const [typedHelmets, setChildHelmets] = useState(request.childHelmets ?? 0);
+  const childHelmets = deliveryFees?.childHelmet !== null && deliveryFees?.childHelmet !== undefined ? Math.min(typedHelmets, vehicleUnits ?? 0) : 0;
+  const mixHelmets = mix?.reduce((sum, item) => sum + (item.childHelmets ?? 0), 0) ?? 0;
+  const mixVehicles = Boolean(mix?.some((item) => item.units));
   const dateError = noNight ?? (datesValid ? undefined : "Pick both dates, or neither");
   // What the add costs (RAA-191): each item of a mix, or the one listing as the sheet has it now.
   const breakdown = usePriceBreakdown(
     mix
-      ? mix.map((item) => ({ ...dated, listingId: item.listingId, quantity: item.quantity, units: item.units, roomGuests: item.roomGuests, pets: item.pets, pickupTime: item.pickupTime, delivery: item.delivery }))
+      ? mix.map((item) => ({ ...dated, listingId: item.listingId, quantity: item.quantity, units: item.units, roomGuests: item.roomGuests, pets: item.pets, pickupTime: item.pickupTime, delivery: item.delivery, childHelmets: item.childHelmets }))
       : [
           {
             ...dated,
@@ -307,6 +324,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
             pets: arrangement?.pets ?? 0,
             pickupTime: vehicle ? pickupTime : null,
             delivery: deliveryFees ? delivery : null,
+            childHelmets,
           },
         ],
     mix?.map((item) => item.title),
@@ -329,6 +347,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
           units: vehicle ? vehicleUnits : undefined,
           pickupTime: vehicle ? pickupTime : null,
           delivery: deliveryFees ? delivery : (request.delivery ?? null),
+          childHelmets: mix ? undefined : childHelmets,
           roomGuests: arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null,
           pets: arrangement?.pets ?? 0,
         },
@@ -616,6 +635,13 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
               />
             )}
             {deliveryFees && <DeliveryOptions fees={deliveryFees} value={delivery} onChange={setDelivery} />}
+            {((vehicle && !wantsDelivery(delivery)) || (mixVehicles && !mixDelivery)) && <AtTheShopRow place={request.preview?.place} />}
+            {vehicle && (
+              <ChildHelmetsRow fee={deliveryFees?.childHelmet} value={childHelmets} max={vehicleUnits ?? 0} onChange={setChildHelmets} />
+            )}
+            {mixHelmets > 0 && (
+              <TicketRow icon={<FeatureGlyph name="helmet" />} label="Child helmets" value={childHelmetsText(mixHelmets)} data-testid="which-trip-child-helmets" />
+            )}
             {mixDelivery && (
               <>
                 <TicketRow

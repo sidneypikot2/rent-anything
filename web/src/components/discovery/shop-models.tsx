@@ -16,7 +16,17 @@ import { useSession } from "@/lib/auth/session";
 import { formatPeso } from "@/lib/money";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { addDays, formatDateRange, todayIso } from "@/components/trips/format";
-import { DeliveryOptions, handoverLabel, NO_DELIVERY, sharedFees, wantsDelivery, type Delivery } from "@/components/trips/delivery-options";
+import {
+  AtTheShopRow,
+  childHelmetFeeText,
+  ChildHelmetsRow,
+  DeliveryOptions,
+  handoverLabel,
+  NO_DELIVERY,
+  sharedFees,
+  wantsDelivery,
+  type Delivery,
+} from "@/components/trips/delivery-options";
 import { formatRentalSpan, PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
 import { useOptionalTripAdd } from "@/components/trips/trip-add-provider";
 import { tripDatesQuery, type TripDates } from "@/components/trips/trip-dates";
@@ -33,6 +43,8 @@ type Options = {
   people: number;
   // Only these of the shop's listings (What to book's filters); left out, all in the category.
   listingIds?: number[];
+  // The shop's place ("Santa Fe"), where its vehicles are collected when it doesn't bring them.
+  place?: string;
   // After the add has started (the add sheet takes over): a pop-up closes.
   onAdding?: () => void;
 };
@@ -62,7 +74,7 @@ export function splitPeople(picked: { units: number; seats: number }[], people: 
 // trip), and everything picked goes at one pickup time (RAA-195), asked right under the dates
 // (RAA-205): each model says how many are free from that pickup to the return. A model's row
 // opens its details in place (RAA-205), so the guest compares models without leaving the list.
-export function useShopModels({ business, category, dates, people, listingIds, onAdding }: Options) {
+export function useShopModels({ business, category, dates, people, listingIds, place, onAdding }: Options) {
   const session = useSession();
   const flow = useOptionalTripAdd();
   // The rental's own dates, the trip's at first; one date is one day, back the next.
@@ -93,9 +105,26 @@ export function useShopModels({ business, category, dates, people, listingIds, o
     returnPickup: delivery.returnPickup && fees.returnPickup !== null,
   };
   const chosenDelivery = wantsDelivery(chosen) ? chosen : null;
+  // Child helmets (RAA-205), where every model picked has them: one a motorbike at most, given to
+  // the models in order, as many as each has bikes.
+  const [childHelmets, setChildHelmets] = useState(0);
+  const childHelmetCount = fees.childHelmet !== null && fees.childHelmet !== undefined ? Math.min(childHelmets, units) : 0;
+  const helmetsOf = picked.map((each, index) => {
+    const before = picked.slice(0, index).reduce((sum, other) => sum + other.units, 0);
+    return Math.min(Math.max(childHelmetCount - before, 0), each.units);
+  });
   // Priced by the API, each model as the add will send it: its vehicles and the people on them.
   const breakdown = usePriceBreakdown(
-    picked.map((each, index) => ({ listingId: each.model.id, startsOn: from, endsOn: to, quantity: split[index], units: each.units, pickupTime, delivery: chosenDelivery })),
+    picked.map((each, index) => ({
+      listingId: each.model.id,
+      startsOn: from,
+      endsOn: to,
+      quantity: split[index],
+      units: each.units,
+      pickupTime,
+      delivery: chosenDelivery,
+      childHelmets: helmetsOf[index],
+    })),
   );
   // The pickup times free for every model picked; before one is, the shop's (any model free then).
   const pickupTimes = (picked.length > 0 ? breakdown.price?.pickupTimes : null) ?? shop.data?.pickup_times ?? null;
@@ -120,7 +149,7 @@ export function useShopModels({ business, category, dates, people, listingIds, o
       endsOn: to,
       quantity: split.reduce((sum, count) => sum + count, 0),
       guests: people,
-      preview: { category: category.name, by: `by ${business.name}`, photo: null, price: total !== null ? formatPeso(total) : undefined },
+      preview: { category: category.name, by: `by ${business.name}`, place, photo: null, price: total !== null ? formatPeso(total) : undefined },
       mix: picked.map((each, index) => ({
         listingId: each.model.id,
         title: each.model.title,
@@ -131,6 +160,7 @@ export function useShopModels({ business, category, dates, people, listingIds, o
         shared: false,
         pickupTime: pickupTime ?? (returnsAt ? rentalClock(returnsAt) : null),
         delivery: chosenDelivery,
+        childHelmets: helmetsOf[index],
       })),
     });
     onAdding?.();
@@ -302,6 +332,7 @@ export function useShopModels({ business, category, dates, people, listingIds, o
                   {rate && (
                     <p className="font-semibold text-foreground">
                       {handoverLabel({ delivery: rate.delivery_fee_cents, returnPickup: rate.return_pickup_fee_cents })}
+                      {rate.child_helmet_fee_cents !== null && ` · Child helmets: ${childHelmetFeeText(rate.child_helmet_fee_cents).toLowerCase()}`}
                     </p>
                   )}
                   <Link href={`/listings/${model.id}${tripDatesQuery({ ...dates, from, to })}`} className="w-fit font-semibold text-link underline underline-offset-4" data-testid="listing-link">
@@ -315,11 +346,11 @@ export function useShopModels({ business, category, dates, people, listingIds, o
         </Ticket>
       )}
 
-      {(fees.delivery !== null || fees.returnPickup !== null) && (
-        <Ticket>
-          <DeliveryOptions fees={fees} value={chosen} onChange={setDelivery} address={false} />
-        </Ticket>
-      )}
+      <Ticket>
+        <DeliveryOptions fees={fees} value={chosen} onChange={setDelivery} address={false} />
+        {!chosenDelivery && <AtTheShopRow place={place} />}
+        <ChildHelmetsRow fee={fees.childHelmet} from={fees.from} value={childHelmetCount} max={units} onChange={setChildHelmets} />
+      </Ticket>
       {breakdown.price?.unavailable && <p className="text-sm font-semibold text-warning">{breakdown.price.unavailable}</p>}
 
       <div className="flex flex-col gap-2" data-testid="shop-seats">

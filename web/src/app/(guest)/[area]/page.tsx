@@ -434,6 +434,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                     : undefined,
                                   unpriced: pricedByText(listing.booking_type),
                                   instantBook: listing.instant_book,
+                                  place: listing.area_name,
                                   handover: listing.handover,
                                   stay:
                                     listing.booking_type === "stay"

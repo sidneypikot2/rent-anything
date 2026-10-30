@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_29_124733) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_30_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -150,6 +150,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_124733) do
     t.boolean "delivery", default: false, null: false
     t.boolean "return_pickup", default: false, null: false
     t.string "delivery_address"
+    t.integer "child_helmets", default: 0, null: false
     t.index ["checkout_id"], name: "index_bookings_on_checkout_id"
     t.index ["listing_id", "starts_at", "ends_at"], name: "index_bookings_on_listing_id_and_starts_at_and_ends_at"
     t.index ["listing_id", "starts_on", "ends_on"], name: "index_bookings_on_listing_id_and_starts_on_and_ends_on"
@@ -166,6 +167,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_124733) do
     t.check_constraint "char_length(delivery_address::text) <= 200", name: "bookings_delivery_address_length_check"
     t.check_constraint "char_length(guest_name::text) >= 1 AND char_length(guest_name::text) <= 80", name: "bookings_guest_name_length_check"
     t.check_constraint "char_length(notes) <= 500", name: "bookings_notes_length_check"
+    t.check_constraint "child_helmets >= 0", name: "bookings_child_helmets_check"
     t.check_constraint "commission_bps >= 0 AND commission_bps <= 10000", name: "bookings_commission_bps_check"
     t.check_constraint "commission_cents >= 0 AND commission_cents <= total_cents", name: "bookings_commission_check"
     t.check_constraint "ends_at > starts_at", name: "bookings_period_order_check"
@@ -639,11 +641,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_124733) do
     t.boolean "delivery", default: false, null: false
     t.boolean "return_pickup", default: false, null: false
     t.string "delivery_address"
+    t.integer "child_helmets", default: 0, null: false
     t.index ["listing_id"], name: "index_trip_items_on_listing_id"
     t.index ["trip_id"], name: "index_trip_items_on_trip_id"
     t.check_constraint "(delivery OR return_pickup) = (delivery_address IS NOT NULL)", name: "trip_items_delivery_address_check"
     t.check_constraint "(starts_on IS NULL) = (ends_on IS NULL)", name: "trip_items_dates_both_or_neither_check"
     t.check_constraint "char_length(delivery_address::text) <= 200", name: "trip_items_delivery_address_length_check"
+    t.check_constraint "child_helmets >= 0", name: "trip_items_child_helmets_check"
     t.check_constraint "ends_on >= starts_on", name: "trip_items_dates_order_check"
     t.check_constraint "pets >= 0 AND pets <= 20", name: "trip_items_pets_check"
     t.check_constraint "pickup_time::text ~ '^([01][0-9]|2[0-3]):(00|30)$'::text", name: "trip_items_pickup_time_check"
@@ -716,8 +720,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_124733) do
     t.integer "pickup_from_hour", default: 7, null: false
     t.integer "pickup_until_hour", default: 19, null: false
     t.integer "turnaround_minutes", default: 0, null: false
+    t.bigint "child_helmet_fee_cents"
     t.index ["listing_id"], name: "index_vehicle_rates_on_listing_id", unique: true
     t.check_constraint "(driving::text = 'either'::text) = (driver_fee_cents IS NOT NULL)", name: "vehicle_rates_driver_fee_needs_choice_check"
+    t.check_constraint "child_helmet_fee_cents >= 0", name: "vehicle_rates_child_helmet_fee_check"
     t.check_constraint "daily_price_cents >= 0", name: "vehicle_rates_daily_price_check"
     t.check_constraint "delivery_fee_cents >= 0", name: "vehicle_rates_delivery_fee_check"
     t.check_constraint "driver_fee_cents > 0", name: "vehicle_rates_driver_fee_check"

@@ -38,6 +38,8 @@ RSpec.describe "Listing prices", type: :request do
         description: "A vehicle rental brought to the guest: adds the shop's delivery fee for each vehicle (RAA-195)"
       parameter name: :return_pickup, in: :query, type: :boolean, required: false,
         description: "A vehicle rental collected from the guest at the end: adds the shop's fee for each vehicle"
+      parameter name: :child_helmets, in: :query, type: :integer, required: false,
+        description: "A motorcycle rental's child helmets, at most one a vehicle: the shop's fee for each a day (RAA-205)"
 
       let(:listing_id) { click.id }
       let(:starts_on) { day.iso8601 }
@@ -72,6 +74,31 @@ RSpec.describe "Listing prices", type: :request do
             { "label" => "Delivery · 5 × ₱150", "amount_cents" => 75_000 },
             { "label" => "Pick-up at the end · 5 × ₱0", "amount_cents" => 0 }
           ])
+        end
+      end
+
+      # Child helmets (RAA-205): the shop's fee for each helmet and day, or a line saying they're included.
+      response "200", "child helmets, a fee each a day" do
+        schema "$ref" => "#/components/schemas/listing_price"
+        let(:child_helmets) { 2 }
+
+        before { click.vehicle_rate.update!(child_helmet_fee_cents: 5_000) }
+
+        run_test! do |response|
+          expect(response.parsed_body["total_cents"]).to eq(500_000 + 20_000)
+          expect(response.parsed_body["lines"].last).to eq("label" => "Child helmets · 2 × ₱50 × 2 days", "amount_cents" => 20_000)
+        end
+      end
+
+      response "200", "child helmets the shop includes" do
+        schema "$ref" => "#/components/schemas/listing_price"
+        let(:child_helmets) { 2 }
+
+        before { click.vehicle_rate.update!(child_helmet_fee_cents: 0) }
+
+        run_test! do |response|
+          expect(response.parsed_body["total_cents"]).to eq(500_000)
+          expect(response.parsed_body["lines"].last).to eq("label" => "Child helmets · 2, included", "amount_cents" => 0)
         end
       end
 
@@ -213,6 +240,20 @@ RSpec.describe "Listing prices", type: :request do
           let(:delivery) { true }
 
           run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "This shop doesn't deliver" ]) }
+        end
+
+        context "with child helmets from a shop that has none" do
+          let(:child_helmets) { 1 }
+
+          run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "This shop doesn't offer child helmets" ]) }
+        end
+
+        context "with more child helmets than motorbikes" do
+          let(:child_helmets) { 6 }
+
+          before { click.vehicle_rate.update!(child_helmet_fee_cents: 0) }
+
+          run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Child helmets can't be more than the vehicles (5)" ]) }
         end
 
         context "with a pickup time for a stay" do

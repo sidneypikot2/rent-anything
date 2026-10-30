@@ -35,7 +35,7 @@ module Discovery
             details: ListingDetailSerializer.details(listing),
             tour: tour_json(listing.tour_detail),
             cancellation_policy: listing.cancellation_policy,
-            handover: handover_json(listing.vehicle_rate)
+            handover: handover_json(listing)
           )
         end
       }
@@ -66,9 +66,13 @@ module Discovery
       detail&.slice(:tour_type, :min_guests, :max_guests)&.symbolize_keys
     end
 
-    # A priced vehicle's delivery and pick-up fees (RAA-204), for its card; nil for anything else.
-    def handover_json(rate)
-      rate&.priced? ? rate.slice(:delivery_fee_cents, :return_pickup_fee_cents).symbolize_keys : nil
+    # A vehicle's delivery and pick-up fees (RAA-204), for its card, priced or not (RAA-205): both
+    # nil when it has no rate yet; nil for anything else.
+    def handover_json(listing)
+      return unless listing.category.vehicle?
+
+      rate = listing.vehicle_rate
+      { delivery_fee_cents: rate&.delivery_fee_cents, return_pickup_fee_cents: rate&.return_pickup_fee_cents }
     end
 
     def landmark_json(landmark)

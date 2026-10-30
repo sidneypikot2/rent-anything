@@ -1526,6 +1526,13 @@ paths:
           shop''s fee for each vehicle'
         schema:
           type: boolean
+      - name: child_helmets
+        in: query
+        required: false
+        description: 'A motorcycle rental''s child helmets, at most one a vehicle:
+          the shop''s fee for each a day (RAA-205)'
+        schema:
+          type: integer
       responses:
         '200':
           description: 'every other kind: gear, a transfer, a tour and a stay'
@@ -4333,6 +4340,12 @@ paths:
                   description: 'A vehicle rental only: one of the shop''s pickup times
                     ("08:30"); it runs 24 hours a day from then. Null or omitted takes
                     the shop''s default (9:00, or its first pickup time)'
+                child_helmets:
+                  type: integer
+                  minimum: 0
+                  maximum: 99
+                  description: A motorcycle rental's child helmets, at most one a
+                    vehicle, where the shop offers them (RAA-205)
                 delivery:
                   type: boolean
                   description: A vehicle rental brought to the guest, for the shop's
@@ -4410,6 +4423,12 @@ paths:
                           times ("08:30"); it runs 24 hours a day from then. Null
                           or omitted takes the shop''s default (9:00, or its first
                           pickup time)'
+                      child_helmets:
+                        type: integer
+                        minimum: 0
+                        maximum: 99
+                        description: A motorcycle rental's child helmets, at most
+                          one a vehicle, where the shop offers them (RAA-205)
                       delivery:
                         type: boolean
                         description: A vehicle rental brought to the guest, for the
@@ -4536,6 +4555,12 @@ paths:
                   description: 'A vehicle rental only: one of the shop''s pickup times
                     ("08:30"); it runs 24 hours a day from then. Null or omitted takes
                     the shop''s default (9:00, or its first pickup time)'
+                child_helmets:
+                  type: integer
+                  minimum: 0
+                  maximum: 99
+                  description: A motorcycle rental's child helmets, at most one a
+                    vehicle, where the shop offers them (RAA-205)
                 delivery:
                   type: boolean
                   description: A vehicle rental brought to the guest, for the shop's
@@ -5589,6 +5614,12 @@ components:
         pets:
           type: integer
           description: A stay's pets (RAA-182)
+        child_helmets:
+          type: integer
+          minimum: 0
+          maximum: 99
+          description: A motorcycle rental's child helmets, at most one a vehicle,
+            where the shop offers them (RAA-205)
         delivery:
           type: boolean
           description: A vehicle rental brought to the guest, for the shop's delivery
@@ -5710,6 +5741,7 @@ components:
       - delivery
       - return_pickup
       - delivery_address
+      - child_helmets
       - sleeps
       - max_guests
       - max_quantity
@@ -7185,6 +7217,12 @@ components:
           nullable: true
           description: 'Collecting it from the guest at the end: null not offered,
             0 free'
+        child_helmet_fee_cents:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: 'A motorcycle''s child helmet per helmet and day: null not
+            offered, 0 included (RAA-205)'
         min_rental_days:
           type: integer
           minimum: 1
@@ -7242,6 +7280,7 @@ components:
       - pickup_from_hour
       - pickup_until_hour
       - turnaround_minutes
+      - child_helmet_fee_cents
     vehicle_rate_body:
       type: object
       description: A half day costs less than a day and an hour less than a half day
@@ -7292,6 +7331,12 @@ components:
           minimum: 0
           nullable: true
           description: 'Default null: not offered'
+        child_helmet_fee_cents:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: 'A motorcycle only, per helmet and day: default null not offered,
+            0 included (RAA-205)'
         min_rental_days:
           type: integer
           minimum: 1
@@ -8081,9 +8126,9 @@ components:
               handover:
                 type: object
                 nullable: true
-                description: A priced vehicle's delivery and pick-up fees, so its
-                  card says how it reaches the guest (RAA-204); null for anything
-                  else
+                description: A vehicle's delivery and pick-up fees, priced or not,
+                  so its card says how it reaches the guest (RAA-204, RAA-205); null
+                  for anything else
                 properties:
                   delivery_fee_cents:
                     type: integer
@@ -8863,6 +8908,12 @@ components:
         pets:
           type: integer
           description: A stay's pets, beside its guests (RAA-182)
+        child_helmets:
+          type: integer
+          minimum: 0
+          maximum: 99
+          description: A motorcycle rental's child helmets, at most one a vehicle,
+            where the shop offers them (RAA-205)
         delivery:
           type: boolean
           description: A vehicle rental brought to the guest, for the shop's delivery
@@ -8950,6 +9001,7 @@ components:
       - delivery
       - return_pickup
       - delivery_address
+      - child_helmets
       - status
       - source
       - booking_mode
@@ -9097,6 +9149,12 @@ components:
         pets:
           type: integer
           description: A stay's pets, beside its guests (RAA-182)
+        child_helmets:
+          type: integer
+          minimum: 0
+          maximum: 99
+          description: A motorcycle rental's child helmets, at most one a vehicle,
+            where the shop offers them (RAA-205)
         delivery:
           type: boolean
           description: A vehicle rental brought to the guest, for the shop's delivery
@@ -9247,6 +9305,7 @@ components:
       - delivery
       - return_pickup
       - delivery_address
+      - child_helmets
       - status
       - source
       - booking_mode
@@ -9322,6 +9381,12 @@ components:
         pets:
           type: integer
           description: A stay's pets (RAA-182)
+        child_helmets:
+          type: integer
+          minimum: 0
+          maximum: 99
+          description: A motorcycle rental's child helmets, at most one a vehicle,
+            where the shop offers them (RAA-205)
         delivery:
           type: boolean
           description: A vehicle rental brought to the guest, for the shop's delivery
@@ -9424,6 +9489,7 @@ components:
       - delivery
       - return_pickup
       - delivery_address
+      - child_helmets
       - total_cents
       - to_be_agreed
       - cancellation_policy

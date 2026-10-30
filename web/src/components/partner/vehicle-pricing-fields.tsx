@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { components } from "@/api/schema";
-import { hasDriverOption, isFourWheel, VEHICLE_AMENITY_LABELS } from "@/components/listings/vehicle-labels";
+import { hasChildHelmets, hasDriverOption, isFourWheel, VEHICLE_AMENITY_LABELS } from "@/components/listings/vehicle-labels";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { ChoiceCards } from "@/components/ui/choice-cards";
@@ -63,6 +63,8 @@ export type VehiclePricingValues = {
   deliveryFee: string;
   pickup: Service;
   pickupFee: string;
+  childHelmets: Service;
+  childHelmetFee: string;
   driving: Driving;
   driverFee: string;
   pickupFrom: string;
@@ -92,6 +94,8 @@ export const NEW_VEHICLE_PRICING: VehiclePricingValues = {
   deliveryFee: "",
   pickup: "none",
   pickupFee: "",
+  childHelmets: "none",
+  childHelmetFee: "",
   driving: "self_drive",
   driverFee: "",
   pickupFrom: "7",
@@ -127,6 +131,8 @@ export function toVehiclePricingValues(rate: VehicleRate | null, fees: ListingFe
     deliveryFee: peso(rate.delivery_fee_cents),
     pickup: service(rate.return_pickup_fee_cents),
     pickupFee: peso(rate.return_pickup_fee_cents),
+    childHelmets: service(rate.child_helmet_fee_cents),
+    childHelmetFee: peso(rate.child_helmet_fee_cents),
     driving: rate.driving,
     driverFee: peso(rate.driver_fee_cents),
     pickupFrom: String(rate.pickup_from_hour),
@@ -144,8 +150,9 @@ const optionalCents = (text: string) => (text.trim() ? toCents(text) : null);
 const switchedCents = (on: boolean, text: string) => (on ? optionalCents(text) : null);
 const serviceCents = (choice: Service, fee: string) => (choice === "none" ? null : choice === "free" ? 0 : toCents(fee));
 
-// What the API takes. Call it after vehiclePricingErrors has passed.
-export function toVehicleRateBody(values: VehiclePricingValues): VehicleRateBody {
+// What the API takes. Call it after vehiclePricingErrors has passed. Child helmets are a
+// motorcycle's only (RAA-205): any other vehicle sends none.
+export function toVehicleRateBody(values: VehiclePricingValues, slug?: string): VehicleRateBody {
   const kmLimit = values.kmLimitOn ? wholeNumber(values.kmLimit) : null;
   return {
     daily_price_cents: toCents(values.daily) ?? 0,
@@ -157,6 +164,7 @@ export function toVehicleRateBody(values: VehiclePricingValues): VehicleRateBody
     security_deposit_cents: switchedCents(values.depositOn, values.deposit) ?? 0,
     delivery_fee_cents: serviceCents(values.delivery, values.deliveryFee),
     return_pickup_fee_cents: serviceCents(values.pickup, values.pickupFee),
+    child_helmet_fee_cents: hasChildHelmets(slug) ? serviceCents(values.childHelmets, values.childHelmetFee) : null,
     min_rental_days: wholeNumber(values.minDays) ?? 1,
     km_limit_per_day: kmLimit,
     excess_km_fee_cents: kmLimit ? optionalCents(values.excessKmFee) : null,
@@ -179,6 +187,7 @@ export type VehiclePricingErrors = Partial<
     | "deposit"
     | "deliveryFee"
     | "pickupFee"
+    | "childHelmetFee"
     | "driverFee"
     | "minDays"
     | "kmLimit"
@@ -237,6 +246,7 @@ export function vehiclePricingErrors(values: VehiclePricingValues, included: str
   if (Number(values.pickupUntil) < Number(values.pickupFrom)) errors.pickupUntil = "Can't be before opening";
   if (values.delivery === "fee" && !toCents(values.deliveryFee)) errors.deliveryFee = "Set a fee above ₱0, or choose Free";
   if (values.pickup === "fee" && !toCents(values.pickupFee)) errors.pickupFee = "Set a fee above ₱0, or choose Free";
+  if (values.childHelmets === "fee" && !toCents(values.childHelmetFee)) errors.childHelmetFee = "Set a fee above ₱0, or choose Free";
   if (values.driving === "either" && !toCents(values.driverFee)) {
     errors.driverFee = "Set the driver's fee per day, or pick another option";
   }
@@ -570,6 +580,26 @@ export function VehiclePricingFields({
           />
         </div>
       </PricingSection>
+
+      {hasChildHelmets(slug) && (
+        <PricingSection
+          title="Child helmets"
+          intro="Helmets sized for a child riding as a passenger. Free shows as included; with a fee, guests add them for each day."
+          data-testid="pricing-child-helmets"
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ServiceFields
+              label="Child helmets"
+              feeLabel="Fee per helmet a day (₱)"
+              name="child_helmets"
+              choice={values.childHelmets}
+              fee={values.childHelmetFee}
+              error={errors?.childHelmetFee}
+              onChange={(childHelmets, childHelmetFee) => set({ childHelmets, childHelmetFee })}
+            />
+          </div>
+        </PricingSection>
+      )}
 
       <PricingSection>
         <div className="flex flex-col gap-3">

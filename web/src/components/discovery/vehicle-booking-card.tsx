@@ -10,7 +10,7 @@ import { useSession } from "@/lib/auth/session";
 import { addPreview } from "@/components/trips/add-preview";
 import { addDays, formatDateRange, todayIso } from "@/components/trips/format";
 import { PeopleAndVehicles, MAX_PEOPLE } from "@/components/trips/people-and-vehicles";
-import { DeliveryOptions, needsAddress, NO_DELIVERY, type Delivery } from "@/components/trips/delivery-options";
+import { AtTheShopRow, ChildHelmetsRow, DeliveryOptions, needsAddress, NO_DELIVERY, wantsDelivery, type Delivery } from "@/components/trips/delivery-options";
 import { formatRentalSpan, PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { PriceBreakdown, usePriceBreakdown } from "@/components/trips/price-breakdown";
@@ -61,6 +61,8 @@ export function VehicleBookingCard({
   const [delivery, setDelivery] = useState<Delivery>(NO_DELIVERY);
   const fees = { delivery: rate.delivery_fee_cents, returnPickup: rate.return_pickup_fee_cents };
   const chosenDelivery = canAdd ? delivery : null;
+  // A motorcycle's child helmets (RAA-205), one a vehicle at most; the add sheet asks them in a panel.
+  const [childHelmets, setChildHelmets] = useState(0);
   // Its own dates, the page's at first: a bike for 1 day of a week-long trip. One date is one day.
   const [rental, setRental] = useState({ from: dates.from ?? "", to: dates.to ?? "" });
   const from = rental.from || undefined;
@@ -75,7 +77,10 @@ export function VehicleBookingCard({
   const short = free !== null && needed > free;
   const days = rentalDays(from, to);
   // Priced by the API as checkout will (RAA-191): the vehicles for the days, the deposit apart.
-  const breakdown = usePriceBreakdown([{ listingId: listing.id, startsOn: from, endsOn: to, quantity: people, units, pickupTime, delivery: chosenDelivery }]);
+  const helmets = canAdd ? Math.min(childHelmets, units) : 0;
+  const breakdown = usePriceBreakdown([
+    { listingId: listing.id, startsOn: from, endsOn: to, quantity: people, units, pickupTime, delivery: chosenDelivery, childHelmets: helmets },
+  ]);
   const pickupTimes = breakdown.price?.pickupTimes;
   const returnsAt = breakdown.price?.returnsAt;
   const noun = vehicleNoun(category);
@@ -138,6 +143,8 @@ export function VehicleBookingCard({
             </TicketNote>
           )}
           {canAdd && <DeliveryOptions fees={fees} value={delivery} onChange={setDelivery} />}
+          {!wantsDelivery(chosenDelivery) && <AtTheShopRow place={listing.area.name} />}
+          {canAdd && <ChildHelmetsRow fee={rate.child_helmet_fee_cents} value={helmets} max={units} onChange={setChildHelmets} />}
           <PriceBreakdown breakdown={breakdown} />
         </Ticket>
 
@@ -162,6 +169,7 @@ export function VehicleBookingCard({
                 units,
                 pickupTime,
                 delivery: chosenDelivery,
+                childHelmets: helmets,
                 guests: dates.guests,
                 preview: addPreview(listing),
               })

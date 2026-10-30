@@ -13,12 +13,16 @@
 # half hour from pickup_from_hour to pickup_until_hour (the shop's hours, in the area's time),
 # and a returned vehicle needs turnaround_minutes (0 to 12 hours, by the half hour) before the
 # next rental can take it.
+#
+# A motorcycle shop can offer child helmets (RAA-205): free (0, an inclusion), for a fee per
+# helmet and day, or not at all (nil). A guest takes up to one for each motorbike.
 class VehicleRate < ApplicationRecord
   WEEK_DAYS = 7
   MONTH_DAYS = 30
   DRIVING = %w[self_drive with_driver either].freeze
   SELF_DRIVE_ONLY_SLUGS = %w[motorcycle].freeze
   MAX_TURNAROUND_MINUTES = 720
+  CHILD_HELMET_SLUGS = %w[motorcycle].freeze
 
   belongs_to :listing, inverse_of: :vehicle_rate
 
@@ -26,7 +30,7 @@ class VehicleRate < ApplicationRecord
     numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validates :half_day_price_cents, :hourly_price_cents, :weekly_price_cents, :monthly_price_cents,
     numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
-  validates :delivery_fee_cents, :return_pickup_fee_cents, :excess_km_fee_cents,
+  validates :delivery_fee_cents, :return_pickup_fee_cents, :excess_km_fee_cents, :child_helmet_fee_cents,
     numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
   validates :half_day_hours, numericality: { only_integer: true, in: 2..12 }
   validates :min_rental_days, numericality: { only_integer: true, in: 1..365 }
@@ -42,6 +46,7 @@ class VehicleRate < ApplicationRecord
   validate :shorter_rentals_cost_less
   validate :excess_km_fee_has_a_limit
   validate :driver_fee_goes_with_a_choice
+  validate :child_helmets_on_a_motorcycle
 
   def priced?
     daily_price_cents.positive?
@@ -53,6 +58,10 @@ class VehicleRate < ApplicationRecord
 
   def picks_up?
     !return_pickup_fee_cents.nil?
+  end
+
+  def child_helmets?
+    !child_helmet_fee_cents.nil?
   end
 
   def self_drive?
@@ -122,6 +131,12 @@ class VehicleRate < ApplicationRecord
 
   def excess_km_fee_has_a_limit
     errors.add(:excess_km_fee_cents, "needs a daily km limit") if excess_km_fee_cents && km_limit_per_day.nil?
+  end
+
+  def child_helmets_on_a_motorcycle
+    return if child_helmet_fee_cents.nil? || CHILD_HELMET_SLUGS.include?(listing&.category&.slug)
+
+    errors.add(:base, "Child helmets are only for a motorcycle")
   end
 
   def driver_fee_goes_with_a_choice

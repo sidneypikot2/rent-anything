@@ -2064,6 +2064,8 @@ export interface paths {
                     delivery?: boolean;
                     /** @description A vehicle rental collected from the guest at the end: adds the shop's fee for each vehicle */
                     return_pickup?: boolean;
+                    /** @description A motorcycle rental's child helmets, at most one a vehicle: the shop's fee for each a day (RAA-205) */
+                    child_helmets?: number;
                 };
                 header?: never;
                 path: {
@@ -5920,6 +5922,8 @@ export interface paths {
                         units?: number | null;
                         /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
                         pickup_time?: string | null;
+                        /** @description A motorcycle rental's child helmets, at most one a vehicle, where the shop offers them (RAA-205) */
+                        child_helmets?: number;
                         /** @description A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195) */
                         delivery?: boolean;
                         /** @description A vehicle rental collected from the guest at the end, for the shop's fee each vehicle */
@@ -5946,6 +5950,8 @@ export interface paths {
                             units?: number | null;
                             /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
                             pickup_time?: string | null;
+                            /** @description A motorcycle rental's child helmets, at most one a vehicle, where the shop offers them (RAA-205) */
+                            child_helmets?: number;
                             /** @description A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195) */
                             delivery?: boolean;
                             /** @description A vehicle rental collected from the guest at the end, for the shop's fee each vehicle */
@@ -6094,6 +6100,8 @@ export interface paths {
                         units?: number | null;
                         /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
                         pickup_time?: string | null;
+                        /** @description A motorcycle rental's child helmets, at most one a vehicle, where the shop offers them (RAA-205) */
+                        child_helmets?: number;
                         /** @description A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195) */
                         delivery?: boolean;
                         /** @description A vehicle rental collected from the guest at the end, for the shop's fee each vehicle */
@@ -7143,6 +7151,8 @@ export interface components {
             }[] | null;
             /** @description A stay's pets (RAA-182) */
             pets: number;
+            /** @description A motorcycle rental's child helmets, at most one a vehicle, where the shop offers them (RAA-205) */
+            child_helmets: number;
             /** @description A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195) */
             delivery: boolean;
             /** @description A vehicle rental collected from the guest at the end, for the shop's fee each vehicle */
@@ -7736,6 +7746,8 @@ export interface components {
             delivery_fee_cents: number | null;
             /** @description Collecting it from the guest at the end: null not offered, 0 free */
             return_pickup_fee_cents: number | null;
+            /** @description A motorcycle's child helmet per helmet and day: null not offered, 0 included (RAA-205) */
+            child_helmet_fee_cents: number | null;
             min_rental_days: number;
             /** @description Null: unlimited */
             km_limit_per_day: number | null;
@@ -7770,6 +7782,8 @@ export interface components {
             delivery_fee_cents?: number | null;
             /** @description Default null: not offered */
             return_pickup_fee_cents?: number | null;
+            /** @description A motorcycle only, per helmet and day: default null not offered, 0 included (RAA-205) */
+            child_helmet_fee_cents?: number | null;
             /** @description Default 1 */
             min_rental_days?: number;
             /** @description Default null */
@@ -8079,7 +8093,7 @@ export interface components {
                     max_guests: number;
                 } | null;
                 cancellation_policy: components["schemas"]["cancellation_policy"];
-                /** @description A priced vehicle's delivery and pick-up fees, so its card says how it reaches the guest (RAA-204); null for anything else */
+                /** @description A vehicle's delivery and pick-up fees, priced or not, so its card says how it reaches the guest (RAA-204, RAA-205); null for anything else */
                 handover: {
                     /** @description To bring it to the guest (0 is free); null when the shop doesn't */
                     delivery_fee_cents: number | null;
@@ -8387,6 +8401,8 @@ export interface components {
             }[] | null;
             /** @description A stay's pets, beside its guests (RAA-182) */
             pets: number;
+            /** @description A motorcycle rental's child helmets, at most one a vehicle, where the shop offers them (RAA-205) */
+            child_helmets: number;
             /** @description A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195) */
             delivery: boolean;
             /** @description A vehicle rental collected from the guest at the end, for the shop's fee each vehicle */
@@ -8491,6 +8507,8 @@ export interface components {
             }[] | null;
             /** @description A stay's pets, beside its guests (RAA-182) */
             pets: number;
+            /** @description A motorcycle rental's child helmets, at most one a vehicle, where the shop offers them (RAA-205) */
+            child_helmets: number;
             /** @description A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195) */
             delivery: boolean;
             /** @description A vehicle rental collected from the guest at the end, for the shop's fee each vehicle */
@@ -8581,6 +8599,8 @@ export interface components {
             }[] | null;
             /** @description A stay's pets (RAA-182) */
             pets: number;
+            /** @description A motorcycle rental's child helmets, at most one a vehicle, where the shop offers them (RAA-205) */
+            child_helmets: number;
             /** @description A vehicle rental brought to the guest, for the shop's delivery fee each vehicle (RAA-195) */
             delivery: boolean;
             /** @description A vehicle rental collected from the guest at the end, for the shop's fee each vehicle */

@@ -42,6 +42,8 @@ export type AddRequest = {
   pickupTime?: string | null;
   // A vehicle rental's delivery and pick-up and their address (RAA-195).
   delivery?: Delivery | null;
+  // A motorcycle rental's child helmets (RAA-205).
+  childHelmets?: number;
   // What the add sheet shows of the listing, as much as the page that started the add knows.
   preview?: AddPreview;
   // Several of one partner's room types added together (RAA-188, a mix from its panel): each its
@@ -60,6 +62,7 @@ export type MixItem = {
   units?: number;
   pickupTime?: string | null;
   delivery?: Delivery | null;
+  childHelmets?: number;
 };
 
 export type AddPreview = {
@@ -70,6 +73,8 @@ export type AddPreview = {
   deliveryFees?: DeliveryFees | null;
   // "by Santa Fe Island Adventures · in Santa Fe"
   by?: string;
+  // Its place ("Santa Fe"): where a rental vehicle is collected when the shop doesn't bring it.
+  place?: string;
   photo?: { src: string; alt: string } | null;
   // "From ₱1,500 / night", or how an unpriced listing is priced.
   price?: string;
@@ -296,6 +301,7 @@ export function useAddTripItem() {
               ...(item.units ? { units: item.units } : {}),
               ...(item.pickupTime ? { pickup_time: item.pickupTime } : {}),
               ...deliveryBody(item.delivery),
+              ...(item.childHelmets ? { child_helmets: item.childHelmets } : {}),
             })),
             ...trip,
           }
@@ -311,6 +317,7 @@ export function useAddTripItem() {
           ...(request.units ? { units: request.units } : {}),
           ...(request.pickupTime ? { pickup_time: request.pickupTime } : {}),
           ...deliveryBody(request.delivery),
+          ...(request.childHelmets ? { child_helmets: request.childHelmets } : {}),
           ...(tripId === null && request.guests ? { guests: request.guests } : {}),
           ...trip,
         },

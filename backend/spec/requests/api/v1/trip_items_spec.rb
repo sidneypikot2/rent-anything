@@ -246,6 +246,33 @@ RSpec.describe "Trip items", type: :request do
           end
         end
 
+        # Child helmets (RAA-205): a motorcycle shop's, at most one for each motorbike.
+        response "201", "child helmets for the children on the motorbikes" do
+          schema "$ref" => "#/components/schemas/trip"
+          let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, quantity: 4, child_helmets: 2 } }
+
+          before { click.vehicle_rate.update!(child_helmet_fee_cents: 5_000) }
+
+          run_test! { |response| expect(response.parsed_body["items"].sole["child_helmets"]).to eq(2) }
+        end
+
+        response "422", "child helmets the shop doesn't offer, or more than the motorbikes" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+          let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, quantity: 2, child_helmets: 1 } }
+
+          context "with a shop that has none" do
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "This shop doesn't offer child helmets" ]) }
+          end
+
+          context "with more than the motorbikes" do
+            let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, quantity: 2, child_helmets: 2 } }
+
+            before { click.vehicle_rate.update!(child_helmet_fee_cents: 0) }
+
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Child helmets can't be more than the vehicles (1)" ]) }
+          end
+        end
+
         response "422", "a pickup time off the half hour, outside the shop's hours, or for a stay" do
           let(:body) { { listing_id: click.id, starts_on: day.iso8601, ends_on: (day + 1).iso8601, pickup_time: "08:15" } }
 

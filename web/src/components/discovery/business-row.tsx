@@ -41,6 +41,8 @@ export type Offer = {
   // says "Price to be agreed" and its section's note says what that means.
   unpriced?: string;
   instantBook: boolean;
+  // Its own place ("Santa Fe"), where a rental vehicle is collected when the shop doesn't bring it.
+  place?: string;
   // A rental vehicle's delivery and pick-up fees (RAA-205), each null when the shop doesn't;
   // left out for anything else.
   handover?: { delivery_fee_cents: number | null; return_pickup_fee_cents: number | null } | null;
@@ -428,6 +430,7 @@ function ShopPanel({
     dates: tripDates,
     people: tripDates.guests,
     listingIds: offers.map((offer) => offer.listingId),
+    place: offers[0].place,
   });
   return (
     <Dialog

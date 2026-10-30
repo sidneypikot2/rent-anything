@@ -532,7 +532,7 @@ RSpec.describe "Partner listings", type: :request do
           { daily_price_cents: 50_000, half_day_price_cents: 35_000, half_day_hours: 5, hourly_price_cents: 10_000,
             weekly_price_cents: 300_000, monthly_price_cents: 1_000_000, security_deposit_cents: 200_000,
             delivery_fee_cents: 0, return_pickup_fee_cents: 15_000, min_rental_days: 1, km_limit_per_day: 150,
-            excess_km_fee_cents: 500 }
+            excess_km_fee_cents: 500, child_helmet_fee_cents: 5_000 }
         end
         let(:attrs) do
           { make: "Honda", model: "Click 125", engine_cc: 125, transmission: "automatic", seats: 2,
@@ -573,7 +573,7 @@ RSpec.describe "Partner listings", type: :request do
               "security_deposit_cents" => 0, "delivery_fee_cents" => nil, "return_pickup_fee_cents" => nil,
               "min_rental_days" => 1, "km_limit_per_day" => nil, "excess_km_fee_cents" => nil,
               "driving" => "self_drive", "driver_fee_cents" => nil, "pickup_from_hour" => 7, "pickup_until_hour" => 19,
-              "turnaround_minutes" => 0
+              "turnaround_minutes" => 0, "child_helmet_fee_cents" => nil
             )
           end
         end
@@ -593,10 +593,21 @@ RSpec.describe "Partner listings", type: :request do
 
           let(:category) { create(:category, :car) }
 
-          before { vehicle_rate.merge!(driving: "either", driver_fee_cents: 150_000) }
+          # Child helmets are a motorcycle's only (RAA-205).
+          before { vehicle_rate.merge!(driving: "either", driver_fee_cents: 150_000).delete(:child_helmet_fee_cents) }
 
           run_test! do |response|
             expect(response.parsed_body["vehicle_rate"]).to include("driving" => "either", "driver_fee_cents" => 150_000)
+          end
+        end
+
+        response "422", "child helmets on a car" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          let(:category) { create(:category, :car) }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to include("Child helmets are only for a motorcycle")
           end
         end
 

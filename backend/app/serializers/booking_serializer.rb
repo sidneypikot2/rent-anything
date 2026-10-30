@@ -24,6 +24,7 @@ module BookingSerializer
       delivery: booking.delivery,
       return_pickup: booking.return_pickup,
       delivery_address: booking.delivery_address,
+      child_helmets: booking.child_helmets,
       total_cents: booking.total_cents,
       to_be_agreed: booking.price_breakdown["to_be_agreed"] == true,
       cancellation_policy: booking.cancellation_policy,

@@ -79,10 +79,14 @@ module Trips
       units = units_value
       pickup_time = pickup_time_value(listing) if listing
       delivery = listing ? delivery_values(listing) : {}
+      child_helmets = (child_helmets_value(listing) if listing) || 0
       quantity = guests_for(room_guests, quantity, sent: @params.key?(:quantity))
       check_stay_party(listing, quantity, room_guests, pets) if listing && @errors.empty?
       check_vehicle_units(listing, quantity, units) if listing && @errors.empty?
-      { listing:, starts_on:, ends_on:, quantity:, room_guests:, pets:, units:, pickup_time:, **delivery }
+      if listing && child_helmets.positive? && @errors.empty?
+        check_child_helmets(child_helmets, Booking.units_for(listing, quantity, room_guests:, chosen: units))
+      end
+      { listing:, starts_on:, ends_on:, quantity:, room_guests:, pets:, units:, pickup_time:, child_helmets:, **delivery }
     end
   end
 end

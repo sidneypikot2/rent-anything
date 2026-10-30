@@ -23,8 +23,11 @@ export type AddListing = {
   units_label?: string;
   // Where guests find it (the API's `group`): "gear" is booked by the count.
   group?: string;
+  // Its place: the area row's area_name, the listing page's area.
+  area_name?: string;
+  area?: { name: string };
   // A rental vehicle's rate: its delivery and pick-up fees (RAA-195).
-  vehicle_rate?: { delivery_fee_cents: number | null; return_pickup_fee_cents: number | null } | null;
+  vehicle_rate?: { delivery_fee_cents: number | null; return_pickup_fee_cents: number | null; child_helmet_fee_cents?: number | null } | null;
 };
 
 // What the add sheet shows of a listing. Plain, so server pages build it too.
@@ -36,6 +39,7 @@ export function addPreview(listing: AddListing, by?: string): AddPreview {
   return {
     category: typeof listing.category === "string" ? listing.category : listing.category?.name,
     by: by ?? (listing.business && `by ${listing.business.name}`),
+    place: listing.area_name ?? listing.area?.name,
     photo: cover ? { src: cover, alt: listing.title } : null,
     price: listing.price_from_cents
       ? ["From", formatPeso(listing.price_from_cents), unit].filter(Boolean).join(" ")
@@ -46,7 +50,11 @@ export function addPreview(listing: AddListing, by?: string): AddPreview {
     vehicleSeats: rentalVehicle ? count(listing.details?.seats) : null,
     deliveryFees:
       rentalVehicle && listing.vehicle_rate
-        ? { delivery: listing.vehicle_rate.delivery_fee_cents, returnPickup: listing.vehicle_rate.return_pickup_fee_cents }
+        ? {
+            delivery: listing.vehicle_rate.delivery_fee_cents,
+            returnPickup: listing.vehicle_rate.return_pickup_fee_cents,
+            childHelmet: listing.vehicle_rate.child_helmet_fee_cents ?? null,
+          }
         : null,
     sleeps: listing.booking_type === "stay" ? count(listing.details?.guests) : null,
     sharedRoom: listing.details?.place_type === "shared_room",
