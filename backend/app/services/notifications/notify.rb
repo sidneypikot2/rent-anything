@@ -23,12 +23,20 @@ module Notifications
         dedupe_key: @dedupe_key)
       ActiveRecord.after_all_transactions_commit do
         UserChannel.notification_created(notification)
-        NotificationMailer.event(notification).deliver_later if Copy.email?(@kind) && @recipient.email.present?
+        email(notification) if Copy.email?(@kind) && @recipient.email.present?
       end
       notification
     end
 
     private
+
+    # After the booking change has committed, so a failed enqueue is reported, not raised to
+    # the request that made the change.
+    def email(notification)
+      NotificationMailer.event(notification).deliver_later
+    rescue StandardError => e
+      Rails.error.report(e, handled: true)
+    end
 
     def duplicate?
       Notification.exists?(recipient: @recipient, kind: @kind, subject: @subject, dedupe_key: @dedupe_key)

@@ -4,7 +4,8 @@ module Notifications
   # for a request whose details changed while it waited (requested to requested).
   #
   # Nothing for a booking the partner took offline (no guest, and they made it), an instant
-  # hold (the guest is paying right then), or starting and completing.
+  # hold (the guest is paying right then), or starting and completing. While requests are
+  # accepted automatically (Bookings.auto_accept?) the partner hears of a booking once paid.
   class BookingChanged < ApplicationService
     def initialize(booking, from:, to:, actor:)
       @booking = booking
@@ -15,7 +16,7 @@ module Notifications
 
     def call
       case [ @from, @to ]
-      in [ nil, "requested" ] then partner("booking.requested")
+      in [ nil, "requested" ] then partner("booking.requested") unless Bookings.auto_accept?
       in [ nil, _ ] then nil
       in [ _, "requested" ] then partner("booking.change_requested")
       # A changed booking paid already is confirmed on that payment straight away.
@@ -24,13 +25,18 @@ module Notifications
         guest("booking.confirmed")
         partner("booking.paid") if first_confirmation?
       in [ "requested", "declined" ] then guest("booking.declined")
-      in [ _, "cancelled" ] then @actor == "guest" ? partner("booking.guest_cancelled") : guest("booking.cancelled")
+      in [ _, "cancelled" ]
+        if @actor != "guest"
+          guest("booking.cancelled", cancelled_by: @actor)
+        elsif !(@from == "awaiting_payment" && unanswered_hold?)
+          partner("booking.guest_cancelled")
+        end
       in [ "requested", "expired" ]
         partner("booking.request_expired")
         guest("booking.request_unanswered")
       in [ _, "expired" ]
         guest("booking.hold_expired")
-        partner("booking.payment_expired") if @booking.responded_at
+        partner("booking.payment_expired") unless unanswered_hold?
       else nil
       end
     end
@@ -41,8 +47,14 @@ module Notifications
       Notify.call(kind, @booking.listing.partner, @booking, params: Copy.booking_params(@booking))
     end
 
-    def guest(kind)
-      Notify.call(kind, @booking.user, @booking, params: Copy.booking_params(@booking))
+    def guest(kind, **extra)
+      Notify.call(kind, @booking.user, @booking, params: Copy.booking_params(@booking, **extra))
+    end
+
+    # Held for payment without the partner ever answering: an instant hold, which they aren't
+    # told of until it is paid.
+    def unanswered_hold?
+      @booking.responded_at.nil?
     end
 
     # A changed booking confirmed again on its first payment is not news to the partner, who

@@ -9,7 +9,7 @@ class Notification < ApplicationRecord
   validates :kind, inclusion: { in: -> { Notifications::Copy::KINDS } }
 
   scope :unread, -> { where(read_at: nil) }
-  scope :newest_first, -> { order(created_at: :desc, id: :desc) }
+  scope :newest_first, -> { order(id: :desc) }
 
   def read?
     read_at.present?

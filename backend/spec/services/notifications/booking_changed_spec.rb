@@ -64,6 +64,30 @@ RSpec.describe Notifications::BookingChanged do
     expect(kinds_for(guest)).to eq(%w[booking.cancelled])
   end
 
+  it "names nobody when someone other than the partner cancels" do
+    booking.update!(status: "confirmed", refund_cents: 123_450)
+    Bookings::Transition.call(booking, "cancelled", actor: "admin")
+
+    expect(kinds_for(guest)).to eq(%w[booking.cancelled])
+    expect(Notifications::Copy.call(Notification.last)[:body])
+      .to end_with("is cancelled. Your payment of ₱1,234.50 will be refunded.")
+  end
+
+  it "doesn't ask the partner to answer a request accepted automatically" do
+    allow(Bookings).to receive(:auto_accept?).and_return(true)
+    new_booking = create(:booking, :checkout, listing:, status: "requested", expires_at: 5.hours.from_now)
+    Bookings::Transition.record_start(new_booking, actor: "guest", user: new_booking.user)
+
+    expect(kinds_for(partner)).to be_empty
+  end
+
+  it "says nothing to the partner when the guest cancels an instant hold" do
+    hold = create(:booking, :checkout, listing:, status: "awaiting_payment", expires_at: 15.minutes.from_now)
+    Bookings::Cancel.call(hold, by: "guest", user: hold.user)
+
+    expect(kinds_for(partner)).to be_empty
+  end
+
   it "tells both when a request expires unanswered, in the app only" do
     expect { Bookings::Transition.call(booking, "expired", actor: "system") }.not_to have_enqueued_mail
 

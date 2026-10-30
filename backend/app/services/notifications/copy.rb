@@ -86,7 +86,7 @@ module Notifications
         when "booking.payment_reminder" then [ "Pay soon: #{listing}", "Your hold on #{dates} ends at #{deadline}. Pay to keep it." ]
         when "booking.confirmed" then [ "Booking confirmed: #{listing}", "You're booked for #{dates}. Reference #{@p['reference']}." ]
         when "booking.declined" then [ "Request declined: #{listing}", "The partner can't take #{dates}.#{refund} Pick something else for your trip." ]
-        when "booking.cancelled" then [ "Booking cancelled: #{listing}", "The partner cancelled #{dates}.#{refund}" ]
+        when "booking.cancelled" then [ "Booking cancelled: #{listing}", "#{cancelled}.#{refund}" ]
         when "booking.request_unanswered" then [ "Request expired: #{listing}", "The partner didn't answer in time for #{dates}. Pick something else for your trip." ]
         when "booking.hold_expired" then [ "Hold expired: #{listing}", "#{dates} wasn't paid for in time, so the hold was let go." ]
         when "booking.starts_tomorrow" then [ "Tomorrow: #{listing}", "#{dates}. Reference #{@p['reference']}." ]
@@ -119,9 +119,20 @@ module Notifications
         at ? Time.iso8601(at).in_time_zone(TIME_ZONE).strftime("%b %-d, %-l:%M %p") : "the deadline"
       end
 
+      # Only a partner's own cancel names them; an admin's or the system's names nobody.
+      def cancelled
+        @p["cancelled_by"] == "partner" ? "The partner cancelled #{dates}" : "Your booking for #{dates} is cancelled"
+      end
+
       def refund
         cents = @p["refund_cents"]
-        cents&.positive? ? " Your payment of ₱#{ActiveSupport::NumberHelper.number_to_delimited(cents / 100)} will be refunded." : ""
+        cents&.positive? ? " Your payment of #{peso(cents)} will be refunded." : ""
+      end
+
+      # "₱1,234" or "₱1,234.50", as Bookings::PriceFor writes it.
+      def peso(cents)
+        amount = cents % 100 == 0 ? cents / 100 : format("%.2f", cents / 100.0)
+        "₱#{ActiveSupport::NumberHelper.number_to_delimited(amount)}"
       end
     end
   end
