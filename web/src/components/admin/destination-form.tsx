@@ -1,15 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { LocationPicker } from "@/components/partner/location-picker";
-import { PHOTO_TYPES, photoProblem } from "@/components/partner/use-listing-photos";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ComboboxField } from "@/components/ui/combobox-field";
-import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Pill } from "@/components/ui/pill";
 import { SelectField } from "@/components/ui/select-field";
@@ -18,12 +15,12 @@ import { Toast, type ToastTone } from "@/components/ui/toast";
 import { DisplayTitle } from "@/components/ui/typography";
 import type { LatLng } from "@/lib/map";
 import { AreaStatusBadge, KIND_LABELS } from "./destinations-list";
+import { PhotoGallery } from "./photo-gallery";
 import { SeedButton, seedCounts, seededAt, seedOutcome } from "./seed-area";
 import {
   isSeeding,
   useAdminArea,
   useAdminAreas,
-  useAreaBanner,
   useAreaOptions,
   useSaveArea,
   useSeedEnds,
@@ -154,13 +151,13 @@ function problemOf(form: FormState, isNew: boolean) {
   return undefined;
 }
 
-// Adding a destination (RAA-166): once saved it opens in its editor, where the banner photo can
-// be added.
+// Adding a destination (RAA-166): once saved it opens in its editor, where its photos can be
+// added.
 export function DestinationForm() {
   return <AreaForm />;
 }
 
-// Editing one: loads it, then the same form with the banner photo and what the gazetteer
+// Editing one: loads it, then the same form with its photos (RAA-211) and what the gazetteer
 // read about it.
 export function DestinationEditor({ slug }: { slug: string }) {
   const area = useAdminArea(slug);
@@ -442,11 +439,11 @@ function AreaForm({ area }: { area?: AdminArea }) {
         </div>
       </form>
 
-      <FormSection title="Banner photo">
+      <FormSection title="Photos">
         {area ? (
-          <BannerPhoto area={area} />
+          <PhotoGallery owner={{ kind: "area", slug: area.slug }} name={area.name} photos={area.photos} firstLabel="Banner" />
         ) : (
-          <p className="text-sm text-muted">Add the destination first, then its banner photo.</p>
+          <p className="text-sm text-muted">Add the destination first, then its photos.</p>
         )}
       </FormSection>
 
@@ -618,92 +615,6 @@ export function AliasesField({
           ))}
         </ul>
       )}
-    </div>
-  );
-}
-
-// The destination's one banner photo: choosing a file uploads it at once and replaces any
-// banner it had; removing one asks first. Saved apart from the form, like a listing's photos.
-function BannerPhoto({ area }: { area: AdminArea }) {
-  const { upload, remove } = useAreaBanner(area.slug);
-  const input = useRef<HTMLInputElement>(null);
-  const [problem, setProblem] = useState<string>();
-  const [removing, setRemoving] = useState(false);
-  const photo = area.banner_photo?.uploaded ? area.banner_photo : null;
-  const busy = upload.isPending || remove.isPending;
-
-  function choose(file: File | undefined) {
-    if (!file) return;
-    const found = photoProblem(file);
-    setProblem(found);
-    if (!found) upload.mutate(file);
-  }
-
-  const error = problem ?? upload.error?.message ?? remove.error?.message;
-
-  return (
-    <div className="flex flex-col gap-3" data-testid="admin-destination-banner">
-      {photo ? (
-        <div className="relative aspect-[16/7] overflow-hidden rounded-card bg-navy">
-          {photo.ready ? (
-            <Image src={photo.large_url} alt={`${area.name} banner`} fill unoptimized className="object-cover" />
-          ) : (
-            <p className="absolute inset-0 grid place-items-center text-sm text-sky-mist">Preparing the photo…</p>
-          )}
-        </div>
-      ) : (
-        <p className="text-sm text-muted">No banner photo yet.</p>
-      )}
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" variant="soft" disabled={busy} onClick={() => input.current?.click()}>
-          {upload.isPending ? "Uploading…" : photo ? "Replace photo" : "Add photo"}
-        </Button>
-        {photo && (
-          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setRemoving(true)}>
-            Remove
-          </Button>
-        )}
-      </div>
-      <input
-        ref={input}
-        type="file"
-        accept={PHOTO_TYPES.join(",")}
-        className="sr-only"
-        tabIndex={-1}
-        onChange={(event) => {
-          choose(event.target.files?.[0]);
-          event.target.value = "";
-        }}
-        data-testid="admin-destination-banner-input"
-      />
-      <p className="text-xs text-muted">JPG, PNG or WebP, up to 10 MB. Wide photos work best.</p>
-      {error && (
-        <p role="alert" className="text-sm text-danger">
-          {error}
-        </p>
-      )}
-
-      <Dialog
-        open={removing}
-        onClose={() => setRemoving(false)}
-        title="Remove the banner photo?"
-        actions={
-          <>
-            <Button variant="soft" onClick={() => setRemoving(false)}>
-              Keep it
-            </Button>
-            <Button
-              variant="danger"
-              disabled={remove.isPending}
-              onClick={() => remove.mutate(undefined, { onSettled: () => setRemoving(false) })}
-            >
-              {remove.isPending ? "Removing…" : "Remove"}
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-muted">{area.name} will have no banner photo until a new one is added.</p>
-      </Dialog>
     </div>
   );
 }

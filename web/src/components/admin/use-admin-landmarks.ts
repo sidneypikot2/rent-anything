@@ -4,6 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
 import { saveError } from "@/components/partner/use-partner-listings";
+import { adminLandmarkKey as landmarkKey, photoPollMs } from "./use-admin-photos";
 
 export type AdminLandmark = components["schemas"]["admin_landmark"];
 export type AdminLandmarkRow = components["schemas"]["admin_landmark_row"];
@@ -17,7 +18,6 @@ export type LandmarkFilters = { q: string; status: LandmarkStatus | ""; area: st
 export const LANDMARKS_PER_PAGE = 50;
 
 const LIST_KEY = ["admin-landmarks"] as const;
-const landmarkKey = (slug: string) => ["admin-landmark", slug] as const;
 
 // Every landmark (place to see), drafts included (GET /admin/landmarks, RAA-164): published
 // first, then by name; `q` matches the name, slug or an alias. The last page stays shown while
@@ -36,6 +36,8 @@ export function useAdminLandmarks({ q, status, area, page }: LandmarkFilters) {
   });
 }
 
+// One landmark with all its details, asked for again every two seconds while a photo is being
+// sized (photoPollMs).
 export function useAdminLandmark(slug: string | undefined) {
   return useQuery({
     queryKey: landmarkKey(slug ?? ""),
@@ -45,6 +47,7 @@ export function useAdminLandmark(slug: string | undefined) {
       return data;
     },
     enabled: slug !== undefined,
+    refetchInterval: (query) => photoPollMs(query.state.data?.photos),
   });
 }
 

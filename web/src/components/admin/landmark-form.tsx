@@ -13,6 +13,7 @@ import { Toast } from "@/components/ui/toast";
 import { DisplayTitle } from "@/components/ui/typography";
 import type { LatLng } from "@/lib/map";
 import { AliasesField, FormSection, slugify } from "./destination-form";
+import { PhotoGallery } from "./photo-gallery";
 import { AreaStatusBadge } from "./destinations-list";
 import { visitsLine } from "./landmarks-list";
 import { useAreaOptions } from "./use-admin-areas";
@@ -85,7 +86,7 @@ export function LandmarkForm() {
   return <PlaceForm />;
 }
 
-// Editing one: loads it, then the same form with what Wikidata gave it.
+// Editing one: loads it, then the same form with what Wikidata gave it and its photos (RAA-211).
 export function LandmarkEditor({ slug }: { slug: string }) {
   const landmark = useAdminLandmark(slug);
   if (landmark.isPending) return <p className="py-6 text-sm text-muted">Loading place to see…</p>;
@@ -285,6 +286,19 @@ function PlaceForm({ landmark }: { landmark?: AdminLandmark }) {
           </Button>
         </div>
       </form>
+
+      <FormSection title="Photos">
+        {landmark ? (
+          <PhotoGallery
+            owner={{ kind: "landmark", slug: landmark.slug }}
+            name={landmark.name}
+            photos={landmark.photos}
+            firstLabel="Cover"
+          />
+        ) : (
+          <p className="text-sm text-muted">Add the place to see first, then its photos.</p>
+        )}
+      </FormSection>
 
       <Toast message={toast?.message ?? null} id={toast?.id} onDismiss={() => setToast(null)} data-testid="admin-landmark-toast" />
     </main>
