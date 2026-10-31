@@ -2,10 +2,11 @@
 # reaches R2. stub_photo_in_storage makes a file "exist" and downloadable; the rest of the
 # client's calls succeed with empty answers, and PhotoStorage.client.api_requests lists them.
 module PhotoHelpers
-  # A photo as ListingPhotos::Create leaves it, then the confirmed upload and ResizeJob.
-  def create_photo(listing, position: listing.photos.maximum(:position).to_i + 1, uploaded: true, ready: uploaded,
+  # A photo as ListingPhotos::Create (or GalleryPhotos::Create, for an area or a landmark) leaves
+  # it, then the confirmed upload and ResizeJob.
+  def create_photo(owner, position: owner.photos.maximum(:position).to_i + 1, uploaded: true, ready: uploaded,
     **attributes)
-    listing.photos.create!(position:, filename: "photo.jpg", content_type: "image/jpeg", byte_size: 505,
+    owner.photos.create!(position:, filename: "photo.jpg", content_type: "image/jpeg", byte_size: 505,
       checksum: "1B2M2Y8AsgTpgAmY7PhCfg==", uploaded_at: (Time.current if uploaded), sized_at: (Time.current if ready),
       **attributes)
   end

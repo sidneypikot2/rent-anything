@@ -1605,6 +1605,10 @@ RSpec.configure do |config|
             type: :object,
             properties: {
               area: { "$ref" => "#/components/schemas/area" },
+              photos: {
+                type: :array, maxItems: 12, items: { "$ref" => "#/components/schemas/photo_urls" },
+                description: "Its ready photos in the team's order, for the banner's carousel (RAA-210)"
+              },
               areas: {
                 type: :array,
                 description: "Areas under this one that have something to book",
@@ -1619,12 +1623,16 @@ RSpec.configure do |config|
                     name: { type: :string },
                     description: { type: :string },
                     tags: { type: :array, items: { "$ref" => "#/components/schemas/tag" } },
+                    photos: {
+                      type: :array, maxItems: 12, items: { "$ref" => "#/components/schemas/photo_urls" },
+                      description: "Its ready photos in the team's order (RAA-210)"
+                    },
                     visited_by: {
                       type: :array, items: { type: :integer },
                       description: "The ids of the active listings that visit it, from the listings here"
                     }
                   },
-                  required: %w[slug name description tags visited_by]
+                  required: %w[slug name description tags photos visited_by]
                 }
               },
               listings: {
@@ -1684,7 +1692,7 @@ RSpec.configure do |config|
                 }
               }
             },
-            required: %w[area areas landmarks listings]
+            required: %w[area photos areas landmarks listings]
           },
           activity: {
             type: :object,
@@ -2376,9 +2384,26 @@ RSpec.configure do |config|
             },
             required: %w[slug name kind status parent listing_count landmark_count seed_status seeded_at seed_report]
           },
-          # The banner's sizes and state; until it is ready both URLs are the original's.
+          # One of a destination's or a place to see's photos (RAA-210), as a listing's partner sees
+          # its own: until it is ready both URLs are the original's.
+          admin_photo: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              uploaded: {
+                type: :boolean,
+                description: "False until its upload is confirmed; until then the URLs may have nothing behind them"
+              },
+              ready: { type: :boolean, description: "True once its sizes are made; guests see only ready photos" },
+              card_url: { type: :string },
+              large_url: { type: :string }
+            },
+            required: %w[id uploaded ready card_url large_url]
+          },
+          # Deprecated (RAA-210): the first of an admin_area's photos, as RAA-164's one banner.
           area_banner_photo: {
             type: :object,
+            deprecated: true,
             properties: {
               uploaded: { type: :boolean },
               ready: { type: :boolean },
@@ -2386,6 +2411,15 @@ RSpec.configure do |config|
               large_url: { type: :string }
             },
             required: %w[uploaded ready card_url large_url]
+          },
+          admin_photo_update_body: {
+            type: :object,
+            description: "Either or both: confirm the upload, and/or move it to `position` (1 is the first, the " \
+              "banner or the card's photo), the others shifting to make room",
+            properties: {
+              uploaded: { type: :boolean, enum: [ true ] },
+              position: { type: :integer, minimum: 1 }
+            }
           },
           # A destination as the admin console edits it (RAA-164).
           admin_area: {
@@ -2408,7 +2442,14 @@ RSpec.configure do |config|
               getting_there: { type: :string },
               best_time_to_visit: { type: :string },
               tags: { type: :array, items: { "$ref" => "#/components/schemas/tag" } },
-              banner_photo: { allOf: [ { "$ref" => "#/components/schemas/area_banner_photo" } ], nullable: true },
+              photos: {
+                type: :array, maxItems: 12, items: { "$ref" => "#/components/schemas/admin_photo" },
+                description: "In order, with those still uploading; the first is the banner (RAA-210)"
+              },
+              banner_photo: {
+                allOf: [ { "$ref" => "#/components/schemas/area_banner_photo" } ], nullable: true, deprecated: true,
+                description: "The first of photos; use photos"
+              },
               wikidata_id: { type: :string, nullable: true },
               wikidata_aliases: {
                 type: :array, items: { type: :string },
@@ -2424,7 +2465,7 @@ RSpec.configure do |config|
               **SEED_RUN
             },
             required: %w[slug name kind status parent aliases center psgc_code tagline description getting_there
-              best_time_to_visit tags banner_photo wikidata_id wikidata_aliases wikidata_popularity has_boundary
+              best_time_to_visit tags photos banner_photo wikidata_id wikidata_aliases wikidata_popularity has_boundary
               listing_count landmark_count seed_status seeded_at seed_report]
           },
           admin_area_body: {
@@ -2499,11 +2540,15 @@ RSpec.configure do |config|
                 required: %w[lat lng]
               },
               tags: { type: :array, items: { "$ref" => "#/components/schemas/tag" } },
+              photos: {
+                type: :array, maxItems: 12, items: { "$ref" => "#/components/schemas/admin_photo" },
+                description: "In order, with those still uploading; the first is its card's (RAA-210)"
+              },
               wikidata_id: { type: :string, nullable: true, description: "Read-only, set by `bin/rails gazetteer:wikidata`" },
               wikidata_aliases: { type: :array, items: { type: :string }, description: "Read-only, as wikidata_id" },
               wikidata_popularity: { type: :integer, description: "Read-only, as wikidata_id" }
             },
-            required: %w[slug name status area visit_count description aliases location tags wikidata_id
+            required: %w[slug name status area visit_count description aliases location tags photos wikidata_id
               wikidata_aliases wikidata_popularity]
           },
           admin_landmark_body: {

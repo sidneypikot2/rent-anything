@@ -103,7 +103,7 @@ RSpec.describe "Admin areas", type: :request do
             "slug" => "virgin-island", "status" => "draft", "parent" => { "slug" => "bantayan-island", "name" => "Bantayan Island" },
             "center" => { "lat" => 11.17, "lng" => 123.75 }, "aliases" => [ "Silion" ], "tagline" => "A sandbar off Santa Fe",
             "tags" => [ { "slug" => "snorkelling", "name" => "Snorkelling", "kind" => "activity" } ],
-            "banner_photo" => nil, "has_boundary" => false
+            "photos" => [], "banner_photo" => nil, "has_boundary" => false
           )
           expect(Area.find_by!(slug: "virgin-island").tags).to eq([ snorkelling ])
         end
@@ -164,15 +164,16 @@ RSpec.describe "Admin areas", type: :request do
 
         before do
           bantayan.update!(wikidata_id: "Q806973", wikidata_aliases: [ "Pulo sa Bantayan" ], wikidata_popularity: 23)
-          AreaPhoto.create!(area: bantayan, filename: "beach.jpg", content_type: "image/jpeg", byte_size: 505,
-            checksum: "1B2M2Y8AsgTpgAmY7PhCfg==", uploaded_at: Time.current, sized_at: Time.current)
+          create_photo(bantayan)
+          create_photo(bantayan, uploaded: false)
         end
 
         run_test! do |response|
           body = response.parsed_body
           expect(body).to include("wikidata_id" => "Q806973", "wikidata_aliases" => [ "Pulo sa Bantayan" ], "wikidata_popularity" => 23)
-          expect(body["banner_photo"]).to include("uploaded" => true, "ready" => true)
-          expect(body["banner_photo"]["card_url"]).to include("/test/area_photos/#{bantayan.banner_photo.id}/image_card.jpg")
+          first, second = bantayan.photos
+          expect(body["photos"].pluck("id", "uploaded", "ready")).to eq([ [ first.id, true, true ], [ second.id, false, false ] ])
+          expect(body["photos"].first["card_url"]).to include("/test/area_photos/#{first.id}/image_card.jpg")
         end
       end
 

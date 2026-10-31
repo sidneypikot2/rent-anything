@@ -12,12 +12,14 @@ RSpec.describe ListingPhotos::PurgeUnfinishedJob do
     expect(ListingPhoto.exists?(abandoned.id)).to be(false)
   end
 
-  it "deletes an area banner never confirmed too" do
-    attributes = { filename: "beach.jpg", content_type: "image/jpeg", byte_size: 505, checksum: "1B2M2Y8AsgTpgAmY7PhCfg==" }
-    AreaPhoto.create!(area: create(:area), created_at: 3.days.ago, **attributes)
-    kept = AreaPhoto.create!(area: create(:area), created_at: 3.days.ago, uploaded_at: 3.days.ago, **attributes)
+  it "deletes area and landmark photos never confirmed too" do
+    area = create(:area)
+    create_photo(area, uploaded: false, created_at: 3.days.ago)
+    kept = create_photo(area, created_at: 3.days.ago)
+    landmark = create(:landmark, area:)
+    create_photo(landmark, uploaded: false, created_at: 3.days.ago)
 
-    expect { described_class.perform_now }.to change(AreaPhoto, :count).by(-1)
+    expect { described_class.perform_now }.to change(AreaPhoto, :count).by(-1).and change(LandmarkPhoto, :count).by(-1)
     expect(AreaPhoto.sole).to eq(kept)
   end
 end
