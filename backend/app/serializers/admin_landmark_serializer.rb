@@ -14,6 +14,7 @@ module AdminLandmarkSerializer
       aliases: landmark.aliases,
       location: { lat: landmark.location.y, lng: landmark.location.x },
       tags: landmark.tags.order(:name).map { |tag| TagSerializer.call(tag) },
+      photos: landmark.photos.map { |photo| AdminAreaSerializer.photo(photo) },
       wikidata_id: landmark.wikidata_id,
       wikidata_aliases: landmark.wikidata_aliases,
       wikidata_popularity: landmark.wikidata_popularity

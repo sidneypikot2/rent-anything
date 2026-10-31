@@ -11,6 +11,10 @@ class Landmark < ApplicationRecord
   has_many :tags, through: :landmark_tags
   has_many :listing_landmarks, dependent: :delete_all
   has_many :listings, through: :listing_landmarks
+  # Its photos in the team's order (RAA-210), with those still uploading; guests see the ready
+  # ones. Destroyed one by one so their files go too.
+  has_many :photos, -> { order(:position) }, class_name: "LandmarkPhoto", dependent: :destroy, inverse_of: :landmark
+  has_many :ready_photos, -> { ready.order(:position) }, class_name: "LandmarkPhoto", inverse_of: false
   # Read both ends through DestinationLink.for; these only clean up.
   has_many :destination_links_as_source, class_name: "DestinationLink", as: :source, dependent: :delete_all
   has_many :destination_links_as_target, class_name: "DestinationLink", as: :target, dependent: :delete_all

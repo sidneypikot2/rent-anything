@@ -56,7 +56,8 @@ export interface paths {
         put?: never;
         /**
          * Set a destination's banner photo
-         * @description Admin-only (RAA-164). As a listing photo: `PUT` the file's bytes to `upload.url` with exactly `upload.headers`, then confirm with `PATCH`. Replaces the area's banner, if it has one.
+         * @deprecated
+         * @description Deprecated (RAA-210): use the area's photos. Replaces its first photo, if it has one; the upload goes as a photo's.
          */
         post: {
             parameters: {
@@ -75,7 +76,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description the new banner, still uploading, replacing the old one */
+                /** @description the new banner, still uploading, replacing the first photo */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -115,7 +116,8 @@ export interface paths {
         };
         /**
          * Remove a destination's banner photo
-         * @description Admin-only (RAA-164). Its files go from storage too.
+         * @deprecated
+         * @description Deprecated (RAA-210): deletes the first photo.
          */
         delete: {
             parameters: {
@@ -150,7 +152,8 @@ export interface paths {
         head?: never;
         /**
          * Confirm a banner photo's upload
-         * @description Admin-only (RAA-164). Once its file is in storage; its sizes follow a few seconds later (`ready`).
+         * @deprecated
+         * @description Deprecated (RAA-210): confirms the first photo's upload.
          */
         patch: {
             parameters: {
@@ -197,6 +200,202 @@ export interface paths {
                     };
                 };
                 /** @description the file isn't there yet */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/admin/areas/{area_slug}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area_slug: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a photo to a destination
+         * @description Admin-only (RAA-210). As a listing photo: `PUT` the file's bytes to `upload.url` with exactly `upload.headers`, then confirm with `PATCH`. It goes after the others; the first is the banner. At most 12.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    area_slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["photo_upload_body"];
+                };
+            };
+            responses: {
+                /** @description the new photo, still uploading, after the others */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["photo_upload"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description no such destination */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description not a photo we take, or one too many */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/areas/{area_slug}/photos/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                area_slug: string;
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a destination photo
+         * @description Admin-only (RAA-210). The ones after it move up; its files go from storage too.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    area_slug: string;
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description deleted, the next one the banner */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Confirm a destination photo's upload, or move it
+         * @description Admin-only (RAA-210). `uploaded` once its file is in storage; its sizes follow a few seconds later (`ready`). `position` moves it, the others shifting: 1 makes it the banner.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    area_slug: string;
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["admin_photo_update_body"];
+                };
+            };
+            responses: {
+                /** @description moved first, the banner now */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_photo"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another destination's photo */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description the file isn't there yet, or a position past the end */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -817,6 +1016,184 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/landmarks/{landmark_slug}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                landmark_slug: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a photo to a place to see
+         * @description Admin-only (RAA-210), as a destination's: the first is its card's photo. At most 12.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    landmark_slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["photo_upload_body"];
+                };
+            };
+            responses: {
+                /** @description the new photo, still uploading, after the others */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["photo_upload"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description one too many */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/landmarks/{landmark_slug}/photos/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                landmark_slug: string;
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a place to see photo
+         * @description Admin-only (RAA-210). The ones after it move up; its files go from storage too.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    landmark_slug: string;
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Confirm a place to see photo's upload, or move it
+         * @description Admin-only (RAA-210), as a destination's: `position` 1 makes it the card's photo.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    landmark_slug: string;
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["admin_photo_update_body"];
+                };
+            };
+            responses: {
+                /** @description uploaded and moved first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_photo"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another place's photo */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/admin/landmarks": {
@@ -8287,6 +8664,8 @@ export interface components {
         };
         area_detail: {
             area: components["schemas"]["area"];
+            /** @description Its ready photos in the team's order, for the banner's carousel (RAA-210) */
+            photos: components["schemas"]["photo_urls"][];
             /** @description Areas under this one that have something to book */
             areas: components["schemas"]["area"][];
             landmarks: {
@@ -8294,6 +8673,8 @@ export interface components {
                 name: string;
                 description: string;
                 tags: components["schemas"]["tag"][];
+                /** @description Its ready photos in the team's order (RAA-210) */
+                photos: components["schemas"]["photo_urls"][];
                 /** @description The ids of the active listings that visit it, from the listings here */
                 visited_by: number[];
             }[];
@@ -9067,11 +9448,27 @@ export interface components {
                 error: string | null;
             };
         };
+        admin_photo: {
+            id: number;
+            /** @description False until its upload is confirmed; until then the URLs may have nothing behind them */
+            uploaded: boolean;
+            /** @description True once its sizes are made; guests see only ready photos */
+            ready: boolean;
+            card_url: string;
+            large_url: string;
+        };
+        /** @deprecated */
         area_banner_photo: {
             uploaded: boolean;
             ready: boolean;
             card_url: string;
             large_url: string;
+        };
+        /** @description Either or both: confirm the upload, and/or move it to `position` (1 is the first, the banner or the card's photo), the others shifting to make room */
+        admin_photo_update_body: {
+            /** @enum {boolean} */
+            uploaded?: true;
+            position?: number;
         };
         admin_area: {
             slug: string;
@@ -9092,6 +9489,12 @@ export interface components {
             getting_there: string;
             best_time_to_visit: string;
             tags: components["schemas"]["tag"][];
+            /** @description In order, with those still uploading; the first is the banner (RAA-210) */
+            photos: components["schemas"]["admin_photo"][];
+            /**
+             * @deprecated
+             * @description The first of photos; use photos
+             */
             banner_photo: components["schemas"]["area_banner_photo"] | null;
             wikidata_id: string | null;
             /** @description Read-only: filled by `bin/rails gazetteer:wikidata` */
@@ -9177,6 +9580,8 @@ export interface components {
                 lng: number;
             };
             tags: components["schemas"]["tag"][];
+            /** @description In order, with those still uploading; the first is its card's (RAA-210) */
+            photos: components["schemas"]["admin_photo"][];
             /** @description Read-only, set by `bin/rails gazetteer:wikidata` */
             wikidata_id: string | null;
             /** @description Read-only, as wikidata_id */

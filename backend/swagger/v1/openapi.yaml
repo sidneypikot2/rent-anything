@@ -33,9 +33,9 @@ paths:
       summary: Set a destination's banner photo
       tags:
       - Admin
-      description: 'Admin-only (RAA-164). As a listing photo: `PUT` the file''s bytes
-        to `upload.url` with exactly `upload.headers`, then confirm with `PATCH`.
-        Replaces the area''s banner, if it has one.'
+      deprecated: true
+      description: 'Deprecated (RAA-210): use the area''s photos. Replaces its first
+        photo, if it has one; the upload goes as a photo''s.'
       security:
       - bearer: []
       parameters:
@@ -45,7 +45,7 @@ paths:
           type: string
       responses:
         '201':
-          description: the new banner, still uploading, replacing the old one
+          description: the new banner, still uploading, replacing the first photo
           content:
             application/json:
               schema:
@@ -77,8 +77,8 @@ paths:
       summary: Confirm a banner photo's upload
       tags:
       - Admin
-      description: Admin-only (RAA-164). Once its file is in storage; its sizes follow
-        a few seconds later (`ready`).
+      deprecated: true
+      description: 'Deprecated (RAA-210): confirms the first photo''s upload.'
       security:
       - bearer: []
       parameters:
@@ -120,7 +120,8 @@ paths:
       summary: Remove a destination's banner photo
       tags:
       - Admin
-      description: Admin-only (RAA-164). Its files go from storage too.
+      deprecated: true
+      description: 'Deprecated (RAA-210): deletes the first photo.'
       security:
       - bearer: []
       parameters:
@@ -131,6 +132,137 @@ paths:
       responses:
         '204':
           description: removed
+        '403':
+          description: a partner
+  "/api/v1/admin/areas/{area_slug}/photos":
+    parameters:
+    - name: area_slug
+      in: path
+      schema:
+        type: string
+      required: true
+    post:
+      summary: Add a photo to a destination
+      tags:
+      - Admin
+      description: 'Admin-only (RAA-210). As a listing photo: `PUT` the file''s bytes
+        to `upload.url` with exactly `upload.headers`, then confirm with `PATCH`.
+        It goes after the others; the first is the banner. At most 12.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: the new photo, still uploading, after the others
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/photo_upload"
+        '422':
+          description: not a photo we take, or one too many
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: no such destination
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/photo_upload_body"
+  "/api/v1/admin/areas/{area_slug}/photos/{id}":
+    parameters:
+    - name: area_slug
+      in: path
+      schema:
+        type: string
+      required: true
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    patch:
+      summary: Confirm a destination photo's upload, or move it
+      tags:
+      - Admin
+      description: 'Admin-only (RAA-210). `uploaded` once its file is in storage;
+        its sizes follow a few seconds later (`ready`). `position` moves it, the others
+        shifting: 1 makes it the banner.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: moved first, the banner now
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_photo"
+        '422':
+          description: the file isn't there yet, or a position past the end
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another destination's photo
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/admin_photo_update_body"
+    delete:
+      summary: Delete a destination photo
+      tags:
+      - Admin
+      description: Admin-only (RAA-210). The ones after it move up; its files go from
+        storage too.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '204':
+          description: deleted, the next one the banner
         '403':
           description: a partner
   "/api/v1/admin/areas":
@@ -598,6 +730,123 @@ paths:
               - source
               - target
               - kind
+  "/api/v1/admin/landmarks/{landmark_slug}/photos":
+    parameters:
+    - name: landmark_slug
+      in: path
+      schema:
+        type: string
+      required: true
+    post:
+      summary: Add a photo to a place to see
+      tags:
+      - Admin
+      description: 'Admin-only (RAA-210), as a destination''s: the first is its card''s
+        photo. At most 12.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: the new photo, still uploading, after the others
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/photo_upload"
+        '422':
+          description: one too many
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/photo_upload_body"
+  "/api/v1/admin/landmarks/{landmark_slug}/photos/{id}":
+    parameters:
+    - name: landmark_slug
+      in: path
+      schema:
+        type: string
+      required: true
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    patch:
+      summary: Confirm a place to see photo's upload, or move it
+      tags:
+      - Admin
+      description: 'Admin-only (RAA-210), as a destination''s: `position` 1 makes
+        it the card''s photo.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: uploaded and moved first
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_photo"
+        '404':
+          description: another place's photo
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/admin_photo_update_body"
+    delete:
+      summary: Delete a place to see photo
+      tags:
+      - Admin
+      description: Admin-only (RAA-210). The ones after it move up; its files go from
+        storage too.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '204':
+          description: deleted
+        '403':
+          description: a partner
   "/api/v1/admin/landmarks":
     get:
       summary: List and search landmarks
@@ -8277,6 +8526,13 @@ components:
       properties:
         area:
           "$ref": "#/components/schemas/area"
+        photos:
+          type: array
+          maxItems: 12
+          items:
+            "$ref": "#/components/schemas/photo_urls"
+          description: Its ready photos in the team's order, for the banner's carousel
+            (RAA-210)
         areas:
           type: array
           description: Areas under this one that have something to book
@@ -8297,6 +8553,12 @@ components:
                 type: array
                 items:
                   "$ref": "#/components/schemas/tag"
+              photos:
+                type: array
+                maxItems: 12
+                items:
+                  "$ref": "#/components/schemas/photo_urls"
+                description: Its ready photos in the team's order (RAA-210)
               visited_by:
                 type: array
                 items:
@@ -8308,6 +8570,7 @@ components:
             - name
             - description
             - tags
+            - photos
             - visited_by
         listings:
           description: What to book here and in the published places inside it, however
@@ -8454,6 +8717,7 @@ components:
             - handover
       required:
       - area
+      - photos
       - areas
       - landmarks
       - listings
@@ -10251,8 +10515,31 @@ components:
       - seed_status
       - seeded_at
       - seed_report
+    admin_photo:
+      type: object
+      properties:
+        id:
+          type: integer
+        uploaded:
+          type: boolean
+          description: False until its upload is confirmed; until then the URLs may
+            have nothing behind them
+        ready:
+          type: boolean
+          description: True once its sizes are made; guests see only ready photos
+        card_url:
+          type: string
+        large_url:
+          type: string
+      required:
+      - id
+      - uploaded
+      - ready
+      - card_url
+      - large_url
     area_banner_photo:
       type: object
+      deprecated: true
       properties:
         uploaded:
           type: boolean
@@ -10267,6 +10554,19 @@ components:
       - ready
       - card_url
       - large_url
+    admin_photo_update_body:
+      type: object
+      description: 'Either or both: confirm the upload, and/or move it to `position`
+        (1 is the first, the banner or the card''s photo), the others shifting to
+        make room'
+      properties:
+        uploaded:
+          type: boolean
+          enum:
+          - true
+        position:
+          type: integer
+          minimum: 1
     admin_area:
       type: object
       properties:
@@ -10320,10 +10620,19 @@ components:
           type: array
           items:
             "$ref": "#/components/schemas/tag"
+        photos:
+          type: array
+          maxItems: 12
+          items:
+            "$ref": "#/components/schemas/admin_photo"
+          description: In order, with those still uploading; the first is the banner
+            (RAA-210)
         banner_photo:
           allOf:
           - "$ref": "#/components/schemas/area_banner_photo"
           nullable: true
+          deprecated: true
+          description: The first of photos; use photos
         wikidata_id:
           type: string
           nullable: true
@@ -10396,6 +10705,7 @@ components:
       - getting_there
       - best_time_to_visit
       - tags
+      - photos
       - banner_photo
       - wikidata_id
       - wikidata_aliases
@@ -10561,6 +10871,13 @@ components:
           type: array
           items:
             "$ref": "#/components/schemas/tag"
+        photos:
+          type: array
+          maxItems: 12
+          items:
+            "$ref": "#/components/schemas/admin_photo"
+          description: In order, with those still uploading; the first is its card's
+            (RAA-210)
         wikidata_id:
           type: string
           nullable: true
@@ -10583,6 +10900,7 @@ components:
       - aliases
       - location
       - tags
+      - photos
       - wikidata_id
       - wikidata_aliases
       - wikidata_popularity

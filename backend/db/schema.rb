@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_30_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_31_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -36,10 +36,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_120000) do
     t.datetime "sized_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["area_id"], name: "index_area_photos_on_area_id", unique: true
+    t.integer "position", null: false
     t.index ["created_at"], name: "index_area_photos_unfinished", where: "(uploaded_at IS NULL)"
+    t.check_constraint "\"position\" >= 1", name: "area_photos_position_check"
     t.check_constraint "byte_size > 0", name: "area_photos_byte_size_check"
     t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying::text, 'image/png'::character varying::text, 'image/webp'::character varying::text])", name: "area_photos_content_type_check"
+    t.unique_constraint ["area_id", "position"], deferrable: :deferred, name: "area_photos_area_id_position_key"
   end
 
   create_table "area_tags", primary_key: ["area_id", "tag_id"], force: :cascade do |t|
@@ -291,6 +293,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_120000) do
     t.index ["user_id"], name: "index_guest_profiles_on_user_id", unique: true
     t.check_constraint "country::text ~ '^[A-Z]{2}$'::text", name: "guest_profiles_country_check"
     t.check_constraint "user_role::text = 'guest'::text", name: "guest_profiles_user_role_check"
+  end
+
+  create_table "landmark_photos", force: :cascade do |t|
+    t.bigint "landmark_id", null: false
+    t.integer "position", null: false
+    t.string "filename", null: false
+    t.string "content_type", null: false
+    t.bigint "byte_size", null: false
+    t.string "checksum", null: false
+    t.datetime "uploaded_at"
+    t.datetime "sized_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_landmark_photos_unfinished", where: "(uploaded_at IS NULL)"
+    t.check_constraint "\"position\" >= 1", name: "landmark_photos_position_check"
+    t.check_constraint "byte_size > 0", name: "landmark_photos_byte_size_check"
+    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "landmark_photos_content_type_check"
+    t.unique_constraint ["landmark_id", "position"], deferrable: :deferred, name: "landmark_photos_landmark_id_position_key"
   end
 
   create_table "landmark_tags", primary_key: ["landmark_id", "tag_id"], force: :cascade do |t|
@@ -805,6 +825,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_120000) do
   add_foreign_key "flat_rates", "listings", on_delete: :cascade
   add_foreign_key "guest_profiles", "users"
   add_foreign_key "guest_profiles", "users", column: ["user_id", "user_role"], primary_key: ["id", "role"], name: "fk_guest_profiles_user_role"
+  add_foreign_key "landmark_photos", "landmarks", on_delete: :cascade
   add_foreign_key "landmark_tags", "landmarks"
   add_foreign_key "landmark_tags", "tags"
   add_foreign_key "landmarks", "areas"

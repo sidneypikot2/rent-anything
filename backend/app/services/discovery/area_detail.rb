@@ -1,6 +1,6 @@
 module Discovery
   # One destination: the areas under it that have something to book (Cebu lists Cebu City),
-  # its published landmarks with their tags, and the active listings in it, each with a
+  # its photos (RAA-210), its published landmarks with their tags and photos, and the active listings in it, each with a
   # one-line summary, its business, how many units it has (RAA-86, RAA-100) and its nightly
   # price once it has one (RAA-104), or a tour's base price per group or person (RAA-110). Each
   # row also carries its first photos, what its details say it includes and its cancellation
@@ -20,6 +20,8 @@ module Discovery
     def call
       {
         area: AreaSerializer.call(@area),
+        # Its banner's carousel, the first photo first (RAA-210).
+        photos: @area.ready_photos.map { |photo| ListingPhotoSerializer.call(photo) },
         areas: @area.children.browsable.includes(:parent).order(:name).map { |area| AreaSerializer.call(area) },
         landmarks: landmarks.map { |landmark| landmark_json(landmark) },
         listings: listings.includes({ category: :parent }, :area, :business, :units, :stay_rate, :vehicle_rate, :flat_rate, :tour_detail, :cover_photo, :ready_photos)
@@ -50,7 +52,7 @@ module Discovery
     end
 
     def landmarks
-      @landmarks ||= @area.landmarks.published.includes(:tags).order(:name).to_a
+      @landmarks ||= @area.landmarks.published.includes(:tags, :ready_photos).order(:name).to_a
     end
 
     # landmark id => the ids of the active listings that visit it.
@@ -83,6 +85,7 @@ module Discovery
         name: landmark.name,
         description: landmark.description,
         tags: landmark.tags.sort_by(&:name).map { |tag| TagSerializer.call(tag) },
+        photos: landmark.ready_photos.map { |photo| ListingPhotoSerializer.call(photo) },
         visited_by: visitors.fetch(landmark.id, [])
       }
     end

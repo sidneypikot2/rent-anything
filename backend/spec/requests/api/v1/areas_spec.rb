@@ -74,11 +74,24 @@ RSpec.describe "Areas", type: :request do
         schema "$ref" => "#/components/schemas/area_detail"
         let(:slug) { "bantayan-island" }
 
+        # Only ready photos, in the team's order (RAA-210).
+        let!(:banner) { create_photo(bantayan, position: 2) }
+        let!(:second) { create_photo(bantayan, position: 3) }
+        let!(:kota_photo) { create_photo(kota) }
+
+        before do
+          create_photo(bantayan, position: 1, ready: false)
+          create_photo(kota, uploaded: false)
+        end
+
         run_test! do |response|
           json = response.parsed_body
           expect(json["area"]).to include("slug" => "bantayan-island", "parent_name" => "Cebu", "parent_slug" => "cebu")
+          expect(json["photos"]).to eq([ banner, second ].map { ListingPhotoSerializer.call(it).stringify_keys })
+          expect(json["photos"].first["card_url"]).to end_with("/test/area_photos/#{banner.id}/image_card.jpg")
           expect(json["areas"]).to be_empty
           expect(json["landmarks"].pluck("slug")).to eq(%w[kota-beach virgin-island])
+          expect(json["landmarks"].pluck("photos")).to eq([ [ ListingPhotoSerializer.call(kota_photo).stringify_keys ], [] ])
           expect(json["landmarks"].first).to include("description" => "Sandbar beach", "visited_by" => [])
           expect(json["landmarks"].first["tags"].pluck("slug")).to eq(%w[swimming white-sand])
           expect(json["listings"]).to contain_exactly(
