@@ -3,12 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowGlyph } from "@/components/discovery/tag-glyphs";
+import { ManagePhotosButton } from "@/components/photos/photo-manager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookingModeChoice, type BookingMode } from "./booking-mode";
 import { ListingPhotos, orderedPhotos } from "./listing-photos";
 import { STATUS } from "./listing-status";
 import { LiveBlockers } from "./listing-status-section";
+import { uploadedPhotos } from "./use-listing-photos";
 import {
   useChangeListingStatus,
   useListingOptions,
@@ -58,6 +60,7 @@ export function NewListingPhotos({
   const [order, setOrder] = useState<number[]>();
   const [mode, setMode] = useState<BookingMode>(listing.booking_mode);
   const [busy, setBusy] = useState(false);
+  const [managingPhotos, setManagingPhotos] = useState(false);
   const saved = live.data ?? listing;
   const photos = saved.photos;
   const blockers = saved.live_blockers;
@@ -85,12 +88,25 @@ export function NewListingPhotos({
       {current === photosStep ? (
         <div className="flex w-full flex-col gap-6">
           <div data-testid="listing-step-photos" className="flex flex-col gap-4">
-            <WizardTitle as="h2">Photos</WizardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <WizardTitle as="h2">Photos</WizardTitle>
+              <ManagePhotosButton count={uploadedPhotos(photos).length} onClick={() => setManagingPhotos(true)} testId="listing-photos-manage" />
+            </div>
             <p className="text-sm text-muted">
               <span className="font-medium text-foreground">{listing.title}</span> is saved. Add its photos now, or later
               from the listing.
             </p>
-            <ListingPhotos listingId={listing.id} name={listing.title} photos={photos} limit={listing.photo_limit} order={order} onOrderChange={setOrder} onBusyChange={setBusy} />
+            <ListingPhotos
+              listingId={listing.id}
+              name={listing.title}
+              photos={photos}
+              limit={listing.photo_limit}
+              order={order}
+              onOrderChange={setOrder}
+              onBusyChange={setBusy}
+              managing={managingPhotos}
+              onManagingChange={setManagingPhotos}
+            />
           </div>
           <WizardActions
             next={

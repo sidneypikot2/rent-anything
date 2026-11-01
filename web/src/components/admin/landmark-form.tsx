@@ -13,7 +13,9 @@ import { Toast } from "@/components/ui/toast";
 import { DisplayTitle } from "@/components/ui/typography";
 import type { LatLng } from "@/lib/map";
 import { AliasesField, FormSection, slugify } from "./destination-form";
-import { PhotoGallery } from "./photo-gallery";
+import { ManagePhotosButton } from "@/components/photos/photo-manager";
+import { managePhotosTestId, PhotoGallery } from "./photo-gallery";
+import { uploadedAdminPhotos } from "./use-admin-photos";
 import { AreaStatusBadge } from "./destinations-list";
 import { visitsLine } from "./landmarks-list";
 import { useAreaOptions } from "./use-admin-areas";
@@ -112,6 +114,7 @@ function PlaceForm({ landmark }: { landmark?: AdminLandmark }) {
   const [slugTouched, setSlugTouched] = useState(!isNew);
   const [problem, setProblem] = useState<string>();
   const [toast, setToast] = useState<{ id: number; message: string } | null>(null);
+  const [managingPhotos, setManagingPhotos] = useState(false);
   const save = useSaveLandmark();
   const options = useAreaOptions();
 
@@ -287,13 +290,26 @@ function PlaceForm({ landmark }: { landmark?: AdminLandmark }) {
         </div>
       </form>
 
-      <FormSection title="Photos">
+      <FormSection
+        title="Photos"
+        action={
+          landmark && (
+            <ManagePhotosButton
+              count={uploadedAdminPhotos(landmark.photos).length}
+              onClick={() => setManagingPhotos(true)}
+              testId={managePhotosTestId({ kind: "landmark", slug: landmark.slug })}
+            />
+          )
+        }
+      >
         {landmark ? (
           <PhotoGallery
             owner={{ kind: "landmark", slug: landmark.slug }}
             name={landmark.name}
             photos={landmark.photos}
             firstLabel="Cover"
+            managing={managingPhotos}
+            onManagingChange={setManagingPhotos}
           />
         ) : (
           <p className="text-sm text-muted">Add the place to see first, then its photos.</p>

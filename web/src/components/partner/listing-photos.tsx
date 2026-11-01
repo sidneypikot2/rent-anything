@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
 import { PhotoManager, SavedPhotos } from "@/components/photos/photo-manager";
 import { Badge } from "@/components/ui/badge";
 import { uploadedPhotos, useListingPhotos, type PartnerPhoto } from "./use-listing-photos";
@@ -16,12 +15,13 @@ export function orderedPhotos(photos: PartnerPhoto[], order?: number[]) {
 }
 
 // A saved listing's photos (RAA-109; the listing exists first, RAA-106), shown in the partner's
-// order and changed in PhotoManager (Add photos / Manage photos): its uploads and deletes are
-// saved there, while the order is the parent's to save with the listing (`photos` in its body),
-// so the manager only reports it. `onBusyChange` says while the manager saves, so the parent
-// holds a save back: a body's `photos` must list exactly the listing's photos. Unconfirmed rows
-// aren't shown (`uploadedPhotos`) but hold a place. `limit` is the listing's photo_limit (5 for a
-// tour, 12 otherwise, RAA-110).
+// order and changed in PhotoManager while `managing` (the Photos section opens it from its
+// header, ManagePhotosButton): its uploads and deletes are saved there, while the order is the
+// parent's to save with the listing (`photos` in its body), so the manager only reports it.
+// `onBusyChange` says while the manager saves, so the parent holds a save back: a body's
+// `photos` must list exactly the listing's photos. Unconfirmed rows aren't shown
+// (`uploadedPhotos`) but hold a place. `limit` is the listing's photo_limit (5 for a tour, 12
+// otherwise, RAA-110).
 export function ListingPhotos({
   listingId,
   name,
@@ -30,6 +30,8 @@ export function ListingPhotos({
   order,
   onOrderChange,
   onBusyChange,
+  managing,
+  onManagingChange,
 }: {
   listingId: number;
   name: string;
@@ -38,9 +40,10 @@ export function ListingPhotos({
   order?: number[];
   onOrderChange: (ids: number[]) => void;
   onBusyChange?: (busy: boolean) => void;
+  managing: boolean;
+  onManagingChange: (managing: boolean) => void;
 }) {
   const { upload, remove } = useListingPhotos(listingId);
-  const [managing, setManaging] = useState(false);
   const uploaded = uploadedPhotos(photos);
   const shown = orderedPhotos(uploaded, order).map((photo) => ({ id: photo.id, src: photo.card_url, ready: photo.ready }));
 
@@ -50,7 +53,6 @@ export function ListingPhotos({
         photos={shown}
         firstLabel="Cover"
         empty="No photos yet. Guests see the listing's icon until there is one."
-        onManage={() => setManaging(true)}
         testId="listing-photos"
       />
       {managing && (
@@ -62,7 +64,7 @@ export function ListingPhotos({
           upload={(file, onProgress) => upload.mutateAsync({ file, onProgress })}
           remove={(id) => remove.mutateAsync(id)}
           saveOrder={async (ids) => onOrderChange(ids)}
-          onClose={() => setManaging(false)}
+          onClose={() => onManagingChange(false)}
           onBusyChange={onBusyChange}
           testId="listing-photos-manager"
         />

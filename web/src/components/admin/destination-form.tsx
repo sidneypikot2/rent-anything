@@ -15,7 +15,9 @@ import { Toast, type ToastTone } from "@/components/ui/toast";
 import { DisplayTitle } from "@/components/ui/typography";
 import type { LatLng } from "@/lib/map";
 import { AreaStatusBadge, KIND_LABELS } from "./destinations-list";
-import { PhotoGallery } from "./photo-gallery";
+import { ManagePhotosButton } from "@/components/photos/photo-manager";
+import { managePhotosTestId, PhotoGallery } from "./photo-gallery";
+import { uploadedAdminPhotos } from "./use-admin-photos";
 import { SeedButton, seedCounts, seededAt, seedOutcome } from "./seed-area";
 import {
   isSeeding,
@@ -184,6 +186,7 @@ function AreaForm({ area }: { area?: AdminArea }) {
   const [slugTouched, setSlugTouched] = useState(!isNew);
   const [problem, setProblem] = useState<string>();
   const [toast, setToast] = useState<{ id: number; message: string; tone?: ToastTone } | null>(null);
+  const [managingPhotos, setManagingPhotos] = useState(false);
   const save = useSaveArea();
   const options = useAreaOptions();
 
@@ -439,9 +442,27 @@ function AreaForm({ area }: { area?: AdminArea }) {
         </div>
       </form>
 
-      <FormSection title="Photos">
+      <FormSection
+        title="Photos"
+        action={
+          area && (
+            <ManagePhotosButton
+              count={uploadedAdminPhotos(area.photos).length}
+              onClick={() => setManagingPhotos(true)}
+              testId={managePhotosTestId({ kind: "area", slug: area.slug })}
+            />
+          )
+        }
+      >
         {area ? (
-          <PhotoGallery owner={{ kind: "area", slug: area.slug }} name={area.name} photos={area.photos} firstLabel="Banner" />
+          <PhotoGallery
+            owner={{ kind: "area", slug: area.slug }}
+            name={area.name}
+            photos={area.photos}
+            firstLabel="Banner"
+            managing={managingPhotos}
+            onManagingChange={setManagingPhotos}
+          />
         ) : (
           <p className="text-sm text-muted">Add the destination first, then its photos.</p>
         )}
@@ -458,10 +479,15 @@ function AreaForm({ area }: { area?: AdminArea }) {
   );
 }
 
-export function FormSection({ title, children }: { title: string; children: ReactNode }) {
+// One section of an editor: its title, with an optional button (`action`) at the right of it,
+// then its contents.
+export function FormSection({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="font-display text-xl font-extrabold tracking-tight">{title}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-display text-xl font-extrabold tracking-tight">{title}</h2>
+        {action}
+      </div>
       {children}
     </section>
   );

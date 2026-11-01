@@ -403,29 +403,15 @@ function TileActions({
 }
 
 // An owner's saved photos on its page, as guests get them, in order: the first marked, and
-// "Preparing…" until its sizes are made. Changed only in PhotoManager, which `action` opens:
-// "Add photos" while there are none, "Manage photos" after.
-export function SavedPhotos({
-  photos,
-  firstLabel,
-  empty,
-  onManage,
-  disabled = false,
-  testId,
-}: {
-  photos: ManagedPhoto[];
-  firstLabel: string;
-  empty: string;
-  onManage: () => void;
-  disabled?: boolean;
-  testId: string;
-}) {
+// "Preparing…" until its sizes are made. Changed only in PhotoManager, which ManagePhotosButton
+// opens from the section's header.
+export function SavedPhotos({ photos, firstLabel, empty, testId }: { photos: ManagedPhoto[]; firstLabel: string; empty: string; testId: string }) {
   return (
-    <div data-testid={testId} className="flex flex-col items-start gap-4">
+    <div data-testid={testId}>
       {photos.length === 0 ? (
         <p className="text-sm text-muted">{empty}</p>
       ) : (
-        <ul aria-label="Photos" className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3">
+        <ul aria-label="Photos" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {photos.map((photo, index) => (
             <li key={photo.id} data-testid={`${testId}-item`} className="relative aspect-[4/3] overflow-hidden rounded-control bg-surface-2">
               <Image src={photo.src} alt={`Photo ${index + 1}`} fill unoptimized sizes="12rem" className="object-cover" />
@@ -437,9 +423,16 @@ export function SavedPhotos({
           ))}
         </ul>
       )}
-      <Button type="button" variant="soft" disabled={disabled} onClick={onManage} glyph={photos.length === 0 ? "plus" : undefined} data-testid={`${testId}-manage`}>
-        {photos.length === 0 ? "Add photos" : "Manage photos"}
-      </Button>
     </div>
+  );
+}
+
+// What opens PhotoManager, beside the photos section's title: "Add photos" while there are none,
+// "Manage photos" after.
+export function ManagePhotosButton({ count, onClick, disabled = false, testId }: { count: number; onClick: () => void; disabled?: boolean; testId: string }) {
+  return (
+    <Button type="button" size="sm" variant="soft" disabled={disabled} onClick={onClick} glyph={count === 0 ? "plus" : undefined} data-testid={testId}>
+      {count === 0 ? "Add photos" : "Manage photos"}
+    </Button>
   );
 }

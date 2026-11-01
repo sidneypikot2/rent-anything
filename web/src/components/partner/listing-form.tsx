@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { PhAddressFields, usePhAddress } from "@/components/address/ph-address-fields";
+import { ManagePhotosButton } from "@/components/photos/photo-manager";
 import { ActionBar } from "@/components/ui/action-bar";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
@@ -32,7 +33,8 @@ import {
 } from "./listing-fields";
 import { LandmarkPicker } from "./landmark-picker";
 import { ListingPhotos, orderedPhotos } from "./listing-photos";
-import { ListingStatusSection } from "./listing-status-section";
+import { STATUS } from "./listing-status";
+import { ListingStatusSection, type StatusMove } from "./listing-status-section";
 import { uploadedPhotos } from "./use-listing-photos";
 import { LocationPicker } from "./location-picker";
 import {
@@ -81,7 +83,7 @@ import {
   type VehiclePricingErrors,
   type VehiclePricingValues,
 } from "./vehicle-pricing-fields";
-import { useUpdateListing, type ListingBody, type ListingOptions, type PartnerListing } from "./use-partner-listings";
+import { useChangeListingStatus, useUpdateListing, type ListingBody, type ListingOptions, type PartnerListing } from "./use-partner-listings";
 import { StayGuestRules } from "./stay-guest-rules";
 import { UNITS_LABEL, UnitsField } from "./units-field";
 import { WizardCancel } from "./wizard-cancel";
@@ -90,8 +92,8 @@ import { TickGlyph } from "@/components/discovery/tag-glyphs";
 // Changing a listing (RAA-47): what it is, where it is, the landmarks a tour or activity
 // visits (RAA-70), the details its category asks for (an accommodation's own, RAA-83; a
 // vehicle's, RAA-89), an accommodation's or a vehicle's pricing and fees (RAA-105, RAA-150), how guests book it (RAA-133), the cancellation policy
-// (RAA-89), how many identical units it has (RAA-99), its photos (RAA-109) and, last, its status, changed
-// straight away behind Change status rather than with Save (RAA-115). A tour has
+// (RAA-89), how many identical units it has (RAA-99), its photos (RAA-109) and, last, its status
+// (RAA-115), picked behind Change status and made by Save after the rest is saved. A tour has
 // the TourWizard's sections instead of details and units (RAA-111). Saving first shows what changed and asks to confirm. Adding one is the stepped
 // ListingWizard (RAA-50). A partner with several businesses can move it to another (RAA-101).
 export function ListingForm({
@@ -129,10 +131,16 @@ export function ListingForm({
   const [locationError, setLocationError] = useState<string>();
   const [landmarks, setLandmarks] = useState<PartnerLandmark[]>(listing.landmarks);
   // The edit waiting for the partner to confirm it, and what it changes.
-  const [pending, setPending] = useState<{ body: ListingBody; changes: string[] }>();
+  // What Save will send: the body, whether any of it changed, and every change to list.
+  // `saved` once the body is, while a held status is still to go.
+  const [pending, setPending] = useState<{ body: ListingBody; edited: boolean; saved?: boolean; changes: string[] }>();
   // Photos are added and deleted at once (RAA-109); only a new order waits for Save.
   const [photoOrder, setPhotoOrder] = useState<number[]>();
   const [photosBusy, setPhotosBusy] = useState(false);
+  const [managingPhotos, setManagingPhotos] = useState(false);
+  const [stagedStatus, setStagedStatus] = useState<StatusMove>();
+  const [choosingStatus, setChoosingStatus] = useState(false);
+  const changeStatus = useChangeListingStatus(listing.id);
   // A new category waiting for the partner to confirm that its details are cleared.
   const [nextCategoryId, setNextCategoryId] = useState<string>();
   const formRef = useRef<HTMLFormElement>(null);
@@ -197,7 +205,7 @@ export function ListingForm({
   // Whether leaving now would lose an edit (photos added or deleted are saved already).
   function unsaved() {
     const body = formRef.current ? toBody(formRef.current) : undefined;
-    return !body || listingChanges(listing, body).length > 0;
+    return !body || listingChanges(listing, body).length > 0 || stagedStatus !== undefined;
   }
 
   // The details the current category asks for, once the partner has filled any in.
@@ -237,16 +245,34 @@ export function ListingForm({
       setTourProblems(tourErrors(tour));
       return;
     }
-    setPending({ body, changes: listingChanges(listing, body) });
+    const changes = listingChanges(listing, body);
+    const statusChange = stagedStatus && `Status: ${STATUS[listing.status].label} → ${STATUS[stagedStatus].label}`;
+    changeStatus.reset();
+    setPending({ body, edited: changes.length > 0, changes: statusChange ? [...changes, statusChange] : changes });
   }
 
-  function confirmEdit() {
+  // The listing first, then a held status, so going live is checked against what was just
+  // saved. A status the API refuses keeps the dialog open on why; the rest is saved by then.
+  async function confirmEdit() {
     if (!pending) return;
-    update.mutate(pending.body, {
-      onSuccess: () => router.push(listingPath),
-      onSettled: () => setPending(undefined),
-    });
+    try {
+      if (pending.edited) {
+        await update.mutateAsync(pending.body);
+        setPending({ ...pending, edited: false, saved: true });
+      }
+    } catch {
+      setPending(undefined);
+      return;
+    }
+    try {
+      if (stagedStatus) await changeStatus.mutateAsync(stagedStatus);
+      setStagedStatus(undefined);
+      router.push(listingPath);
+    } catch {
+      // changeStatus.error says why, in the dialog.
+    }
   }
+  const saving = update.isPending || changeStatus.isPending;
 
   // The page's sections, in order, for the index beside them (and above them on a phone).
   const sections = [
@@ -517,7 +543,17 @@ export function ListingForm({
           </EditSection>
         )}
 
-        <EditSection id="photos" title="Photos">
+        <EditSection
+          id="photos"
+          title="Photos"
+          action={
+            <ManagePhotosButton
+              count={uploadedPhotos(listing.photos).length}
+              onClick={() => setManagingPhotos(true)}
+              testId="listing-photos-manage"
+            />
+          }
+        >
           <p className="text-sm text-muted">Photos added or deleted in Manage photos are saved there; a new order is saved with the rest.</p>
           {extraPhotos > 0 && (
             <p role="alert" className="text-sm font-medium text-warning" data-testid="listing-photos-over-limit">
@@ -532,12 +568,28 @@ export function ListingForm({
             order={photoOrder}
             onOrderChange={setPhotoOrder}
             onBusyChange={setPhotosBusy}
+            managing={managingPhotos}
+            onManagingChange={setManagingPhotos}
           />
         </EditSection>
 
-        <EditSection id="status" title="Status">
-          <p className="text-sm text-muted">A change of status is saved straight away, not with Save.</p>
-          <ListingStatusSection listing={listing} editable />
+        <EditSection
+          id="status"
+          title="Status"
+          action={
+            <Button type="button" size="sm" variant="soft" onClick={() => setChoosingStatus(true)} data-testid="listing-change-status">
+              Change status
+            </Button>
+          }
+        >
+          <ListingStatusSection
+            listing={listing}
+            editable
+            staged={stagedStatus}
+            onStage={setStagedStatus}
+            choosing={choosingStatus}
+            onChoosingChange={setChoosingStatus}
+          />
         </EditSection>
 
         <ActionBar>
@@ -553,11 +605,11 @@ export function ListingForm({
             type="submit"
             variant="glow"
             size="pill"
-            disabled={update.isPending || photosBusy}
+            disabled={saving || photosBusy}
             data-testid="listing-save"
           >
-            {!update.isPending && <TickGlyph className="size-4.5" />}
-            {update.isPending ? "Saving…" : "Save changes"}
+            {!saving && <TickGlyph className="size-4.5" />}
+            {saving ? "Saving…" : "Save changes"}
           </Button>
         </ActionBar>
       </div>
@@ -574,11 +626,11 @@ export function ListingForm({
             </Button>
             <Button
               type="button"
-              onClick={confirmEdit}
-              disabled={!pending?.changes.length || update.isPending}
+              onClick={() => void confirmEdit()}
+              disabled={!pending?.changes.length || saving}
               data-testid="listing-save-confirm-button"
             >
-              {update.isPending ? "Saving…" : "Save changes"}
+              {saving ? "Saving…" : "Save changes"}
             </Button>
           </>
         }
@@ -591,6 +643,12 @@ export function ListingForm({
                 <li key={label}>{label}</li>
               ))}
             </ul>
+            {changeStatus.error && (
+              <p role="alert" className="text-danger" data-testid="listing-status-error">
+                {pending.saved ? "Your other changes are saved, but the status didn't change: " : "The status didn't change: "}
+                {changeStatus.error.message}
+              </p>
+            )}
           </div>
         ) : (
           <p className="text-sm text-muted">Nothing has changed yet.</p>
@@ -628,15 +686,19 @@ export function ListingForm({
 }
 
 // One section of the edit page: a white card, so its fields read as they do in the wizard
-// rather than straight on the photo, with an id the index above links to.
+// rather than straight on the photo, with an id the index above links to. An `action` (a
+// button that opens a sheet) sits at the right of the title; a legend can't share a row, so
+// the visible title is its own heading and the legend is for screen readers.
 function EditSection({
   id,
   title,
+  action,
   children,
   "data-testid": testId,
 }: {
   id: string;
   title: string;
+  action?: ReactNode;
   children: ReactNode;
   "data-testid"?: string;
 }) {
@@ -644,7 +706,19 @@ function EditSection({
     <Card id={id} clip={false} className="scroll-mt-24">
       <CardBody pad="lg">
         <fieldset data-testid={testId} className="flex min-w-0 flex-col gap-4">
-          <legend className="mb-2 font-display text-xl font-extrabold tracking-tight">{title}</legend>
+          {action ? (
+            <>
+              <legend className="sr-only">{title}</legend>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                <h2 aria-hidden className="font-display text-xl font-extrabold tracking-tight">
+                  {title}
+                </h2>
+                {action}
+              </div>
+            </>
+          ) : (
+            <legend className="mb-2 font-display text-xl font-extrabold tracking-tight">{title}</legend>
+          )}
           {children}
         </fieldset>
       </CardBody>
