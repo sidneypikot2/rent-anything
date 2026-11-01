@@ -22,118 +22,6 @@ paths:
                 type: array
                 items:
                   "$ref": "#/components/schemas/activity"
-  "/api/v1/admin/areas/{area_slug}/banner_photo":
-    parameters:
-    - name: area_slug
-      in: path
-      schema:
-        type: string
-      required: true
-    post:
-      summary: Set a destination's banner photo
-      tags:
-      - Admin
-      deprecated: true
-      description: 'Deprecated (RAA-210): use the area''s photos. Replaces its first
-        photo, if it has one; the upload goes as a photo''s.'
-      security:
-      - bearer: []
-      parameters:
-      - name: Authorization
-        in: header
-        schema:
-          type: string
-      responses:
-        '201':
-          description: the new banner, still uploading, replacing the first photo
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/photo_upload"
-        '422':
-          description: not a photo we take
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/validation_errors"
-        '403':
-          description: a partner
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/error"
-        '401':
-          description: signed out
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/error"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              "$ref": "#/components/schemas/photo_upload_body"
-    patch:
-      summary: Confirm a banner photo's upload
-      tags:
-      - Admin
-      deprecated: true
-      description: 'Deprecated (RAA-210): confirms the first photo''s upload.'
-      security:
-      - bearer: []
-      parameters:
-      - name: Authorization
-        in: header
-        schema:
-          type: string
-      responses:
-        '200':
-          description: uploaded, sizes on the way
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/area_banner_photo"
-        '422':
-          description: the file isn't there yet
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/validation_errors"
-        '404':
-          description: no banner
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/error"
-        '403':
-          description: a partner
-          content:
-            application/json:
-              schema:
-                "$ref": "#/components/schemas/error"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              "$ref": "#/components/schemas/photo_update_body"
-    delete:
-      summary: Remove a destination's banner photo
-      tags:
-      - Admin
-      deprecated: true
-      description: 'Deprecated (RAA-210): deletes the first photo.'
-      security:
-      - bearer: []
-      parameters:
-      - name: Authorization
-        in: header
-        schema:
-          type: string
-      responses:
-        '204':
-          description: removed
-        '403':
-          description: a partner
   "/api/v1/admin/areas/{area_slug}/photos":
     parameters:
     - name: area_slug
@@ -10537,23 +10425,6 @@ components:
       - ready
       - card_url
       - large_url
-    area_banner_photo:
-      type: object
-      deprecated: true
-      properties:
-        uploaded:
-          type: boolean
-        ready:
-          type: boolean
-        card_url:
-          type: string
-        large_url:
-          type: string
-      required:
-      - uploaded
-      - ready
-      - card_url
-      - large_url
     admin_photo_update_body:
       type: object
       description: 'Either or both: confirm the upload, and/or move it to `position`
@@ -10627,12 +10498,6 @@ components:
             "$ref": "#/components/schemas/admin_photo"
           description: In order, with those still uploading; the first is the banner
             (RAA-210)
-        banner_photo:
-          allOf:
-          - "$ref": "#/components/schemas/area_banner_photo"
-          nullable: true
-          deprecated: true
-          description: The first of photos; use photos
         wikidata_id:
           type: string
           nullable: true
@@ -10706,7 +10571,6 @@ components:
       - best_time_to_visit
       - tags
       - photos
-      - banner_photo
       - wikidata_id
       - wikidata_aliases
       - wikidata_popularity

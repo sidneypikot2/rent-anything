@@ -43,175 +43,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/areas/{area_slug}/banner_photo": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                area_slug: string;
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Set a destination's banner photo
-         * @deprecated
-         * @description Deprecated (RAA-210): use the area's photos. Replaces its first photo, if it has one; the upload goes as a photo's.
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    Authorization?: string;
-                };
-                path: {
-                    area_slug: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["photo_upload_body"];
-                };
-            };
-            responses: {
-                /** @description the new banner, still uploading, replacing the first photo */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["photo_upload"];
-                    };
-                };
-                /** @description signed out */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["error"];
-                    };
-                };
-                /** @description a partner */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["error"];
-                    };
-                };
-                /** @description not a photo we take */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["validation_errors"];
-                    };
-                };
-            };
-        };
-        /**
-         * Remove a destination's banner photo
-         * @deprecated
-         * @description Deprecated (RAA-210): deletes the first photo.
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: {
-                    Authorization?: string;
-                };
-                path: {
-                    area_slug: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description removed */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description a partner */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        /**
-         * Confirm a banner photo's upload
-         * @deprecated
-         * @description Deprecated (RAA-210): confirms the first photo's upload.
-         */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: {
-                    Authorization?: string;
-                };
-                path: {
-                    area_slug: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["photo_update_body"];
-                };
-            };
-            responses: {
-                /** @description uploaded, sizes on the way */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["area_banner_photo"];
-                    };
-                };
-                /** @description a partner */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["error"];
-                    };
-                };
-                /** @description no banner */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["error"];
-                    };
-                };
-                /** @description the file isn't there yet */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["validation_errors"];
-                    };
-                };
-            };
-        };
-        trace?: never;
-    };
     "/api/v1/admin/areas/{area_slug}/photos": {
         parameters: {
             query?: never;
@@ -9457,13 +9288,6 @@ export interface components {
             card_url: string;
             large_url: string;
         };
-        /** @deprecated */
-        area_banner_photo: {
-            uploaded: boolean;
-            ready: boolean;
-            card_url: string;
-            large_url: string;
-        };
         /** @description Either or both: confirm the upload, and/or move it to `position` (1 is the first, the banner or the card's photo), the others shifting to make room */
         admin_photo_update_body: {
             /** @enum {boolean} */
@@ -9491,11 +9315,6 @@ export interface components {
             tags: components["schemas"]["tag"][];
             /** @description In order, with those still uploading; the first is the banner (RAA-210) */
             photos: components["schemas"]["admin_photo"][];
-            /**
-             * @deprecated
-             * @description The first of photos; use photos
-             */
-            banner_photo: components["schemas"]["area_banner_photo"] | null;
             wikidata_id: string | null;
             /** @description Read-only: filled by `bin/rails gazetteer:wikidata` */
             wikidata_aliases: string[];

@@ -103,7 +103,7 @@ RSpec.describe "Admin areas", type: :request do
             "slug" => "virgin-island", "status" => "draft", "parent" => { "slug" => "bantayan-island", "name" => "Bantayan Island" },
             "center" => { "lat" => 11.17, "lng" => 123.75 }, "aliases" => [ "Silion" ], "tagline" => "A sandbar off Santa Fe",
             "tags" => [ { "slug" => "snorkelling", "name" => "Snorkelling", "kind" => "activity" } ],
-            "photos" => [], "banner_photo" => nil, "has_boundary" => false
+            "photos" => [], "has_boundary" => false
           )
           expect(Area.find_by!(slug: "virgin-island").tags).to eq([ snorkelling ])
         end
