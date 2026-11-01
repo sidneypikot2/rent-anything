@@ -82,6 +82,9 @@ type Props = {
   // useChanged() gives it from the form's values. Closing it yourself (open={false}, after a
   // save) never asks.
   dirty?: boolean;
+  // Work that mustn't be left half done is running (uploading photos): there is no close disc,
+  // and Escape, a click outside or a drag down do nothing until it's over.
+  locked?: boolean;
   "data-testid"?: string;
 };
 
@@ -167,6 +170,7 @@ export function Dialog({
   placement = "center",
   pinned = false,
   dirty = false,
+  locked = false,
   "data-testid": testId,
 }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -176,7 +180,7 @@ export function Dialog({
   // Whether the press being followed began outside the dialog, on its backdrop.
   const pressedOutside = useRef(false);
 
-  const requestClose = () => (dirty ? setAsking(true) : onClose());
+  const requestClose = () => (locked ? undefined : dirty ? setAsking(true) : onClose());
 
   // The backdrop is the <dialog> itself: a point on it but outside its box is outside. A nested
   // dialog's events bubble here through React, so only this dialog's own count.
@@ -241,7 +245,7 @@ export function Dialog({
         </h2>
         {meta && <div className="text-sm text-pretty text-muted">{meta}</div>}
       </div>
-      <CloseDisc onClose={requestClose} />
+      {!locked && <CloseDisc onClose={requestClose} />}
     </div>
   );
 
@@ -267,11 +271,11 @@ export function Dialog({
       onClose={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
-      // Escape: with changes, ask instead of closing.
+      // Escape: with changes, ask instead of closing; while locked, nothing.
       onCancel={(event) => {
-        if (event.target !== event.currentTarget || !dirty) return;
+        if (event.target !== event.currentTarget || !(dirty || locked)) return;
         event.preventDefault();
-        setAsking(true);
+        if (!locked) setAsking(true);
       }}
       onPointerDown={(event) => {
         pressedOutside.current = outside(event);
@@ -289,7 +293,7 @@ export function Dialog({
     >
       {placement === "side" ? (
         <div className="relative flex h-full flex-col">
-          <CloseDisc onClose={requestClose} floating />
+          {!locked && <CloseDisc onClose={requestClose} floating />}
           {/* Nothing in the body shrinks to fit; it scrolls. A `contents` wrapper's children are
               flex items too, so they're held as well (a clipped card would otherwise be squashed). */}
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-5 *:shrink-0 [&>.contents>*]:shrink-0">

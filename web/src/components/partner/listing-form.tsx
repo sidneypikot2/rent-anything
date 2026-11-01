@@ -518,7 +518,7 @@ export function ListingForm({
         )}
 
         <EditSection id="photos" title="Photos">
-          <p className="text-sm text-muted">New photos and deletions are saved straight away; a new order is saved with the rest.</p>
+          <p className="text-sm text-muted">Photos added or deleted in Manage photos are saved there; a new order is saved with the rest.</p>
           {extraPhotos > 0 && (
             <p role="alert" className="text-sm font-medium text-warning" data-testid="listing-photos-over-limit">
               A tour can have at most {photoLimit} photos: delete {extraPhotos} before saving.
@@ -526,6 +526,7 @@ export function ListingForm({
           )}
           <ListingPhotos
             listingId={listing.id}
+            name={listing.title}
             photos={listing.photos}
             limit={photoLimit}
             order={photoOrder}

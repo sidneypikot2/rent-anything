@@ -90,7 +90,7 @@ export function NewListingPhotos({
               <span className="font-medium text-foreground">{listing.title}</span> is saved. Add its photos now, or later
               from the listing.
             </p>
-            <ListingPhotos listingId={listing.id} photos={photos} limit={listing.photo_limit} order={order} onOrderChange={setOrder} onBusyChange={setBusy} />
+            <ListingPhotos listingId={listing.id} name={listing.title} photos={photos} limit={listing.photo_limit} order={order} onOrderChange={setOrder} onBusyChange={setBusy} />
           </div>
           <WizardActions
             next={
