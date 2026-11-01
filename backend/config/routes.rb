@@ -88,15 +88,20 @@ Rails.application.routes.draw do
         resources :search_terms, only: :create
         resources :link_suggestions, only: :index
         resources :destination_links, only: :create
-        # Destinations, their details and banner photo (RAA-164).
+        # Destinations and their details (RAA-164), and their photos, the first being the
+        # banner (RAA-210); the files go straight to storage.
         resources :areas, only: %i[index show create update], param: :slug do
-          resource :banner_photo, only: %i[create update destroy], controller: "area_photos"
+          resources :photos, only: %i[create update destroy], controller: "area_photos"
+          # Deprecated: RAA-164's one banner, now the first photo; goes with RAA-211.
+          resource :banner_photo, only: %i[create update destroy], controller: "area_banner_photos"
           # Make it a destination from Wikidata in the background (RAA-168).
           post :seed, on: :member
         end
         resource :area_options, only: :show
         # Landmarks, the places to see; their tags come from area_options.
-        resources :landmarks, only: %i[index show create update], param: :slug
+        resources :landmarks, only: %i[index show create update], param: :slug do
+          resources :photos, only: %i[create update destroy], controller: "landmark_photos"
+        end
       end
 
       namespace :partner do

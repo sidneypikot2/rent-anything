@@ -23,7 +23,8 @@ module AdminAreaSerializer
       getting_there: area.getting_there,
       best_time_to_visit: area.best_time_to_visit,
       tags: area.tags.order(:name).map { |tag| TagSerializer.call(tag) },
-      banner_photo: banner_photo(area.banner_photo),
+      photos: area.photos.map { |photo| photo(photo) },
+      banner_photo: banner_photo(area.photos.first),
       wikidata_id: area.wikidata_id,
       wikidata_aliases: area.wikidata_aliases,
       wikidata_popularity: area.wikidata_popularity,
@@ -52,6 +53,13 @@ module AdminAreaSerializer
     }
   end
 
+  # One of an area's or a landmark's photos (RAA-210), with its state: until it is ready both
+  # URLs are the original's, and one still uploading has no file behind them yet.
+  def self.photo(photo)
+    ListingPhotoSerializer.partner(photo)
+  end
+
+  # Deprecated (RAA-210): the first photo, as RAA-164's one banner, until the console uses photos.
   def self.banner_photo(photo)
     photo && { uploaded: photo.uploaded?, ready: photo.ready?, **ListingPhotoSerializer.call(photo) }
   end

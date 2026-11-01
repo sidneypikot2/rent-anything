@@ -2,7 +2,7 @@
 # goes straight to its key, <root>/<table>/<id>/<field>.<extension>. Once the upload is
 # confirmed (uploaded_at), ListingPhotos::ResizeJob strips the original's metadata and makes
 # image_card and image_large next to it (sized_at). Its files go once the row is gone.
-# ListingPhoto and AreaPhoto (RAA-164).
+# ListingPhoto, AreaPhoto (RAA-164) and LandmarkPhoto (RAA-210).
 module StoredPhoto
   extend ActiveSupport::Concern
 

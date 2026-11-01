@@ -24,10 +24,12 @@ class Area < ApplicationRecord
   has_many :destination_links_as_source, class_name: "DestinationLink", as: :source, dependent: :delete_all
   has_many :destination_links_as_target, class_name: "DestinationLink", as: :target, dependent: :delete_all
   # What the team writes about it in the admin console (RAA-164): tags picked for the area
-  # itself (its activities elsewhere come from its landmarks' tags) and a banner photo.
+  # itself (its activities elsewhere come from its landmarks' tags) and its photos in their
+  # order, the first being the banner (RAA-210). Destroyed one by one so their files go too.
   has_many :area_tags, dependent: :delete_all
   has_many :tags, through: :area_tags
-  has_one :banner_photo, class_name: "AreaPhoto", dependent: :destroy
+  has_many :photos, -> { order(:position) }, class_name: "AreaPhoto", dependent: :destroy, inverse_of: :area
+  has_many :ready_photos, -> { ready.order(:position) }, class_name: "AreaPhoto", inverse_of: false
 
   enum :kind, KINDS.index_with(&:itself), validate: true
   enum :status, STATUSES.index_with(&:itself), validate: true
