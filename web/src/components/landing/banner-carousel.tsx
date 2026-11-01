@@ -13,7 +13,7 @@ type Photo = { src: string; alt: string };
 // A destination's banner with several photos (RAA-211): it opens on the first, and every
 // BANNER_ROTATE_MS the next one fades in over it, slowly drifting as a single banner photo does.
 // It holds still while the banner is off-screen, the tab is hidden, or a pointer or keyboard
-// focus is on the banner (someone reading it, or about to tap a chip), and never turns by itself
+// focus (not a click's) is on the banner (someone reading it, or about to tap a chip), and never turns by itself
 // under reduced motion; the dots at the top pick a photo. Rendered in PageBanner's clipped photo
 // layer, whose top the banner's contents leave clear for the dots.
 export function BannerCarousel({ photos, sizes, className }: { photos: Photo[]; sizes: string; className?: string }) {
@@ -34,18 +34,21 @@ export function BannerCarousel({ photos, sizes, className }: { photos: Photo[]; 
       for (const image of layer.querySelectorAll("img")) image.style.animationPlayState = visible ? "" : "paused";
     });
     observer.observe(layer);
+    // Keyboard focus holds it, not a click: a dot clicked with a mouse keeps focus, and the
+    // banner should turn again once the pointer leaves.
     const hold = () => ((held = true), update());
-    const release = () => ((held = banner.matches(":hover") || banner.contains(document.activeElement)), update());
+    const release = () => ((held = banner.matches(":hover") || banner.querySelector(":focus-visible") !== null), update());
+    const focus = (event: FocusEvent) => (event.target instanceof Element && event.target.matches(":focus-visible") ? hold() : undefined);
     banner.addEventListener("pointerenter", hold);
     banner.addEventListener("pointerleave", release);
-    banner.addEventListener("focusin", hold);
+    banner.addEventListener("focusin", focus);
     banner.addEventListener("focusout", release);
     document.addEventListener("visibilitychange", update);
     return () => {
       observer.disconnect();
       banner.removeEventListener("pointerenter", hold);
       banner.removeEventListener("pointerleave", release);
-      banner.removeEventListener("focusin", hold);
+      banner.removeEventListener("focusin", focus);
       banner.removeEventListener("focusout", release);
       document.removeEventListener("visibilitychange", update);
     };
@@ -58,7 +61,9 @@ export function BannerCarousel({ photos, sizes, className }: { photos: Photo[]; 
   }, [paused, shown, photos.length]);
 
   return (
-    <div ref={ref} className="absolute inset-0 -z-20" data-testid="banner-carousel">
+    // The photos sit under PageBanner's scrim (-z-10); the layer itself takes no z-index, so the
+    // dots, above it, stay over the scrim and can be clicked.
+    <div ref={ref} className="absolute inset-0" data-testid="banner-carousel">
       {photos.map((photo, index) => (
         <Image
           key={photo.src}
@@ -67,10 +72,12 @@ export function BannerCarousel({ photos, sizes, className }: { photos: Photo[]; 
           aria-hidden={index !== shown}
           fill
           preload={index === 0}
+          // The next photo fades in over the first within seconds, so it loads at once too.
+          loading={index === 1 ? "eager" : undefined}
           unoptimized={isApiPhoto(photo.src)}
           sizes={sizes}
           className={cn(
-            "object-cover transition-opacity duration-900 ease-calm motion-safe:animate-drift",
+            "-z-20 object-cover transition-opacity duration-900 ease-calm motion-safe:animate-drift",
             index === shown ? "opacity-100" : "opacity-0",
             className,
           )}
