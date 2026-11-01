@@ -10,7 +10,13 @@ paths:
   - "web/src/components/discovery/listing-gallery.tsx"
   - "web/src/components/landing/sample-photos.ts"
   - "web/src/components/admin/use-admin-areas.ts"
+  - "web/src/components/admin/use-admin-landmarks.ts"
+  - "web/src/components/admin/use-admin-photos.ts"
+  - "web/src/components/admin/photo-gallery.tsx"
   - "web/src/components/admin/destination-form.tsx"
+  - "web/src/components/admin/landmark-form.tsx"
+  - "web/src/components/landing/banner-carousel.tsx"
+  - "web/src/components/landing/page-banner.tsx"
 ---
 
 # Listing photos in the web app (RAA-109)
@@ -22,3 +28,5 @@ The API side is in `photos.md`. A photo belongs to a listing that already exists
 **Order**: uploads and deletes are saved at once; the order is part of the listing body. `photos` in a body deletes every photo it leaves out, so send it only after the partner moved one (`orderedPhotos`), and hold the save while uploads or a delete run (`onBusyChange`): the body's ids must be exactly the listing's photos, or the API refuses it.
 
 **Showing them**: guest cards use `listingCover` (the API's `cover_photo_url`, else the category's stand-in); the listing page's banner shows only a real cover (RAA-107 dropped the stand-in there) and `ListingGallery` the rest. API photos are already sized, so Next's Image gets `unoptimized` for them (`isApiPhoto`), which also keeps the R2 host out of `remotePatterns`.
+
+**Destination and place photos** (RAA-211, over RAA-210's API): the admin editors' Photos section (`PhotoGallery`, `useAdminPhotos` in `use-admin-photos.ts`) uploads each file as a listing photo is (one at a time, so they keep the order chosen), up to 12, and saves every change at once: Make banner / Make cover (`PATCH {position: 1}`), Replace (upload the new one, move it into the old one's position, delete the old, so the banner stays in place) and Delete (a confirm). `position` counts all the owner's `photos`, unconfirmed rows too, which are never shown (`uploadedAdminPhotos`). The editor polls every 2 s while a photo is being sized (`photoPollMs`). Guests: an area page's banner shows the area's own photos from `GET /areas/{slug}` (`photos`, large size), turning through them from the first every 6 s (`BannerCarousel`, through `PageBanner carousel`: held while off-screen, the tab is hidden, or a pointer or focus is on the banner, never by itself under reduced motion, with dots to pick one), else the stand-in; a place to see's card and panel take its own first photo before any stand-in (`landmarkPhotos`). The deprecated `banner_photo` endpoint is no longer called.

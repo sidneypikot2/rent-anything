@@ -107,7 +107,13 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   const explore = exploreFailed ? null : explored;
   // The places tours go to first: they are the ones a trip can reach from this page.
   const landmarks = [...detail.landmarks].sort((a, b) => b.visited_by.length - a.visited_by.length);
-  const banner = areaPhoto(slug, area.kind);
+  // Its own photos once the team has added some (RAA-211), turning in the banner from the first;
+  // until then a stand-in that suits its kind.
+  const ownPhotos = detail.photos.map((photo, index) => ({
+    src: photo.large_url,
+    alt: detail.photos.length > 1 ? `${area.name}, photo ${index + 1} of ${detail.photos.length}` : area.name,
+  }));
+  const banner = ownPhotos[0] ?? areaPhoto(slug, area.kind);
   const counts = destinations ? areaCounts(destinations, slug) : null;
   // Nearby places that aren't on this page or inside this place (its landmarks, the places
   // inside it, however deep, and their landmarks).
@@ -146,8 +152,8 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     ]
       .filter(Boolean)
       .join(" · ");
-  // A place to see's photo: a stand-in that fits it, never one another place or the banner has
-  // (landmarkPhotos).
+  // A place to see's photo: its own first one (RAA-211), else a stand-in that fits it, never one
+  // another place or the banner has (landmarkPhotos).
   const photos = landmarkPhotos(landmarks, [banner.src]);
   // The rows on this page that visit each place to see.
   const listingById = new Map(listings.map((listing) => [listing.id, listing]));
@@ -298,7 +304,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
       {listings.length > 0 ? (
         // The place's banner, with the guest's trip here at its foot.
         <AreaHero
-          banner={{ photo: banner, eyebrow, title: areaTitle }}
+          banner={{ photo: banner, carousel: ownPhotos, eyebrow, title: areaTitle }}
           statChips={statChips}
           placeLinks={placeLinks}
           areaName={area.name}
@@ -309,7 +315,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           starting={starting}
         />
       ) : (
-        <PageBanner photo={banner} eyebrow={eyebrow} title={areaTitle}>
+        <PageBanner photo={banner} carousel={ownPhotos} eyebrow={eyebrow} title={areaTitle}>
           {(stats.length > 0 || placeLinks.length > 0) && (
             <ul aria-label={`In ${area.name}`} className={CHIP_ROW}>
               {statChips}

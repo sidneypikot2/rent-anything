@@ -56,7 +56,12 @@ export function AreaHero({
   sights = [],
   starting = false,
 }: {
-  banner: { photo: ComponentProps<typeof PageBanner>["photo"]; eyebrow: string; title: ReactNode };
+  banner: {
+    photo: ComponentProps<typeof PageBanner>["photo"];
+    carousel?: ComponentProps<typeof PageBanner>["carousel"];
+    eyebrow: string;
+    title: ReactNode;
+  };
   // The place's counts, as chip list items ("20 to book" first), and the places inside it with things to book.
   statChips: ReactNode[];
   placeLinks: { href: string; name: string; count: number }[];
@@ -136,7 +141,7 @@ export function AreaHero({
   // A partner or admin browsing: the place alone.
   if (session && !isGuest)
     return (
-      <PageBanner photo={banner.photo} eyebrow={banner.eyebrow} title={banner.title}>
+      <PageBanner photo={banner.photo} carousel={banner.carousel} eyebrow={banner.eyebrow} title={banner.title}>
         {chips}
       </PageBanner>
     );
@@ -167,6 +172,7 @@ export function AreaHero({
     return (
       <PageBanner
         photo={banner.photo}
+        carousel={banner.carousel}
         title={
           <h1
             data-testid="area-title-small"
@@ -190,7 +196,7 @@ export function AreaHero({
       </PageBanner>
     );
   return (
-    <PageBanner photo={banner.photo} eyebrow={banner.eyebrow} title={banner.title}>
+    <PageBanner photo={banner.photo} carousel={banner.carousel} eyebrow={banner.eyebrow} title={banner.title}>
       {chips}
       {!loading && trip ? (
         notice(false)

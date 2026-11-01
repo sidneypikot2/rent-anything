@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/components/ui/cn";
 import { GlassPanel, glassClasses } from "@/components/ui/glass";
+import { BannerCarousel } from "./banner-carousel";
 import { DriftingPhoto } from "./drifting-photo";
 import { SearchBar } from "./search-bar";
 
@@ -44,13 +45,16 @@ const HERO_PHOTO_PAD = "pb-8 pt-16 max-sm:short:pb-5 max-sm:short:pt-5! sm:py-12
 // so it composes with the drift's transform. `search={false}` leaves the header's search off the
 // page (SearchBar marks a page that has it), for a page that isn't about finding a place (the cart). `compact` is a work page's banner (the
 // cart, Trips, Bookings): no photo, the title and its actions on one short row (never wrapping on a
-// phone, RAA-161), so the page's own content starts in the first screen.
+// phone, RAA-161), so the page's own content starts in the first screen. `carousel` is a
+// destination's own photos (RAA-211), `photo` the first of them: with more than one the banner
+// turns through them (BannerCarousel) instead of showing `photo` alone.
 export function PageBanner({
   eyebrow,
   title,
   children,
   hero = false,
   photo,
+  carousel,
   frameClass,
   aside,
   search = true,
@@ -61,6 +65,7 @@ export function PageBanner({
   children?: ReactNode;
   hero?: boolean;
   photo?: Photo;
+  carousel?: Photo[];
   frameClass?: string;
   // A card beside the contents from xl (the home hero's example trip, RAA-125), at the foot of
   // the frame: at lg it would squeeze the search beside it. Only with a photo.
@@ -126,13 +131,17 @@ export function PageBanner({
               hero search's suggestions can open past the frame's foot. The hero's photo keeps its
               top, the boats and open water, and crops the rocks at its foot. */}
           <div className="absolute inset-0 -z-10 overflow-hidden rounded-[inherit]">
-            <DriftingPhoto
-              src={photo.src}
-              alt={photo.alt}
-              placeholder={photo.placeholder}
-              sizes={photo.sizes ?? "(min-width: 72rem) 72rem, 100vw"}
-              className={cn("-z-20 object-cover", hero && "object-top", photo.mirror && "-scale-x-100")}
-            />
+            {carousel && carousel.length > 1 ? (
+              <BannerCarousel photos={carousel} sizes={photo.sizes ?? "(min-width: 72rem) 72rem, 100vw"} />
+            ) : (
+              <DriftingPhoto
+                src={photo.src}
+                alt={photo.alt}
+                placeholder={photo.placeholder}
+                sizes={photo.sizes ?? "(min-width: 72rem) 72rem, 100vw"}
+                className={cn("-z-20 object-cover", hero && "object-top", photo.mirror && "-scale-x-100")}
+              />
+            )}
             {hero ? (
               // Clear water above the contents below lg; a short phone has no strip, so the title
               // starts near the top and the scrim stays dense up there. From lg the contents sit on

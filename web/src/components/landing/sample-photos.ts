@@ -96,12 +96,17 @@ const LANDMARK_PHOTOS: Record<string, Photo> = {
   "white-sand": ISLAND,
 };
 
-// The places to see on one page, each with the first of its tags whose scene no place before
-// it has taken, so two places never share a photo; a place with none left gets none (its card
-// shows its icon). `taken` are photos already on the page (its banner's), which none reuses.
-export function landmarkPhotos(landmarks: { tags: { slug: string }[] }[], taken: string[] = []): (Photo | null)[] {
+// The places to see on one page, each with its own first photo when the team has added one
+// (RAA-211), else the first of its tags whose scene no place before it has taken, so two places
+// never share a stand-in; a place with none left gets none (its card shows its icon). `taken`
+// are photos already on the page (its banner's), which none reuses.
+export function landmarkPhotos(
+  landmarks: { name?: string; tags: { slug: string }[]; photos?: { card_url: string }[] }[],
+  taken: string[] = [],
+): (Photo | null)[] {
   const used = new Set(taken);
-  return landmarks.map(({ tags }) => {
+  return landmarks.map(({ name, tags, photos }) => {
+    if (photos?.[0]) return { src: photos[0].card_url, alt: name ?? "" };
     const photo = tags.map((tag) => LANDMARK_PHOTOS[tag.slug]).find((p) => p && !used.has(p.src)) ?? null;
     if (photo) used.add(photo.src);
     return photo;

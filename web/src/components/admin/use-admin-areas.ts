@@ -4,8 +4,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { useEffect, useRef } from "react";
 import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
-import { md5Base64 } from "@/components/partner/use-listing-photos";
 import { saveError } from "@/components/partner/use-partner-listings";
+import { adminAreaKey as areaKey, photoPollMs } from "./use-admin-photos";
 
 export type AdminArea = components["schemas"]["admin_area"];
 export type AdminAreaRow = components["schemas"]["admin_area_row"];
@@ -13,7 +13,6 @@ export type AdminAreaBody = components["schemas"]["admin_area_body"];
 export type AreaKind = AdminArea["kind"];
 export type AreaStatus = AdminArea["status"];
 export type SeedStatus = AdminArea["seed_status"];
-type PhotoType = components["schemas"]["photo_upload_body"]["content_type"];
 
 export type AreaFilters = { q: string; status: AreaStatus | ""; kind: AreaKind | ""; page: number };
 
@@ -24,7 +23,6 @@ export const AREAS_PER_PAGE = 50;
 const SEED_POLL_MS = 3000;
 
 const LIST_KEY = ["admin-areas"] as const;
-const areaKey = (slug: string) => ["admin-area", slug] as const;
 
 // Every destination, drafts included (GET /admin/areas, RAA-164): published first, then by
 // name; `q` matches the name, slug or an alias. The last page stays shown while the next loads.
@@ -43,9 +41,9 @@ export function useAdminAreas({ q, status, kind, page }: AreaFilters) {
   });
 }
 
-// One destination with all its details. While its banner is uploaded but not ready (being
-// sized), it is asked for again every two seconds, as a partner's listing is, and every three
-// while it is being seeded.
+// One destination with all its details. While a photo is uploaded but not ready (being sized),
+// it is asked for again every two seconds (photoPollMs), and every three while it is being
+// seeded.
 export function useAdminArea(slug: string | undefined) {
   return useQuery({
     queryKey: areaKey(slug ?? ""),
@@ -56,8 +54,8 @@ export function useAdminArea(slug: string | undefined) {
     },
     enabled: slug !== undefined,
     refetchInterval: (query) => {
-      const photo = query.state.data?.banner_photo;
-      if (photo?.uploaded && !photo.ready) return 2000;
+      const photos = photoPollMs(query.state.data?.photos);
+      if (photos) return photos;
       return query.state.data && isSeeding(query.state.data) ? SEED_POLL_MS : false;
     },
   });
@@ -94,58 +92,6 @@ export function useSaveArea() {
       return queryClient.invalidateQueries({ queryKey: LIST_KEY });
     },
   });
-}
-
-// Setting the banner as a listing photo is added (use-listing-photos.ts): the API makes the row
-// and signs an upload, the browser PUTs the bytes straight to storage (not the API, so not
-// apiClient()), then confirms. A new banner replaces the old one.
-async function uploadBanner(slug: string, file: File) {
-  const client = apiClient();
-  const path = { params: { path: { area_slug: slug } } };
-  const { data, error } = await client.POST("/api/v1/admin/areas/{area_slug}/banner_photo", {
-    ...path,
-    body: {
-      filename: file.name,
-      byte_size: file.size,
-      checksum: await md5Base64(file),
-      content_type: file.type as PhotoType,
-    },
-  });
-  if (!data) throw saveError(error, `Couldn't add ${file.name}.`);
-
-  try {
-    const stored = await fetch(data.upload.url, { method: "PUT", headers: data.upload.headers, body: file });
-    if (!stored.ok) throw new Error(`Couldn't upload ${file.name}.`);
-    const confirmed = await client.PATCH("/api/v1/admin/areas/{area_slug}/banner_photo", {
-      ...path,
-      body: { uploaded: true },
-    });
-    if (!confirmed.data) throw saveError(confirmed.error, `Couldn't finish ${file.name}.`);
-  } catch (error) {
-    // Don't leave an unfinished banner in place; the API would purge it in two days anyway.
-    await client.DELETE("/api/v1/admin/areas/{area_slug}/banner_photo", path).catch(() => undefined);
-    throw error;
-  }
-}
-
-// A destination's banner photo: an upload or removal is saved at once and the area asked for again.
-export function useAreaBanner(slug: string) {
-  const queryClient = useQueryClient();
-  const refresh = () => queryClient.invalidateQueries({ queryKey: areaKey(slug) });
-
-  const upload = useMutation({ mutationFn: (file: File) => uploadBanner(slug, file), onSettled: refresh });
-
-  const remove = useMutation({
-    mutationFn: async () => {
-      const { response } = await apiClient().DELETE("/api/v1/admin/areas/{area_slug}/banner_photo", {
-        params: { path: { area_slug: slug } },
-      });
-      if (!response.ok) throw new Error("Couldn't remove the banner photo.");
-    },
-    onSettled: refresh,
-  });
-
-  return { upload, remove };
 }
 
 // A seed run waiting or under way (RAA-168), which the API refuses to start again.
