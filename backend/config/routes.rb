@@ -92,8 +92,6 @@ Rails.application.routes.draw do
         # banner (RAA-210); the files go straight to storage.
         resources :areas, only: %i[index show create update], param: :slug do
           resources :photos, only: %i[create update destroy], controller: "area_photos"
-          # Deprecated: RAA-164's one banner, now the first photo; goes with RAA-211.
-          resource :banner_photo, only: %i[create update destroy], controller: "area_banner_photos"
           # Make it a destination from Wikidata in the background (RAA-168).
           post :seed, on: :member
         end

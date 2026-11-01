@@ -2400,18 +2400,6 @@ RSpec.configure do |config|
             },
             required: %w[id uploaded ready card_url large_url]
           },
-          # Deprecated (RAA-210): the first of an admin_area's photos, as RAA-164's one banner.
-          area_banner_photo: {
-            type: :object,
-            deprecated: true,
-            properties: {
-              uploaded: { type: :boolean },
-              ready: { type: :boolean },
-              card_url: { type: :string },
-              large_url: { type: :string }
-            },
-            required: %w[uploaded ready card_url large_url]
-          },
           admin_photo_update_body: {
             type: :object,
             description: "Either or both: confirm the upload, and/or move it to `position` (1 is the first, the " \
@@ -2446,10 +2434,6 @@ RSpec.configure do |config|
                 type: :array, maxItems: 12, items: { "$ref" => "#/components/schemas/admin_photo" },
                 description: "In order, with those still uploading; the first is the banner (RAA-210)"
               },
-              banner_photo: {
-                allOf: [ { "$ref" => "#/components/schemas/area_banner_photo" } ], nullable: true, deprecated: true,
-                description: "The first of photos; use photos"
-              },
               wikidata_id: { type: :string, nullable: true },
               wikidata_aliases: {
                 type: :array, items: { type: :string },
@@ -2465,7 +2449,7 @@ RSpec.configure do |config|
               **SEED_RUN
             },
             required: %w[slug name kind status parent aliases center psgc_code tagline description getting_there
-              best_time_to_visit tags photos banner_photo wikidata_id wikidata_aliases wikidata_popularity has_boundary
+              best_time_to_visit tags photos wikidata_id wikidata_aliases wikidata_popularity has_boundary
               listing_count landmark_count seed_status seeded_at seed_report]
           },
           admin_area_body: {
