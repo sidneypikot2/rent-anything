@@ -29,10 +29,36 @@ export async function md5Base64(file: File) {
   return btoa(SparkMD5.ArrayBuffer.hash(await file.arrayBuffer(), true));
 }
 
+// Where one photo's upload is (PhotoManager shows it): working out its checksum and asking the
+// API for the upload ("preparing"), its bytes going to storage ("sending", `sent` from 0 to 1),
+// then the confirm ("finishing").
+export type UploadProgress = { stage: "preparing" | "sending" | "finishing"; sent: number };
+export type OnUploadProgress = (progress: UploadProgress) => void;
+
+// PUTs a file to its signed storage URL, reporting the bytes sent. XMLHttpRequest rather than
+// fetch, which can't report an upload's progress; this is the one request in the app that
+// doesn't go through apiClient(), as it goes to storage, not the API. Resolves with whether
+// storage took it.
+export function putWithProgress(url: string, headers: Record<string, string>, file: File, onProgress?: OnUploadProgress) {
+  return new Promise<boolean>((resolve) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", url);
+    for (const [name, value] of Object.entries(headers)) request.setRequestHeader(name, value);
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.({ stage: "sending", sent: event.loaded / event.total });
+    };
+    request.onload = () => resolve(request.status >= 200 && request.status < 300);
+    request.onerror = request.onabort = () => resolve(false);
+    request.send(file);
+  });
+}
+
 // Adding a photo to a listing that already exists (RAA-109): the API makes the row and signs
 // an upload; the browser PUTs the bytes straight to storage (R2, or the local stack's
-// stand-in), which is not the API and so not apiClient(); then the upload is confirmed.
-async function uploadPhoto(listingId: number, file: File) {
+// stand-in), which is not the API and so not apiClient(); then the upload is confirmed. Returns
+// the new photo's id.
+async function uploadPhoto(listingId: number, file: File, onProgress?: OnUploadProgress) {
+  onProgress?.({ stage: "preparing", sent: 0 });
   const client = apiClient();
   const path = { listing_id: listingId };
   const { data, error } = await client.POST("/api/v1/partner/listings/{listing_id}/photos", {
@@ -48,8 +74,9 @@ async function uploadPhoto(listingId: number, file: File) {
 
   const photo = { params: { path: { ...path, id: data.id } } };
   try {
-    const stored = await fetch(data.upload.url, { method: "PUT", headers: data.upload.headers, body: file });
-    if (!stored.ok) throw new Error(`Couldn't upload ${file.name}.`);
+    const stored = await putWithProgress(data.upload.url, data.upload.headers, file, onProgress);
+    if (!stored) throw new Error(`Couldn't upload ${file.name}.`);
+    onProgress?.({ stage: "finishing", sent: 1 });
     const confirmed = await client.PATCH("/api/v1/partner/listings/{listing_id}/photos/{id}", {
       ...photo,
       body: { uploaded: true },
@@ -59,7 +86,7 @@ async function uploadPhoto(listingId: number, file: File) {
     // Don't leave the row holding one of the listing's places; the API would purge it in two days anyway.
     await client.DELETE("/api/v1/partner/listings/{listing_id}/photos/{id}", photo).catch(() => undefined);
     throw error;
-  }
+  }  return data.id;
 }
 
 // Only a confirmed photo has a file behind it: an unconfirmed row is another file still
@@ -76,7 +103,7 @@ export function useListingPhotos(listingId: number) {
   const refresh = () => queryClient.invalidateQueries({ queryKey: partnerListingKey(userId, listingId) });
 
   const upload = useMutation({
-    mutationFn: (file: File) => uploadPhoto(listingId, file),
+    mutationFn: ({ file, onProgress }: { file: File; onProgress?: OnUploadProgress }) => uploadPhoto(listingId, file, onProgress),
     onSettled: refresh,
   });
 

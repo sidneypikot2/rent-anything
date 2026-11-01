@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
-import { md5Base64 } from "@/components/partner/use-listing-photos";
+import { md5Base64, putWithProgress, type OnUploadProgress } from "@/components/partner/use-listing-photos";
 import { saveError } from "@/components/partner/use-partner-listings";
 
 export type AdminPhoto = components["schemas"]["admin_photo"];
@@ -65,7 +65,8 @@ function deletePhoto(owner: PhotoOwner, id: number) {
 // Adding a photo as a listing photo is added (use-listing-photos.ts): the API makes the row after
 // the others and signs an upload, the browser PUTs the bytes straight to storage (not the API,
 // so not apiClient()), then confirms. Returns the new photo's id.
-async function uploadPhoto(owner: PhotoOwner, file: File) {
+async function uploadPhoto(owner: PhotoOwner, file: File, onProgress?: OnUploadProgress) {
+  onProgress?.({ stage: "preparing", sent: 0 });
   const { data, error } = await addPhoto(owner, {
     filename: file.name,
     byte_size: file.size,
@@ -75,8 +76,9 @@ async function uploadPhoto(owner: PhotoOwner, file: File) {
   if (!data) throw saveError(error, `Couldn't add ${file.name}.`);
 
   try {
-    const stored = await fetch(data.upload.url, { method: "PUT", headers: data.upload.headers, body: file });
-    if (!stored.ok) throw new Error(`Couldn't upload ${file.name}.`);
+    const stored = await putWithProgress(data.upload.url, data.upload.headers, file, onProgress);
+    if (!stored) throw new Error(`Couldn't upload ${file.name}.`);
+    onProgress?.({ stage: "finishing", sent: 1 });
     const confirmed = await updatePhoto(owner, data.id, { uploaded: true });
     if (!confirmed.data) throw saveError(confirmed.error, `Couldn't finish ${file.name}.`);
   } catch (error) {
@@ -97,10 +99,9 @@ async function removePhoto(owner: PhotoOwner, id: number) {
   if (!response.ok) throw new Error("Couldn't delete the photo.");
 }
 
-// A destination's or a place to see's photos: every change is saved at once and the owner asked
+// A destination's or a place to see's photos: each call is saved at once and the owner asked
 // for again. `position` is 1-based, in the owner's `photos` (which the API keeps numbered 1..n).
-// Replacing one adds the new file, moves it into the old one's place, then deletes the old, so
-// the banner stays a banner.
+// PhotoManager makes the calls when its changes are saved.
 export function useAdminPhotos(owner: PhotoOwner) {
   const queryClient = useQueryClient();
   const refresh = () =>
@@ -108,14 +109,8 @@ export function useAdminPhotos(owner: PhotoOwner) {
       queryKey: owner.kind === "area" ? adminAreaKey(owner.slug) : adminLandmarkKey(owner.slug),
     });
 
-  const upload = useMutation({ mutationFn: (file: File) => uploadPhoto(owner, file), onSettled: refresh });
-
-  const replace = useMutation({
-    mutationFn: async ({ file, photo, position }: { file: File; photo: AdminPhoto; position: number }) => {
-      const id = await uploadPhoto(owner, file);
-      await movePhoto(owner, id, position);
-      await removePhoto(owner, photo.id);
-    },
+  const upload = useMutation({
+    mutationFn: ({ file, onProgress }: { file: File; onProgress?: OnUploadProgress }) => uploadPhoto(owner, file, onProgress),
     onSettled: refresh,
   });
 
@@ -126,5 +121,5 @@ export function useAdminPhotos(owner: PhotoOwner) {
 
   const remove = useMutation({ mutationFn: (id: number) => removePhoto(owner, id), onSettled: refresh });
 
-  return { upload, replace, move, remove };
+  return { upload, move, remove };
 }
