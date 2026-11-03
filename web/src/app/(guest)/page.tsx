@@ -6,11 +6,11 @@ import { slugWords } from "@/components/discovery/categories";
 import { LoadFailed } from "@/components/discovery/load-failed";
 import { ShowMore } from "@/components/discovery/show-more";
 import { HeroAddToTrip } from "@/components/landing/hero-add-to-trip";
-import { HeroAside } from "@/components/landing/hero-aside";
 import { HeroCategories } from "@/components/landing/hero-categories";
 import { HeroSearch } from "@/components/landing/hero-search";
 import { HeroTrip, HeroTripLink } from "@/components/landing/hero-trip";
-import { ExampleTrip, HowItWorks } from "@/components/landing/how-it-works";
+import { HeroPlanChoice } from "@/components/landing/hero-plan-choice";
+import { HowItWorks } from "@/components/landing/how-it-works";
 import { LAUNCH_AREA } from "@/components/landing/launch-area";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
@@ -36,7 +36,9 @@ import { pricedByText, priceUnitText, TO_BE_AGREED } from "@/lib/pricing";
 // A guest who hasn't chosen where to go starts here; picking a destination leads to its area
 // page. The hero needs no data, so it renders at once; each browse section streams in behind
 // its own skeleton and fails on its own, so a sleeping API never blanks the page.
-export default function Home() {
+export default async function Home(props: PageProps<"/">) {
+  // Book a thing or two, opened before the page was interactive or reloaded (HeroPlanChoice).
+  const booking = (await props.searchParams).book === "one";
   return (
     // The hero's search tells the pills its dates, guests and destination, the note under it
     // whether its button starts a trip, and the cards below their dates (HeroTrip).
@@ -47,11 +49,6 @@ export default function Home() {
           <PageBanner
             hero
             photo={HERO_PHOTO}
-            aside={
-              <HeroAside>
-                <ExampleTrip compact />
-              </HeroAside>
-            }
             title={
               <>
                 <DisplayTitle size="hero" className="text-balance">
@@ -73,12 +70,21 @@ export default function Home() {
             {/* The banner's entrance animation makes each of its children a stacking context, so
                 the suggestions would open under the pills below; z-10 lifts this whole group, and
                 the search above the note under it, which the open list covers. */}
+            {/* The team's A1: Browse the launch area, or, decided, the guided planner or today's
+                search for a thing or two. */}
             <div className="relative z-10 flex w-full max-w-3xl flex-col gap-3">
-              <div className="relative z-10">
-                <HeroSearch />
-              </div>
-              {/* What starting a trip costs, or a partner's or admin's own way in (RAA-80). */}
-              <TripStart />
+              <HeroPlanChoice
+                initial={booking}
+                search={
+                  <>
+                    <div className="relative z-10">
+                      <HeroSearch />
+                    </div>
+                    {/* What starting a trip costs, or a partner's or admin's own way in (RAA-80). */}
+                    <TripStart />
+                  </>
+                }
+              />
             </div>
             <HeroCategories />
           </PageBanner>

@@ -10,6 +10,7 @@ import type { components, paths } from "./schema";
 export type AreaCard = components["schemas"]["area_card"];
 export type AreaDetail = components["schemas"]["area_detail"];
 export type ListingDetail = components["schemas"]["listing_detail"];
+export type BusinessDetail = components["schemas"]["business_detail"];
 export type Activity = components["schemas"]["activity"];
 export type SearchResults = components["schemas"]["search_results"];
 export type Explore = components["schemas"]["explore"];
@@ -17,6 +18,8 @@ export type ExploreListing = components["schemas"]["explore_listing"];
 export type ExplorePlace = components["schemas"]["explore_place"];
 export type ExploreRecommendation = components["schemas"]["explore_recommendation"];
 export type StayQuote = components["schemas"]["stay_quote"];
+export type PlanBusinessesPage = components["schemas"]["plan_businesses"];
+export type PlanGroup = keyof PlanBusinessesPage["counts"];
 
 // Cached per request: the home page's hero card and its sections share one fetch (RAA-125).
 export const getDestinations = cache(async (): Promise<AreaCard[]> => {
@@ -43,6 +46,28 @@ export const getArea = cache(async (slug: string): Promise<AreaDetail | null> =>
   return data;
 });
 
+// A place for the plan pages: its places to see and the places inside it, without its listings
+// (a step pages through those, getPlanBusinesses). null when there is no such area.
+export const getAreaPlaces = cache(async (slug: string): Promise<AreaDetail | null> => {
+  await connection();
+  const { data, response } = await serverApiClient().GET("/api/v1/areas/{slug}", { params: { path: { slug }, query: { listings: "0" } } });
+  if (response.status === 404) return null;
+  if (!data) throw new Error("Couldn't load this destination");
+  return data;
+});
+
+// Page 1 of the businesses offering one plan step in a place, with every group's count. null for an
+// unknown place.
+export const getPlanBusinesses = cache(async (slug: string, group: PlanGroup): Promise<PlanBusinessesPage | null> => {
+  await connection();
+  const { data, response } = await serverApiClient().GET("/api/v1/areas/{slug}/plan_businesses", {
+    params: { path: { slug }, query: { group } },
+  });
+  if (response.status === 404) return null;
+  if (!data) throw new Error("Couldn't load what to book here");
+  return data;
+});
+
 // One active listing (RAA-86). null for a draft, pending or unknown one. Cached per request:
 // the page and its metadata share one call.
 export const getListing = cache(async (id: number): Promise<ListingDetail | null> => {
@@ -53,9 +78,20 @@ export const getListing = cache(async (id: number): Promise<ListingDetail | null
   return data;
 });
 
+// One business's page: about it and its listings. null for an unknown one, or one with nothing
+// to book. Cached per request: the page and its metadata share one call.
+export const getBusiness = cache(async (id: number): Promise<BusinessDetail | null> => {
+  await connection();
+  const { data, response } = await serverApiClient().GET("/api/v1/businesses/{id}", { params: { path: { id } } });
+  if (response.status === 404) return null;
+  if (!data) throw new Error("Couldn't load this business");
+  return data;
+});
+
 // What surrounds one destination (RAA-58): nearby destinations and the ones often visited
 // with it. null when there is no such area or published landmark. Cached per request.
-export const getExplore = cache(async (anchor: { area: string } | { landmark: string }): Promise<Explore | null> => {
+// `listings: "0"` leaves the listings out (the plan pages need only the anchor and the places).
+export const getExplore = cache(async (anchor: { area: string; listings?: "0" } | { landmark: string }): Promise<Explore | null> => {
   await connection();
   const { data, response } = await serverApiClient().GET("/api/v1/explore", { params: { query: anchor } });
   if (response.status === 404) return null;

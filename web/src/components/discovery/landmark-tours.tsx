@@ -10,7 +10,8 @@ import type { AddPreview } from "@/components/trips/use-trips";
 import { Dialog } from "@/components/ui/dialog";
 import { Price } from "@/components/ui/typography";
 import { isApiPhoto } from "@/components/landing/sample-photos";
-import { ArrowGlyph, CategoryGlyph, TickGlyph } from "./tag-glyphs";
+import { useSavedHere } from "@/components/trips/save-landmark-button";
+import { ArrowGlyph, CategoryGlyph, HeartGlyph, TickGlyph } from "./tag-glyphs";
 
 // A tour (or other activity) on the page that goes to a place to see, as the place's tour list
 // shows it: what its row in What to book shows, with the same Add to trip.
@@ -28,10 +29,11 @@ export type LandmarkTour = {
 };
 
 // A place to see's line under its name: its tags, or, once a tour in the trip being worked on
-// goes there, that the trip covers it.
-export function LandmarkLine({ tags, tours }: { tags: string; tours: { id: number; title: string }[] }) {
+// goes there, that the trip covers it, or, saved to the trip with no tour going yet, that.
+export function LandmarkLine({ slug, tags, tours }: { slug: string; tags: string; tours: { id: number; title: string }[] }) {
   const held = useListingsInTrip(tours.map((tour) => tour.id));
   const covering = tours.find((tour) => held.has(tour.id));
+  const saved = useSavedHere().has(slug);
   if (covering)
     return (
       // Short, so it fits the card's one line: the tour list names the tour.
@@ -42,7 +44,35 @@ export function LandmarkLine({ tags, tours }: { tags: string; tours: { id: numbe
         </span>
       </p>
     );
+  if (saved)
+    return (
+      <p data-testid="landmark-saved" className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-sky-pale">
+        <HeartGlyph filled className="size-4 shrink-0" />
+        <span className="truncate">Saved to your trip</span>
+      </p>
+    );
   return tags ? <p className="truncate text-sm text-sky-mist">{tags}</p> : null;
+}
+
+// Which of the places to see saved to the trip a tour goes to, under its option in a business's
+// panel ("Goes to your saved Ogtong Cave and Kawayan Beach"), so a guest who saved places sees
+// which tour reaches them. Nothing while it goes to none of them.
+export function SavedStops({ places }: { places: { slug: string; name: string }[] }) {
+  const saved = useSavedHere();
+  const names = places.filter((place) => saved.has(place.slug)).map((place) => place.name);
+  if (names.length === 0) return null;
+  const list =
+    names.length === 1
+      ? names[0]
+      : names.length === 2
+        ? `${names[0]} and ${names[1]}`
+        : `${names[0]}, ${names[1]} and ${names.length - 2} more`;
+  return (
+    <p data-testid="offer-saved-stops" title={names.join(", ")} className="flex min-w-0 items-start gap-1.5 text-sm font-semibold text-primary">
+      <HeartGlyph filled className="mt-0.5 size-4 shrink-0" />
+      <span>Goes to your saved {list}</span>
+    </p>
+  );
 }
 
 // "2 tours go here" on a place to see: opens the tours that go there in a sheet, each with its

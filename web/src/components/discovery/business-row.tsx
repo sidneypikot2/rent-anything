@@ -1,15 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { createContext, useContext, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import Link from "next/link";
+import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from "react";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { handoverLabel, sharedFees } from "@/components/trips/delivery-options";
 import { InTripBadge, InTripCount } from "@/components/trips/in-trip-badge";
 import type { TripDates } from "@/components/trips/trip-dates";
+import { useTripHref } from "@/components/trips/trip-link";
 import { vehicleNoun } from "@/components/trips/vehicle-party";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
+import { Card, CardBody } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { Price } from "@/components/ui/typography";
@@ -18,8 +20,10 @@ import { ListingPanel, PanelActions } from "./detail-panel";
 import { InstantBookBadge } from "./instant-book-badge";
 import type { Feature } from "./listing-features";
 import { ListingPhotos } from "./listing-photos";
+import { SavedStops } from "./landmark-tours";
 import { ListingRowDetails } from "./listing-row-details";
 import type { Photo } from "./photo-card";
+import { markLeaving, plainClick } from "./back-link";
 import { useShopModels } from "./shop-models";
 import { StayMixPicker, type MixOffer } from "./stay-mix-picker";
 import { ArrowGlyph, CategoryGlyph, MapGlyph, PlaceGlyph } from "./tag-glyphs";
@@ -49,6 +53,8 @@ export type Offer = {
   // Add to trip in the panel's list, and the prominent one in its details' foot.
   action: ReactNode;
   panelAction: ReactNode;
+  // The places to see it goes to (a tour's stops), so its option can name the ones saved to the trip.
+  goesTo?: { slug: string; name: string }[];
   // A stay, as the mix picker takes it (RAA-188), so a partner's room types can be booked together.
   stay?: MixOffer;
 };
@@ -60,38 +66,62 @@ export const ShownOffersContext = createContext<Set<number> | null>(null);
 // Photos a card shows: each listing's first, then the rest, so a swipe meets every listing.
 const CARD_PHOTOS = 6;
 
-// A business in a What to book group (the team's business-first list): its name, what it
-// offers in the group and from what price, and the chips all of those share. A click opens a
-// side panel listing them, each with Add to trip, whose titles open their details in the same
-// panel ("← <business>" goes back), so the guest never leaves the page. A business with one
-// listing here opens that listing's details at once, and its card keeps that listing's Add to
-// trip; with more, See N options takes its place, as there is more than one thing to add. A shop
-// of rental vehicles (`shop`) always opens on its models to pick from ("Choose motorbikes"), one
-// model or several, rather than one model's details (RAA-195).
+// A laptop or desktop: a business's page opens in a new tab there, so What to book stays where
+// the guest left it, as Booking.com's do; a phone or tablet goes there in the same tab, and its
+// page's back button returns.
+const NEW_TAB = "(min-width: 64rem) and (pointer: fine)";
+function subscribeWide(onChange: () => void) {
+  const query = window.matchMedia(NEW_TAB);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+export function useOpensInNewTab() {
+  return useSyncExternalStore(
+    subscribeWide,
+    () => window.matchMedia(NEW_TAB).matches,
+    () => false,
+  );
+}
+// A link's target for a business's page. `rel="opener"` keeps the tab's sessionStorage (the
+// chosen trip, a trip link's session) in the new one, which an implied noopener would drop.
+export function newTabProps(newTab: boolean) {
+  return newTab ? { target: "_blank", rel: "opener" } : {};
+}
+
+// A business in a What to book group (the team's business-first list, Booking.com's way): its
+// name leads, what it offers in the group is its by-line ("Sea view room + 2 more"), from what
+// price, and the chips all of those share. Its name and its See N options open the business's
+// own page (`href`), where its options are listed (BusinessOptions): in a new tab on a laptop,
+// in the same tab on a phone. A business with one listing here keeps that listing's Add to trip
+// on the card; a shop of rental vehicles (`shop`) offers Choose motorbikes, as its models are
+// picked together on its page (RAA-195).
 export function BusinessRow({
   name,
+  href,
   place,
   groupTitle,
   offers: allOffers,
-  dates,
   sharedChips = [],
   shop,
 }: {
   name: string;
+  // The business's page, with the trip's dates and this group (businessHref).
+  href: string;
   // "in Santa Fe", for a business in a place inside this one.
   place?: string;
   groupTitle: string;
   offers: Offer[];
-  dates?: TripDates;
-  // Chips every card in its group has, which the group's note says once instead (the panel
+  // Chips every card in its group has, which the group's note says once instead (its page
   // still lists them).
   sharedChips?: string[];
-  // A shop whose listings here are all rental vehicles (RAA-191): its panel picks how many of each.
+  // A shop whose listings here are all rental vehicles (RAA-191).
   shop?: { businessId: number };
 }) {
   const shown = useContext(ShownOffersContext);
   const offers = shown ? allOffers.filter((offer) => shown.has(offer.listingId)) : allOffers;
-  const [open, setOpen] = useState(false);
+  // With the trip here, so the page it opens adds to it without asking (useTripHref).
+  const pageHref = useTripHref()(href);
+  const newTab = useOpensInNewTab();
   if (offers.length === 0) return null;
 
   const single = offers.length === 1 ? offers[0] : null;
@@ -110,18 +140,16 @@ export function BusinessRow({
       !sharedChips.includes(feature.label) &&
       offers.every((offer) => offer.features.some((each) => each.label === feature.label)),
   );
-  // What is for sale leads (a guest scans for a cottage or a van, not a company they don't know);
-  // the business is its by-line. With several options the first is named and the rest counted
-  // ("DJI Osmo Action 4 + 5 more"), as their titles in a row read as clutter; the panel lists them all.
-  const title = single ? single.title : `${offers[0].title} + ${offers.length - 1} more`;
+  // What is for sale, under the name: the one option, or the first with the rest counted
+  // ("DJI Osmo Action 4 + 5 more"); the page lists them all.
+  const forSale = single ? single.title : `${offers[0].title} + ${offers.length - 1} more`;
   const instant = offers.every((offer) => offer.instantBook);
   // How its vehicles reach the guest (RAA-205): what every one of them here offers.
   const rates = offers.map((offer) => offer.handover ?? null);
   const handover = rates.every((rate) => rate) ? sharedFees(rates) : null;
+  const target = newTabProps(newTab);
 
   return (
-    // A row of What to book's list, on its white sheet: no card of its own (the list divides the
-    // rows), so the sheet isn't cards inside a card.
     <div className="relative grid grid-cols-[minmax(0,1fr)] gap-4 @sm:grid-cols-[10rem_minmax(0,1fr)] @2xl:grid-cols-[19rem_minmax(0,1fr)_auto] @2xl:items-start @2xl:gap-5">
       <ListingPhotos
         photos={photos}
@@ -131,26 +159,32 @@ export function BusinessRow({
         className="z-10 aspect-[2/1] @sm:aspect-square @2xl:aspect-[4/3]"
       />
       <div className="flex min-w-0 flex-col gap-2.5 px-1 @sm:px-0">
-        <h4 className="line-clamp-2 text-lg leading-snug font-semibold text-balance">
-          <button
-            type="button"
-            aria-haspopup="dialog"
-            data-testid="business-open"
-            // A business can be in several groups: its name says which, for a screen reader's list.
-            aria-label={`${title}, by ${name}, ${groupTitle}`}
-            onClick={() => setOpen(true)}
-            className="cursor-pointer text-left underline-offset-4 outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] hover:underline focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-(--focus)"
-          >
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h4 className="line-clamp-2 text-lg leading-snug font-semibold text-balance">
+            {/* The whole card is this link (its ::after), under the photos and the action. */}
+            <Link
+              href={pageHref}
+              {...target}
+              onClick={() => !newTab && markLeaving()}
+              data-testid="business-open"
+              // A business can be in several groups: its label says which, for a screen reader's list.
+              aria-label={`${name}: ${forSale}, ${groupTitle}${newTab ? " (opens in a new tab)" : ""}`}
+              className="cursor-pointer text-left underline-offset-4 outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] hover:underline focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-(--focus)"
+            >
+              {name}
+            </Link>
+          </h4>
+          <p className="line-clamp-1 text-sm font-medium text-foreground" data-testid="business-for-sale">
             {single ? (
-              title
+              forSale
             ) : (
-              // The count quieter than the name, so the card still reads as one thing for sale.
               <>
-                {offers[0].title} <span className="font-medium whitespace-nowrap text-muted">+ {offers.length - 1} more</span>
+                {offers[0].title} <span className="whitespace-nowrap text-muted">+ {offers.length - 1} more</span>
               </>
             )}
-          </button>
-        </h4>
+            {place && <span className="text-muted"> · {place}</span>}
+          </p>
+        </div>
         <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
           {/* One badge for the card: an option's own, or a count of those in the trip. */}
           {single ? (
@@ -176,10 +210,6 @@ export function BusinessRow({
               {handoverLabel(handover)}
             </Badge>
           )}
-          <span>
-            by <span className="font-medium text-foreground">{name}</span>
-            {place && ` · ${place}`}
-          </span>
         </p>
         <ListingRowDetails summary={single?.summary} features={common} />
       </div>
@@ -189,284 +219,210 @@ export function BusinessRow({
         ) : (
           offers[0].unpriced && <span className="text-sm text-pretty text-muted @2xl:max-w-36 @2xl:text-right">{TO_BE_AGREED}</span>
         )}
-        {shop ? (
-          <Button
-            type="button"
+        {/* The same slot as a listing's Add to trip, so every card ends in an action. The name's
+            link already opens the page for the keyboard and a screen reader. */}
+        {shop || !single ? (
+          <ButtonLink
+            href={pageHref}
+            {...target}
+            onClick={() => !newTab && markLeaving()}
+            variant={shop ? undefined : "soft"}
             size="touch"
             arrow
             tabIndex={-1}
             aria-hidden
-            onClick={() => setOpen(true)}
-            data-testid="business-choose"
+            data-testid={shop ? "business-choose" : "business-options"}
             className="max-w-full shrink-0"
           >
-            Choose {vehicleNoun(categories[0], 2)}
-          </Button>
+            {shop ? `Choose ${vehicleNoun(categories[0], 2)}` : `See ${offers.length} options`}
+          </ButtonLink>
         ) : (
-          single?.action ?? (
-          // The same slot as a listing's Add to trip, so every card ends in an action. The title's
-          // button already opens the panel for the keyboard and a screen reader.
-          <Button
-            type="button"
-            variant="soft"
-            size="touch"
-            arrow
-            tabIndex={-1}
-            aria-hidden
-            onClick={() => setOpen(true)}
-            data-testid="business-options"
-            className="max-w-full shrink-0"
-          >
-            See {offers.length} options
-          </Button>
-          )
+          single.action
         )}
       </div>
-      {open &&
-        createPortal(
-          <BusinessPanel
-              name={name}
-              place={place}
-              groupTitle={groupTitle}
-              offers={offers}
-              dates={dates}
-              shop={shop}
-              onClose={() => setOpen(false)}
-            />,
-          document.body,
-        )}
     </div>
   );
 }
 
-// The business's side panel: its listings in this group, then one's details in the same panel.
-function BusinessPanel({
-  name,
-  place,
-  groupTitle,
-  offers,
-  dates,
-  shop,
-  onClose,
-}: {
-  name: string;
-  place?: string;
-  groupTitle: string;
-  offers: Offer[];
-  dates?: TripDates;
-  shop?: { businessId: number };
-  onClose: () => void;
-}) {
-  const single = offers.length === 1;
-  // A vehicle shop opens on its models, even just one; anything else with one listing on its details.
-  const [pickedId, setPickedId] = useState<number | null>(single && !shop ? offers[0].listingId : null);
-  const picked = offers.find((offer) => offer.listingId === pickedId) ?? null;
-  // Each step opens at its top, wherever the last one was scrolled to.
-  const body = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    body.current?.closest("[data-testid=detail-panel]")?.querySelector(".overflow-y-auto")?.scrollTo({ top: 0 });
-  }, [pickedId]);
-  // A link inside it to a row on the page (#listing-<id>) closes it, so the row is in view.
-  useEffect(() => {
-    window.addEventListener("hashchange", onClose);
-    return () => window.removeEventListener("hashchange", onClose);
-  }, [onClose]);
-
-  if (picked)
-    return (
-      <Dialog
-        open
-        placement="side"
-        title={picked.title}
-        onClose={onClose}
-        data-testid="detail-panel"
-        media={
-          <ListingPhotos
-            photos={picked.photos}
-            label={picked.title}
-            category={picked.category}
-            count="bottom"
-            className="aspect-[4/3]"
-          />
-        }
-        actions={<PanelActions price={picked.price} unpriced={picked.unpriced} action={picked.panelAction} listingId={picked.listingId} dates={dates} />}
-      >
-        <div ref={body} className="contents">
-          {(!single || shop) && (
-            <button
-              type="button"
-              data-testid="business-back"
-              onClick={() => setPickedId(null)}
-              className="flex min-h-11 w-fit items-center gap-1.5 text-sm font-semibold text-link underline-offset-4 hover:underline"
-            >
-              <ArrowGlyph direction="left" className="size-4" />
-              {name}
-            </button>
-          )}
-          <ListingPanel
-            listingId={picked.listingId}
-            href={picked.href}
-            category={picked.category}
-            by={picked.by}
-            summary={picked.summary}
-            features={picked.features}
-            instantBook={picked.instantBook}
-            dates={dates}
-          />
-        </div>
-      </Dialog>
-    );
-
-  const stays = offers.flatMap((offer) => (offer.stay ? [offer.stay] : []));
-  // The business's own photos lead its panel, as a listing's do: each option's first, then the rest.
-  const photos = [
-    ...offers.flatMap((offer) => offer.photos.slice(0, 1)),
-    ...offers.flatMap((offer) => offer.photos.slice(1)),
-  ].slice(0, CARD_PHOTOS);
-  const heading = [groupTitle, `${offers.length} ${offers.length === 1 ? "option" : "options"}`, place].filter(Boolean).join(" · ");
-  // A shop's vehicles are picked together, a counter each, rather than added one card at a time.
-  if (shop)
-    return (
-      <ShopPanel
-        name={name}
-        businessId={shop.businessId}
-        heading={heading}
-        photos={photos}
-        offers={offers}
-        dates={dates}
-        onClose={onClose}
-      />
-    );
-  // What tells the options apart ("Sleeps 4 · 2 beds"): their details that not every one shares.
-  const apart = (offer: Offer) =>
+// What tells a business's options apart ("Sleeps 4 · 2 beds"): their details not every one shares.
+function apartOf(offers: Offer[]) {
+  return (offer: Offer) =>
     offer.features
       .filter((feature) => !offers.every((other) => other.features.some((each) => each.label === feature.label)))
       .slice(0, 2)
       .map((feature) => feature.label)
       .join(" · ");
+}
+
+// A business's options in one group, on its own page (Booking.com's room table): each with its
+// photo, what sets it apart, its price and Add to trip; its title opens the listing's own page in
+// a new tab on a laptop (as the card did this page), and its details in the side panel on a phone. A stay with several room types and the trip's
+// dates offers rooms for the whole party first (StayMixPicker, RAA-188); a shop of rental
+// vehicles picks its models together (`shop`, RAA-191).
+export function BusinessOptions({
+  name,
+  groupTitle,
+  offers,
+  dates,
+  shop,
+}: {
+  name: string;
+  groupTitle: string;
+  offers: Offer[];
+  dates: TripDates;
+  shop?: { businessId: number };
+}) {
+  // Each option's panel opener, so the mix picker's rows can open one too.
+  const openers = useRef(new Map<number, () => void>());
+  const newTab = useOpensInNewTab();
+  const apart = apartOf(offers);
+  const tripHref = useTripHref();
+  const panels = offers.map((offer) => (
+    <OptionPanel
+      key={offer.listingId}
+      offer={offer}
+      dates={dates}
+      register={(open) => {
+        openers.current.set(offer.listingId, open);
+      }}
+    />
+  ));
+  if (shop)
+    return (
+      <>
+        <ShopOptions name={name} businessId={shop.businessId} offers={offers} dates={dates} />
+        {panels}
+      </>
+    );
+
+  const stays = offers.flatMap((offer) =>
+    offer.stay
+      ? [{ ...offer.stay, thumb: <Thumb offer={offer} />, apart: apart(offer), open: () => (newTab ? window.open(tripHref(offer.href), "_blank") : openers.current.get(offer.listingId)?.()) }]
+      : [],
+  );
+  const mixing = stays.length >= 2 && Boolean(dates.from && dates.to);
+  const list = (
+    <ul aria-label={`${name}: ${groupTitle}`} className="flex flex-col gap-3" data-testid="business-offers">
+      {offers.map((offer) => (
+        <li key={offer.listingId} className="@container">
+          <Card edge="line" className="group relative transition-colors duration-300 ease-calm hover:border-line-strong">
+            <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-3 p-3 @md:grid-cols-[9rem_minmax(0,1fr)_auto] @md:gap-4">
+              <Thumb offer={offer} large />
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <a
+                  href={tripHref(offer.href)}
+                  data-testid="business-offer"
+                  {...newTabProps(newTab)}
+                  aria-label={newTab ? `${offer.title} (opens in a new tab)` : undefined}
+                  onClick={(event) => {
+                    if (newTab || !plainClick(event)) return;
+                    event.preventDefault();
+                    openers.current.get(offer.listingId)?.();
+                  }}
+                  className="flex items-start gap-2 text-lg leading-snug font-semibold text-link underline-offset-4 after:absolute after:inset-0 after:rounded-card after:content-[''] hover:underline"
+                >
+                  {offer.title}
+                  <ArrowGlyph className="mt-1 size-4 shrink-0 transition-transform duration-500 ease-calm motion-safe:group-hover:translate-x-0.5" />
+                </a>
+                {apart(offer) && <span className="text-sm text-foreground">{apart(offer)}</span>}
+                {offer.summary && <p className="line-clamp-2 text-sm text-muted @max-md:hidden">{offer.summary}</p>}
+                <ListingRowDetails features={offer.features} />
+                {offer.goesTo && <SavedStops places={offer.goesTo} />}
+                <InTripBadge listingId={offer.listingId} />
+              </div>
+              {/* The price and the one action: under the details on a narrow row, on the right from @md. */}
+              <div className="relative z-10 col-span-2 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3 @md:col-span-1 @md:flex-col @md:items-end @md:border-0 @md:pt-0">
+                <span className="text-sm text-pretty text-muted @md:text-right">
+                  {offer.price ? <Price {...offer.price} prefix="from" /> : offer.unpriced && TO_BE_AGREED}
+                </span>
+                {offer.action}
+              </div>
+            </div>
+          </Card>
+        </li>
+      ))}
+    </ul>
+  );
+  return (
+    <>
+      {mixing ? <StayMixPicker offers={stays} dates={dates} fallback={list} /> : list}
+      {panels}
+    </>
+  );
+}
+
+// One option's details in the side panel, opened from its row (or the mix picker).
+function OptionPanel({ offer, dates, register }: { offer: Offer; dates: TripDates; register: (open: () => void) => void }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => register(() => setOpen(true)));
+  if (!open) return null;
   return (
     <Dialog
       open
       placement="side"
-      title={name}
-      onClose={onClose}
+      title={offer.title}
+      onClose={() => setOpen(false)}
       data-testid="detail-panel"
-      media={
-        <ListingPhotos
-          photos={photos}
-          label={name}
-          category={offers[0].category}
-          count="bottom"
-          className="aspect-[16/9]"
-        />
-      }
+      media={<ListingPhotos photos={offer.photos} label={offer.title} category={offer.category} count="bottom" className="aspect-[4/3]" />}
+      actions={<PanelActions price={offer.price} unpriced={offer.unpriced} action={offer.panelAction} listingId={offer.listingId} dates={dates} />}
     >
-      <div ref={body} className="contents">
-        <p className="-mt-2 text-sm text-muted">
-          {heading}
-        </p>
-        {/* Several room types with trip dates: rooms for the whole party first (RAA-188). */}
-        {stays.length >= 2 && dates?.from && dates.to && <StayMixPicker offers={stays} dates={dates} />}
-        <ul aria-label={`${name}: ${groupTitle}`} className="flex flex-col gap-2.5" data-testid="business-offers">
-          {offers.map((offer) => (
-            <li
-              key={offer.listingId}
-              className="group relative grid grid-cols-[4rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2.5 rounded-control border border-line p-2.5 transition-colors duration-300 ease-calm hover:border-line-strong hover:bg-surface-2"
-            >
-              <Thumb offer={offer} />
-              <div className="flex min-w-0 flex-col gap-1">
-                <button
-                  type="button"
-                  data-testid="business-offer"
-                  onClick={() => setPickedId(offer.listingId)}
-                  className="flex items-start justify-between gap-2 text-left font-semibold leading-snug text-link underline-offset-4 after:absolute after:inset-0 after:rounded-control after:content-[''] hover:underline"
-                >
-                  {offer.title}
-                  <ArrowGlyph className="mt-0.5 size-4 shrink-0 transition-transform duration-500 ease-calm motion-safe:group-hover:translate-x-0.5" />
-                </button>
-                {apart(offer) && <span className="text-sm text-foreground">{apart(offer)}</span>}
-              </div>
-              {/* A foot across the whole row, as a card's: the price on the left and the one
-                  action on the right (the title, the whole row, opens the details). Under the
-                  thumb too, so a phone's panel still has room for "from ₱2,500 / night". */}
-              <div className="col-span-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line pt-2.5">
-                <span className="text-sm text-pretty text-muted">
-                  {offer.price ? <Price {...offer.price} prefix="from" /> : offer.unpriced && TO_BE_AGREED}
-                </span>
-                <div className="relative z-10 ml-auto flex">{offer.action}</div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <ListingPanel
+        listingId={offer.listingId}
+        href={offer.href}
+        category={offer.category}
+        by={offer.by}
+        summary={offer.summary}
+        features={offer.features}
+        instantBook={offer.instantBook}
+        dates={dates}
+      />
     </Dialog>
   );
 }
 
-// A vehicle shop's panel (RAA-191, the plan's mock 2): its photos and name over its models, each
-// with a counter, the seats they make for the trip's people, the total and one Add for them all.
-// A model's title opens its details in place (RAA-205).
-function ShopPanel({
-  name,
-  businessId,
-  heading,
-  photos,
-  offers,
-  dates,
-  onClose,
-}: {
-  name: string;
-  businessId: number;
-  heading: string;
-  photos: Photo[];
-  offers: Offer[];
-  dates?: TripDates;
-  onClose: () => void;
-}) {
-  const tripDates = dates ?? { guests: 1 };
+// A vehicle shop's models (RAA-191, the plan's mock 2), each with a counter, the seats they make
+// for the trip's people, the total and one Add for them all, in a card on its page.
+function ShopOptions({ name, businessId, offers, dates }: { name: string; businessId: number; offers: Offer[]; dates: TripDates }) {
   const { body, summary, action } = useShopModels({
     business: { id: businessId, name },
     category: { name: offers[0].category },
-    dates: tripDates,
-    people: tripDates.guests,
+    dates,
+    people: dates.guests,
     listingIds: offers.map((offer) => offer.listingId),
     place: offers[0].place,
   });
   return (
-    <Dialog
-      open
-      placement="side"
-      title={name}
-      onClose={onClose}
-      data-testid="detail-panel"
-      media={<ListingPhotos photos={photos} label={name} category={offers[0].category} count="bottom" className="aspect-[16/9]" />}
-      // A side panel's foot is its own: the total, then the button, on one row. The foot wraps,
-      // so the total takes what's left and wraps its own words, or a longer total ("₱4,800 rent
-      // + ₱5,000 refundable deposit") would push the button under it.
-      actions={
-        <div className="flex w-full items-center justify-between gap-3">
+    <Card edge="line" clip={false} data-testid="shop-options">
+      <CardBody className="flex flex-col gap-4">
+        {body}
+        <div className="flex w-full flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
           <div className="min-w-0 flex-1">{summary}</div>
           {action && <div className="shrink-0">{action}</div>}
         </div>
-      }
-    >
-      <p className="-mt-2 text-sm text-muted">{heading}</p>
-      {body}
-    </Dialog>
+      </CardBody>
+    </Card>
   );
 }
 
-// A listing's first photo, small, or its category icon.
-function Thumb({ offer }: { offer: Offer }) {
+// A listing's first photo, small (or larger on its business's page), or its category icon.
+function Thumb({ offer, large = false }: { offer: Offer; large?: boolean }) {
   const photo = offer.photos[0];
   return (
     <span
       className={cn(
-        "relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-control bg-mist text-primary",
+        "relative grid shrink-0 place-items-center overflow-hidden rounded-control bg-mist text-primary",
+        large ? "aspect-square w-full @md:aspect-[4/3]" : "size-16",
       )}
     >
       {photo ? (
-        <Image src={photo.src} alt="" fill sizes="64px" unoptimized={isApiPhoto(photo.src)} className="object-cover" />
+        <Image
+          src={photo.src}
+          alt=""
+          fill
+          sizes={large ? "(min-width: 48rem) 144px, 72px" : "64px"}
+          unoptimized={isApiPhoto(photo.src)}
+          className="object-cover"
+        />
       ) : (
         <CategoryGlyph name={offer.category} className="size-6" />
       )}

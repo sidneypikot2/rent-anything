@@ -84,7 +84,9 @@ export type PlanGap =
   | { kind: "unavailable"; item: TripItem; reason: string }
   | { kind: "undated"; item: TripItem }
   | { kind: "tour-guests"; item: TripItem; guests: number; short: number }
-  | { kind: "unseen"; sights: Sight[] };
+  | { kind: "unseen"; sights: Sight[] }
+  // Places to see the guest saved here that none of its tours goes to yet.
+  | { kind: "saved"; sights: Sight[] };
 
 // Ideas, not gaps: getting around, things to do and places to see are the guest's choice, so the
 // plan offers them but never counts them. Everything else is missing — the same things the
@@ -92,7 +94,7 @@ export type PlanGap =
 // they are. One count everywhere: the banner's phone row and the plan's button.
 // Every kind the trip lacks counts (2026-10-28, the checklist's "Still to add: N of 5"); only the
 // places to see stay ideas.
-export const isIdea = (gap: PlanGap) => gap.kind === "unseen";
+export const isIdea = (gap: PlanGap) => gap.kind === "unseen" || gap.kind === "saved";
 export const stillMissing = (gaps: PlanGap[]) => gaps.filter((gap) => !isIdea(gap));
 
 // A gap the checklist names by its kind (Transfer, Stay, Tours, Getting around, Gear), or one to
@@ -118,6 +120,7 @@ export function gapGroup(gap: PlanGap) {
     case "need":
       return gap.group;
     case "unseen":
+    case "saved":
       return "activity";
     default:
       return gap.item.listing.group;
@@ -169,7 +172,12 @@ export function planGaps(
     if (guests < trip.guests) gaps.push({ kind: "tour-guests", item: group[0], guests, short: trip.guests - guests });
   }
   const booked = new Set(tours.map((tour) => tour.listing.id));
-  const unseen = sights.filter((sight) => sight.visitedBy.length > 0 && !sight.visitedBy.some((id) => booked.has(id)));
+  const going = (sight: Sight) => sight.visitedBy.some((id) => booked.has(id));
+  // Saved places come first and whatever the trip holds: the guest asked for them.
+  const savedSlugs = new Set(trip.saved_landmarks.map((saved) => saved.slug));
+  const saved = sights.filter((sight) => savedSlugs.has(sight.slug) && !going(sight));
+  if (saved.length > 0) gaps.push({ kind: "saved", sights: saved });
+  const unseen = sights.filter((sight) => sight.visitedBy.length > 0 && !going(sight) && !savedSlugs.has(sight.slug));
   if (tours.length > 0 && unseen.length > 0) gaps.push({ kind: "unseen", sights: unseen });
   return gaps;
 }

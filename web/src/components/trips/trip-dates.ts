@@ -88,3 +88,8 @@ export function tripOwnQuery(trip: {
 export function datesParty(dates: TripDates) {
   return partyFromGuests(dates.guests, dates);
 }
+
+// A page's `?trip=` (the trip a place's page carried into it, TripLinkProvider) as an id, or undefined.
+export function tripParam(value: string | string[] | undefined) {
+  return typeof value === "string" && /^[1-9]\d{0,14}$/.test(value) ? Number(value) : undefined;
+}

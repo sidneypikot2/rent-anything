@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getListing, getQuote } from "@/api/discovery";
+import { getDestinations, getListing, getQuote, type AreaCard } from "@/api/discovery";
+import { descendants } from "@/components/discovery/browse-offers";
 import { categoryIcon } from "@/components/discovery/icons";
 import { listingFeatures } from "@/components/discovery/listing-features";
 import { FeatureGlyph } from "@/components/discovery/tag-glyphs";
@@ -18,7 +19,8 @@ import { PageSheet } from "@/components/landing/page-sheet";
 import { ListingGallery } from "@/components/discovery/listing-gallery";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
-import { readTripDates, tripDatesQuery } from "@/components/trips/trip-dates";
+import { AdoptTrip } from "@/components/trips/trip-link";
+import { readTripDates, tripDatesQuery, tripParam } from "@/components/trips/trip-dates";
 import { InTripBadge } from "@/components/trips/in-trip-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
@@ -50,10 +52,28 @@ const FREE_TO_SAVE = "Saving to a trip is free, and there's nothing to pay yet."
 export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   const id = listingId((await props.params).id);
   if (!id) notFound();
-  const dates = readTripDates(await props.searchParams);
-  const listing = await getListing(id);
+  const searchParams = await props.searchParams;
+  const dates = readTripDates(searchParams);
+  const [listing, destinations] = await Promise.all([
+    getListing(id),
+    // Only for the searched place's name and the trip's places, so the page still renders without them.
+    getDestinations().catch((error: unknown) => {
+      console.error(error);
+      return [] as AreaCard[];
+    }),
+  ]);
   if (!listing) notFound();
   const { area, category } = listing;
+  // The place it was opened from (`?place=`, a place's page): the header names it, the way back
+  // returns to it, and an add goes to the trip it shows (`?trip=`, else as there), as on the
+  // business page; with none, the listing's own place.
+  const asked = typeof searchParams.place === "string" ? destinations.find((each) => each.slug === searchParams.place) : undefined;
+  const from = asked ? { slug: asked.slug, name: asked.name } : { slug: area.slug, name: area.name };
+  const places = [from.slug, ...descendants(destinations, from.slug).map((each) => each.slug)];
+  const tripId = tripParam(searchParams.trip);
+  const back = new URLSearchParams(tripDatesQuery(dates).replace(/^\?/, ""));
+  if (tripId) back.set("trip", String(tripId));
+  const backHref = `/${from.slug}${back.size ? `?${back}` : ""}#listing-${listing.id}`;
   const rate = listing.stay_rate;
   const tour = listing.tour;
   const vehicleRate = listing.vehicle_rate;
@@ -99,7 +119,8 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
 
   return (
     <main className="flex flex-1 flex-col">
-      <CurrentPlace name={area.name} slug={area.slug} />
+      <CurrentPlace name={from.name} slug={from.slug} />
+      {tripId && <AdoptTrip id={tripId} />}
       <PageBanner
         // Its own cover (RAA-109); without one the banner stays on the backdrop (RAA-107).
         photo={cover && { src: cover.large_url, alt: listing.title }}
@@ -124,16 +145,18 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
         }
       >
         <Link
-          href={`/${area.slug}${tripDatesQuery(dates)}#listing-${listing.id}`}
+          href={backHref}
           className="tap-target self-start rounded-full border border-glass-edge bg-glass-fill px-4 py-2 text-sm font-semibold text-white hover:bg-glass-hover"
         >
-          <span aria-hidden>←</span> {area.name}
+          <span aria-hidden>←</span> {from.name}
         </Link>
       </PageBanner>
 
       <PageSheet>
         <div className="mx-auto flex w-full max-w-narrow flex-col gap-block px-gutter py-page-pad">
-        <TripAddProvider>
+        {/* Opened from a place's page, an add goes to its trip, as there; from anywhere else (the
+            cart, search, the home page) the add sheet still asks which trip. */}
+        <TripAddProvider places={asked || tripId ? places : undefined}>
           {booker ? (
             <>
               {/* A stay picks its rooms and a vehicle its party in its own card, which holds Add to

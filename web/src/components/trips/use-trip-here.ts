@@ -9,13 +9,16 @@ import { currentTrips, useTrips, type Trip } from "./use-trips";
 // goes to it; with no choice, the first with something in this place (an item in it or in a
 // place inside it), as GET /trips orders them. `has`: the groups (a listing's `group`) the trip
 // holds here, which What to book moves to the end; an item its listing can't have
-// (`unavailable`) doesn't count. `places` are the page's place and the places inside it. Signed
+// (`unavailable`) doesn't count; a place to see saved here makes it one too. `places` are the page's place and the places inside it. Signed
 // out, or not a guest, there is no trip.
 // The trip a place's page shows and adds to (see useTripHere), from the guest's current trips:
 // undefined for none, or when they picked a new trip.
 export function tripHere(current: Trip[], chosen: ChosenTrip, places: string[]) {
   if (chosen === "new") return undefined;
-  const here = (each: Trip) => each.items.some((item) => places.includes(item.area.slug));
+  // Something here: an item, or a place to see saved here (it has no item yet).
+  const here = (each: Trip) =>
+    each.items.some((item) => places.includes(item.area.slug)) ||
+    each.saved_landmarks.some((saved) => places.includes(saved.area_slug));
   return current.find((each) => each.id === chosen) ?? current.find(here);
 }
 

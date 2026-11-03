@@ -1,15 +1,17 @@
 "use client";
 
 import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
 import type { StayQuote } from "@/api/discovery";
-import { counted, headcount, partyOf, partySummary, roomText, unplacedText, type Room, type StayRules } from "@/components/trips/party";
+import { counted, headcount, partyOf, partySummary, roomText, unplacedCount, type Room, type StayRules } from "@/components/trips/party";
 import { RoomBlock, shownKinds } from "@/components/trips/rooms-and-guests";
 import { useTripAdd } from "@/components/trips/trip-add-provider";
+import { CoverBar } from "@/components/trips/cover-bar";
 import { datesParty, type TripDates } from "@/components/trips/trip-dates";
 import type { AddPreview, MixItem } from "@/components/trips/use-trips";
+import { ArrowGlyph } from "./tag-glyphs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StepperField } from "@/components/ui/stepper-field";
@@ -25,6 +27,11 @@ export type MixOffer = {
   priceText?: string;
   rules: StayRules;
   preview: AddPreview;
+  // What the panel shows of it in a suggestion: its photo, what sets it apart ("Sleeps 4 · Air
+  // conditioning") and how to open its details.
+  thumb?: ReactNode;
+  apart?: string;
+  open?: () => void;
 };
 
 const LABELS: Record<Mix["label"], string> = {
@@ -58,8 +65,9 @@ function mixSummary(picked: MixOffer[], picks: Picks, pets: number) {
 // opens one card per room type with its Rooms stepper and, inside the same card, each room's
 // guests. Only the counters the search has show (shownKinds). The price is each room type's
 // GET /quotes for its rooms, and "Add N stays to trip" adds them all through the add sheet, in
-// one request.
-export function StayMixPicker({ offers, dates }: { offers: MixOffer[]; dates: TripDates }) {
+// one request. Each suggestion shows its room types' photos and details, as it stands in for the
+// panel's list of them; `fallback` (that list) shows when no suggestion can be made.
+export function StayMixPicker({ offers, dates, fallback }: { offers: MixOffer[]; dates: TripDates; fallback?: ReactNode }) {
   const { add, busyListingId } = useTripAdd();
   const party = datesParty(dates);
   const people: Room = { adults: party.adults, children: party.children, infants: party.infants };
@@ -138,9 +146,15 @@ export function StayMixPicker({ offers, dates }: { offers: MixOffer[]; dates: Tr
         {mixes.isPending ? (
           <p className="rounded-control bg-mist px-3 py-2.5 text-sm text-muted">Finding rooms for your party…</p>
         ) : result && "errors" in result ? (
-          <p role="alert" className="text-sm text-danger">{result.errors.join(" ")}</p>
+          <>
+            <p role="alert" className="text-sm text-danger">{result.errors.join(" ")}</p>
+            {fallback}
+          </>
         ) : result && result.mixes.length === 0 ? (
-          <p className="rounded-control bg-mist px-3 py-2.5 text-sm">No mix of these rooms sleeps your party on these dates.</p>
+          <>
+            <p className="rounded-control bg-mist px-3 py-2.5 text-sm">No mix of these rooms sleeps your party on these dates.</p>
+            {fallback}
+          </>
         ) : (
           <ul className="flex flex-col gap-2.5">
             {result?.mixes.map((mix, index) => (
@@ -149,23 +163,43 @@ export function StayMixPicker({ offers, dates }: { offers: MixOffer[]; dates: Tr
                 className="card-edge-line flex flex-col gap-2 rounded-card bg-surface p-3"
                 data-testid="stay-mix-option"
               >
-                <Badge tone="kind" className="self-start">{LABELS[mix.label]}</Badge>
-                <div className="flex items-start justify-between gap-3">
-                  <p className="font-semibold">
-                    {mix.items.map((item) => `${item.rooms} × ${item.title}`).join(" + ")}
-                  </p>
+                <div className="flex items-center justify-between gap-3">
+                  <Badge tone="kind">{LABELS[mix.label]}</Badge>
                   <p className="shrink-0 font-semibold tabular-nums">{formatPeso(mix.total_cents)}</p>
                 </div>
-                <ul className="text-sm text-muted">
-                  {mix.items.flatMap((item) =>
-                    (item.room_guests ?? [null]).map((room, n) => (
-                      <li key={`${item.listing_id}-${n}`}>
-                        {item.title}
-                        {item.room_guests && item.room_guests.length > 1 ? ` ${n + 1}` : ""} ·{" "}
-                        {room ? roomText(room) : `${item.quantity} in the dorm`}
+                <ul className="flex flex-col gap-3">
+                  {mix.items.map((item) => {
+                    const offer = offers.find((each) => each.listingId === item.listing_id);
+                    const many = item.room_guests && item.room_guests.length > 1;
+                    const title = item.rooms > 1 ? `${item.rooms} × ${item.title}` : item.title;
+                    return (
+                      <li key={item.listing_id} className="grid grid-cols-[4rem_minmax(0,1fr)] items-start gap-3">
+                        {offer?.thumb ?? <span />}
+                        <div className="flex min-w-0 flex-col gap-0.5">
+                          {offer?.open ? (
+                            <button
+                              type="button"
+                              data-testid="business-offer"
+                              onClick={offer.open}
+                              className="group flex items-start justify-between gap-2 text-left font-semibold leading-snug text-link underline-offset-4 hover:underline"
+                            >
+                              {title}
+                              <ArrowGlyph className="mt-0.5 size-4 shrink-0 transition-transform duration-500 ease-calm motion-safe:group-hover:translate-x-0.5" />
+                            </button>
+                          ) : (
+                            <p className="font-semibold leading-snug">{title}</p>
+                          )}
+                          {offer?.apart && <span className="text-sm text-foreground">{offer.apart}</span>}
+                          <ul className="text-sm text-muted">
+                            {(item.room_guests ?? [null]).map((room, n) => {
+                              const who = room ? roomText(room) : `${item.quantity} in the dorm`;
+                              return <li key={n}>{many ? `Room ${n + 1} · ${who}` : who}</li>;
+                            })}
+                          </ul>
+                        </div>
                       </li>
-                    )),
-                  )}
+                    );
+                  })}
                 </ul>
                 <Button
                   type="button"
@@ -193,7 +227,8 @@ export function StayMixPicker({ offers, dates }: { offers: MixOffer[]; dates: Tr
   );
   const priced = results.every((result) => result && "quote" in result);
   const total = priced ? results.reduce((sum, result) => sum + (result && "quote" in result ? result.quote.total_cents : 0), 0) : null;
-  const left = unplacedText(people, allRooms);
+  const guests = headcount(people);
+  const placed = guests - unplacedCount(people, allRooms);
   const kinds = shownKinds(allRooms, searched);
   const busy = picked.length > 0 && busyListingId === picked[0].listingId;
 
@@ -311,12 +346,14 @@ export function StayMixPicker({ offers, dates }: { offers: MixOffer[]; dates: Tr
 
       {allRooms.length > 0 && (
         <div className="flex flex-col gap-2 rounded-card bg-surface-2 p-3" data-testid="stay-mix-summary">
-          <p className="font-semibold">{mixSummary(picked, picks, shownPets)}</p>
-          {left && (
-            <p role="status" className="text-sm text-warning">
-              {left}
-            </p>
-          )}
+          <CoverBar
+            people={guests}
+            covered={placed}
+            summary={mixSummary(picked, picks, shownPets)}
+            need="a bed"
+            done="Everyone has a bed"
+            data-testid="stay-mix-cover"
+          />
           {petHost && (searched.pets > 0 || shownPets > 0) && (
             <StepperField
               label="Pets"

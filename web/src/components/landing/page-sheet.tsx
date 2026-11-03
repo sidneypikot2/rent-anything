@@ -15,21 +15,25 @@ export function PageSheet({
   children,
   tone = "sheet",
   wide = false,
+  flushOnPhone = false,
   className,
 }: {
   children: ReactNode;
   tone?: "sheet" | "clear" | "paper";
   wide?: boolean;
+  // Edge to edge with square corners on a phone (the trip planner, which takes the whole screen).
+  flushOnPhone?: boolean;
   className?: string;
 }) {
   return (
-    <div className="flex flex-1 flex-col px-2 pb-2 sm:px-6 sm:pb-6">
+    <div className={cn("flex flex-1 flex-col px-2 pb-2 sm:px-6 sm:pb-6", flushOnPhone && "max-sm:p-0")}>
       <div
         className={cn(
           "mx-auto flex w-full flex-1 flex-col",
           wide ? "max-w-split" : "max-w-page",
           tone === "sheet" && cn(glassClasses("sheet"), "rounded-frame sm:px-6"),
           tone === "paper" && "card-edge rounded-frame bg-surface px-3 text-foreground shadow-float sm:px-6",
+          flushOnPhone && "max-sm:rounded-none",
           className,
         )}
       >

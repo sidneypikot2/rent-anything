@@ -32,7 +32,7 @@ export function SectionHeader({ section }: { section: Section }) {
   const label = SECTION_LABELS[section];
 
   return (
-    <header className="pointer-events-none sticky top-0 z-40 px-3 pt-3 sm:px-6">
+    <header data-site-header className="pointer-events-none sticky top-0 z-40 px-3 pt-3 sm:px-6">
       <BackdropStrip />
       <div className="pointer-events-auto relative mx-auto flex min-h-14 w-full max-w-page animate-float-in flex-wrap items-center justify-between gap-x-3 gap-y-2 focus-light rounded-frame border border-glass-edge bg-navy/92 max-search:bg-navy px-3 py-1.5 text-white shadow-lift backdrop-blur-xl backdrop-saturate-150 max-xs:gap-x-2 max-xs:px-2 sm:px-5">
         <Link

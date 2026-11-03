@@ -5,10 +5,10 @@ import { useToast } from "@/components/ui/toast";
 import { startGuestSession } from "@/lib/auth/actions";
 import { useSession } from "@/lib/auth/session";
 import { formatDateRange } from "./format";
-import { readChosenTrip } from "./chosen-trip";
+import { chooseTrip, readChosenTrip } from "./chosen-trip";
 import { showAddedBadge } from "./added-badge";
 import { tripHere } from "./use-trip-here";
-import { currentTrips, useFetchTrips, type AddRequest, type Trip } from "./use-trips";
+import { currentTrips, useAddTripItem, useFetchTrips, type AddRequest, type Trip } from "./use-trips";
 import { WhichTripSheet } from "./which-trip-sheet";
 
 type Context = {
@@ -18,6 +18,8 @@ type Context = {
   busyListingId: number | null;
   // The listing last added on this page, so the list can bring its row back into view.
   lastAdded: { listingId: number; at: number } | null;
+  // The page's place and the places inside it, on a place's page (for saving a place to see).
+  places?: string[];
 };
 
 const TripAddContext = createContext<Context | null>(null);
@@ -37,7 +39,8 @@ export function useOptionalTripAdd() {
 // signed-out first add (RAA-177: no account needed to plan or book), the add sheet, and the
 // "Added to trip" badge that confirms it. On a place's page (`places`: its place and the places inside it) every add goes to the trip its banner shows (tripHere),
 // or starts a new one, which then becomes the trip worked on: the sheet asks only the dates and
-// guests, so an add never lands in another trip. Elsewhere the sheet asks which trip.
+// guests, so an add never lands in another trip; a `confirmed` dated add (a shop's models) skips
+// the sheet there. Elsewhere the sheet asks which trip.
 export function TripAddProvider({ children, places }: { children: ReactNode; places?: string[] }) {
   const session = useSession();
   const fetchTrips = useFetchTrips();
@@ -47,6 +50,7 @@ export function TripAddProvider({ children, places }: { children: ReactNode; pla
   const [busyListingId, setBusyListingId] = useState<number | null>(null);
   const [lastAdded, setLastAdded] = useState<Context["lastAdded"]>(null);
   const toast = useToast();
+  const { mutateAsync: addItem } = useAddTripItem();
   // One add at a time: a second tap while one is under way (or its sheet is open) waits.
   const inFlight = useRef(false);
   // What the last add put where, for screen readers (the flight is only decoration).
@@ -66,7 +70,7 @@ export function TripAddProvider({ children, places }: { children: ReactNode; pla
     setAnnounced(`Added ${what} ${trip.name}${dates ? ` · now ${dates}` : ""}`);
     setLastAdded({ listingId: request.listingId, at: Date.now() });
     // After the sheet has gone, so the badge's way to the cart is read from the settled page.
-    requestAnimationFrame(showAddedBadge);
+    requestAnimationFrame(() => showAddedBadge());
   }, []);
 
   // Signed in: the add sheet, with the guest's trips to pick from.
@@ -83,6 +87,18 @@ export function TripAddProvider({ children, places }: { children: ReactNode; pla
         const trips = currentTrips(await fetchTrips(userId));
         // Read now, not from render: after sign-in the trips have only just been fetched.
         const target = places && (tripHere(trips, readChosenTrip(), places) ?? "new");
+        // Everything picked where the add started (a shop's models, their dates and pickup) and
+        // the trip fixed by the page: nothing is left for the sheet to ask, so it goes straight in.
+        if (request.confirmed && target && request.startsOn) {
+          const tripId = target === "new" ? null : target.id;
+          // A failure shows the mutation's red toast.
+          const trip = await addItem({ request, tripId }).catch(() => null);
+          if (trip) {
+            chooseTrip(trip.id);
+            added(request, trip, target === "new" ? undefined : target);
+          }
+          return;
+        }
         setChoosing({ request, trips, target });
         sheetOpen = true;
       } catch (caught) {
@@ -96,7 +112,7 @@ export function TripAddProvider({ children, places }: { children: ReactNode; pla
         if (!sheetOpen) inFlight.current = false;
       }
     },
-    [fetchTrips, toast, places],
+    [fetchTrips, toast, places, addItem, added],
   );
 
   const add = useCallback(
@@ -127,7 +143,7 @@ export function TripAddProvider({ children, places }: { children: ReactNode; pla
   }, []);
 
   return (
-    <TripAddContext.Provider value={{ add, busyListingId, lastAdded }}>
+    <TripAddContext.Provider value={{ add, busyListingId, lastAdded, places }}>
       {children}
 
       {choosing && (

@@ -19,7 +19,8 @@ function bump(bag: HTMLElement) {
   bag.classList.add("cart-bump");
 }
 
-export function showAddedBadge() {
+// `label`: what it says ("Saved to trip" for a place to see saved to it).
+export function showAddedBadge(label = "Added to trip") {
   current?.remove();
   const bag = document.querySelector<HTMLElement>('[data-testid="nav-cart"]');
   const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -32,7 +33,8 @@ export function showAddedBadge() {
   badge.style.height = `${SIZE * 0.8}px`;
   badge.style.left = `calc(50% - ${SIZE / 2}px)`;
   badge.style.top = `calc(50% - ${(SIZE * 0.8) / 2}px)`;
-  badge.innerHTML = `<svg viewBox="0 0 24 24" class="size-10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${TICK}"/></svg><span>Added to trip</span>`;
+  badge.innerHTML = `<svg viewBox="0 0 24 24" class="size-10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${TICK}"/></svg><span></span>`;
+  badge.querySelector("span")!.textContent = label;
   // An add from a side panel or sheet happens inside a modal <dialog>, in the browser's top layer
   // above any z-index, so the badge is a popover in that layer too (as Toast is), opened after
   // the dialog and so above it. The popover's own margin, border, inset and overflow are undone.

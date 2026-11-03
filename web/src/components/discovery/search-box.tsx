@@ -172,9 +172,9 @@ export function SearchBox({
     if (request.panel === "where") inputRef.current?.select();
   }, [request]);
 
-  // Only a complete range travels; a half-picked one is dropped, as readTripDates would.
+  // A start with no end yet travels as one day, so a picked start is never dropped.
   const who = { guests, children: party.children, infants: party.infants, pets: party.pets };
-  const dates: TripDates = range.from && range.to ? { ...range, ...who } : who;
+  const dates: TripDates = range.from ? { from: range.from, to: range.to || range.from, ...who } : who;
   const carry = tripDatesQuery(dates);
 
   // A guest with a trip planning (RAA-130): the hero goes on with it, its dates and guests filled
@@ -417,10 +417,15 @@ export function SearchBox({
     </button>
   );
 
-  const dateLabel = range.from && range.to ? formatDateRange(range.from, range.to) : null;
+  // The start shows as soon as it is tapped, so the first tap visibly did something.
+  const dateLabel = range.from
+    ? range.to
+      ? formatDateRange(range.from, range.to)
+      : `${formatDateRange(range.from, range.from)} – pick an end`
+    : null;
   // Which of the bar's stops are answered, for its route.
   const whereSet = Boolean(text.trim());
-  const dateSet = Boolean(dateLabel);
+  const dateSet = Boolean(range.from && range.to);
   // The hero starts a trip at a picked destination or thing to book, or at the launch area when
   // Where is empty (its placeholder says so).
   const role = useSession()?.user.role;
@@ -535,6 +540,8 @@ export function SearchBox({
       <PanelActions
         onClear={range.from ? () => setRange({ from: "", to: "" }) : undefined}
         onDone={() => {
+          // Done after one tap means a one-day trip.
+          if (range.from && !range.to) setRange({ from: range.from, to: range.from });
           setPanel(null);
           whenRef.current?.focus();
         }}
@@ -1013,7 +1020,8 @@ async function fetchSearch(q: string) {
   return data;
 }
 
-async function fetchAreas() {
+// The destinations, under the ["areas"] query key; the home page's Plan a whole trip reads them too.
+export async function fetchAreas() {
   const { data, error } = await apiClient().GET("/api/v1/areas");
   if (error || !data) throw new Error("Couldn't load destinations");
   return data;

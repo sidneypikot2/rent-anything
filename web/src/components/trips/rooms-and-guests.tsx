@@ -7,12 +7,16 @@ import { cn } from "@/components/ui/cn";
 import { Dialog, DialogSummary } from "@/components/ui/dialog";
 import { StepperField } from "@/components/ui/stepper-field";
 import { formatPeso } from "@/lib/money";
+import { CoverBar } from "./cover-bar";
 import {
   emptyRoom,
+  headcount,
+  partyOf,
   counted,
   KINDS,
   partySummary,
   roomMax,
+  unplacedCount,
   unplacedText,
   type Kind,
   type Room,
@@ -76,6 +80,10 @@ export function RoomsAndGuests({
   const valueId = useId();
   const panelId = useId();
   const left = party ? unplacedText(party, rooms) : null;
+  // The bar under the rooms: the trip's guests against the beds picked.
+  const guests = party ? headcount(party) : 0;
+  const beds = headcount(partyOf(rooms));
+  const placedIn = rules.shared ? `${beds} ${beds === 1 ? "bed" : "beds"}` : `${rooms.length} ${rooms.length === 1 ? "room" : "rooms"}`;
 
 
   // Only a floating popover closes on a click outside it. One laid out in the sheet (inline, or a
@@ -147,10 +155,22 @@ export function RoomsAndGuests({
         </div>
       )}
 
-      {left && (
-        <p role="status" className="rounded-control bg-mist px-3 py-2 text-sm" data-testid={testId && `${testId}-left`}>
-          {left} {canAddRoom ? "Add a room, or book another stay for them." : "Book another stay for them."}
-        </p>
+      {party && (
+        <div className="flex flex-col gap-1.5 font-normal">
+          <CoverBar
+            people={guests}
+            covered={guests - unplacedCount(party, rooms)}
+            summary={`${guests} ${guests === 1 ? "guest" : "guests"} · ${placedIn}`}
+            need="a bed"
+            done="Everyone has a bed"
+            data-testid={testId && `${testId}-cover`}
+          />
+          {left && (
+            <p className="text-xs text-muted" data-testid={testId && `${testId}-left`}>
+              {canAddRoom ? "Add a room, or book another stay for them." : "Book another stay for them."}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
