@@ -128,20 +128,8 @@ export function AreaHero({
     window.history.replaceState(window.history.state, "", url);
   }, [starting]);
 
-  const chipRow = (planChip: boolean) => (
+  const chipList = (
     <ul aria-label={`In ${areaName}`} className={CHIP_ROW}>
-      {planChip && planTrip && (
-        <li className={cn("shrink-0", COMPACT_ONLY)}>
-          <Link
-            href={planTrip.href}
-            data-testid="plan-trip-compact"
-            className={cn(STAT_CHIP, "border border-white bg-white font-semibold text-navy")}
-          >
-            {planTrip.label}
-            <ArrowGlyph className="size-4 text-action" />
-          </Link>
-        </li>
-      )}
       {statChips}
       {/* The places inside this one with things to book, linked to their own pages (RAA-85). */}
       {placeLinks.map((link) => (
@@ -154,7 +142,21 @@ export function AreaHero({
       ))}
     </ul>
   );
-  const chips = chipRow(false);
+  const chips = chipList;
+  // Compact, no trip shown: Plan a trip as the first screen's main button (the mockup's phone),
+  // over the slim row down to What to book.
+  const chipRow = (planButton: boolean) => (
+    <>
+      {planButton && planTrip && (
+        <div className={COMPACT_ONLY}>
+          <ButtonLink href={planTrip.href} variant="paper" arrow data-testid="plan-trip-compact" className="w-full justify-center">
+            {planTrip.label}
+          </ButtonLink>
+        </div>
+      )}
+      {chipList}
+    </>
+  );
   // A partner or admin browsing: the place alone.
   if (session && !isGuest)
     return (

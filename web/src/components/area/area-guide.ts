@@ -107,6 +107,21 @@ export function sampleDays(landmarks: Landmark[], listings: Listing[]): SampleDa
   });
 }
 
+// What the place is for, from its places to see: their tags, the most shared first.
+export function vibesOf(landmarks: Landmark[], limit = 6) {
+  const counts = new Map<string, number>();
+  for (const landmark of landmarks) for (const tag of landmark.tags) counts.set(tag.name, (counts.get(tag.name) ?? 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, limit).map(([name]) => name);
+}
+
+// "Your dates: Dec 12 – 15 · dry season", for the page's dates.
+export function datesSeason(from: string | undefined, seasons: string[] | null, range: string | null) {
+  if (!from || !seasons || !range) return null;
+  const month = Number(from.slice(5, 7)) - 1;
+  const season = seasons[month];
+  return season ? `Your dates: ${range} · ${season === "drying" ? "drying out" : `${season} season`}` : null;
+}
+
 export type Question = { question: string; answer: string };
 
 // The questions guests ask about a place, answered from what the page knows; a question with no
@@ -121,6 +136,7 @@ export function questionsAbout({
   transfers,
   landmarks,
   tours,
+  extra = [],
 }: {
   name: string;
   guide: AreaDetail["guide"];
@@ -131,6 +147,8 @@ export function questionsAbout({
   transfers: number;
   landmarks: Landmark[];
   tours: number;
+  // The place's own questions, written by hand (area-notes.ts), after the ones worked out here.
+  extra?: Question[];
 }): Question[] {
   const where = stays.slice(0, 3).map(({ place }) => `${place.name} (${countText(place.stay_count, "stay")})`);
   const around = [
@@ -150,7 +168,7 @@ export function questionsAbout({
       answer: `See ${listText(sights)}${tours > 0 ? `, with ${countText(tours, "tour or activity", "tours and activities")} to book` : ""}.`,
     },
   ];
-  return questions.filter((question) => question !== false);
+  return [...questions.filter((question) => question !== false), ...extra];
 }
 
 function listText(parts: string[]) {
