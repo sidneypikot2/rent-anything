@@ -123,6 +123,19 @@ unless Rails.env.test?
   require Rails.root.join("db/migrate/20261006000001_seed_discovery_sample_data").to_s
   Area.where(slug: SeedDiscoverySampleData::AREAS.map(&:first) + [ "santa-fe" ]).update_all(status: "published")
 
+  # The area page's guide (RAA-252): sample text for Bantayan, written once, never over the team's.
+  Area.find_by(slug: "bantayan-island")&.then do |bantayan|
+    guide = {
+      tagline: "White sand, slow days and fresh seafood off the northern tip of Cebu",
+      description: "A flat, quiet island of fishing villages, sandbars and clear shallow water. Most visitors stay " \
+        "around Santa Fe, swim at Kota Beach, hop to Virgin Island at low tide and get around by scooter or trike.",
+      getting_there: "Bus from Cebu City's North Bus Terminal to Hagnaya port (about 3 hours), then the ferry to " \
+        "Santa Fe (about 1 hour).",
+      best_time_to_visit: "December to May, the dry months; book ahead for Holy Week"
+    }
+    bantayan.update!(guide.select { |field, _| bantayan.public_send(field).blank? })
+  end
+
   # The search box reads the search_terms view (RAA-60); fill it from what was just loaded.
   SearchTerm.refresh
 

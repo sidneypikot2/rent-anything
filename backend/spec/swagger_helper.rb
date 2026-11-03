@@ -1645,10 +1645,37 @@ RSpec.configure do |config|
                 type: :array, maxItems: 12, items: { "$ref" => "#/components/schemas/photo_urls" },
                 description: "Its ready photos in the team's order, for the banner's carousel (RAA-210)"
               },
+              guide: {
+                type: :object,
+                description: "What the team wrote about the place (RAA-164); a blank field is null (RAA-252)",
+                properties: {
+                  tagline: { type: :string, nullable: true },
+                  description: { type: :string, nullable: true },
+                  getting_there: { type: :string, nullable: true },
+                  best_time_to_visit: { type: :string, nullable: true }
+                },
+                required: %w[tagline description getting_there best_time_to_visit]
+              },
               areas: {
                 type: :array,
                 description: "Areas under this one that have something to book",
-                items: { "$ref" => "#/components/schemas/area" }
+                items: {
+                  allOf: [
+                    { "$ref" => "#/components/schemas/area" },
+                    {
+                      type: :object,
+                      properties: {
+                        center: { "$ref" => "#/components/schemas/lat_lng" },
+                        stay_count: { type: :integer, description: "Its active stays, the places under it included (RAA-252)" },
+                        to_book_count: {
+                          type: :integer,
+                          description: "One per business per guest group, the places under it included, as area_card counts it"
+                        }
+                      },
+                      required: %w[center stay_count to_book_count]
+                    }
+                  ]
+                }
               },
               landmarks: {
                 type: :array,
@@ -1663,12 +1690,13 @@ RSpec.configure do |config|
                       type: :array, maxItems: 12, items: { "$ref" => "#/components/schemas/photo_urls" },
                       description: "Its ready photos in the team's order (RAA-210)"
                     },
+                    location: { "$ref" => "#/components/schemas/lat_lng" },
                     visited_by: {
                       type: :array, items: { type: :integer },
                       description: "The ids of the active listings that visit it, from the listings here"
                     }
                   },
-                  required: %w[slug name description tags photos visited_by]
+                  required: %w[slug name description tags photos location visited_by]
                 }
               },
               listings: {
@@ -1677,7 +1705,7 @@ RSpec.configure do |config|
                 items: { "$ref" => "#/components/schemas/area_listing" }
               }
             },
-            required: %w[area photos areas landmarks listings]
+            required: %w[area guide photos areas landmarks listings]
           },
           # One listing as a guest's browse pages list it (Discovery::ListingRow): an area page's
           # What to book and a business's page.

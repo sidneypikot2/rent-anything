@@ -3,6 +3,24 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getArea, getDestinations, getExplore, type AreaCard, type AreaDetail } from "@/api/discovery";
+import {
+  businessesIn,
+  gettingHereText,
+  planHref,
+  questionsAbout,
+  sampleDays,
+  showHref,
+  stayPlaces,
+} from "@/components/area/area-guide";
+import {
+  AreaAbout,
+  AreaGettingHere,
+  AreaQuestions,
+  AreaSampleDays,
+  AreaStays,
+  AreaTabs,
+} from "@/components/area/area-sections";
+import { PlanDock } from "@/components/area/plan-dock";
 import { AreaMapProvider, MapHoverTarget, MapSwitch } from "@/components/discovery/area-map-context";
 import { AreaMapLayout } from "@/components/discovery/area-map-layout";
 import {
@@ -114,7 +132,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     }),
   ]);
   if (!detail) notFound();
-  const { area, areas, listings } = detail;
+  const { area, areas, guide, listings } = detail;
   const exploreFailed = explored === "failed";
   const explore = exploreFailed ? null : explored;
   // The places tours go to first: they are the ones a trip can reach from this page.
@@ -256,6 +274,54 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   // it gets no section of its own repeating it.
   const insideShown = !(areas.length === 1 && counts?.more.some((child) => child.area.slug === areas[0].slug));
 
+  // Getting to know the place (RAA-252): what the team wrote and what the data shows, each part
+  // left out when there is nothing for it, and Plan a trip, which plans the island a town is on.
+  const planPlace = island ? (destinations?.find((each) => each.slug === island) ?? null) : null;
+  const plan = {
+    href: planHref(planPlace?.slug ?? slug, datesQuery),
+    label: `Plan a trip to ${planPlace?.name ?? area.name}`,
+  };
+  const gettingHere = gettingHereText(guide, GETTING_HERE[slug] ?? (island ? GETTING_HERE[island] : undefined));
+  const rentals = businessesIn(listings, "rental");
+  const transfers = businessesIn(listings, "transfer");
+  const around = [
+    rentals > 0 && {
+      icon: "Motorcycle",
+      label: "Rent a ride",
+      detail: `Scooters, cars and bikes from ${countText(rentals, "local partner")}`,
+      href: showHref(slug, "need-rental", datesQuery),
+    },
+    transfers > 0 && {
+      icon: "Van transfer",
+      label: "Book a transfer",
+      detail: `Port and airport rides from ${countText(transfers, "partner")}`,
+      href: showHref(slug, "need-transfer", datesQuery),
+    },
+  ].filter((way) => way !== false);
+  const stays = stayPlaces(areas, landmarks);
+  const ownStays = listings.filter((listing) => listing.group === "stay").length;
+  const days = sampleDays(landmarks, listings);
+  const questions = questionsAbout({
+    name: area.name,
+    guide,
+    gettingHere,
+    stays,
+    ownStays,
+    rentals,
+    transfers,
+    landmarks,
+    tours: businessesIn(listings, "activity"),
+  });
+  const tabs = [
+    (guide.description || guide.best_time_to_visit) && { id: "about", label: "About" },
+    landmarks.length > 0 && { id: "places", label: "Places to see" },
+    (gettingHere || around.length > 0) && { id: "getting-here", label: "Getting here" },
+    (stays.length > 0 || ownStays > 0) && { id: "stay", label: "Where to stay" },
+    days.length > 0 && { id: "days", label: "Sample days" },
+    questions.length > 0 && { id: "faq", label: "Questions" },
+    listings.length > 0 && { id: "listings", label: "What to book" },
+  ].filter((tab) => !!tab);
+
   const eyebrow = area.parent_name ? `${area.parent_name}, Philippines` : "Philippines";
   const areaTitle = (
     // The name keeps at least 12rem beside its icon; at a large text size (rem grows with
@@ -266,6 +332,16 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
       </GlassPanel>
       <span className="min-w-0 flex-1 basis-48">{area.name}</span>
     </DisplayTitle>
+  );
+  const bannerTitle = guide.tagline ? (
+    <>
+      {areaTitle}
+      <p data-testid="area-tagline" className="max-w-lede text-lg text-pretty text-sky-mist">
+        {guide.tagline}
+      </p>
+    </>
+  ) : (
+    areaTitle
   );
   // The banner's chips: its counts, linking down to their sections, and the places inside this
   // one with things to book, which the total counts, linked to their own pages (RAA-85).
@@ -294,7 +370,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
       {listings.length > 0 ? (
         // The place's banner, with the guest's trip here at its foot.
         <AreaHero
-          banner={{ photo: banner, carousel: ownPhotos, eyebrow, title: areaTitle }}
+          banner={{ photo: banner, carousel: ownPhotos, eyebrow, title: bannerTitle }}
           statChips={statChips}
           placeLinks={placeLinks}
           areaName={area.name}
@@ -303,9 +379,10 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           offered={needs.map((need) => need.group)}
           sights={landmarks.map((landmark) => ({ slug: landmark.slug, name: landmark.name, visitedBy: landmark.visited_by }))}
           starting={starting}
+          plan={plan}
         />
       ) : (
-        <PageBanner photo={banner} carousel={ownPhotos} eyebrow={eyebrow} title={areaTitle}>
+        <PageBanner photo={banner} carousel={ownPhotos} eyebrow={eyebrow} title={bannerTitle}>
           {(stats.length > 0 || placeLinks.length > 0) && (
             <ul aria-label={`In ${area.name}`} className={CHIP_ROW}>
               {statChips}
@@ -337,9 +414,25 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                     <MapSwitch />
                   </div>
                 )}
+                <AreaTabs tabs={tabs} />
+                <AreaAbout name={area.name} description={guide.description} bestTime={guide.best_time_to_visit} />
                 <SectionOrder
                   asked={asked}
                   tripPlaces={places}
+                  guide={
+                    <>
+                      <AreaGettingHere name={area.name} route={gettingHere} around={around} />
+                      <AreaStays
+                        name={area.name}
+                        places={stays}
+                        ownStays={ownStays}
+                        datesQuery={datesQuery}
+                        ownHref={showHref(slug, "need-stay", datesQuery)}
+                      />
+                      <AreaSampleDays days={days} planHref={plan.href} />
+                      <AreaQuestions name={area.name} questions={questions} />
+                    </>
+                  }
                   places={
                     landmarks.length > 0 && (
                       <Section
@@ -517,7 +610,10 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                 )}
 
                 {/* The page ends on the trip, which What to book fills. */}
-                {listings.length > 0 && <AreaTripBand areaName={area.name} places={places} />}
+                {listings.length > 0 && (
+                  <AreaTripBand areaName={planPlace?.name ?? area.name} places={places} planHref={plan.href} />
+                )}
+                {listings.length > 0 && <PlanDock href={plan.href} label="Plan a trip" places={places} />}
 
                 {areas.length === 0 && landmarks.length === 0 && listings.length === 0 && !hasNearby && (
                   <p className="text-muted">

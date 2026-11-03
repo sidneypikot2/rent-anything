@@ -11,20 +11,21 @@ import type { Trip } from "./use-trips";
 
 // An area page's closing band: the page ends on the trip, as the home page's does (PlanCta).
 // A guest with a trip sees it by name, with what is in it, and opens it; signed out, or with no
-// trip yet, the band sends them back up to What to book, where the trip starts. The trip is the
+// trip yet, the band offers Plan a whole trip on this place (`planHref`, RAA-252), which picks the
+// ferry, the stay and the tours with them. The trip is the
 // one AreaHero shows (useTripHere): the one chosen to work on, else the one with something here.
 // Partners and admins have no trips, so no band. Until the session is read the signed-out band
 // holds the place, hidden, so the page doesn't grow when it arrives.
-export function AreaTripBand({ areaName, places }: { areaName: string; places: string[] }) {
+export function AreaTripBand({ areaName, places, planHref }: { areaName: string; places: string[]; planHref: string }) {
   const session = useSession();
   const { isGuest, trips, trip } = useTripHere(places);
   if (session && !isGuest) return null;
 
   const band = trip ? tripBand(trip) : {
-    title: `Plan your ${areaName} trip`,
-    body: "Pick the boat, the bike and the bed from What to book. They go into one trip, with your dates and guests.",
-    href: "#listings",
-    action: "Choose what to book",
+    title: `Plan your trip to ${areaName}`,
+    body: "Pick what you want to see; we'll find the transfer, a stay near it and the tours, all in one trip with your dates and guests.",
+    href: planHref,
+    action: `Plan a trip to ${areaName}`,
   };
 
   // A trip band over a photo (the band token): its button is the white one, as on every band.

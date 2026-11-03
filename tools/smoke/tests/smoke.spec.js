@@ -116,6 +116,11 @@ test("search a landmark and open its destination", async ({ page }) => {
   await expect(page).toHaveURL(/\/bantayan-island\?guests=2$/);
   await expect(bar.getByTestId("search-bar-pill")).toContainText("2 guests");
 
+  // The page gets to know the place (RAA-252): how to get there, and Plan a trip, which opens the
+  // whole-trip planner on this place with the page's guests.
+  await expect(page.getByTestId("area-getting-here")).toContainText("Getting to Bantayan Island");
+  await expect(page.getByTestId("plan-trip")).toHaveAttribute("href", "/plan?where=bantayan-island&guests=2");
+
   // What to book lists businesses by name (Booking.com's way): a card opens the business's own
   // page, in a new tab on a laptop, with the search's guests and the group it came from. Its
   // options' titles open the listing's page, also rendered on the server, in another new tab, with
