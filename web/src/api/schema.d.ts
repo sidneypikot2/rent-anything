@@ -8789,8 +8789,21 @@ export interface components {
             area: components["schemas"]["area"];
             /** @description Its ready photos in the team's order, for the banner's carousel (RAA-210) */
             photos: components["schemas"]["photo_urls"][];
+            /** @description What the team wrote about the place (RAA-164); a blank field is null (RAA-252) */
+            guide: {
+                tagline: string | null;
+                description: string | null;
+                getting_there: string | null;
+                best_time_to_visit: string | null;
+            };
             /** @description Areas under this one that have something to book */
-            areas: components["schemas"]["area"][];
+            areas: (components["schemas"]["area"] & {
+                center: components["schemas"]["lat_lng"];
+                /** @description Its active stays, the places under it included (RAA-252) */
+                stay_count: number;
+                /** @description One per business per guest group, the places under it included, as area_card counts it */
+                to_book_count: number;
+            })[];
             landmarks: {
                 slug: string;
                 name: string;
@@ -8798,6 +8811,7 @@ export interface components {
                 tags: components["schemas"]["tag"][];
                 /** @description Its ready photos in the team's order (RAA-210) */
                 photos: components["schemas"]["photo_urls"][];
+                location: components["schemas"]["lat_lng"];
                 /** @description The ids of the active listings that visit it, from the listings here */
                 visited_by: number[];
             }[];

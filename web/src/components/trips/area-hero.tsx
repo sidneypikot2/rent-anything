@@ -55,6 +55,7 @@ export function AreaHero({
   offered,
   sights = [],
   starting = false,
+  plan: planTrip,
 }: {
   banner: {
     photo: ComponentProps<typeof PageBanner>["photo"];
@@ -75,6 +76,9 @@ export function AreaHero({
   // The places to see here and the listings that go to each, for the plan's "Not on any of your tours yet".
   sights?: Sight[];
   starting?: boolean;
+  // Plan a whole trip on this place (RAA-252): offered while no trip is shown here, the wide
+  // lead's main button and, compact, the first chip, so a phone's first screen has it too.
+  plan?: { href: string; label: string };
 }) {
   const edit = useEditSearch();
   const { session, isGuest, trips, current, chosen, trip } = useTripHere(places);
@@ -124,7 +128,7 @@ export function AreaHero({
     window.history.replaceState(window.history.state, "", url);
   }, [starting]);
 
-  const chips = (
+  const chipList = (
     <ul aria-label={`In ${areaName}`} className={CHIP_ROW}>
       {statChips}
       {/* The places inside this one with things to book, linked to their own pages (RAA-85). */}
@@ -137,6 +141,21 @@ export function AreaHero({
         </li>
       ))}
     </ul>
+  );
+  const chips = chipList;
+  // Compact, no trip shown: Plan a trip as the first screen's main button (the mockup's phone),
+  // over the slim row down to What to book.
+  const chipRow = (planButton: boolean) => (
+    <>
+      {planButton && planTrip && (
+        <div className={COMPACT_ONLY}>
+          <ButtonLink href={planTrip.href} variant="paper" arrow data-testid="plan-trip-compact" className="w-full justify-center">
+            {planTrip.label}
+          </ButtonLink>
+        </div>
+      )}
+      {chipList}
+    </>
   );
   // A partner or admin browsing: the place alone.
   if (session && !isGuest)
@@ -197,7 +216,7 @@ export function AreaHero({
     );
   return (
     <PageBanner photo={banner.photo} carousel={banner.carousel} eyebrow={banner.eyebrow} title={banner.title}>
-      {chips}
+      {chipRow(!(!loading && trip))}
       {!loading && trip ? (
         notice(false)
       ) : (
@@ -247,6 +266,11 @@ export function AreaHero({
                   See what to book
                   <ArrowGlyph className="size-4 rotate-90 text-sky-pale" />
                 </ButtonLink>
+                {planTrip && !choosable && (
+                  <ButtonLink href={planTrip.href} variant="paper" size="touch" arrow data-testid="plan-trip" className="shrink-0">
+                    {planTrip.label}
+                  </ButtonLink>
+                )}
               </div>
             </div>
           )}
