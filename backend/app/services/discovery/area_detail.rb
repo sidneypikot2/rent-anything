@@ -7,14 +7,13 @@ module Discovery
   # policy (RAA-124), for the row's carousel and chips. The listings include those of the
   # published places inside it, however deep, each naming its own place, so an island's page
   # shows everything to book on it; a place to see names the active listings that visit it.
-  # pets: true keeps, of the stays, those that allow pets (RAA-185).
+  # pets: true keeps, of the stays, those that allow pets (RAA-185). listings: false leaves the
+  # listings out (the plan pages page through them with Discovery::PlanListings).
   class AreaDetail < ApplicationService
-    # A row's carousel shows a few photos; the listing page has them all.
-    ROW_PHOTOS = 6
-
-    def initialize(area, pets: false)
+    def initialize(area, pets: false, listings: true)
       @area = area
       @pets = pets
+      @with_listings = listings
     end
 
     def call
@@ -24,22 +23,7 @@ module Discovery
         photos: @area.ready_photos.map { |photo| ListingPhotoSerializer.call(photo) },
         areas: @area.children.browsable.includes(:parent).order(:name).map { |area| AreaSerializer.call(area) },
         landmarks: landmarks.map { |landmark| landmark_json(landmark) },
-        listings: listings.includes({ category: :parent }, :area, :business, :units, :stay_rate, :vehicle_rate, :flat_rate, :tour_detail, :cover_photo, :ready_photos)
-          .order(:title).map do |listing|
-          ListingSummarySerializer.call(listing).merge(
-            area_name: listing.area.name,
-            booking_type: listing.category.booking_type,
-            summary: ListingDetailSerializer.summary(listing),
-            **ListingDetailSerializer.offered_by(listing),
-            price_from_cents: PricingSerializer.price_from_cents(listing),
-            price_unit: PricingSerializer.price_unit(listing),
-            photos: listing.ready_photos.first(ROW_PHOTOS).map { |photo| ListingPhotoSerializer.call(photo) },
-            details: ListingDetailSerializer.details(listing),
-            tour: tour_json(listing.tour_detail),
-            cancellation_policy: listing.cancellation_policy,
-            handover: handover_json(listing)
-          )
-        end
+        listings: @with_listings ? listings.includes(*ListingRow::ASSOCIATIONS).order(:title).map { |listing| ListingRow.call(listing) } : []
       }
     end
 
@@ -47,7 +31,7 @@ module Discovery
 
     # With pets (RAA-185), only the stays that allow them.
     def listings
-      listings = Listing.active.where(area_id: Area.published.subtree_of(@area).select(:id))
+      listings = Listing.active.in_area_tree(@area)
       @pets ? listings.pet_friendly : listings
     end
 
@@ -61,22 +45,6 @@ module Discovery
         .where(landmark_id: landmarks.map(&:id)).order(:listing_id)
         .pluck(:landmark_id, :listing_id)
         .group_by(&:first).transform_values { |pairs| pairs.map(&:last) }
-    end
-
-    # A tour's kind and the group it takes, for its row's chips; nil for anything else.
-    def tour_json(detail)
-      detail&.slice(:tour_type, :min_guests, :max_guests)&.symbolize_keys
-    end
-
-    # A vehicle's delivery and pick-up fees (RAA-204), for its card, priced or not, and its child
-    # helmets' (RAA-205), for What to book's filters: all nil when it has no rate yet; nil for
-    # anything else.
-    def handover_json(listing)
-      return unless listing.category.vehicle?
-
-      rate = listing.vehicle_rate
-      { delivery_fee_cents: rate&.delivery_fee_cents, return_pickup_fee_cents: rate&.return_pickup_fee_cents,
-        child_helmet_fee_cents: rate&.child_helmet_fee_cents }
     end
 
     def landmark_json(landmark)

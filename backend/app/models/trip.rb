@@ -8,6 +8,8 @@ class Trip < ApplicationRecord
   belongs_to :user
   has_many :items, -> { order(Arel.sql("trip_items.starts_on ASC NULLS LAST"), :id) },
     class_name: "TripItem", inverse_of: :trip, dependent: :delete_all
+  # Places to see the guest saved to it ("want to go"): no dates, never booked.
+  has_many :saved_landmarks, -> { order(:created_at, :id) }, class_name: "TripLandmark", inverse_of: :trip, dependent: :delete_all
 
   validates :name, presence: true, length: { maximum: 80 }
   validates :guests, numericality: { only_integer: true, in: 1..50 }
@@ -46,7 +48,7 @@ class Trip < ApplicationRecord
   scope :due_for_purge, ->(today = Date.current) {
     where(ends_on: ..(today - PURGE_DAYS)).or(where(ends_on: nil, updated_at: ...(today - PURGE_DAYS + 1).beginning_of_day))
   }
-  scope :with_items, -> { includes(items: [ :booking, { listing: [ :area, :business, { category: :parent }, :cover_photo, :units, :stay_rate, :tour_detail ] } ]) }
+  scope :with_items, -> { includes(saved_landmarks: { landmark: :area }, items: [ :booking, { listing: [ :area, :business, { category: :parent }, :cover_photo, :units, :stay_rate, :tour_detail ] } ]) }
 
   # The cart keeps a trip that ended on or after this date (#deletes_on is still to come)...
   def self.ended_cutoff(today = Date.current)

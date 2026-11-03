@@ -1508,6 +1508,8 @@ export interface paths {
                 query?: {
                     /** @description 1 keeps, of the stays, only those that allow pets (RAA-185); other listings stay */
                     pets?: string;
+                    /** @description 0 leaves the listings out (the plan pages page through businesses, plan_businesses) */
+                    listings?: string;
                 };
                 header?: never;
                 path: {
@@ -1956,6 +1958,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/businesses/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A business's page: about it and everything it offers
+         * @description Public. One business as a guest sees it: its name, description and town, and its active listings in published places as an area page lists them, by title. `area` is the place most of them are in. A business with nothing to book is not found.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the business with its listings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["business_detail"];
+                    };
+                };
+                /** @description no such business */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/checkouts": {
         parameters: {
             query?: never;
@@ -2070,6 +2120,8 @@ export interface paths {
                     lng?: number;
                     /** @description Radius, 1 to 50 (default 15) */
                     km?: number;
+                    /** @description 0 leaves the listings out (the plan pages need only the anchor and the places) */
+                    listings?: string;
                 };
                 header?: never;
                 path?: never;
@@ -5477,6 +5529,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/areas/{slug}/plan_businesses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A page of one plan step's options in a place
+         * @description Plan a whole trip: the businesses with active listings in one guest group here and in the published places inside it, 18 a page, each with what it offers there summed up, its first listing's rounded point and the places to see its listings go to. Things to do lead with the businesses whose tours go to the most hearted places, then those with a price; the rest are by name.
+         */
+        get: {
+            parameters: {
+                query: {
+                    group: "stay" | "transfer" | "rental" | "activity" | "gear";
+                    /** @description From 1 (the default) */
+                    page?: number;
+                    /** @description The slugs of the trip's hearted places to see: Things to do that go there lead */
+                    "hearted[]"?: string[];
+                };
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description things to do with nothing hearted: priced first, then by name */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["plan_businesses"];
+                    };
+                };
+                /** @description an unknown or draft place */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a page that isn't a whole number from 1 */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/quotes": {
         parameters: {
             query?: never;
@@ -6559,6 +6672,149 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/trip_landmarks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a place to see to a trip
+         * @description Guest-only. Saves a published place to see to `trip_id` ("want to go"), or, without one, to a new undated trip named after the place's destination, or `trip_name` if the guest typed one, for `guests` (default 1). A saved place has no dates or price, is never booked, and doesn't name the trip or count among its destinations. Saving one the trip already has changes nothing. Answers with the trip.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        landmark_slug: string;
+                        /** @description Omit or null for a new trip */
+                        trip_id?: number | null;
+                        /** @description A new trip's name; ignored with trip_id */
+                        trip_name?: string | null;
+                        /** @description A new trip's guests, 1 to 50; ignored with trip_id */
+                        guests?: number;
+                    };
+                };
+            };
+            responses: {
+                /** @description saving it again changes nothing */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another guest's trip */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description no place */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trip_landmarks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a saved place from its trip
+         * @description Guest-only. Answers with the trip.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description removed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip"];
+                    };
+                };
+                /** @description another guest's saved place */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/trips/{trip_id}/share": {
         parameters: {
             query?: never;
@@ -6843,11 +7099,17 @@ export interface paths {
                         infants?: number;
                         /** @description Beside the guests (RAA-182), default 0 */
                         pets?: number;
+                        /** @description Where the guest sleeps when they booked it outside the app: a pin and an optional name (at most 120 characters); null forgets it */
+                        stay?: {
+                            lat: number;
+                            lng: number;
+                            name?: string | null;
+                        } | null;
                     };
                 };
             };
             responses: {
-                /** @description the new trip */
+                /** @description a trip with the guest's own stay, a pin they dropped */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -7053,11 +7315,17 @@ export interface paths {
                         infants?: number;
                         /** @description Beside the guests (RAA-182), default 0 */
                         pets?: number;
+                        /** @description Where the guest sleeps when they booked it outside the app: a pin and an optional name (at most 120 characters); null forgets it */
+                        stay?: {
+                            lat: number;
+                            lng: number;
+                            name?: string | null;
+                        } | null;
                     };
                 };
             };
             responses: {
-                /** @description new dates and guests, which a whole-trip item follows onto a day its listing is booked */
+                /** @description the own stay forgotten */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -7551,6 +7819,11 @@ export interface components {
             infants: number;
             /** @description Beside the guests (RAA-182) */
             pets: number;
+            /** @description Where the guest sleeps when they booked it outside the app: a pin they dropped and an optional name */
+            own_stay: {
+                name: string | null;
+                location: components["schemas"]["lat_lng"];
+            } | null;
             /** @description Where the items are: each one's island, or else its town or city, in item order */
             destinations: string[];
             /**
@@ -7565,6 +7838,16 @@ export interface components {
             deletes_on: string | null;
             /** @description In date order, undated items last */
             items: components["schemas"]["trip_item"][];
+            /** @description Places to see the guest saved to it, oldest first: no dates, never booked, and not among its destinations */
+            saved_landmarks: components["schemas"]["saved_landmark"][];
+        };
+        saved_landmark: {
+            /** @description The saved place's id, to remove it (DELETE /trip_landmarks/{id}) */
+            id: number;
+            slug: string;
+            name: string;
+            /** @description The place whose page it is on: /<area_slug>#<slug> */
+            area_slug: string;
         };
         trip_item: {
             id: number;
@@ -7620,6 +7903,12 @@ export interface components {
              * @description When a dated vehicle rental is due back: 24 hours a day from its pickup; null otherwise
              */
             returns_at: string | null;
+            /** @description How long a tour runs, so a plan can show a several-day tour on each of its days; null for anything else */
+            tour_length: {
+                value: number;
+                /** @enum {string} */
+                unit: "hours" | "days";
+            } | null;
             business: components["schemas"]["business_ref"];
             /**
              * @description Its listing's: rentals and stays take a range of days, the others one day
@@ -7641,6 +7930,8 @@ export interface components {
             cancellation_policy: "free_cancellation" | "seven_days" | "fourteen_days" | "non_refundable";
             /** @description False once the listing is paused or delisted: it can't be booked */
             listing_active: boolean;
+            /** @description The listing's point, rounded to two decimals as on every guest map (a plan's distances from the stay) */
+            location: components["schemas"]["lat_lng"];
         };
         trip_share: {
             /** @description Null while the trip isn't shared */
@@ -8487,6 +8778,7 @@ export interface components {
             kind: "region" | "province" | "city" | "town" | "island";
             parent_name: string | null;
             parent_slug: string | null;
+            center: components["schemas"]["lat_lng"];
             landmark_count: number;
             listing_count: number;
             /** @description What the area's page counts to book: one per business per guest group, the areas inside it included */
@@ -8510,58 +8802,116 @@ export interface components {
                 visited_by: number[];
             }[];
             /** @description What to book here and in the published places inside it, however deep */
-            listings: {
+            listings: components["schemas"]["area_listing"][];
+        };
+        /** @description A listing summary plus its booking type, summary and partner; no location */
+        area_listing: {
+            id: number;
+            title: string;
+            category: string;
+            /**
+             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Getting around"
+             * @enum {string}
+             */
+            group: "activity" | "transfer" | "rental" | "stay" | "gear";
+            area_slug: string;
+            /** @description Its own place: this area or one inside it */
+            area_name: string;
+            /** @description Booked at once, without asking the partner (RAA-132) */
+            instant_book: boolean;
+            /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
+            cover_photo_url: string | null;
+            /** @enum {string} */
+            booking_type: "rental" | "stay" | "activity" | "transfer";
+            /** @description As in listing_detail */
+            summary: string;
+            business: components["schemas"]["business_ref"];
+            units_count: number;
+            /** @description As in listing_detail */
+            units_label: string;
+            /**
+             * @deprecated
+             * @description As in listing_detail
+             */
+            partner_name: string;
+            /** @description As in listing_detail */
+            price_from_cents: number | null;
+            price_unit: components["schemas"]["price_unit"];
+            /** @description Its first ready photos, in the partner's order */
+            photos: components["schemas"]["photo_urls"][];
+            details: components["schemas"]["listing_details"];
+            /** @description A tour's kind and the group it takes; null for anything else */
+            tour: {
+                tour_type: components["schemas"]["tour_type"];
+                min_guests: number;
+                max_guests: number;
+            } | null;
+            cancellation_policy: components["schemas"]["cancellation_policy"];
+            /** @description A vehicle's delivery and pick-up fees, priced or not, so its card says how it reaches the guest (RAA-204, RAA-205); null for anything else */
+            handover: {
+                /** @description To bring it to the guest, in its nearest zone (0 is free); null when the shop doesn't */
+                delivery_fee_cents: number | null;
+                /** @description To collect it from the guest at the end (0 is free); null when the shop doesn't */
+                return_pickup_fee_cents: number | null;
+                /** @description A motorcycle's child helmet per helmet and day (0 is included); null when the shop has none (RAA-205) */
+                child_helmet_fee_cents: number | null;
+            } | null;
+        };
+        plan_business: {
+            /** @description The business's */
+            id: number;
+            name: string;
+            /** @description Its first listing's here (those to hearted places first, then by title) */
+            title: string;
+            /** @description Its first listing's */
+            category: string;
+            /** @description Its first listing's place: this area or one inside it */
+            area_name: string;
+            /** @description How many it has in the group here */
+            listings_count: number;
+            listing_ids: number[];
+            /** @description Some of them book at once (RAA-132) */
+            instant_book: boolean;
+            /** @description The lowest of their prices; null when none is priced */
+            price_from_cents: number | null;
+            price_unit: components["schemas"]["price_unit"];
+            /** @description Each listing's first ready photo, then the rest */
+            photos: components["schemas"]["photo_urls"][];
+            /** @description Its first listing's, rounded to two decimals, as on every guest map */
+            location: components["schemas"]["lat_lng"];
+            /** @description The slugs of the published places to see its listings visit */
+            goes_to: string[];
+        };
+        plan_businesses: {
+            businesses: components["schemas"]["plan_business"][];
+            /** @description How many businesses offer the group here, every page */
+            total: number;
+            page: number;
+            per_page: number;
+            /** @description Things to do: how many businesses have a tour to a hearted place (they lead); 0 otherwise */
+            hearted_total: number;
+            /** @description Active listings here per guest group */
+            counts: {
+                stay: number;
+                transfer: number;
+                rental: number;
+                activity: number;
+                gear: number;
+            };
+        };
+        business_detail: {
+            business: {
                 id: number;
-                title: string;
-                category: string;
-                /**
-                 * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Getting around"
-                 * @enum {string}
-                 */
-                group: "activity" | "transfer" | "rental" | "stay" | "gear";
-                area_slug: string;
-                /** @description Its own place: this area or one inside it */
-                area_name: string;
-                /** @description Booked at once, without asking the partner (RAA-132) */
-                instant_book: boolean;
-                /** @description The cover photo, sized for a card (about 800 by 600); null when the listing has no photos */
-                cover_photo_url: string | null;
-                /** @enum {string} */
-                booking_type: "rental" | "stay" | "activity" | "transfer";
-                /** @description As in listing_detail */
-                summary: string;
-                business: components["schemas"]["business_ref"];
-                units_count: number;
-                /** @description As in listing_detail */
-                units_label: string;
-                /**
-                 * @deprecated
-                 * @description As in listing_detail
-                 */
-                partner_name: string;
-                /** @description As in listing_detail */
-                price_from_cents: number | null;
-                price_unit: components["schemas"]["price_unit"];
-                /** @description Its first ready photos, in the partner's order */
-                photos: components["schemas"]["photo_urls"][];
-                details: components["schemas"]["listing_details"];
-                /** @description A tour's kind and the group it takes; null for anything else */
-                tour: {
-                    tour_type: components["schemas"]["tour_type"];
-                    min_guests: number;
-                    max_guests: number;
-                } | null;
-                cancellation_policy: components["schemas"]["cancellation_policy"];
-                /** @description A vehicle's delivery and pick-up fees, priced or not, so its card says how it reaches the guest (RAA-204, RAA-205); null for anything else */
-                handover: {
-                    /** @description To bring it to the guest, in its nearest zone (0 is free); null when the shop doesn't */
-                    delivery_fee_cents: number | null;
-                    /** @description To collect it from the guest at the end (0 is free); null when the shop doesn't */
-                    return_pickup_fee_cents: number | null;
-                    /** @description A motorcycle's child helmet per helmet and day (0 is included); null when the shop has none (RAA-205) */
-                    child_helmet_fee_cents: number | null;
-                } | null;
-            }[];
+                name: string;
+                /** @description What it says about itself; empty when it says nothing */
+                description: string;
+                city: string | null;
+                province: string | null;
+            };
+            /** @description The published place most of its listings are in: the page's way back and its trip */
+            area: components["schemas"]["area"];
+            /** @description Its active listings in published places, by title */
+            listings: components["schemas"]["area_listing"][];
         };
         activity: {
             slug: string;

@@ -330,6 +330,15 @@ RSpec.configure do |config|
               children: { type: :integer, description: "Of the guests (RAA-182)" },
               infants: { type: :integer, description: "Of the guests (RAA-182)" },
               pets: { type: :integer, description: "Beside the guests (RAA-182)" },
+              own_stay: {
+                type: :object, nullable: true,
+                description: "Where the guest sleeps when they booked it outside the app: a pin they dropped and an optional name",
+                properties: {
+                  name: { type: :string, nullable: true },
+                  location: { "$ref" => "#/components/schemas/lat_lng" }
+                },
+                required: %w[name location]
+              },
               destinations: {
                 type: :array, items: { type: :string },
                 description: "Where the items are: each one's island, or else its town or city, in item order"
@@ -343,9 +352,25 @@ RSpec.configure do |config|
               items: {
                 type: :array, items: { "$ref" => "#/components/schemas/trip_item" },
                 description: "In date order, undated items last"
+              },
+              saved_landmarks: {
+                type: :array, items: { "$ref" => "#/components/schemas/saved_landmark" },
+                description: "Places to see the guest saved to it, oldest first: no dates, never booked, and not " \
+                  "among its destinations"
               }
             },
-            required: %w[id name starts_on ends_on guests children infants pets destinations updated_at deletes_on items]
+            required: %w[id name starts_on ends_on guests children infants pets own_stay destinations updated_at deletes_on items saved_landmarks]
+          },
+          # A place to see saved to a trip ("want to go").
+          saved_landmark: {
+            type: :object,
+            properties: {
+              id: { type: :integer, description: "The saved place's id, to remove it (DELETE /trip_landmarks/{id})" },
+              slug: { type: :string },
+              name: { type: :string },
+              area_slug: { type: :string, description: "The place whose page it is on: /<area_slug>#<slug>" }
+            },
+            required: %w[id slug name area_slug]
           },
           trip_item: {
             type: :object,
@@ -399,6 +424,12 @@ RSpec.configure do |config|
                 type: :string, format: "date-time", nullable: true,
                 description: "When a dated vehicle rental is due back: 24 hours a day from its pickup; null otherwise"
               },
+              tour_length: {
+                type: :object, nullable: true,
+                description: "How long a tour runs, so a plan can show a several-day tour on each of its days; null for anything else",
+                properties: { value: { type: :integer, minimum: 1 }, unit: { type: :string, enum: %w[hours days] } },
+                required: %w[value unit]
+              },
               business: { "$ref" => "#/components/schemas/business_ref" },
               booking_type: {
                 type: :string, enum: %w[rental stay activity transfer],
@@ -426,9 +457,13 @@ RSpec.configure do |config|
                 type: :string, enum: %w[free_cancellation seven_days fourteen_days non_refundable],
                 description: "The listing's, which a booking made now would be under (RAA-139)"
               },
-              listing_active: { type: :boolean, description: "False once the listing is paused or delisted: it can't be booked" }
+              listing_active: { type: :boolean, description: "False once the listing is paused or delisted: it can't be booked" },
+              location: {
+                allOf: [ { "$ref" => "#/components/schemas/lat_lng" } ],
+                description: "The listing's point, rounded to two decimals as on every guest map (a plan's distances from the stay)"
+              }
             },
-            required: %w[id starts_on ends_on quantity room_guests pets delivery return_pickup delivery_address delivery_location delivery_notes child_helmets sleeps max_guests max_quantity seats units units_chosen units_free pickup_time returns_at business booking_type area destination listing booking unavailable cancellation_policy listing_active]
+            required: %w[id starts_on ends_on quantity room_guests pets delivery return_pickup delivery_address delivery_location delivery_notes child_helmets sleeps max_guests max_quantity seats units units_chosen units_free pickup_time returns_at tour_length business booking_type area destination listing booking unavailable cancellation_policy listing_active location]
           },
           # A trip's view-only share link (RAA-176), as its guest sees it.
           trip_share: {
@@ -1591,6 +1626,7 @@ RSpec.configure do |config|
               kind: { type: :string, enum: %w[region province city town island] },
               parent_name: { type: :string, nullable: true },
               parent_slug: { type: :string, nullable: true },
+              center: { "$ref" => "#/components/schemas/lat_lng" },
               landmark_count: { type: :integer },
               listing_count: { type: :integer },
               to_book_count: {
@@ -1599,7 +1635,7 @@ RSpec.configure do |config|
               },
               activities: { type: :array, items: { "$ref" => "#/components/schemas/tag" } }
             },
-            required: %w[slug name kind parent_name parent_slug landmark_count listing_count to_book_count activities]
+            required: %w[slug name kind parent_name parent_slug center landmark_count listing_count to_book_count activities]
           },
           area_detail: {
             type: :object,
@@ -1638,61 +1674,135 @@ RSpec.configure do |config|
               listings: {
                 description: "What to book here and in the published places inside it, however deep",
                 type: :array,
-                items: {
-                  type: :object,
-                  description: "A listing summary plus its booking type, summary and partner; no location",
-                  properties: {
-                    id: { type: :integer },
-                    title: { type: :string },
-                    category: { type: :string },
-                    group: LISTING_GROUP,
-                    area_slug: { type: :string },
-                    area_name: { type: :string, description: "Its own place: this area or one inside it" },
-                    instant_book: { type: :boolean, description: "Booked at once, without asking the partner (RAA-132)" },
-                    cover_photo_url: COVER_PHOTO_URL,
-                    booking_type: { type: :string, enum: %w[rental stay activity transfer] },
-                    summary: { type: :string, description: "As in listing_detail" },
-                    business: { "$ref" => "#/components/schemas/business_ref" },
-                    units_count: { type: :integer, minimum: 1 },
-                    units_label: { type: :string, description: "As in listing_detail" },
-                    partner_name: { type: :string, deprecated: true, description: "As in listing_detail" },
-                    price_from_cents: { type: :integer, nullable: true, description: "As in listing_detail" },
-                    price_unit: { "$ref" => "#/components/schemas/price_unit" },
-                    photos: {
-                      type: :array, maxItems: 6, items: { "$ref" => "#/components/schemas/photo_urls" },
-                      description: "Its first ready photos, in the partner's order"
-                    },
-                    details: { "$ref" => "#/components/schemas/listing_details" },
-                    tour: {
-                      type: :object, nullable: true, description: "A tour's kind and the group it takes; null for anything else",
-                      properties: {
-                        tour_type: { "$ref" => "#/components/schemas/tour_type" },
-                        min_guests: { type: :integer, minimum: 1 },
-                        max_guests: { type: :integer, minimum: 1 }
-                      },
-                      required: %w[tour_type min_guests max_guests]
-                    },
-                    cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" },
-                    handover: {
-                      type: :object, nullable: true,
-                      description: "A vehicle's delivery and pick-up fees, priced or not, so its card says how it reaches the guest (RAA-204, RAA-205); null for anything else",
-                      properties: {
-                        delivery_fee_cents: { type: :integer, nullable: true, description: "To bring it to the guest, in its nearest zone (0 is free); null when the shop doesn't" },
-                        return_pickup_fee_cents: { type: :integer, nullable: true, description: "To collect it from the guest at the end (0 is free); null when the shop doesn't" },
-                        child_helmet_fee_cents: {
-                          type: :integer, nullable: true,
-                          description: "A motorcycle's child helmet per helmet and day (0 is included); null when the shop has none (RAA-205)"
-                        }
-                      },
-                      required: %w[delivery_fee_cents return_pickup_fee_cents child_helmet_fee_cents]
-                    }
-                  },
-                  required: %w[id title category group area_slug area_name instant_book cover_photo_url booking_type summary business units_count units_label
-                    partner_name price_from_cents price_unit photos details tour cancellation_policy handover]
-                }
+                items: { "$ref" => "#/components/schemas/area_listing" }
               }
             },
             required: %w[area photos areas landmarks listings]
+          },
+          # One listing as a guest's browse pages list it (Discovery::ListingRow): an area page's
+          # What to book and a business's page.
+          area_listing: {
+            type: :object,
+            description: "A listing summary plus its booking type, summary and partner; no location",
+            properties: {
+              id: { type: :integer },
+              title: { type: :string },
+              category: { type: :string },
+              group: LISTING_GROUP,
+              area_slug: { type: :string },
+              area_name: { type: :string, description: "Its own place: this area or one inside it" },
+              instant_book: { type: :boolean, description: "Booked at once, without asking the partner (RAA-132)" },
+              cover_photo_url: COVER_PHOTO_URL,
+              booking_type: { type: :string, enum: %w[rental stay activity transfer] },
+              summary: { type: :string, description: "As in listing_detail" },
+              business: { "$ref" => "#/components/schemas/business_ref" },
+              units_count: { type: :integer, minimum: 1 },
+              units_label: { type: :string, description: "As in listing_detail" },
+              partner_name: { type: :string, deprecated: true, description: "As in listing_detail" },
+              price_from_cents: { type: :integer, nullable: true, description: "As in listing_detail" },
+              price_unit: { "$ref" => "#/components/schemas/price_unit" },
+              photos: {
+                type: :array, maxItems: 6, items: { "$ref" => "#/components/schemas/photo_urls" },
+                description: "Its first ready photos, in the partner's order"
+              },
+              details: { "$ref" => "#/components/schemas/listing_details" },
+              tour: {
+                type: :object, nullable: true, description: "A tour's kind and the group it takes; null for anything else",
+                properties: {
+                  tour_type: { "$ref" => "#/components/schemas/tour_type" },
+                  min_guests: { type: :integer, minimum: 1 },
+                  max_guests: { type: :integer, minimum: 1 }
+                },
+                required: %w[tour_type min_guests max_guests]
+              },
+              cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" },
+              handover: {
+                type: :object, nullable: true,
+                description: "A vehicle's delivery and pick-up fees, priced or not, so its card says how it reaches the guest (RAA-204, RAA-205); null for anything else",
+                properties: {
+                  delivery_fee_cents: { type: :integer, nullable: true, description: "To bring it to the guest, in its nearest zone (0 is free); null when the shop doesn't" },
+                  return_pickup_fee_cents: { type: :integer, nullable: true, description: "To collect it from the guest at the end (0 is free); null when the shop doesn't" },
+                  child_helmet_fee_cents: {
+                    type: :integer, nullable: true,
+                    description: "A motorcycle's child helmet per helmet and day (0 is included); null when the shop has none (RAA-205)"
+                  }
+                },
+                required: %w[delivery_fee_cents return_pickup_fee_cents child_helmet_fee_cents]
+              }
+            },
+            required: %w[id title category group area_slug area_name instant_book cover_photo_url booking_type summary business units_count units_label
+              partner_name price_from_cents price_unit photos details tour cancellation_policy handover]
+          },
+          # One business offering a plan step (Discovery::PlanBusinesses): what it offers there,
+          # summed up, for its card, which opens the business's page.
+          plan_business: {
+            type: :object,
+            properties: {
+              id: { type: :integer, description: "The business's" },
+              name: { type: :string },
+              title: { type: :string, description: "Its first listing's here (those to hearted places first, then by title)" },
+              category: { type: :string, description: "Its first listing's" },
+              area_name: { type: :string, description: "Its first listing's place: this area or one inside it" },
+              listings_count: { type: :integer, minimum: 1, description: "How many it has in the group here" },
+              listing_ids: { type: :array, items: { type: :integer } },
+              instant_book: { type: :boolean, description: "Some of them book at once (RAA-132)" },
+              price_from_cents: { type: :integer, nullable: true, description: "The lowest of their prices; null when none is priced" },
+              price_unit: { "$ref" => "#/components/schemas/price_unit" },
+              photos: {
+                type: :array, maxItems: 6, items: { "$ref" => "#/components/schemas/photo_urls" },
+                description: "Each listing's first ready photo, then the rest"
+              },
+              location: {
+                allOf: [ { "$ref" => "#/components/schemas/lat_lng" } ],
+                description: "Its first listing's, rounded to two decimals, as on every guest map"
+              },
+              goes_to: {
+                type: :array, items: { type: :string },
+                description: "The slugs of the published places to see its listings visit"
+              }
+            },
+            required: %w[id name title category area_name listings_count listing_ids instant_book price_from_cents price_unit photos location goes_to]
+          },
+          plan_businesses: {
+            type: :object,
+            properties: {
+              businesses: { type: :array, items: { "$ref" => "#/components/schemas/plan_business" } },
+              total: { type: :integer, description: "How many businesses offer the group here, every page" },
+              page: { type: :integer, minimum: 1 },
+              per_page: { type: :integer },
+              hearted_total: { type: :integer, description: "Things to do: how many businesses have a tour to a hearted place (they lead); 0 otherwise" },
+              counts: {
+                type: :object, description: "Active listings here per guest group",
+                properties: %w[stay transfer rental activity gear].index_with { { type: :integer } },
+                required: %w[stay transfer rental activity gear]
+              }
+            },
+            required: %w[businesses total page per_page hearted_total counts]
+          },
+          business_detail: {
+            type: :object,
+            properties: {
+              business: {
+                type: :object,
+                properties: {
+                  id: { type: :integer },
+                  name: { type: :string },
+                  description: { type: :string, description: "What it says about itself; empty when it says nothing" },
+                  city: { type: :string, nullable: true },
+                  province: { type: :string, nullable: true }
+                },
+                required: %w[id name description city province]
+              },
+              area: {
+                allOf: [ { "$ref" => "#/components/schemas/area" } ],
+                description: "The published place most of its listings are in: the page's way back and its trip"
+              },
+              listings: {
+                type: :array, minItems: 1, items: { "$ref" => "#/components/schemas/area_listing" },
+                description: "Its active listings in published places, by title"
+              }
+            },
+            required: %w[business area listings]
           },
           activity: {
             type: :object,

@@ -25,6 +25,8 @@ module Trips
         into.cover(dated.minimum(:starts_on), dated.maximum(:ends_on))
         into.save!
         @trip.items.update_all(trip_id: into.id, updated_at: Time.current)
+        @trip.saved_landmarks.where.not(landmark_id: into.saved_landmarks.select(:landmark_id))
+          .update_all(trip_id: into.id, updated_at: Time.current)
         @trip.destroy!
         into.touch
         into.follow_places_in_name!

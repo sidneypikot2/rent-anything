@@ -1085,6 +1085,13 @@ paths:
           other listings stay
         schema:
           type: string
+      - name: listings
+        in: query
+        required: false
+        description: 0 leaves the listings out (the plan pages page through businesses,
+          plan_businesses)
+        schema:
+          type: string
       responses:
         '200':
           description: a province lists the areas under it that have something to
@@ -1404,6 +1411,30 @@ paths:
                 "$ref": "#/components/schemas/validation_errors"
         '404':
           description: an unknown business
+  "/api/v1/businesses/{id}":
+    get:
+      summary: 'A business''s page: about it and everything it offers'
+      tags:
+      - Discovery
+      description: 'Public. One business as a guest sees it: its name, description
+        and town, and its active listings in published places as an area page lists
+        them, by title. `area` is the place most of them are in. A business with nothing
+        to book is not found.'
+      parameters:
+      - name: id
+        in: path
+        schema:
+          type: integer
+        required: true
+      responses:
+        '200':
+          description: the business with its listings
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/business_detail"
+        '404':
+          description: no such business
   "/api/v1/checkouts":
     post:
       summary: Book a trip's items
@@ -1512,6 +1543,13 @@ paths:
         description: Radius, 1 to 50 (default 15)
         schema:
           type: number
+      - name: listings
+        in: query
+        required: false
+        description: 0 leaves the listings out (the plan pages need only the anchor
+          and the places)
+        schema:
+          type: string
       responses:
         '200':
           description: 'a pin outside every area: a plain radius'
@@ -3838,6 +3876,62 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+  "/api/v1/areas/{slug}/plan_businesses":
+    get:
+      summary: A page of one plan step's options in a place
+      tags:
+      - Discovery
+      description: 'Plan a whole trip: the businesses with active listings in one
+        guest group here and in the published places inside it, 18 a page, each with
+        what it offers there summed up, its first listing''s rounded point and the
+        places to see its listings go to. Things to do lead with the businesses whose
+        tours go to the most hearted places, then those with a price; the rest are
+        by name.'
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: group
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - stay
+          - transfer
+          - rental
+          - activity
+          - gear
+      - name: page
+        in: query
+        required: false
+        description: From 1 (the default)
+        schema:
+          type: integer
+      - name: hearted[]
+        in: query
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+        description: 'The slugs of the trip''s hearted places to see: Things to do
+          that go there lead'
+      responses:
+        '200':
+          description: 'things to do with nothing hearted: priced first, then by name'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/plan_businesses"
+        '404':
+          description: an unknown or draft place
+        '422':
+          description: a page that isn't a whole number from 1
   "/api/v1/quotes":
     get:
       summary: What a stay costs
@@ -4903,6 +4997,108 @@ paths:
           description: removed; the trip stays
         '404':
           description: another guest's item
+  "/api/v1/trip_landmarks":
+    post:
+      summary: Save a place to see to a trip
+      tags:
+      - Trips
+      description: Guest-only. Saves a published place to see to `trip_id` ("want
+        to go"), or, without one, to a new undated trip named after the place's destination,
+        or `trip_name` if the guest typed one, for `guests` (default 1). A saved place
+        has no dates or price, is never booked, and doesn't name the trip or count
+        among its destinations. Saving one the trip already has changes nothing. Answers
+        with the trip.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: saving it again changes nothing
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/trip"
+        '404':
+          description: another guest's trip
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '422':
+          description: no place
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                landmark_slug:
+                  type: string
+                trip_id:
+                  type: integer
+                  nullable: true
+                  description: Omit or null for a new trip
+                trip_name:
+                  type: string
+                  nullable: true
+                  description: A new trip's name; ignored with trip_id
+                guests:
+                  type: integer
+                  description: A new trip's guests, 1 to 50; ignored with trip_id
+              required:
+              - landmark_slug
+  "/api/v1/trip_landmarks/{id}":
+    parameters:
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    delete:
+      summary: Remove a saved place from its trip
+      tags:
+      - Trips
+      description: Guest-only. Answers with the trip.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: removed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/trip"
+        '404':
+          description: another guest's saved place
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/trips/{trip_id}/share":
     parameters:
     - name: trip_id
@@ -5088,7 +5284,7 @@ paths:
           type: string
       responses:
         '201':
-          description: the new trip
+          description: a trip with the guest's own stay, a pin they dropped
           content:
             application/json:
               schema:
@@ -5139,6 +5335,23 @@ paths:
                   minimum: 0
                   maximum: 20
                   description: Beside the guests (RAA-182), default 0
+                stay:
+                  type: object
+                  nullable: true
+                  description: 'Where the guest sleeps when they booked it outside
+                    the app: a pin and an optional name (at most 120 characters);
+                    null forgets it'
+                  properties:
+                    lat:
+                      type: number
+                    lng:
+                      type: number
+                    name:
+                      type: string
+                      nullable: true
+                  required:
+                  - lat
+                  - lng
               required:
               - name
   "/api/v1/trips/suggestion":
@@ -5246,8 +5459,7 @@ paths:
           type: string
       responses:
         '200':
-          description: new dates and guests, which a whole-trip item follows onto
-            a day its listing is booked
+          description: the own stay forgotten
           content:
             application/json:
               schema:
@@ -5298,6 +5510,23 @@ paths:
                   minimum: 0
                   maximum: 20
                   description: Beside the guests (RAA-182), default 0
+                stay:
+                  type: object
+                  nullable: true
+                  description: 'Where the guest sleeps when they booked it outside
+                    the app: a pin and an optional name (at most 120 characters);
+                    null forgets it'
+                  properties:
+                    lat:
+                      type: number
+                    lng:
+                      type: number
+                    name:
+                      type: string
+                      nullable: true
+                  required:
+                  - lat
+                  - lng
     delete:
       summary: Delete a trip and its items
       tags:
@@ -5898,6 +6127,20 @@ components:
         pets:
           type: integer
           description: Beside the guests (RAA-182)
+        own_stay:
+          type: object
+          nullable: true
+          description: 'Where the guest sleeps when they booked it outside the app:
+            a pin they dropped and an optional name'
+          properties:
+            name:
+              type: string
+              nullable: true
+            location:
+              "$ref": "#/components/schemas/lat_lng"
+          required:
+          - name
+          - location
         destinations:
           type: array
           items:
@@ -5920,6 +6163,12 @@ components:
           items:
             "$ref": "#/components/schemas/trip_item"
           description: In date order, undated items last
+        saved_landmarks:
+          type: array
+          items:
+            "$ref": "#/components/schemas/saved_landmark"
+          description: 'Places to see the guest saved to it, oldest first: no dates,
+            never booked, and not among its destinations'
       required:
       - id
       - name
@@ -5929,10 +6178,30 @@ components:
       - children
       - infants
       - pets
+      - own_stay
       - destinations
       - updated_at
       - deletes_on
       - items
+      - saved_landmarks
+    saved_landmark:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The saved place's id, to remove it (DELETE /trip_landmarks/{id})
+        slug:
+          type: string
+        name:
+          type: string
+        area_slug:
+          type: string
+          description: 'The place whose page it is on: /<area_slug>#<slug>'
+      required:
+      - id
+      - slug
+      - name
+      - area_slug
     trip_item:
       type: object
       properties:
@@ -6057,6 +6326,23 @@ components:
           nullable: true
           description: 'When a dated vehicle rental is due back: 24 hours a day from
             its pickup; null otherwise'
+        tour_length:
+          type: object
+          nullable: true
+          description: How long a tour runs, so a plan can show a several-day tour
+            on each of its days; null for anything else
+          properties:
+            value:
+              type: integer
+              minimum: 1
+            unit:
+              type: string
+              enum:
+              - hours
+              - days
+          required:
+          - value
+          - unit
         business:
           "$ref": "#/components/schemas/business_ref"
         booking_type:
@@ -6105,6 +6391,11 @@ components:
           type: boolean
           description: 'False once the listing is paused or delisted: it can''t be
             booked'
+        location:
+          allOf:
+          - "$ref": "#/components/schemas/lat_lng"
+          description: The listing's point, rounded to two decimals as on every guest
+            map (a plan's distances from the stay)
       required:
       - id
       - starts_on
@@ -6127,6 +6418,7 @@ components:
       - units_free
       - pickup_time
       - returns_at
+      - tour_length
       - business
       - booking_type
       - area
@@ -6136,6 +6428,7 @@ components:
       - unavailable
       - cancellation_policy
       - listing_active
+      - location
     trip_share:
       type: object
       properties:
@@ -8387,6 +8680,8 @@ components:
         parent_slug:
           type: string
           nullable: true
+        center:
+          "$ref": "#/components/schemas/lat_lng"
         landmark_count:
           type: integer
         listing_count:
@@ -8405,6 +8700,7 @@ components:
       - kind
       - parent_name
       - parent_slug
+      - center
       - landmark_count
       - listing_count
       - to_book_count
@@ -8465,149 +8761,301 @@ components:
             deep
           type: array
           items:
-            type: object
-            description: A listing summary plus its booking type, summary and partner;
-              no location
-            properties:
-              id:
-                type: integer
-              title:
-                type: string
-              category:
-                type: string
-              group:
-                type: string
-                enum:
-                - activity
-                - transfer
-                - rental
-                - stay
-                - gear
-                description: 'Where guests find it: its booking type, except gear
-                  (cameras, snorkel sets), which isn''t a vehicle rental: its own
-                  section, never a trip''s "Getting around"'
-              area_slug:
-                type: string
-              area_name:
-                type: string
-                description: 'Its own place: this area or one inside it'
-              instant_book:
-                type: boolean
-                description: Booked at once, without asking the partner (RAA-132)
-              cover_photo_url:
-                type: string
-                nullable: true
-                description: The cover photo, sized for a card (about 800 by 600);
-                  null when the listing has no photos
-              booking_type:
-                type: string
-                enum:
-                - rental
-                - stay
-                - activity
-                - transfer
-              summary:
-                type: string
-                description: As in listing_detail
-              business:
-                "$ref": "#/components/schemas/business_ref"
-              units_count:
-                type: integer
-                minimum: 1
-              units_label:
-                type: string
-                description: As in listing_detail
-              partner_name:
-                type: string
-                deprecated: true
-                description: As in listing_detail
-              price_from_cents:
-                type: integer
-                nullable: true
-                description: As in listing_detail
-              price_unit:
-                "$ref": "#/components/schemas/price_unit"
-              photos:
-                type: array
-                maxItems: 6
-                items:
-                  "$ref": "#/components/schemas/photo_urls"
-                description: Its first ready photos, in the partner's order
-              details:
-                "$ref": "#/components/schemas/listing_details"
-              tour:
-                type: object
-                nullable: true
-                description: A tour's kind and the group it takes; null for anything
-                  else
-                properties:
-                  tour_type:
-                    "$ref": "#/components/schemas/tour_type"
-                  min_guests:
-                    type: integer
-                    minimum: 1
-                  max_guests:
-                    type: integer
-                    minimum: 1
-                required:
-                - tour_type
-                - min_guests
-                - max_guests
-              cancellation_policy:
-                "$ref": "#/components/schemas/cancellation_policy"
-              handover:
-                type: object
-                nullable: true
-                description: A vehicle's delivery and pick-up fees, priced or not,
-                  so its card says how it reaches the guest (RAA-204, RAA-205); null
-                  for anything else
-                properties:
-                  delivery_fee_cents:
-                    type: integer
-                    nullable: true
-                    description: To bring it to the guest, in its nearest zone (0
-                      is free); null when the shop doesn't
-                  return_pickup_fee_cents:
-                    type: integer
-                    nullable: true
-                    description: To collect it from the guest at the end (0 is free);
-                      null when the shop doesn't
-                  child_helmet_fee_cents:
-                    type: integer
-                    nullable: true
-                    description: A motorcycle's child helmet per helmet and day (0
-                      is included); null when the shop has none (RAA-205)
-                required:
-                - delivery_fee_cents
-                - return_pickup_fee_cents
-                - child_helmet_fee_cents
-            required:
-            - id
-            - title
-            - category
-            - group
-            - area_slug
-            - area_name
-            - instant_book
-            - cover_photo_url
-            - booking_type
-            - summary
-            - business
-            - units_count
-            - units_label
-            - partner_name
-            - price_from_cents
-            - price_unit
-            - photos
-            - details
-            - tour
-            - cancellation_policy
-            - handover
+            "$ref": "#/components/schemas/area_listing"
       required:
       - area
       - photos
       - areas
       - landmarks
+      - listings
+    area_listing:
+      type: object
+      description: A listing summary plus its booking type, summary and partner; no
+        location
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        group:
+          type: string
+          enum:
+          - activity
+          - transfer
+          - rental
+          - stay
+          - gear
+          description: 'Where guests find it: its booking type, except gear (cameras,
+            snorkel sets), which isn''t a vehicle rental: its own section, never a
+            trip''s "Getting around"'
+        area_slug:
+          type: string
+        area_name:
+          type: string
+          description: 'Its own place: this area or one inside it'
+        instant_book:
+          type: boolean
+          description: Booked at once, without asking the partner (RAA-132)
+        cover_photo_url:
+          type: string
+          nullable: true
+          description: The cover photo, sized for a card (about 800 by 600); null
+            when the listing has no photos
+        booking_type:
+          type: string
+          enum:
+          - rental
+          - stay
+          - activity
+          - transfer
+        summary:
+          type: string
+          description: As in listing_detail
+        business:
+          "$ref": "#/components/schemas/business_ref"
+        units_count:
+          type: integer
+          minimum: 1
+        units_label:
+          type: string
+          description: As in listing_detail
+        partner_name:
+          type: string
+          deprecated: true
+          description: As in listing_detail
+        price_from_cents:
+          type: integer
+          nullable: true
+          description: As in listing_detail
+        price_unit:
+          "$ref": "#/components/schemas/price_unit"
+        photos:
+          type: array
+          maxItems: 6
+          items:
+            "$ref": "#/components/schemas/photo_urls"
+          description: Its first ready photos, in the partner's order
+        details:
+          "$ref": "#/components/schemas/listing_details"
+        tour:
+          type: object
+          nullable: true
+          description: A tour's kind and the group it takes; null for anything else
+          properties:
+            tour_type:
+              "$ref": "#/components/schemas/tour_type"
+            min_guests:
+              type: integer
+              minimum: 1
+            max_guests:
+              type: integer
+              minimum: 1
+          required:
+          - tour_type
+          - min_guests
+          - max_guests
+        cancellation_policy:
+          "$ref": "#/components/schemas/cancellation_policy"
+        handover:
+          type: object
+          nullable: true
+          description: A vehicle's delivery and pick-up fees, priced or not, so its
+            card says how it reaches the guest (RAA-204, RAA-205); null for anything
+            else
+          properties:
+            delivery_fee_cents:
+              type: integer
+              nullable: true
+              description: To bring it to the guest, in its nearest zone (0 is free);
+                null when the shop doesn't
+            return_pickup_fee_cents:
+              type: integer
+              nullable: true
+              description: To collect it from the guest at the end (0 is free); null
+                when the shop doesn't
+            child_helmet_fee_cents:
+              type: integer
+              nullable: true
+              description: A motorcycle's child helmet per helmet and day (0 is included);
+                null when the shop has none (RAA-205)
+          required:
+          - delivery_fee_cents
+          - return_pickup_fee_cents
+          - child_helmet_fee_cents
+      required:
+      - id
+      - title
+      - category
+      - group
+      - area_slug
+      - area_name
+      - instant_book
+      - cover_photo_url
+      - booking_type
+      - summary
+      - business
+      - units_count
+      - units_label
+      - partner_name
+      - price_from_cents
+      - price_unit
+      - photos
+      - details
+      - tour
+      - cancellation_policy
+      - handover
+    plan_business:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: The business's
+        name:
+          type: string
+        title:
+          type: string
+          description: Its first listing's here (those to hearted places first, then
+            by title)
+        category:
+          type: string
+          description: Its first listing's
+        area_name:
+          type: string
+          description: 'Its first listing''s place: this area or one inside it'
+        listings_count:
+          type: integer
+          minimum: 1
+          description: How many it has in the group here
+        listing_ids:
+          type: array
+          items:
+            type: integer
+        instant_book:
+          type: boolean
+          description: Some of them book at once (RAA-132)
+        price_from_cents:
+          type: integer
+          nullable: true
+          description: The lowest of their prices; null when none is priced
+        price_unit:
+          "$ref": "#/components/schemas/price_unit"
+        photos:
+          type: array
+          maxItems: 6
+          items:
+            "$ref": "#/components/schemas/photo_urls"
+          description: Each listing's first ready photo, then the rest
+        location:
+          allOf:
+          - "$ref": "#/components/schemas/lat_lng"
+          description: Its first listing's, rounded to two decimals, as on every guest
+            map
+        goes_to:
+          type: array
+          items:
+            type: string
+          description: The slugs of the published places to see its listings visit
+      required:
+      - id
+      - name
+      - title
+      - category
+      - area_name
+      - listings_count
+      - listing_ids
+      - instant_book
+      - price_from_cents
+      - price_unit
+      - photos
+      - location
+      - goes_to
+    plan_businesses:
+      type: object
+      properties:
+        businesses:
+          type: array
+          items:
+            "$ref": "#/components/schemas/plan_business"
+        total:
+          type: integer
+          description: How many businesses offer the group here, every page
+        page:
+          type: integer
+          minimum: 1
+        per_page:
+          type: integer
+        hearted_total:
+          type: integer
+          description: 'Things to do: how many businesses have a tour to a hearted
+            place (they lead); 0 otherwise'
+        counts:
+          type: object
+          description: Active listings here per guest group
+          properties:
+            stay:
+              type: integer
+            transfer:
+              type: integer
+            rental:
+              type: integer
+            activity:
+              type: integer
+            gear:
+              type: integer
+          required:
+          - stay
+          - transfer
+          - rental
+          - activity
+          - gear
+      required:
+      - businesses
+      - total
+      - page
+      - per_page
+      - hearted_total
+      - counts
+    business_detail:
+      type: object
+      properties:
+        business:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            description:
+              type: string
+              description: What it says about itself; empty when it says nothing
+            city:
+              type: string
+              nullable: true
+            province:
+              type: string
+              nullable: true
+          required:
+          - id
+          - name
+          - description
+          - city
+          - province
+        area:
+          allOf:
+          - "$ref": "#/components/schemas/area"
+          description: 'The published place most of its listings are in: the page''s
+            way back and its trip'
+        listings:
+          type: array
+          minItems: 1
+          items:
+            "$ref": "#/components/schemas/area_listing"
+          description: Its active listings in published places, by title
+      required:
+      - business
+      - area
       - listings
     activity:
       type: object

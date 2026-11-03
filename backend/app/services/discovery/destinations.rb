@@ -19,6 +19,7 @@ module Discovery
 
       areas.map do |area|
         AreaSerializer.call(area).merge(
+          center: { lat: area.center.y.round(5), lng: area.center.x.round(5) },
           landmark_count: area.landmark_count,
           listing_count: area.listing_count,
           to_book_count: to_book.fetch(area.id),

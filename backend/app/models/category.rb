@@ -4,6 +4,9 @@
 # what one of a listing's units is called (RAA-100); blank means "unit".
 class Category < ApplicationRecord
   BOOKING_TYPES = %w[rental stay activity transfer].freeze
+  # Where guests find a listing (#guest_group): its booking type, or gear.
+  GUEST_GROUPS = %w[stay transfer rental activity gear].freeze
+  GEAR_PARENT = "equipment-rentals".freeze
 
   belongs_to :parent, class_name: "Category", optional: true
   has_many :children, class_name: "Category", foreign_key: :parent_id, inverse_of: :parent,
@@ -13,6 +16,12 @@ class Category < ApplicationRecord
   has_many :tags, through: :category_tags
 
   enum :booking_type, BOOKING_TYPES.index_with(&:itself), validate: { allow_nil: true }
+
+  # The categories whose listings guests find in one group: #guest_group in SQL.
+  scope :in_guest_group, ->(group) {
+    gear = where(booking_type: "rental", parent_id: Category.where(slug: GEAR_PARENT).select(:id))
+    group == "gear" ? gear : where(booking_type: group).where.not(id: gear.select(:id))
+  }
 
   validates :slug, presence: true, uniqueness: true
   validates :name, presence: true
@@ -37,7 +46,7 @@ class Category < ApplicationRecord
   # Gear (cameras, snorkel sets) is booked by the count: a trip item's quantity is how many,
   # not its guests (Booking.units_for).
   def gear?
-    rental? && parent&.slug == "equipment-rentals"
+    rental? && parent&.slug == GEAR_PARENT
   end
 
   # Priced by a FlatRate (RAA-191): gear by the item and day, a transfer by the vehicle and trip.

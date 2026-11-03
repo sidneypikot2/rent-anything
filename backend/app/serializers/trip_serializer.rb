@@ -18,10 +18,14 @@ module TripSerializer
       children: trip.children,
       infants: trip.infants,
       pets: trip.pets,
+      own_stay: trip.stay_location && {
+        name: trip.stay_name, location: { lat: trip.stay_location.y, lng: trip.stay_location.x }
+      },
       destinations: trip.items.filter_map { |item| destinations[item.listing.area]&.name }.uniq,
       updated_at: trip.updated_at.iso8601,
       deletes_on: trip.deletes_on&.iso8601,
-      items: trip.items.map { |item| item(item, ledger, destinations) }
+      items: trip.items.map { |item| item(item, ledger, destinations) },
+      saved_landmarks: trip.saved_landmarks.select { _1.landmark.published? }.map { saved_landmark(_1) }
     }
   end
 
@@ -60,6 +64,12 @@ module TripSerializer
     ledger.refusal(listing, days, 1, period: period && period.begin > Time.current ? period : nil)
   end
 
+  # A place to see the guest saved, and the place its page is (`area_slug`, as /<area>#<slug>).
+  def self.saved_landmark(saved)
+    landmark = saved.landmark
+    { id: saved.id, slug: landmark.slug, name: landmark.name, area_slug: landmark.area.slug }
+  end
+
   def self.item(item, ledger, destinations)
     destination = destinations[item.listing.area]
     {
@@ -77,6 +87,7 @@ module TripSerializer
       delivery_notes: item.delivery_notes,
       child_helmets: item.child_helmets,
       returns_at: item.rental_period&.end,
+      tour_length: tour_length(item.listing),
       sleeps: item.listing.sleeps,
       max_guests: item.listing.max_guests,
       max_quantity: item.listing.max_quantity,
@@ -89,7 +100,9 @@ module TripSerializer
       booking: BookingSerializer.brief(item.booking),
       unavailable: unavailable(item, ledger),
       cancellation_policy: item.listing.cancellation_policy,
-      listing_active: item.listing.active?
+      listing_active: item.listing.active?,
+      # Rounded as on every guest map: where a plan's distances start from a stay.
+      location: { lat: item.listing.location.y.round(2), lng: item.listing.location.x.round(2) }
     }
   end
 
@@ -109,5 +122,11 @@ module TripSerializer
       units_free: days.present? ? ledger.units_free(listing, days) : nil
     }
   end
-  private_class_method :ledger, :open?, :unavailable, :item, :vehicle
+  # How long a tour runs (its detail's duration), so a plan can lay a several-day tour over its
+  # days; nil for anything else.
+  def self.tour_length(listing)
+    detail = listing.tour_detail
+    detail && { value: detail.duration_value, unit: detail.duration_unit }
+  end
+  private_class_method :tour_length, :ledger, :open?, :unavailable, :item, :vehicle
 end

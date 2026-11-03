@@ -9,11 +9,11 @@ class Area < ApplicationRecord
   STATUSES = %w[draft published].freeze
   # Seeding from the admin console (RAA-168, Gazetteer::SeedArea).
   SEED_STATUSES = %w[idle queued running done failed].freeze
-  # Top-level web paths an area slug would collide with.
   # The areas a pin can be served by, and how far a center reaches without a boundary.
   SERVING_KINDS = %w[city town island].freeze
   SERVING_RADIUS_METERS = 50_000
-  RESERVED_SLUGS = %w[partner admin search login register dashboard profile settings nearby cart trips listings about privacy terms partner-terms refunds].freeze
+  # Top-level web paths an area slug would collide with.
+  RESERVED_SLUGS = %w[partner admin search login register dashboard profile settings nearby cart trips listings businesses about privacy terms partner-terms refunds plan].freeze
 
   belongs_to :parent, class_name: "Area", optional: true
   has_many :children, class_name: "Area", foreign_key: :parent_id, inverse_of: :parent,

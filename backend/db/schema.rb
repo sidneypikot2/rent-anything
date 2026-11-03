@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_31_090000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_02_104919) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -309,7 +309,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_31_090000) do
     t.index ["created_at"], name: "index_landmark_photos_unfinished", where: "(uploaded_at IS NULL)"
     t.check_constraint "\"position\" >= 1", name: "landmark_photos_position_check"
     t.check_constraint "byte_size > 0", name: "landmark_photos_byte_size_check"
-    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "landmark_photos_content_type_check"
+    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying::text, 'image/png'::character varying::text, 'image/webp'::character varying::text])", name: "landmark_photos_content_type_check"
     t.unique_constraint ["landmark_id", "position"], deferrable: :deferred, name: "landmark_photos_landmark_id_position_key"
   end
 
@@ -705,6 +705,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_31_090000) do
     t.check_constraint "units IS NULL OR units >= 1 AND units <= 99", name: "trip_items_units_range"
   end
 
+  create_table "trip_landmarks", force: :cascade do |t|
+    t.bigint "trip_id", null: false
+    t.bigint "landmark_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["landmark_id"], name: "index_trip_landmarks_on_landmark_id"
+    t.index ["trip_id", "landmark_id"], name: "index_trip_landmarks_on_trip_id_and_landmark_id", unique: true
+  end
+
   create_table "trips", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.string "name", null: false
@@ -718,6 +727,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_31_090000) do
     t.integer "children", default: 0, null: false
     t.integer "infants", default: 0, null: false
     t.integer "pets", default: 0, null: false
+    t.geography "stay_location", limit: {srid: 4326, type: "st_point", geographic: true}
+    t.string "stay_name"
     t.index ["share_token"], name: "index_trips_on_share_token", unique: true
     t.index ["user_id", "updated_at"], name: "index_trips_on_user_id_and_updated_at"
     t.check_constraint "(starts_on IS NULL) = (ends_on IS NULL)", name: "trips_dates_both_or_neither_check"
@@ -726,6 +737,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_31_090000) do
     t.check_constraint "ends_on >= starts_on", name: "trips_dates_order_check"
     t.check_constraint "guests >= 1 AND guests <= 50", name: "trips_guests_check"
     t.check_constraint "pets >= 0 AND pets <= 20", name: "trips_pets_check"
+    t.check_constraint "stay_name IS NULL OR char_length(stay_name::text) <= 120", name: "trips_stay_name_length_check"
+    t.check_constraint "stay_name IS NULL OR stay_location IS NOT NULL", name: "trips_stay_name_needs_location_check"
   end
 
   create_table "users", force: :cascade do |t|
@@ -859,6 +872,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_31_090000) do
   add_foreign_key "trip_accesses", "users", on_delete: :cascade
   add_foreign_key "trip_items", "listings", on_delete: :cascade
   add_foreign_key "trip_items", "trips", on_delete: :cascade
+  add_foreign_key "trip_landmarks", "landmarks", on_delete: :cascade
+  add_foreign_key "trip_landmarks", "trips", on_delete: :cascade
   add_foreign_key "trips", "users"
   add_foreign_key "vehicle_delivery_zones", "vehicle_rates", on_delete: :cascade
   add_foreign_key "vehicle_rates", "listings", on_delete: :cascade
