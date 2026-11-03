@@ -77,23 +77,27 @@ module Discovery
       scope = in_group.joins(:business).group("listings.business_id", "businesses.name")
       if tours?
         scope = scope.left_joins(:tour_detail)
-        scope = scope.order(Arel.sql("MAX((#{hearted_count_sql})) DESC")) if @hearted.any?
+        scope = scope.order(Arel::Nodes::NamedFunction.new("MAX", [ hearted_count ]).desc) if @hearted.any?
         scope = scope.order(Arel.sql("BOOL_OR(COALESCE(tour_details.base_price_cents, 0) > 0) DESC"))
       end
       scope.order("businesses.name", "listings.business_id")
     end
 
-    # How many of the hearted places a listing's tour goes to (some hearted).
-    def hearted_count_sql
+    # The visits of a listing's tour to the hearted places (some hearted).
+    def hearted_visits
       ListingLandmark.visits.joins(:landmark).merge(Landmark.published)
         .where("listing_landmarks.listing_id = listings.id").where(landmarks: { slug: @hearted })
-        .select("COUNT(*)").to_sql
+    end
+
+    # How many of the hearted places a listing's tour goes to, as a subquery.
+    def hearted_count
+      hearted_visits.select(Arel.star.count).arel
     end
 
     def hearted_total
       return 0 unless tours? && @hearted.any?
 
-      in_group.where("(#{hearted_count_sql}) > 0").distinct.count(:business_id)
+      in_group.where(hearted_visits.arel.exists).distinct.count(:business_id)
     end
 
     # listing id => the slugs of the published places to see it goes to.
