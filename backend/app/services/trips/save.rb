@@ -2,6 +2,8 @@ module Trips
   # A guest plans a named trip (POST /trips), or changes a trip's name, dates or guests
   # (PATCH /trips/:id; only the keys sent change, and null dates make it undated). Of the
   # guests, children and infants are counted apart, and pets beside them (RAA-182).
+  # `stay` is where the guest sleeps when they booked it outside the app (plan a whole trip,
+  # 2026-11-02): { lat, lng, name } from a pin they dropped, or null to forget it.
   #
   # Its unbooked items follow the change: one that spanned the whole trip takes the new dates,
   # one the new dates no longer reach becomes undated (kept, to be dated again), and one for
@@ -25,6 +27,7 @@ module Trips
       { children: "Children", infants: "Infants", pets: "Pets" }.each do |key, label|
         attributes[key] = integer_value(key, label, required: true) if @params.key?(key)
       end
+      attributes.merge!(stay_attributes) if @params.key?(:stay)
       raise_errors!(@trip)
 
       Trip.transaction do
@@ -38,6 +41,15 @@ module Trips
     end
 
     private
+
+    def stay_attributes
+      stay = @params[:stay]
+      return { stay_location: nil, stay_name: nil } if stay.nil?
+
+      name = optional_string(stay, :name, "The stay's name") if stay.respond_to?(:key?)
+      error("The stay's name must be at most 120 characters") if name && name.length > 120
+      { stay_location: point_from(stay), stay_name: name }
+    end
 
     def follow(attributes)
       from, to = attributes.values_at(:starts_on, :ends_on)

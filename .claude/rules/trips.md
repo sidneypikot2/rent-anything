@@ -8,6 +8,8 @@ paths:
   - "backend/app/controllers/api/v1/trips_controller.rb"
   - "backend/app/controllers/api/v1/trip_items_controller.rb"
   - "backend/app/serializers/trip_serializer.rb"
+  - "backend/app/models/trip_landmark.rb"
+  - "backend/app/controllers/api/v1/trip_landmarks_controller.rb"
 ---
 
 # Trips: the cart (RAA-64)
@@ -35,5 +37,9 @@ The cart is a list of the guest's **trips**. Each trip has a name, optional date
 **Unregistered guests** (RAA-175): a trip's owner can be a guest with no email yet (`User#anonymous?`) or one with no password and no OAuth (`User.unregistered`). `Guests::Purge` (`Guests::PurgeJob`, 00:45 UTC) deletes such a guest's trip on `Trip#purge_on` (`PURGE_DAYS`, 60, after it ends, or after an undated trip's last edit), booked items included, once no booking of it is `Booking.unsettled`; it deletes the items first so `keep_if_booked` lets the trip go, and the guest with their last trip. Bookings keep their own `guest_name`/`guest_email`/`guest_phone`, and the foreign keys from bookings, checkouts and booking events to users nullify. It also sends one reminder (`trips.purge_reminded_at`) 7 days before.
 
 **Share link** (RAA-176): `trips.share_token`, kept in plain text so the guest can copy it again (`GET`/`POST`/`DELETE /trips/:id/share`; `Trip#share!` rotates it, `#unshare!` revokes it, neither touches `updated_at`). `GET /shared_trips/:token` is public and noindex, through `SharedTripSerializer`, never `TripSerializer`: anything added there must leave out prices, the guest's details, booking references and ids that act on the trip.
+
+**Saved places** (`trip_landmarks`): a published place to see the guest saved to a trip — "want to go", with no dates, price or guests. `POST /trip_landmarks` (`Trips::SaveLandmark`) saves one to `trip_id`, or starts an undated trip named after the place's destination; saving it again changes nothing, and `DELETE /trip_landmarks/:id` removes it; both answer with the trip, which lists them as `saved_landmarks` (published ones only). A saved place is never priced, booked or sent to a partner, doesn't name the trip or count among its `destinations`, and touches the trip as an edit. Merging moves them (one of each), copying copies them, and they go with their trip. Not in `SharedTripSerializer`.
+
+**Own stay** (plan a whole trip, 2026-11-02): `trips.stay_location` (a pin) and `stay_name`, sent as `stay: { lat, lng, name }` or null on `POST`/`PATCH /trips` (`Trips::Save`), returned as `own_stay` — where the guest sleeps when they booked it outside the app; distances in the planner start there. Never priced, booked or shared. Each item also carries its tour's `tour_length` (`{ value, unit }`) so a plan can lay a several-day tour over its days.
 
 **Not here yet**: a stored trip status (planning → partly booked → booked; the items' bookings say it).

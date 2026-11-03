@@ -90,6 +90,12 @@ class Listing < ApplicationRecord
       Category.where(booking_type: "stay").select(:id))
   }
 
+  # In a place or the published places inside it, however deep: what a place's page and its
+  # plan offer.
+  scope :in_area_tree, ->(area) { where(area_id: Area.published.subtree_of(area).select(:id)) }
+  # Where guests find it (Category#guest_group).
+  scope :in_guest_group, ->(group) { where(category_id: Category.in_guest_group(group).select(:id)) }
+
   before_destroy :keep_if_booked, prepend: true
 
   validates :title, :location, presence: true

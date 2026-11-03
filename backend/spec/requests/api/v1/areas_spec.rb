@@ -52,7 +52,7 @@ RSpec.describe "Areas", type: :request do
           expect(json.pluck("slug")).to eq(%w[bantayan-island cebu-city])
           expect(json.first).to eq(
             "slug" => "bantayan-island", "name" => "Bantayan Island", "kind" => "island", "parent_name" => "Cebu",
-            "parent_slug" => "cebu",
+            "parent_slug" => "cebu", "center" => { "lat" => 9.945, "lng" => 123.396 },
             "landmark_count" => 2, "listing_count" => 2, "to_book_count" => 2,
             "activities" => [ { "slug" => "swimming", "name" => "Swimming", "kind" => "activity" },
                               { "slug" => "snorkelling", "name" => "Snorkelling", "kind" => "activity" } ]
@@ -69,6 +69,21 @@ RSpec.describe "Areas", type: :request do
       parameter name: :slug, in: :path, type: :string
       parameter name: :pets, in: :query, type: :string, required: false,
         description: "1 keeps, of the stays, only those that allow pets (RAA-185); other listings stay"
+      parameter name: :listings, in: :query, type: :string, required: false,
+        description: "0 leaves the listings out (the plan pages page through businesses, plan_businesses)"
+
+      response "200", "without its listings: the landmarks still name their visitors" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "bantayan-island" }
+        let(:listings) { "0" }
+        before { ListingLandmark.create!(listing: hopping, landmark: virgin, relation: "visits") }
+
+        run_test! do |response|
+          json = response.parsed_body
+          expect(json["listings"]).to eq([])
+          expect(json["landmarks"].find { _1["slug"] == "virgin-island" }["visited_by"]).to eq([ hopping.id ])
+        end
+      end
 
       response "200", "published landmarks and active listings" do
         schema "$ref" => "#/components/schemas/area_detail"

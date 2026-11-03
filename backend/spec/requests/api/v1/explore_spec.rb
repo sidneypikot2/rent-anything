@@ -93,6 +93,20 @@ RSpec.describe "Explore", type: :request do
       parameter name: :lat, in: :query, type: :number, required: false, description: "Map pin latitude, with lng"
       parameter name: :lng, in: :query, type: :number, required: false, description: "Map pin longitude, with lat"
       parameter name: :km, in: :query, type: :number, required: false, description: "Radius, 1 to 50 (default 15)"
+      parameter name: :listings, in: :query, type: :string, required: false,
+        description: "0 leaves the listings out (the plan pages need only the anchor and the places)"
+
+      response "200", "without its listings" do
+        schema "$ref" => "#/components/schemas/explore"
+        let(:area) { "bantayan-island" }
+        let(:listings) { "0" }
+
+        run_test! do |response|
+          json = response.parsed_body
+          expect(json["listings"]).to eq([])
+          expect(slugs(json, "destinations")).to contain_exactly("santa-fe", "kota-park")
+        end
+      end
 
       response "200", "a province: every listing inside it" do
         schema "$ref" => "#/components/schemas/explore"

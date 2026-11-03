@@ -13,6 +13,8 @@ module Discovery
   #   so not clipped; they never add listings, and a linked place is not repeated as a
   #   nearby destination.
   #
+  # listings=0 leaves the listings out (the plan pages need only the anchor and the places).
+  #
   # Inside-an-area means inside its boundary, or under it in the area tree when it has none.
   class Explore < ApplicationService
     DEFAULT_KM = 15
@@ -41,7 +43,7 @@ module Discovery
 
       {
         anchor: anchor_json,
-        listings: listings.map { |listing| ListingPinSerializer.call(listing).merge(distance_km: km_from(listing)) },
+        listings: @params[:listings] == "0" ? [] : listings.map { |listing| ListingPinSerializer.call(listing).merge(distance_km: km_from(listing)) },
         destinations: nearby.reject { |entry| linked.include?(entry[:record]) }.first(DESTINATION_LIMIT).map { destination_json(_1) },
         recommendations: recommended.map { |entry| destination_json(entry).merge(reason: entry[:reason]) }
       }

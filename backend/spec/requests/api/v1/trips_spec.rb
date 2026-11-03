@@ -49,6 +49,20 @@ RSpec.describe "Trips", type: :request do
         end
       end
 
+      response "200", "a tour's length on its item, so a plan can lay a several-day tour over its days" do
+        schema type: :array, items: { "$ref" => "#/components/schemas/trip" }
+        let(:camping) { create(:listing, :tour, area: santa_fe, with_detail: false) }
+
+        before do
+          create(:tour_detail, listing: camping, duration_value: 2, duration_unit: "days")
+          create(:trip_item, trip: create(:trip, user:), listing: camping)
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body.sole["items"].sole["tour_length"]).to eq("value" => 2, "unit" => "days")
+        end
+      end
+
       response "422", "a view that isn't one" do
         schema "$ref" => "#/components/schemas/validation_errors"
         let(:view) { "all" }
@@ -173,7 +187,14 @@ RSpec.describe "Trips", type: :request do
           guests: { type: :integer, description: "The whole party, adults, children and infants" },
           children: { type: :integer, minimum: 0, maximum: 49, description: "Of the guests (RAA-182), default 0" },
           infants: { type: :integer, minimum: 0, maximum: 49, description: "Of the guests (RAA-182), default 0" },
-          pets: { type: :integer, minimum: 0, maximum: 20, description: "Beside the guests (RAA-182), default 0" }
+          pets: { type: :integer, minimum: 0, maximum: 20, description: "Beside the guests (RAA-182), default 0" },
+          stay: {
+            type: :object, nullable: true,
+            description: "Where the guest sleeps when they booked it outside the app: a pin and an optional name " \
+              "(at most 120 characters); null forgets it",
+            properties: { lat: { type: :number }, lng: { type: :number }, name: { type: :string, nullable: true } },
+            required: %w[lat lng]
+          }
         },
         required: %w[name]
       }
@@ -188,8 +209,29 @@ RSpec.describe "Trips", type: :request do
         end
       end
 
+      response "201", "a trip with the guest's own stay, a pin they dropped" do
+        schema "$ref" => "#/components/schemas/trip"
+        let(:body) { { name: "Bantayan Island · own stay", stay: { lat: 11.17, lng: 123.72, name: "Pooc, Santa Fe" } } }
+
+        run_test! do |response|
+          expect(response.parsed_body["own_stay"]).to eq(
+            "name" => "Pooc, Santa Fe", "location" => { "lat" => 11.17, "lng" => 123.72 }
+          )
+        end
+      end
+
       response "422", "no name, one date only, or a date that isn't a date" do
         schema "$ref" => "#/components/schemas/validation_errors"
+
+        context "with a stay pin off the map" do
+          let(:body) { { name: "Trip", stay: { lat: 91, lng: "east" } } }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to include(
+              "Latitude must be a number between -90 and 90", "Longitude must be a number between -180 and 180"
+            )
+          end
+        end
 
         context "without a name" do
           let(:body) { { starts_on: day.iso8601, ends_on: day.iso8601 } }
@@ -333,7 +375,14 @@ RSpec.describe "Trips", type: :request do
           guests: { type: :integer, description: "The whole party, adults, children and infants" },
           children: { type: :integer, minimum: 0, maximum: 49, description: "Of the guests (RAA-182), default 0" },
           infants: { type: :integer, minimum: 0, maximum: 49, description: "Of the guests (RAA-182), default 0" },
-          pets: { type: :integer, minimum: 0, maximum: 20, description: "Beside the guests (RAA-182), default 0" }
+          pets: { type: :integer, minimum: 0, maximum: 20, description: "Beside the guests (RAA-182), default 0" },
+          stay: {
+            type: :object, nullable: true,
+            description: "Where the guest sleeps when they booked it outside the app: a pin and an optional name " \
+              "(at most 120 characters); null forgets it",
+            properties: { lat: { type: :number }, lng: { type: :number }, name: { type: :string, nullable: true } },
+            required: %w[lat lng]
+          }
         }
       }
 
@@ -361,6 +410,18 @@ RSpec.describe "Trips", type: :request do
             "id" => item.id, "starts_on" => (day - 1).iso8601, "ends_on" => (day + 3).iso8601, "quantity" => 6,
             "unavailable" => "#{(day - 1).strftime('%b %-d')} is fully booked"
           )
+        end
+      end
+
+      response "200", "the own stay forgotten" do
+        schema "$ref" => "#/components/schemas/trip"
+        let(:body) { { stay: nil } }
+
+        before { trip.update!(stay_location: "POINT(123.72 11.17)", stay_name: "Pooc") }
+
+        run_test! do |response|
+          expect(response.parsed_body["own_stay"]).to be_nil
+          expect(trip.reload.stay_name).to be_nil
         end
       end
 

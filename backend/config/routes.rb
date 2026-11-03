@@ -34,7 +34,10 @@ Rails.application.routes.draw do
 
       # Guest discovery (RAA-33): public, no sign-in.
       get "search", to: "search#index"
-      resources :areas, only: %i[index show], param: :slug
+      resources :areas, only: %i[index show], param: :slug do
+        # A page of the businesses offering one plan step there (plan a whole trip).
+        get :plan_businesses, on: :member, to: "plan_businesses#index"
+      end
       resources :activities, only: :index
       # Map pins for the guest nearby map (RAA-52), and one listing's page (RAA-86).
       resources :listings, only: %i[index show]
@@ -45,6 +48,8 @@ Rails.application.routes.draw do
       get "stay_mixes", to: "stay_mixes#index"
       # A business's listings, with what is free on some dates: the shop pop-up (RAA-191).
       get "businesses/:business_id/listings", to: "business_listings#index", as: :business_listings
+      # A business's own page: about it and everything it offers.
+      resources :businesses, only: :show
       # What adding a listing to a trip would cost, for any kind of listing (RAA-191).
       get "listings/:listing_id/price", to: "listing_prices#show", as: :listing_price
       # One destination's listings, nearby destinations and recommendations (RAA-56).
@@ -65,6 +70,8 @@ Rails.application.routes.draw do
       # A trip as its share link shows it to anyone (RAA-176).
       resources :shared_trips, only: :show, param: :token
       resources :trip_items, only: %i[create update destroy]
+      # Places to see a guest saved to a trip, with no dates; saving may start a trip.
+      resources :trip_landmarks, only: %i[create destroy]
       # Booking a trip's items, and the guest's bookings (RAA-132), which a guest can change
       # (RAA-134) and pay for once accepted (RAA-143). Guest-only.
       resources :checkouts, only: :create
