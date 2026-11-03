@@ -9,7 +9,12 @@ module Discovery
   # shows everything to book on it; a place to see names the active listings that visit it.
   # pets: true keeps, of the stays, those that allow pets (RAA-185). listings: false leaves the
   # listings out (the plan pages page through them with Discovery::PlanListings).
+  # Its page also gets to know the place (RAA-252): the guide the team wrote (blank fields as
+  # nulls), where each place to see is, and for each place inside it, where it is, how many
+  # stays it has and what it counts to book, the places under it included.
   class AreaDetail < ApplicationService
+    GUIDE = %i[tagline description getting_there best_time_to_visit].freeze
+
     def initialize(area, pets: false, listings: true)
       @area = area
       @pets = pets
@@ -19,9 +24,10 @@ module Discovery
     def call
       {
         area: AreaSerializer.call(@area),
+        guide: GUIDE.index_with { |field| @area.public_send(field).presence },
         # Its banner's carousel, the first photo first (RAA-210).
         photos: @area.ready_photos.map { |photo| ListingPhotoSerializer.call(photo) },
-        areas: @area.children.browsable.includes(:parent).order(:name).map { |area| AreaSerializer.call(area) },
+        areas: @area.children.browsable.includes(:parent).order(:name).map { |area| place_json(area) },
         landmarks: landmarks.map { |landmark| landmark_json(landmark) },
         listings: @with_listings ? listings.includes(*ListingRow::ASSOCIATIONS).order(:title).map { |listing| ListingRow.call(listing) } : []
       }
@@ -54,8 +60,40 @@ module Discovery
         description: landmark.description,
         tags: landmark.tags.sort_by(&:name).map { |tag| TagSerializer.call(tag) },
         photos: landmark.ready_photos.map { |photo| ListingPhotoSerializer.call(photo) },
+        location: lat_lng(landmark.location),
         visited_by: visitors.fetch(landmark.id, [])
       }
+    end
+
+    def place_json(area)
+      counts = place_counts.fetch(area.id, {})
+      AreaSerializer.call(area).merge(
+        center: lat_lng(area.center),
+        stay_count: counts.fetch(:stays, 0),
+        to_book_count: counts.fetch(:to_book, 0)
+      )
+    end
+
+    # child id => { stays: its active stays, to_book: its distinct [business, guest group]
+    # pairs, as Destinations counts them }, over the published places under it, however deep.
+    def place_counts
+      @place_counts ||= begin
+        parents = Area.published.subtree_of(@area).pluck(:id, :parent_id).to_h
+        child_of = lambda do |id|
+          id = parents[id] while parents[id] && parents[id] != @area.id
+          id
+        end
+        Listing.active.in_area_tree(@area).where.not(area_id: @area.id).includes(category: :parent)
+          .group_by { |listing| child_of.call(listing.area_id) }
+          .transform_values do |listings|
+            { stays: listings.count { |listing| listing.category.guest_group == "stay" },
+              to_book: listings.map { |listing| [ listing.business_id, listing.category.guest_group ] }.uniq.size }
+          end
+      end
+    end
+
+    def lat_lng(point)
+      { lat: point.y.round(5), lng: point.x.round(5) }
     end
   end
 end

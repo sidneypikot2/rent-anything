@@ -147,6 +147,59 @@ RSpec.describe "Areas", type: :request do
         end
       end
 
+      response "200", "each place inside it counts its stays and what to book, the places under it included (RAA-252)" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "bantayan-island" }
+        let!(:santa_fe) { create(:area, slug: "santa-fe", name: "Santa Fe", kind: "town", parent: bantayan, center: "POINT(123.80123456 11.16)") }
+        let!(:beach) { create(:area, slug: "sugar-beach", name: "Sugar Beach", parent: santa_fe) }
+        let!(:madridejos) { create(:area, slug: "madridejos", name: "Madridejos", kind: "town", parent: bantayan) }
+        let(:inn) { create(:business, name: "Santa Fe Inn") }
+
+        before do
+          guesthouse = create(:category, :accommodation)
+          create(:listing, area: santa_fe, category: guesthouse, title: "Garden room A", partner: inn.partner, business: inn)
+          create(:listing, area: beach, category: guesthouse, title: "Garden room B", partner: inn.partner, business: inn)
+          create(:listing, :paused, area: beach, category: guesthouse, title: "Paused garden room")
+          create(:listing, area: beach, category: tour, title: "Kayaks at the beach")
+          create(:listing, area: madridejos, category: tour, title: "Market walk")
+        end
+
+        run_test! do |response|
+          places = response.parsed_body["areas"].index_by { _1["slug"] }
+          expect(places.keys).to eq(%w[madridejos santa-fe])
+          expect(places["santa-fe"]).to include("stay_count" => 2, "to_book_count" => 2, "center" => { "lat" => 11.16, "lng" => 123.80123 })
+          expect(places["madridejos"]).to include("stay_count" => 0, "to_book_count" => 1)
+        end
+      end
+
+      response "200", "its guide, and where each place to see is (RAA-252)" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "bantayan-island" }
+        let(:listings) { "0" }
+
+        before do
+          bantayan.update!(tagline: "White sand, slow days", description: "A flat island north of Cebu.", getting_there: " ",
+            best_time_to_visit: "December to May")
+          kota.update!(location: "POINT(123.72345678 11.21)")
+        end
+
+        run_test! do |response|
+          json = response.parsed_body
+          expect(json["guide"]).to eq("tagline" => "White sand, slow days", "description" => "A flat island north of Cebu.",
+            "getting_there" => nil, "best_time_to_visit" => "December to May")
+          expect(json["landmarks"].first).to include("slug" => "kota-beach", "location" => { "lat" => 11.21, "lng" => 123.72346 })
+        end
+      end
+
+      response "200", "an area with no guide written sends it empty" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "cebu-city" }
+
+        run_test! do |response|
+          expect(response.parsed_body["guide"]).to eq("tagline" => nil, "description" => nil, "getting_there" => nil, "best_time_to_visit" => nil)
+        end
+      end
+
       response "200", "a place to see names the active listings that visit it" do
         schema "$ref" => "#/components/schemas/area_detail"
         let(:slug) { "bantayan-island" }
