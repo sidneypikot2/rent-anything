@@ -43,6 +43,44 @@ test("home page renders and reaches the API", async ({ page }) => {
 
 // The search box asks the API from the browser (CORS and ports), then leads to a
 // destination page rendered on the server, and on to one of its listings.
+test("plan a whole trip: where, when and who, then the checklist", async ({ page }) => {
+  test.setTimeout(90_000);
+  const errors = [];
+  collectErrors(page, errors);
+
+  await page.goto("/");
+  await page.getByTestId("plan-whole-trip").click();
+  await expect(page).toHaveURL(/\/plan$/);
+  await page.getByTestId("plan-dates").click();
+  const days = page.locator("[role=grid] button:not([disabled])");
+  await days.nth(10).click();
+  await days.nth(12).click();
+  // Next starts the trip (a guest with no account, signed out) and opens its checklist.
+  await page.getByTestId("plan-next").click();
+  await expect(page).toHaveURL(/\/plan\/bantayan-island\?trip=\d+/);
+  // Where you're staying is the first step now, with the place's stays under Find me one here.
+  await page.getByTestId("plan-stay-find").click();
+  await expect(page.getByTestId("plan-options-stay")).toBeVisible();
+  // The steps sit in a row; picking one shows its options, Things to do with its places.
+  await page.getByTestId("plan-step-activity").click();
+  await expect(page.getByTestId("plan-places-tours")).toBeVisible();
+  // Review trip shows only once a listing is in the trip; with none picked, open the review by its URL.
+  await expect(page.getByTestId("plan-review")).toHaveCount(0);
+  const { pathname, search } = new URL(page.url());
+  await page.goto(`${pathname}/review${search}`);
+  await expect(page.getByTestId("plan-days")).toBeVisible();
+  // Planning again with a trip already made asks which on the home page; the trip has dates, so
+  // continuing it opens its checklist.
+  const tripId = new URL(page.url()).searchParams.get("trip");
+  await page.goto("/");
+  await page.getByTestId("plan-whole-trip").click();
+  await expect(page.getByTestId("trip-choice-sheet")).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await page.getByTestId("trip-choice-go").click();
+  await expect(page).toHaveURL(new RegExp(`/plan/bantayan-island\\?trip=${tripId}$`));
+  expect(errors).toEqual([]);
+});
+
 test("search a landmark and open its destination", async ({ page }) => {
   // Four pages and the search bar's round trip: more than the default 30s on a cold dev server.
   test.setTimeout(60_000);
@@ -50,6 +88,8 @@ test("search a landmark and open its destination", async ({ page }) => {
   collectErrors(page, errors);
 
   await page.goto("/");
+  // The hero offers Browse the launch area or "Decided yet?"; the search is Book a thing or two's.
+  await page.getByTestId("plan-one-thing").click();
   await page.getByTestId("search-input").fill("kota");
   const suggestions = page.getByTestId("search-suggestions");
   await expect(suggestions).toContainText("Kota Beach");
@@ -57,7 +97,7 @@ test("search a landmark and open its destination", async ({ page }) => {
   await suggestions.getByRole("option", { name: "Kota Beach Bantayan Island" }).click();
   // Picking a place opens nothing yet: the dates come next, and Search goes there.
   await expect(page.getByTestId("search-input")).toHaveValue("Kota Beach");
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/(\?book=one)?$/);
   await page.getByTestId("search-submit").click();
 
   await expect(page).toHaveURL(/\/bantayan-island#kota-beach$/);
@@ -76,33 +116,35 @@ test("search a landmark and open its destination", async ({ page }) => {
   await expect(page).toHaveURL(/\/bantayan-island\?guests=2$/);
   await expect(bar.getByTestId("search-bar-pill")).toContainText("2 guests");
 
-  // What to book lists businesses: a card opens a side panel (RAA-126) with the business's
-  // listings in that group, or, for a business with one, that listing's details at once. A
-  // listing's details link to its page, also rendered on the server, with its own Add to trip.
-  // A vehicle shop's models open their details in place instead (RAA-205), with the same link.
-  await page.getByTestId("business-open").first().click();
-  const panel = page.getByTestId("detail-panel");
-  const offers = panel.getByTestId("business-offer");
-  const models = panel.getByTestId("shop-model-toggle");
+  // What to book lists businesses by name (Booking.com's way): a card opens the business's own
+  // page, in a new tab on a laptop, with the search's guests and the group it came from. Its
+  // options' titles open the listing's page, also rendered on the server, in another new tab, with
+  // its own Add to trip. A vehicle shop's models open their details in place instead (RAA-205),
+  // which link to the listing's page in the same tab.
+  const [business] = await Promise.all([page.waitForEvent("popup"), page.getByTestId("business-open").first().click()]);
+  await expect(business).toHaveURL(/\/businesses\/\d+\?guests=2&show=need-[a-z]+&place=bantayan-island$/);
+  await expect(business.getByTestId("business-options-list")).toBeVisible();
+  const models = business.getByTestId("shop-model-toggle");
+  let listing = business;
   let listingTitle;
   if (await models.count()) {
-    listingTitle = (await models.first().textContent()).trim();
+    listingTitle = (await business.getByTestId("shop-model-title").first().textContent()).trim();
     await models.first().click();
     await expect(models.first()).toHaveAttribute("aria-expanded", "true");
+    await business.getByTestId("listing-link").first().click();
   } else {
-    if (await offers.count()) {
-      await offers.first().click();
-      await expect(panel.getByTestId("business-back")).toBeVisible();
-    }
-    listingTitle = (await panel.getByRole("heading", { level: 2 }).textContent()).trim();
+    const offer = business.getByTestId("business-offer").first();
+    listingTitle = (await offer.textContent()).trim();
+    [listing] = await Promise.all([business.waitForEvent("popup"), offer.click()]);
   }
-  await panel.getByTestId("listing-link").click();
-  await expect(page).toHaveURL(/\/listings\/\d+\?guests=2$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(listingTitle);
-  await expect(page.getByTestId("add-to-trip")).toBeVisible();
+  await expect(listing).toHaveURL(/\/listings\/\d+\?guests=2&place=bantayan-island$/);
+  await expect(listing.getByRole("heading", { level: 1 })).toHaveText(listingTitle);
+  await expect(listing.getByTestId("add-to-trip")).toBeVisible();
+  if (listing !== business) await listing.close();
+  await business.close();
 
   // Enter on the home search with several matches opens the results page, which lists them.
-  await page.goto("/");
+  await page.goto("/?book=one");
   await page.getByTestId("search-input").fill("snorkelling");
   await page.getByTestId("search-input").press("Enter");
   await expect(page).toHaveURL(/\/search\?q=snorkelling$/);

@@ -494,6 +494,24 @@
   }
 }
 
+/* Planning a trip on a phone takes the whole screen: no site header or footer (PlanFrame marks
+   the page), its own bar with the way back leads instead. */
+/* Under the checklist's sticky stepper (PlanSteps: from 12px above --chrome, 12px + a 40px track
+   + 6px + an 18px label + 8px tall), what sticks on step 2 — the map, a panel scrolled to — starts
+   below it. */
+:root {
+  --plan-chrome: calc(var(--chrome) + 4.5rem);
+}
+
+@media (width < 40rem) {
+  :root:has([data-plan-page]) :is([data-site-header], [data-site-footer]) {
+    display: none;
+  }
+  :root:has([data-plan-page]) {
+    --chrome: 0.75rem;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

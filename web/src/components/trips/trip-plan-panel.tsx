@@ -233,7 +233,7 @@ function GapRow({
               Find a tour for {guestCount(gap.short)}
             </button>
           )}
-          {gap.kind === "unseen" && <SightLinks sights={gap.sights} then={then} />}
+          {(gap.kind === "unseen" || gap.kind === "saved") && <SightLinks sights={gap.sights} then={then} />}
         </span>
       </div>
     </li>
@@ -271,6 +271,11 @@ function GapText({ gap, guests }: { gap: PlanGap; guests: number }) {
         `${gap.short} more ${gap.short === 1 ? "guest needs" : "guests need"} another tour${
           gap.item.starts_on ? ` on ${formatDateRange(gap.item.starts_on, gap.item.starts_on)}` : ""
         }.`,
+      );
+    case "saved":
+      return lines(
+        gap.sights.length === 1 ? "A place you saved" : "Places you saved",
+        "No tour in your trip goes there yet. Open one to add a tour:",
       );
     case "unseen":
       return lines(
@@ -322,6 +327,8 @@ function gapShort(gap: PlanGap) {
       return `a tour for ${gap.short} more`;
     case "unseen":
       return "places tours go to";
+    case "saved":
+      return "tours to places you saved";
   }
 }
 

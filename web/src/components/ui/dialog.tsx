@@ -9,7 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { AlertGlyph, CloseGlyph } from "@/components/discovery/tag-glyphs";
+import { AlertGlyph, ArrowGlyph, CloseGlyph } from "@/components/discovery/tag-glyphs";
 import { Button } from "./button";
 import { cn } from "./cn";
 
@@ -33,8 +33,9 @@ const PLACEMENTS = {
     "mx-0 mb-0 mt-auto max-h-[90dvh] w-full max-w-none rounded-t-frame sm:m-auto sm:w-[calc(100%-2rem)] sm:max-w-lg sm:rounded-frame",
   // A floating panel on the right, 12px in from the window's edges (RAA-126): `media` leads,
   // the title under it with the details, `actions` pinned at the foot and what's between
-  // scrolling; the close disc floats at the top right.
-  side: "my-3 mr-3 ml-auto h-[calc(100dvh-1.5rem)] max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-md rounded-card",
+  // scrolling; the close disc floats at the top right. On a phone it fills the screen, as a page
+  // sliding in, with a back arrow in the close disc's place (Airbnb's listing, 2026-11-01).
+  side: "m-0 h-dvh max-h-dvh w-full max-w-none rounded-none sm:my-3 sm:mr-3 sm:ml-auto sm:h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-1.5rem)] sm:w-[calc(100%-1.5rem)] sm:max-w-md sm:rounded-card",
   // A sheet from the bottom on a phone, in thumb's reach, and the side panel from sm: up, for a
   // guide to the page under it (the trip's plan). The title and close disc stay at its top and
   // only the body scrolls, so nothing floats over the text.
@@ -43,6 +44,10 @@ const PLACEMENTS = {
   // Centred and wider, for the whole of a record on a work screen: the title and close disc
   // stay at the top and `actions` at the foot, and what's between scrolls.
   overlay: "m-auto max-h-[calc(100dvh-3rem)] w-[calc(100%-2rem)] max-w-2xl overflow-hidden rounded-card",
+  // The whole window, for results to look through beside a map (Airbnb's search, 2026-11-03):
+  // a header bar with the title and close disc, and the body filling the rest, laid out by the
+  // caller (it scrolls its own parts).
+  full: "m-0 h-dvh max-h-dvh w-full max-w-none overflow-hidden rounded-none",
 };
 
 // Docked to the bottom on a phone: these get the grab handle and drag-to-close.
@@ -138,7 +143,7 @@ export function DialogSummary({ value, detail, "data-testid": testId }: { value:
 // The close control on every dialog: a disc, so it isn't read as a field's clear button, with
 // a 44px tap target. First to take focus, so a sheet doesn't open on a field and bring the
 // keyboard up over it.
-function CloseDisc({ onClose, floating = false }: { onClose: () => void; floating?: boolean }) {
+function CloseDisc({ onClose, floating = false, className }: { onClose: () => void; floating?: boolean; className?: string }) {
   return (
     <button
       type="button"
@@ -147,9 +152,25 @@ function CloseDisc({ onClose, floating = false }: { onClose: () => void; floatin
       className={cn(
         "tap-target flex size-9 shrink-0 items-center justify-center rounded-full text-navy transition-colors duration-150 ease-calm",
         floating ? "absolute top-7 right-7 z-10 size-10 bg-surface/95 shadow-soft hover:bg-surface" : "bg-tag hover:bg-line",
+        className,
       )}
     >
       <CloseGlyph className="size-4.5" />
+    </button>
+  );
+}
+
+// A full-screen side panel's way out on a phone: a back arrow over its photo's top left, as a
+// page's would be (the close disc takes over from sm).
+function BackDisc({ onClose }: { onClose: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Back"
+      onClick={onClose}
+      className="tap-target absolute top-7 left-7 z-10 flex size-10 items-center justify-center rounded-full bg-surface/95 text-navy shadow-soft transition-colors duration-150 ease-calm hover:bg-surface sm:hidden"
+    >
+      <ArrowGlyph direction="left" className="size-5" />
     </button>
   );
 }
@@ -291,14 +312,32 @@ export function Dialog({
         PLACEMENTS[placement],
       )}
     >
-      {placement === "side" ? (
+      {placement === "full" ? (
+        <div className="flex h-full flex-col">
+          <div className="flex items-start gap-3 border-b border-line px-4 py-3 sm:px-6">
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <h2 id={titleId} className="font-display text-xl leading-snug font-extrabold tracking-tight text-balance break-words">
+                {title}
+              </h2>
+              {meta && <div className="text-sm text-pretty text-muted">{meta}</div>}
+            </div>
+            <CloseDisc onClose={requestClose} />
+          </div>
+          <div className="relative min-h-0 flex-1">{children}</div>
+        </div>
+      ) : placement === "side" ? (
         <div className="relative flex h-full flex-col">
-          {!locked && <CloseDisc onClose={requestClose} floating />}
+          {!locked && (
+            <>
+              <BackDisc onClose={requestClose} />
+              <CloseDisc onClose={requestClose} floating className="max-sm:hidden" />
+            </>
+          )}
           {/* Nothing in the body shrinks to fit; it scrolls. A `contents` wrapper's children are
               flex items too, so they're held as well (a clipped card would otherwise be squashed). */}
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-5 *:shrink-0 [&>.contents>*]:shrink-0">
             {media}
-            <div className={cn("flex flex-col gap-1", !media && "pt-2 pr-14")}>
+            <div className={cn("flex flex-col gap-1", !media && "pt-2 pl-14 sm:pr-14 sm:pl-0")}>
               <h2 id={titleId} className="font-display text-2xl leading-tight font-extrabold tracking-tight text-balance break-words">
                 {title}
               </h2>

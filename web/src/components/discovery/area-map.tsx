@@ -4,11 +4,12 @@ import { LngLatBounds, Map as MapLibreMap, Marker, type GeoJSONSource } from "ma
 import "maplibre-gl/dist/maplibre-gl.css";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import type { TripDates } from "@/components/trips/trip-dates";
+import { SaveLandmarkButton } from "@/components/trips/save-landmark-button";
 import type { AddPreview } from "@/components/trips/use-trips";
 import { pricedByText } from "@/lib/pricing";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ import { MENU_ROW } from "@/components/ui/menu";
 import { Price } from "@/components/ui/typography";
 import { circlePolygon, fromLngLat, MAP_STYLE_URL, setMapWorker, toLngLat, type LatLng } from "@/lib/map";
 import { useAreaMap } from "./area-map-context";
+import { MapButton, ZoomButton } from "./map-controls";
 import { TRIP_ORDER_GROUPS } from "./categories";
 import { listingPin, placePins, type AreaPin, type LandmarkInfo, type ListingPin } from "./area-map-pins";
 import { DetailPanelButton, LandmarkPanel, ListingPanel, PanelActions, PanelPhoto } from "./detail-panel";
@@ -700,47 +702,6 @@ export function AreaMap({
   );
 }
 
-function MapButton({
-  pressed,
-  onClick,
-  children,
-  "data-testid": testId,
-}: {
-  // Left out for a plain action, which isn't a toggle.
-  pressed?: boolean;
-  onClick: () => void;
-  children: ReactNode;
-  "data-testid"?: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={pressed}
-      onClick={onClick}
-      data-testid={testId}
-      className={cn(
-        "flex min-h-11 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold card-edge shadow-lift transition-colors duration-300 ease-calm",
-        pressed ? "bg-primary text-white" : "bg-surface text-foreground [&_svg]:text-primary",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ZoomButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      className="flex size-11 items-center justify-center border-line not-first:border-t hover:bg-surface-2"
-    >
-      {children}
-    </button>
-  );
-}
-
 // A pin: its group's colour, its category icon and, once it has one, its price; a place to see
 // is a navy disc with the place icon.
 function PinButton({
@@ -980,6 +941,7 @@ function MapPopup({
         title={pin.title}
         media={<PanelPhoto photo={pin.photo} />}
         panel={<LandmarkPanel landmark={pin.landmark} areaName={areaName} />}
+        actions={<SaveLandmarkButton slug={pin.slug} name={pin.title} guests={dates.guests} variant="panel" />}
         className="underline-offset-4 hover:underline"
         data-testid="map-popup-open"
       >

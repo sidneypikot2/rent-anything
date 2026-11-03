@@ -24,6 +24,7 @@ import { ItemThumb } from "./item-thumb";
 import { formatDateRange, guestCount, itemAmount, itemCount, todayIso } from "./format";
 import { TripItinerary } from "./trip-itinerary";
 import { tripDatesQuery } from "./trip-dates";
+import { SavedPlaces } from "./saved-places";
 import { missingStays, missingText, type Missing } from "./trip-missing";
 import { byShop, ShopGroup } from "./shop-group";
 import { pastOutcome, tripPhase, tripTiming } from "./trip-phase";
@@ -410,7 +411,10 @@ export function TripDetails({
       {shown.length === 0 ? (
         <Card edge="line">
           <div className="flex flex-col items-start gap-3 px-4 py-3.5 sm:p-card">
-            <p className="text-sm text-muted">Nothing in this trip yet. Add tours, rentals or stays from a destination.</p>
+            <p className="text-sm text-muted">
+              {trip.saved_landmarks.length > 0 ? "Nothing to book in this trip yet" : "Nothing in this trip yet"}. Add tours, rentals or
+              stays from a destination.
+            </p>
             {cart && (
               <Button type="button" size="sm" onClick={() => actions.findMore(trip)}>
                 Find something to add
@@ -442,6 +446,8 @@ export function TripDetails({
       ) : (
         <ul className="flex flex-col gap-3">{list(shown)}</ul>
       )}
+
+      {cart && trip.saved_landmarks.length > 0 && <SavedPlaces trip={trip} />}
 
       {!cart && unbooked > 0 && phase !== "past" && (
         <p className="text-sm text-muted">

@@ -1,5 +1,5 @@
 import type { components } from "@/api/schema";
-import { daysBetween } from "@/lib/dates";
+import { addDays, daysBetween } from "@/lib/dates";
 
 // A rental vehicle's people and how many vehicles they take (RAA-191): the API books
 // ceil(people / seats) of its units, or the more the guest chose, up to one each, and never more
@@ -56,4 +56,41 @@ export function vehiclePartyText(people: number, units: number, category?: strin
 // Days a rental is priced for: Nov 3 – Nov 5 is 2 days, a single day is 1.
 export function rentalDays(from?: string, to?: string) {
   return from && to ? Math.max(1, daysBetween(from, to)) : 1;
+}
+
+type RideItem = Pick<components["schemas"]["trip_item"], "booking_type" | "seats" | "units" | "quantity" | "starts_on" | "ends_on" | "unavailable">;
+
+// The rides a trip already has over a rental's days (`from` to the return day `to`): its vehicle
+// rentals, from any shop, each carrying its `quantity` of people on its days (a rental's last day
+// is its return). `least`: the people riding on the emptiest day; `units`: vehicles on the busiest;
+// `gaps`: the runs of days with rides for fewer than `people`, as rental ranges (return day last).
+export function ridesHeld(items: RideItem[], from: string | undefined, to: string | undefined, people: number) {
+  const vehicles = items.filter((item) => item.booking_type === "rental" && item.seats !== null && !item.unavailable && item.starts_on);
+  const held = { least: 0, units: 0, gaps: [] as { from: string; to: string; days: number }[] };
+  if (!from || !to || vehicles.length === 0) return held;
+  let least = Infinity;
+  let run: { from: string; to: string; days: number } | null = null;
+  for (let day = from; day < to; day = addDays(day, 1)) {
+    const on = vehicles.filter((item) => {
+      const starts = item.starts_on as string;
+      const ends = item.ends_on && item.ends_on > starts ? item.ends_on : addDays(starts, 1);
+      return starts <= day && day < ends;
+    });
+    const riding = on.reduce((sum, item) => sum + item.quantity, 0);
+    least = Math.min(least, riding);
+    held.units = Math.max(held.units, on.reduce((sum, item) => sum + (item.units ?? 1), 0));
+    if (riding < people) {
+      if (run) {
+        run.to = addDays(day, 1);
+        run.days += 1;
+      } else {
+        run = { from: day, to: addDays(day, 1), days: 1 };
+        held.gaps.push(run);
+      }
+    } else {
+      run = null;
+    }
+  }
+  held.least = least === Infinity ? 0 : least;
+  return held;
 }

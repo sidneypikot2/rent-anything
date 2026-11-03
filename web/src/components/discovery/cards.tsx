@@ -9,6 +9,7 @@ import { GlassPanel } from "@/components/ui/glass";
 import { HeroTripLink } from "@/components/landing/hero-trip";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { InTripBadge } from "@/components/trips/in-trip-badge";
+import { SaveLandmarkButton } from "@/components/trips/save-landmark-button";
 import type { TripDates } from "@/components/trips/trip-dates";
 import { GROUP_ICON } from "./categories";
 import { placeIcon } from "./icons";
@@ -318,6 +319,7 @@ export function LandmarkCard({
   dates,
   areaName,
   reach,
+  corner,
 }: {
   landmark: { slug: string; name: string; description: string; tags: { slug: string; name: string }[] };
   // A stand-in that fits it, or none (landmarkPhotos), when its icon holds the photo's place.
@@ -332,6 +334,8 @@ export function LandmarkCard({
   areaName: string;
   // With no tour going there, how to get there yourself (ReachYourself) in the foot instead.
   reach?: ReactNode;
+  // A control in its top-right corner (its heart), above the title's stretched button.
+  corner?: ReactNode;
 }) {
   const goes = visits && visits.length > 0 ? visitsLine(visits) : null;
   return (
@@ -341,6 +345,7 @@ export function LandmarkCard({
       // card without one has, rather than a lone pin on navy beside the photo cards.
       placeholder={photo ? <PlaceGlyph className="size-12" /> : <PlaceScene tags={landmark.tags} />}
       badge={photo && !isApiPhoto(photo.src) ? <SamplePhotoTag /> : undefined}
+      corner={corner}
       label={landmark.name}
       id={landmark.slug}
       data-testid="landmark"
@@ -355,21 +360,25 @@ export function LandmarkCard({
               title={landmark.name}
               media={<PanelPhoto photo={photo} />}
               panel={<LandmarkPanel landmark={{ ...landmark, visits }} areaName={areaName} />}
+              actions={<SaveLandmarkButton slug={landmark.slug} name={landmark.name} guests={dates?.guests} variant="panel" />}
               className="truncate"
             >
               {landmark.name}
             </DetailPanelButton>
           </h3>
-          <LandmarkLine tags={landmark.tags.map((tag) => tag.name).join(" · ")} tours={tours ?? []} />
+          <LandmarkLine slug={landmark.slug} tags={landmark.tags.map((tag) => tag.name).join(" · ")} tours={tours ?? []} />
         </>
       }
+      // Each foot keyed: built here on the server and handed to a client component, it can reach
+      // the client as its own chunk, and React then asks it for a key (the smoke test's warning).
       foot={
         goes && tours && tours.length > 0 && dates ? (
-          <LandmarkToursButton place={landmark.name} label={goes} tours={tours} dates={dates} />
+          <LandmarkToursButton key="foot" place={landmark.name} label={goes} tours={tours} dates={dates} />
         ) : goes && visits ? (
           // A plain anchor: the row is on this page, and What to book shows it whatever section is
           // picked (it listens for the hash). Above the title's stretched button.
           <a
+            key="foot"
             href={`#listing-${visits[0].id}`}
             className="relative z-10 -my-1 flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold text-sky-pale underline-offset-4 hover:underline"
           >
@@ -378,7 +387,7 @@ export function LandmarkCard({
         ) : (
           (reach ?? (
             // The same height as the link, so its glass sits level with its neighbours'.
-            <span className="-my-1 flex min-h-11 items-center text-sm text-sky-mist">No tours go here yet</span>
+            <span key="foot" className="-my-1 flex min-h-11 items-center text-sm text-sky-mist">No tours go here yet</span>
           ))
         )
       }

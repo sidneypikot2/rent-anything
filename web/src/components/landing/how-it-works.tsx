@@ -69,10 +69,10 @@ export function HowItWorks() {
       surface="photo"
       title="How a trip comes together"
     >
-      <div className="flex flex-col gap-block md:grid md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] md:gap-gutter xl:block">
-        <ExampleTrip className="max-w-lg xl:hidden" />
+      <div className="flex flex-col gap-block md:grid md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] md:gap-gutter">
+        <ExampleTrip className="max-w-lg" />
         <div className={cn(glassClasses("dark"), "flex flex-col gap-5 rounded-card p-5 sm:gap-6 sm:p-card")}>
-          <ol className="reveal-steps flex flex-col gap-4 sm:gap-5 xl:grid xl:grid-cols-3 xl:gap-gutter">
+          <ol className="reveal-steps flex flex-col gap-4 sm:gap-5">
             {STEPS.map((step, index) => (
               // A phone shows the title alone, one line beside its number, so it centres on it. From
               // xl the steps hang on one dashed rail, as the hero search's steps do: one trip, in order.

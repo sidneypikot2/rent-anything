@@ -11,9 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/pill";
 import { Stepper } from "@/components/ui/stepper-field";
-import { Ticket, TicketRow } from "@/components/ui/ticket";
+import { Ticket } from "@/components/ui/ticket";
 import { useSession } from "@/lib/auth/session";
 import { formatPeso } from "@/lib/money";
+import { TO_BE_AGREED } from "@/lib/pricing";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { addDays, formatDateRange, todayIso } from "@/components/trips/format";
 import {
@@ -28,12 +29,15 @@ import {
   wantsDelivery,
   type Delivery,
 } from "@/components/trips/delivery-options";
-import { formatRentalSpan, PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
+import { PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
 import { useOptionalTripAdd } from "@/components/trips/trip-add-provider";
 import { tripDatesQuery, type TripDates } from "@/components/trips/trip-dates";
 import { usePriceBreakdown } from "@/components/trips/price-breakdown";
 import { useShopListings } from "@/components/trips/use-shop-listings";
-import { peopleText, rentalDays, seatsLabel, vehicleNoun, type ShopListing } from "@/components/trips/vehicle-party";
+import { CoverBar } from "@/components/trips/cover-bar";
+import { peopleText, rentalDays, ridesHeld, seatsLabel, vehicleNoun, type ShopListing } from "@/components/trips/vehicle-party";
+import { useTripHere } from "@/components/trips/use-trip-here";
+import { useTripHref } from "@/components/trips/trip-link";
 
 type Options = {
   business: { id: number; name: string };
@@ -49,6 +53,18 @@ type Options = {
   // After the add has started (the add sheet takes over): a pop-up closes.
   onAdding?: () => void;
 };
+
+// Where a rental starts: the longest run of the trip's days with a ride for fewer than its people,
+// while it has a ride on some of them; otherwise the trip's own dates.
+function openDays(items: Parameters<typeof ridesHeld>[0], dates: TripDates, people: number) {
+  const whole = { from: dates.from ?? "", to: dates.to ?? "" };
+  if (!dates.from) return whole;
+  const to = dates.to || addDays(dates.from, 1);
+  const { gaps } = ridesHeld(items, dates.from, to, people);
+  if (gaps.length === 0 || (gaps.length === 1 && gaps[0].from === dates.from && gaps[0].to === to)) return whole;
+  const longest = gaps.reduce((best, gap) => (gap.days > best.days ? gap : best));
+  return { from: longest.from, to: longest.to };
+}
 
 const seatsOf = (model: ShopListing) => (typeof model.details.seats === "number" ? model.details.seats : 1);
 // What can be picked of a model: its units free on the dates, or all it has without dates.
@@ -78,8 +94,15 @@ export function splitPeople(picked: { units: number; seats: number }[], people: 
 export function useShopModels({ business, category, dates, people, listingIds, place, onAdding }: Options) {
   const session = useSession();
   const flow = useOptionalTripAdd();
-  // The rental's own dates, the trip's at first; one date is one day, back the next.
-  const [rental, setRental] = useState({ from: dates.from ?? "", to: dates.to ?? "" });
+  // The trip the add goes to (the place's banner's, or the chosen one): its vehicle rentals
+  // already give some of its people a ride.
+  const tripItems = useTripHere(flow?.places ?? []).trip?.items ?? [];
+  const tripHref = useTripHref();
+  // The rental's own dates: until the guest picks some, the trip's days still without a ride for
+  // everyone (the longest run of them), or the trip's dates when it has no ride on any day or one
+  // on every day. One date is one day, back the next.
+  const [chosenDates, setRental] = useState<{ from: string; to: string } | null>(null);
+  const rental = chosenDates ?? openDays(tripItems, dates, people);
   const from = rental.from || undefined;
   const to = rental.from ? rental.to || addDays(rental.from, 1) : undefined;
   const [pickupTime, setPickupTime] = useState<string | null>(null);
@@ -96,6 +119,9 @@ export function useShopModels({ business, category, dates, people, listingIds, p
   const units = picked.reduce((sum, each) => sum + each.units, 0);
   const seats = picked.reduce((sum, each) => sum + each.units * each.seats, 0);
   const split = splitPeople(picked, people);
+  // The rides the trip already has on these days, counted with what is picked here.
+  const held = ridesHeld(tripItems, from, to, people);
+  const someDays = held.gaps.length > 0 && !(held.gaps.length === 1 && held.gaps[0].from === from && held.gaps[0].to === to);
   // Delivery and pick-up (RAA-195): offered while every model picked (or, before any is, every
   // model here) offers it; a choice no longer offered isn't sent.
   const [delivery, setDelivery] = useState<Delivery>(NO_DELIVERY);
@@ -135,7 +161,6 @@ export function useShopModels({ business, category, dates, people, listingIds, p
   const returnsAt = (picked.length > 0 ? breakdown.price?.returnsAt : null) ?? models.find((model) => model.ends_at)?.ends_at ?? null;
   const total = breakdown.price?.total ?? null;
   const deposit = breakdown.price?.deposit ?? 0;
-  const short = people - seats;
   const nouns = (count: number) => vehicleNoun(category.name, count);
   // Free nearby with every model (its nearest zone, RAA-205): as far as the shortest of them reaches.
   const freeReach =
@@ -159,6 +184,8 @@ export function useShopModels({ business, category, dates, people, listingIds, p
       quantity: split.reduce((sum, count) => sum + count, 0),
       guests: people,
       preview: { category: category.name, by: `by ${business.name}`, place, photo: null, price: total !== null ? formatPeso(total) : undefined },
+      // The models, dates, pickup and handover are all picked here: on a place's page it goes in at once.
+      confirmed: true,
       mix: picked.map((each, index) => ({
         listingId: each.model.id,
         title: each.model.title,
@@ -172,6 +199,8 @@ export function useShopModels({ business, category, dates, people, listingIds, p
         childHelmets: helmetsOf[index],
       })),
     });
+    // Fresh for another add; the "Added to trip" badge confirms this one.
+    setCounts({});
     onAdding?.();
   }
 
@@ -190,6 +219,7 @@ export function useShopModels({ business, category, dates, people, listingIds, p
       <Button
         glyph="plus"
         disabled={units === 0 || session === undefined || needsAddress(chosen) || Boolean(chosenDelivery && breakdown.price?.unavailable)}
+        loading={Boolean(flow.busyListingId && models.some((model) => model.id === flow.busyListingId))}
         onClick={addPicked}
         data-testid="shop-add"
       >
@@ -199,12 +229,6 @@ export function useShopModels({ business, category, dates, people, listingIds, p
 
   const body = (
     <div className="flex flex-col gap-4" data-testid="shop-models-body">
-      {(freeDelivery || helmets) && (
-        <div className="flex flex-wrap gap-2">
-          {freeDelivery && <Badge tone="emerald">Free delivery up to {Math.round(freeReach / 100) / 10} km</Badge>}
-          {helmets && <Badge tone="kind">Helmets included</Badge>}
-        </div>
-      )}
       <Ticket>
         <DateRangeField
           row
@@ -214,7 +238,11 @@ export function useShopModels({ business, category, dates, people, listingIds, p
           to={rental.to}
           onChange={setRental}
           placeholder="Pick dates"
-          hint={from && to ? `${days} ${days === 1 ? "day" : "days"} · back ${formatDateRange(to, to)}` : undefined}
+          hint={
+            from && to
+              ? `${days} ${days === 1 ? "day" : "days"}${dates.from && dates.to && (from !== dates.from || to !== dates.to) ? ` · trip ${formatDateRange(dates.from, dates.to)}` : ""}`
+              : undefined
+          }
           data-testid="shop-dates"
         />
         {from && to && pickupTimes && (
@@ -226,12 +254,14 @@ export function useShopModels({ business, category, dates, people, listingIds, p
           />
         )}
       </Ticket>
-      <p className="text-sm text-muted">
-        Your trip: <span className="font-semibold text-foreground">{peopleText(people)}</span>
-        {dates.from && dates.to && from && (from !== dates.from || to !== dates.to) ? ` · its dates stay ${formatDateRange(dates.from, dates.to)}` : ""}
-      </p>
+      {(freeDelivery || helmets) && (
+        <div className="flex flex-wrap gap-2">
+          {freeDelivery && <Badge tone="emerald">Free delivery up to {Math.round(freeReach / 100) / 10} km</Badge>}
+          {helmets && <Badge tone="kind">Helmets included</Badge>}
+        </div>
+      )}
 
-      {transmissions.length > 1 && (
+      {transmissions.length > 1 && models.length > 4 && (
         <div role="group" aria-label="Transmission" className="flex flex-wrap gap-2">
           <Pill on={transmission === null} onClick={() => setTransmission(null)}>
             All {models.length} models
@@ -271,63 +301,57 @@ export function useShopModels({ business, category, dates, people, listingIds, p
             const features = open ? listingFeatures({ details: model.details, cancellation_policy: "" }) : [];
             return (
               <Fragment key={model.id}>
-              <TicketRow
-                media={
-                  <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-action-tint text-action-ink">
-                    {model.cover_photo_url ? (
-                      <Image src={model.cover_photo_url} alt="" fill unoptimized={isApiPhoto(model.cover_photo_url)} sizes="3.5rem" className="object-cover" />
-                    ) : (
-                      <CategoryGlyph name={category.name} className="size-6" />
-                    )}
+              <div className="flex items-center gap-3 px-3.5 py-3" data-testid="shop-model">
+                <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-action-tint text-action-ink">
+                  {model.cover_photo_url ? (
+                    <Image src={model.cover_photo_url} alt="" fill unoptimized={isApiPhoto(model.cover_photo_url)} sizes="3.5rem" className="object-cover" />
+                  ) : (
+                    <CategoryGlyph name={category.name} className="size-6" />
+                  )}
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate text-control font-bold" data-testid="shop-model-title">
+                    {model.title}
                   </span>
-                }
-                label={facts.join(" · ")}
-                value={
-                  <span className="flex flex-col">
+                  <span className="truncate text-sm font-medium text-muted" data-testid="shop-model-free">
+                    {rate?.daily_price_cents ? (
+                      <>
+                        <span className="font-bold text-action-ink">{formatPeso(rate.daily_price_cents)}</span> a day
+                      </>
+                    ) : (
+                      TO_BE_AGREED
+                    )}
+                    {model.units_free ? ` · ${model.units_free} left` : ""}
+                  </span>
+                  <span className="flex min-w-0 items-center gap-2 text-xs text-muted">
+                    <span className="truncate">{facts.join(" · ")}</span>
                     <button
                       type="button"
                       aria-expanded={open}
                       aria-controls={detailsId}
+                      aria-label={`Details of ${model.title}`}
                       onClick={() => setExpanded(open ? null : model.id)}
-                      className="flex w-fit items-center gap-1 text-left underline-offset-4 hover:underline"
+                      className="tap-target flex shrink-0 items-center gap-0.5 font-semibold text-primary"
                       data-testid="shop-model-toggle"
                     >
-                      {model.title}
-                      <ChevronGlyph direction={open ? "up" : "down"} className="size-4 shrink-0 text-muted" />
+                      Details
+                      <ChevronGlyph direction={open ? "up" : "down"} className="size-3.5" />
                     </button>
-                    <span className="text-sm font-medium text-muted">
-                      <span className="font-bold text-action-ink">{formatPeso(model.vehicle_rate?.daily_price_cents ?? 0)}</span> a day
-                    </span>
-                    <span className="text-sm font-medium text-muted" data-testid="shop-model-free">
-                      {free ? (
-                        <>
-                          <span className="font-semibold text-foreground">{free} available</span>
-                          {model.starts_at && model.ends_at && ` · ${formatRentalSpan(model.starts_at, model.ends_at)}`}
-                        </>
-                      ) : model.starts_at ? (
-                        "None free for these times"
-                      ) : (
-                        "None available on your dates"
-                      )}
-                    </span>
                   </span>
-                }
-                control={
-                  free ? (
-                    <Stepper
-                      label={model.title}
-                      value={count}
-                      min={0}
-                      max={free}
-                      onChange={(value) => setCounts({ ...counts, [model.id]: value })}
-                      testId={`shop-model-${model.id}`}
-                    />
-                  ) : (
-                    <span className="shrink-0 text-sm text-muted">{model.starts_at ? "Taken" : "Sold out"}</span>
-                  )
-                }
-                data-testid="shop-model"
-              />
+                </span>
+                {free ? (
+                  <Stepper
+                    label={model.title}
+                    value={count}
+                    min={0}
+                    max={free}
+                    onChange={(value) => setCounts({ ...counts, [model.id]: value })}
+                    testId={`shop-model-${model.id}`}
+                  />
+                ) : (
+                  <span className="shrink-0 text-sm text-muted">{model.starts_at ? "Taken" : "Sold out"}</span>
+                )}
+              </div>
               {open && (
                 <div id={detailsId} className="flex flex-col gap-2.5 border-t-0! px-3.5 pt-1 pb-4 text-sm text-muted" data-testid="shop-model-details">
                   {features.length > 0 && (
@@ -349,7 +373,7 @@ export function useShopModels({ business, category, dates, people, listingIds, p
                       {rate.child_helmet_fee_cents !== null && ` · Child helmets: ${childHelmetFeeText(rate.child_helmet_fee_cents).toLowerCase()}`}
                     </p>
                   )}
-                  <Link href={`/listings/${model.id}${tripDatesQuery({ ...dates, from, to })}`} className="w-fit font-semibold text-link underline underline-offset-4" data-testid="listing-link">
+                  <Link href={tripHref(`/listings/${model.id}${tripDatesQuery({ ...dates, from, to })}`)} className="w-fit font-semibold text-link underline underline-offset-4" data-testid="listing-link">
                     See full details
                   </Link>
                 </div>
@@ -373,22 +397,19 @@ export function useShopModels({ business, category, dates, people, listingIds, p
       </Ticket>
       {breakdown.price?.unavailable && <p className="text-sm font-semibold text-warning">{breakdown.price.unavailable}</p>}
 
-      <div className="flex flex-col gap-2" data-testid="shop-seats">
-        <div className="flex flex-wrap justify-between gap-2 text-sm">
-          <span>
-            {units} {nouns(units)} · seats {seats}
-          </span>
-          <span className={short > 0 ? "text-warning" : "text-emerald"}>
-            {short > 0 ? `${short} of your ${people} still need a ride` : "Everyone has a seat"}
-          </span>
-        </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-line" aria-hidden>
-          <div
-            className="h-full rounded-full bg-action transition-[width] duration-300 ease-calm"
-            style={{ width: `${Math.min((seats / Math.max(people, 1)) * 100, 100)}%` }}
-          />
-        </div>
-      </div>
+      <CoverBar
+        people={people}
+        covered={Math.min(held.least + seats, people)}
+        summary={
+          held.units > 0
+            ? `${peopleText(people)} · ${held.units} ${nouns(held.units)} in your trip${units ? `, ${units} more picked` : ""}`
+            : `${peopleText(people)} · ${units} ${nouns(units)}, ${seats} ${seats === 1 ? "seat" : "seats"}`
+        }
+        need="a ride"
+        when={someDays ? held.gaps.map((gap) => formatDateRange(gap.from, gap.to)).join(", ") : undefined}
+        done="Everyone has a seat"
+        data-testid="shop-seats"
+      />
     </div>
   );
 

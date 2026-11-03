@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import { apiClient } from "@/api/client";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { tripDatesQuery, type TripDates } from "@/components/trips/trip-dates";
+import { useTripHref } from "@/components/trips/trip-link";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
@@ -188,6 +189,7 @@ export function ListingPanel({
   instantBook?: boolean;
   dates?: TripDates;
 }) {
+  const fullHref = useTripHref()(href);
   const { data: listing, isPending, isError } = useQuery({
     queryKey: ["listing", listingId],
     queryFn: async () => {
@@ -235,7 +237,7 @@ export function ListingPanel({
       {isError && (
         <p className="text-sm text-muted">
           Couldn&apos;t load the rest.{" "}
-          <Link href={href} className="font-semibold text-link underline">
+          <Link href={fullHref} className="font-semibold text-link underline">
             View full listing
           </Link>
         </p>
@@ -260,7 +262,7 @@ export function ListingPanel({
           <p className="text-sm break-words whitespace-pre-line">{description}</p>
         </PanelSection>
       )}
-      <Link href={href} data-testid="listing-link" className="w-fit text-sm font-semibold text-link underline-offset-4 hover:underline">
+      <Link href={fullHref} data-testid="listing-link" className="w-fit text-sm font-semibold text-link underline-offset-4 hover:underline">
         View full listing <span aria-hidden>→</span>
       </Link>
     </>

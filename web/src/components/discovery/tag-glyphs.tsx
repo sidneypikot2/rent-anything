@@ -164,6 +164,11 @@ export function GuestsGlyph({ className }: Props) {
   );
 }
 
+// A house: where the guest is staying (plan a whole trip).
+export function HomeGlyph({ className }: Props) {
+  return <Glyph paths={["M4 11 12 4l8 7", "M6 9.5V20h12V9.5", "M10 20v-5h4v5"]} className={className} />;
+}
+
 // A plus: adding something (Add to trip).
 export function PlusGlyph({ className }: Props) {
   return <Glyph paths={["M12 5v14", "M5 12h14"]} className={className} />;
@@ -277,7 +282,7 @@ export function AlertGlyph({ className }: Props) {
 
 // A chevron pointing down: something that opens below or in a sheet (the hero's search summary,
 // More activities); right: a summary that opens its own picker (rooms and guests).
-const CHEVRONS = { down: "M6 9l6 6 6-6", up: "M6 15l6-6 6 6", right: "M9 6l6 6-6 6" };
+const CHEVRONS = { down: "M6 9l6 6 6-6", up: "M6 15l6-6 6 6", right: "M9 6l6 6-6 6", left: "M15 6l-6 6 6 6" };
 export function ChevronGlyph({ direction = "down", className }: { direction?: keyof typeof CHEVRONS } & Props) {
   return <Glyph paths={[CHEVRONS[direction]]} className={className} />;
 }
@@ -336,4 +341,14 @@ export function CogGlyph({ className }: Props) {
 
 export function SignOutGlyph({ className }: Props) {
   return <Glyph paths={["M14 4H5v16h9", "M10 12h11", "M17 8l4 4-4 4"]} className={className} />;
+}
+
+// A heart: a place to see saved to the trip, filled once it is.
+const HEART = "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z";
+export function HeartGlyph({ filled = false, className }: { filled?: boolean } & Props) {
+  return (
+    <svg viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden className={className}>
+      <path d={HEART} />
+    </svg>
+  );
 }

@@ -83,7 +83,7 @@ function Day({ day, modifiers, className, ...props }: DayButtonProps) {
       data-day={toIso(day.date)}
       className={cn(
         className,
-        "h-10 w-full text-sm outline-none focus-visible:ring-2 focus-visible:ring-navy",
+        "h-11 w-full text-sm outline-none focus-visible:ring-2 focus-visible:ring-navy",
         end ? "rounded-control bg-primary font-semibold text-white" : modifiers.range_middle ? "bg-aqua text-navy" : "rounded-control",
         !modifiers.selected && !modifiers.disabled && "hover:bg-surface-2",
         modifiers.disabled && "cursor-not-allowed text-muted/50",

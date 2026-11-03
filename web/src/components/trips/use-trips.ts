@@ -49,6 +49,9 @@ export type AddRequest = {
   // Several of one partner's room types added together (RAA-188, a mix from its panel): each its
   // own item, all added or none. The request's own listing is the first of them.
   mix?: MixItem[];
+  // Everything was picked where the add started (a shop's panel): on a place's page, with dates,
+  // it is added at once, with no sheet.
+  confirmed?: boolean;
 };
 
 export type MixItem = {
@@ -338,6 +341,7 @@ export type TripChanges = {
   pets?: number;
   starts_on?: string | null;
   ends_on?: string | null;
+  stay?: OwnStay | null;
 };
 
 // PATCH /trips/:id: rename, re-date or change the guests.
@@ -363,7 +367,18 @@ export function cartItemCount(trips: Trip[] | undefined) {
   return currentTrips(trips).reduce((count, trip) => count + trip.items.length, 0);
 }
 
-export type NewTrip = { name: string; guests: number; starts_on: string | null; ends_on: string | null };
+// Where the guest sleeps when they booked it outside the app (plan a whole trip): a pin and an
+// optional name; null forgets it.
+export type OwnStay = { lat: number; lng: number; name?: string | null };
+
+export type NewTrip = {
+  name: string;
+  guests: number;
+  starts_on: string | null;
+  ends_on: string | null;
+  children?: number;
+  stay?: OwnStay | null;
+};
 
 // POST /trips: a named trip planned before anything is in it ("Plan a new trip").
 export function useCreateTrip() {
@@ -438,6 +453,39 @@ export function useUpdateTripItem() {
         body: changes,
       });
       if (!data) throw tripError(error, "Couldn't change the item. Try again.");
+      return data;
+    },
+    onSuccess: invalidate,
+    onError: failed,
+  });
+}
+
+// POST /trip_landmarks: saves a place to see to `tripId`, or to a new undated trip (named by the
+// server after the place's destination) for `guests` when it's null. Answers with the trip.
+export function useSaveLandmark() {
+  const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
+  return useMutation({
+    mutationFn: async ({ slug, tripId, guests }: { slug: string; tripId: number | null; guests?: number }) => {
+      const { data, error } = await apiClient().POST("/api/v1/trip_landmarks", {
+        body: { landmark_slug: slug, trip_id: tripId, ...(tripId === null && guests ? { guests } : {}) },
+      });
+      if (!data) throw tripError(error, "Couldn't save it to your trip. Try again.");
+      return data;
+    },
+    onSuccess: invalidate,
+    onError: failed,
+  });
+}
+
+// DELETE /trip_landmarks/:id: a saved place off its trip.
+export function useUnsaveLandmark() {
+  const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { data, error } = await apiClient().DELETE("/api/v1/trip_landmarks/{id}", { params: { path: { id } } });
+      if (!data) throw tripError(error, "Couldn't remove it. Try again.");
       return data;
     },
     onSuccess: invalidate,

@@ -12,7 +12,8 @@ import type { Trip } from "@/components/trips/use-trips";
 // has trips, and a place page's Switch trip (AreaHero). `selected`: the trip being worked on, else
 // the first (the one the home page would have continued). `places`, on a place page: the trips
 // with something here come first, under "In <place>", so the one wanted is near the top however
-// many trips the guest has.
+// many trips the guest has. The home page's Plan a whole trip (HeroPlanChoice) asks it too, in its own words (`meta`,
+// `newDetail`).
 export function TripChoiceSheet({
   trips,
   areaName,
@@ -20,6 +21,8 @@ export function TripChoiceSheet({
   selected,
   onPick,
   onClose,
+  meta,
+  newDetail = "Starts with the first thing you add",
 }: {
   trips: Trip[];
   areaName: string;
@@ -27,6 +30,8 @@ export function TripChoiceSheet({
   selected?: number | "new";
   onPick: (choice: Trip | "new") => void;
   onClose: () => void;
+  meta?: string;
+  newDetail?: string;
 }) {
   const [picked, setPicked] = useState<number | "new">(selected ?? trips[0]?.id ?? "new");
   const isHere = (trip: Trip) => trip.items.some((item) => places?.includes(item.area.slug) ?? false);
@@ -63,7 +68,7 @@ export function TripChoiceSheet({
       onClose={onClose}
       placement="sheet"
       title="Which trip?"
-      meta={`Add to one of your trips, or start a new one on ${areaName}`}
+      meta={meta ?? `Add to one of your trips, or start a new one on ${areaName}`}
       data-testid="trip-choice-sheet"
     >
       <form onSubmit={submit} className="flex flex-1 flex-col gap-4">
@@ -79,7 +84,7 @@ export function TripChoiceSheet({
               checked={picked === "new"}
               onSelect={() => setPicked("new")}
               title="New trip"
-              detail="Starts with the first thing you add"
+              detail={newDetail}
             />
           </Ticket>
         </fieldset>

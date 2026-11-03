@@ -26,6 +26,11 @@ export function formatRentalMoment(iso: string) {
   return `${day} · ${time}`;
 }
 
+// A return as the pickup row says it, short enough for one line beside the select: "Nov 4, 8:30 AM".
+function formatReturn(iso: string) {
+  return new Date(iso).toLocaleString("en-US", { timeZone: RENTAL_TIME_ZONE, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
 // The time of a moment in the area's time, as the API's pickup times are: "08:30".
 export function rentalClock(iso: string) {
   return new Date(iso).toLocaleTimeString("en-GB", { timeZone: RENTAL_TIME_ZONE, hour: "2-digit", minute: "2-digit", hour12: false });
@@ -63,12 +68,19 @@ export function PickupTimeRow({
     return <TicketRow icon={<ClockGlyph />} label="Pickup time" value="No pickups left that day" data-testid="pickup-row" />;
   const firstFree = times.find((slot) => slot.available);
   const taken = times.length > 0 && !times[0].available && firstFree;
+  // "Pickup time" leads; the return is a quiet line under it, so it doesn't wrap in bold beside the select.
   return (
     <TicketRow
       icon={<ClockGlyph />}
-      label={<label htmlFor={id}>Pickup time</label>}
-      value={returnsAt ? `Return by ${formatRentalMoment(returnsAt)}` : "24 hours a day from pickup"}
-      detail={taken ? `free from ${formatPickupTime(firstFree.time)}` : undefined}
+      value={
+        <span className="flex flex-col">
+          <label htmlFor={id}>Pickup time</label>
+          <span className="text-sm font-medium text-muted" data-testid="pickup-returns">
+            {returnsAt ? `Back by ${formatReturn(returnsAt)}` : "24 hours a day from pickup"}
+            {taken && ` · free from ${formatPickupTime(firstFree.time)}`}
+          </span>
+        </span>
+      }
       control={
         // Our own chevron in the right padding, as SelectField's: the browser's arrow sat against
         // the time and the border.
@@ -77,7 +89,7 @@ export function PickupTimeRow({
             id={id}
             value={value ?? ""}
             onChange={(event) => onChange(event.currentTarget.value)}
-            className="min-h-11 appearance-none rounded-control border border-line-strong bg-surface pr-10 pl-4 text-control font-semibold focus:border-primary focus:ring-4 focus:ring-sky-mist focus:outline-none"
+            className="min-h-11 appearance-none rounded-control border border-line-strong bg-surface pr-9 pl-3.5 text-control font-semibold focus:border-primary focus:ring-4 focus:ring-sky-mist focus:outline-none"
             data-testid="pickup-time"
           >
             {times.map((slot) => (
