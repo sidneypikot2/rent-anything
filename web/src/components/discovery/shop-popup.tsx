@@ -2,11 +2,14 @@
 
 import { Dialog } from "@/components/ui/dialog";
 import type { TripDates } from "@/components/trips/trip-dates";
+import type { ShopGroup } from "@/components/trips/use-shop-listings";
 import { useShopModels } from "./shop-models";
 
 type Props = {
   business: { id: number; name: string };
   category: { slug: string; name: string };
+  // Gear's sheet holds all the shop's gear, whatever its category (RAA-255).
+  group?: ShopGroup;
   area: string;
   dates: TripDates;
   // The trip's people, to compare the seats picked with.
@@ -16,8 +19,8 @@ type Props = {
 
 // A shop's models in a pop-up (RAA-191, the plan's mock 2), opened from a vehicle's "More from this
 // shop": the shop's name and initials over its models (useShopModels).
-export function ShopPopup({ business, category, area, dates, people, onClose }: Props) {
-  const { body, summary, action } = useShopModels({ business, category, dates, people, place: area, onAdding: onClose });
+export function ShopPopup({ business, category, group, area, dates, people, onClose }: Props) {
+  const { body, summary, action } = useShopModels({ business, category, group, dates, people, place: area, onAdding: onClose });
   const initials = business.name
     .split(/\s+/)
     .filter(Boolean)
@@ -31,7 +34,7 @@ export function ShopPopup({ business, category, area, dates, people, onClose }: 
       onClose={onClose}
       placement="sheet"
       title={business.name}
-      meta={`${category.name} rental · ${area}`}
+      meta={`${group === "gear" ? "Gear" : category.name} rental · ${area}`}
       thumb={
         <span aria-hidden className="absolute inset-0 flex items-center justify-center bg-action-tint text-lg font-bold text-action-ink">
           {initials}

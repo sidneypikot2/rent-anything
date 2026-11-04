@@ -7,6 +7,7 @@ import { useSession } from "@/lib/auth/session";
 import { formatDateRange } from "./format";
 import { chooseTrip, readChosenTrip } from "./chosen-trip";
 import { showAddedBadge } from "./added-badge";
+import { sameGearRental } from "./vehicle-party";
 import { tripHere } from "./use-trip-here";
 import { currentTrips, useAddTripItem, useFetchTrips, type AddRequest, type Trip } from "./use-trips";
 import { WhichTripSheet } from "./which-trip-sheet";
@@ -64,7 +65,7 @@ export function TripAddProvider({ children, places }: { children: ReactNode; pla
     const dates = grew && formatDateRange(trip.starts_on, trip.ends_on);
     // Gear counted into a line already there says the new count: "now 3 in Bantayan Island".
     const line = trip.items.find(
-      (item) => item.listing.id === request.listingId && item.listing.group === "gear" && !item.booking && item.starts_on === (request.startsOn ?? null),
+      (item) => !request.mix && item.listing.id === request.listingId && item.listing.group === "gear" && !item.booking && sameGearRental(item, request),
     );
     const what = line && line.quantity > 1 ? `${request.title}, now ${line.quantity} in` : `${request.title} to`;
     setAnnounced(`Added ${what} ${trip.name}${dates ? ` · now ${dates}` : ""}`);

@@ -93,7 +93,7 @@ export function newTabProps(newTab: boolean) {
 // price, and the chips all of those share. Its name and its See N options open the business's
 // own page (`href`), where its options are listed (BusinessOptions): in a new tab on a laptop,
 // in the same tab on a phone. A business with one listing here keeps that listing's Add to trip
-// on the card; a shop of rental vehicles (`shop`) offers Choose motorbikes, as its models are
+// on the card; a rental shop (`shop`) offers Choose motorbikes or Choose gear, as its models are
 // picked together on its page (RAA-195).
 export function BusinessRow({
   name,
@@ -114,8 +114,8 @@ export function BusinessRow({
   // Chips every card in its group has, which the group's note says once instead (its page
   // still lists them).
   sharedChips?: string[];
-  // A shop whose listings here are all rental vehicles (RAA-191).
-  shop?: { businessId: number };
+  // A shop whose listings here are all rentals of one kind (RAA-191, `rentalShop`).
+  shop?: { businessId: number; counted: boolean };
 }) {
   const shown = useContext(ShownOffersContext);
   const offers = shown ? allOffers.filter((offer) => shown.has(offer.listingId)) : allOffers;
@@ -234,7 +234,7 @@ export function BusinessRow({
             data-testid={shop ? "business-choose" : "business-options"}
             className="max-w-full shrink-0"
           >
-            {shop ? `Choose ${vehicleNoun(categories[0], 2)}` : `See ${offers.length} options`}
+            {shop ? `Choose ${shop.counted ? "gear" : vehicleNoun(categories[0], 2)}` : `See ${offers.length} options`}
           </ButtonLink>
         ) : (
           single.action
@@ -257,8 +257,8 @@ function apartOf(offers: Offer[]) {
 // A business's options in one group, on its own page (Booking.com's room table): each with its
 // photo, what sets it apart, its price and Add to trip; its title opens the listing's own page in
 // a new tab on a laptop (as the card did this page), and its details in the side panel on a phone. A stay with several room types and the trip's
-// dates offers rooms for the whole party first (StayMixPicker, RAA-188); a shop of rental
-// vehicles picks its models together (`shop`, RAA-191).
+// dates offers rooms for the whole party first (StayMixPicker, RAA-188); a rental shop picks its
+// models together (`shop`, RAA-191).
 export function BusinessOptions({
   name,
   groupTitle,
@@ -270,7 +270,7 @@ export function BusinessOptions({
   groupTitle: string;
   offers: Offer[];
   dates: TripDates;
-  shop?: { businessId: number };
+  shop?: { businessId: number; counted: boolean };
 }) {
   // Each option's panel opener, so the mix picker's rows can open one too.
   const openers = useRef(new Map<number, () => void>());
@@ -290,7 +290,7 @@ export function BusinessOptions({
   if (shop)
     return (
       <>
-        <ShopOptions name={name} businessId={shop.businessId} offers={offers} dates={dates} />
+        <ShopOptions name={name} businessId={shop.businessId} counted={shop.counted} offers={offers} dates={dates} />
         {panels}
       </>
     );
@@ -380,12 +380,26 @@ function OptionPanel({ offer, dates, register }: { offer: Offer; dates: TripDate
   );
 }
 
-// A vehicle shop's models (RAA-191, the plan's mock 2), each with a counter, the seats they make
-// for the trip's people, the total and one Add for them all, in a card on its page.
-function ShopOptions({ name, businessId, offers, dates }: { name: string; businessId: number; offers: Offer[]; dates: TripDates }) {
+// A rental shop's models (RAA-191, the plan's mock 2), each with a counter, the seats they make
+// for the trip's people (not gear's, which is `counted`), the total and one Add for them all, in a
+// card on its page.
+function ShopOptions({
+  name,
+  businessId,
+  counted,
+  offers,
+  dates,
+}: {
+  name: string;
+  businessId: number;
+  counted: boolean;
+  offers: Offer[];
+  dates: TripDates;
+}) {
   const { body, summary, action } = useShopModels({
     business: { id: businessId, name },
     category: { name: offers[0].category },
+    group: counted ? "gear" : "rental",
     dates,
     people: dates.guests,
     listingIds: offers.map((offer) => offer.listingId),

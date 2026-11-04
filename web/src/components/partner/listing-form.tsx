@@ -74,7 +74,7 @@ import {
 import type { PartnerBusiness } from "./use-partner-businesses";
 import type { PartnerLandmark } from "./use-partner-landmarks";
 import { FlatPriceField, isFlatPriced, toFlatPriceValue, toFlatRateBody } from "./flat-price-field";
-import { includedAmenities, isVehicle, toVehicleAttrs, toVehicleValues, VehicleFields, type VehicleValues } from "./vehicle-fields";
+import { includedAmenities, isGear, isVehicle, toVehicleAttrs, toVehicleValues, VehicleFields, type VehicleValues } from "./vehicle-fields";
 import {
   toVehiclePricingValues,
   toVehicleRateBody,
@@ -151,7 +151,9 @@ export function ListingForm({
   const addressQuery = addressChanged(address, listing.address) ? geocodeQuery(address) : undefined;
   const stayCategory = isStay(category);
   const vehicleCategory = isVehicle(category);
-  // Gear and transfers have one flat price (RAA-191).
+  const gearCategory = isGear(category);
+  // Vehicles and gear share a daily rate; a transfer has one flat price (RAA-191).
+  const rentalCategory = vehicleCategory || gearCategory;
   const flatCategory = isFlatPriced(category);
   const tourCategory = isTour(category);
   const fields = stayCategory || vehicleCategory || tourCategory ? [] : attributeFields(category);
@@ -189,12 +191,13 @@ export function ListingForm({
       // A tour has no units: groups a day stand in for them (RAA-111).
       units_count: tourCategory ? 1 : units,
       landmark_ids: visitsLandmarks ? landmarks.map((landmark) => landmark.id) : [],
-      // Accommodation is priced by the night, a vehicle by the day (RAA-150) and a tour by its
-      // own price (RAA-111); other categories' fees aren't edited here yet.
+      // Accommodation is priced by the night, a rental by the day (RAA-150) and a tour by its
+      // own price (RAA-111); other categories' fees, gear's too, aren't edited here yet.
       ...(stayCategory
         ? { stay_rate: toStayRateBody(pricing, stay.placeType, stay.guests), fees: toFeesBody(pricing) }
         : {}),
-      ...(vehicleCategory ? { vehicle_rate: toVehicleRateBody(vehiclePricing, category?.slug), fees: toFeesBody(vehiclePricing) } : {}),
+      ...(rentalCategory ? { vehicle_rate: toVehicleRateBody(vehiclePricing, category?.slug, gearCategory) } : {}),
+      ...(vehicleCategory ? { fees: toFeesBody(vehiclePricing) } : {}),
       ...(flatCategory && flatPrice ? { flat_rate: toFlatRateBody(flatPrice) } : {}),
       ...(tourCategory ? toTourListingBody(tour, extras) : {}),
       // Sent only once moved: a body's photos deletes any photo it leaves out.
@@ -237,8 +240,9 @@ export function ListingForm({
       setPriceErrors(pricingErrors(pricing));
       return;
     }
-    if (vehicleCategory && vehiclePricingErrors(vehiclePricing, includedAmenities(vehicleValues, category?.slug))) {
-      setVehiclePriceErrors(vehiclePricingErrors(vehiclePricing, includedAmenities(vehicleValues, category?.slug)));
+    const rentalProblems = rentalCategory && vehiclePricingErrors(vehiclePricing, includedAmenities(vehicleValues, category?.slug), gearCategory);
+    if (rentalProblems) {
+      setVehiclePriceErrors(rentalProblems);
       return;
     }
     if (tourCategory && tourErrors(tour)) {
@@ -295,12 +299,8 @@ export function ListingForm({
           { id: "tour-pricing", label: "Pricing" },
         ]
       : []),
-    ...(vehicleCategory
-      ? [
-          { id: "vehicle", label: "Vehicle details" },
-          { id: "vehicle-pricing", label: "Pricing" },
-        ]
-      : []),
+    ...(vehicleCategory ? [{ id: "vehicle", label: "Vehicle details" }] : []),
+    ...(rentalCategory ? [{ id: "vehicle-pricing", label: "Pricing" }] : []),
     ...(fields.length > 0 ? [{ id: "details", label: "Details" }] : []),
     { id: "cancellation", label: "Cancellation policy" },
     { id: "booking", label: "Booking" },
@@ -486,29 +486,31 @@ export function ListingForm({
         )}
 
         {vehicleCategory && (
-          <>
-            <EditSection id="vehicle" title="Vehicle details">
-              <VehicleFields values={vehicleValues} onChange={setVehicleValues} slug={category?.slug} />
-            </EditSection>
-            <EditSection id="vehicle-pricing" title="Pricing" data-testid="listing-vehicle-pricing">
-              {!listing.vehicle_rate?.daily_price_cents && (
-                <p role="status" className="text-sm font-medium text-warning">
-                  Set a daily price: guests don&apos;t see a price for this vehicle until you do.
-                </p>
-              )}
-              <VehiclePricingFields
-                location={location}
-                values={vehiclePricing}
-                onChange={(values) => {
-                  setVehiclePricing(values);
-                  setVehiclePriceErrors(undefined);
-                }}
-                errors={vehiclePriceErrors}
-                included={includedAmenities(vehicleValues, category?.slug)}
-                slug={category?.slug}
-              />
-            </EditSection>
-          </>
+          <EditSection id="vehicle" title="Vehicle details">
+            <VehicleFields values={vehicleValues} onChange={setVehicleValues} slug={category?.slug} />
+          </EditSection>
+        )}
+
+        {rentalCategory && (
+          <EditSection id="vehicle-pricing" title="Pricing" data-testid="listing-vehicle-pricing">
+            {!listing.vehicle_rate?.daily_price_cents && (
+              <p role="status" className="text-sm font-medium text-warning">
+                Set a daily price: guests don&apos;t see a price for this {gearCategory ? "item" : "vehicle"} until you do.
+              </p>
+            )}
+            <VehiclePricingFields
+              location={location}
+              values={vehiclePricing}
+              onChange={(values) => {
+                setVehiclePricing(values);
+                setVehiclePriceErrors(undefined);
+              }}
+              errors={vehiclePriceErrors}
+              included={includedAmenities(vehicleValues, category?.slug)}
+              slug={category?.slug}
+              gear={gearCategory}
+            />
+          </EditSection>
         )}
 
         {flatCategory && (
@@ -518,7 +520,7 @@ export function ListingForm({
                 Set a price: guests don&apos;t see one until you do.
               </p>
             )}
-            <FlatPriceField value={flatPrice} onChange={setFlatPrice} transfer={category?.booking_type === "transfer"} />
+            <FlatPriceField value={flatPrice} onChange={setFlatPrice} />
           </EditSection>
         )}
 

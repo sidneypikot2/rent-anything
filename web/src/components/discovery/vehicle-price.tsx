@@ -28,8 +28,10 @@ function drivingText(rate: Rate) {
 }
 
 // What a vehicle rental costs (RAA-150): its rates, the deposit, who drives, delivery and pick-up, the km
-// limit and its fees. Checkout charges the daily price for each vehicle and day (RAA-191).
+// limit and its fees. Checkout charges the daily price for each vehicle and day (RAA-191). Gear has
+// the same rate with no one driving and no km to count (RAA-255).
 export function VehiclePrice({ listing, rate }: { listing: ListingDetail; rate: Rate }) {
+  const gear = listing.group === "gear";
   const rates: [string, string][] = [
     ["Per day", formatPeso(rate.daily_price_cents)],
     ...(rate.half_day_price_cents
@@ -45,7 +47,7 @@ export function VehiclePrice({ listing, rate }: { listing: ListingDetail; rate: 
   ];
   const terms: [string, string][] = [
     ["Security deposit", rate.security_deposit_cents ? `${formatPeso(rate.security_deposit_cents)}, refunded on return` : "None"],
-    ["Driving", drivingText(rate)],
+    ...(gear ? [] : [["Driving", drivingText(rate)] as [string, string]]),
     // By distance from the shop (RAA-205): "Free up to 1 km, ₱150 up to 3 km".
     ["Delivery to you", rate.delivery_fee_cents !== null && rate.delivery_zones.length ? zonesText(rate.delivery_zones) : serviceText(rate.delivery_fee_cents)],
     [
@@ -53,13 +55,17 @@ export function VehiclePrice({ listing, rate }: { listing: ListingDetail; rate: 
       rate.return_pickup_fee_cents !== null && rate.delivery_zones.length ? zonesText(rate.delivery_zones) : serviceText(rate.return_pickup_fee_cents),
     ],
     ...(rate.min_rental_days > 1 ? [["Minimum rental", plural(rate.min_rental_days, "day")] as [string, string]] : []),
-    [
-      "Km limit",
-      rate.km_limit_per_day
-        ? `${rate.km_limit_per_day} km a day` +
-          (rate.excess_km_fee_cents ? `, then ${formatPeso(rate.excess_km_fee_cents)} per km` : "")
-        : "Unlimited",
-    ],
+    ...(gear
+      ? []
+      : [
+          [
+            "Km limit",
+            rate.km_limit_per_day
+              ? `${rate.km_limit_per_day} km a day` +
+                (rate.excess_km_fee_cents ? `, then ${formatPeso(rate.excess_km_fee_cents)} per km` : "")
+              : "Unlimited",
+          ] as [string, string],
+        ]),
   ];
   const required = listing.fees.filter((fee) => fee.required);
   const addOns = listing.fees.filter((fee) => !fee.required);

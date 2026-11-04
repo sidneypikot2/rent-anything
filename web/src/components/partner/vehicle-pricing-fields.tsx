@@ -168,9 +168,17 @@ function zoneBody(zones: ZoneValues[]) {
     .sort((a, b) => a.max_distance_m - b.max_distance_m);
 }
 
+// Gear has a daily price, a deposit, hours and delivery only (RAA-255): whatever else the fields
+// hold, from a category changed on the form, goes back to its default.
+function forGear(values: VehiclePricingValues): VehiclePricingValues {
+  const { daily, minDays, depositOn, deposit, delivers, picksUp, zones, pickupFrom, pickupUntil, turnaround } = values;
+  return { ...NEW_VEHICLE_PRICING, daily, minDays, depositOn, deposit, delivers, picksUp, zones, pickupFrom, pickupUntil, turnaround };
+}
+
 // What the API takes. Call it after vehiclePricingErrors has passed. Child helmets are a
 // motorcycle's only (RAA-205): any other vehicle sends none.
-export function toVehicleRateBody(values: VehiclePricingValues, slug?: string): VehicleRateBody {
+export function toVehicleRateBody(typed: VehiclePricingValues, slug?: string, gear = false): VehicleRateBody {
+  const values = gear ? forGear(typed) : typed;
   const kmLimit = values.kmLimitOn ? wholeNumber(values.kmLimit) : null;
   return {
     daily_price_cents: toCents(values.daily) ?? 0,
@@ -219,7 +227,8 @@ export type VehiclePricingErrors = Partial<
 // What the pricing still needs before it can be saved, or undefined when nothing. The same
 // rules as VehicleRate, so a mistake shows here rather than as a 422.
 // The vehicle's ticked inclusions (`included`) can't also be charged as fees.
-export function vehiclePricingErrors(values: VehiclePricingValues, included: string[]): VehiclePricingErrors | undefined {
+export function vehiclePricingErrors(typed: VehiclePricingValues, included: string[], gear = false): VehiclePricingErrors | undefined {
+  const values = gear ? forGear(typed) : typed;
   const errors: VehiclePricingErrors = {};
   const daily = toCents(values.daily);
   if (!daily) errors.daily = "Set a daily price above ₱0";
@@ -358,7 +367,8 @@ function perDay(text: string, days: number) {
 // A vehicle rental's price (RAA-150), top to bottom: the daily price, who drives (not for a
 // motorbike), the other rental lengths, the deposit, the km limit, delivery and pick-up, then
 // the extra fees. Everything optional is a tick box that opens its fields. Guests see it; the price is still confirmed with the partner,
-// as checkout doesn't quote rentals yet.
+// as checkout doesn't quote rentals yet. `gear` keeps only what a count of items has (RAA-255):
+// the daily price, the hours, the deposit and delivery.
 export function VehiclePricingFields({
   values,
   onChange,
@@ -366,6 +376,7 @@ export function VehiclePricingFields({
   included,
   slug,
   location,
+  gear = false,
 }: {
   // The listing's pin, which the delivery zones are drawn around (RAA-205).
   location?: LatLng | null;
@@ -374,7 +385,9 @@ export function VehiclePricingFields({
   errors?: VehiclePricingErrors;
   included: string[];
   slug: string | undefined;
+  gear?: boolean;
 }) {
+  const noun = gear ? "item" : "vehicle";
   const set = (patch: Partial<VehiclePricingValues>) => onChange({ ...values, ...patch });
   const money = { type: "number", min: 0, step: "0.01", inputMode: "decimal" } as const;
   const count = { type: "number", step: 1, inputMode: "numeric" } as const;
@@ -392,7 +405,7 @@ export function VehiclePricingFields({
         Guests see these prices on your listing. You confirm the final price with them when you accept a booking.
       </p>
 
-      <PricingSection title="Daily price" intro="What a 24-hour rental costs. Every vehicle needs one.">
+      <PricingSection title="Daily price" intro={`What a 24-hour rental costs. Every ${noun} needs one.`}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             label="Price per day (₱)"
@@ -421,7 +434,7 @@ export function VehiclePricingFields({
 
       <PricingSection
         title="Operating hours"
-        intro="Guests pick up and return vehicles while you're open. A rental runs 24 hours a day from its pickup: picked up at 8:00 AM, it comes back at 8:00 AM. Once it's back, the next guest can take it."
+        intro={`Guests pick up and return ${noun}s while you're open. A rental runs 24 hours a day from its pickup: picked up at 8:00 AM, it comes back at 8:00 AM. Once it's back, the next guest can take it.`}
         data-testid="pricing-pickup"
       >
         <div className="grid gap-4 sm:grid-cols-3">
@@ -446,13 +459,13 @@ export function VehiclePricingFields({
             options={TURNAROUNDS}
             value={values.turnaround}
             onChange={(event) => set({ turnaround: event.target.value })}
-            hint="Time to check, clean and refuel."
+            hint={gear ? "Time to check, clean and charge." : "Time to check, clean and refuel."}
             data-testid="pricing-turnaround"
           />
         </div>
       </PricingSection>
 
-      {hasDriverOption(slug) && (
+      {!gear && hasDriverOption(slug) && (
         <PricingSection title="Driving" intro="Whether the guest drives, or you send a driver." data-testid="pricing-driving">
           <ChoiceCards
             legend="Who drives"
@@ -481,6 +494,7 @@ export function VehiclePricingFields({
         </PricingSection>
       )}
 
+      {!gear && (
       <PricingSection title="Other rental lengths" intro="Tick the ones you offer.">
         <OptionalRate label="Half-day" name="half_day" on={values.halfDayOn} onToggle={(halfDayOn) => set({ halfDayOn })}>
           <Field
@@ -541,8 +555,9 @@ export function VehiclePricingFields({
           />
         </OptionalRate>
       </PricingSection>
+      )}
 
-      <PricingSection title="Security deposit" intro="Money held at pick-up and returned with the vehicle.">
+      <PricingSection title="Security deposit" intro={`Money held at pick-up and returned with the ${noun}.`}>
         <OptionalRate
           label="Ask for a deposit"
           name="deposit"
@@ -562,6 +577,7 @@ export function VehiclePricingFields({
         </OptionalRate>
       </PricingSection>
 
+      {!gear && (
       <PricingSection title="Distance" intro="Without a limit, guests ride as far as they like.">
         <OptionalRate
           label="Limit the km per day"
@@ -590,10 +606,15 @@ export function VehiclePricingFields({
           />
         </OptionalRate>
       </PricingSection>
+      )}
 
       <PricingSection
         title="Delivery and pick-up"
-        intro="Bringing the vehicle to the guest, and collecting it at the end, priced by how far they are from your pin."
+        intro={
+          gear
+            ? "Bringing it to the guest, and collecting it at the end, priced by how far they are from your pin. One fee each way, however many they rent."
+            : "Bringing the vehicle to the guest, and collecting it at the end, priced by how far they are from your pin."
+        }
         data-testid="pricing-delivery"
       >
         <div className="flex flex-col gap-4">
@@ -612,12 +633,12 @@ export function VehiclePricingFields({
             />
           </div>
           {(values.delivers || values.picksUp) && (
-            <DeliveryZoneFields zones={values.zones} onChange={(zones) => set({ zones })} error={errors?.zones} location={location} />
+            <DeliveryZoneFields zones={values.zones} onChange={(zones) => set({ zones })} error={errors?.zones} location={location} gear={gear} />
           )}
         </div>
       </PricingSection>
 
-      {hasChildHelmets(slug) && (
+      {!gear && hasChildHelmets(slug) && (
         <PricingSection
           title="Child helmets"
           intro="Helmets sized for a child riding as a passenger. Free shows as included; with a fee, guests add them for each day."
@@ -637,6 +658,7 @@ export function VehiclePricingFields({
         </PricingSection>
       )}
 
+      {!gear && (
       <PricingSection>
         <div className="flex flex-col gap-3">
           <FeeFields
@@ -666,6 +688,7 @@ export function VehiclePricingFields({
           )}
         </div>
       </PricingSection>
+      )}
     </div>
   );
 }
@@ -677,11 +700,13 @@ function DeliveryZoneFields({
   onChange,
   error,
   location,
+  gear,
 }: {
   zones: ZoneValues[];
   onChange: (zones: ZoneValues[]) => void;
   error?: string;
   location?: LatLng | null;
+  gear: boolean;
 }) {
   const set = (index: number, patch: Partial<ZoneValues>) => onChange(zones.map((zone, at) => (at === index ? { ...zone, ...patch } : zone)));
   const body = zoneBody(zones.filter((zone) => zoneOk(Number(zone.km))));
@@ -702,7 +727,7 @@ function DeliveryZoneFields({
             data-testid="pricing-zone-km"
           />
           <Field
-            label="Fee a vehicle (₱)"
+            label={gear ? "Fee (₱)" : "Fee a vehicle (₱)"}
             type="number"
             min={0}
             step="0.01"

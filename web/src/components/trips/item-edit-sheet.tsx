@@ -50,7 +50,7 @@ export function ItemEditSheet({ trip, item, onClose, onSaved }: Props) {
   const [units, setUnits] = useState<number | null>(null);
   // A vehicle rental's pickup time (RAA-195): its own, until the guest picks another; the API
   // says which of the shop's are free on the dates and when it is due back.
-  const vehicle = item.seats !== null || item.returns_at !== null;
+  const vehicle = item.seats !== null || item.returns_at !== null || item.listing.group === "gear";
   const [pickupTime, setPickupTime] = useState<string | null>(item.pickup_time);
   const update = useUpdateTripItem();
   // Gear is booked by the count: how many, up to the units the partner lists (max_quantity).

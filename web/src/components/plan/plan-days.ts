@@ -89,7 +89,7 @@ export function planDays(trip: Trip, place: PlanPlace, stay: { lat: number; lng:
         const out = clock ? formatPickupTime(clock) : null;
         if (from === to && date === from) {
           riding = kind === "ride";
-          events.push({ ...base, kind, label: kind === "gear" ? "Gear · pickup" : "Ride · pickup", time: out, priced: true, lines: [itemAmount(item), "Back the same day"] });
+          events.push({ ...base, kind, label: kind === "gear" ? "Gear · pickup" : "Ride · pickup", time: out, priced: true, lines: [itemAmount(item), `1 day, back ${formatDay(addDays(from, 1))}`] });
         } else if (date === from) {
           riding = kind === "ride";
           events.push({

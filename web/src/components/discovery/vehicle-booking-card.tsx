@@ -5,7 +5,8 @@ import type { ListingDetail } from "@/api/discovery";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
-import { Ticket, TicketNote } from "@/components/ui/ticket";
+import { Stepper } from "@/components/ui/stepper-field";
+import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
 import { useSession } from "@/lib/auth/session";
 import { addPreview } from "@/components/trips/add-preview";
 import { addDays, formatDateRange, todayIso } from "@/components/trips/format";
@@ -16,9 +17,10 @@ import { DateRangeField } from "@/components/ui/date-range-field";
 import { PriceBreakdown, usePriceBreakdown } from "@/components/trips/price-breakdown";
 import { useOptionalTripAdd } from "@/components/trips/trip-add-provider";
 import type { TripDates } from "@/components/trips/trip-dates";
-import { peopleText, rentalDays, seatsLabel, unitsNeeded, vehicleNoun } from "@/components/trips/vehicle-party";
+import { peopleText, rentalDays, seatsLabel, shopNoun, unitsNeeded, vehicleNoun } from "@/components/trips/vehicle-party";
 import { useShopListings } from "@/components/trips/use-shop-listings";
 import { ShopPopup } from "./shop-popup";
+import { CategoryGlyph } from "./tag-glyphs";
 
 type Rate = NonNullable<ListingDetail["vehicle_rate"]>;
 
@@ -29,6 +31,7 @@ type Rate = NonNullable<ListingDetail["vehicle_rate"]>;
 // opens the shop's other models (ShopPopup). The price is the API's, as checkout charges it,
 // as are the pickup times free on the dates and when it is due back (RAA-195), asked right under
 // the dates (RAA-205).
+// Gear (RAA-255) has no `seats`: the same card, asking How many instead of the people and vehicles.
 // `add={false}` in a side panel, whose foot holds Add to trip.
 // `rate` says the vehicle is priced; the price itself is the API's.
 export function VehicleBookingCard({
@@ -42,7 +45,7 @@ export function VehicleBookingCard({
   listing: ListingDetail;
   rate: Rate;
   dates: TripDates;
-  seats: number;
+  seats: number | null;
   add?: boolean;
   // Over Add to trip: on the listing page, what saving costs and whether the trip holds it.
   aside?: ReactNode;
@@ -52,7 +55,9 @@ export function VehicleBookingCard({
   const category = listing.category.name;
   // The people are the trip's (the page's guests: the trip's when one is shown, RAA-191), not asked here.
   const people = Math.min(Math.max(dates.guests, 1), MAX_PEOPLE);
-  const [units, setUnits] = useState(unitsNeeded(people, seats));
+  const counted = seats === null;
+  // A vehicle's units, or how many of the gear.
+  const [units, setUnits] = useState(counted ? 1 : unitsNeeded(people, seats));
   const [shopOpen, setShopOpen] = useState(false);
   // Its pickup time (RAA-195): null takes the shop's default until the guest picks one.
   const [pickupTime, setPickupTime] = useState<string | null>(null);
@@ -68,24 +73,33 @@ export function VehicleBookingCard({
   const from = rental.from || undefined;
   const to = rental.from ? rental.to || addDays(rental.from, 1) : undefined;
   const dated = Boolean(from && to);
-  const shop = useShopListings(listing.business.id, listing.category.slug, from, to, pickupTime);
+  const shop = useShopListings(listing.business.id, counted ? { group: "gear" } : { category: listing.category.slug }, from, to, pickupTime);
   const models = shop.data?.listings ?? [];
   const free = dated ? (models.find((model) => model.id === listing.id)?.units_free ?? null) : null;
   const others = models.filter((model) => model.id !== listing.id).length;
 
-  const needed = unitsNeeded(people, seats);
+  const needed = counted ? units : unitsNeeded(people, seats);
   const short = free !== null && needed > free;
   const days = rentalDays(from, to);
   // Priced by the API as checkout will (RAA-191): the vehicles for the days, the deposit apart.
   const helmets = canAdd ? Math.min(childHelmets, units) : 0;
   const breakdown = usePriceBreakdown([
-    { listingId: listing.id, startsOn: from, endsOn: to, quantity: people, units, pickupTime, delivery: chosenDelivery, childHelmets: helmets },
+    {
+      listingId: listing.id,
+      startsOn: from,
+      endsOn: to,
+      quantity: counted ? units : people,
+      units: counted ? undefined : units,
+      pickupTime,
+      delivery: chosenDelivery,
+      childHelmets: helmets,
+    },
   ]);
   const pickupTimes = breakdown.price?.pickupTimes;
   const returnsAt = breakdown.price?.returnsAt;
-  const noun = vehicleNoun(category);
-  const nouns = (count: number) => vehicleNoun(category, count);
   const model = models.find((each) => each.id === listing.id);
+  const noun = vehicleNoun(category);
+  const nouns = (count: number) => (counted ? shopNoun(model ? [model] : [], count) : vehicleNoun(category, count));
   const span = model?.starts_at && model.ends_at ? formatRentalSpan(model.starts_at, model.ends_at) : formatDateRange(from, to);
   const guest = !session || session.user.role === "guest";
   const busy = flow?.busyListingId === listing.id;
@@ -96,14 +110,17 @@ export function VehicleBookingCard({
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between gap-3">
             <p className="text-lg font-semibold">{listing.title}</p>
-            <Badge tone="kind" data-testid="vehicle-seats">
-              {seatsLabel(seats, category)}
-            </Badge>
+            {!counted && (
+              <Badge tone="kind" data-testid="vehicle-seats">
+                {seatsLabel(seats, category)}
+              </Badge>
+            )}
           </div>
-          <p className="text-sm text-muted" data-testid="vehicle-free">
-            {seats} per {noun}
-            {free !== null && ` · ${free} available · ${span}`}
-          </p>
+          {(!counted || free !== null) && (
+            <p className="text-sm text-muted" data-testid="vehicle-free">
+              {[!counted && `${seats} per ${noun}`, free !== null && `${free} available`, free !== null && span].filter(Boolean).join(" · ")}
+            </p>
+          )}
         </div>
 
         <Ticket>
@@ -126,20 +143,38 @@ export function VehicleBookingCard({
               returnsAt={returnsAt}
             />
           )}
-          <PeopleAndVehicles
-            people={people}
-            units={units}
-            seats={seats}
-            category={category}
-            free={free}
-            fixedPeople
-            onChange={(_people, nextUnits) => setUnits(nextUnits)}
-            data-testid="vehicle-party"
-          />
+          {counted ? (
+            <TicketRow
+              icon={<CategoryGlyph name={category} />}
+              value="How many"
+              control={
+                <Stepper
+                  label="How many"
+                  value={units}
+                  onChange={setUnits}
+                  min={1}
+                  max={Math.max(free ?? listing.units_count ?? 99, 1)}
+                  testId="vehicle-count"
+                />
+              }
+              data-testid="vehicle-count"
+            />
+          ) : (
+            <PeopleAndVehicles
+              people={people}
+              units={units}
+              seats={seats}
+              category={category}
+              free={free}
+              fixedPeople
+              onChange={(_people, nextUnits) => setUnits(nextUnits)}
+              data-testid="vehicle-party"
+            />
+          )}
           {short && (
             <TicketNote tone="warning" data-testid="vehicle-short">
-              {peopleText(people)} {people === 1 ? "needs" : "need"} {needed} {nouns(needed)}, and only {free} {free === 1 ? "is" : "are"}{" "}
-              available. Pick other dates or add another listing.
+              {counted ? "Only" : `${peopleText(people)} ${people === 1 ? "needs" : "need"} ${needed} ${nouns(needed)}, and only`} {free}{" "}
+              {free === 1 ? "is" : "are"} available. Pick other dates or add another listing.
             </TicketNote>
           )}
           {canAdd && (
@@ -148,7 +183,8 @@ export function VehicleBookingCard({
               value={delivery}
               onChange={setDelivery}
               zones={rate.delivery_zones}
-              center={models.find((model) => model.id === listing.id)?.approx_location}
+              center={model?.approx_location}
+              counted={counted}
             />
           )}
           {!wantsDelivery(chosenDelivery) && <AtTheShopRow place={listing.area.name} />}
@@ -173,8 +209,10 @@ export function VehicleBookingCard({
                 bookingType: listing.booking_type,
                 startsOn: from,
                 endsOn: to,
+                // Gear: the page's guests, for a new trip, and how many apart (the sheet's `count`).
                 quantity: people,
-                units,
+                units: counted ? undefined : units,
+                count: counted ? units : undefined,
                 pickupTime,
                 delivery: chosenDelivery,
                 childHelmets: helmets,
@@ -194,7 +232,7 @@ export function VehicleBookingCard({
             className="tap-target self-start text-sm font-semibold text-link underline underline-offset-4 hover:text-primary"
             data-testid="more-from-shop"
           >
-            More from this shop · {others} other {others === 1 ? "model" : "models"}
+            More from this shop · {others} other {counted ? (others === 1 ? "item" : "items") : others === 1 ? "model" : "models"}
           </button>
         )}
       </CardBody>
@@ -202,6 +240,7 @@ export function VehicleBookingCard({
         <ShopPopup
           business={listing.business}
           category={listing.category}
+          group={counted ? "gear" : undefined}
           area={listing.area.name}
           dates={{ ...dates, from, to }}
           people={people}

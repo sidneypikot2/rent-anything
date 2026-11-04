@@ -29,6 +29,8 @@ export type AddRequest = {
   quantity: number;
   // A new trip's guests when quantity isn't them (gear's count).
   guests?: number;
+  // How many of the gear the booking card picked, where the add sheet starts (RAA-255).
+  count?: number;
   // Of the guests, the children and infants, and pets beside them: the page's party (RAA-184).
   children?: number;
   infants?: number;
@@ -38,9 +40,9 @@ export type AddRequest = {
   // A rental vehicle's units the guest chose (RAA-191); left out, the API derives them from the
   // people (quantity) and the vehicle's seats.
   units?: number;
-  // A vehicle rental's pickup time ("08:30", RAA-195); left out, the shop's default.
+  // A rental's pickup time ("08:30", RAA-195); left out, the shop's default.
   pickupTime?: string | null;
-  // A vehicle rental's delivery and pick-up and their address (RAA-195).
+  // A rental's delivery and pick-up and their address (RAA-195).
   delivery?: Delivery | null;
   // A motorcycle rental's child helmets (RAA-205).
   childHelmets?: number;
@@ -63,6 +65,8 @@ export type MixItem = {
   shared: boolean;
   // A vehicle model from a shop's pop-up (RAA-191): how many of it, and its pickup time (RAA-195).
   units?: number;
+  // Gear (RAA-255): `quantity` is how many; `units` only says it here and isn't sent.
+  counted?: boolean;
   pickupTime?: string | null;
   delivery?: Delivery | null;
   childHelmets?: number;
@@ -301,11 +305,13 @@ export function useAddTripItem() {
               quantity: item.quantity,
               ...(item.roomGuests ? { room_guests: item.roomGuests } : {}),
               ...(item.pets ? { pets: item.pets } : {}),
-              ...(item.units ? { units: item.units } : {}),
+              ...(item.units && !item.counted ? { units: item.units } : {}),
               ...(item.pickupTime ? { pickup_time: item.pickupTime } : {}),
               ...deliveryBody(item.delivery),
               ...(item.childHelmets ? { child_helmets: item.childHelmets } : {}),
             })),
+            // Gear's quantities are how many, not people: a new trip takes the page's guests.
+            ...(tripId === null && request.guests && request.mix.some((item) => item.counted) ? { guests: request.guests } : {}),
             ...trip,
           }
         : null;

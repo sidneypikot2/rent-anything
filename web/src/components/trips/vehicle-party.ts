@@ -1,5 +1,7 @@
 import type { components } from "@/api/schema";
 import { addDays, daysBetween } from "@/lib/dates";
+import { wantsDelivery, type Delivery } from "./delivery-options";
+import { rentalClock } from "./pickup-time";
 
 // A rental vehicle's people and how many vehicles they take (RAA-191): the API books
 // ceil(people / seats) of its units, or the more the guest chose, up to one each, and never more
@@ -13,6 +15,18 @@ export function vehicleNoun(category: string | undefined, count = 1) {
   const name = (category ?? "").toLowerCase();
   const one = /motor|scooter|bike/.test(name) ? "motorbike" : /van/.test(name) ? "van" : /car/.test(name) ? "car" : "vehicle";
   return count === 1 ? one : `${one}s`;
+}
+
+// What a shop's gear is called (RAA-255): the words its models share, "item" when they differ.
+export function shopNoun(models: Pick<ShopListing, "unit_name" | "unit_name_plural">[], count = 1) {
+  const names = new Set(models.map((model) => (count === 1 ? model.unit_name : model.unit_name_plural)));
+  const [name] = names;
+  return names.size === 1 && name ? name : count === 1 ? "item" : "items";
+}
+
+// "a camera", "an item".
+export function withArticle(noun: string) {
+  return `${/^[aeiou]/i.test(noun) ? "an" : "a"} ${noun}`;
 }
 
 // "Rider + 1" for a 2-seat motorbike, "Seats 5" for anything else.
@@ -56,6 +70,31 @@ export function vehiclePartyText(people: number, units: number, category?: strin
 // Days a rental is priced for: Nov 3 – Nov 5 is 2 days, a single day is 1.
 export function rentalDays(from?: string, to?: string) {
   return from && to ? Math.max(1, daysBetween(from, to)) : 1;
+}
+
+type GearLine = Pick<
+  components["schemas"]["trip_item"],
+  "starts_on" | "ends_on" | "pickup_time" | "returns_at" | "delivery" | "return_pickup" | "delivery_address"
+>;
+
+// Whether an add of gear counts into this line of the trip (the API's Trips::AddItem): the same
+// dates, pickup and handover; anything else is a line of its own. `pickupTime` left out is the
+// shop's default, which the API settles.
+export function sameGearRental(
+  line: GearLine,
+  add: { startsOn?: string; endsOn?: string; pickupTime?: string | null; delivery?: Delivery | null },
+) {
+  const clock = line.pickup_time ?? (line.returns_at ? rentalClock(line.returns_at) : null);
+  const wanted = wantsDelivery(add.delivery) ? add.delivery : null;
+  return (
+    Boolean(add.startsOn) &&
+    line.starts_on === add.startsOn &&
+    line.ends_on === add.endsOn &&
+    (!add.pickupTime || !clock || clock === add.pickupTime) &&
+    line.delivery === Boolean(wanted?.delivery) &&
+    line.return_pickup === Boolean(wanted?.returnPickup) &&
+    (line.delivery_address ?? "") === (wanted?.address.trim() ?? "")
+  );
 }
 
 type RideItem = Pick<components["schemas"]["trip_item"], "booking_type" | "seats" | "units" | "quantity" | "starts_on" | "ends_on" | "unavailable">;

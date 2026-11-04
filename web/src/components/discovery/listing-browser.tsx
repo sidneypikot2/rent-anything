@@ -857,7 +857,7 @@ function FilterPanel({
           data-testid="pet-friendly-filter"
         />
       )}
-      {group.group === "rental" && (
+      {(group.group === "rental" || group.group === "gear") && (
         <VehicleFilterFields group={group} filters={filters.vehicle} onChange={(vehicle) => onChange({ ...filters, vehicle })} />
       )}
       {prices.length > 0 && (
@@ -918,7 +918,7 @@ function FilterPanel({
   );
 }
 
-// Getting around's own filters (RAA-205): the kind of vehicle and its transmission as pills, any
+// Getting around's and Gear's own filters (RAA-205): the kind of vehicle and its transmission as pills, any
 // of those picked, then what the shop offers. Each shows only when it splits the section (or is
 // set), with how many businesses have it, as the other filters count.
 function VehicleFilterFields({
@@ -956,7 +956,7 @@ function VehicleFilterFields({
   return (
     <>
       {pills(
-        "Vehicle",
+        group.group === "gear" ? "Type" : "Vehicle",
         kinds,
         filters.kinds,
         (kind) => kind,

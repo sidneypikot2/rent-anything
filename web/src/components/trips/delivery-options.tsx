@@ -17,7 +17,8 @@ const ZoneMap = dynamic(() => import("./zone-map"), { ssr: false, loading: () =>
 // A vehicle rental's delivery and pick-up (RAA-195): the shop brings it to the guest and/or
 // collects it from them at the end, each for the fee of the delivery zone their pin is in
 // (RAA-205: the shop's, nil when not offered), at the address they picked, with notes for the
-// rider. The API prices it and refuses a pin out of reach; the browser only says the fees.
+// shop. The API prices it and refuses a pin out of reach; the browser only says the fees. Gear's
+// fee is one for the booking, however many (RAA-255); a vehicle's is for each vehicle.
 export type Delivery = { delivery: boolean; returnPickup: boolean; address: string; location: LatLng | null; notes: string };
 
 export const NO_DELIVERY: Delivery = { delivery: false, returnPickup: false, address: "", location: null, notes: "" };
@@ -103,7 +104,10 @@ export function handoverLabel(fees: Pick<DeliveryFees, "delivery" | "returnPicku
   return fees.returnPickup !== null ? "Pick-up only" : "Collect at the shop";
 }
 
-const feeText = (cents: number, from?: boolean) => (cents === 0 && !from ? "Free" : `${from ? "from " : ""}${formatPeso(cents)} a vehicle`);
+function feeText(cents: number, from?: boolean, counted?: boolean) {
+  if (cents === 0 && !from) return "Free";
+  return `${from ? "from " : ""}${formatPeso(cents)}${counted ? "" : " a vehicle"}`;
+}
 
 // The two choices as ticket rows, each only when the shop offers it, then where the rider goes
 // once one is ticked (`DeliveryPlace`: the address, the pin on the shop's zones, notes; around
@@ -114,12 +118,15 @@ export function DeliveryOptions({
   onChange,
   zones,
   center,
+  counted,
 }: {
   fees: DeliveryFees;
   value: Delivery;
   onChange: (value: Delivery) => void;
   zones?: DeliveryZone[] | null;
   center?: LatLng | null;
+  // Gear: one fee for the booking, not one a vehicle.
+  counted?: boolean;
 }) {
   const deliveryId = useId();
   const pickupId = useId();
@@ -132,7 +139,7 @@ export function DeliveryOptions({
           icon={<MapGlyph />}
           label={<label htmlFor={deliveryId}>Delivery</label>}
           value="Bring it to me"
-          detail={zones?.length ? zonesText(zones) : feeText(fees.delivery, fees.from)}
+          detail={zones?.length ? zonesText(zones) : feeText(fees.delivery, fees.from, counted)}
           control={
             <input
               id={deliveryId}
@@ -151,7 +158,7 @@ export function DeliveryOptions({
           icon={<MoveGlyph />}
           label={<label htmlFor={pickupId}>Pick-up at the end</label>}
           value="Collect it from me"
-          detail={zones?.length ? "Same zones as delivery" : feeText(fees.returnPickup, fees.from)}
+          detail={zones?.length ? "Same zones as delivery" : feeText(fees.returnPickup, fees.from, counted)}
           control={
             <input
               id={pickupId}
@@ -216,7 +223,7 @@ const SEARCH_DELAY_MS = 200;
 
 // Where the shop brings the vehicles and collects them from (RAA-205): an address picked as it is
 // typed (places near the shop), which drops the pin; the pin, tapped or dragged to the exact spot,
-// fills an empty address from what is there; and notes for the rider. The rings around the shop's
+// fills an empty address from what is there; and notes for the shop. The rings around the shop's
 // rounded point are approximate: the API prices the pin.
 export function DeliveryPlace({
   value,
@@ -283,7 +290,7 @@ export function DeliveryPlace({
   return (
     <div className="flex flex-col gap-3 px-3.5 py-3" data-testid="delivery-place">
       <ComboboxField
-        label={value.delivery ? "Where should the rider bring it?" : "Where should the rider collect it?"}
+        label={value.delivery ? "Where should the shop bring it?" : "Where should the shop collect it?"}
         placeholder="Kota Beach Resort"
         value={value.address}
         maxLength={ADDRESS_LENGTH}
@@ -298,10 +305,10 @@ export function DeliveryPlace({
       />
       <ZoneMap center={center} zones={zones} pin={value.location} onPin={placePin} approximate />
       <p className="text-small text-muted">
-        {value.location ? "Drag the pin to the exact spot." : "Pick a place above, or tap the map where the rider meets you."} Rings are approximate.
+        {value.location ? "Drag the pin to the exact spot." : "Pick a place above, or tap the map where the shop meets you."} Rings are approximate.
       </p>
       <Field
-        label="Notes for the rider"
+        label="Notes for the shop"
         placeholder="Room 12, beside the sari-sari store"
         value={value.notes}
         maxLength={ADDRESS_LENGTH}

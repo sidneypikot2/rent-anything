@@ -48,7 +48,7 @@ import {
   listingChips,
   listingPhotos,
   offerOf,
-  vehicleShop,
+  rentalShop,
 } from "@/components/discovery/browse-offers";
 import { countLine, LandmarkCard, PHOTO_CARD, PHOTO_CARD_IMAGE } from "@/components/discovery/cards";
 import { ExploreSections, withoutShown } from "@/components/discovery/explore-sections";
@@ -581,8 +581,8 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                     groupTitle={need.title}
                                     offers={offers}
                                     sharedChips={shared}
-                                    // A shop of rental vehicles picks how many of each in its panel (RAA-191).
-                                    shop={vehicleShop(offered)}
+                                    // A rental shop picks how many of each in its panel (RAA-191).
+                                    shop={rentalShop(offered)}
                                   />
                                 ),
                               };

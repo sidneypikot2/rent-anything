@@ -613,9 +613,9 @@ function ItemCard({
                 {rentalTimes(item)}
               </p>
             )}
-            {deliveryText(item, item.seats !== null) && (
+            {deliveryText(item, item.seats !== null || item.returns_at !== null) && (
               <p className="text-small text-muted" data-testid="cart-item-delivery">
-                {deliveryText(item, item.seats !== null)}
+                {deliveryText(item, item.seats !== null || item.returns_at !== null)}
               </p>
             )}
             {!booking && policy && (
