@@ -1423,6 +1423,8 @@ RSpec.configure do |config|
               },
               details: { "$ref" => "#/components/schemas/listing_details" },
               units_count: { type: :integer, minimum: 1 },
+              unit_name: { type: :string, nullable: true, description: "What one unit is called, e.g. camera (RAA-254)" },
+              unit_name_plural: { type: :string, nullable: true },
               approx_location: {
                 type: :object, properties: { lat: { type: :number }, lng: { type: :number } }, required: %w[lat lng],
                 description: "Its pin rounded to two decimals (about 1 km), as on the map: the delivery zones' rings " \

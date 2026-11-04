@@ -90,7 +90,7 @@ module Availability
 
         return day[:units_left].zero? ? "#{on} is fully booked" : "Only #{day[:units_left]} left on #{on}"
       end
-      period && listing.category.vehicle? ? rental_refusal(listing, period, quantity) : nil
+      period && listing.category.timed_rental? ? rental_refusal(listing, period, quantity) : nil
     end
 
     # The units free on every one of the dates (RAA-191): the fewest left on any of them. A
@@ -98,7 +98,7 @@ module Availability
     # at once from pickup to return and the turnaround after it.
     def units_free(listing, dates, period: nil)
       free = dates.map { day(listing, _1)[:units_left] }.min
-      return free unless free && period && listing.category.vehicle?
+      return free unless free && period && listing.category.timed_rental?
 
       load = 0
       peak = rental_out(listing, period).last.map { load += _2 }.max || 0

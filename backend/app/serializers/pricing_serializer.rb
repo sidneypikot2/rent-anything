@@ -22,7 +22,7 @@ module PricingSerializer
       .merge(delivery_zones: rate.zones.map { { max_distance_m: _1.max_distance_m, fee_cents: _1.fee_cents } })
   end
 
-  # Gear's or a transfer's price (RAA-191): the `flat_rate` schema.
+  # A transfer's price (RAA-191): the `flat_rate` schema.
   def self.flat_rate(rate)
     rate && { price_cents: rate.price_cents }
   end
@@ -55,8 +55,7 @@ module PricingSerializer
   def self.price_unit(listing)
     return "night" if listing.stay_rate&.priced?
     return "day" if listing.vehicle_rate&.priced?
-    # Gear is by the item and day, a transfer by the vehicle and trip (RAA-191).
-    return (listing.category.gear? ? "day" : "trip") if listing.flat_rate&.priced?
+    return "trip" if listing.flat_rate&.priced?
 
     tour = listing.tour_detail
     tour&.priced? ? tour.price_unit : nil

@@ -49,9 +49,15 @@ class Category < ApplicationRecord
     rental? && parent&.slug == GEAR_PARENT
   end
 
-  # Priced by a FlatRate (RAA-191): gear by the item and day, a transfer by the vehicle and trip.
+  # A rental that runs 24 hours a day from its pickup (RAA-195), priced by a VehicleRate: a vehicle,
+  # or gear (RAA-254), which is the same but for being booked by the count.
+  def timed_rental?
+    vehicle? || gear?
+  end
+
+  # Priced by a FlatRate (RAA-191): a transfer, by the vehicle and trip.
   def flat_priced?
-    gear? || transfer?
+    transfer?
   end
 
   # The Tour category (RAA-110): only its listings have tour details.
@@ -60,7 +66,7 @@ class Category < ApplicationRecord
   end
 
   # A motorcycle, car, van, tricycle or multicab (RAA-88): its schema asks for make, model and
-  # engine size, as the web app's isVehicle checks. Only these are priced by VehicleRate (RAA-149).
+  # engine size, as the web app's isVehicle checks.
   def vehicle?
     properties = attribute_schema.is_a?(Hash) ? attribute_schema["properties"] : nil
     properties.is_a?(Hash) && %w[make model engine_cc].all? { properties.key?(_1) }

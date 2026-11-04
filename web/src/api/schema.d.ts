@@ -1899,6 +1899,16 @@ export interface paths {
                 query?: {
                     /** @description A category slug, e.g. motorcycle */
                     category?: string;
+                    /**
+                     * @description Where guests find them, e.g. gear for every kind of gear in one sheet (RAA-254):
+                     *      * `stay`
+                     *      * `transfer`
+                     *      * `rental`
+                     *      * `activity`
+                     *      * `gear`
+                     * @enum {unknown}
+                     */
+                    group?: string;
                     /** Format: date */
                     starts_on?: string;
                     /** Format: date */
@@ -8641,6 +8651,9 @@ export interface components {
             vehicle_rate: components["schemas"]["vehicle_rate"] | null;
             details: components["schemas"]["listing_details"];
             units_count: number;
+            /** @description What one unit is called, e.g. camera (RAA-254) */
+            unit_name?: string | null;
+            unit_name_plural?: string | null;
             /** @description Its pin rounded to two decimals (about 1 km), as on the map: the delivery zones' rings are drawn around it (RAA-205). Never the exact point */
             approx_location: {
                 lat: number;

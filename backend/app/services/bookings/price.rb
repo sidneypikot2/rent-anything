@@ -10,7 +10,8 @@ module Bookings
   #   deposit for each is in the breakdown, never in the total (VehicleRate); with `delivery`
   #   and `return_pickup` (RAA-195), the shop's fee for each, for each vehicle; `child_helmets`
   #   (RAA-205) at the shop's fee for each helmet and day, nothing when it gives them free;
-  # - gear: its flat price for each item and day; a transfer: its flat price for each vehicle;
+  # - gear (RAA-254): as a vehicle, but `quantity` is its count, and delivery and pick-up are one
+  #   fee each for the whole drop-off; a transfer: its flat price for each vehicle;
   # - anything still without a price (a rate of 0): 0 and `to_be_agreed`, settled with the partner.
   #
   # A rental's days are its nights, at least one: Nov 3 to Nov 5 is 2 days, a single day 1.
@@ -44,10 +45,8 @@ module Bookings
       elsif (rate = @listing.vehicle_rate)&.priced?
         vehicle(rate)
       elsif (flat = @listing.flat_rate)&.priced?
-        gear = @listing.category.gear?
-        { total_cents: flat.price_cents * @quantity * (gear ? days : 1),
-          breakdown: { kind: gear ? "gear" : "transfer", unit_price_cents: flat.price_cents, quantity: @quantity,
-                       days: gear ? days : nil } }
+        { total_cents: flat.price_cents * @quantity,
+          breakdown: { kind: "transfer", unit_price_cents: flat.price_cents, quantity: @quantity } }
       else
         { total_cents: 0, breakdown: { kind: "to_be_agreed", quantity: @quantity, to_be_agreed: true } }
       end
@@ -56,15 +55,17 @@ module Bookings
     private
 
     def vehicle(rate)
+      gear = @listing.category.gear?
       fee = handover_fee(rate)
+      handovers = gear ? 1 : @quantity
       extras = {
-        delivery_cents: (fee * @quantity if @delivery && rate.delivers?),
-        return_pickup_cents: (fee * @quantity if @return_pickup && rate.picks_up?),
+        delivery_cents: (fee * handovers if @delivery && rate.delivers?),
+        return_pickup_cents: (fee * handovers if @return_pickup && rate.picks_up?),
         child_helmets_cents: (rate.child_helmet_fee_cents * @child_helmets * days if @child_helmets.positive? && rate.child_helmets?)
       }.compact
       helmets = extras.key?(:child_helmets_cents) ? { child_helmets: @child_helmets } : {}
       { total_cents: (rate.daily_price_cents * @quantity * days) + extras.values.sum,
-        breakdown: { kind: "vehicle", unit_price_cents: rate.daily_price_cents, quantity: @quantity, days:,
+        breakdown: { kind: gear ? "gear" : "vehicle", unit_price_cents: rate.daily_price_cents, quantity: @quantity, days:,
                      deposit_cents: rate.security_deposit_cents * @quantity, **extras, **helmets } }
     end
 

@@ -32,7 +32,7 @@ module Discovery
     # helmets' (RAA-205), for What to book's filters: all nil when it has no rate yet; nil for
     # anything else.
     def self.handover_json(listing)
-      return unless listing.category.vehicle?
+      return unless listing.category.timed_rental?
 
       rate = listing.vehicle_rate
       { delivery_fee_cents: rate&.delivery_fee_cents, return_pickup_fee_cents: rate&.return_pickup_fee_cents,

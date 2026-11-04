@@ -28,6 +28,9 @@ RSpec.describe "Business listings", type: :request do
         "a model with none free is sold out. Money is in centavos."
       parameter name: :business_id, in: :path, schema: { type: :integer }
       parameter name: :category, in: :query, type: :string, required: false, description: "A category slug, e.g. motorcycle"
+      parameter name: :group, in: :query, type: :string, required: false, enum: Category::GUEST_GROUPS,
+        description: "Where guests find them, e.g. gear for every kind of gear in one sheet (RAA-254)"
+      let(:group) { nil }
       parameter name: :starts_on, in: :query, type: :string, format: :date, required: false
       parameter name: :ends_on, in: :query, type: :string, format: :date, required: false
       parameter name: :pickup_time, in: :query, type: :string, required: false,
@@ -95,6 +98,34 @@ RSpec.describe "Business listings", type: :request do
 
           run_test! { |response| expect(response.parsed_body["listings"].find { _1["id"] == click.id }["units_free"]).to eq(6) }
         end
+      end
+
+      response "200", "a shop's gear of every kind, with its units' name (RAA-254)" do
+        schema type: :object, properties: {
+          business: { "$ref" => "#/components/schemas/business_ref" },
+          listings: { type: :array, items: { "$ref" => "#/components/schemas/business_listing" } },
+          pickup_times: PICKUP_TIMES
+        }, required: %w[business listings pickup_times]
+        let(:category) { nil }
+        let(:group) { "gear" }
+        let!(:camera) { create(:listing, :gear, area:, partner: click.partner) }
+
+        before { camera.category.update!(unit_name: "camera", unit_name_plural: "cameras") }
+
+        run_test! do |response|
+          body = response.parsed_body
+          expect(body["listings"].map { _1.slice("id", "unit_name", "unit_name_plural", "units_free") })
+            .to eq([ { "id" => camera.id, "unit_name" => "camera", "unit_name_plural" => "cameras", "units_free" => 3 } ])
+          expect(body["listings"].first["vehicle_rate"]).to include("daily_price_cents" => 30_000)
+          expect(body["pickup_times"].first).to eq("time" => "07:00", "available" => true)
+        end
+      end
+
+      response "422", "a group guests don't browse by" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:group) { "boats" }
+
+        run_test! { |response| expect(response.parsed_body["errors"].first).to start_with("Group must be one of") }
       end
 
       response "200", "every active listing without a category; no dates, nothing free counted" do

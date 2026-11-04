@@ -1348,6 +1348,20 @@ paths:
         description: A category slug, e.g. motorcycle
         schema:
           type: string
+      - name: group
+        in: query
+        required: false
+        enum:
+        - stay
+        - transfer
+        - rental
+        - activity
+        - gear
+        description: "Where guests find them, e.g. gear for every kind of gear in
+          one sheet (RAA-254):\n * `stay` \n * `transfer` \n * `rental` \n * `activity`
+          \n * `gear` \n "
+        schema:
+          type: string
       - name: starts_on
         in: query
         format: date
@@ -8325,6 +8339,13 @@ components:
         units_count:
           type: integer
           minimum: 1
+        unit_name:
+          type: string
+          nullable: true
+          description: What one unit is called, e.g. camera (RAA-254)
+        unit_name_plural:
+          type: string
+          nullable: true
         approx_location:
           type: object
           properties:

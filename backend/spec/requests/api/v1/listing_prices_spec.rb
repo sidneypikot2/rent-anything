@@ -10,7 +10,7 @@ RSpec.describe "Listing prices", type: :request do
       listing.vehicle_rate.update!(security_deposit_cents: 100_000)
     end
   end
-  let(:camera) { create(:listing, :gear).tap { create(:flat_rate, listing: _1, price_cents: 30_000) } }
+  let(:camera) { create(:listing, :gear) }
   let(:van) { create(:listing, :transfer) }
   let(:tour) { create(:listing, :tour) }
   let(:stay) { create(:listing, :stay) }
@@ -216,7 +216,7 @@ RSpec.describe "Listing prices", type: :request do
           let(:listing_id) { camera.id }
           let(:quantity) { 2 }
 
-          run_test! { |response| expect(response.parsed_body).to include("total_cents" => 120_000, "lines" => [ { "label" => "2 × ₱300 × 2 days", "amount_cents" => 120_000 } ]) }
+          run_test! { |response| expect(response.parsed_body).to include("total_cents" => 120_000, "lines" => [ { "label" => "2 items × ₱300 × 2 days", "amount_cents" => 120_000 } ]) }
         end
 
         context "with a van" do
@@ -240,7 +240,7 @@ RSpec.describe "Listing prices", type: :request do
         end
 
         context "with gear that has no price yet" do
-          let(:listing_id) { create(:listing, :gear).id }
+          let(:listing_id) { create(:listing, :gear, with_rate: false).id }
 
           run_test! { |response| expect(response.parsed_body).to include("total_cents" => 0, "to_be_agreed" => true, "lines" => []) }
         end
@@ -291,7 +291,7 @@ RSpec.describe "Listing prices", type: :request do
           let(:listing_id) { stay.id }
           let(:pickup_time) { "08:00" }
 
-          run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Only a vehicle rental has a pickup time" ]) }
+          run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Only a vehicle or gear rental has a pickup time" ]) }
         end
       end
 

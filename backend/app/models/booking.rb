@@ -86,13 +86,13 @@ class Booking < ApplicationRecord
     units.clamp(1, MAX_QUANTITY)
   end
 
-  # The days a booking of the listing from starts_on to ends_on takes: a stay's nights, a vehicle
+  # The days a booking of the listing from starts_on to ends_on takes: a stay's nights, a timed
   # rental's days (each 24 hours from the pickup, so Nov 3 to Nov 5 takes Nov 3 and 4, and a
   # single date one day), anything else every day.
   def self.days_for(listing, starts_on, ends_on)
     if listing.category.accommodation?
       starts_on...ends_on
-    elsif listing.category.vehicle?
+    elsif listing.category.timed_rental?
       starts_on...(starts_on + rental_days(starts_on, ends_on))
     else
       starts_on..ends_on
@@ -104,7 +104,7 @@ class Booking < ApplicationRecord
     [ (ends_on - starts_on).to_i, 1 ].max
   end
 
-  # A vehicle rental's period: from the pickup time (DEFAULT_PICKUP_TIME when nil) on starts_on,
+  # A timed rental's period: from the pickup time (DEFAULT_PICKUP_TIME when nil) on starts_on,
   # 24 hours for each of its days, so it is due back at the pickup time on its last date.
   def self.rental_period(starts_on, ends_on, pickup_time)
     hour, minute = (pickup_time || DEFAULT_PICKUP_TIME).split(":").map { Integer(_1, 10) }
@@ -127,19 +127,19 @@ class Booking < ApplicationRecord
   end
 
   # The last day it is under way: a stay's last night, the one before check-out (a one-night
-  # stay's is its check-in); a vehicle rental's return day. Not `days.last`, which is the
+  # stay's is its check-in); a timed rental's return day. Not `days.last`, which is the
   # check-out for a stay's exclusive range.
   def last_day
     if listing.category.accommodation?
       [ ends_on - 1, starts_on ].max
-    elsif listing.category.vehicle?
+    elsif listing.category.timed_rental?
       starts_on + Booking.rental_days(starts_on, ends_on)
     else
       ends_on
     end
   end
 
-  # A vehicle rental's pickup time ("08:30"); nil for anything else.
+  # A timed rental's pickup time ("08:30"); nil for anything else.
   def pickup_time
     starts_at && Booking.local_time(starts_at)
   end
@@ -158,9 +158,9 @@ class Booking < ApplicationRecord
     self.reference ||= Booking.new_reference
   end
 
-  # A vehicle rental always has its period: the default pickup time when nothing set one.
+  # A timed rental always has its period: the default pickup time when nothing set one.
   def assign_rental_period
-    return unless starts_at.nil? && starts_on && ends_on && listing&.category&.vehicle?
+    return unless starts_at.nil? && starts_on && ends_on && listing&.category&.timed_rental?
 
     period = listing.rental_period(starts_on, ends_on, nil)
     self.starts_at = period.begin

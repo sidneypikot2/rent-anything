@@ -5,12 +5,15 @@ module Trips
   # as many guests as the item's quantity. The trip's dates grow to cover the item, and
   # whether the guest took the suggested trip is kept for tuning the gap (decision 13).
   # Gear is booked by the count: its quantity is how many, `guests` (when sent) are a new
-  # trip's, and gear the trip already holds unbooked on the same dates takes the added count
-  # rather than a second item, so the cart has one line and the partner one request.
+  # trip's, and gear the trip already holds unbooked for the same rental (dates, pickup and
+  # delivery) takes the added count rather than a second item, so the cart has one line and
+  # the partner one request.
   # A stay can come with the guest's split into rooms and pets (RAA-182); the split sets
   # its quantity. A vehicle rental can come with its pickup time (RAA-195).
   class AddItem < ApplicationService
     include Values
+
+    HANDOVER_FIELDS = %i[delivery return_pickup delivery_address delivery_distance_m delivery_notes].freeze
 
     attr_reader :errors
 
@@ -35,23 +38,37 @@ module Trips
         trip ||= @user.trips.build(name: typed_name || suggested[:new_trip_name], guests: guests || item[:quantity].clamp(1, 50))
         trip.cover(item[:starts_on], item[:ends_on])
         trip.save!
-        held = held_gear(trip, item)
-        check_gear_count(item, held)
-        if held
-          held.update!(quantity: [ held.quantity + item[:quantity], TripItem::MAX_QUANTITY ].min)
-        else
-          trip.items.create!(**item, followed_suggestion: suggested[:trip] == (trip_id && trip))
-        end
+        place(trip, item, followed_suggestion: suggested[:trip] == (trip_id && trip))
         trip.follow_places_in_name!
       end
       trip
     end
 
-    # The trip's unbooked item of the same gear on the same dates, which an add counts into.
-    def held_gear(trip, item)
-      return unless item[:listing].category.gear? && trip.persisted? && item[:starts_on]
+    # Puts an item read by `read` in the trip, a saved one locked by the caller: into the same
+    # gear it already holds, or as an item of its own.
+    def place(trip, item, followed_suggestion:)
+      held_on_dates = held_gear(trip, item)
+      check_gear_count(item, held_on_dates)
+      same = held_on_dates.find { same_rental?(_1, item) }
+      return same.update!(quantity: [ same.quantity + item[:quantity], TripItem::MAX_QUANTITY ].min) if same
 
-      trip.items.unbooked.lock.find_by(listing: item[:listing], starts_on: item[:starts_on], ends_on: item[:ends_on])
+      trip.items.create!(**item, followed_suggestion:)
+    end
+
+    # The trip's unbooked items of the same gear on the same dates.
+    def held_gear(trip, item)
+      return [] unless item[:listing].category.gear? && item[:starts_on]
+
+      trip.items.unbooked.lock.where(listing: item[:listing], starts_on: item[:starts_on], ends_on: item[:ends_on]).to_a
+    end
+
+    # Whether an add is the rental an item already is: picked up at the same moment, no pickup
+    # time being the shop's default, and handed over the same way.
+    def same_rental?(held, item)
+      listing = item[:listing]
+      starts_at = ->(time) { listing.rental_period(item[:starts_on], item[:ends_on], time)&.begin }
+      starts_at.(held.pickup_time) == starts_at.(item[:pickup_time]) &&
+        HANDOVER_FIELDS.all? { held[_1].presence == item[_1].presence }
     end
 
     # Gear never goes past what the partner lists, counting what the trip already holds on those
@@ -61,9 +78,10 @@ module Trips
       return unless listing.category.gear?
 
       listed = listing.units.size
-      return if (held&.quantity || 0) + item[:quantity] <= listed
+      holding = held.sum(&:quantity)
+      return if holding + item[:quantity] <= listed
 
-      error(held ? "Only #{listed} of #{listing.title} are listed, and this trip already has #{held.quantity} for these dates" :
+      error(holding.positive? ? "Only #{listed} of #{listing.title} are listed, and this trip already has #{holding} for these dates" :
         "Only #{listed} of #{listing.title} are listed")
       raise_errors!(TripItem.new)
     end

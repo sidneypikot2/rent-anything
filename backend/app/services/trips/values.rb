@@ -112,12 +112,12 @@ module Trips
       error("#{units} #{noun.pluralize(units)} is more than one each for #{guests}") if units > guests
     end
 
-    # A vehicle rental's pickup time (RAA-195): "08:30", one of the shop's (VehicleRate#pickup_times).
+    # A timed rental's pickup time (RAA-195): "08:30", one of the shop's (VehicleRate#pickup_times).
     # Nil when not sent or sent as null, which takes the shop's default.
     def pickup_time_value(listing)
       value = @params[:pickup_time]
       return if value.nil?
-      return error("Only a vehicle rental has a pickup time") unless listing.category.vehicle?
+      return error("Only a vehicle or gear rental has a pickup time") unless listing.category.timed_rental?
       unless value.is_a?(String) && value.match?(Booking::PICKUP_TIME_FORMAT)
         return error("Pickup time must be a time on the half hour, like 08:30")
       end
@@ -132,10 +132,10 @@ module Trips
     NO_DELIVERY = { delivery: false, return_pickup: false, delivery_address: nil, delivery_location: nil,
                     delivery_distance_m: nil, delivery_notes: nil }.freeze
 
-    # A vehicle rental's delivery and pick-up (RAA-195): delivery (brought to the guest) and
+    # A timed rental's delivery and pick-up (RAA-195): delivery (brought to the guest) and
     # return_pickup (collected from them at the end), each only where the shop offers it, to the
     # guest's pin (delivery_location, { lat, lng }) within the shop's farthest zone (RAA-205),
-    # with the address it is at and notes for the rider; all of them required with either, but
+    # with the address it is at and notes for the shop; all of them required with either, but
     # the notes, and dropped without. Fields not sent keep `current`'s; none sent is {}. A query
     # string carries the booleans as "true" / "false" and the pin's lat and lng as text. A price
     # (address: false) needs neither address nor pin, and a pin out of reach is Price's to refuse.
@@ -151,13 +151,13 @@ module Trips
       point = @params.key?(:delivery_location) ? delivery_point(text: !address) : current[:delivery_location]
       pin_refused = @errors.size > unread
       return NO_DELIVERY.dup unless delivery || return_pickup
-      return error("Only a vehicle rental can be delivered or picked up") unless listing.category.vehicle?
+      return error("Only a vehicle or gear rental can be delivered or picked up") unless listing.category.timed_rental?
 
       rate = listing.vehicle_rate
       error("This shop doesn't deliver") if delivery && !rate&.delivers?
       error("This shop doesn't pick up at the end") if return_pickup && !rate&.picks_up?
       error("Add the address for the delivery or pick-up") if place.nil? && address
-      error("Drop a pin where the rider meets you") if point.nil? && address && !pin_refused
+      error("Drop a pin where the shop meets you") if point.nil? && address && !pin_refused
       error("The address must be 200 characters or fewer") if place && place.length > 200
       error("The notes must be 200 characters or fewer") if notes && notes.length > 200
       distance = point && listing.distance_m_to(point)
@@ -228,9 +228,13 @@ module Trips
       error("Units must be from 1 to 99")
     end
 
-    # What one of a vehicle listing's units is called, for refusals: "motorbike", "car", "van".
+    # What one of a timed rental's units is called, in refusals and price lines: "motorbike",
+    # "car", "van", or gear's own "camera" or "set".
     def self.vehicle_noun(listing)
-      { "motorcycle" => "motorbike", "van-rental" => "van" }.fetch(listing.category.slug, listing.category.name.downcase)
+      category = listing.category
+      return category.unit_name.presence || "item" if category.gear?
+
+      { "motorcycle" => "motorbike", "van-rental" => "van" }.fetch(category.slug, category.name.downcase)
     end
 
     # digits: from a query string, where every value is text.

@@ -15,7 +15,7 @@ RSpec.describe VehicleRate do
 
   it "prices vehicles only" do
     expect(messages(described_class.new(listing: create(:listing), daily_price_cents: 1)))
-      .to include("Only a vehicle rental has a vehicle rate")
+      .to include("Only a vehicle or gear rental has a vehicle rate")
   end
 
   it "keeps the weekly and monthly totals at most 7 and 30 days at the daily rate" do
@@ -64,6 +64,25 @@ RSpec.describe VehicleRate do
   it "offers delivery and pick-up when they have a fee, 0 being free" do
     expect(rate).to have_attributes(delivers?: false, picks_up?: false)
     expect(rate(delivery_fee_cents: 0, return_pickup_fee_cents: 10_000)).to have_attributes(delivers?: true, picks_up?: true)
+  end
+
+  describe "on gear (RAA-254)" do
+    let(:camera) { create(:listing, :gear, with_rate: false) }
+
+    def gear_rate(**attrs)
+      VehicleRate.new(listing: camera, daily_price_cents: 30_000, **attrs)
+    end
+
+    it "takes a daily price, a deposit and pickup hours" do
+      expect(gear_rate(security_deposit_cents: 500_000, pickup_from_hour: 8, turnaround_minutes: 60)).to be_valid
+    end
+
+    it "refuses what only a vehicle's price has" do
+      { weekly_price_cents: 100_000, monthly_price_cents: 300_000, half_day_price_cents: 10_000, hourly_price_cents: 5_000,
+        km_limit_per_day: 100, driving: "with_driver" }.each do |field, value|
+        expect(gear_rate(field => value)).not_to be_valid, "#{field} was allowed"
+      end
+    end
   end
 
   # Delivery zones (RAA-205): free within 1 km, ₱150 up to 3 km, nothing beyond.

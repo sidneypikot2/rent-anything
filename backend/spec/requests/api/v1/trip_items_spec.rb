@@ -250,7 +250,7 @@ RSpec.describe "Trip items", type: :request do
 
             run_test! do |response|
               expect(response.parsed_body["errors"])
-                .to eq([ "Add the address for the delivery or pick-up", "Drop a pin where the rider meets you" ])
+                .to eq([ "Add the address for the delivery or pick-up", "Drop a pin where the shop meets you" ])
             end
           end
 
