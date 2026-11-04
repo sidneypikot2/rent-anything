@@ -475,9 +475,9 @@
   /* The keyboard focus ring: primary blue on white; focus-light turns it sky-pale on dark. */
   --focus: var(--color-primary);
   /* How far down what sticks at the top reaches, plus 12px, for the anchor offset: the header
-     (12px in, 56px tall; on a phone with a search, its pill's row under it). HeaderSearch
+     (12px in, 60px tall; on a phone with a search, its pill's row under it). HeaderSearch
      measures it once the page runs, so these only hold the first paint. */
-  --chrome: 5rem;
+  --chrome: 5.25rem;
 }
 
 /* The header's search shows on a page with one (PageBanner's SearchBar marks it), in CSS so the

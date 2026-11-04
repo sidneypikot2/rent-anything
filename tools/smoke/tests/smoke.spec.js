@@ -223,7 +223,7 @@ test("sign-up and the partner guard", async ({ page }) => {
 
     if (checkConfirmation) {
       // The two fields show and hide together.
-      await page.getByRole("button", { name: "Show" }).first().click();
+      await page.getByRole("button", { name: "Show", exact: true }).first().click();
       await expect(password()).toHaveAttribute("type", "text");
       await expect(confirmation()).toHaveAttribute("type", "text");
 

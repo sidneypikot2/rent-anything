@@ -43,9 +43,13 @@ type Props = {
   // h1 on a page with no banner of its own (the guest's /login and /register); the partner and
   // admin pages already have their h1 in a banner.
   headingLevel?: "h1" | "h2";
+  // Set by a page whose frame is the card (AuthSheet, PartnerAuthFrame, RAA-253): no card of its
+  // own, compact fields, the link to the other form under the heading, and on a guest's a way to
+  // the partner pages at its foot.
+  plain?: boolean;
 };
 
-export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = true, headingLevel = "h2" }: Props) {
+export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = true, headingLevel = "h2", plain = false }: Props) {
   const Heading = headingLevel;
   const router = useRouter();
   const redirectTo = next ?? DASHBOARD_PATHS[role];
@@ -122,87 +126,130 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
     </Link>
   );
 
-  return (
-    <Card data-testid={`${role}-${signup ? "signup" : "signin"}`} className="w-full self-start">
-      <CardBody pad="lg" className="flex flex-col gap-5">
-        <Heading className={cn("font-display font-extrabold tracking-tight", title ? "text-lg" : "text-2xl")}>{title ?? TITLES[role][signup ? "signup" : "signin"]}</Heading>
+  const heading = (
+    <Heading className={cn("font-display font-extrabold tracking-tight", title ? "text-lg" : "text-2xl")}>
+      {title ?? TITLES[role][signup ? "signup" : "signin"]}
+    </Heading>
+  );
 
-        <form onSubmit={submit}>
-          <fieldset disabled={pending} className="flex flex-col gap-3">
-            <Field label="Email" name="email" type="email" autoComplete="email" required />
+  const form = (
+    <form onSubmit={submit}>
+      <fieldset disabled={pending} className={cn("flex flex-col", plain ? "gap-2.5" : "gap-3")}>
+        <Field label="Email" name="email" type="email" autoComplete="email" compact={plain} required />
+        {/* Side by side on the one-screen page, where sign-up is the tallest form. */}
+        <div className={plain && signup ? "grid grid-cols-2 gap-3 max-xs:grid-cols-1" : "contents"}>
+          <PasswordField
+            label="Password"
+            name="password"
+            autoComplete={signup ? "new-password" : "current-password"}
+            minLength={signup ? 8 : undefined}
+            hint={signup ? "At least 8 characters" : undefined}
+            action={forgotPassword}
+            visible={signup ? showPasswords : undefined}
+            onVisibleChange={signup ? setShowPasswords : undefined}
+            compact={plain}
+            required
+          />
+          {signup && (
             <PasswordField
-              label="Password"
-              name="password"
-              autoComplete={signup ? "new-password" : "current-password"}
-              minLength={signup ? 8 : undefined}
-              hint={signup ? "At least 8 characters" : undefined}
-              action={forgotPassword}
-              visible={signup ? showPasswords : undefined}
-              onVisibleChange={signup ? setShowPasswords : undefined}
+              label="Confirm password"
+              name="password_confirmation"
+              autoComplete="new-password"
+              error={confirmError}
+              visible={showPasswords}
+              onVisibleChange={setShowPasswords}
+              onChange={() => setConfirmError(undefined)}
+              compact={plain}
               required
             />
-            {signup && (
-              <PasswordField
-                label="Confirm password"
-                name="password_confirmation"
-                autoComplete="new-password"
-                error={confirmError}
-                visible={showPasswords}
-                onVisibleChange={setShowPasswords}
-                onChange={() => setConfirmError(undefined)}
-                required
-              />
-            )}
-            {signup && <ConsentField partner={role === "partner"} checked={agreed} onChange={(event) => setAgreed(event.target.checked)} />}
-            {error && (
-              <p role="alert" data-testid="auth-error" className="text-sm text-danger">
-                {error}
-              </p>
-            )}
-            <Button type="submit" size="sm" className="mt-1">
-              {pending ? "Please wait…" : signup ? "Create account" : "Sign in"}
-            </Button>
-          </fieldset>
-        </form>
-
-        {selfServe && hasOauthProviders() && (
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3 text-xs text-muted" aria-hidden="true">
-              <span className="h-px flex-1 bg-line" />
-              or
-              <span className="h-px flex-1 bg-line" />
-            </div>
-            <OauthButtons disabled={pending || (signup && !agreed)} onToken={onOauthToken} />
-            {signup && !agreed && (
-              <p className="text-center text-xs text-muted" data-testid="consent-oauth-hint">
-                To sign up with {oauthProviderNames()}, first tick &ldquo;I agree to the {role === "partner" ? "Terms, the Partner terms" : "Terms"} and
-                the Privacy policy&rdquo; above.
-              </p>
-            )}
-            {!signup && <ConsentNote partner={role === "partner"} />}
-          </div>
+          )}
+        </div>
+        {signup && <ConsentField partner={role === "partner"} checked={agreed} onChange={(event) => setAgreed(event.target.checked)} />}
+        {error && (
+          <p role="alert" data-testid="auth-error" className="text-sm text-danger">
+            {error}
+          </p>
         )}
+        <Button type="submit" size="sm" className="mt-1">
+          {pending ? "Please wait…" : signup ? "Create account" : "Sign in"}
+        </Button>
+      </fieldset>
+    </form>
+  );
 
-        {role === "guest" && !signup && (
-          <p className="text-center text-sm text-pretty text-muted">
-            No password?{" "}
-            <Link href={withNext("/login/code", next)} data-testid="guest-code-link" className="tap-target font-semibold text-link hover:underline">
-              Email me a code
+  const hasOauth = selfServe && hasOauthProviders();
+  const oauth = hasOauth && (
+    <div className={cn("flex flex-col", plain ? "gap-2" : "gap-4")}>
+      <OauthButtons disabled={pending || (signup && !agreed)} onToken={onOauthToken} inline={plain} />
+      {signup && !agreed && (
+        <p className={cn("text-center text-xs text-muted", plain && "short:hidden")} data-testid="consent-oauth-hint">
+          To sign up with {oauthProviderNames()}, first tick &ldquo;I agree to the {role === "partner" ? "Terms, the Partner terms" : "Terms"} and
+          the Privacy policy&rdquo; above.
+        </p>
+      )}
+      {!signup && <ConsentNote partner={role === "partner"} />}
+    </div>
+  );
+  const divider = hasOauth && (
+    <div className="flex items-center gap-3 text-xs text-muted" aria-hidden="true">
+      <span className="h-px flex-1 bg-line" />
+      or
+      <span className="h-px flex-1 bg-line" />
+    </div>
+  );
+
+  const linkClass = cn("tap-target font-semibold text-link", plain ? "underline" : "hover:underline");
+  const otherForm = role !== "admin" && switchLink && (
+    <p className={cn("text-muted", plain ? "text-small" : "text-center text-sm")}>
+      {signup ? "Already have an account? " : "Don't have an account? "}
+      <Link href={withNext(signup ? LOGIN_PATHS[role] : REGISTER_PATHS[role], next)} className={linkClass}>
+        {signup ? "Sign in" : "Create one"}
+      </Link>
+    </p>
+  );
+  const tripLink = role === "guest" && !signup && (
+    <p className={cn("text-center text-pretty text-muted", plain ? "text-small" : "text-sm")}>
+      Only have a trip link?{" "}
+      <Link href={withNext("/login/code", next)} data-testid="guest-code-link" className={linkClass}>
+        Sign in with a code
+      </Link>
+    </p>
+  );
+
+  const testId = `${role}-${signup ? "signup" : "signin"}`;
+
+  if (plain) {
+    return (
+      <div data-testid={testId} className="flex w-full flex-col gap-3.5 short:gap-3">
+        <div className="flex flex-col gap-0.5">
+          {heading}
+          {otherForm}
+        </div>
+        {form}
+        {tripLink}
+        {divider}
+        {oauth}
+        {role === "guest" && (
+          <p className="border-t border-line pt-2.5 text-center text-small text-pretty text-muted" data-testid="partner-link">
+            Are you a partner?{" "}
+            <Link href={LOGIN_PATHS.partner} className={linkClass}>
+              Go to the partner page
             </Link>
           </p>
         )}
+      </div>
+    );
+  }
 
-        {role !== "admin" && switchLink && (
-          <p className="text-center text-sm text-muted">
-            {signup ? "Already have an account? " : "Don't have an account? "}
-            <Link
-              href={withNext(signup ? LOGIN_PATHS[role] : REGISTER_PATHS[role], next)}
-              className="tap-target font-semibold text-link hover:underline"
-            >
-              {signup ? "Sign in" : "Create one"}
-            </Link>
-          </p>
-        )}
+  return (
+    <Card data-testid={testId} className="w-full self-start">
+      <CardBody pad="lg" className="flex flex-col gap-5">
+        {heading}
+        {form}
+        {divider}
+        {oauth}
+        {tripLink}
+        {otherForm}
       </CardBody>
     </Card>
   );

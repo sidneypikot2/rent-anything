@@ -75,7 +75,6 @@ Under repository Settings → Secrets and variables → Actions:
   - `LIGHTSAIL_KNOWN_HOSTS`: the `ssh-keyscan` line
 - **Variables**:
   - `NEXT_PUBLIC_GOOGLE_CLIENT_ID` and `NEXT_PUBLIC_FACEBOOK_APP_ID`: same as Vercel's
-  - `NEXT_PUBLIC_SECTION_SWITCH`: `true`
 
 Then deploy for the first time: `gh workflow run deploy-staging.yml --ref staging`.
 

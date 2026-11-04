@@ -43,6 +43,8 @@ const SIZES = {
   icon: "size-11 rounded-button",
   "icon-lg": "size-12 rounded-button sm:size-14",
   pill: "min-h-11 rounded-button px-5 py-2.5 text-control",
+  // Beside Google's own sign-in button, whose height Google fixes at 40px.
+  provider: "min-h-10 rounded-button px-3 py-1.5 text-small",
 };
 
 type Glyph = "arrow" | "plus" | "check";
