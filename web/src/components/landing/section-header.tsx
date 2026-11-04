@@ -18,9 +18,9 @@ const SECTION_LABELS: Record<Section, string> = {
 
 // The site header for one of the three entry points: guests at /, partners at
 // /partner, developers at /admin. Sections don't link to each other: partners and guests
-// have separate entry points. The one exception is SectionSwitch, a floating test aid
-// shown locally and on staging only.
-// Sky & Forest (RAA-102): a floating glass bar, inset from the edges and sticky, nearly solid so
+// have separate entry points.
+// Sky & Forest (RAA-102): a floating glass bar, 60px tall whatever it holds, so a page's frame starts
+// at the same height on every page and before the session loads (RAA-253), inset from the edges and sticky, nearly solid so
 // a white sheet's text scrolling beneath doesn't read through it — solid on a phone, where cards' text and the stuck
 // chips read through the glass. A PageBanner starts 12px under it (RAA-125) rather
 // than sliding beneath it, so the bar never covers the banner's frame. Partner links take their own row on a phone; on the
@@ -34,7 +34,7 @@ export function SectionHeader({ section }: { section: Section }) {
   return (
     <header data-site-header className="pointer-events-none sticky top-0 z-40 px-3 pt-3 sm:px-6">
       <BackdropStrip />
-      <div className="pointer-events-auto relative mx-auto flex min-h-14 w-full max-w-page animate-float-in flex-wrap items-center justify-between gap-x-3 gap-y-2 focus-light rounded-frame border border-glass-edge bg-navy/92 max-search:bg-navy px-3 py-1.5 text-white shadow-lift backdrop-blur-xl backdrop-saturate-150 max-xs:gap-x-2 max-xs:px-2 sm:px-5">
+      <div className="pointer-events-auto relative mx-auto flex min-h-15 w-full max-w-page animate-float-in flex-wrap items-center justify-between gap-x-3 gap-y-2 focus-light rounded-frame border border-glass-edge bg-navy/92 max-search:bg-navy px-3 py-1.5 text-white shadow-lift backdrop-blur-xl backdrop-saturate-150 max-xs:gap-x-2 max-xs:px-2 sm:px-5">
         <Link
           href={section === "guest" ? "/" : `/${section}`}
           className="tap-target pl-1 text-xl sm:text-2xl"

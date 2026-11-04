@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { CurrentPlaceProvider } from "@/components/landing/current-place";
 import { SectionHeader } from "@/components/landing/section-header";
-import { SectionSwitch } from "@/components/landing/section-switch";
 import { SiteBackdrop } from "@/components/landing/site-backdrop";
 import { SiteFooter } from "@/components/landing/site-footer";
 
@@ -24,7 +23,6 @@ export default function GuestLayout({ children }: { children: ReactNode }) {
         </div>
       </CurrentPlaceProvider>
       <SiteFooter />
-      <SectionSwitch to="partner" />
     </>
   );
 }

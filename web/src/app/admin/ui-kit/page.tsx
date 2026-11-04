@@ -209,6 +209,7 @@ export default function UiKit() {
           <CheckboxField label="Guide included (CheckboxField)" name="guide" />
           <InteractiveFields />
           <Field label="Disabled" name="disabled" disabled />
+          <Field label="Compact" name="compact" compact hint="For a small sheet (sign-in)" />
         </div>
       </Showcase>
 

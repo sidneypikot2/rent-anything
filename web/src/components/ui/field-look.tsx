@@ -20,14 +20,15 @@ export function useFieldLook() {
 
 // The control itself: a text input, select or textarea. A floating field is taller, to hold
 // the label at rest, and keeps its placeholder hidden until it has focus so the two never
-// overlap.
-export function controlClasses(look: FieldLookName, error: string | undefined) {
+// overlap. `compact` is for a small sheet (sign-in): 44px, and 16px text on a phone, as anything
+// smaller makes iOS zoom in on a tap.
+export function controlClasses(look: FieldLookName, error: string | undefined, compact = false) {
   return cn(
-    "rounded-control border bg-surface px-4 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm",
+    "rounded-control border bg-surface font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm",
     "focus:ring-4 disabled:bg-surface-2",
     look === "floating"
-      ? "peer min-h-14 py-3 shadow-xs placeholder:text-transparent focus:placeholder:text-muted/80 hover:border-foreground/60"
-      : "min-h-12 py-2.5 placeholder:text-muted/80",
+      ? "peer min-h-14 px-4 py-3 shadow-xs placeholder:text-transparent focus:placeholder:text-muted/80 hover:border-foreground/60"
+      : cn(compact ? "min-h-11 px-3 py-2 text-base sm:text-control" : "min-h-12 px-4 py-2.5", "placeholder:text-muted/80"),
     // An error stays red with focus, so fixing it doesn't hide which field it was.
     error
       ? "border-danger hover:border-danger focus:border-danger focus:ring-danger/10"

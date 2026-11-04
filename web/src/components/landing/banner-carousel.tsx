@@ -10,6 +10,8 @@ export const BANNER_ROTATE_MS = 5000;
 // How long a turn's slide takes, and a swipe too short to turn takes to settle back.
 const SLIDE_MS = 700;
 const SETTLE_MS = 300;
+// How long a `fade` carousel's next photo takes to come up over the one before.
+const FADE_MS = 1800;
 // How far a finger, or a trackpad's two fingers, moves sideways to turn one photo; a quicker
 // flick turns it from FLICK_PX.
 const SWIPE_PX = 40;
@@ -31,9 +33,24 @@ const slideTo = (frame: HTMLElement, from: number, to: number, duration: number)
 // never turns by itself under reduced motion. The dots at the top pick a photo, and a swipe across
 // the banner turns to the next or previous one: a finger's drags the photo along with it, a
 // trackpad's turns one photo per gesture. Every turn slides the same way (SLIDE_MS, `ease-calm`);
-// under reduced motion it fades instead. Rendered in PageBanner's clipped photo layer, whose top the
-// banner's contents leave clear for the dots.
-export function BannerCarousel({ photos, sizes, className }: { photos: Photo[]; sizes: string; className?: string }) {
+// under reduced motion it fades instead. `fade` (the sign-in sheet, RAA-253) never slides: the next
+// photo comes up slowly over the shown one (FADE_MS), and a swipe turns it the same way.
+// Rendered in a clipped photo layer inside a <section>, which it watches for hovers and swipes
+// (PageBanner's, whose top the banner's contents leave clear for the dots). `dots="left"` is for
+// a layer whose right side sits under something.
+export function BannerCarousel({
+  photos,
+  sizes,
+  className,
+  fade = false,
+  dots = "right",
+}: {
+  photos: Photo[];
+  sizes: string;
+  className?: string;
+  fade?: boolean;
+  dots?: "left" | "right";
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const frames = useRef<(HTMLDivElement | null)[]>([]);
   const [shown, setShown] = useState(0);
@@ -97,6 +114,7 @@ export function BannerCarousel({ photos, sizes, className }: { photos: Photo[]; 
       for (const animation of frame.getAnimations()) animation.cancel();
       frame.style.transform = "";
       frame.style.visibility = "";
+      frame.style.zIndex = "";
     }
     if (from === shown || !incoming || !outgoing) return;
     if (reducedMotion()) {
@@ -104,10 +122,21 @@ export function BannerCarousel({ photos, sizes, className }: { photos: Photo[]; 
       return;
     }
     outgoing.style.visibility = "visible";
+    if (fade) {
+      // The shown photo stays solid under the next one, so the window never dims between them.
+      // Eased at both ends: `ease-calm` does most of its change early, which reads as a quick cut.
+      incoming.style.zIndex = "-19";
+      const rising = incoming.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE_MS, easing: "ease-in-out" });
+      rising.onfinish = rising.oncancel = () => {
+        outgoing.style.visibility = "";
+        incoming.style.zIndex = "";
+      };
+      return;
+    }
     const leaving = slideTo(outgoing, drag, drag - dir * width, SLIDE_MS);
     leaving.onfinish = leaving.oncancel = () => (outgoing.style.visibility = "");
     slideTo(incoming, drag + dir * width, 0, SLIDE_MS);
-  }, [shown]);
+  }, [shown, fade]);
 
   // A sideways swipe on the banner turns one photo. A finger drags the shown photo and the one
   // beside it along (the banner is `touch-pan-y` while it has a carousel, so the page still
@@ -139,7 +168,7 @@ export function BannerCarousel({ photos, sizes, className }: { photos: Photo[]; 
       dragging = false;
     };
     const move = (event: PointerEvent) => {
-      if (!start || reducedMotion()) return;
+      if (!start || fade || reducedMotion()) return;
       const dx = event.clientX - start.x;
       const dy = event.clientY - start.y;
       if (!dragging) {
@@ -239,7 +268,7 @@ export function BannerCarousel({ photos, sizes, className }: { photos: Photo[]; 
       banner.removeEventListener("click", click, true);
       banner.removeEventListener("wheel", wheel);
     };
-  }, [photos.length, go]);
+  }, [photos.length, go, fade]);
 
   useEffect(() => {
     if (paused || reducedMotion()) return;
@@ -274,7 +303,7 @@ export function BannerCarousel({ photos, sizes, className }: { photos: Photo[]; 
           />
         </div>
       ))}
-      <div className="absolute right-4 top-4 z-10 flex gap-1 sm:right-6 sm:top-5" role="group" aria-label="Banner photos">
+      <div className={cn("absolute top-4 z-10 flex gap-1 sm:top-5", dots === "left" ? "left-4 sm:left-6" : "right-4 sm:right-6")} role="group" aria-label="Banner photos">
         {photos.map((photo, index) => (
           <button
             key={photo.src}

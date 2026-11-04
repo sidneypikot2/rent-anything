@@ -204,6 +204,8 @@ for (const [path, heading, testId] of [
 // Sign-up through the real API (email and password only), and the /partner guard: signed
 // out goes to /partner/login, a guest is sent home, a partner gets the dashboard.
 test("sign-up and the partner guard", async ({ page }) => {
+  // Two sign-ups and most of the partner pages: about a minute, more on a cold dev server.
+  test.setTimeout(120_000);
   const errors = [];
   collectErrors(page, errors);
   const stamp = Date.now();
@@ -223,7 +225,7 @@ test("sign-up and the partner guard", async ({ page }) => {
 
     if (checkConfirmation) {
       // The two fields show and hide together.
-      await page.getByRole("button", { name: "Show" }).first().click();
+      await page.getByRole("button", { name: "Show", exact: true }).first().click();
       await expect(password()).toHaveAttribute("type", "text");
       await expect(confirmation()).toHaveAttribute("type", "text");
 
