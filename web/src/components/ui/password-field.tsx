@@ -13,6 +13,8 @@ type Props = {
   // and the field keeps its own state.
   visible?: boolean;
   onVisibleChange?: (visible: boolean) => void;
+  // Smaller, for a small sheet (sign-in), as on Field.
+  compact?: boolean;
 } & Omit<ComponentProps<"input">, "type">;
 
 // A password input like Field, with a Show/Hide toggle inside it.
@@ -23,6 +25,7 @@ export function PasswordField({
   action,
   visible: controlledVisible,
   onVisibleChange,
+  compact = false,
   className,
   id,
   ...props
@@ -39,7 +42,7 @@ export function PasswordField({
   };
 
   return (
-    <div className="flex flex-col gap-1.5 text-sm font-semibold">
+    <div className={cn("flex flex-col font-semibold", compact ? "gap-1 text-small" : "gap-1.5 text-sm")}>
       <div className="flex items-baseline justify-between gap-2">
         <label htmlFor={inputId}>{label}</label>
         {action}
@@ -51,7 +54,8 @@ export function PasswordField({
           aria-invalid={error ? true : undefined}
           aria-describedby={note ? noteId : undefined}
           className={cn(
-            "min-h-12 w-full rounded-control border bg-surface py-2.5 pl-4 pr-16 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm",
+            "w-full rounded-control border bg-surface pr-16 font-normal text-foreground outline-none transition-[border-color,box-shadow] duration-300 ease-calm",
+            compact ? "min-h-11 py-2 pl-3 text-base sm:text-control" : "min-h-12 py-2.5 pl-4",
             "placeholder:text-muted/80 focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
             error ? "border-danger" : "border-line-strong",
             className,

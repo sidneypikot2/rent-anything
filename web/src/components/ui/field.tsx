@@ -11,11 +11,13 @@ type Props = {
   error?: string;
   // The most characters it takes: shows "n / max" under it.
   counter?: number;
+  // Smaller, for a small sheet (sign-in).
+  compact?: boolean;
 } & ComponentProps<"input">;
 
 // A labelled text input with an optional hint, or an error in its place. The label sits above
 // the field, or inside it under <FieldLook look="floating">.
-export function Field({ label, hint, error: apiError, counter: max, className, placeholder, onChange, ...props }: Props) {
+export function Field({ label, hint, error: apiError, counter: max, compact = false, className, placeholder, onChange, ...props }: Props) {
   const look = useFieldLook();
   const inputId = useId();
   const noteId = useId();
@@ -32,7 +34,7 @@ export function Field({ label, hint, error: apiError, counter: max, className, p
       aria-describedby={note ? noteId : undefined}
       // A floating label reads :placeholder-shown to know the field is empty, so it needs one.
       placeholder={floating ? (placeholder ?? " ") : placeholder}
-      className={cn("w-full", controlClasses(look, error), className)}
+      className={cn("w-full", controlClasses(look, error, compact), className)}
       onInvalid={native.onInvalid}
       onChange={(event) => {
         native.recheck(event.currentTarget);
@@ -44,7 +46,7 @@ export function Field({ label, hint, error: apiError, counter: max, className, p
   );
 
   return (
-    <div className="flex flex-col gap-1.5 text-sm font-semibold">
+    <div className={cn("flex flex-col font-semibold", compact ? "gap-1 text-small" : "gap-1.5 text-sm")}>
       {floating ? (
         <div className="relative">
           {input}

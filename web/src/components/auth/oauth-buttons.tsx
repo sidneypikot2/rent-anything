@@ -3,6 +3,7 @@
 import Script from "next/script";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { cn } from "@/components/ui/cn";
 import type { OauthProvider } from "@/lib/auth/actions";
 import { isInAppBrowser, openInBrowserHref } from "@/lib/in-app-browser";
 
@@ -34,6 +35,9 @@ declare global {
 type Props = {
   disabled: boolean;
   onToken: (provider: OauthProvider, token: string) => void;
+  // Side by side, for a small sheet (RAA-253): two pills of one height with short labels, as
+  // "Continue with Google" doesn't fit half a sheet.
+  inline?: boolean;
 };
 
 export function hasOauthProviders() {
@@ -58,7 +62,7 @@ function useUserAgent() {
   );
 }
 
-export function OauthButtons({ disabled, onToken }: Props) {
+export function OauthButtons({ disabled, onToken, inline = false }: Props) {
   const userAgent = useUserAgent();
   // Google sign-in can't work inside an in-app browser (RAA-157), so there it gives way to a
   // way out; until the user agent is known its space is held and its script isn't loaded.
@@ -81,12 +85,13 @@ export function OauthButtons({ disabled, onToken }: Props) {
     window.google.accounts.id.renderButton(googleButton.current, {
       theme: "outline",
       size: "large",
-      text: "continue_with",
+      text: inline ? "signin" : "continue_with",
+      shape: inline ? "pill" : "rectangular",
       // The site is English only: otherwise Google follows the browser's language.
       locale: "en",
       width: googleButton.current.offsetWidth || 280,
     });
-  }, [googleReady]);
+  }, [googleReady, inline]);
 
   useEffect(() => {
     if (!FACEBOOK_APP_ID) return;
@@ -112,7 +117,7 @@ export function OauthButtons({ disabled, onToken }: Props) {
   if (!hasOauthProviders()) return null;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className={inline && !inApp ? "grid gap-2 sm:auto-cols-fr sm:grid-flow-col" : "flex flex-col gap-2"}>
       {GOOGLE_CLIENT_ID && userAgent === null && <div className="min-h-10" />}
       {GOOGLE_CLIENT_ID && userAgent !== null && inApp && <InAppBrowserNotice userAgent={userAgent} />}
       {GOOGLE_CLIENT_ID && userAgent !== null && !inApp && (
@@ -125,7 +130,7 @@ export function OauthButtons({ disabled, onToken }: Props) {
           <div
             ref={googleButton}
             data-testid="oauth-google"
-            className={disabled ? "pointer-events-none min-h-10 opacity-50" : "min-h-10"}
+            className={cn("min-h-10 min-w-0", disabled && "pointer-events-none opacity-50")}
           />
         </>
       )}
@@ -135,12 +140,22 @@ export function OauthButtons({ disabled, onToken }: Props) {
           <Button
             type="button"
             variant="soft"
-            size="sm"
+            size={inline ? "provider" : "sm"}
             data-testid="oauth-facebook"
+            aria-label={inline ? "Continue with Facebook" : undefined}
             disabled={disabled || !facebookReady}
             onClick={facebookLogin}
           >
-            Continue with Facebook
+            {inline ? (
+              <>
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 shrink-0 fill-current">
+                  <path d="M24 12a12 12 0 1 0-13.9 11.9v-8.4H7.1V12h3V9.4c0-3 1.8-4.7 4.5-4.7 1.3 0 2.7.2 2.7.2v3h-1.5c-1.5 0-2 .9-2 1.9V12h3.3l-.5 3.5h-2.8v8.4A12 12 0 0 0 24 12z" />
+                </svg>
+                Facebook
+              </>
+            ) : (
+              "Continue with Facebook"
+            )}
           </Button>
         </>
       )}
