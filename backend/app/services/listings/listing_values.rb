@@ -98,7 +98,7 @@ module Listings
     end
 
     def save_vehicle_rate!(listing)
-      return listing.vehicle_rate&.destroy! unless listing.category.vehicle?
+      return listing.vehicle_rate&.destroy! unless listing.category.timed_rental?
 
       rate = listing.vehicle_rate || listing.build_vehicle_rate
       if @vehicle_rate
@@ -108,7 +108,7 @@ module Listings
       rate.save!
     end
 
-    # Gear's and a transfer's price (RAA-191): kept when not sent, 0 ("no price yet") at first.
+    # A transfer's price (RAA-191): kept when not sent, 0 ("no price yet") at first.
     def save_flat_rate!(listing)
       return listing.flat_rate&.destroy! unless listing.category.flat_priced?
 
@@ -319,13 +319,13 @@ module Listings
     # delivers / picks_up and the delivery_zones they go by (RAA-205).
     def vehicle_rate_for(category)
       value = @params[:vehicle_rate]
-      vehicle = category&.vehicle?
+      rental = category&.timed_rental?
       if value.nil?
-        return error("Vehicle rate is required for a vehicle rental") if vehicle && !@listing&.vehicle_rate
+        return error("Vehicle rate is required for a vehicle or gear rental") if rental && !@listing&.vehicle_rate
 
         return nil
       end
-      return error("Only a vehicle rental has a vehicle rate") if category && !vehicle
+      return error("Only a vehicle or gear rental has a vehicle rate") if category && !rental
       return error("Vehicle rate must be an object") unless value.respond_to?(:key?)
 
       price = value[:daily_price_cents]
@@ -370,7 +370,7 @@ module Listings
     def flat_rate_for(category)
       value = @params[:flat_rate]
       return nil if value.nil?
-      return error("Only gear or a transfer has a flat price") if category && !category.flat_priced?
+      return error("Only a transfer has a flat price") if category && !category.flat_priced?
       return error("Flat rate must be an object") unless value.respond_to?(:key?)
 
       price = value[:price_cents]

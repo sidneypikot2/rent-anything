@@ -18,6 +18,9 @@
 #
 # A motorcycle shop can offer child helmets (RAA-205): free (0, an inclusion), for a fee per
 # helmet and day, or not at all (nil). A guest takes up to one for each motorbike.
+#
+# Gear has one too (RAA-254): a daily price, a deposit per item, pickup hours, turnaround and
+# delivery, whose fee it charges once for the drop-off. The rest is for a vehicle only.
 class VehicleRate < ApplicationRecord
   WEEK_DAYS = 7
   MONTH_DAYS = 30
@@ -25,6 +28,11 @@ class VehicleRate < ApplicationRecord
   SELF_DRIVE_ONLY_SLUGS = %w[motorcycle].freeze
   MAX_TURNAROUND_MINUTES = 720
   CHILD_HELMET_SLUGS = %w[motorcycle].freeze
+
+  VEHICLE_ONLY_FIELDS = %i[
+    half_day_price_cents hourly_price_cents weekly_price_cents monthly_price_cents km_limit_per_day
+    excess_km_fee_cents driver_fee_cents
+  ].freeze
 
   MAX_DELIVERY_ZONES = 5
 
@@ -49,7 +57,8 @@ class VehicleRate < ApplicationRecord
   validates :turnaround_minutes, numericality: { only_integer: true, in: 0..MAX_TURNAROUND_MINUTES }
   validate :pickup_hours_in_order
   validate :turnaround_by_the_half_hour
-  validate :listing_is_a_vehicle
+  validate :listing_is_a_timed_rental
+  validate :gear_has_a_daily_price_only
   validate :longer_rentals_cost_less_per_day
   validate :shorter_rentals_cost_less
   validate :excess_km_fee_has_a_limit
@@ -153,8 +162,15 @@ class VehicleRate < ApplicationRecord
     end
   end
 
-  def listing_is_a_vehicle
-    errors.add(:base, "Only a vehicle rental has a vehicle rate") if listing && !listing.category&.vehicle?
+  def listing_is_a_timed_rental
+    errors.add(:base, "Only a vehicle or gear rental has a vehicle rate") if listing && !listing.category&.timed_rental?
+  end
+
+  def gear_has_a_daily_price_only
+    return unless listing&.category&.gear?
+
+    VEHICLE_ONLY_FIELDS.each { errors.add(_1, "is only for a vehicle") unless self[_1].nil? }
+    errors.add(:driving, "is only for a vehicle") unless self_drive?
   end
 
   def longer_rentals_cost_less_per_day

@@ -633,7 +633,7 @@ RSpec.describe "Partner listings", type: :request do
           before { body.delete(:vehicle_rate) }
 
           run_test! do |response|
-            expect(response.parsed_body["errors"]).to include("Vehicle rate is required for a vehicle rental")
+            expect(response.parsed_body["errors"]).to include("Vehicle rate is required for a vehicle or gear rental")
             expect(Listing.count).to eq(0)
           end
         end
@@ -719,7 +719,7 @@ RSpec.describe "Partner listings", type: :request do
         before { body[:vehicle_rate] = { daily_price_cents: 50_000 } }
 
         run_test! do |response|
-          expect(response.parsed_body["errors"]).to include("Only a vehicle rental has a vehicle rate")
+          expect(response.parsed_body["errors"]).to include("Only a vehicle or gear rental has a vehicle rate")
           expect(Listing.count).to eq(0)
         end
       end
@@ -1407,54 +1407,49 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
-      context "gear, priced flat (RAA-191)" do
+      context "gear, priced by a vehicle rate (RAA-254)" do
         let(:category) { create(:category, :gear) }
         let(:listing) { create(:listing, :gear, partner: user, area: moalboal, status: "draft") }
 
         before { body[:attrs] = {} }
 
-        response "200", "its price per item and day set when sent, kept when left out" do
+        response "200", "its daily price and deposit set when sent, kept when left out" do
           schema "$ref" => "#/components/schemas/partner_listing"
 
-          before { body[:flat_rate] = { price_cents: 30_000 } }
+          before { body[:vehicle_rate] = { daily_price_cents: 40_000, security_deposit_cents: 200_000 } }
 
           run_test! do |saved|
-            expect(saved.parsed_body["flat_rate"]).to eq("price_cents" => 30_000)
+            expect(saved.parsed_body["vehicle_rate"]).to include("daily_price_cents" => 40_000, "security_deposit_cents" => 200_000)
+            expect(saved.parsed_body["flat_rate"]).to be_nil
             expect(saved.parsed_body["live_blockers"]).not_to include("price")
-            body.delete(:flat_rate)
+            body.delete(:vehicle_rate)
             patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
-            expect(response.parsed_body["flat_rate"]).to eq("price_cents" => 30_000)
+            expect(response.parsed_body["vehicle_rate"]).to include("daily_price_cents" => 40_000)
           end
         end
 
-        response "422", "a price of 0, or a flat price on a vehicle" do
+        response "422", "a flat price, or what only a vehicle's rate has" do
           schema "$ref" => "#/components/schemas/validation_errors"
 
-          context "with 0" do
-            before { body[:flat_rate] = { price_cents: 0 } }
+          context "with a flat price" do
+            before { body[:flat_rate] = { price_cents: 30_000 } }
 
-            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Price must be a whole number of centavos above 0" ]) }
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Only a transfer has a flat price" ]) }
           end
 
-          context "on a vehicle" do
-            let(:category) { create(:category, :motorcycle) }
-            let(:listing) { create(:listing, :vehicle, partner: user, area: moalboal, status: "draft") }
+          context "with a weekly price" do
+            before { body[:vehicle_rate] = { daily_price_cents: 40_000, weekly_price_cents: 200_000 } }
 
-            before do
-              body.merge!(attrs: { make: "Honda", model: "Click 125", engine_cc: 125, transmission: "automatic", seats: 2 },
-                flat_rate: { price_cents: 30_000 })
-            end
-
-            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Only gear or a transfer has a flat price" ]) }
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Weekly price is only for a vehicle" ]) }
           end
         end
 
         response "404", "another partner's gear" do
           let(:listing) { create(:listing, :gear, area: moalboal) }
 
-          before { body[:flat_rate] = { price_cents: 30_000 } }
+          before { body[:vehicle_rate] = { daily_price_cents: 40_000 } }
 
-          run_test! { expect(listing.reload.flat_rate).to be_nil }
+          run_test! { expect(listing.reload.vehicle_rate.daily_price_cents).to eq(30_000) }
         end
       end
 

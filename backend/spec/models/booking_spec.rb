@@ -25,6 +25,23 @@ RSpec.describe Booking do
     end
   end
 
+  describe "gear's days and period (RAA-254)" do
+    let(:camera) { create(:listing, :gear) }
+    let(:on) { 10.days.from_now.to_date }
+
+    it "takes the days it starts on, as a vehicle rental does" do
+      expect(described_class.days_for(camera, on, on + 2).to_a).to eq([ on, on + 1 ])
+      expect(described_class.days_for(camera, on, on).to_a).to eq([ on ])
+    end
+
+    it "is given the default pickup, and is under way until its return day" do
+      booking = create(:booking, listing: camera, starts_on: on, ends_on: on + 1)
+
+      expect(booking).to have_attributes(pickup_time: "09:00", last_day: on + 1)
+      expect(booking.ends_at - booking.starts_at).to eq(24.hours)
+    end
+  end
+
   describe ".units_for" do
     it "takes as many of a piece of gear as the trip item's count" do
       expect(described_class.units_for(create(:listing, :gear), 2)).to eq(2)

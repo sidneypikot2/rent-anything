@@ -1,6 +1,15 @@
 require "rails_helper"
 
 RSpec.describe Category do
+  describe "#timed_rental? (RAA-254)" do
+    it "is a vehicle or gear, and only a transfer is flat priced" do
+      expect(create(:category, :motorcycle)).to have_attributes(timed_rental?: true, flat_priced?: false)
+      expect(create(:category, :gear)).to have_attributes(timed_rental?: true, flat_priced?: false)
+      expect(create(:category, :transfer)).to have_attributes(timed_rental?: false, flat_priced?: true)
+      expect(create(:category, :accommodation)).to have_attributes(timed_rental?: false, flat_priced?: false)
+    end
+  end
+
   describe "#guest_group" do
     let(:vehicles) { create(:category, :parent, slug: "vehicle-rentals", name: "Vehicle rental") }
     let(:gear) { create(:category, :parent, slug: "equipment-rentals", name: "Equipment rental") }

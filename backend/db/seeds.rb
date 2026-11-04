@@ -144,16 +144,22 @@ unless Rails.env.test?
   require Rails.root.join("db/migrate/20261015180000_complete_sample_listings").to_s
   CompleteSampleListings.complete
 
+  # Gear is priced by a vehicle rate (RAA-254).
+  require Rails.root.join("db/migrate/20261105020000_move_gear_to_vehicle_rates").to_s
+  MoveGearToVehicleRates.backfill(ActiveRecord::Base.connection)
+
   # Every sample listing has a price (RAA-191): there is no "to be agreed" in production, so the
   # add sheet and checkout total every kind. Only rates still at 0 or missing get one; a price a
   # partner set stays.
   StayRate.where(nightly_price_cents: 0).update_all(nightly_price_cents: 250_000, updated_at: Time.current)
   TourDetail.where(base_price_cents: 0).update_all(base_price_cents: 150_000, updated_at: Time.current)
+  gear = Listing.where(category: Category.in_guest_group("gear")).select(:id)
+  VehicleRate.where(daily_price_cents: 0, listing_id: gear).update_all(daily_price_cents: 30_000, updated_at: Time.current)
   VehicleRate.where(daily_price_cents: 0).update_all(daily_price_cents: 50_000, security_deposit_cents: 100_000, updated_at: Time.current)
-  Listing.includes(category: :parent).where.missing(:flat_rate).select { _1.category.flat_priced? }.each do |listing|
-    listing.create_flat_rate!(price_cents: listing.category.gear? ? 30_000 : 150_000)
+  Listing.includes(:category).where.missing(:flat_rate).select { _1.category.flat_priced? }.each do |listing|
+    listing.create_flat_rate!(price_cents: 150_000)
   end
-  FlatRate.where(price_cents: 0).update_all(price_cents: 30_000, updated_at: Time.current)
+  FlatRate.where(price_cents: 0).update_all(price_cents: 150_000, updated_at: Time.current)
 end
 
 # Accounts to sign in with while developing (RAA-132): every sample partner, so a guest's

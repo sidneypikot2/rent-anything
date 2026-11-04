@@ -96,7 +96,7 @@ RSpec.describe "Checkouts", type: :request do
       response "201", "gear is booked by the count: two cameras are one booking for two units, with no guests" do
         schema "$ref" => "#/components/schemas/checkout"
 
-        let(:camera) { create(:listing, :gear, booking_mode: "instant") }
+        let(:camera) { create(:listing, :gear, booking_mode: "instant", with_rate: false) }
         let!(:camera_item) { create(:trip_item, trip:, listing: camera, starts_on: day, ends_on: day + 1, quantity: 2) }
         let(:item_ids) { [ camera_item.id ] }
 
@@ -236,7 +236,7 @@ RSpec.describe "Checkouts", type: :request do
       response "201", "priced gear and a transfer: by the item and day, and by the trip (RAA-191)" do
         schema "$ref" => "#/components/schemas/checkout"
 
-        let(:camera) { create(:listing, :gear, booking_mode: "instant").tap { create(:flat_rate, listing: _1, price_cents: 30_000) } }
+        let(:camera) { create(:listing, :gear, booking_mode: "instant") }
         let(:van) { create(:listing, :transfer, booking_mode: "instant") }
         let!(:camera_item) { create(:trip_item, trip:, listing: camera, starts_on: day, ends_on: day + 2, quantity: 2) }
         let!(:van_item) { create(:trip_item, trip:, listing: van, starts_on: day, ends_on: day, quantity: 4) }

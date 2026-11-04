@@ -157,11 +157,11 @@ class Listing < ApplicationRecord
     )))
   end
 
-  # A vehicle rental's period from starts_on to ends_on (RAA-195, Booking.rental_period), from
+  # A timed rental's period from starts_on to ends_on (RAA-195, Booking.rental_period), from
   # the pickup time or the shop's default for that day (one still ahead today). Nil for anything
-  # else. Reads category and vehicle_rate.
+  # else. Reads category: :parent and vehicle_rate.
   def rental_period(starts_on, ends_on, pickup_time)
-    return unless category.vehicle?
+    return unless category.timed_rental?
 
     Booking.rental_period(starts_on, ends_on, pickup_time || vehicle_rate&.default_pickup_time(on: starts_on))
   end
@@ -178,7 +178,7 @@ class Listing < ApplicationRecord
   end
 
   # What it still lacks to go live (LIVE_BLOCKERS' keys): a ready photo, a description of
-  # LIVE_DESCRIPTION_MIN characters, a price (a stay's, a tour's, a vehicle's, or gear's and a
+  # LIVE_DESCRIPTION_MIN characters, a price (a stay's, a tour's, a vehicle's or gear's, or a
   # transfer's flat one, RAA-191), and a landmark on an activity's route. Reads photos, stay_rate,
   # tour_detail, vehicle_rate, flat_rate and visited_landmarks.
   def live_blockers
@@ -212,7 +212,7 @@ class Listing < ApplicationRecord
   def needs_price?
     (category.accommodation? && !stay_rate&.nightly_price_cents&.positive?) ||
       (category.tour? && !tour_detail&.base_price_cents&.positive?) ||
-      (category.vehicle? && !vehicle_rate&.priced?) ||
+      (category.timed_rental? && !vehicle_rate&.priced?) ||
       (category.flat_priced? && !flat_rate&.priced?)
   end
 

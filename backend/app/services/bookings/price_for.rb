@@ -4,12 +4,12 @@ module Bookings
   # total, with whether the dates can be had (Availability::Ledger). The query carries
   # everything as text: starts_on and ends_on (ISO 8601, both required), quantity (the people,
   # or gear's count; default 1), units (a rental vehicle's chosen vehicles), room_guests (a
-  # stay's split, as JSON), pets and a vehicle rental's pickup_time (RAA-195, "08:30"), delivery
-  # and return_pickup ("true" adds the shop's fee for each vehicle, a line each) and the guest's
+  # stay's split, as JSON), pets and a timed rental's pickup_time (RAA-195, "08:30"), delivery
+  # and return_pickup ("true" adds the shop's fee for each vehicle, or once for gear, a line each) and the guest's
   # pin, delivery_lat and delivery_lng (RAA-205: the fee of its zone, or `unavailable` beyond
   # the farthest; without one, the nearest zone's). A refused
   # party or dates comes back as `unavailable`, not an error, so the sheet can say why next to
-  # its total. A vehicle rental also answers its `pickup_times`, each of the shop's with whether
+  # its total. A timed rental also answers its `pickup_times`, each of the shop's with whether
   # the rental could start then, and when it `returns_at` from the pickup time asked for (or the
   # shop's default); both nil for anything else.
   class PriceFor < ApplicationService
@@ -73,11 +73,11 @@ module Bookings
       }
     end
 
-    # A vehicle rental's period from the pickup time asked for, and each of the shop's pickup
+    # A timed rental's period from the pickup time asked for, and each of the shop's pickup
     # times with whether `units` of it could start then.
     def rental(listing, ledger, days, units, starts_on, ends_on, pickup_time)
       rate = listing.vehicle_rate
-      return {} unless listing.category.vehicle? && rate
+      return {} unless listing.category.timed_rental? && rate
 
       # Only times still ahead: today's past ones aren't taken, just gone.
       times = rate.pickup_times_on(starts_on).map do |time|
@@ -97,18 +97,25 @@ module Bookings
       when "tour"
         each = breakdown[:price_unit] == "group" ? "group" : "person"
         [ line("#{quantity} #{each.pluralize(quantity)} × #{peso(unit)}", unit * quantity) ]
-      when "vehicle"
+      when "vehicle", "gear"
         noun = Trips::Values.vehicle_noun(listing)
         [
           line("#{quantity} #{noun.pluralize(quantity)} × #{peso(unit)} × #{days(breakdown[:days])}", unit * quantity * breakdown[:days]),
-          (line("Delivery · #{quantity} × #{peso(breakdown[:delivery_cents] / quantity)}", breakdown[:delivery_cents]) if breakdown[:delivery_cents]),
-          (line("Pick-up at the end · #{quantity} × #{peso(breakdown[:return_pickup_cents] / quantity)}", breakdown[:return_pickup_cents]) if breakdown[:return_pickup_cents]),
+          handover_line("Delivery", breakdown[:delivery_cents], breakdown),
+          handover_line("Pick-up at the end", breakdown[:return_pickup_cents], breakdown),
           child_helmets_line(breakdown)
         ].compact
-      when "gear" then [ line("#{quantity} × #{peso(unit)} × #{days(breakdown[:days])}", unit * quantity * breakdown[:days]) ]
       when "transfer" then [ line("#{quantity} × #{peso(unit)} a trip", unit * quantity) ]
       else []
       end
+    end
+
+    # "Delivery · 2 × ₱150" for each vehicle; gear's is one fee, "Delivery".
+    def handover_line(label, cents, breakdown)
+      return if cents.nil?
+      return line(label, cents) if breakdown[:kind] == "gear"
+
+      line("#{label} · #{breakdown[:quantity]} × #{peso(cents / breakdown[:quantity])}", cents)
     end
 
     # "Child helmets · 2 × ₱50 × 3 days", or "Child helmets · 2, included" when the shop gives them free.

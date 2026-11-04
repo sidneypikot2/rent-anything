@@ -2,8 +2,9 @@ module Trips
   # Adds several listings to one of the guest's trips at once (POST /trip_items with `items`,
   # RAA-187): a mix of a business's room types from GET /stay_mixes. Each item is read and
   # checked as AddItem reads one, its refusals prefixed with its place in the list, and all
-  # are added or none. Without a trip_id a new trip is named after the first item's
-  # suggestion (or trip_name), for the guests of every item together.
+  # are added or none, gear counting into what the trip holds as AddItem counts it. Without a
+  # trip_id a new trip is named after the first item's suggestion (or trip_name), for `guests`
+  # when sent (gear's quantities are counts, not people), else the guests of every item together.
   class AddItems < ApplicationService
     include Values
 
@@ -20,6 +21,8 @@ module Trips
       items = read_items
       trip_id = integer_value(:trip_id, "Trip")
       typed_name = optional_string(@params, :trip_name, "Trip name") unless trip_id
+      guests = count_value(:guests, "Guests", max: 50) unless trip_id
+      error("Guests must be at least 1") if guests&.zero?
       raise_errors!(TripItem.new)
 
       trip = trip_id && @user.trips.find(trip_id)
@@ -27,11 +30,11 @@ module Trips
       Trip.transaction do
         trip&.lock!
         trip ||= @user.trips.build(name: typed_name || suggestions.first[:new_trip_name],
-          guests: items.sum { _1[:quantity] }.clamp(1, 50))
+          guests: guests || items.sum { _1[:quantity] }.clamp(1, 50))
         items.each { trip.cover(_1[:starts_on], _1[:ends_on]) }
         trip.save!
         items.zip(suggestions).each do |item, suggested|
-          trip.items.create!(**item, followed_suggestion: suggested[:trip] == (trip_id && trip))
+          AddItem.new(@user, {}).place(trip, item, followed_suggestion: suggested[:trip] == (trip_id && trip))
         end
         trip.follow_places_in_name!
       end

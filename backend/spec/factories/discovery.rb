@@ -147,11 +147,16 @@ FactoryBot.define do
       after(:create) { |listing, context| create(:vehicle_rate, listing:) if context.with_rate && !listing.vehicle_rate }
     end
 
-    # An action camera the partner has 3 of: gear, booked by the count.
+    # An action camera the partner has 3 of at ₱300 a day: gear, booked by the count, on the
+    # rental rules a vehicle has (RAA-254).
     trait :gear do
       category factory: %i[category gear]
       title { "DJI Osmo Action 4" }
-      after(:create) { |listing| (2..3).each { listing.units.create!(position: _1) } }
+      transient { with_rate { true } }
+      after(:create) do |listing, context|
+        (2..3).each { listing.units.create!(position: _1) }
+        create(:vehicle_rate, listing:, daily_price_cents: 30_000) if context.with_rate && !listing.vehicle_rate
+      end
     end
 
     # A 12-seat van from the port, at ₱1,500 a trip (RAA-191).
@@ -159,7 +164,8 @@ FactoryBot.define do
       category factory: %i[category transfer]
       title { "Hagnaya port van transfer" }
       attrs { { "seats" => 12 } }
-      after(:create) { |listing| create(:flat_rate, listing:, price_cents: 150_000) unless listing.flat_rate }
+      transient { with_rate { true } }
+      after(:create) { |listing, context| create(:flat_rate, listing:, price_cents: 150_000) if context.with_rate && !listing.flat_rate }
     end
 
     # A daily joiner tour for 2 to 12 guests, 4 hours, at ₱1,500 a head (RAA-110).
@@ -194,10 +200,10 @@ FactoryBot.define do
     daily_price_cents { 50_000 }
   end
 
-  # Gear's price per item and day, or a transfer's per vehicle and trip (RAA-191).
+  # A transfer's price per vehicle and trip (RAA-191).
   factory :flat_rate do
-    listing { association(:listing, :gear) }
-    price_cents { 30_000 }
+    listing { association(:listing, :transfer, with_rate: false) }
+    price_cents { 150_000 }
   end
 
   factory :listing_fee do
