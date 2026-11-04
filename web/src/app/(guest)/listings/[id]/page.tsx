@@ -77,8 +77,10 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   const rate = listing.stay_rate;
   const tour = listing.tour;
   const vehicleRate = listing.vehicle_rate;
-  // A rental vehicle with seats books as many as its people need, from its own card (RAA-191).
+  // A rental vehicle with seats books as many as its people need, from its own card (RAA-191);
+  // gear has the same card, by the count (RAA-255).
   const vehicleSeats = vehicleRate && typeof listing.details.seats === "number" ? listing.details.seats : null;
+  const rentalCard = Boolean(vehicleRate && (vehicleSeats || listing.group === "gear"));
   const cover = listing.photos.at(0);
   const nightsSet = Boolean(dates.from && dates.to && dates.from < dates.to);
   // The party in the fewest rooms, as the price card starts from (RAA-184).
@@ -109,7 +111,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   ];
 
   // A stay's or a vehicle's own card holds its price and Add to trip, so the page prices it once.
-  const booker = Boolean(rate || (vehicleRate && vehicleSeats));
+  const booker = Boolean(rate || rentalCard);
   const addAside = (
     <div id="book-add" className="flex flex-col items-start gap-1">
       <p className="text-sm text-muted">{FREE_TO_SAVE}</p>
@@ -181,7 +183,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
                   />
                 ) : (
                   vehicleRate &&
-                  vehicleSeats && (
+                  rentalCard && (
                     <VehicleBookingCard
                       key={tripDatesQuery(dates)}
                       listing={listing}

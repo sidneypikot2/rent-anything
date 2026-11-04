@@ -20,7 +20,7 @@ import { RoomsAndGuests } from "./rooms-and-guests";
 import { PickupTimeRow, rentalClock } from "./pickup-time";
 import { PriceBreakdown, usePriceBreakdown } from "./price-breakdown";
 import { VehicleCounters } from "./people-and-vehicles";
-import { unitsFor, vehiclePartyText } from "./vehicle-party";
+import { sameGearRental, unitsFor, vehiclePartyText } from "./vehicle-party";
 import { sameItem } from "./trip-missing";
 import { TripOption } from "./trip-option";
 import {
@@ -266,15 +266,15 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
         pets: rules.pets === 0 ? 0 : Math.min(partyPets, rules.pets ?? partyPets),
       })
     : null;
-  // Gear is booked by the count: the sheet asks how many, from one, and the page's guests go
-  // along only as a new trip's.
+  // Gear is booked by the count: the sheet asks how many, from the booking card's or one, and the
+  // page's guests go along only as a new trip's.
   const gear = Boolean(request.preview?.gear) && !mix;
   const quantity = arrangement
     ? String(headcount(partyOf(arrangement.rooms)))
     : mix
       ? String(request.quantity)
       : gear
-        ? (typedQuantity ?? "1")
+        ? (typedQuantity ?? String(request.count ?? 1))
         : ((tripPeople === null ? typedQuantity : null) ??
       String(Math.min(unhoused > 0 ? unhoused : wanted, guestCap(request.preview) ?? Infinity)));
   const quantityNumber = Number(quantity);
@@ -283,6 +283,8 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   // or the page's people, until the guest changes them here.
   const vehicleSeats = mix ? null : (request.preview?.vehicleSeats ?? null);
   const vehicle = vehicleSeats !== null;
+  // A rental that runs from a pickup time: a vehicle, or gear (RAA-255).
+  const timed = vehicle || gear;
   const [typedUnits, setUnits] = useState<number | null>(null);
   // Closing asks first once the guest has changed what the sheet opened with. The picked trip
   // isn't counted: it can settle after the first render (the chosen trip is read on mount).
@@ -304,7 +306,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   // What the add costs (RAA-191): each item of a mix, or the one listing as the sheet has it now.
   const breakdown = usePriceBreakdown(
     mix
-      ? mix.map((item) => ({ ...dated, listingId: item.listingId, quantity: item.quantity, units: item.units, roomGuests: item.roomGuests, pets: item.pets, pickupTime: item.pickupTime, delivery: item.delivery, childHelmets: item.childHelmets }))
+      ? mix.map((item) => ({ ...dated, listingId: item.listingId, quantity: item.quantity, units: item.counted ? undefined : item.units, roomGuests: item.roomGuests, pets: item.pets, pickupTime: item.pickupTime, delivery: item.delivery, childHelmets: item.childHelmets }))
       : [
           {
             ...dated,
@@ -313,7 +315,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
             units: vehicleUnits,
             roomGuests: arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null,
             pets: arrangement?.pets ?? 0,
-            pickupTime: vehicle ? pickupTime : null,
+            pickupTime: timed ? pickupTime : null,
             delivery: request.delivery ?? null,
             childHelmets,
           },
@@ -332,9 +334,9 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
           ...dated,
           mix,
           quantity: quantityNumber,
-          guests: gear ? request.quantity : vehicle ? request.guests : undefined,
+          guests: mix ? request.guests : gear ? request.quantity : vehicle ? request.guests : undefined,
           units: vehicle ? vehicleUnits : undefined,
-          pickupTime: vehicle ? pickupTime : null,
+          pickupTime: timed ? pickupTime : null,
           delivery: request.delivery ?? null,
           childHelmets: mix ? undefined : childHelmets,
           roomGuests: arrangement && rules ? roomGuestsToSend(arrangement.rooms, rules) : null,
@@ -362,10 +364,9 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
   // as a double tap or a forgotten add would otherwise book it twice. Adding again stays allowed
   // (a second room, a second van).
   const already = pickedTrip && !mix ? sameItem(pickedTrip, request.listingId, dated.startsOn, dated.endsOn) : undefined;
-  // Gear the trip holds unbooked on exactly these dates: the add counts into it (the API's
-  // Trips::AddItem), so the sheet says the new total rather than warning of a double booking.
-  const merging = gear
-    ? pickedTrip?.items.find(
+  // This gear the trip holds unbooked on exactly these dates.
+  const held = gear
+    ? (pickedTrip?.items ?? []).filter(
         (item) =>
           item.listing.id === request.listingId &&
           !item.booking &&
@@ -373,11 +374,15 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
           item.starts_on === dated.startsOn &&
           item.ends_on === dated.endsOn,
       )
-    : undefined;
+    : [];
+  // The line among them with this pickup and handover: the add counts into it (the API's
+  // Trips::AddItem), so the sheet says the new total rather than warning of a double booking.
+  const pickupClock = pickupTime ?? (breakdown.price?.returnsAt ? rentalClock(breakdown.price.returnsAt) : null);
+  const merging = held.find((item) => sameGearRental(item, { ...dated, pickupTime: pickupClock, delivery: request.delivery }));
   // What the partner lists, less what the trip holds on these dates: the most one add can take.
   // At none left, the add is off and the note says why (the API refuses it too).
   const listed = gear ? request.preview?.unitsCount : undefined;
-  const left = listed === undefined ? null : listed - (merging?.quantity ?? 0);
+  const left = listed === undefined ? null : listed - held.reduce((sum, item) => sum + item.quantity, 0);
   const full = left !== null && left <= 0;
   const capacity = quantityValid && !mix && !gear
     ? capacityNote(request.preview, quantityNumber, wanted, booked, arrangement?.rooms)
@@ -410,7 +415,9 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
             : "Start a trip";
   // What the add holds, beside its button: the count (rooms, guests or how many) over the dates.
   const amount = mix
-    ? `${mix.length} ${mixNoun}`
+    ? mix.some((item) => item.counted)
+      ? `Qty ${mixUnits}`
+      : `${mix.length} ${mixNoun}`
     : arrangement
       ? `${arrangement.rooms.length} ${arrangement.rooms.length === 1 ? "room" : "rooms"}`
       : gear
@@ -509,9 +516,11 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
                   icon={<CategoryGlyph name={item.units ? (preview?.category ?? "") : "Hotel or cottage"} />}
                   value={item.title}
                   label={
-                    item.units
-                      ? vehiclePartyText(item.quantity, item.units, preview?.category)
-                      : partySummary(item.roomGuests ?? [{ adults: item.quantity, children: 0, infants: 0 }], item.pets, item.shared)
+                    item.counted
+                      ? `Qty ${item.quantity}`
+                      : item.units
+                        ? vehiclePartyText(item.quantity, item.units, preview?.category)
+                        : partySummary(item.roomGuests ?? [{ adults: item.quantity, children: 0, infants: 0 }], item.pets, item.shared)
                   }
                   data-testid="which-trip-mix"
                 />
@@ -605,7 +614,11 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
                 </p>
                 <p className="text-muted">
                   {gear ? (
-                    <>It&apos;s there ({already.quantity}) on other days or already booked, so this goes on a line of its own.</>
+                    full ? (
+                      <>The partner lists {listed}, so there are none left to add for these dates.</>
+                    ) : (
+                      <>It&apos;s there ({already.quantity}) on other days, at another time or already booked, so this goes on a line of its own.</>
+                    )
                   ) : (
                     <>
                       It&apos;s there for {guestsWord(already.quantity)}. Adding it again books it twice
@@ -615,7 +628,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
                 </p>
               </TicketNote>
             )}
-            {vehicle && breakdown.price?.pickupTimes && (
+            {timed && breakdown.price?.pickupTimes && (
               <PickupTimeRow
                 times={breakdown.price.pickupTimes}
                 value={pickupTime ?? (breakdown.price.returnsAt ? rentalClock(breakdown.price.returnsAt) : null)}
@@ -632,7 +645,7 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
                 data-testid="which-trip-delivery"
               />
             )}
-            {(vehicle || mixVehicles) && !delivery && <AtTheShopRow place={request.preview?.place} />}
+            {(timed || mixVehicles) && !delivery && <AtTheShopRow place={request.preview?.place} />}
             {vehicle && (
               <ChildHelmetsRow fee={deliveryFees?.childHelmet} value={childHelmets} max={vehicleUnits ?? 0} onChange={setChildHelmets} />
             )}

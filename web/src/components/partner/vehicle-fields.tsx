@@ -32,6 +32,12 @@ export function isVehicle(category: ListingCategory | undefined) {
   return !!properties && "make" in properties && "model" in properties && "engine_cc" in properties;
 }
 
+// Gear (a camera, a snorkel set): the other kind of rental, priced by the same rate as a vehicle
+// but booked by the count (RAA-255).
+export function isGear(category: ListingCategory | undefined) {
+  return category?.booking_type === "rental" && !isVehicle(category);
+}
+
 export function toVehicleValues(attrs: PartnerListing["attrs"]): VehicleValues {
   const text = (value: unknown) => (typeof value === "string" || typeof value === "number" ? String(value) : "");
   return {

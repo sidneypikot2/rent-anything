@@ -38,7 +38,7 @@ export function ChangeBookingSheet({
   const stay = item.booking_type === "stay";
   // Gear is booked by the count: how many, up to the units the partner lists.
   const gear = item.listing.group === "gear";
-  const vehicle = item.seats !== null || item.returns_at !== null;
+  const vehicle = gear || item.seats !== null || item.returns_at !== null;
   const startGuests = booking.guests ?? booking.quantity;
   const startPickup = item.pickup_time ?? (booking.starts_at ? rentalClock(booking.starts_at) : null);
 

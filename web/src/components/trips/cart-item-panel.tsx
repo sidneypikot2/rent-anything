@@ -155,7 +155,9 @@ export function CartItemPanel({
             {[formatDateRange(item.starts_on, item.ends_on) ?? "No date yet", itemAmount(item)].join(" · ")}
           </p>
           {rentalTimes(item) && <p className="text-sm text-muted">{rentalTimes(item)}</p>}
-          {deliveryText(item, item.seats !== null) && <p className="text-sm text-muted">{deliveryText(item, item.seats !== null)}</p>}
+          {deliveryText(item, item.seats !== null || item.returns_at !== null) && (
+            <p className="text-sm text-muted">{deliveryText(item, item.seats !== null || item.returns_at !== null)}</p>
+          )}
           {problem && (
             <p className="text-sm font-semibold text-warning" data-testid="item-panel-problem">
               {problem}
@@ -247,17 +249,15 @@ function dateRows(booking: GuestBooking): [string, string][] {
   return [["Date", formatDateRange(booking.starts_on, booking.ends_on) ?? day(booking.starts_on)]];
 }
 
-// Who or how many a booking is for, as the sheets ask it (RAA-200): gear's count, a vehicle's
-// people, vehicles and pickup, a stay's guests and how they split into rooms, anyone else's guests.
+// Who or how many a booking is for, as the sheets ask it (RAA-200): gear's count and pickup, a
+// vehicle's people, vehicles and pickup, a stay's guests and how they split into rooms, anyone
+// else's guests.
 function partyRows(booking: GuestBooking, category: string | undefined): [string, string][] {
-  if (booking.guests == null) return [["How many", String(booking.quantity)]];
-  if (booking.starts_at && booking.ends_at) {
+  const pickup: [string, string][] = booking.starts_at && booking.ends_at ? [["Pickup", formatRentalSpan(booking.starts_at, booking.ends_at)]] : [];
+  if (booking.guests == null) return [["How many", String(booking.quantity)], ...pickup];
+  if (pickup.length > 0) {
     const vehicles = vehicleNoun(category, 2);
-    return [
-      ["People", String(booking.guests)],
-      [vehicles[0].toUpperCase() + vehicles.slice(1), String(booking.quantity)],
-      ["Pickup", formatRentalSpan(booking.starts_at, booking.ends_at)],
-    ];
+    return [["People", String(booking.guests)], [vehicles[0].toUpperCase() + vehicles.slice(1), String(booking.quantity)], ...pickup];
   }
   const rooms = booking.booking_type === "stay" ? roomSplit(booking) : null;
   return [["Guests", String(booking.guests)], ...(rooms ? [["Rooms", rooms] as [string, string]] : [])];

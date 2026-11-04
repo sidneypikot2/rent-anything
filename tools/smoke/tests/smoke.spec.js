@@ -384,6 +384,34 @@ test("sign-up and the partner guard", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+// Gear rents like a vehicle, by the count (RAA-255): a card's Choose gear opens the shop's sheet,
+// with a pickup time and no seats to fill, and what is picked goes straight into a new trip.
+test("rent gear from a shop's sheet", async ({ page }) => {
+  test.setTimeout(60_000);
+  const errors = [];
+  collectErrors(page, errors);
+  const day = (offset) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+  // A different stretch each run, so bookings left by earlier runs don't fill these days.
+  const offset = 30 + (Math.floor(Date.now() / 1000) % 240);
+
+  await page.goto(`/bantayan-island?from=${day(offset)}&to=${day(offset + 2)}&guests=2&show=need-gear`);
+  const [shop] = await Promise.all([page.waitForEvent("popup"), page.getByTestId("business-choose").first().click()]);
+  collectErrors(shop, errors);
+  const gear = shop.locator("#need-gear");
+  await expect(gear.getByTestId("shop-options")).toBeVisible();
+  await expect(gear.getByTestId("shop-seats")).toHaveCount(0);
+  await expect(gear.getByTestId("shop-model").first()).toBeVisible();
+  await gear.locator(`[data-testid^="shop-model-"][data-testid$="-more"]`).first().click();
+  await expect(gear.getByTestId("shop-add")).toHaveText(/Add 1 to trip/);
+  await expect(gear.getByTestId("shop-summary")).toContainText("₱");
+  await gear.getByTestId("shop-add").click();
+  await expect(shop.getByTestId("trip-added")).toContainText("Added");
+  await shop.goto("/cart");
+  await expect(shop.getByText("Qty 1").first()).toBeVisible();
+
+  expect(errors).toEqual([]);
+});
+
 // Add to trip (RAA-66): signed out, the first add needs no account (RAA-177). With a trip,
 // the next add goes to the trip the banner shows, a centred badge confirms it, and in the cart
 // (renamed there) the item left is booked (RAA-133) after the guest gives their contact details; the trip link and

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { getDestinations, type AreaCard, type BusinessDetail } from "@/api/discovery";
 import { BookJumpBar } from "@/components/discovery/book-jump-bar";
-import { descendants, offerOf, vehicleShop } from "@/components/discovery/browse-offers";
+import { descendants, offerOf, rentalShop } from "@/components/discovery/browse-offers";
 import { BusinessOptions } from "@/components/discovery/business-row";
 import { TRIP_ORDER_GROUPS } from "@/components/discovery/categories";
 import { ListingPhotos } from "@/components/discovery/listing-photos";
@@ -144,7 +144,7 @@ export function BusinessBody({ view, inModal = false }: { view: BusinessViewData
                       groupTitle={group.title}
                       offers={offers}
                       dates={dates}
-                      shop={vehicleShop(group.listings)}
+                      shop={rentalShop(group.listings)}
                     />
                   </Section>
                 );

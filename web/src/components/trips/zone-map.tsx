@@ -142,7 +142,7 @@ export default function ZoneMap({
     }
     if (!pinRef.current) {
       const marker = new Marker({ draggable: Boolean(onPinRef.current) }).setLngLat(toLngLat(pin)).addTo(map);
-      marker.getElement().title = "Where the rider meets you";
+      marker.getElement().title = "Where the shop meets you";
       marker.on("dragend", () => onPinRef.current?.(fromLngLat(marker.getLngLat())));
       pinRef.current = marker;
     } else {

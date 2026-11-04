@@ -33,9 +33,9 @@ import { PickupTimeRow, rentalClock } from "@/components/trips/pickup-time";
 import { useOptionalTripAdd } from "@/components/trips/trip-add-provider";
 import { tripDatesQuery, type TripDates } from "@/components/trips/trip-dates";
 import { usePriceBreakdown } from "@/components/trips/price-breakdown";
-import { useShopListings } from "@/components/trips/use-shop-listings";
+import { useShopListings, type ShopGroup } from "@/components/trips/use-shop-listings";
 import { CoverBar } from "@/components/trips/cover-bar";
-import { peopleText, rentalDays, ridesHeld, seatsLabel, vehicleNoun, type ShopListing } from "@/components/trips/vehicle-party";
+import { peopleText, rentalDays, ridesHeld, seatsLabel, shopNoun, vehicleNoun, withArticle, type ShopListing } from "@/components/trips/vehicle-party";
 import { useTripHere } from "@/components/trips/use-trip-here";
 import { useTripHref } from "@/components/trips/trip-link";
 
@@ -43,6 +43,9 @@ type Options = {
   business: { id: number; name: string };
   // The vehicles' category: its slug narrows the shop's listings, its name gives their words.
   category: { slug?: string; name: string };
+  // Which of the shop's rentals: gear is `counted`, by how many rather than for the trip's people
+  // (RAA-255), and its sheet holds all the shop's gear. Left out, the category's vehicles.
+  group?: ShopGroup;
   dates: TripDates;
   // The trip's people, to compare the seats picked with.
   people: number;
@@ -91,7 +94,10 @@ export function splitPeople(picked: { units: number; seats: number }[], people: 
 // trip), and everything picked goes at one pickup time (RAA-195), asked right under the dates
 // (RAA-205): each model says how many are free from that pickup to the return. A model's row
 // opens its details in place (RAA-205), so the guest compares models without leaving the list.
-export function useShopModels({ business, category, dates, people, listingIds, place, onAdding }: Options) {
+// Gear (RAA-255) is the same sheet by the count: no seats, no CoverBar, and each model's quantity
+// is how many of it, with the API's words for them.
+export function useShopModels({ business, category, group, dates, people, listingIds, place, onAdding }: Options) {
+  const counted = group === "gear";
   const session = useSession();
   const flow = useOptionalTripAdd();
   // The trip the add goes to (the place's banner's, or the chosen one): its vehicle rentals
@@ -102,11 +108,11 @@ export function useShopModels({ business, category, dates, people, listingIds, p
   // everyone (the longest run of them), or the trip's dates when it has no ride on any day or one
   // on every day. One date is one day, back the next.
   const [chosenDates, setRental] = useState<{ from: string; to: string } | null>(null);
-  const rental = chosenDates ?? openDays(tripItems, dates, people);
+  const rental = chosenDates ?? (counted ? { from: dates.from ?? "", to: dates.to ?? "" } : openDays(tripItems, dates, people));
   const from = rental.from || undefined;
   const to = rental.from ? rental.to || addDays(rental.from, 1) : undefined;
   const [pickupTime, setPickupTime] = useState<string | null>(null);
-  const shop = useShopListings(business.id, category.slug ?? "", from, to, pickupTime);
+  const shop = useShopListings(business.id, { category: category.slug, group }, from, to, pickupTime);
   const models = (shop.data?.listings ?? []).filter((model) => !listingIds || listingIds.includes(model.id));
   const [counts, setCounts] = useState<Record<number, number>>({});
   const [transmission, setTransmission] = useState<string | null>(null);
@@ -118,7 +124,7 @@ export function useShopModels({ business, category, dates, people, listingIds, p
   const picked = models.filter((model) => (counts[model.id] ?? 0) > 0).map((model) => ({ model, units: counts[model.id], seats: seatsOf(model) }));
   const units = picked.reduce((sum, each) => sum + each.units, 0);
   const seats = picked.reduce((sum, each) => sum + each.units * each.seats, 0);
-  const split = splitPeople(picked, people);
+  const split = counted ? picked.map((each) => each.units) : splitPeople(picked, people);
   // The rides the trip already has on these days, counted with what is picked here.
   const held = ridesHeld(tripItems, from, to, people);
   const someDays = held.gaps.length > 0 && !(held.gaps.length === 1 && held.gaps[0].from === from && held.gaps[0].to === to);
@@ -150,7 +156,7 @@ export function useShopModels({ business, category, dates, people, listingIds, p
       startsOn: from,
       endsOn: to,
       quantity: split[index],
-      units: each.units,
+      units: counted ? undefined : each.units,
       pickupTime,
       delivery: chosenDelivery,
       childHelmets: helmetsOf[index],
@@ -161,7 +167,7 @@ export function useShopModels({ business, category, dates, people, listingIds, p
   const returnsAt = (picked.length > 0 ? breakdown.price?.returnsAt : null) ?? models.find((model) => model.ends_at)?.ends_at ?? null;
   const total = breakdown.price?.total ?? null;
   const deposit = breakdown.price?.deposit ?? 0;
-  const nouns = (count: number) => vehicleNoun(category.name, count);
+  const nouns = (count: number) => (counted ? shopNoun(models, count) : vehicleNoun(category.name, count));
   // Free nearby with every model (its nearest zone, RAA-205): as far as the shortest of them reaches.
   const freeReach =
     models.length > 0 && models.every((model) => model.vehicle_rate?.delivery_fee_cents === 0)
@@ -191,6 +197,7 @@ export function useShopModels({ business, category, dates, people, listingIds, p
         title: each.model.title,
         quantity: split[index],
         units: each.units,
+        counted,
         roomGuests: null,
         pets: 0,
         shared: false,
@@ -223,7 +230,7 @@ export function useShopModels({ business, category, dates, people, listingIds, p
         onClick={addPicked}
         data-testid="shop-add"
       >
-        {units ? `Add ${units} to trip` : `Pick a ${nouns(1)}`}
+        {units ? `Add ${units} to trip` : `Pick ${withArticle(nouns(1))}`}
       </Button>
     ) : null;
 
@@ -288,7 +295,7 @@ export function useShopModels({ business, category, dates, people, listingIds, p
             const facts = [
               transmissionLabel(model.details.transmission),
               typeof model.details.engine_cc === "number" ? `${model.details.engine_cc} cc` : null,
-              seatsLabel(seatsOf(model), category.name).toLowerCase(),
+              counted ? null : seatsLabel(seatsOf(model), category.name).toLowerCase(),
             ].filter(Boolean);
             const open = expanded === model.id;
             const detailsId = `shop-model-details-${model.id}`;
@@ -391,25 +398,28 @@ export function useShopModels({ business, category, dates, people, listingIds, p
           onChange={setDelivery}
           zones={ringModel?.vehicle_rate?.delivery_zones}
           center={ringModel?.approx_location}
+          counted={counted}
         />
         {!chosenDelivery && <AtTheShopRow place={place} />}
         <ChildHelmetsRow fee={fees.childHelmet} from={fees.from} value={childHelmetCount} max={units} onChange={setChildHelmets} />
       </Ticket>
       {breakdown.price?.unavailable && <p className="text-sm font-semibold text-warning">{breakdown.price.unavailable}</p>}
 
-      <CoverBar
-        people={people}
-        covered={Math.min(held.least + seats, people)}
-        summary={
-          held.units > 0
-            ? `${peopleText(people)} · ${held.units} ${nouns(held.units)} in your trip${units ? `, ${units} more picked` : ""}`
-            : `${peopleText(people)} · ${units} ${nouns(units)}, ${seats} ${seats === 1 ? "seat" : "seats"}`
-        }
-        need="a ride"
-        when={someDays ? held.gaps.map((gap) => formatDateRange(gap.from, gap.to)).join(", ") : undefined}
-        done="Everyone has a seat"
-        data-testid="shop-seats"
-      />
+      {!counted && (
+        <CoverBar
+          people={people}
+          covered={Math.min(held.least + seats, people)}
+          summary={
+            held.units > 0
+              ? `${peopleText(people)} · ${held.units} ${nouns(held.units)} in your trip${units ? `, ${units} more picked` : ""}`
+              : `${peopleText(people)} · ${units} ${nouns(units)}, ${seats} ${seats === 1 ? "seat" : "seats"}`
+          }
+          need="a ride"
+          when={someDays ? held.gaps.map((gap) => formatDateRange(gap.from, gap.to)).join(", ") : undefined}
+          done="Everyone has a seat"
+          data-testid="shop-seats"
+        />
+      )}
     </div>
   );
 

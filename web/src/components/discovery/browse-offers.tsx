@@ -110,13 +110,14 @@ export function offerOf(
   };
 }
 
-// A shop whose listings here are all rental vehicles (RAA-191): its models are picked together.
-export function vehicleShop(listings: BrowseListing[]) {
-  return listings.every(
+// A shop whose listings here are all rentals of one kind: its models are picked together. Rental
+// vehicles (RAA-191) are picked for the trip's people; gear (RAA-255) is `counted`, by how many.
+export function rentalShop(listings: BrowseListing[]) {
+  const counted = listings.every((listing) => listing.booking_type === "rental" && listing.group === "gear");
+  const vehicles = listings.every(
     (listing) => listing.booking_type === "rental" && listing.group !== "gear" && typeof listing.details?.seats === "number",
-  )
-    ? { businessId: listings[0].business.id }
-    : undefined;
+  );
+  return counted || vehicles ? { businessId: listings[0].business.id, counted } : undefined;
 }
 
 // Listings by their business, each business where its first listing is, the order kept.

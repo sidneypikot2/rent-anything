@@ -252,9 +252,15 @@ export function ListingPanel({
           headline={false}
         />
       )}
-      {listing?.vehicle_rate && typeof listing.details.seats === "number" && (
-        // Its people and vehicles and what they cost; the panel's foot adds it (RAA-191).
-        <VehicleBookingCard listing={listing} rate={listing.vehicle_rate} dates={dates ?? { guests: 1 }} seats={listing.details.seats} add={false} />
+      {listing?.vehicle_rate && (typeof listing.details.seats === "number" || listing.group === "gear") && (
+        // Its people and vehicles, or gear's count, and what they cost; the panel's foot adds it (RAA-191).
+        <VehicleBookingCard
+          listing={listing}
+          rate={listing.vehicle_rate}
+          dates={dates ?? { guests: 1 }}
+          seats={typeof listing.details.seats === "number" ? listing.details.seats : null}
+          add={false}
+        />
       )}
       {listing?.vehicle_rate && <VehiclePrice listing={listing} rate={listing.vehicle_rate} />}
       {description && description !== summary?.trim() && (
