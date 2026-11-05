@@ -10,7 +10,7 @@ module Areas
     include RequestValues
 
     FIELDS = %i[name slug kind status parent_slug aliases center psgc_code tagline description getting_there
-      best_time_to_visit tag_slugs wikidata_id].freeze
+      best_time_to_visit tag_slugs wikidata_id port].freeze
     TEXTS = { tagline: "Tagline", description: "Description", getting_there: "Getting there",
       best_time_to_visit: "Best time to visit" }.freeze
     MAX_ALIASES = 20
@@ -54,11 +54,23 @@ module Areas
         attributes[key] = text(key, label) if @params.key?(key)
       end
       attributes.merge!(wikidata_attributes) if @params.key?(:wikidata_id)
+      attributes.merge!(port_attributes(@params[:port])) if @params.key?(:port)
       attributes
     end
 
     def new_or_given?(key)
       @area.new_record? || @params.key?(key)
+    end
+
+    # The port guests arrive at, { name:, location: }; null for none.
+    def port_attributes(port)
+      return { port_name: nil, port_location: nil } if port.nil?
+      unless port.respond_to?(:key?)
+        @errors << "Port must have a name and a location"
+        return {}
+      end
+
+      { port_name: required_string(port, :name, "Port name"), port_location: point_from(port[:location]) }
     end
 
     def parent_from(slug)

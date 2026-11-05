@@ -118,6 +118,13 @@ class Area < ApplicationRecord
     lineage.find { |area| area.island? && area.published? }
   end
 
+  # The port guests arrive at (RAA-257), when the team set one.
+  def port
+    return nil unless port_location
+
+    { name: port_name, location: { lat: port_location.y, lng: port_location.x } }
+  end
+
   private
 
   # An area can't sit under itself or under any area inside it.

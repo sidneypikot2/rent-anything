@@ -27,13 +27,14 @@ RSpec.describe "Plan businesses", type: :request do
       description "Plan a whole trip: the businesses with active listings in one guest group here and in the published places " \
         "inside it, #{Discovery::PlanBusinesses::PER_PAGE} a page, each with what it offers there summed up, its first listing's " \
         "rounded point and the places to see its listings go to. Things to do lead with the businesses whose tours go to the " \
-        "most hearted places, then those with a price; the rest are by name."
+        "most hearted places, then those with a price; stays lead with those closest to the hearted places, and say how far " \
+        "each is; the rest are by name."
       parameter name: :slug, in: :path, type: :string
       parameter name: :group, in: :query, required: true, schema: { type: :string, enum: Category::GUEST_GROUPS }
       parameter name: :page, in: :query, type: :integer, required: false, description: "From 1 (the default)"
       parameter name: :"hearted[]", in: :query, required: false, style: :form, explode: true,
         schema: { type: :array, items: { type: :string } },
-        description: "The slugs of the trip's hearted places to see: Things to do that go there lead"
+        description: "The slugs of the trip's hearted places to see: Things to do that go there lead, and the stays closest to them"
 
       response "200", "one page, with the totals and every group's count" do
         schema "$ref" => "#/components/schemas/plan_businesses"
@@ -128,6 +129,59 @@ RSpec.describe "Plan businesses", type: :request do
             json = response.parsed_body
             expect(json["businesses"].pluck("name")).to eq([ "Alpha tours" ])
             expect(json).to include("total" => 4, "page" => 2, "per_page" => 3)
+          end
+        end
+      end
+
+      response "200", "stays with picks: closest to them first, each saying how far in half kilometres" do
+        schema "$ref" => "#/components/schemas/plan_businesses"
+        let(:slug) { "bantayan-island" }
+        let(:group) { "stay" }
+        let(:"hearted[]") { %w[kota-beach virgin-island draft-cove] }
+
+        # About 1.1 km to a hundredth of a degree of latitude; the picks sit on one line of longitude.
+        let!(:kota) { create(:landmark, area: bantayan, slug: "kota-beach", name: "Kota Beach", location: "POINT(123.80 11.10)") }
+        let!(:virgin) do
+          create(:landmark, area: bantayan, slug: "virgin-island", name: "Virgin Island", location: "POINT(124.50 11.10)",
+            boat_departure: "POINT(123.80 11.12)")
+        end
+        let!(:draft_cove) { create(:landmark, :draft, area: bantayan, slug: "draft-cove", name: "Draft Cove", location: "POINT(120.00 15.00)") }
+
+        def stay_by(name, point, title: "A room by the sea")
+          business = Business.find_by(name:) || create(:business, name:)
+          create(:listing, :stay, area: bantayan, partner: business.partner, business:, title:, location: point)
+        end
+
+        before do
+          stay_by("Alpha far", "POINT(123.80 11.30)")
+          stay_by("Zed near", "POINT(123.80 11.11)")
+          stay_by("Mid inn", "POINT(123.80 11.15)")
+          # Far off, but with a second room right by the picks: its closest listing counts.
+          stay_by("Two sites", "POINT(123.80 11.40)", title: "The far annexe")
+          stay_by("Two sites", "POINT(123.80 11.09)", title: "The beach room")
+        end
+
+        context "with picks" do
+          run_test! do |response|
+            businesses = response.parsed_body["businesses"]
+            expect(businesses.pluck("name")).to eq([ "Zed near", "Two sites", "Mid inn", "Alpha far" ])
+            # Boat-only places count from where the boats leave, and a draft place not at all.
+            expect(businesses.first["near"]).to eq([
+              { "slug" => "kota-beach", "km" => 1.0 }, { "slug" => "virgin-island", "km" => 1.0 }
+            ])
+            expect(businesses.second["near"]).to eq([
+              { "slug" => "kota-beach", "km" => 1.0 }, { "slug" => "virgin-island", "km" => 3.5 }
+            ])
+          end
+        end
+
+        context "with no picks that are published" do
+          let(:"hearted[]") { %w[draft-cove nowhere] }
+
+          run_test! do |response|
+            businesses = response.parsed_body["businesses"]
+            expect(businesses.pluck("name")).to eq([ "Alpha far", "Mid inn", "Two sites", "Zed near" ])
+            expect(businesses.pluck("near")).to all(eq([]))
           end
         end
       end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_020000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_05_064000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -72,6 +72,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_020000) do
     t.text "description", default: "", null: false
     t.text "getting_there", default: "", null: false
     t.string "best_time_to_visit", default: "", null: false
+    t.string "port_name"
+    t.geography "port_location", limit: {srid: 4326, type: "st_point", geographic: true}
     t.index ["boundary"], name: "index_areas_on_boundary", using: :gist
     t.index ["center"], name: "index_areas_on_center", using: :gist
     t.index ["parent_id"], name: "index_areas_on_parent_id"
@@ -332,7 +334,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_020000) do
     t.string "wikidata_id"
     t.string "wikidata_aliases", default: [], null: false, array: true
     t.integer "wikidata_popularity", default: 0, null: false
+    t.boolean "must_see", default: false, null: false
+    t.geography "boat_departure", limit: {srid: 4326, type: "st_point", geographic: true}
     t.index ["area_id"], name: "index_landmarks_on_area_id"
+    t.index ["boat_departure"], name: "index_landmarks_on_boat_departure", using: :gist
     t.index ["location"], name: "index_landmarks_on_location", using: :gist
     t.index ["slug"], name: "index_landmarks_on_slug", unique: true
     t.index ["wikidata_id"], name: "index_landmarks_on_wikidata_id", unique: true, where: "(wikidata_id IS NOT NULL)"

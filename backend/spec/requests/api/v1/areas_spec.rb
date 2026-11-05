@@ -85,6 +85,24 @@ RSpec.describe "Areas", type: :request do
         end
       end
 
+      response "200", "what the plan's places step reads: must see, boat pins and the port" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "bantayan-island" }
+        before do
+          kota.update!(must_see: true)
+          virgin.update!(boat_departure: "POINT(123.8 11.15)")
+          bantayan.update!(port_name: "Santa Fe port", port_location: "POINT(123.8 11.16)")
+        end
+
+        run_test! do |response|
+          json = response.parsed_body
+          landmarks = json["landmarks"].index_by { _1["slug"] }
+          expect(landmarks["kota-beach"]).to include("must_see" => true, "boat_departure" => nil)
+          expect(landmarks["virgin-island"]).to include("must_see" => false, "boat_departure" => { "lat" => 11.15, "lng" => 123.8 })
+          expect(json["port"]).to eq("name" => "Santa Fe port", "location" => { "lat" => 11.16, "lng" => 123.8 })
+        end
+      end
+
       response "200", "published landmarks and active listings" do
         schema "$ref" => "#/components/schemas/area_detail"
         let(:slug) { "bantayan-island" }

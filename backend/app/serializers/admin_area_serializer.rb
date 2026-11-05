@@ -22,6 +22,7 @@ module AdminAreaSerializer
       description: area.description,
       getting_there: area.getting_there,
       best_time_to_visit: area.best_time_to_visit,
+      port: area.port,
       tags: area.tags.order(:name).map { |tag| TagSerializer.call(tag) },
       photos: area.photos.map { |photo| photo(photo) },
       wikidata_id: area.wikidata_id,

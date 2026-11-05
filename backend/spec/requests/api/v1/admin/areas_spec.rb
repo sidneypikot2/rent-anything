@@ -236,6 +236,38 @@ RSpec.describe "Admin areas", type: :request do
         end
       end
 
+      response "200", "a port set and cleared" do
+        schema "$ref" => "#/components/schemas/admin_area"
+
+        let(:body) { { port: { name: "Santa Fe port", location: { lat: 11.16, lng: 123.8 } } } }
+
+        context "set" do
+          run_test! do |response|
+            expect(response.parsed_body["port"]).to eq("name" => "Santa Fe port", "location" => { "lat" => 11.16, "lng" => 123.8 })
+          end
+        end
+
+        context "cleared" do
+          before { bantayan.update!(port_name: "Old port", port_location: "POINT(123.8 11.16)") }
+          let(:body) { { port: nil } }
+
+          run_test! do |response|
+            expect(response.parsed_body["port"]).to be_nil
+            expect(bantayan.reload).to have_attributes(port_name: nil, port_location: nil)
+          end
+        end
+      end
+
+      response "422", "a port with no name or a broken pin" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:body) { { port: { name: "", location: { lat: 200, lng: 123.8 } } } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Port name is required", "Latitude must be a number between -90 and 90")
+        end
+      end
+
       response "422", "back to draft with an active listing" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
