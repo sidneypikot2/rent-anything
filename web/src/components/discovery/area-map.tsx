@@ -18,7 +18,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { MENU_ROW } from "@/components/ui/menu";
 import { Price } from "@/components/ui/typography";
-import { circlePolygon, fromLngLat, MAP_STYLE_URL, setMapWorker, toLngLat, type LatLng } from "@/lib/map";
+import { circlePolygon, FLAT_MAP, fromLngLat, keepMapFlat, MAP_STYLE_URL, setMapWorker, toLngLat, type LatLng } from "@/lib/map";
 import { useAreaMap } from "./area-map-context";
 import { MapButton, ZoomButton } from "./map-controls";
 import { TRIP_ORDER_GROUPS } from "./categories";
@@ -255,11 +255,13 @@ export function AreaMap({
         center: toLngLat(center),
         zoom: 11,
         attributionControl: { compact: true },
+        ...FLAT_MAP,
       });
     } catch {
       queueMicrotask(() => setFailed(true));
       return;
     }
+    keepMapFlat(map);
     let loaded = false;
     map.on("error", () => {
       if (!loaded) setFailed(true);

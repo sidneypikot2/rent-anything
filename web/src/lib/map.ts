@@ -1,4 +1,4 @@
-import { getVersion, LngLatBounds, setWorkerUrl, type LngLatLike } from "maplibre-gl";
+import { getVersion, LngLatBounds, setWorkerUrl, type LngLatLike, type Map as MapLibreMap } from "maplibre-gl";
 import { EARTH_RADIUS_KM, type LatLng } from "./geo";
 
 // Maps are MapLibre GL JS with OpenFreeMap's vector tiles (SPEC.md, RAA-61): free and keyless.
@@ -13,6 +13,15 @@ export function setMapWorker() {
   if (workerSet) return;
   setWorkerUrl(`/maplibre/maplibre-gl-worker.mjs?v=${getVersion()}`);
   workerSet = true;
+}
+
+// A guest's map stays flat with north up, so a stray drag can't turn or tilt it: these go in
+// new Map(), and keepMapFlat(map) after it stops the two gestures the options can't.
+export const FLAT_MAP = { dragRotate: false, pitchWithRotate: false, touchPitch: false, maxPitch: 0 } as const;
+
+export function keepMapFlat(map: MapLibreMap) {
+  map.touchZoomRotate.disableRotation();
+  map.keyboard.disableRotation();
 }
 
 // Plain geometry lives in geo.ts, free of MapLibre, so pages can measure without loading it.
