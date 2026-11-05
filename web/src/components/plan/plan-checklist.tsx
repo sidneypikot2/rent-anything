@@ -10,11 +10,28 @@ import { useTripHere } from "@/components/trips/use-trip-here";
 import { pickedTotal, useTripQuote, type Trip } from "@/components/trips/use-trips";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
-import { distanceText, heartedSlugs, PLAN_ROWS, rowDone, rowHolds, stayPoint, byHearts, type PlanBusiness, type PlanPlace, type RowKey } from "./plan-data";
+import {
+  byHearts,
+  distanceText,
+  picksApartKm,
+  picksHere,
+  PLACES_ROW,
+  PLAN_ROWS,
+  rowDone,
+  rowHolds,
+  stayPoint,
+  type PlanBusiness,
+  type PlanLandmark,
+  type PlanPlace,
+  type PlanStepRow,
+  type RowKey,
+  type StepKey,
+} from "./plan-data";
 import { PlanCard } from "./plan-card";
 import { PlanMapView, PlanPager, PlanResults } from "./plan-results";
 import { PlanFoot } from "./plan-frame";
 import { PlanPlaces } from "./plan-places";
+import { PlanSee, PlanSeeMapView } from "./plan-see";
 import { PlanChecklistSkeleton, PlanOptionsSkeleton } from "./plan-skeletons";
 import { PlanStayChoice } from "./plan-stay";
 import { PlanSteps } from "./plan-steps";
@@ -22,7 +39,8 @@ import { usePlanBusinesses } from "./use-plan-businesses";
 
 // Step 2: the trip's checklist (our Path B) as a sticky row of step pills (PlanSteps). The trip (with
 // Change, back to step 1) sits in the plan's slim bar (PlanTripLabel); the steps, ticked once the trip has each here,
-// and the one picked (else the first still open) shows its options under them — Where you'll
+// and the one picked (else the first still open) shows its options under them — Places to see
+// leads (PlanSee), as every later step uses its picks; Where you'll
 // stay asks where the guest is staying first, Getting around and Things to do add the places to
 // see (the team's A3). Every step is optional: Skip moves on to the next (remembered in this
 // browser for the trip; Review still names real gaps). An option is a business offering the step,
@@ -59,20 +77,31 @@ function Checklist({
   const wide = useWide();
   const showMap = mapOn && wide;
   // Below lg: the step whose map view covers the screen (PlanMapView); null shows the list.
-  const [mapView, setMapView] = useState<RowKey | null>(null);
+  const [mapView, setMapView] = useState<StepKey | null>(null);
   const closeMapView = useCallback(() => setMapView(null), [setMapView]);
   const [skipped, toggleSkip] = useSkipped(trip.id);
   // The step shown under the stepper: the one the guest tapped, else the first still open.
-  const [picked, setPicked] = useState<RowKey | null>(choose ?? null);
+  const [picked, setPicked] = useState<StepKey | null>(choose ?? null);
   const quote = useTripQuote(trip.id);
-  const rows = PLAN_ROWS.filter((row) => row.key === "stay" || place.counts[row.key] > 0);
-  const done = new Map(rows.map((row) => [row.key, rowDone(trip, row.key, place)]));
-  const current = rows.find((row) => !done.get(row.key) && !skipped.has(row.key))?.key;
+  const hasPlaces = place.landmarks.length > 0;
+  const rows: PlanStepRow[] = [...(hasPlaces ? [PLACES_ROW] : []), ...PLAN_ROWS.filter((row) => row.key === "stay" || place.counts[row.key] > 0)];
+  const picks = picksHere(trip, place);
+  const done = new Map(rows.map((row) => [row.key, row.key === "places" ? picks.length > 0 : rowDone(trip, row.key, place)]));
+  // Places to see stays open until the guest leaves it, picks or not: its first heart ticks it,
+  // and moving on then would pull the cards from under their thumb. A trip with a listing is past it.
+  const current =
+    hasPlaces && trip.items.length === 0 && !skipped.has("places")
+      ? "places"
+      : rows.find((row) => row.key !== "places" && !done.get(row.key) && !skipped.has(row.key))?.key;
   const active = rows.find((row) => row.key === (picked ?? current)) ?? rows[0];
-  const hearted = heartedSlugs(trip);
+  const onPlaces = active.key === "places";
+  const hearted = new Set(picks.map((pick) => pick.slug));
+  const apartKm = picksApartKm(picks);
   const stay = stayPoint(trip);
-  const page = pages[active.key] ?? 1;
-  const results = usePlanBusinesses(place.area.slug, active.key, page, hearted, initial);
+  // Places to see has no options: the query rests on the stays, disabled.
+  const optionsKey: RowKey = active.key === "places" ? "stay" : active.key;
+  const page = pages[optionsKey] ?? 1;
+  const results = usePlanBusinesses(place.area.slug, optionsKey, page, hearted, initial, !onPlaces);
   const shown = results.data;
   // A new page: back to the top of its options, under the header.
   const turnPage = (key: RowKey) => (next: number) => {
@@ -82,17 +111,23 @@ function Checklist({
   };
   const total = pickedTotal(quote.data, trip.items);
   const landmarks = new Map(place.landmarks.map((landmark) => [landmark.slug, landmark]));
-  const cardContext = { landmarks, hearted, stay, when: formatDateRange(trip.starts_on, trip.ends_on) ?? "" };
+  // The stay leading the page, when every pick is close to it.
+  const leader = active.key === "stay" && shown?.page === 1 ? shown.businesses[0] : undefined;
+  const best =
+    leader && leader.near.length === picks.length && picks.length > 0 && leader.near.every((each) => each.km <= NEAR_KM)
+      ? { id: leader.id, label: picks.length === 1 ? `Near ${picks[0].name}` : `Near all ${picks.length} picks` }
+      : null;
+  const cardContext = { landmarks, hearted, stay, when: formatDateRange(trip.starts_on, trip.ends_on) ?? "", best };
 
   // What an open step says to help pick, from the guest's own trip: the tours to the hearted
   // places, how far the hearted places no tour reaches are from the stay.
-  const idle = (key: RowKey, fallback: string) => {
-    if (key === "stay") return "Tell us where you're staying, or pick a stay here";
+  const idle = (key: StepKey, fallback: string) => {
+    if (key === "stay") return picks.length > 0 ? "Closest to the places you picked come first" : "Tell us where you're staying, or pick a stay here";
     if (key === "activity" && shown && shown.heartedTotal > 0)
       return `${shown.heartedTotal} ${shown.heartedTotal === 1 ? "tour goes" : "tours go"} to your hearted places`;
     if (key === "rental" && stay) {
       const far = place.landmarks
-        .filter((landmark) => hearted.has(landmark.slug) && landmark.visitedBy.length === 0)
+        .filter((landmark) => hearted.has(landmark.slug) && landmark.visitedBy.length === 0 && !landmark.boatDeparture)
         .flatMap((landmark) => {
           const km = distanceText(stay.point, landmark.location);
           return km ? [`${landmark.name} ${km}`] : [];
@@ -108,6 +143,24 @@ function Checklist({
   const { toHearted, rest } = active.key === "activity" ? byHearts(businesses, hearted) : { toHearted: [] as PlanBusiness[], rest: businesses };
   const sorted = [...toHearted, ...rest];
   const hrefOf = (key: RowKey) => (id: number) => planBusinessHref(id, key, trip, place.area.slug);
+  // To another step from its foot: the new panel from its top, as a long list may have scrolled.
+  const goTo = (key: StepKey) => {
+    setPicked(key);
+    requestAnimationFrame(() => {
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      panelRef.current?.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+    });
+  };
+  // From a place's details, over the phone's map or the list.
+  const toTours =
+    place.counts.activity > 0
+      ? () => {
+          setMapView(null);
+          goTo("activity");
+        }
+      : undefined;
+  const noListings = trip.items.length === 0;
+  const nextOf = (key: StepKey) => rows[rows.findIndex((row) => row.key === key) + 1];
 
   // The open step's options under it, a page at a time, the pager under them: a sideways row to
   // swipe on a phone, two across on a tablet (the Map pill floating over the foot opens the map
@@ -180,7 +233,7 @@ function Checklist({
           const index = rows.indexOf(row);
           const isDone = Boolean(done.get(row.key));
           const isSkipped = !isDone && skipped.has(row.key);
-          const holds = isDone ? rowHolds(trip, row.key, place) : null;
+          const holds = isDone && row.key !== "places" ? rowHolds(trip, row.key, place) : null;
           const next = rows[index + 1];
           return (
             <div key={row.key} ref={panelRef} className="flex scroll-mt-(--plan-chrome) flex-col gap-3 rounded-card border border-line p-3 motion-safe:animate-swap-in sm:p-4" data-testid="plan-step-panel">
@@ -188,13 +241,19 @@ function Checklist({
                 {/* The title and its hint on one line from sm, so the options start higher. */}
                 <div className="flex min-w-0 flex-col sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3">
                   <h2 className={cn("font-display text-xl font-extrabold tracking-tight", isSkipped ? "text-muted" : "text-navy")}>
-                    {row.title}
+                    {row.key === "places" && !isSkipped ? "What do you want to see?" : row.title}
                   </h2>
-                  <p className="text-sm text-muted">{holds ?? (isSkipped ? "Skipped. Undo to come back to it." : idle(row.key, row.idle))}</p>
+                  {row.key === "places" && !isSkipped ? (
+                    <p className="text-sm text-muted">
+                      Heart a few. We&apos;ll find a stay near them<span className="max-sm:hidden"> and tours that go there</span>.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted">{holds ?? (isSkipped ? "Skipped. Undo to come back to it." : idle(row.key, row.idle))}</p>
+                  )}
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                 {/* Only to bring the map back: Hide map is over the map's corner. */}
-                {!isSkipped && !mapOn && (
+                {!isSkipped && !mapOn && row.key !== "places" && (
                   <Button
                     type="button"
                     variant="soft"
@@ -207,13 +266,14 @@ function Checklist({
                     Show map
                   </Button>
                 )}
-                {!isDone && (
+                {(!isDone || row.key === "places") && (
                   <button
                     type="button"
                     onClick={() => {
-                      // Skipping moves on to the next step; Undo stays here.
+                      // Skipping moves on to the next step; Undo stays here. With picks Places to
+                      // see isn't skipped: it only moves on.
                       if (!isSkipped && next) setPicked(next.key);
-                      toggleSkip(row.key);
+                      if (!isDone) toggleSkip(row.key);
                     }}
                     className="-my-1 flex min-h-11 shrink-0 items-center px-1 text-sm font-semibold text-muted underline-offset-4 hover:underline"
                     data-testid={`plan-skip-${row.key}`}
@@ -230,10 +290,19 @@ function Checklist({
                 </div>
               </div>
               {!isSkipped &&
-                (row.key === "stay" ? (
-                  <PlanStayChoice trip={trip} center={place.center}>
-                    {options("stay")}
-                  </PlanStayChoice>
+                (row.key === "places" ? (
+                  <PlanSee place={place} trip={trip} hearted={hearted} stay={stay?.point ?? null} wide={wide} onTours={toTours} />
+                ) : row.key === "stay" ? (
+                  <>
+                    {apartKm && (
+                      <p className="text-sm text-muted" data-testid="plan-picks-apart">
+                        Your picks are about {apartKm} km apart, so no stay is close to all of them. Stay near the ones you&apos;ll go to most.
+                      </p>
+                    )}
+                    <PlanStayChoice trip={trip} center={place.center}>
+                      {options("stay")}
+                    </PlanStayChoice>
+                  </>
                 ) : (
                   <>
                     {options(row.key)}
@@ -241,7 +310,8 @@ function Checklist({
                     {row.key === "activity" && <PlanPlaces mode="tours" landmarks={place.landmarks} trip={trip} stay={stay?.point ?? null} />}
                   </>
                 ))}
-              {next && (
+              {/* With no listings yet, the foot holds Next. */}
+              {next && !noListings && (
                 <button
                   type="button"
                   onClick={() => setPicked(next.key)}
@@ -258,22 +328,27 @@ function Checklist({
       </section>
 
       <PlanFoot
+        row={noListings || onPlaces}
         float={
-          active && !skipped.has(active.key) && place.counts[active.key] > 0 ? (
+          active && !skipped.has(active.key) && (onPlaces || place.counts[optionsKey] > 0) ? (
             <button
               type="button"
               onClick={() => setMapView(active.key)}
               className="flex min-h-11 items-center gap-2 rounded-full bg-navy px-5 text-sm font-semibold text-white shadow-float lg:hidden"
               data-testid={`plan-map-view-${active.key}`}
             >
-              Map
+              {onPlaces ? "Show on a map" : "Map"}
               <MapGlyph className="size-4" />
             </button>
           ) : undefined
         }
         summary={
-          trip.items.length === 0 ? (
-            <p className="text-sm text-muted">Pick something from a step to review your trip.</p>
+          onPlaces ? (
+            <PicksTray picks={picks} />
+          ) : noListings ? (
+            <p className="text-sm text-muted">
+              {picks.length > 0 ? `Your trip: ${picks.length} ${picks.length === 1 ? "place" : "places"} to see` : "Pick something from a step to review your trip."}
+            </p>
           ) : (
             <div className="flex items-baseline justify-between gap-3 font-bold text-navy">
               <span>{thingCount(trip.items.length)}</span>
@@ -282,30 +357,64 @@ function Checklist({
           )
         }
       >
-        {/* Nothing to review until a listing is in the trip. */}
-        {trip.items.length > 0 && (
+        {/* Nothing to review until a listing is in the trip; until then the foot moves on. */}
+        {!noListings ? (
           <ButtonLink href={`/plan/${place.area.slug}/review?trip=${trip.id}`} size="md" glyph="arrow" data-testid="plan-review">
             Review trip
           </ButtonLink>
+        ) : (
+          nextOf(active.key) && (
+            <Button type="button" size="md" glyph="arrow" onClick={() => goTo(nextOf(active.key).key)} data-testid="plan-foot-next">
+              Next: {nextOf(active.key).title}
+            </Button>
+          )
         )}
       </PlanFoot>
 
       {/* The map view is always the open step's: the Map pill is under it. */}
-      {mapView && mapView === active.key && shown && (
+      {mapView === "places" && onPlaces && (
+        <PlanSeeMapView place={place} trip={trip} hearted={hearted} stay={stay?.point ?? null} onClose={closeMapView} onTours={toTours} />
+      )}
+      {mapView && mapView === active.key && !onPlaces && shown && (
         <PlanMapView
           title={active.title}
           businesses={sorted}
           total={shown.total}
           page={shown.page}
           perPage={shown.perPage}
-          onPage={(next) => setPages((current) => ({ ...current, [active.key]: next }))}
+          onPage={(next) => setPages((current) => ({ ...current, [optionsKey]: next }))}
           context={cardContext}
           stay={stay}
-          hrefOf={hrefOf(active.key)}
+          hrefOf={hrefOf(optionsKey)}
           onClose={closeMapView}
         />
       )}
     </>
+  );
+}
+
+// Places to see's foot: how many are picked and which.
+function PicksTray({ picks }: { picks: PlanLandmark[] }) {
+  if (picks.length === 0)
+    return (
+      <div className="flex min-w-0 flex-col" data-testid="plan-picks-tray">
+        <p className="text-sm font-bold text-navy">
+          <span className="sm:hidden">None picked yet</span>
+          <span className="max-sm:hidden">No places picked yet</span>
+        </p>
+        <p className="truncate text-small text-muted">
+          <span className="sm:hidden">You can pick later</span>
+          <span className="max-sm:hidden">You can skip this and pick later</span>
+        </p>
+      </div>
+    );
+  return (
+    <div className="flex min-w-0 flex-col" data-testid="plan-picks-tray">
+      <p className="text-sm font-bold text-navy">
+        {picks.length} {picks.length === 1 ? "place" : "places"} picked
+      </p>
+      <p className="truncate text-small text-muted">{picks.map((pick) => pick.name).join(" · ")}</p>
+    </div>
   );
 }
 
@@ -325,6 +434,9 @@ function planBusinessHref(id: number, key: RowKey, trip: Trip, slug: string) {
   return `${href}${href.includes("?") ? "&" : "?"}trip=${trip.id}&plan=1`;
 }
 
+// How close every pick must be for a stay to say it's near them all.
+const NEAR_KM = 3;
+
 // No trip to plan here yet (a link shared without one, or a new browser): start at step 1.
 function NoTrip({ slug }: { slug: string }) {
   return (
@@ -341,7 +453,7 @@ function NoTrip({ slug }: { slug: string }) {
 // The rows the guest skipped on this trip, kept in this browser (a convenience: Review still
 // names what's missing). Storage can be blocked; the choice then lasts the visit.
 const SKIP_EVENT = "plan-skip";
-function useSkipped(tripId: number): [Set<RowKey>, (key: RowKey) => void] {
+function useSkipped(tripId: number): [Set<StepKey>, (key: StepKey) => void] {
   const key = `plan-skipped-${tripId}`;
   const read = useCallback(() => {
     try {
@@ -351,8 +463,8 @@ function useSkipped(tripId: number): [Set<RowKey>, (key: RowKey) => void] {
     }
   }, [key]);
   const raw = useSyncExternalStore(subscribeSkips, read, () => "");
-  const skipped = new Set(raw.split(",").filter(Boolean) as RowKey[]);
-  const toggle = (row: RowKey) => {
+  const skipped = new Set(raw.split(",").filter(Boolean) as StepKey[]);
+  const toggle = (row: StepKey) => {
     const next = new Set(skipped);
     if (next.has(row)) next.delete(row);
     else next.add(row);

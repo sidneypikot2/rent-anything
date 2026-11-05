@@ -89,7 +89,12 @@ function Glyph({ paths, className }: { paths: string[]; className?: string }) {
 type Props = { className?: string };
 
 export function TagGlyph({ slug, className }: { slug: string } & Props) {
-  return <Glyph paths={TAGS[slug] ?? PIN} className={className} />;
+  return <Glyph paths={tagPaths(slug)} className={className} />;
+}
+
+// A tag's icon as its paths, for a map marker built outside React; the map pin without its own.
+export function tagPaths(slug: string) {
+  return TAGS[slug] ?? PIN;
 }
 
 export function AreaGlyph({ kind, className }: { kind?: string | null } & Props) {

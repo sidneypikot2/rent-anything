@@ -1,10 +1,10 @@
 "use client";
 
-import { CategoryGlyph, TickGlyph } from "@/components/discovery/tag-glyphs";
+import { CategoryGlyph, PlaceGlyph, TickGlyph } from "@/components/discovery/tag-glyphs";
 import { cn } from "@/components/ui/cn";
-import type { RowKey } from "./plan-data";
+import type { RowKey, StepKey } from "./plan-data";
 
-export type PlanStep = { key: RowKey; title: string; state: "open" | "done" | "skipped" };
+export type PlanStep = { key: StepKey; title: string; state: "open" | "done" | "skipped" };
 
 // Each step's icon in the filled segment, and the short label a phone shows under the track.
 const STEP: Record<RowKey, { icon: string; short: string }> = {
@@ -14,6 +14,7 @@ const STEP: Record<RowKey, { icon: string; short: string }> = {
   activity: { icon: "Tour", short: "Do" },
   gear: { icon: "Snorkel gear", short: "Gear" },
 };
+const SHORT = (key: StepKey) => (key === "places" ? "See" : STEP[key].short);
 
 // The checklist's steps as a segmented stepper (team, 2026-11-03, after the row of pills): one
 // tinted track split into equal segments with the labels underneath. The open step's segment is
@@ -22,7 +23,7 @@ const STEP: Record<RowKey, { icon: string; short: string }> = {
 // skipped. Any step opens in any
 // order. It sticks under the header while the options scroll; its height is in `--plan-chrome`
 // (globals.css), which whatever sticks under it uses.
-export function PlanSteps({ rows, active, onPick }: { rows: PlanStep[]; active: RowKey; onPick: (key: RowKey) => void }) {
+export function PlanSteps({ rows, active, onPick }: { rows: PlanStep[]; active: StepKey; onPick: (key: StepKey) => void }) {
   const activeIndex = Math.max(0, rows.findIndex((row) => row.key === active));
 
   return (
@@ -50,8 +51,11 @@ export function PlanSteps({ rows, active, onPick }: { rows: PlanStep[]; active: 
                 >
                   <span aria-hidden className="flex h-10 w-full items-center justify-center">
                     {isActive ? (
-                      // A finished step trades its icon for a tick, even while open.
-                      isDone ? (
+                      // A finished step trades its icon for a tick, even while open; not Places
+                      // to see, whose first heart would otherwise swap it mid-pick.
+                      row.key === "places" ? (
+                        <PlaceGlyph className="size-5 text-white" />
+                      ) : isDone ? (
                         <TickGlyph className="size-5 text-white motion-safe:animate-tick" />
                       ) : (
                         <CategoryGlyph name={STEP[row.key].icon} className="size-5 text-white" />
@@ -75,7 +79,7 @@ export function PlanSteps({ rows, active, onPick }: { rows: PlanStep[]; active: 
                       isActive ? "font-bold text-navy" : isDone ? "font-semibold text-forest" : "font-medium text-muted group-hover:text-navy",
                     )}
                   >
-                    <span className="md:hidden">{STEP[row.key].short}</span>
+                    <span className="md:hidden">{SHORT(row.key)}</span>
                     <span className="max-md:hidden">{row.title}</span>
                   </span>
                   <span className="sr-only">

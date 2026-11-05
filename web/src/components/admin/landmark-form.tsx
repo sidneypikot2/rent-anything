@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { LocationPicker } from "@/components/partner/location-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Field } from "@/components/ui/field";
 import { Pill } from "@/components/ui/pill";
 import { SelectField } from "@/components/ui/select-field";
@@ -35,9 +36,24 @@ type FormState = {
   description: string;
   tag_slugs: string[];
   aliases: string[];
+  must_see: boolean;
+  // Reached by boat tour only, and where its boats leave from.
+  by_boat: boolean;
+  boat_departure: LatLng | null;
 };
 
-const EMPTY: FormState = { name: "", slug: "", status: "draft", location: null, description: "", tag_slugs: [], aliases: [] };
+const EMPTY: FormState = {
+  name: "",
+  slug: "",
+  status: "draft",
+  location: null,
+  description: "",
+  tag_slugs: [],
+  aliases: [],
+  must_see: false,
+  by_boat: false,
+  boat_departure: null,
+};
 
 function stateOf(landmark: AdminLandmark): FormState {
   return {
@@ -48,6 +64,9 @@ function stateOf(landmark: AdminLandmark): FormState {
     description: landmark.description,
     tag_slugs: landmark.tags.map((tag) => tag.slug),
     aliases: landmark.aliases,
+    must_see: landmark.must_see,
+    by_boat: Boolean(landmark.boat_departure),
+    boat_departure: landmark.boat_departure ?? null,
   };
 }
 
@@ -61,6 +80,8 @@ function bodyOf(form: FormState): AdminLandmarkBody {
     description: form.description.trim(),
     tag_slugs: form.tag_slugs,
     aliases: form.aliases,
+    must_see: form.must_see,
+    boat_departure: form.by_boat ? form.boat_departure : null,
   };
 }
 
@@ -213,6 +234,12 @@ function PlaceForm({ landmark }: { landmark?: AdminLandmark }) {
             value={form.description}
             onChange={(event) => set("description", event.target.value)}
           />
+          <CheckboxField
+            label="Must see: shown first with a badge when a guest plans a trip"
+            checked={form.must_see}
+            onChange={(event) => set("must_see", event.target.checked)}
+            data-testid="admin-landmark-must-see"
+          />
         </FormSection>
 
         <FormSection title="Location">
@@ -227,6 +254,15 @@ function PlaceForm({ landmark }: { landmark?: AdminLandmark }) {
               ? `In ${area.name}: the destination is the one listings at this pin go under, so moving the pin may change it.`
               : "Its destination comes from the pin: the published town, city or island it is in, or the nearest one."}
           </p>
+          <CheckboxField
+            label="Reached by boat tour only"
+            checked={form.by_boat}
+            onChange={(event) => set("by_boat", event.target.checked)}
+            data-testid="admin-landmark-by-boat"
+          />
+          {form.by_boat && (
+            <LocationPicker label="Where its boats leave from" value={form.boat_departure} onChange={(point) => set("boat_departure", point)} />
+          )}
         </FormSection>
 
         <FormSection title="Tags">

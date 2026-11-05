@@ -71,13 +71,19 @@ export function PlanFrame({
 // Under the step's own popovers (z-10, below a date field's calendar at z-20), so an open
 // calendar is never covered by it.
 // `float` sits centred just above it, over the page (the checklist's Map pill on a phone).
-export function PlanFoot({ summary, float, children }: { summary?: ReactNode; float?: ReactNode; children?: ReactNode }) {
+// `row`: the summary and the button side by side, for a short summary (the picks tray).
+export function PlanFoot({ summary, float, row = false, children }: { summary?: ReactNode; float?: ReactNode; row?: boolean; children?: ReactNode }) {
   return (
-    <div className="sticky bottom-0 z-10 -mx-3 mt-auto flex flex-col gap-2 border-t border-line bg-surface px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:px-6">
+    <div
+      className={cn(
+        "sticky bottom-0 z-10 -mx-3 mt-auto flex gap-2 border-t border-line bg-surface px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:px-6",
+        row ? "items-center justify-between gap-3 *:min-w-0" : "flex-col",
+      )}
+    >
       {float && <div className="pointer-events-none absolute bottom-full left-1/2 mb-3 -translate-x-1/2 *:pointer-events-auto">{float}</div>}
       {summary}
       {/* The step's one action, as wide as its label (all three the same size), at the right. */}
-      {children && <div className="flex justify-end *:min-w-40">{children}</div>}
+      {children && <div className={cn("flex justify-end *:min-w-40", row && "shrink-0")}>{children}</div>}
     </div>
   );
 }

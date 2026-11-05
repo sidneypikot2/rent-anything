@@ -23,9 +23,21 @@ export type PlanLandmark = {
   photo: { src: string; alt: string } | null;
   visitedBy: number[];
   location: LatLng | null;
+  // Its tags, for the places step's chips and its details.
+  tags: { slug: string; name: string }[];
+  // The team's pick of what not to miss.
+  mustSee: boolean;
+  // Where its boats leave from; set on a place reached by boat tour only.
+  boatDeparture: LatLng | null;
 };
 export type PlanPlace = {
   area: { slug: string; name: string };
+  // Its kind (`island` says "side of the island").
+  kind: string;
+  // The port guests arrive at, when the team set one.
+  port: { name: string; location: LatLng } | null;
+  // The towns inside it, for saying where the picks cluster.
+  towns: { name: string; center: LatLng }[];
   // The place and every place inside it: what the trip has "here".
   places: string[];
   // The island it is a town of, when it is one (coversHere).
@@ -49,6 +61,31 @@ export const PLAN_ROWS: { key: RowKey; title: string; idle: string; pick: string
   { key: "activity", title: "Things to do", idle: "Island hopping, caves, diving", pick: "Pick this tour" },
   { key: "gear", title: "Gear to rent", idle: "Snorkels, fins, cameras", pick: "Pick this gear" },
 ];
+
+// A step of the checklist: Places to see, then the rows. Places to see holds no listings, so it
+// isn't a row: it only shows where a place has some, and leads (`places-to-see-first.pdf`).
+export type StepKey = "places" | RowKey;
+export type PlanStepRow = { key: StepKey; title: string; idle: string };
+export const PLACES_ROW: PlanStepRow = { key: "places", title: "Places to see", idle: "Heart a few. We'll find a stay near them and tours that go there." };
+
+// The places step's chips, each the tags that count as it and the tag whose icon marks its places
+// on the map.
+export const VIBES: { label: string; tags: string[]; icon: string }[] = [
+  { label: "Beaches", tags: ["white-sand", "sandbar"], icon: "white-sand" },
+  { label: "Snorkel & dive", tags: ["snorkelling", "freediving"], icon: "snorkelling" },
+  { label: "Caves", tags: ["cave-pool"], icon: "cave-pool" },
+  { label: "Nature", tags: ["flower-garden"], icon: "flower-garden" },
+  { label: "Heritage", tags: ["history", "religious", "architecture", "culture"], icon: "history" },
+  { label: "Food", tags: ["food"], icon: "food" },
+];
+
+export const vibeHas = (vibe: (typeof VIBES)[number], landmark: Pick<PlanLandmark, "tags">) =>
+  landmark.tags.some((tag) => vibe.tags.includes(tag.slug));
+
+// A place's map icon: its first chip's, else an empty slug, which is the plain map pin.
+export function placeIcon(landmark: Pick<PlanLandmark, "tags">) {
+  return VIBES.find((vibe) => vibeHas(vibe, landmark))?.icon ?? "";
+}
 
 const live = (item: TripItem) => !item.unavailable;
 
@@ -103,6 +140,69 @@ export function distanceText(from: LatLng | null | undefined, to: LatLng | null 
 // The places to see the trip has hearted (saved), by slug.
 export function heartedSlugs(trip: Trip | undefined) {
   return new Set((trip?.saved_landmarks ?? []).map((saved) => saved.slug));
+}
+
+// The trip's picks here: its hearted places that are in this place, in the place's own order.
+export function picksHere(trip: Trip, place: Pick<PlanPlace, "landmarks">) {
+  const hearted = heartedSlugs(trip);
+  return place.landmarks.filter((landmark) => hearted.has(landmark.slug));
+}
+
+// Where a guest sets off for a place: its boats for a boat-only one, else the place itself.
+const setOffPoint = (landmark: PlanLandmark) => landmark.boatDeparture ?? landmark.location;
+
+const toursText = (count: number) => `${count} ${count === 1 ? "tour goes" : "tours go"} here`;
+
+// How to get to a place, in one line: "Boat tour only · 6 tours go here", "Own ride · 2.1 km from
+// the port", "Own ride · 3.4 km · 4 tours go here". From the guest's stay once there is one.
+export function accessLine(landmark: PlanLandmark, { stay, port }: { stay: LatLng | null; port: LatLng | null }) {
+  const tours = landmark.visitedBy.length;
+  const tourText = tours > 0 ? toursText(tours) : null;
+  if (landmark.boatDeparture) return ["Boat tour only", tourText].filter(Boolean).join(" · ");
+  const fromStay = distanceText(stay, landmark.location);
+  const fromPort = distanceText(port, landmark.location);
+  const far = fromStay ? `${fromStay} from your stay` : fromPort && (tours > 0 ? fromPort : `${fromPort} from the port`);
+  return ["Own ride", far, tourText].filter(Boolean).join(" · ");
+}
+
+// What a stay's card says of a pick: "1.5 km to Ogtong Cave", "Under 500 m to the Virgin Island
+// boats". The API gives half kilometres (an exact point stays private).
+export function nearText(km: number, landmark: PlanLandmark) {
+  const distance = km === 0 ? "Under 500 m" : `${km} km`;
+  return `${distance} to ${landmark.boatDeparture ? `the ${landmark.name} boats` : landmark.name}`;
+}
+
+const TOWN_KM = 6;
+const CENTRE_KM = 2;
+const COMPASS = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"];
+
+// Where the picks cluster, so the guest sees where to stay without reading the map: near a town
+// when over half are within reach of it, else on an island its compass side. Null with fewer than
+// two picks, or when they spread too evenly to say.
+export function picksSide(picks: PlanLandmark[], place: Pick<PlanPlace, "kind" | "towns" | "center">) {
+  const points = picks.flatMap((pick) => setOffPoint(pick) ?? []);
+  if (points.length < 2) return null;
+  const towns = place.towns
+    .map((town) => ({ town, count: points.filter((point) => distanceKm(point, town.center) <= TOWN_KM).length }))
+    .sort((a, b) => b.count - a.count);
+  if (towns[0] && towns[0].count > points.length / 2) return `Most of your picks are near ${towns[0].town.name}`;
+  if (place.kind !== "island" || !place.center) return null;
+  const middle = {
+    lat: points.reduce((sum, point) => sum + point.lat, 0) / points.length,
+    lng: points.reduce((sum, point) => sum + point.lng, 0) / points.length,
+  };
+  if (distanceKm(place.center, middle) < CENTRE_KM) return null;
+  const bearing = (Math.atan2(middle.lng - place.center.lng, middle.lat - place.center.lat) * 180) / Math.PI;
+  return `Most of your picks are on the ${COMPASS[Math.round((bearing + 360) / 45) % 8]} side`;
+}
+
+const FAR_APART_KM = 10;
+
+// How far apart the two furthest picks are, when no stay can be close to both; else null.
+export function picksApartKm(picks: PlanLandmark[]) {
+  const points = picks.flatMap((pick) => setOffPoint(pick) ?? []);
+  const widest = Math.max(0, ...points.flatMap((a, index) => points.slice(index + 1).map((b) => distanceKm(a, b))));
+  return widest > FAR_APART_KM ? Math.round(widest) : null;
 }
 
 // Things to do with the businesses whose tours go to the hearted places first, those reaching more of them

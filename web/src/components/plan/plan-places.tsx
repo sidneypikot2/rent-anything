@@ -11,7 +11,8 @@ import { distanceText, heartedSlugs, type PlanLandmark } from "./plan-data";
 
 // Places to see inside a step (the team's A3, in the place page's card format): a row of photo
 // cards to swipe, each with a heart that saves it to the trip. Getting around (`ride`) puts the
-// nearest first and says how far each is from the stay; Things to do (`tours`) puts the hearted
+// picks first, then the nearest, and says how far each is from the stay (a boat-only place says
+// so instead, as no ride reaches it); Things to do (`tours`) puts the hearted
 // first and says the trip's day a tour goes there or how many tours do. Sorted once when the trip
 // loads, so a card never moves under a thumb that just hearted it.
 export function PlanPlaces({
@@ -27,8 +28,11 @@ export function PlanPlaces({
 }) {
   const [order] = useState(() => {
     if (mode === "ride" && stay) {
+      const picked = heartedSlugs(trip);
       const far = (landmark: PlanLandmark) => (landmark.location ? distanceKm(stay, landmark.location) : Infinity);
-      return [...landmarks].sort((a, b) => far(a) - far(b)).map((each) => each.slug);
+      return [...landmarks]
+        .sort((a, b) => Number(picked.has(b.slug)) - Number(picked.has(a.slug)) || far(a) - far(b))
+        .map((each) => each.slug);
     }
     const hearted = heartedSlugs(trip);
     return [...landmarks.filter((each) => hearted.has(each.slug)), ...landmarks.filter((each) => !hearted.has(each.slug))].map((each) => each.slug);
@@ -94,9 +98,11 @@ export function PlanPlaces({
           const far = distanceText(stay, landmark.location);
           const line =
             mode === "ride"
-              ? far
-                ? `${far} from your stay`
-                : "Ride there"
+              ? landmark.boatDeparture
+                ? "Boat tour only"
+                : far
+                  ? `${far} from your stay`
+                  : "Ride there"
               : day
                 ? `In your trip · ${formatDay(day)}`
                 : landmark.visitedBy.length > 0

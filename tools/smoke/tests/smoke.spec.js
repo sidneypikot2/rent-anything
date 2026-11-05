@@ -58,9 +58,17 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   // Next starts the trip (a guest with no account, signed out) and opens its checklist.
   await page.getByTestId("plan-next").click();
   await expect(page).toHaveURL(/\/plan\/bantayan-island\?trip=\d+/);
-  // Where you're staying is the first step now, with the place's stays under Find me one here.
+  // Places to see is the first step: a heart picks one, the step stays open, and Next finds a
+  // stay near it.
+  await expect(page.getByTestId("plan-see")).toBeVisible();
+  await page.getByTestId("plan-see-card").first().getByTestId("landmark-save").click();
+  await expect(page.getByTestId("plan-picks-tray")).toContainText("1 place picked");
+  await expect(page.getByTestId("plan-see")).toBeVisible();
+  await page.getByTestId("plan-foot-next").click();
+  // The place's stays are under Find me one here, each saying how far it is from the pick.
   await page.getByTestId("plan-stay-find").click();
   await expect(page.getByTestId("plan-options-stay")).toBeVisible();
+  await expect(page.getByTestId("plan-near").first()).toBeVisible();
   // The steps sit in a row; picking one shows its options, Things to do with its places.
   await page.getByTestId("plan-step-activity").click();
   await expect(page.getByTestId("plan-places-tours")).toBeVisible();

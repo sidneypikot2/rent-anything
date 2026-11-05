@@ -5,13 +5,13 @@ import type { MouseEvent } from "react";
 import Link from "next/link";
 import { newTabProps, useOpensInNewTab } from "@/components/discovery/business-row";
 import { ListingPhotos } from "@/components/discovery/listing-photos";
-import { BoltGlyph, CloseGlyph, HeartGlyph } from "@/components/discovery/tag-glyphs";
+import { BoltGlyph, CloseGlyph, HeartGlyph, PlaceGlyph } from "@/components/discovery/tag-glyphs";
 import { InTripCount } from "@/components/trips/in-trip-badge";
 import { cn } from "@/components/ui/cn";
 import { formatPeso } from "@/lib/money";
 import { priceUnitText, TO_BE_AGREED } from "@/lib/pricing";
 import { openOverPlan } from "./over-plan";
-import { distanceText, type PlanBusiness, type PlanLandmark } from "./plan-data";
+import { distanceText, nearText, type PlanBusiness, type PlanLandmark } from "./plan-data";
 
 export type CardContext = {
   landmarks: Map<string, PlanLandmark>;
@@ -19,7 +19,11 @@ export type CardContext = {
   stay: { point: { lat: number; lng: number } } | null;
   // The trip's dates and people, said on every card ("Nov 16 – 21").
   when: string;
+  // The stay closest to the picks, when it is close to all of them, and what its pill says.
+  best?: { id: number; label: string } | null;
 };
+
+const NEAR_ROWS = 3;
 
 // The hearted places a business's tours go to ("Virgin Island, Kota Beach").
 export function heartedStops(business: PlanBusiness, { landmarks, hearted }: Pick<CardContext, "landmarks" | "hearted">) {
@@ -66,6 +70,12 @@ export function PlanCard({
   const far = distanceText(context.stay?.point, business.location);
   const stops = heartedStops(business, context);
   const more = business.listings_count - 1;
+  const best = context.best?.id === business.id ? context.best.label : null;
+  // How far a stay is from each pick, as the API says it.
+  const near = business.near.flatMap(({ slug, km }) => {
+    const landmark = context.landmarks.get(slug);
+    return landmark ? [nearText(km, landmark)] : [];
+  });
   const open = () => {
     onLeave?.();
     if (newTab) window.open(href, "_blank");
@@ -110,13 +120,17 @@ export function PlanCard({
             <CloseGlyph className="size-4" />
           </button>
         )}
-        {(stops.length > 0 || business.instant_book) && (
+        {(stops.length > 0 || best || business.instant_book) && (
           <span className="pointer-events-none absolute top-3 left-3 flex max-w-[calc(100%-1.5rem)] items-center gap-1 rounded-full bg-surface/95 px-2.5 py-1 text-small font-bold text-navy shadow-soft">
             {stops.length > 0 ? (
               <>
                 <HeartGlyph filled className="size-3.5 shrink-0 text-forest" />
                 <span className="truncate">Goes to {stops.join(", ")}</span>
               </>
+            ) : best ? (
+              <span className="truncate text-forest" data-testid="plan-near-best">
+                {best}
+              </span>
             ) : (
               <>
                 <BoltGlyph className="size-3.5 shrink-0 text-primary" />
@@ -152,6 +166,17 @@ export function PlanCard({
           {business.category} in {business.area_name}
         </span>
         {context.when && <span className="truncate text-muted">{context.when}</span>}
+        {near.length > 0 && (
+          <ul className="mt-1.5 flex flex-col gap-1 rounded-control bg-surface-2 px-3 py-2 text-small text-navy" data-testid="plan-near">
+            {near.slice(0, NEAR_ROWS).map((line) => (
+              <li key={line} className="flex items-center gap-1.5">
+                <PlaceGlyph className="size-3.5 shrink-0 text-forest" />
+                <span className="min-w-0 truncate">{line}</span>
+              </li>
+            ))}
+            {near.length > NEAR_ROWS && <li className="pl-5 text-muted">+{near.length - NEAR_ROWS} more</li>}
+          </ul>
+        )}
         <span className="mt-1 text-navy">
           {price ? (
             <>

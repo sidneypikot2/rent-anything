@@ -4,24 +4,67 @@ import { LngLatBounds, Map as MapLibreMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { MapButton, ZoomButton } from "@/components/discovery/map-controls";
-import { CloseGlyph, FitGlyph, MinusGlyph, PlusGlyph } from "@/components/discovery/tag-glyphs";
+import { CloseGlyph, FitGlyph, MinusGlyph, PlusGlyph, tagPaths } from "@/components/discovery/tag-glyphs";
 import { cn } from "@/components/ui/cn";
 import { FLAT_MAP, keepMapFlat, MAP_STYLE_URL, setMapWorker, toLngLat, type LatLng } from "@/lib/map";
 
 // `label`: the price on the pill; `name`: what a screen reader hears ("Island hopping, from ₱1,500").
-export type ResultPin = { id: number; point: LatLng; label: string; name: string };
+// `icon`: a tag slug: the pin is that icon on its exact point, with `label` only on hover or when lit.
+export type ResultPin = { id: number; point: LatLng; label: string; name: string; icon?: string };
 
 const PIN = "tap-target rounded-full px-2.5 py-1 text-small font-bold whitespace-nowrap tabular-nums shadow-lift transition-[background-color,color,scale] duration-300 ease-calm cursor-pointer";
 const PIN_REST = "bg-surface text-navy";
 const PIN_ON = "bg-navy text-white scale-110";
+// A place the guest picked: navy at rest too, so the picks read as a cluster.
+const PIN_PICKED = "bg-navy text-white";
+// An icon pin (a place to see), the area map's shape: its tail's tip is the point, and it is tapped
+// across 44px (the invisible ::before).
+const ICON_PIN =
+  "group relative mb-1.5 flex size-8 origin-bottom cursor-pointer items-center justify-center rounded-full border-2 border-surface shadow-lift transition-[background-color,color,scale] duration-300 ease-calm before:absolute before:-inset-1.5 before:rounded-full before:content-[''] after:absolute after:-bottom-1.5 after:left-1/2 after:size-2.5 after:-translate-x-1/2 after:rotate-45 after:border-r-2 after:border-b-2 after:border-surface after:content-['']";
+const ICON_PIN_REST = "bg-surface text-navy after:bg-surface";
+const ICON_PIN_PICKED = "bg-navy text-white after:bg-navy";
+const ICON_PIN_ON = "bg-navy text-white after:bg-navy scale-110";
+const PIN_NAME =
+  "pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden -translate-x-1/2 rounded-full bg-surface px-2.5 py-1 text-small font-bold whitespace-nowrap text-navy shadow-lift group-hover:block group-data-[on=true]:block";
+// A fixed point that isn't an option (a port): a small dashed disc, its name on hover.
+const MARK = "group relative flex size-7 items-center justify-center rounded-full border border-dashed border-muted bg-surface text-muted";
+const MARK_ICON = "island-hopping";
 // Pins on one point (locations are rounded, so a town's businesses share a few) sit in a grid
 // around it, this many across and this far apart in pixels, so each can be seen and tapped.
 const GRID_COLUMNS = 3;
 const GRID_X = 80;
 const GRID_Y = 36;
 const FIT_PADDING = 64;
+const NAME_PADDING = 84;
 
 const pointKey = ({ lat, lng }: LatLng) => `${lat},${lng}`;
+
+// A tag's icon, as the Glyphs draw it, for a marker built outside React.
+function iconElement(slug: string) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.8");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("class", "relative z-10 size-4");
+  for (const d of tagPaths(slug)) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", d);
+    svg.append(path);
+  }
+  return svg;
+}
+
+function nameElement(text: string) {
+  const name = document.createElement("span");
+  name.className = PIN_NAME;
+  name.textContent = text;
+  name.setAttribute("aria-hidden", "true");
+  return name;
+}
 
 // Each pin's place in the grid around its point, in pixels; a pin alone stays on its point.
 function gridOffsets(pins: ResultPin[]) {
@@ -45,6 +88,9 @@ function gridOffsets(pins: ResultPin[]) {
 // fitted once, so picking one never moves the map.
 // With `onHide` (the step's map beside its options, from lg) it carries the area map's controls:
 // Hide map at the top left, zoom in / out / show every pin at the top right.
+// `picked`: pins that stay navy, lit without placing them again, so a heart never moves the map.
+// `marks`: fixed points that aren't options (a port), dashed. `controls`: the zoom buttons
+// without Hide map.
 // Load it with next/dynamic, so MapLibre stays out of the page until it shows.
 export default function ResultsMap({
   pins,
@@ -54,6 +100,9 @@ export default function ResultsMap({
   covered = 0,
   refit = 0,
   onHide,
+  picked,
+  marks = [],
+  controls = false,
   className,
 }: {
   pins: ResultPin[];
@@ -68,6 +117,9 @@ export default function ResultsMap({
   refit?: number;
   // Turns the map off from inside it.
   onHide?: () => void;
+  picked?: Set<number>;
+  marks?: { point: LatLng; label: string }[];
+  controls?: boolean;
   className?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -77,16 +129,19 @@ export default function ResultsMap({
   const coveredRef = useRef(covered);
   const fitRef = useRef<((animate: boolean) => void) | null>(null);
   const activeRef = useRef(active);
+  const pickedRef = useRef(picked);
   const pointsRef = useRef<LatLng[]>([]);
   const [failed, setFailed] = useState(false);
-  const key = JSON.stringify([pins, stay]);
-  const points = [...pins.map((pin) => pin.point), ...(stay ? [stay.point] : [])];
+  const key = JSON.stringify([pins, stay, marks]);
+  const pickedKey = [...(picked ?? [])].join();
+  const points = [...pins.map((pin) => pin.point), ...marks.map((mark) => mark.point), ...(stay ? [stay.point] : [])];
   const hasPoints = points.length > 0;
 
   useEffect(() => {
     pickRef.current = onPick;
     coveredRef.current = covered;
     activeRef.current = active;
+    pickedRef.current = picked;
     pointsRef.current = points;
   });
 
@@ -139,12 +194,17 @@ export default function ResultsMap({
     if (!ready || !map || points.length === 0) return;
     const shown = elements.current;
     shown.clear();
-    const offsets = gridOffsets(pins);
+    // Icon pins keep their exact points.
+    const offsets = gridOffsets(pins.filter((pin) => pin.icon === undefined));
     const markers = pins.map((pin) => {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = cn(PIN, PIN_REST);
-      button.textContent = pin.label;
+      const icon = pin.icon !== undefined;
+      button.className = icon ? cn(ICON_PIN, ICON_PIN_REST) : cn(PIN, PIN_REST);
+      if (icon) {
+        button.dataset.icon = "true";
+        button.append(iconElement(pin.icon ?? ""), nameElement(pin.label));
+      } else button.textContent = pin.label;
       button.setAttribute("aria-label", pin.name);
       button.dataset.testid = "plan-map-pin";
       button.addEventListener("click", (event) => {
@@ -156,6 +216,12 @@ export default function ResultsMap({
       // pill that changes its own sits inside.
       const element = document.createElement("div");
       element.append(button);
+      if (icon) {
+        // Above its neighbours while its name shows.
+        button.addEventListener("pointerenter", () => (element.style.zIndex = "3"));
+        button.addEventListener("pointerleave", () => (element.style.zIndex = button.dataset.on === "true" ? "2" : "1"));
+        return new Marker({ element, anchor: "bottom" }).setLngLat(toLngLat(pin.point)).addTo(map);
+      }
       return new Marker({ element, offset: offsets.get(pin.id) }).setLngLat(toLngLat(pin.point)).addTo(map);
     });
     if (stay) {
@@ -167,11 +233,27 @@ export default function ResultsMap({
       element.style.zIndex = "0";
       markers.push(new Marker({ element, anchor: "top", offset: [0, 14 + Math.max(0, ...under)] }).setLngLat(toLngLat(stay.point)).addTo(map));
     }
-    lightPins(shown, activeRef.current);
+    for (const mark of marks) {
+      const disc = document.createElement("span");
+      disc.className = MARK;
+      disc.setAttribute("role", "img");
+      disc.setAttribute("aria-label", mark.label);
+      disc.dataset.testid = "plan-map-mark";
+      disc.append(iconElement(MARK_ICON), nameElement(mark.label));
+      const element = document.createElement("div");
+      element.append(disc);
+      element.style.zIndex = "0";
+      disc.addEventListener("pointerenter", () => (element.style.zIndex = "3"));
+      disc.addEventListener("pointerleave", () => (element.style.zIndex = "0"));
+      markers.push(new Marker({ element }).setLngLat(toLngLat(mark.point)).addTo(map));
+    }
+    lightPins(shown, activeRef.current, pickedRef.current);
     const bounds = points.reduce((box, point) => box.extend(toLngLat(point)), new LngLatBounds(toLngLat(points[0]), toLngLat(points[0])));
     // Clear of the edges by a grid's reach as well, so its outer pins stay in view.
     const spread = [...offsets.values()];
-    const side = FIT_PADDING + Math.max(0, ...spread.map(([x]) => Math.abs(x)));
+    // An icon pin's name opens centred over it, so room for that at the sides.
+    const edge = pins.some((pin) => pin.icon !== undefined) ? NAME_PADDING : FIT_PADDING;
+    const side = edge + Math.max(0, ...spread.map(([x]) => Math.abs(x)));
     const top = FIT_PADDING + Math.max(0, ...spread.map(([, y]) => Math.abs(y)));
     // One point fits too, so it moves up out from under the sheet.
     const fit = (animate: boolean) => {
@@ -195,20 +277,24 @@ export default function ResultsMap({
   }, [refit]);
 
   // Light the active pin without rebuilding the map.
-  useEffect(() => lightPins(elements.current, active), [active, key]);
+  // `pickedKey` stands for the picked set's contents.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => lightPins(elements.current, active, picked), [active, key, pickedKey]);
 
   if (failed) return <p className="p-4 text-sm text-muted">The map couldn&apos;t load here.</p>;
   const mapDiv = <div ref={containerRef} className={cn("size-full overflow-hidden bg-sky-mist", className)} data-testid="plan-results-map" />;
-  if (!onHide) return mapDiv;
+  if (!onHide && !controls) return mapDiv;
   return (
     <div className="relative size-full">
       {mapDiv}
-      <div className="absolute top-3 right-16 left-3 z-10 flex flex-wrap gap-2">
-        <MapButton onClick={onHide} data-testid="plan-map-hide">
-          <CloseGlyph className="size-4.5" />
-          Hide map
-        </MapButton>
-      </div>
+      {onHide && (
+        <div className="absolute top-3 right-16 left-3 z-10 flex flex-wrap gap-2">
+          <MapButton onClick={onHide} data-testid="plan-map-hide">
+            <CloseGlyph className="size-4.5" />
+            Hide map
+          </MapButton>
+        </div>
+      )}
       <div className="absolute top-3 right-3 z-10 flex flex-col overflow-hidden rounded-control bg-surface card-edge shadow-lift">
         <ZoomButton label="Zoom in" onClick={() => mapRef.current?.zoomIn()}>
           <PlusGlyph className="size-4.5" />
@@ -224,10 +310,14 @@ export default function ResultsMap({
   );
 }
 
-function lightPins(elements: Map<number, HTMLElement>, active: number | null) {
+function lightPins(elements: Map<number, HTMLElement>, active: number | null, picked?: Set<number>) {
   for (const [id, element] of elements) {
     const on = id === active;
-    element.className = cn(PIN, on ? PIN_ON : PIN_REST);
+    const chosen = picked?.has(id);
+    element.dataset.on = String(on);
+    element.className = element.dataset.icon
+      ? cn(ICON_PIN, on ? ICON_PIN_ON : chosen ? ICON_PIN_PICKED : ICON_PIN_REST)
+      : cn(PIN, on ? PIN_ON : chosen ? PIN_PICKED : PIN_REST);
     // Above the stay's pill (0) at rest, above the other prices when lit; on the marker, as the
     // markers are what stack.
     if (element.parentElement) element.parentElement.style.zIndex = on ? "2" : "1";
