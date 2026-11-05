@@ -56,8 +56,7 @@ export function offerOf(
     dates,
     pageSlug,
     groupTitle,
-    goesTo,
-  }: { dates: TripDates; pageSlug: string; groupTitle: string; goesTo?: { slug: string; name: string }[] },
+  }: { dates: TripDates; pageSlug: string; groupTitle: string },
 ) {
   const by = listingByLine(listing, pageSlug);
   const priceUnit = listing.price_from_cents ? priceUnitText(listing.price_unit) : null;
@@ -82,7 +81,7 @@ export function offerOf(
     unpriced: pricedByText(listing.booking_type),
     instantBook: listing.instant_book,
     place: listing.area_name,
-    goesTo,
+    goesTo: listing.goes_to,
     handover: listing.handover,
     vehicle: listing.handover
       ? {

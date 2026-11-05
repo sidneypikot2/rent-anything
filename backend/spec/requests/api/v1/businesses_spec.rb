@@ -36,6 +36,27 @@ RSpec.describe "Businesses", type: :request do
         end
       end
 
+      response "200", "a tour names its published stops, by name" do
+        schema "$ref" => "#/components/schemas/business_detail"
+        let(:tour) { create(:listing, area: town, partner: stay.partner, title: "Island hopping") }
+        let(:id) { business.id }
+
+        before do
+          [ create(:landmark, area: town, slug: "virgin-island", name: "Virgin Island"),
+            create(:landmark, area: town, slug: "kota-beach", name: "Kota Beach"),
+            create(:landmark, :draft, area: town, slug: "draft-cove", name: "Draft Cove") ].each do |landmark|
+            ListingLandmark.create!(listing: tour, landmark:, relation: "visits")
+          end
+        end
+
+        run_test! do |response|
+          listings = response.parsed_body["listings"].index_by { _1["title"] }
+          expect(listings["Island hopping"]["goes_to"]).to eq([ { "slug" => "kota-beach", "name" => "Kota Beach" },
+            { "slug" => "virgin-island", "name" => "Virgin Island" } ])
+          expect(listings["Sea view room"]["goes_to"]).to eq([])
+        end
+      end
+
       response "404", "a business with nothing to book" do
         let(:id) { create(:business).id }
 

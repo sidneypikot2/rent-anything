@@ -7,7 +7,7 @@ module Landmarks
   class Save < ApplicationService
     include RequestValues
 
-    FIELDS = %i[name slug status description aliases location tag_slugs].freeze
+    FIELDS = %i[name slug status description aliases location tag_slugs must_see boat_departure].freeze
     MAX_ALIASES = 20
     MAX_ALIAS_LENGTH = 60
 
@@ -40,6 +40,8 @@ module Landmarks
       attributes[:status] = status_from(@params[:status]) if @params.key?(:status)
       attributes[:description] = description_from(@params[:description]) if @params.key?(:description)
       attributes[:aliases] = aliases_from(@params[:aliases]) if @params.key?(:aliases)
+      attributes[:must_see] = must_see_from(@params[:must_see]) if @params.key?(:must_see)
+      attributes[:boat_departure] = boat_departure_from(@params[:boat_departure]) if @params.key?(:boat_departure)
       attributes
     end
 
@@ -68,6 +70,18 @@ module Landmarks
 
       @errors << "Description must be text"
       nil
+    end
+
+    def must_see_from(value)
+      return value if [ true, false ].include?(value)
+
+      @errors << "Must see must be true or false"
+      nil
+    end
+
+    # Where a boat-only place's boats leave from; null makes it a place to reach by road again.
+    def boat_departure_from(value)
+      value.nil? ? nil : point_from(value)
     end
 
     def aliases_from(value)

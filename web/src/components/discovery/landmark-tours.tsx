@@ -4,9 +4,11 @@ import Image from "next/image";
 import { useState, type ComponentProps } from "react";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import type { AddListing } from "@/components/trips/add-preview";
+import { stopsText } from "@/components/trips/add-sheet-stops";
 import { InTripBadge, useListingsInTrip } from "@/components/trips/in-trip-badge";
 import type { TripDates } from "@/components/trips/trip-dates";
 import type { AddPreview } from "@/components/trips/use-trips";
+import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Price } from "@/components/ui/typography";
 import { isApiPhoto } from "@/components/landing/sample-photos";
@@ -54,24 +56,46 @@ export function LandmarkLine({ slug, tags, tours }: { slug: string; tags: string
   return tags ? <p className="truncate text-sm text-sky-mist">{tags}</p> : null;
 }
 
-// Which of the places to see saved to the trip a tour goes to, under its option in a business's
-// panel ("Goes to your saved Ogtong Cave and Kawayan Beach"), so a guest who saved places sees
-// which tour reaches them. Nothing while it goes to none of them.
-export function SavedStops({ places }: { places: { slug: string; name: string }[] }) {
+const STOP_CHIPS = 4;
+
+// The places a tour stops at, so a guest can compare tours before adding one: the trip's picks
+// first, hearted in green, the rest plain, as the review's day shows them. Stops have no order, so
+// no numbers. `picked`: the plan's own hearts, else what is saved to the trip the page shows.
+export function TourStops({
+  stops,
+  picked,
+  label,
+  max = STOP_CHIPS,
+}: {
+  stops: { slug: string; name: string }[];
+  picked?: Set<string>;
+  // A business's card sums its tours ("Tours go to 5 places").
+  label?: string;
+  max?: number;
+}) {
   const saved = useSavedHere();
-  const names = places.filter((place) => saved.has(place.slug)).map((place) => place.name);
-  if (names.length === 0) return null;
-  const list =
-    names.length === 1
-      ? names[0]
-      : names.length === 2
-        ? `${names[0]} and ${names[1]}`
-        : `${names[0]}, ${names[1]} and ${names.length - 2} more`;
+  const isPick = (slug: string) => (picked ?? saved).has(slug);
+  if (stops.length === 0) return null;
+  const ordered = [...stops.filter((stop) => isPick(stop.slug)), ...stops.filter((stop) => !isPick(stop.slug))];
   return (
-    <p data-testid="offer-saved-stops" title={names.join(", ")} className="flex min-w-0 items-start gap-1.5 text-sm font-semibold text-primary">
-      <HeartGlyph filled className="mt-0.5 size-4 shrink-0" />
-      <span>Goes to your saved {list}</span>
-    </p>
+    <div className="flex min-w-0 flex-col gap-1" data-testid="tour-stops">
+      <p className="text-sm text-muted">{label ?? stopsText(stops.length)}</p>
+      <ul className="flex flex-wrap gap-1">
+        {ordered.slice(0, max).map((stop) => (
+          <li key={stop.slug} className="min-w-0">
+            <Badge tone={isPick(stop.slug) ? "emerald" : "mist"} data-testid="tour-stop">
+              {isPick(stop.slug) && <HeartGlyph filled className="size-3.5 shrink-0" />}
+              <span className="truncate">{stop.name}</span>
+            </Badge>
+          </li>
+        ))}
+        {ordered.length > max && (
+          <li>
+            <Badge tone="mist">+{ordered.length - max} more</Badge>
+          </li>
+        )}
+      </ul>
+    </div>
   );
 }
 

@@ -27,7 +27,9 @@ export function useSavedHere() {
 // to the trip the page's banner shows, as an add does (tripHere); with none it starts one, which
 // becomes the trip worked on, and signed out it first makes a guest session with no account, as
 // a first add does (RAA-177). Saved, a tap takes it off again. `corner`: a round glass button
-// over a card's photo, above its stretched title; `panel`: a pill for a side panel's foot.
+// over a card's photo, above its stretched title; `panel`: a pill for a side panel's foot;
+// `pick`: the plan's first step, a white disc with a red heart when picked, and no badge, as the
+// tray under the cards says it.
 // Nothing for a partner or admin, who have no trips.
 export function SaveLandmarkButton({
   slug,
@@ -39,7 +41,7 @@ export function SaveLandmarkButton({
   name: string;
   // A new trip's guests: the page's.
   guests?: number;
-  variant?: "corner" | "panel";
+  variant?: "corner" | "panel" | "pick";
 }) {
   const flow = useOptionalTripAdd();
   const places = flow?.places ?? NO_PLACES;
@@ -76,7 +78,7 @@ export function SaveLandmarkButton({
       const target = tripHere(currentTrips(await fetchTrips(userId)), readChosenTrip(), places);
       const trip = await save.mutateAsync({ slug, tripId: target?.id ?? null, guests });
       if (!target) chooseTrip(trip.id);
-      requestAnimationFrame(() => showAddedBadge("Saved to trip"));
+      if (variant !== "pick") requestAnimationFrame(() => showAddedBadge("Saved to trip"));
     } catch {
       // useSaveLandmark's toast says what went wrong.
     } finally {
@@ -100,6 +102,23 @@ export function SaveLandmarkButton({
         <HeartGlyph filled={saved} className="size-4" />
         {saved ? "Saved" : "Save place"}
       </Button>
+    );
+  if (variant === "pick")
+    return (
+      <button
+        type="button"
+        aria-pressed={saved}
+        aria-label={saved ? `Remove ${name}` : `Want to see ${name}`}
+        aria-busy={working || undefined}
+        onClick={toggle}
+        data-testid="landmark-save"
+        className={cn(
+          "relative z-10 flex size-11 items-center justify-center rounded-full border border-line bg-surface/95 shadow-soft transition-colors duration-300 ease-calm hover:bg-surface sm:border-transparent",
+          saved ? "text-danger" : "text-navy",
+        )}
+      >
+        <HeartGlyph filled={saved} className={cn("size-5", working && "motion-safe:animate-pulse")} />
+      </button>
     );
   return (
     <button

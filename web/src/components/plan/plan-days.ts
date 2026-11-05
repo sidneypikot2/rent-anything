@@ -4,7 +4,7 @@ import { formatDay, itemAmount } from "@/components/trips/format";
 import { missingStays } from "@/components/trips/trip-missing";
 import type { Trip, TripItem } from "@/components/trips/use-trips";
 import { addDays, daysBetween, formatDateRange } from "@/lib/dates";
-import { distanceText, heartedSlugs, type PlanLandmark, type PlanPlace, type RowKey } from "./plan-data";
+import { distanceText, heartedSlugs, picksHere, rowItems, type PlanLandmark, type PlanPlace, type RowKey } from "./plan-data";
 
 // One thing that happens on a day of the review (A6), at its time when the trip knows it:
 // a stay's check-in and check-out, a ride's pickup (or delivery) and return (or pick-up), a
@@ -56,7 +56,10 @@ export function planDays(trip: Trip, place: PlanPlace, stay: { lat: number; lng:
     place.landmarks.filter((landmark) => landmark.visitedBy.includes(item.listing.id)).map((landmark) => ({ name: landmark.name, hearted: hearted.has(landmark.slug) }));
   // Hearted places no tour in the trip goes to: somewhere to ride to.
   const reached = new Set(place.landmarks.filter((landmark) => trip.items.some((item) => landmark.visitedBy.includes(item.listing.id))).map((landmark) => landmark.slug));
-  const toRide = [...hearted].filter((slug) => !reached.has(slug)).map((slug) => landmarks.get(slug)).filter((landmark): landmark is PlanLandmark => Boolean(landmark));
+  const toRide = [...hearted]
+    .filter((slug) => !reached.has(slug))
+    .map((slug) => landmarks.get(slug))
+    .filter((landmark): landmark is PlanLandmark => Boolean(landmark) && !landmark?.boatDeparture);
   let ridesShown = false;
   const offered = new Set<string>(Object.entries(place.counts).filter(([, count]) => count > 0).map(([group]) => group));
   const transfers = trip.items.filter((item) => item.booking_type === "transfer" && item.starts_on);
@@ -158,6 +161,34 @@ export function planDays(trip: Trip, place: PlanPlace, stay: { lat: number; lng:
     return { date, title: dayTitle(index, count), events, runs, rides, gaps };
   });
   return days;
+}
+
+// How the trip reaches a pick: by a tour in it, by the guest's own ride (never a boat-only place),
+// or not yet, with the step that would (`row`: none when that step has nothing here).
+export type PickStatus = { slug: string; name: string; state: "tour" | "ride" | "open"; line: string | null; row: RowKey | null };
+
+const PICK_ORDER: Record<PickStatus["state"], number> = { open: 0, ride: 1, tour: 2 };
+
+// The trip's picks here and how each is reached, what still needs reaching first. On no day in
+// particular, so an undated trip has them too. An indicator, never a gap that says the plan isn't
+// ready: where to go beyond a bed and a way there is the guest's choice.
+export function pickStatuses(trip: Trip, place: PlanPlace, stay: { lat: number; lng: number } | null): PickStatus[] {
+  const riding = rowItems(trip, "rental", place).length > 0;
+  const statuses = picksHere(trip, place).map((pick): PickStatus => {
+    const base = { slug: pick.slug, name: pick.name };
+    const tour = trip.items.find((item) => !item.unavailable && pick.visitedBy.includes(item.listing.id));
+    if (tour) {
+      const line = [tour.listing.title, tour.starts_on && formatDay(tour.starts_on)].filter(Boolean).join(" · ");
+      return { ...base, state: "tour", line, row: null };
+    }
+    if (!pick.boatDeparture && riding) {
+      const far = distanceText(stay, pick.location);
+      return { ...base, state: "ride", line: far && `${far} from your stay`, row: null };
+    }
+    const row = pick.boatDeparture || pick.visitedBy.length > 0 ? "activity" : "rental";
+    return { ...base, state: "open", line: null, row: place.counts[row] > 0 ? row : null };
+  });
+  return statuses.sort((a, b) => PICK_ORDER[a.state] - PICK_ORDER[b.state]);
 }
 
 function dayTitle(index: number, count: number) {

@@ -74,6 +74,8 @@ export type MixItem = {
 
 export type AddPreview = {
   category?: string;
+  // The places to see a tour stops at.
+  stops?: { slug: string; name: string }[];
   // A rental vehicle's seats (RAA-191): the add sheet asks for people and vehicles.
   vehicleSeats?: number | null;
   // Its shop's delivery and pick-up fees (RAA-195), each nil when not offered.

@@ -92,16 +92,16 @@ export function PlanOptionsSkeleton({ map = true }: { map?: boolean }) {
   );
 }
 
-// Step 2: the checklist's stepper (a track, labels under it), then the open step's panel (Where you'll stay:
-// its two choices, then the stays) and the foot.
+// Step 2: the checklist's stepper (a track, labels under it), then the open step's panel (its
+// heading, the chips or choices, then the cards beside the map) and the foot.
 export function PlanChecklistSkeleton() {
   return (
     <Status label="Loading your trip…" className="flex flex-1 flex-col">
       <div className="flex flex-col gap-3 pb-8">
         <div aria-hidden className="mx-auto flex w-full max-w-narrow flex-col gap-1.5 pt-3 pb-2">
           <span className={cn("h-10 w-full rounded-full", BLOCK)} />
-          <div className="grid grid-cols-5 gap-2">
-            {[0, 1, 2, 3, 4].map((index) => (
+          <div className="grid grid-cols-6 gap-2">
+            {[0, 1, 2, 3, 4, 5].map((index) => (
               <span key={index} className={cn("mx-auto h-4.5 w-3/5 rounded-full", BLOCK)} />
             ))}
           </div>

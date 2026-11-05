@@ -25,6 +25,7 @@ module Discovery
       {
         area: AreaSerializer.call(@area),
         guide: GUIDE.index_with { |field| @area.public_send(field).presence },
+        port: @area.port,
         # Its banner's carousel, the first photo first (RAA-210).
         photos: @area.ready_photos.map { |photo| ListingPhotoSerializer.call(photo) },
         areas: @area.children.browsable.includes(:parent).order(:name).map { |area| place_json(area) },
@@ -61,6 +62,8 @@ module Discovery
         tags: landmark.tags.sort_by(&:name).map { |tag| TagSerializer.call(tag) },
         photos: landmark.ready_photos.map { |photo| ListingPhotoSerializer.call(photo) },
         location: lat_lng(landmark.location),
+        must_see: landmark.must_see,
+        boat_departure: landmark.boat_departure && lat_lng(landmark.boat_departure),
         visited_by: visitors.fetch(landmark.id, [])
       }
     end

@@ -26,6 +26,8 @@ export type AddListing = {
   // Its place: the area row's area_name, the listing page's area.
   area_name?: string;
   area?: { name: string };
+  // The places to see a tour stops at (the area row's).
+  goes_to?: { slug: string; name: string }[];
   // A rental vehicle's rate: its delivery and pick-up fees (RAA-195).
   vehicle_rate?: { delivery_fee_cents: number | null; return_pickup_fee_cents: number | null; child_helmet_fee_cents?: number | null } | null;
 };
@@ -59,6 +61,7 @@ export function addPreview(listing: AddListing, by?: string): AddPreview {
     sleeps: listing.booking_type === "stay" ? count(listing.details?.guests) : null,
     sharedRoom: listing.details?.place_type === "shared_room",
     tourGuests: listing.tour ? { min: listing.tour.min_guests, max: listing.tour.max_guests } : null,
+    stops: listing.goes_to ?? [],
     unitsCount: listing.units_count,
     unitsLabel: listing.units_label,
     gear: listing.group === "gear",

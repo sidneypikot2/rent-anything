@@ -85,6 +85,24 @@ RSpec.describe "Areas", type: :request do
         end
       end
 
+      response "200", "what the plan's places step reads: must see, boat pins and the port" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "bantayan-island" }
+        before do
+          kota.update!(must_see: true)
+          virgin.update!(boat_departure: "POINT(123.8 11.15)")
+          bantayan.update!(port_name: "Santa Fe port", port_location: "POINT(123.8 11.16)")
+        end
+
+        run_test! do |response|
+          json = response.parsed_body
+          landmarks = json["landmarks"].index_by { _1["slug"] }
+          expect(landmarks["kota-beach"]).to include("must_see" => true, "boat_departure" => nil)
+          expect(landmarks["virgin-island"]).to include("must_see" => false, "boat_departure" => { "lat" => 11.15, "lng" => 123.8 })
+          expect(json["port"]).to eq("name" => "Santa Fe port", "location" => { "lat" => 11.16, "lng" => 123.8 })
+        end
+      end
+
       response "200", "published landmarks and active listings" do
         schema "$ref" => "#/components/schemas/area_detail"
         let(:slug) { "bantayan-island" }
@@ -114,14 +132,14 @@ RSpec.describe "Areas", type: :request do
               "instant_book" => false, "cover_photo_url" => nil, "booking_type" => "activity", "summary" => "Four islands and a sandbar in one day.",
               "business" => { "id" => hopping.business_id, "name" => "Moalboal Gear Rentals" }, "units_count" => 1, "units_label" => "1 unit",
               "partner_name" => "Moalboal Gear Rentals", "price_from_cents" => nil, "price_unit" => nil,
-              "photos" => [], "details" => {}, "tour" => nil, "cancellation_policy" => "free_cancellation", "handover" => nil },
+              "photos" => [], "details" => {}, "tour" => nil, "cancellation_policy" => "free_cancellation", "handover" => nil, "goes_to" => [] },
             { "id" => honda.id, "title" => "Honda Click 125", "category" => "Motorcycle", "group" => "rental",
               "area_slug" => "bantayan-island", "area_name" => "Bantayan Island", "instant_book" => false, "cover_photo_url" => nil,
               "booking_type" => "rental", "summary" => "",
               "business" => { "id" => basilia.id, "name" => "Basilia Motor Rentals" }, "units_count" => 50, "units_label" => "50 motorcycles",
               "partner_name" => "Basilia Motor Rentals", "price_from_cents" => nil, "price_unit" => nil,
               "photos" => [], "details" => { "engine_cc" => 125, "transmission" => "automatic", "amenities" => [ "rider_helmet" ] }, "tour" => nil,
-              "cancellation_policy" => "free_cancellation", "handover" => nil }
+              "cancellation_policy" => "free_cancellation", "handover" => nil, "goes_to" => [] }
           )
         end
       end

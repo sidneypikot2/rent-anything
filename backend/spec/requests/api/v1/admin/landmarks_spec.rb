@@ -234,6 +234,34 @@ RSpec.describe "Admin landmarks", type: :request do
         end
       end
 
+      response "200", "must see, and a boat departure pin set and cleared" do
+        schema "$ref" => "#/components/schemas/admin_landmark"
+        let(:body) { { must_see: true, boat_departure: { lat: 11.15, lng: 123.8 } } }
+
+        context "set" do
+          run_test! do |response|
+            expect(response.parsed_body).to include("must_see" => true, "boat_departure" => { "lat" => 11.15, "lng" => 123.8 })
+          end
+        end
+
+        context "cleared" do
+          before { kota.update!(boat_departure: "POINT(123.8 11.15)") }
+          let(:body) { { boat_departure: nil } }
+
+          run_test! { |response| expect(response.parsed_body["boat_departure"]).to be_nil }
+        end
+      end
+
+      response "422", "a must see that isn't true or false, and a broken pin" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:body) { { must_see: "yes", boat_departure: { lat: 200, lng: 123.8 } } }
+
+        run_test! do |response|
+          expect(response.parsed_body.to_s).to include("Must see must be true or false", "Latitude must be a number")
+        end
+      end
+
       response "422", "an empty name" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
@@ -250,7 +278,11 @@ RSpec.describe "Admin landmarks", type: :request do
 
         let(:user) { create(:user, :partner) }
 
-        run_test! { expect(kota.reload.description).to eq("") }
+        let(:body) { { description: "White sand", must_see: true } }
+
+        run_test! do
+          expect(kota.reload).to have_attributes(description: "", must_see: false)
+        end
       end
     end
   end

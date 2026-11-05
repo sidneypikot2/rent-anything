@@ -5,11 +5,17 @@ module Discovery
   # lowest price, photos from each, its first listing's rounded point and the published places
   # to see its listings go to. Its card opens the business's own page. Things to do lead with the
   # businesses whose tours go to the most of the guest's hearted places, then those with a price;
+  # stays lead with the businesses closest to the hearted places, on average, by their closest
+  # listing, and `near` says how far each is (a boat-only place from where its boats leave);
   # everything else is by name. `counts` says how many listings each group has here, so the
   # steps show only the ones with something.
   class PlanBusinesses < ApplicationService
     PER_PAGE = 18
     PHOTOS = 6
+    # Where a stay is measured to. `near` is worked out from exact points but only ever says
+    # half kilometres: finer, and distances to a few known places would give the point away.
+    PICK_POINT = "COALESCE(landmarks.boat_departure, landmarks.location)".freeze
+    NEAR_STEP_KM = 0.5
 
     # Bad parameters, as a 422 (Explore's way).
     Query = Struct.new(:messages) do
@@ -29,9 +35,10 @@ module Discovery
       ids = ordered.offset((@page - 1) * PER_PAGE).limit(PER_PAGE).pluck("listings.business_id")
       listings = in_group.where(business_id: ids).includes(*ListingRow::ASSOCIATIONS).to_a
       goes_to = goes_to_of(listings.map(&:id))
+      metres = metres_to_picks(listings.map(&:id))
       by_business = listings.group_by(&:business_id)
       {
-        businesses: ids.map { |id| row(by_business.fetch(id), goes_to) },
+        businesses: ids.map { |id| row(by_business.fetch(id), goes_to, metres) },
         total: in_group.distinct.count(:business_id),
         page: @page,
         per_page: PER_PAGE,
@@ -80,7 +87,42 @@ module Discovery
         scope = scope.order(Arel::Nodes::NamedFunction.new("MAX", [ hearted_count ]).desc) if @hearted.any?
         scope = scope.order(Arel.sql("BOOL_OR(COALESCE(tour_details.base_price_cents, 0) > 0) DESC"))
       end
+      scope = scope.order(Arel::Nodes::NamedFunction.new("MIN", [ average_metres ]).asc) if near_picks?
       scope.order("businesses.name", "listings.business_id")
+    end
+
+    # The published places hearted, for ranking stays.
+    def picks
+      Landmark.published.where(slug: @hearted)
+    end
+
+    def near_picks?
+      return @near_picks if defined?(@near_picks)
+
+      @near_picks = @group == "stay" && @hearted.any? && picks.exists?
+    end
+
+    # How far a listing is from the picks on average, as a subquery.
+    def average_metres
+      picks.select(Arel.sql("AVG(ST_Distance(listings.location, #{PICK_POINT}))")).arel
+    end
+
+    # listing id => { pick's slug => metres }, from the listings' exact points.
+    def metres_to_picks(ids)
+      return {} unless near_picks?
+
+      Listing.where(id: ids).joins("CROSS JOIN landmarks").merge(picks)
+        .pluck(:id, "landmarks.slug", Arel.sql("ST_Distance(listings.location, #{PICK_POINT})"))
+        .group_by(&:first).transform_values { |rows| rows.to_h { |_, slug, metres| [ slug, metres ] } }
+    end
+
+    # How far the business's closest listing is from each pick, nearest pick first.
+    def near_of(listings, metres)
+      closest = listings.filter_map { |listing| metres[listing.id] }.min_by { |each| each.values.sum }
+      return [] unless closest
+
+      closest.map { |slug, distance| { slug:, km: ((distance / 1000.0) / NEAR_STEP_KM).round * NEAR_STEP_KM } }
+        .sort_by { |each| [ each[:km], each[:slug] ] }
     end
 
     # The visits of a listing's tour to the hearted places (some hearted).
@@ -108,7 +150,7 @@ module Discovery
     end
 
     # A business's card: its listings here, the ones to hearted places first, then by title.
-    def row(listings, goes_to)
+    def row(listings, goes_to, metres)
       hearted = ->(listing) { (goes_to.fetch(listing.id, []) & @hearted).size }
       listings = listings.sort_by { |listing| [ -hearted.call(listing), listing.title, listing.id ] }
       first = listings.first
@@ -127,7 +169,8 @@ module Discovery
         price_unit: priced && PricingSerializer.price_unit(priced.last),
         photos: photos.first(PHOTOS).map { |photo| ListingPhotoSerializer.call(photo) },
         location: { lat: first.location.y.round(2), lng: first.location.x.round(2) },
-        goes_to: listings.flat_map { |listing| goes_to.fetch(listing.id, []) }.uniq.sort
+        goes_to: listings.flat_map { |listing| goes_to.fetch(listing.id, []) }.uniq.sort,
+        near: near_of(listings, metres)
       }
     end
 

@@ -190,10 +190,6 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
         ? [{ id, title: listing.title, href: `/listings/${id}${datesQuery}`, category: listing.category }]
         : [];
     });
-  // The places to see each row goes to, so its options can name the ones saved to the trip.
-  const goesTo = new Map<number, { slug: string; name: string }[]>();
-  for (const landmark of landmarks)
-    for (const id of landmark.visited_by) goesTo.set(id, [...(goesTo.get(id) ?? []), { slug: landmark.slug, name: landmark.name }]);
   const photosOf = listingPhotos;
   // The same rows as the place's tour list shows them, priced and with Add to trip as in What to book.
   const toursOf = (landmark: (typeof landmarks)[number]): LandmarkTour[] =>
@@ -554,7 +550,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                             note: unpricedNote || undefined,
                             items: need.businesses.map((offered) => {
                               const offers = offered.map((listing) =>
-                                offerOf(listing, { dates, pageSlug: slug, groupTitle: need.title, goesTo: goesTo.get(listing.id) }),
+                                offerOf(listing, { dates, pageSlug: slug, groupTitle: need.title }),
                               );
                               const first = offered[0];
                               // Its place, when all its listings here are in one place inside this one.

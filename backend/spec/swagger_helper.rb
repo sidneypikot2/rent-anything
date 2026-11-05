@@ -1639,6 +1639,11 @@ RSpec.configure do |config|
             },
             required: %w[slug name kind parent_name parent_slug center landmark_count listing_count to_book_count activities]
           },
+          area_port: {
+            type: :object,
+            properties: { name: { type: :string }, location: { "$ref" => "#/components/schemas/lat_lng" } },
+            required: %w[name location]
+          },
           area_detail: {
             type: :object,
             properties: {
@@ -1658,6 +1663,7 @@ RSpec.configure do |config|
                 },
                 required: %w[tagline description getting_there best_time_to_visit]
               },
+              port: { allOf: [ { "$ref" => "#/components/schemas/area_port" } ], nullable: true, description: "Where guests arrive by sea (RAA-257)" },
               areas: {
                 type: :array,
                 description: "Areas under this one that have something to book",
@@ -1693,12 +1699,17 @@ RSpec.configure do |config|
                       description: "Its ready photos in the team's order (RAA-210)"
                     },
                     location: { "$ref" => "#/components/schemas/lat_lng" },
+                    must_see: { type: :boolean, description: "The team's pick of what not to miss (RAA-257)" },
+                    boat_departure: {
+                      allOf: [ { "$ref" => "#/components/schemas/lat_lng" } ], nullable: true,
+                      description: "Where its boats leave from; set on a place reached by boat tour only (RAA-257)"
+                    },
                     visited_by: {
                       type: :array, items: { type: :integer },
                       description: "The ids of the active listings that visit it, from the listings here"
                     }
                   },
-                  required: %w[slug name description tags photos location visited_by]
+                  required: %w[slug name description tags photos location must_see boat_departure visited_by]
                 }
               },
               listings: {
@@ -1707,7 +1718,7 @@ RSpec.configure do |config|
                 items: { "$ref" => "#/components/schemas/area_listing" }
               }
             },
-            required: %w[area guide photos areas landmarks listings]
+            required: %w[area guide port photos areas landmarks listings]
           },
           # One listing as a guest's browse pages list it (Discovery::ListingRow): an area page's
           # What to book and a business's page.
@@ -1758,10 +1769,18 @@ RSpec.configure do |config|
                   }
                 },
                 required: %w[delivery_fee_cents return_pickup_fee_cents child_helmet_fee_cents]
+              },
+              goes_to: {
+                type: :array, description: "The published places to see it stops at, by name; stops have no order",
+                items: {
+                  type: :object,
+                  properties: { slug: { type: :string }, name: { type: :string } },
+                  required: %w[slug name]
+                }
               }
             },
             required: %w[id title category group area_slug area_name instant_book cover_photo_url booking_type summary business units_count units_label
-              partner_name price_from_cents price_unit photos details tour cancellation_policy handover]
+              partner_name price_from_cents price_unit photos details tour cancellation_policy handover goes_to]
           },
           # One business offering a plan step (Discovery::PlanBusinesses): what it offers there,
           # summed up, for its card, which opens the business's page.
@@ -1789,9 +1808,21 @@ RSpec.configure do |config|
               goes_to: {
                 type: :array, items: { type: :string },
                 description: "The slugs of the published places to see its listings visit"
+              },
+              near: {
+                type: :array,
+                description: "Stays, with hearted places sent: how far its closest listing is from each, nearest first; empty otherwise",
+                items: {
+                  type: :object,
+                  properties: {
+                    slug: { type: :string },
+                    km: { type: :number, description: "In steps of 0.5, as an exact point stays private; a boat-only place from where its boats leave" }
+                  },
+                  required: %w[slug km]
+                }
               }
             },
-            required: %w[id name title category area_name listings_count listing_ids instant_book price_from_cents price_unit photos location goes_to]
+            required: %w[id name title category area_name listings_count listing_ids instant_book price_from_cents price_unit photos location goes_to near]
           },
           plan_businesses: {
             type: :object,
@@ -2569,6 +2600,7 @@ RSpec.configure do |config|
               description: { type: :string },
               getting_there: { type: :string },
               best_time_to_visit: { type: :string },
+              port: { allOf: [ { "$ref" => "#/components/schemas/area_port" } ], nullable: true },
               tags: { type: :array, items: { "$ref" => "#/components/schemas/tag" } },
               photos: {
                 type: :array, maxItems: 12, items: { "$ref" => "#/components/schemas/admin_photo" },
@@ -2589,7 +2621,7 @@ RSpec.configure do |config|
               **SEED_RUN
             },
             required: %w[slug name kind status parent aliases center psgc_code tagline description getting_there
-              best_time_to_visit tags photos wikidata_id wikidata_aliases wikidata_popularity has_boundary
+              best_time_to_visit port tags photos wikidata_id wikidata_aliases wikidata_popularity has_boundary
               listing_count landmark_count seed_status seeded_at seed_report]
           },
           admin_area_body: {
@@ -2619,6 +2651,10 @@ RSpec.configure do |config|
               description: { type: :string, maxLength: 5000 },
               getting_there: { type: :string, maxLength: 2000 },
               best_time_to_visit: { type: :string, maxLength: 200 },
+              port: {
+                allOf: [ { "$ref" => "#/components/schemas/area_port" } ], nullable: true,
+                description: "Where guests arrive by sea; null for none"
+              },
               tag_slugs: { type: :array, items: { type: :string }, description: "Replaces the area's tags" },
               wikidata_id: {
                 type: :string, nullable: true,
@@ -2663,6 +2699,8 @@ RSpec.configure do |config|
                 properties: { lat: { type: :number }, lng: { type: :number } },
                 required: %w[lat lng]
               },
+              must_see: { type: :boolean },
+              boat_departure: { allOf: [ { "$ref" => "#/components/schemas/lat_lng" } ], nullable: true },
               tags: { type: :array, items: { "$ref" => "#/components/schemas/tag" } },
               photos: {
                 type: :array, maxItems: 12, items: { "$ref" => "#/components/schemas/admin_photo" },
@@ -2672,7 +2710,7 @@ RSpec.configure do |config|
               wikidata_aliases: { type: :array, items: { type: :string }, description: "Read-only, as wikidata_id" },
               wikidata_popularity: { type: :integer, description: "Read-only, as wikidata_id" }
             },
-            required: %w[slug name status area visit_count description aliases location tags photos wikidata_id
+            required: %w[slug name status area visit_count description aliases location must_see boat_departure tags photos wikidata_id
               wikidata_aliases wikidata_popularity]
           },
           admin_landmark_body: {
@@ -2692,6 +2730,11 @@ RSpec.configure do |config|
                   lng: { type: :number, minimum: -180, maximum: 180 }
                 },
                 required: %w[lat lng]
+              },
+              must_see: { type: :boolean, description: "The team's pick of what not to miss" },
+              boat_departure: {
+                allOf: [ { "$ref" => "#/components/schemas/lat_lng" } ], nullable: true,
+                description: "Where its boats leave from, which marks it as reached by boat tour only; null for none"
               },
               tag_slugs: { type: :array, items: { type: :string }, description: "Replaces the landmark's tags" }
             }

@@ -20,7 +20,7 @@ import { ListingPanel, PanelActions } from "./detail-panel";
 import { InstantBookBadge } from "./instant-book-badge";
 import type { Feature } from "./listing-features";
 import { ListingPhotos } from "./listing-photos";
-import { SavedStops } from "./landmark-tours";
+import { TourStops } from "./landmark-tours";
 import { ListingRowDetails } from "./listing-row-details";
 import type { Photo } from "./photo-card";
 import { markLeaving, plainClick } from "./back-link";
@@ -327,7 +327,7 @@ export function BusinessOptions({
                 {apart(offer) && <span className="text-sm text-foreground">{apart(offer)}</span>}
                 {offer.summary && <p className="line-clamp-2 text-sm text-muted @max-md:hidden">{offer.summary}</p>}
                 <ListingRowDetails features={offer.features} />
-                {offer.goesTo && <SavedStops places={offer.goesTo} />}
+                {offer.goesTo && <TourStops stops={offer.goesTo} />}
                 <InTripBadge listingId={offer.listingId} />
               </div>
               {/* The price and the one action: under the details on a narrow row, on the right from @md. */}

@@ -18,18 +18,21 @@ export function toPlanPage(data: PlanBusinessesPage): PlanPage {
 }
 
 // One page of the businesses offering a step in a place, from the API
-// (GET /areas/{slug}/plan_businesses): Things to do send the trip's hearted places, so the
-// businesses with tours to them lead. The page shown stays while the next loads. `initial`:
-// page 1 the server already fetched, for the step it opened on.
+// (GET /areas/{slug}/plan_businesses): stays and Things to do send the trip's hearted places, so
+// the stays closest to them and the businesses with tours to them lead. The page shown stays
+// while the next loads. `initial`: page 1 the server already fetched, for the step it opened on.
+// `enabled`: off on Places to see, which has no options.
 export function usePlanBusinesses(
   slug: string,
   key: RowKey,
   page: number,
   hearted: Set<string>,
   initial?: { key: RowKey; data: PlanBusinessesPage },
+  enabled = true,
 ) {
-  const slugs = key === "activity" ? [...hearted].sort() : [];
+  const slugs = key === "activity" || key === "stay" ? [...hearted].sort() : [];
   return useQuery({
+    enabled,
     queryKey: ["plan-businesses", slug, key, page, slugs],
     queryFn: async () => {
       const { data, error } = await apiClient().GET("/api/v1/areas/{slug}/plan_businesses", {

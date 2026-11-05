@@ -315,7 +315,7 @@ paths:
           type: string
       responses:
         '200':
-          description: a new Wikidata item clears what came from the old one
+          description: a port set and cleared
           content:
             application/json:
               schema:
@@ -894,7 +894,7 @@ paths:
           type: string
       responses:
         '200':
-          description: moved to the area serving its new pin
+          description: must see, and a boat departure pin set and cleared
           content:
             application/json:
               schema:
@@ -1442,7 +1442,7 @@ paths:
         required: true
       responses:
         '200':
-          description: the business with its listings
+          description: a tour names its published stops, by name
           content:
             application/json:
               schema:
@@ -3899,7 +3899,8 @@ paths:
         guest group here and in the published places inside it, 18 a page, each with
         what it offers there summed up, its first listing''s rounded point and the
         places to see its listings go to. Things to do lead with the businesses whose
-        tours go to the most hearted places, then those with a price; the rest are
+        tours go to the most hearted places, then those with a price; stays lead with
+        those closest to the hearted places, and say how far each is; the rest are
         by name.'
       parameters:
       - name: slug
@@ -3934,7 +3935,7 @@ paths:
           items:
             type: string
         description: 'The slugs of the trip''s hearted places to see: Things to do
-          that go there lead'
+          that go there lead, and the stays closest to them'
       responses:
         '200':
           description: 'things to do with nothing hearted: priced first, then by name'
@@ -8726,6 +8727,16 @@ components:
       - listing_count
       - to_book_count
       - activities
+    area_port:
+      type: object
+      properties:
+        name:
+          type: string
+        location:
+          "$ref": "#/components/schemas/lat_lng"
+      required:
+      - name
+      - location
     area_detail:
       type: object
       properties:
@@ -8760,6 +8771,11 @@ components:
           - description
           - getting_there
           - best_time_to_visit
+        port:
+          allOf:
+          - "$ref": "#/components/schemas/area_port"
+          nullable: true
+          description: Where guests arrive by sea (RAA-257)
         areas:
           type: array
           description: Areas under this one that have something to book
@@ -8804,6 +8820,15 @@ components:
                 description: Its ready photos in the team's order (RAA-210)
               location:
                 "$ref": "#/components/schemas/lat_lng"
+              must_see:
+                type: boolean
+                description: The team's pick of what not to miss (RAA-257)
+              boat_departure:
+                allOf:
+                - "$ref": "#/components/schemas/lat_lng"
+                nullable: true
+                description: Where its boats leave from; set on a place reached by
+                  boat tour only (RAA-257)
               visited_by:
                 type: array
                 items:
@@ -8817,6 +8842,8 @@ components:
             - tags
             - photos
             - location
+            - must_see
+            - boat_departure
             - visited_by
         listings:
           description: What to book here and in the published places inside it, however
@@ -8827,6 +8854,7 @@ components:
       required:
       - area
       - guide
+      - port
       - photos
       - areas
       - landmarks
@@ -8947,6 +8975,20 @@ components:
           - delivery_fee_cents
           - return_pickup_fee_cents
           - child_helmet_fee_cents
+        goes_to:
+          type: array
+          description: The published places to see it stops at, by name; stops have
+            no order
+          items:
+            type: object
+            properties:
+              slug:
+                type: string
+              name:
+                type: string
+            required:
+            - slug
+            - name
       required:
       - id
       - title
@@ -8969,6 +9011,7 @@ components:
       - tour
       - cancellation_policy
       - handover
+      - goes_to
     plan_business:
       type: object
       properties:
@@ -9020,6 +9063,22 @@ components:
           items:
             type: string
           description: The slugs of the published places to see its listings visit
+        near:
+          type: array
+          description: 'Stays, with hearted places sent: how far its closest listing
+            is from each, nearest first; empty otherwise'
+          items:
+            type: object
+            properties:
+              slug:
+                type: string
+              km:
+                type: number
+                description: In steps of 0.5, as an exact point stays private; a boat-only
+                  place from where its boats leave
+            required:
+            - slug
+            - km
       required:
       - id
       - name
@@ -9034,6 +9093,7 @@ components:
       - photos
       - location
       - goes_to
+      - near
     plan_businesses:
       type: object
       properties:
@@ -10998,6 +11058,10 @@ components:
           type: string
         best_time_to_visit:
           type: string
+        port:
+          allOf:
+          - "$ref": "#/components/schemas/area_port"
+          nullable: true
         tags:
           type: array
           items:
@@ -11080,6 +11144,7 @@ components:
       - description
       - getting_there
       - best_time_to_visit
+      - port
       - tags
       - photos
       - wikidata_id
@@ -11157,6 +11222,11 @@ components:
         best_time_to_visit:
           type: string
           maxLength: 200
+        port:
+          allOf:
+          - "$ref": "#/components/schemas/area_port"
+          nullable: true
+          description: Where guests arrive by sea; null for none
         tag_slugs:
           type: array
           items:
@@ -11242,6 +11312,12 @@ components:
           required:
           - lat
           - lng
+        must_see:
+          type: boolean
+        boat_departure:
+          allOf:
+          - "$ref": "#/components/schemas/lat_lng"
+          nullable: true
         tags:
           type: array
           items:
@@ -11274,6 +11350,8 @@ components:
       - description
       - aliases
       - location
+      - must_see
+      - boat_departure
       - tags
       - photos
       - wikidata_id
@@ -11319,6 +11397,15 @@ components:
           required:
           - lat
           - lng
+        must_see:
+          type: boolean
+          description: The team's pick of what not to miss
+        boat_departure:
+          allOf:
+          - "$ref": "#/components/schemas/lat_lng"
+          nullable: true
+          description: Where its boats leave from, which marks it as reached by boat
+            tour only; null for none
         tag_slugs:
           type: array
           items:

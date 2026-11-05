@@ -13,6 +13,8 @@ module AdminLandmarkSerializer
       description: landmark.description,
       aliases: landmark.aliases,
       location: { lat: landmark.location.y, lng: landmark.location.x },
+      must_see: landmark.must_see,
+      boat_departure: landmark.boat_departure && { lat: landmark.boat_departure.y, lng: landmark.boat_departure.x },
       tags: landmark.tags.order(:name).map { |tag| TagSerializer.call(tag) },
       photos: landmark.photos.map { |photo| AdminAreaSerializer.photo(photo) },
       wikidata_id: landmark.wikidata_id,

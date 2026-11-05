@@ -52,6 +52,8 @@ type FormState = {
   tag_slugs: string[];
   aliases: string[];
   wikidata_id: string;
+  port_name: string;
+  port_location: LatLng | null;
 };
 
 const EMPTY: FormState = {
@@ -69,6 +71,8 @@ const EMPTY: FormState = {
   tag_slugs: [],
   aliases: [],
   wikidata_id: "",
+  port_name: "",
+  port_location: null,
 };
 
 function stateOf(area: AdminArea): FormState {
@@ -87,6 +91,8 @@ function stateOf(area: AdminArea): FormState {
     tag_slugs: area.tags.map((tag) => tag.slug),
     aliases: area.aliases,
     wikidata_id: area.wikidata_id ?? "",
+    port_name: area.port?.name ?? "",
+    port_location: area.port?.location ?? null,
   };
 }
 
@@ -107,6 +113,7 @@ function bodyOf(form: FormState): AdminAreaBody {
     tag_slugs: form.tag_slugs,
     aliases: form.aliases,
     wikidata_id: form.wikidata_id.trim() || null,
+    port: form.port_name.trim() && form.port_location ? { name: form.port_name.trim(), location: form.port_location } : null,
   };
 }
 
@@ -148,6 +155,8 @@ function problemOf(form: FormState, isNew: boolean) {
   if (isNew && !form.slug.trim()) return "Give the destination a slug.";
   if (isNew && !form.kind) return "Choose what kind of place it is.";
   if (isNew && !form.center) return "Put its centre on the map.";
+  if (form.port_name.trim() && !form.port_location) return "Put the port on the map, or clear its name.";
+  if (form.port_location && !form.port_name.trim()) return "Give the port a name.";
   if (form.psgc_code.trim() && !/^\d{10}$/.test(form.psgc_code.trim())) return "A PSGC code is 10 digits.";
   if (form.wikidata_id.trim() && !/^Q\d+$/.test(form.wikidata_id.trim())) return "A Wikidata ID looks like Q123.";
   return undefined;
@@ -332,6 +341,14 @@ function AreaForm({ area }: { area?: AdminArea }) {
             onChange={(point) => set("center", point)}
             areaQuery={form.center ? undefined : form.name || undefined}
           />
+          <Field
+            label="Port"
+            hint="Where guests arrive by sea, for distances when they plan a trip. Optional."
+            value={form.port_name}
+            onChange={(event) => set("port_name", event.target.value)}
+            data-testid="admin-destination-port"
+          />
+          <LocationPicker label="Port pin" value={form.port_location} onChange={(point) => set("port_location", point)} />
           <Field
             label="PSGC code"
             hint="10 digits, from the Philippine Standard Geographic Code. Optional."

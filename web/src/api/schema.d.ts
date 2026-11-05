@@ -434,7 +434,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description a new Wikidata item clears what came from the old one */
+                /** @description a port set and cleared */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1222,7 +1222,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description moved to the area serving its new pin */
+                /** @description must see, and a boat departure pin set and cleared */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1990,7 +1990,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description the business with its listings */
+                /** @description a tour names its published stops, by name */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -5548,7 +5548,7 @@ export interface paths {
         };
         /**
          * A page of one plan step's options in a place
-         * @description Plan a whole trip: the businesses with active listings in one guest group here and in the published places inside it, 18 a page, each with what it offers there summed up, its first listing's rounded point and the places to see its listings go to. Things to do lead with the businesses whose tours go to the most hearted places, then those with a price; the rest are by name.
+         * @description Plan a whole trip: the businesses with active listings in one guest group here and in the published places inside it, 18 a page, each with what it offers there summed up, its first listing's rounded point and the places to see its listings go to. Things to do lead with the businesses whose tours go to the most hearted places, then those with a price; stays lead with those closest to the hearted places, and say how far each is; the rest are by name.
          */
         get: {
             parameters: {
@@ -5556,7 +5556,7 @@ export interface paths {
                     group: "stay" | "transfer" | "rental" | "activity" | "gear";
                     /** @description From 1 (the default) */
                     page?: number;
-                    /** @description The slugs of the trip's hearted places to see: Things to do that go there lead */
+                    /** @description The slugs of the trip's hearted places to see: Things to do that go there lead, and the stays closest to them */
                     "hearted[]"?: string[];
                 };
                 header?: never;
@@ -8798,6 +8798,10 @@ export interface components {
             to_book_count: number;
             activities: components["schemas"]["tag"][];
         };
+        area_port: {
+            name: string;
+            location: components["schemas"]["lat_lng"];
+        };
         area_detail: {
             area: components["schemas"]["area"];
             /** @description Its ready photos in the team's order, for the banner's carousel (RAA-210) */
@@ -8809,6 +8813,8 @@ export interface components {
                 getting_there: string | null;
                 best_time_to_visit: string | null;
             };
+            /** @description Where guests arrive by sea (RAA-257) */
+            port: components["schemas"]["area_port"] | null;
             /** @description Areas under this one that have something to book */
             areas: (components["schemas"]["area"] & {
                 center: components["schemas"]["lat_lng"];
@@ -8825,6 +8831,10 @@ export interface components {
                 /** @description Its ready photos in the team's order (RAA-210) */
                 photos: components["schemas"]["photo_urls"][];
                 location: components["schemas"]["lat_lng"];
+                /** @description The team's pick of what not to miss (RAA-257) */
+                must_see: boolean;
+                /** @description Where its boats leave from; set on a place reached by boat tour only (RAA-257) */
+                boat_departure: components["schemas"]["lat_lng"] | null;
                 /** @description The ids of the active listings that visit it, from the listings here */
                 visited_by: number[];
             }[];
@@ -8883,6 +8893,11 @@ export interface components {
                 /** @description A motorcycle's child helmet per helmet and day (0 is included); null when the shop has none (RAA-205) */
                 child_helmet_fee_cents: number | null;
             } | null;
+            /** @description The published places to see it stops at, by name; stops have no order */
+            goes_to: {
+                slug: string;
+                name: string;
+            }[];
         };
         plan_business: {
             /** @description The business's */
@@ -8908,6 +8923,12 @@ export interface components {
             location: components["schemas"]["lat_lng"];
             /** @description The slugs of the published places to see its listings visit */
             goes_to: string[];
+            /** @description Stays, with hearted places sent: how far its closest listing is from each, nearest first; empty otherwise */
+            near: {
+                slug: string;
+                /** @description In steps of 0.5, as an exact point stays private; a boat-only place from where its boats leave */
+                km: number;
+            }[];
         };
         plan_businesses: {
             businesses: components["schemas"]["plan_business"][];
@@ -9689,6 +9710,7 @@ export interface components {
             description: string;
             getting_there: string;
             best_time_to_visit: string;
+            port: components["schemas"]["area_port"] | null;
             tags: components["schemas"]["tag"][];
             /** @description In order, with those still uploading; the first is the banner (RAA-210) */
             photos: components["schemas"]["admin_photo"][];
@@ -9744,6 +9766,8 @@ export interface components {
             description?: string;
             getting_there?: string;
             best_time_to_visit?: string;
+            /** @description Where guests arrive by sea; null for none */
+            port?: components["schemas"]["area_port"] | null;
             /** @description Replaces the area's tags */
             tag_slugs?: string[];
             /** @description Like Q123. Changing it clears wikidata_aliases and wikidata_popularity until the next `bin/rails gazetteer:wikidata` */
@@ -9775,6 +9799,8 @@ export interface components {
                 lat: number;
                 lng: number;
             };
+            must_see: boolean;
+            boat_departure: components["schemas"]["lat_lng"] | null;
             tags: components["schemas"]["tag"][];
             /** @description In order, with those still uploading; the first is its card's (RAA-210) */
             photos: components["schemas"]["admin_photo"][];
@@ -9798,6 +9824,10 @@ export interface components {
                 lat: number;
                 lng: number;
             };
+            /** @description The team's pick of what not to miss */
+            must_see?: boolean;
+            /** @description Where its boats leave from, which marks it as reached by boat tour only; null for none */
+            boat_departure?: components["schemas"]["lat_lng"] | null;
             /** @description Replaces the landmark's tags */
             tag_slugs?: string[];
         };

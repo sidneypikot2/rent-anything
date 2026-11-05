@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
 import { CheckoutSheet } from "@/components/bookings/checkout-sheet";
-import { HeartGlyph, PlusGlyph } from "@/components/discovery/tag-glyphs";
+import { HeartGlyph, PlusGlyph, TickGlyph } from "@/components/discovery/tag-glyphs";
 import { BOOKING_STATE } from "@/components/landing/launch-area";
 import { guestsLabel, formatDateRange, thingCount } from "@/components/trips/format";
 import { ItemThumb } from "@/components/trips/item-thumb";
@@ -15,7 +15,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
 import { stayPoint, type PlanPlace } from "./plan-data";
-import { dayParts, planDays, type DayEvent } from "./plan-days";
+import { dayParts, pickStatuses, planDays, type DayEvent, type DayGap, type PickStatus } from "./plan-days";
 import { PlanFoot, PlanHeading } from "./plan-frame";
 import { PlanReviewSkeleton } from "./plan-skeletons";
 
@@ -51,6 +51,57 @@ const KIND_DOT: Record<DayEvent["kind"], string> = {
   tour: "bg-kind-activity",
 };
 
+// Something the trip lacks, with its way back to the step that fixes it.
+function GapLink({ gap, back }: { gap: DayGap; back: string }) {
+  return (
+    <Link
+      href={`${back}&choose=${gap.row}`}
+      data-testid="plan-gap"
+      className={cn(
+        "flex min-h-11 items-center justify-between gap-3 rounded-card border border-dashed px-3 py-2 text-sm font-semibold transition-colors duration-300 ease-calm",
+        gap.idea ? "border-line-strong text-muted hover:bg-surface-2" : "border-warning/60 bg-warning/5 text-warning hover:bg-warning/10",
+      )}
+    >
+      {gap.text}
+      <span className="flex shrink-0 items-center gap-1 text-primary">
+        <PlusGlyph className="size-4" />
+        Add
+      </span>
+    </Link>
+  );
+}
+
+// A picked place and how the trip reaches it. Not reached yet, it is the gap's dashed row, with its
+// way to the step that would.
+function PickRow({ pick, back }: { pick: PickStatus; back: string }) {
+  if (pick.state === "open")
+    return pick.row ? (
+      <div data-testid="plan-pick" data-state="open">
+        <GapLink gap={{ text: `${pick.name} · Not covered yet`, row: pick.row, idea: true }} back={back} />
+      </div>
+    ) : (
+      <p className="flex min-h-11 items-center rounded-card border border-dashed border-line-strong px-3 py-2 text-sm font-semibold text-muted" data-testid="plan-pick" data-state="open">
+        {pick.name} · Not covered yet
+      </p>
+    );
+  return (
+    <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-card border border-line px-3 py-2" data-testid="plan-pick" data-state={pick.state}>
+      <div className="flex min-w-0 flex-col">
+        <span className="text-sm font-semibold text-navy">{pick.name}</span>
+        {pick.line && <span className="text-small text-muted">{pick.line}</span>}
+      </div>
+      {pick.state === "tour" ? (
+        <Badge tone="emerald">
+          <TickGlyph className="size-3.5" />
+          Covered by a tour
+        </Badge>
+      ) : (
+        <Badge tone="mist">Your own ride</Badge>
+      )}
+    </div>
+  );
+}
+
 function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
   const quote = useTripQuote(trip.id);
   const [sending, setSending] = useState(false);
@@ -64,6 +115,7 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
   const datesShown = dates && !trip.name.includes(dates) ? dates : null;
   const staying = trip.own_stay ? (trip.own_stay.name ?? "your own place") : stay?.name;
   // "Ready" only once nothing needed is missing; ideas (a ride to a hearted place) don't count.
+  const picks = pickStatuses(trip, place, stay?.point ?? null);
   const missing = days?.some((day) => day.gaps.some((gap) => !gap.idea)) ?? false;
   // The date range stays on one line ("Nov 13–15", never "Nov 13–" / "15").
   const title = trip.name.replace(/(\S+)–(\S+)/g, "$1\u2060–\u2060$2");
@@ -77,6 +129,17 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
           sub={[datesShown, guestsLabel(trip.guests), staying && `staying at ${staying}`].filter(Boolean).join(" · ")}
         />
       </div>
+
+      {picks.length > 0 && (
+        <section className="flex flex-col gap-2 pt-3" aria-labelledby="plan-picks" data-testid="plan-picks">
+          <h2 id="plan-picks" className="text-sm font-bold text-muted">
+            Places you picked
+          </h2>
+          {picks.map((pick) => (
+            <PickRow key={pick.slug} pick={pick} back={back} />
+          ))}
+        </section>
+      )}
 
       {days ? (
         <ol className="flex flex-col pt-3 pb-8" data-testid="plan-days">
@@ -163,21 +226,7 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
                     </div>
                   )}
                   {day.gaps.map((gap) => (
-                    <Link
-                      key={gap.text}
-                      href={`${back}&choose=${gap.row}`}
-                      data-testid="plan-gap"
-                      className={cn(
-                        "flex min-h-11 items-center justify-between gap-3 rounded-card border border-dashed px-3 py-2 text-sm font-semibold transition-colors duration-300 ease-calm",
-                        gap.idea ? "border-line-strong text-muted hover:bg-surface-2" : "border-warning/60 bg-warning/5 text-warning hover:bg-warning/10",
-                      )}
-                    >
-                      {gap.text}
-                      <span className="flex shrink-0 items-center gap-1 text-primary">
-                        <PlusGlyph className="size-4" />
-                        Add
-                      </span>
-                    </Link>
+                    <GapLink key={gap.text} gap={gap} back={back} />
                   ))}
                   {day.events.length === 0 && day.runs.length === 0 && day.gaps.length === 0 && <p className="text-small text-muted">Nothing planned yet.</p>}
                 </div>

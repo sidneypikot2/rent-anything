@@ -10,7 +10,7 @@ import { PlanCard, type CardContext } from "./plan-card";
 import type { PlanBusiness } from "./plan-data";
 import type { ResultPin } from "./results-map";
 
-const ResultsMap = dynamic(() => import("./results-map"), {
+export const ResultsMap = dynamic(() => import("./results-map"), {
   ssr: false,
   loading: () => <div aria-hidden className="size-full bg-sky-mist motion-safe:animate-pulse" />,
 });
@@ -134,7 +134,64 @@ export function PlanMapView({
 }) {
   const [picked, setPicked] = useState<number | null>(null);
   const chosen = businesses.find((business) => business.id === picked) ?? null;
+  const noun = total === 1 ? "business" : "businesses";
+  const pages = Math.ceil(total / perPage);
+  return (
+    <MapOverlay
+      label={`${title} on the map`}
+      heading={`${title} · ${pages > 1 ? rangeText(page, perPage, total) : `${total} ${noun}`}`}
+      onClose={onClose}
+      // Fitted above the foot, where a tapped pin's card shows, so the pins stay in reach.
+      map={<ResultsMap pins={pinsOf(businesses)} stay={stay} active={picked} onPick={setPicked} covered={0.42} />}
+    >
+      {chosen ? (
+        <PlanCard
+          key={chosen.id}
+          business={chosen}
+          href={hrefOf(chosen.id)}
+          context={context}
+          onClose={() => setPicked(null)}
+          onLeave={onClose}
+          className="w-full max-w-md"
+        />
+      ) : (
+        <div className="flex items-center gap-2">
+          {pages > 1 && (
+            <PageArrow direction="left" disabled={page <= 1} onClick={() => onPage(page - 1)} className="bg-surface text-navy shadow-float" />
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex min-h-11 items-center gap-2 rounded-full bg-navy px-5 text-sm font-semibold text-white shadow-float"
+            data-testid="plan-map-list"
+          >
+            List
+            <ListGlyph className="size-4" />
+          </button>
+          {pages > 1 && (
+            <PageArrow direction="right" disabled={page >= pages} onClick={() => onPage(page + 1)} className="bg-surface text-navy shadow-float" />
+          )}
+        </div>
+      )}
+    </MapOverlay>
+  );
+}
 
+// A map over the whole screen, below lg: the way back and what it shows at the top, and `children`
+// at the foot. A modal over the page.
+export function MapOverlay({
+  label,
+  heading,
+  map,
+  onClose,
+  children,
+}: {
+  label: string;
+  heading: string;
+  map: ReactNode;
+  onClose: () => void;
+  children: ReactNode;
+}) {
   const rootRef = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLButtonElement>(null);
 
@@ -161,19 +218,16 @@ export function PlanMapView({
     };
   }, [onClose]);
 
-  const noun = total === 1 ? "business" : "businesses";
-  const pages = Math.ceil(total / perPage);
   return createPortal(
     <div
       ref={rootRef}
       role="dialog"
       aria-modal="true"
-      aria-label={`${title} on the map`}
+      aria-label={label}
       className="fixed inset-0 z-50 bg-sky-mist"
       data-testid="plan-map-view"
     >
-      {/* Fitted above the foot, where a tapped pin's card shows, so the pins stay in reach. */}
-      <ResultsMap pins={pinsOf(businesses)} stay={stay} active={picked} onPick={setPicked} covered={0.42} />
+      {map}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <button
           ref={backRef}
@@ -185,39 +239,11 @@ export function PlanMapView({
           <ChevronGlyph direction="left" className="size-5" />
         </button>
         <p className="pointer-events-auto min-w-0 truncate rounded-full bg-surface px-4 py-2.5 text-sm font-bold text-navy shadow-float">
-          {title} · {pages > 1 ? rangeText(page, perPage, total) : `${total} ${noun}`}
+          {heading}
         </p>
       </div>
       <div className="absolute inset-x-0 bottom-0 flex flex-col items-center p-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-        {chosen ? (
-          <PlanCard
-            key={chosen.id}
-            business={chosen}
-            href={hrefOf(chosen.id)}
-            context={context}
-            onClose={() => setPicked(null)}
-            onLeave={onClose}
-            className="w-full max-w-md"
-          />
-        ) : (
-          <div className="flex items-center gap-2">
-            {pages > 1 && (
-              <PageArrow direction="left" disabled={page <= 1} onClick={() => onPage(page - 1)} className="bg-surface text-navy shadow-float" />
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex min-h-11 items-center gap-2 rounded-full bg-navy px-5 text-sm font-semibold text-white shadow-float"
-              data-testid="plan-map-list"
-            >
-              List
-              <ListGlyph className="size-4" />
-            </button>
-            {pages > 1 && (
-              <PageArrow direction="right" disabled={page >= pages} onClick={() => onPage(page + 1)} className="bg-surface text-navy shadow-float" />
-            )}
-          </div>
-        )}
+        {children}
       </div>
     </div>,
     document.body,

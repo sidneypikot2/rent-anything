@@ -7,6 +7,7 @@ import { isApiPhoto } from "@/components/landing/sample-photos";
 import { Button } from "@/components/ui/button";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { Dialog, DialogFooter, DialogSummary, useChanged } from "@/components/ui/dialog";
+import { AddSheetStops } from "./add-sheet-stops";
 import { Field } from "@/components/ui/field";
 import { Stepper } from "@/components/ui/stepper-field";
 import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
@@ -45,6 +46,8 @@ type Props = {
   trips: Trip[];
   // A place's page: the trip the add goes to, or "new" to start one; no choosing in the sheet.
   target?: Trip | "new";
+  // The page's place and the places inside it: the picks a tour's stops count against.
+  places?: string[];
   onClose: () => void;
   // The trip the item went to, and the same trip before the add when it already existed.
   onAdded: (trip: Trip, before?: Trip) => void;
@@ -195,7 +198,7 @@ function NameTripButton({ onClick }: { onClick: () => void }) {
 // guests. With trips, the server's suggestion comes first and is preselected; "New trip" is
 // always there. With none, the add starts one. With a `target` (a place's page) the trip is
 // fixed: the sheet names it, or offers a name for the new one.
-export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Props) {
+export function WhichTripSheet({ request, trips, target, places, onClose, onAdded }: Props) {
   const [{ from: startsOn, to: endsOn }, setDates] = useState({
     from: request.startsOn ?? "",
     to: request.endsOn ?? "",
@@ -477,6 +480,8 @@ export function WhichTripSheet({ request, trips, target, onClose, onAdded }: Pro
             No date yet: pick one, or add it now and set one later
           </p>
         )}
+
+        <AddSheetStops stops={request.preview?.stops ?? []} saved={goingToTrip?.saved_landmarks ?? []} places={places} />
 
         <fieldset disabled={addItem.isPending} className="flex flex-col gap-4">
           <Ticket data-testid="add-sheet-ticket">
