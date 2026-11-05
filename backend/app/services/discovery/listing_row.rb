@@ -1,11 +1,12 @@
 module Discovery
   # One listing as a guest's browse pages list it: an area page's What to book and a business's
   # page (the `area_listing` schema). A summary plus its booking type, its business, its first
-  # photos, what its details say it includes and its cancellation policy; never its location.
+  # photos, what its details say it includes, its cancellation policy and the places to see it
+  # goes to; never its location.
   module ListingRow
     # A row's carousel shows a few photos; the listing page has them all.
     PHOTOS = 6
-    ASSOCIATIONS = [ { category: :parent }, :area, :business, :units, :stay_rate, :vehicle_rate, :flat_rate, :tour_detail, :cover_photo, :ready_photos ].freeze
+    ASSOCIATIONS = [ { category: :parent }, :area, :business, :units, :stay_rate, :vehicle_rate, :flat_rate, :tour_detail, :cover_photo, :ready_photos, :visited_landmarks ].freeze
 
     def self.call(listing)
       ListingSummarySerializer.call(listing).merge(
@@ -19,8 +20,14 @@ module Discovery
         details: ListingDetailSerializer.details(listing),
         tour: tour_json(listing.tour_detail),
         cancellation_policy: listing.cancellation_policy,
-        handover: handover_json(listing)
+        handover: handover_json(listing),
+        goes_to: goes_to_json(listing)
       )
+    end
+
+    # The published places to see it stops at, by name: a tour's stops have no order.
+    def self.goes_to_json(listing)
+      listing.visited_landmarks.select(&:published?).sort_by(&:name).map { |landmark| landmark.slice(:slug, :name).symbolize_keys }
     end
 
     # A tour's kind and the group it takes, for its row's chips; nil for anything else.

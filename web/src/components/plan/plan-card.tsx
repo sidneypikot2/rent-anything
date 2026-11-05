@@ -5,7 +5,8 @@ import type { MouseEvent } from "react";
 import Link from "next/link";
 import { newTabProps, useOpensInNewTab } from "@/components/discovery/business-row";
 import { ListingPhotos } from "@/components/discovery/listing-photos";
-import { BoltGlyph, CloseGlyph, HeartGlyph, PlaceGlyph } from "@/components/discovery/tag-glyphs";
+import { TourStops } from "@/components/discovery/landmark-tours";
+import { BoltGlyph, CloseGlyph, PlaceGlyph } from "@/components/discovery/tag-glyphs";
 import { InTripCount } from "@/components/trips/in-trip-badge";
 import { cn } from "@/components/ui/cn";
 import { formatPeso } from "@/lib/money";
@@ -24,20 +25,13 @@ export type CardContext = {
 };
 
 const NEAR_ROWS = 3;
-
-// The hearted places a business's tours go to ("Virgin Island, Kota Beach").
-export function heartedStops(business: PlanBusiness, { landmarks, hearted }: Pick<CardContext, "landmarks" | "hearted">) {
-  return business.goesTo
-    .filter((slug) => hearted.has(slug))
-    .map((slug) => landmarks.get(slug)?.name)
-    .filter((name): name is string => Boolean(name));
-}
+const STOP_CHIPS = 3;
 
 // A business offering a step, laid out as Airbnb lays out a search result (2026-11-03): photos
-// from each of its options to swipe, with a pill over their top left (the hearted places its
-// tours go to, else Instant book), then its name (with how far from the stay on the right), what
-// it offers here ("Honda Click 125 + 2 more"), what and where the first is, the trip's dates and
-// its lowest price underlined. The whole card opens the business's page (`href`, its options in
+// from each of its options to swipe, with a pill over their top left (Instant book), then its name
+// (with how far from the stay on the right), what it offers here ("Honda Click 125 + 2 more"), what
+// and where the first is, the trip's dates, the places its tours go to and its lowest price
+// underlined. The whole card opens the business's page (`href`, its options in
 // this step): in a new tab on a laptop, so the plan stays as it was; on a phone in this tab,
 // over the plan, in the plan's own URL (`?business=`, openOverPlan), so a reload keeps it open.
 export function PlanCard({
@@ -68,7 +62,10 @@ export function PlanCard({
   const overMap = Boolean(onClose);
   const price = business.price_from_cents ? formatPeso(business.price_from_cents) : null;
   const far = distanceText(context.stay?.point, business.location);
-  const stops = heartedStops(business, context);
+  const stops = business.goesTo.flatMap((slug) => {
+    const landmark = context.landmarks.get(slug);
+    return landmark ? [{ slug, name: landmark.name }] : [];
+  });
   const more = business.listings_count - 1;
   const best = context.best?.id === business.id ? context.best.label : null;
   // How far a stay is from each pick, as the API says it.
@@ -120,14 +117,9 @@ export function PlanCard({
             <CloseGlyph className="size-4" />
           </button>
         )}
-        {(stops.length > 0 || best || business.instant_book) && (
+        {(best || business.instant_book) && (
           <span className="pointer-events-none absolute top-3 left-3 flex max-w-[calc(100%-1.5rem)] items-center gap-1 rounded-full bg-surface/95 px-2.5 py-1 text-small font-bold text-navy shadow-soft">
-            {stops.length > 0 ? (
-              <>
-                <HeartGlyph filled className="size-3.5 shrink-0 text-forest" />
-                <span className="truncate">Goes to {stops.join(", ")}</span>
-              </>
-            ) : best ? (
+            {best ? (
               <span className="truncate text-forest" data-testid="plan-near-best">
                 {best}
               </span>
@@ -176,6 +168,16 @@ export function PlanCard({
             ))}
             {near.length > NEAR_ROWS && <li className="pl-5 text-muted">+{near.length - NEAR_ROWS} more</li>}
           </ul>
+        )}
+        {stops.length > 0 && (
+          <div className="mt-1.5">
+            <TourStops
+              stops={stops}
+              picked={context.hearted}
+              max={STOP_CHIPS}
+              label={more > 0 ? `Tours go to ${stops.length} ${stops.length === 1 ? "place" : "places"}` : undefined}
+            />
+          </div>
         )}
         <span className="mt-1 text-navy">
           {price ? (

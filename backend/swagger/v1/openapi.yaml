@@ -1442,7 +1442,7 @@ paths:
         required: true
       responses:
         '200':
-          description: the business with its listings
+          description: a tour names its published stops, by name
           content:
             application/json:
               schema:
@@ -8975,6 +8975,20 @@ components:
           - delivery_fee_cents
           - return_pickup_fee_cents
           - child_helmet_fee_cents
+        goes_to:
+          type: array
+          description: The published places to see it stops at, by name; stops have
+            no order
+          items:
+            type: object
+            properties:
+              slug:
+                type: string
+              name:
+                type: string
+            required:
+            - slug
+            - name
       required:
       - id
       - title
@@ -8997,6 +9011,7 @@ components:
       - tour
       - cancellation_policy
       - handover
+      - goes_to
     plan_business:
       type: object
       properties:

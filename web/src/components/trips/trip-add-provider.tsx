@@ -152,6 +152,7 @@ export function TripAddProvider({ children, places }: { children: ReactNode; pla
           request={choosing.request}
           trips={choosing.trips}
           target={choosing.target}
+          places={places}
           onClose={closeChoosing}
           onAdded={(trip, before) => {
             const { request } = choosing;

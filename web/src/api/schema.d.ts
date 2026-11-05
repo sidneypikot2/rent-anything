@@ -1990,7 +1990,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description the business with its listings */
+                /** @description a tour names its published stops, by name */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -8893,6 +8893,11 @@ export interface components {
                 /** @description A motorcycle's child helmet per helmet and day (0 is included); null when the shop has none (RAA-205) */
                 child_helmet_fee_cents: number | null;
             } | null;
+            /** @description The published places to see it stops at, by name; stops have no order */
+            goes_to: {
+                slug: string;
+                name: string;
+            }[];
         };
         plan_business: {
             /** @description The business's */

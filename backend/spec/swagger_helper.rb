@@ -1769,10 +1769,18 @@ RSpec.configure do |config|
                   }
                 },
                 required: %w[delivery_fee_cents return_pickup_fee_cents child_helmet_fee_cents]
+              },
+              goes_to: {
+                type: :array, description: "The published places to see it stops at, by name; stops have no order",
+                items: {
+                  type: :object,
+                  properties: { slug: { type: :string }, name: { type: :string } },
+                  required: %w[slug name]
+                }
               }
             },
             required: %w[id title category group area_slug area_name instant_book cover_photo_url booking_type summary business units_count units_label
-              partner_name price_from_cents price_unit photos details tour cancellation_policy handover]
+              partner_name price_from_cents price_unit photos details tour cancellation_policy handover goes_to]
           },
           # One business offering a plan step (Discovery::PlanBusinesses): what it offers there,
           # summed up, for its card, which opens the business's page.
