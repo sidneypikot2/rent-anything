@@ -10059,18 +10059,13 @@ components:
           - request
           nullable: true
           description: The listing's when it was booked; null for one taken offline
-        total_cents:
-          type: integer
         to_be_agreed:
           type: boolean
           description: 'Not priced in the app yet (rentals, transfers): settled with
             the guest'
-        commission_cents:
-          type: integer
-          description: The platform's share of the total
         payout_cents:
           type: integer
-          description: 'What the partner receives: the total less the commission'
+          description: What the partner receives
         refund_cents:
           type: integer
           nullable: true
@@ -10143,9 +10138,7 @@ components:
       - status
       - source
       - booking_mode
-      - total_cents
       - to_be_agreed
-      - commission_cents
       - payout_cents
       - refund_cents
       - cancelled_by
