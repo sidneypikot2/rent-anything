@@ -15,7 +15,7 @@ export default async function PlanReviewPage(props: PageProps<"/plan/[area]/revi
   const place = await loadPlanPlace(slug);
   if (!place) notFound();
   return (
-    <PlanFrame step={3} back={`/plan/${slug}${tripId ? `?trip=${tripId}` : ""}`} backLabel="Back to your checklist" label="Review">
+    <PlanFrame step={3} back={`/plan/${slug}${tripId ? `?trip=${tripId}` : ""}`} backLabel="Back to your checklist" label="Review" wide>
       {tripId && <AdoptTrip id={tripId} />}
       <PlanReview place={place} />
     </PlanFrame>

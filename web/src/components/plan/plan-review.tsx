@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
 import { CheckoutSheet } from "@/components/bookings/checkout-sheet";
-import { ShowMore } from "@/components/discovery/show-more";
-import { HeartGlyph, PlusGlyph, TickGlyph } from "@/components/discovery/tag-glyphs";
+import { ChevronGlyph, HeartGlyph, PlusGlyph } from "@/components/discovery/tag-glyphs";
 import { BOOKING_STATE } from "@/components/landing/launch-area";
 import { guestsLabel, formatDateRange, thingCount } from "@/components/trips/format";
+import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { bookable } from "@/components/trips/trip-details";
 import { useTripHere } from "@/components/trips/use-trip-here";
 import { itemPriceLabel, itemProblem, itemQuote, pickedTotal, useTripQuote, type Trip } from "@/components/trips/use-trips";
@@ -17,14 +17,19 @@ import { cn } from "@/components/ui/cn";
 import { stayPoint, type PlanPlace } from "./plan-data";
 import { dayParts, pickStatuses, planDays, type DayEvent, type DayGap, type PickStatus } from "./plan-days";
 import { PlanFoot, PlanHeading } from "./plan-frame";
+import { PlanListingSheet } from "./plan-listing-sheet";
+import { PlanPlaceChooser } from "./plan-place-chooser";
+import { PlanPlacesPanel } from "./plan-places-panel";
 import { PlanReviewSkeleton } from "./plan-skeletons";
 
-// Step 3 (the team's A6): the trip day by day, every day saying what happens and when — check-in
-// and check-out, a ride's pickup or delivery and its return, a transfer, a tour or each day of a
-// several-day one — with what runs through it (the stay's nights, the ride's days), the hearted
-// places on the day a tour reaches them or a ride can, and what's still missing as a gap whose
-// Add goes back to its checklist row. Send to partners is the cart's checkout for every item
-// that can be sent.
+// Step 3 (the team's A6; revamped in RAA-263): the trip day by day, every day saying what happens
+// and when — check-in and check-out, a ride's pickup or delivery and its return, a transfer, a
+// tour or each day of a several-day one — with what runs through it (the stay's nights, the ride's
+// days), the hearted places on the day a tour reaches them, a place the guest goes to themselves on
+// its day, and what's still missing as a gap whose Add goes back to its checklist row. Beside it
+// from lg, under a tab below that, every picked place and how it is settled (PlanPlacesPanel). A
+// row opens its listing's details. Send to partners is the cart's checkout for every item that
+// can be sent.
 export function PlanReview({ place }: { place: PlanPlace }) {
   const { session, trips, trip } = useTripHere(place.places);
   if (session === undefined || (session && trips.isPending))
@@ -38,7 +43,11 @@ export function PlanReview({ place }: { place: PlanPlace }) {
         </ButtonLink>
       </div>
     );
-  return <Review place={place} trip={trip} />;
+  return (
+    <TripAddProvider places={place.places}>
+      <Review place={place} trip={trip} />
+    </TripAddProvider>
+  );
 }
 
 // What an event is, as a row's type leads it (Badge kind): lagoon ink on its tint, one colour for
@@ -71,40 +80,16 @@ function GapLink({ gap, back }: { gap: DayGap; back: string }) {
   );
 }
 
-// A picked place and how the trip reaches it. Not reached yet, it is the gap's dashed row, with its
-// way to the step that would.
-function PickRow({ pick, back }: { pick: PickStatus; back: string }) {
-  if (pick.state === "open")
-    return pick.row ? (
-      <div data-testid="plan-pick" data-state="open">
-        <GapLink gap={{ text: `${pick.name} · Not covered yet`, row: pick.row, idea: true }} back={back} />
-      </div>
-    ) : (
-      <p className="flex min-h-11 items-center rounded-card border border-dashed border-line-strong px-3 py-2 text-sm font-semibold text-muted" data-testid="plan-pick" data-state="open">
-        {pick.name} · Not covered yet
-      </p>
-    );
-  return (
-    <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-card border border-line px-3 py-2" data-testid="plan-pick" data-state={pick.state}>
-      <div className="flex min-w-0 flex-col">
-        <span className="text-sm font-semibold text-navy">{pick.name}</span>
-        {pick.line && <span className="text-small text-muted">{pick.line}</span>}
-      </div>
-      {pick.state === "tour" ? (
-        <Badge tone="emerald">
-          <TickGlyph className="size-3.5" />
-          Covered by a tour
-        </Badge>
-      ) : (
-        <Badge tone="mist">Your own ride</Badge>
-      )}
-    </div>
-  );
-}
-
 function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
   const quote = useTripQuote(trip.id);
   const [sending, setSending] = useState(false);
+  const [tab, setTab] = useState<"days" | "places">("days");
+  const [choosing, setChoosing] = useState<string | null>(null);
+  const [listing, setListing] = useState<number | null>(null);
+  const added = useCallback(() => {
+    setListing(null);
+    setChoosing(null);
+  }, []);
   const stay = stayPoint(trip);
   const days = planDays(trip, place, stay?.point ?? null);
   const toSend = trip.items.filter((item) => bookable(item) && !itemProblem(item, itemQuote(quote.data, item)));
@@ -116,14 +101,12 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
   const staying = trip.own_stay ? (trip.own_stay.name ?? "your own place") : stay?.name;
   // "Ready" only once nothing needed is missing; ideas (a ride to a hearted place) don't count.
   const picks = pickStatuses(trip, place, stay?.point ?? null);
-  // A pick a tour covers already shows as a heart on that tour's day, so its row waits behind
-  // Show. Only when the heart is on the page: an undated tour has no day to show it on.
-  const onTheDays = new Set(days?.flatMap((day) => day.events.flatMap((event) => event.stops.filter((stop) => stop.hearted).map((stop) => stop.name))));
-  const covered = picks.filter((pick) => pick.state === "tour" && onTheDays.has(pick.name));
-  const toShow = picks.filter((pick) => !covered.includes(pick));
   const missing = days?.some((day) => day.gaps.some((gap) => !gap.idea)) ?? false;
   // The date range stays on one line ("Nov 13–15", never "Nov 13–" / "15").
   const title = trip.name.replace(/(\S+)–(\S+)/g, "$1\u2060–\u2060$2");
+  const picking = picks.find((pick) => pick.slug === choosing);
+  const open = picks.filter((pick) => pick.state === "open").length;
+  const beside = picks.length > 0;
 
   return (
     <>
@@ -135,26 +118,28 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
         />
       </div>
 
-      {picks.length > 0 && (
-        <section className="flex flex-col gap-2 pt-3" aria-labelledby="plan-picks" data-testid="plan-picks">
-          <h2 id="plan-picks" className="text-sm font-bold text-muted">
-            Places you picked
-          </h2>
-          {toShow.map((pick) => (
-            <PickRow key={pick.slug} pick={pick} back={back} />
+      {beside && (
+        <div className="flex gap-2 pt-3 lg:hidden" role="group" aria-label="Show">
+          {(["days", "places"] as const).map((each) => (
+            <button
+              key={each}
+              type="button"
+              aria-pressed={tab === each}
+              onClick={() => setTab(each)}
+              data-testid={`plan-tab-${each}`}
+              className={cn(
+                "min-h-11 flex-1 rounded-chip border px-3 text-sm font-semibold transition-colors duration-300 ease-calm",
+                tab === each ? "border-primary bg-primary text-white" : "border-line-strong bg-surface text-navy",
+              )}
+            >
+              {each === "days" ? "Days" : open > 0 ? `Places · ${open} to decide` : "Places"}
+            </button>
           ))}
-          {covered.length > 0 && (
-            <ShowMore more={`Show ${covered.length} covered by a tour`} less={covered.length === 1 ? "Hide covered place" : "Hide covered places"}>
-              <div className="flex flex-col gap-2">
-                {covered.map((pick) => (
-                  <PickRow key={pick.slug} pick={pick} back={back} />
-                ))}
-              </div>
-            </ShowMore>
-          )}
-        </section>
+        </div>
       )}
 
+      <div className={cn(beside ? "lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start lg:gap-gutter" : "mx-auto w-full max-w-narrow")}>
+        <div className={cn("min-w-0", tab === "places" && "max-lg:hidden")}>
       {days ? (
         <ol className="flex flex-col pt-3 pb-8" data-testid="plan-days">
           {days.map((day, index) => {
@@ -182,23 +167,29 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
                     const price = event.priced ? itemPriceLabel(line) : null;
                     return (
                       <div key={`${event.item.id}-${at}`} className="flex flex-col gap-1.5" data-testid="plan-event">
-                        <div className="flex items-start gap-3 rounded-card border border-line bg-surface p-3">
+                        <button
+                          type="button"
+                          onClick={() => setListing(event.item.listing.id)}
+                          data-testid="plan-event-open"
+                          className="flex w-full items-start gap-3 rounded-card border border-line bg-surface p-3 text-left transition-colors duration-300 ease-calm hover:border-line-strong hover:bg-surface-2"
+                        >
                           {event.time && <span className="w-14 shrink-0 pt-0.5 text-sm font-extrabold text-navy tabular-nums">{event.time}</span>}
-                          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                             <span className="inline-flex items-center gap-1.5 self-start rounded-chip bg-lagoon-tint px-2 py-0.5 text-xs font-bold text-lagoon-ink">
                               <span aria-hidden className={cn("size-2 rounded-full", KIND_DOT[event.kind])} />
                               {event.label}
                             </span>
                             <span className="font-semibold text-navy">{event.item.listing.title}</span>
                             {event.lines.length > 0 && <span className="text-small text-muted">{event.lines.join(" · ")}</span>}
-                          </div>
+                          </span>
                           {event.priced &&
                             (event.item.booking ? (
                               <BookingStatusBadge status={event.item.booking.status} small />
                             ) : (
                               <span className="shrink-0 text-sm font-extrabold text-primary tabular-nums">{price ?? ""}</span>
                             ))}
-                        </div>
+                          <ChevronGlyph direction="right" className="mt-0.5 size-4 shrink-0 text-muted" />
+                        </button>
                         {event.stops.length > 0 && (
                           <div className="flex flex-wrap gap-1.5">
                             {event.stops.map((stop) => (
@@ -223,22 +214,29 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
                       {run.text}
                     </p>
                   ))}
-                  {day.rides.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-small font-semibold text-muted">Ride to:</span>
-                      {day.rides.map((ride) => (
-                        <Badge key={ride.name} tone="emerald">
-                          <HeartGlyph filled className="size-3.5" />
-                          {ride.name}
-                          {ride.far && ` · ${ride.far}`}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
+                  {day.own.map((pick) => (
+                    <button
+                      key={pick.slug}
+                      type="button"
+                      onClick={() => setChoosing(pick.slug)}
+                      data-testid="plan-own"
+                      className="flex w-full items-start gap-3 rounded-card border border-line bg-surface p-3 text-left transition-colors duration-300 ease-calm hover:border-line-strong hover:bg-surface-2"
+                    >
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="inline-flex items-center gap-1.5 self-start rounded-chip bg-lagoon-tint px-2 py-0.5 text-xs font-bold text-lagoon-ink">
+                          <span aria-hidden className="size-2 rounded-full bg-primary" />
+                          On my own
+                        </span>
+                        <span className="font-semibold text-navy">{pick.name}</span>
+                        {pick.line && <span className={pick.noRide ? "text-small font-semibold text-warning" : "text-small text-muted"}>{pick.line}</span>}
+                      </span>
+                      <ChevronGlyph direction="right" className="mt-0.5 size-4 shrink-0 text-muted" />
+                    </button>
+                  ))}
                   {day.gaps.map((gap) => (
                     <GapLink key={gap.text} gap={gap} back={back} />
                   ))}
-                  {day.events.length === 0 && day.runs.length === 0 && day.gaps.length === 0 && <p className="text-small text-muted">Nothing planned yet.</p>}
+                  {day.events.length === 0 && day.own.length === 0 && day.runs.length === 0 && day.gaps.length === 0 && <p className="text-small text-muted">Nothing planned yet.</p>}
                 </div>
               </li>
             );
@@ -247,6 +245,13 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
       ) : (
         <p className="py-6 text-muted">Add dates to see your trip day by day.</p>
       )}
+        </div>
+        {beside && (
+          <aside className={cn("pt-3 pb-8 lg:sticky lg:top-(--chrome)", tab === "days" && "max-lg:hidden")}>
+            <PlanPlacesPanel picks={picks} stay={stay} mapKey={tab} onChoose={(pick: PickStatus) => setChoosing(pick.slug)} onListing={setListing} />
+          </aside>
+        )}
+      </div>
 
       <PlanFoot
         summary={
@@ -266,6 +271,10 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
         </Button>
       </PlanFoot>
       {sending && <CheckoutSheet trip={trip} items={toSend} onClose={() => setSending(false)} />}
+      {picking && (
+        <PlanPlaceChooser pick={picking} trip={trip} place={place} stay={stay?.point ?? null} back={back} onClose={() => setChoosing(null)} onListing={setListing} />
+      )}
+      {listing !== null && <PlanListingSheet listingId={listing} trip={trip} onClose={() => setListing(null)} onAdded={added} />}
     </>
   );
 }

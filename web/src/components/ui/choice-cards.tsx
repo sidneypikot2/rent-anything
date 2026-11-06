@@ -4,7 +4,8 @@ import { useId } from "react";
 import { cn } from "./cn";
 import { FieldNote, useFieldError } from "./field-error";
 
-export type Choice = { value: string; label: string; description?: string };
+// `disabled`: shown but not to be chosen, its description saying why.
+export type Choice = { value: string; label: string; description?: string; disabled?: boolean };
 
 // A set of radio buttons drawn as cards, each with a line saying what it means: "Entire
 // place — Guests have the whole place to themselves." Native radios underneath, so the
@@ -46,7 +47,8 @@ export function ChoiceCards({
             key={choice.value}
             data-testid={testId && `${testId}-${choice.value}`}
             className={cn(
-              "flex cursor-pointer items-start gap-3 rounded-control border bg-surface p-4",
+              "flex items-start gap-3 rounded-control border bg-surface p-4",
+              choice.disabled ? "cursor-not-allowed bg-surface-2" : "cursor-pointer",
               "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary",
               value === choice.value
                 ? "border-primary bg-surface-2"
@@ -60,6 +62,7 @@ export function ChoiceCards({
               name={name}
               value={choice.value}
               checked={value === choice.value}
+              disabled={choice.disabled}
               onInvalid={native.onInvalid}
               onChange={(event) => {
                 native.recheck(event.currentTarget);

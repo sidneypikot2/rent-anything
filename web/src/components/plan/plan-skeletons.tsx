@@ -134,6 +134,7 @@ export function PlanReviewSkeleton() {
       <div className="pb-2">
         <Heading eyebrow sub />
       </div>
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start lg:gap-gutter">
       <ol aria-hidden className="flex flex-col pt-3 pb-8">
         {[2, 1, 2].map((events, index) => (
           <li key={index} className="flex gap-3">
@@ -157,6 +158,13 @@ export function PlanReviewSkeleton() {
           </li>
         ))}
       </ol>
+      <div aria-hidden className="mt-3 hidden flex-col gap-3 rounded-card border border-line p-4 lg:flex">
+        <Line className="h-5 w-40" />
+        <div className={cn("aspect-[16/11] rounded-control", BLOCK)} />
+        <Line className="h-4 w-2/3" />
+        <Line className="h-4 w-1/2" />
+      </div>
+      </div>
       <PlanFoot
         summary={
           <>

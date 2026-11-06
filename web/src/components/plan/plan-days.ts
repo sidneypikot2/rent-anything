@@ -4,7 +4,7 @@ import { formatDay, itemAmount } from "@/components/trips/format";
 import { missingStays } from "@/components/trips/trip-missing";
 import type { Trip, TripItem } from "@/components/trips/use-trips";
 import { addDays, daysBetween, formatDateRange } from "@/lib/dates";
-import { distanceText, heartedSlugs, picksHere, rowItems, type PlanLandmark, type PlanPlace, type RowKey } from "./plan-data";
+import { accessLine, distanceText, heartedSlugs, picksHere, rowItems, type PlanLandmark, type PlanPlace, type RowKey } from "./plan-data";
 
 // One thing that happens on a day of the review (A6), at its time when the trip knows it:
 // a stay's check-in and check-out, a ride's pickup (or delivery) and return (or pick-up), a
@@ -31,8 +31,8 @@ export type PlanDay = {
   title: string;
   events: DayEvent[];
   runs: DayRun[];
-  // Hearted places reachable on the day's ride, with their distance from the stay.
-  rides: { name: string; far: string | null }[];
+  // Picks the guest means to reach themselves on this day.
+  own: PickStatus[];
   gaps: DayGap[];
 };
 
@@ -51,16 +51,11 @@ export function planDays(trip: Trip, place: PlanPlace, stay: { lat: number; lng:
   const last = trip.ends_on;
   const count = Math.min(daysBetween(first, last) + 1, 60);
   const hearted = heartedSlugs(trip);
-  const landmarks = new Map(place.landmarks.map((landmark) => [landmark.slug, landmark]));
   const stopsOf = (item: TripItem) =>
     place.landmarks.filter((landmark) => landmark.visitedBy.includes(item.listing.id)).map((landmark) => ({ name: landmark.name, hearted: hearted.has(landmark.slug) }));
-  // Hearted places no tour in the trip goes to: somewhere to ride to.
+  const statuses = pickStatuses(trip, place, stay);
+  // Places a tour in the trip goes to, which a free day's ideas leave out.
   const reached = new Set(place.landmarks.filter((landmark) => trip.items.some((item) => landmark.visitedBy.includes(item.listing.id))).map((landmark) => landmark.slug));
-  const toRide = [...hearted]
-    .filter((slug) => !reached.has(slug))
-    .map((slug) => landmarks.get(slug))
-    .filter((landmark): landmark is PlanLandmark => Boolean(landmark) && !landmark?.boatDeparture);
-  let ridesShown = false;
   const offered = new Set<string>(Object.entries(place.counts).filter(([, count]) => count > 0).map(([group]) => group));
   const transfers = trip.items.filter((item) => item.booking_type === "transfer" && item.starts_on);
   const gapsOfStays = trip.own_stay ? [] : missingStays(trip);
@@ -69,7 +64,6 @@ export function planDays(trip: Trip, place: PlanPlace, stay: { lat: number; lng:
     const date = addDays(first, index);
     const events: DayEvent[] = [];
     const runs: DayRun[] = [];
-    let riding = false;
     for (const item of trip.items) {
       const from = item.starts_on;
       const to = item.ends_on ?? from;
@@ -91,10 +85,8 @@ export function planDays(trip: Trip, place: PlanPlace, stay: { lat: number; lng:
         const clock = item.pickup_time ?? (item.returns_at ? rentalClock(item.returns_at) : null);
         const out = clock ? formatPickupTime(clock) : null;
         if (from === to && date === from) {
-          riding = kind === "ride";
           events.push({ ...base, kind, label: kind === "gear" ? "Gear · pickup" : "Ride · pickup", time: out, priced: true, lines: [itemAmount(item), `1 day, back ${formatDay(addDays(from, 1))}`] });
         } else if (date === from) {
-          riding = kind === "ride";
           events.push({
             ...base,
             kind,
@@ -104,10 +96,8 @@ export function planDays(trip: Trip, place: PlanPlace, stay: { lat: number; lng:
             lines: [itemAmount(item), `${daysBetween(from, to)} days, back ${formatDay(to)}`, policy].filter((line): line is string => Boolean(line)),
           });
         } else if (date > from && date < to) {
-          riding = kind === "ride";
           runs.push({ kind: "ride", text: `${item.listing.title}, day ${daysBetween(from, date) + 1} of ${daysBetween(from, to)}` });
         } else if (date === to) {
-          riding = kind === "ride";
           events.push({
             ...base,
             kind,
@@ -156,39 +146,64 @@ export function planDays(trip: Trip, place: PlanPlace, stay: { lat: number; lng:
       const ideas = place.landmarks.filter((landmark) => !reached.has(landmark.slug)).slice(0, 2).map((landmark) => landmark.name);
       gaps.push({ text: ideas.length > 0 ? `A free day. Ideas: ${ideas.join(", ")}` : "A free day", row: "activity", idea: true });
     }
-    const rides = riding && !ridesShown ? toRide.map((landmark) => ({ name: landmark.name, far: distanceText(stay, landmark.location) })) : [];
-    if (rides.length > 0) ridesShown = true;
-    return { date, title: dayTitle(index, count), events, runs, rides, gaps };
+    const own = statuses.filter((pick) => pick.state === "own" && pick.day === date);
+    return { date, title: dayTitle(index, count), events, runs, own, gaps };
   });
   return days;
 }
 
-// How the trip reaches a pick: by a tour in it, by the guest's own ride (never a boat-only place),
-// or not yet, with the step that would (`row`: none when that step has nothing here).
-export type PickStatus = { slug: string; name: string; state: "tour" | "ride" | "open"; line: string | null; row: RowKey | null };
+// A place on the review's list and how the guest means to see it (RAA-263). A tour in the trip
+// covers a pick by stopping there; `own` and `skip` are the guest's own say, kept on the trip. A
+// rental never decides any of it: it only makes `own` a way to go. `added` isn't a pick: a tour
+// in the trip stops there, and `tour` names which.
+export type PickState = "open" | "own" | "tour" | "skip" | "added";
+export type PickStatus = {
+  slug: string;
+  name: string;
+  landmark: PlanLandmark;
+  state: PickState;
+  line: string | null;
+  // The saved place's id, for its plan; none for an `added` place.
+  savedId: number | null;
+  hasPlan: boolean;
+  // `own`: the day chosen, and whether a ride of the guest's covers it.
+  day: string | null;
+  noRide: boolean;
+  tour: TripItem | null;
+};
 
-const PICK_ORDER: Record<PickStatus["state"], number> = { open: 0, ride: 1, tour: 2 };
+const PICK_ORDER: Record<PickState, number> = { open: 0, own: 1, tour: 2, skip: 3, added: 4 };
 
-// The trip's picks here and how each is reached, what still needs reaching first. On no day in
+// The trip's picks here, and the places its tours add, what still needs a plan first. On no day in
 // particular, so an undated trip has them too. An indicator, never a gap that says the plan isn't
-// ready: where to go beyond a bed and a way there is the guest's choice.
+// ready: where to go beyond a bed and a way there is the guest's choice. A day the trip's dates
+// have since moved away from no longer counts, so that pick goes back to undecided.
 export function pickStatuses(trip: Trip, place: PlanPlace, stay: { lat: number; lng: number } | null): PickStatus[] {
-  const riding = rowItems(trip, "rental", place).length > 0;
-  const statuses = picksHere(trip, place).map((pick): PickStatus => {
-    const base = { slug: pick.slug, name: pick.name };
-    const tour = trip.items.find((item) => !item.unavailable && pick.visitedBy.includes(item.listing.id));
-    if (tour) {
-      const line = [tour.listing.title, tour.starts_on && formatDay(tour.starts_on)].filter(Boolean).join(" · ");
-      return { ...base, state: "tour", line, row: null };
+  const rides = rowItems(trip, "rental", place);
+  const tourTo = (landmark: PlanLandmark) => trip.items.find((item) => !item.unavailable && landmark.visitedBy.includes(item.listing.id));
+  const tourLine = (tour: TripItem) => [tour.listing.title, tour.starts_on && formatDay(tour.starts_on)].filter(Boolean).join(" · ");
+  const inTrip = (day: string) => Boolean(trip.starts_on && trip.ends_on && day >= trip.starts_on && day <= trip.ends_on);
+  const picks = picksHere(trip, place).map((landmark): PickStatus => {
+    const saved = trip.saved_landmarks.find((each) => each.slug === landmark.slug);
+    const base = { slug: landmark.slug, name: landmark.name, landmark, savedId: saved?.id ?? null, hasPlan: Boolean(saved?.plan), day: null, noRide: false, tour: null };
+    if (saved?.plan === "skip") return { ...base, state: "skip", line: "Not on this trip" };
+    if (saved?.plan === "own" && saved.visit_on && inTrip(saved.visit_on)) {
+      const day = saved.visit_on;
+      const noRide = !rides.some((item) => item.starts_on && item.starts_on <= day && (item.ends_on ?? item.starts_on) >= day);
+      const far = distanceText(stay, landmark.location);
+      return { ...base, state: "own", day, noRide, line: noRide ? "No ride that day yet" : far && `${far} from your stay` };
     }
-    if (!pick.boatDeparture && riding) {
-      const far = distanceText(stay, pick.location);
-      return { ...base, state: "ride", line: far && `${far} from your stay`, row: null };
-    }
-    const row = pick.boatDeparture || pick.visitedBy.length > 0 ? "activity" : "rental";
-    return { ...base, state: "open", line: null, row: place.counts[row] > 0 ? row : null };
+    const tour = tourTo(landmark);
+    if (tour) return { ...base, state: "tour", tour, line: tourLine(tour) };
+    return { ...base, state: "open", line: accessLine(landmark, { stay, port: place.port?.location ?? null }) };
   });
-  return statuses.sort((a, b) => PICK_ORDER[a.state] - PICK_ORDER[b.state]);
+  const hearted = heartedSlugs(trip);
+  const added = place.landmarks.flatMap((landmark): PickStatus[] => {
+    const tour = hearted.has(landmark.slug) ? undefined : tourTo(landmark);
+    if (!tour) return [];
+    return [{ slug: landmark.slug, name: landmark.name, landmark, state: "added", tour, line: `Not one of your picks · comes with ${tour.listing.title}`, savedId: null, hasPlan: false, day: null, noRide: false }];
+  });
+  return [...picks, ...added].sort((a, b) => PICK_ORDER[a.state] - PICK_ORDER[b.state]);
 }
 
 function dayTitle(index: number, count: number) {
