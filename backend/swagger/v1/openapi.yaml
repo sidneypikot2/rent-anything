@@ -6017,7 +6017,8 @@ components:
           type: string
         path:
           type: string
-          description: The web app page it opens, e.g. /cart?trip=12 or /partner/calendar?booking=34
+          description: The web app page it opens, e.g. /cart?trip=12, /partner/calendar?booking=34
+            or /partner/dashboard?booking=34
         read:
           type: boolean
         created_at:
@@ -9985,6 +9986,9 @@ components:
         commission_cents:
           type: integer
           description: The platform's share of the total
+        payout_cents:
+          type: integer
+          description: 'What the partner receives: the total less the commission'
         refund_cents:
           type: integer
           nullable: true
@@ -10011,9 +10015,25 @@ components:
               type: integer
             title:
               type: string
+            capacity_unit:
+              type: string
+              enum:
+              - seats
+              - groups
+              - units
+              description: What the booking's quantity counts
+            category:
+              type: object
+              properties:
+                booking_type:
+                  type: string
+              required:
+              - booking_type
           required:
           - id
           - title
+          - capacity_unit
+          - category
         created_at:
           type: string
           format: date-time
@@ -10044,6 +10064,7 @@ components:
       - total_cents
       - to_be_agreed
       - commission_cents
+      - payout_cents
       - refund_cents
       - cancelled_by
       - expires_at

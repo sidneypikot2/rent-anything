@@ -5,7 +5,7 @@ module Notifications
   #
   # A guest's links go to the cart while a booking is being asked for or paid (they pay from
   # it, RAA-143) and to Booked trips once it is confirmed; a partner's open the booking on
-  # their calendar.
+  # their calendar, or on their dashboard when it waits for their answer (RAA-260).
   module Copy
     TIME_ZONE = "Asia/Manila"
 
@@ -28,6 +28,8 @@ module Notifications
       "booking.starts_tomorrow" => [ :guest, true ]
     }.freeze
     KINDS = CATALOGUE.keys.freeze
+    # What a partner has to answer: its email gives the request's details (RequestDetails).
+    ANSWER_KINDS = %w[booking.requested booking.change_requested booking.request_reminder].freeze
 
     # The values a booking's notifications need, saved with each one.
     def self.booking_params(booking, **extra)
@@ -39,7 +41,8 @@ module Notifications
         ends_on: booking.ends_on.iso8601,
         expires_at: booking.expires_at&.iso8601,
         trip_id: booking.checkout&.trip_id,
-        refund_cents: booking.refund_cents
+        refund_cents: booking.refund_cents,
+        payout_cents: booking.to_be_agreed? ? nil : booking.payout_cents
       }.merge(extra)
     end
 
@@ -49,6 +52,17 @@ module Notifications
 
     def self.recipient(kind)
       CATALOGUE.fetch(kind).first
+    end
+
+    # "₱1,234" or "₱1,234.50", as Bookings::PriceFor writes it.
+    def self.peso(cents)
+      amount = cents % 100 == 0 ? cents / 100 : format("%.2f", cents / 100.0)
+      "₱#{ActiveSupport::NumberHelper.number_to_delimited(amount)}"
+    end
+
+    # "Nov 12, 3:00 PM", in the area's time (every area is in the Philippines so far).
+    def self.moment(time)
+      time.in_time_zone(TIME_ZONE).strftime("%b %-d, %-l:%M %p")
     end
 
     # { title:, body:, path: } for a notification.
@@ -75,7 +89,7 @@ module Notifications
 
       def words
         case @kind
-        when "booking.requested" then [ "New request: #{listing}", "#{guest} asked for #{dates}. Answer by #{deadline}." ]
+        when "booking.requested" then [ new_request, "#{guest} asked for #{listing}, #{dates}. Answer by #{deadline}." ]
         when "booking.change_requested" then [ "New dates asked for: #{listing}", "#{guest} changed their booking to #{dates}. Answer by #{deadline}." ]
         when "booking.request_reminder" then [ "Answer soon: #{listing}", "#{guest}'s request for #{dates} expires at #{deadline}." ]
         when "booking.request_expired" then [ "Request expired: #{listing}", "#{guest}'s request for #{dates} wasn't answered in time. The dates are free again." ]
@@ -93,7 +107,14 @@ module Notifications
         end
       end
 
+      # Older notifications have no payout, and a price still to be agreed has none to give.
+      def new_request
+        cents = @p["payout_cents"]
+        cents ? "New request: #{Copy.peso(cents)} payout, #{dates}" : "New request: #{listing}"
+      end
+
       def path
+        return "/partner/dashboard?booking=#{@subject_id}" if ANSWER_KINDS.include?(@kind)
         return "/partner/calendar?booking=#{@subject_id}" if Copy.recipient(@kind) == :partner
 
         trip = @p["trip_id"]
@@ -113,10 +134,9 @@ module Notifications
         "#{from.strftime('%b %-d')} – #{to.strftime('%b %-d')}"
       end
 
-      # "Nov 12, 3:00 PM", in the area's time (every area is in the Philippines so far).
       def deadline
         at = @p["expires_at"]
-        at ? Time.iso8601(at).in_time_zone(TIME_ZONE).strftime("%b %-d, %-l:%M %p") : "the deadline"
+        at ? Copy.moment(Time.iso8601(at)) : "the deadline"
       end
 
       # Only a partner's own cancel names them; an admin's or the system's names nobody.
@@ -126,13 +146,7 @@ module Notifications
 
       def refund
         cents = @p["refund_cents"]
-        cents&.positive? ? " Your payment of #{peso(cents)} will be refunded." : ""
-      end
-
-      # "₱1,234" or "₱1,234.50", as Bookings::PriceFor writes it.
-      def peso(cents)
-        amount = cents % 100 == 0 ? cents / 100 : format("%.2f", cents / 100.0)
-        "₱#{ActiveSupport::NumberHelper.number_to_delimited(amount)}"
+        cents&.positive? ? " Your payment of #{Copy.peso(cents)} will be refunded." : ""
       end
     end
   end

@@ -122,6 +122,16 @@ class Booking < ApplicationRecord
     "BK#{SecureRandom.alphanumeric(8).upcase}"
   end
 
+  # What the partner receives: the total less the platform's commission (RAA-260).
+  def payout_cents
+    total_cents - commission_cents
+  end
+
+  # No price yet: the guest and the partner settle it between them.
+  def to_be_agreed?
+    price_breakdown["to_be_agreed"] == true
+  end
+
   def days
     Booking.days_for(listing, starts_on, ends_on)
   end

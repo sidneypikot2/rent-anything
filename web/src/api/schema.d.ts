@@ -7777,7 +7777,7 @@ export interface components {
             kind: string;
             title: string;
             body: string;
-            /** @description The web app page it opens, e.g. /cart?trip=12 or /partner/calendar?booking=34 */
+            /** @description The web app page it opens, e.g. /cart?trip=12, /partner/calendar?booking=34 or /partner/dashboard?booking=34 */
             path: string;
             read: boolean;
             /** Format: date-time */
@@ -9293,6 +9293,8 @@ export interface components {
             to_be_agreed: boolean;
             /** @description The platform's share of the total */
             commission_cents: number;
+            /** @description What the partner receives: the total less the commission */
+            payout_cents: number;
             /** @description What the guest got back on cancelling */
             refund_cents: number | null;
             /** @enum {string|null} */
@@ -9306,6 +9308,14 @@ export interface components {
             listing: {
                 id: number;
                 title: string;
+                /**
+                 * @description What the booking's quantity counts
+                 * @enum {string}
+                 */
+                capacity_unit: "seats" | "groups" | "units";
+                category: {
+                    booking_type: string;
+                };
             };
             /** Format: date-time */
             created_at: string;

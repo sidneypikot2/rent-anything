@@ -24,7 +24,7 @@ RSpec.describe Notifications::BookingChanged do
     notification = Notification.last
     expect(notification.subject).to eq(new_booking)
     expect(Notifications::Copy.call(notification)).to include(
-      title: "New request: #{listing.title}", path: "/partner/calendar?booking=#{new_booking.id}"
+      title: a_string_starting_with("New request: ₱"), body: a_string_including(listing.title), path: "/partner/dashboard?booking=#{new_booking.id}"
     )
   end
 

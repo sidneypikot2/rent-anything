@@ -7,7 +7,7 @@ module AdminBookingSerializer
   def self.call(booking)
     listing = booking.listing
     partner = listing.partner
-    PartnerCalendarSerializer.booking(booking, listing).merge(
+    PartnerCalendarSerializer.fields(booking, listing).merge(
       booking_type: listing.category.booking_type,
       cancellation_policy: booking.cancellation_policy,
       responded_at: booking.responded_at,

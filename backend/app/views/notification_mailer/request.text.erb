@@ -1,0 +1,13 @@
+<% if @name.present? %>Hi <%= @name %>,
+
+<% end %><%= @body %>
+
+Your payout if you accept: <%= @slip[:payout] %>
+Reference: <%= @slip[:reference] %>
+<% @slip[:rows].each do |label, value| %><%= label %>: <%= value %>
+<% end %>
+<% if @slip[:answer_by] %>Answer by <%= @slip[:answer_by] %>. <% end %>Open the site to see the full booking, then accept or decline.
+
+<%= @action %>: <%= @link %>
+
+You get this email because of a booking on TripKoNext.

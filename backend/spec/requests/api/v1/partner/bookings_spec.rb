@@ -352,7 +352,9 @@ RSpec.describe "Partner bookings", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body.pluck("guest_name")).to eq(%w[Asking Offline])
-          expect(response.parsed_body.first["listing"]).to eq("id" => listing.id, "title" => listing.title)
+          expect(response.parsed_body.first).to include("payout_cents" => 400_000)
+          expect(response.parsed_body.first["listing"]).to eq("id" => listing.id, "title" => listing.title, "capacity_unit" => "units",
+            "category" => { "booking_type" => "stay" })
         end
       end
 
