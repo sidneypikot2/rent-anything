@@ -56,7 +56,7 @@ export function Toast({ message, id, ...props }: Props) {
       ref={ref}
       popover="manual"
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 top-auto bottom-0 m-0 flex h-auto w-full max-w-none justify-center overflow-visible border-0 bg-transparent p-0 px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:pb-[calc(1rem+var(--dock-space,0px))]"
+      className="pointer-events-none fixed inset-x-0 top-auto bottom-0 m-0 flex h-auto w-full max-w-none justify-center overflow-visible border-0 bg-transparent p-0 px-4 pb-[calc(1.25rem+max(env(safe-area-inset-bottom),var(--bottom-bar,0px)))] sm:pb-[calc(1rem+var(--dock-space,0px)+var(--bottom-bar,0px))]"
     >
       {shown && (
         <ToastCard key={id ?? String(message)} {...props}>

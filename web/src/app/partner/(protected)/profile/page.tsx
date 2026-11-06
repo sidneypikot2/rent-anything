@@ -10,7 +10,7 @@ export default function PartnerProfile() {
   const { data, error, refetch } = usePartnerProfile();
 
   return (
-    <main data-testid="partner-profile" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-block px-gutter py-page-pad">
+    <main data-testid="partner-profile" className="flex w-full min-w-0 flex-1 flex-col gap-block py-page-pad">
       <DisplayTitle>Profile</DisplayTitle>
       {data ? (
         <ProfileDetails profile={data} />

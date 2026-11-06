@@ -12,7 +12,7 @@ const LINKS = [
 ];
 
 // The admin console's tabs (RAA-142), for a signed-in admin only: signed out, /admin is the
-// sign-in form. Drawn like PartnerNav: a glass pill of links that takes the header's second
+// sign-in form. A glass pill of links that takes the header's second
 // row on a phone.
 export function AdminNav() {
   const pathname = usePathname();

@@ -17,7 +17,7 @@ export default function PartnerVerify() {
   const { data, error, refetch } = usePartnerVerification({ poll: true });
 
   return (
-    <main data-testid="partner-verify" className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-block px-gutter py-page-pad">
+    <main data-testid="partner-verify" className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-block py-page-pad">
       <DisplayTitle>Verify your ID</DisplayTitle>
       {data ? (
         <VerificationStatus verification={data} />

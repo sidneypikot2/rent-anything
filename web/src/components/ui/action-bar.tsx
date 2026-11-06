@@ -8,7 +8,7 @@ export function ActionBar({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-full p-1.5 shadow-float",
+        "sticky bottom-[calc(1rem+var(--bottom-bar,0px))] z-10 flex items-center justify-between gap-3 rounded-full p-1.5 shadow-float",
         // The nav pill's glass, darker, so its light text holds up over a white card.
         "focus-light border border-glass-edge bg-navy/85 text-white backdrop-blur-lg",
         className,

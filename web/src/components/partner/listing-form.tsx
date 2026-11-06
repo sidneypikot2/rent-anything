@@ -316,10 +316,10 @@ export function ListingForm({
       ref={formRef}
       data-testid="listing-form"
       onSubmit={onSubmit}
-      className="flex flex-col gap-6 md:grid md:grid-cols-[13rem_minmax(0,42rem)] md:items-start md:gap-10"
+      className="flex flex-col gap-6 lg:grid lg:grid-cols-[13rem_minmax(0,42rem)] lg:items-start lg:gap-10"
     >
-      <nav aria-label="Sections" className="md:sticky md:top-24">
-        <ol className="flex flex-wrap gap-2 md:flex-col md:flex-nowrap md:gap-1">
+      <nav aria-label="Sections" className="lg:sticky lg:top-(--chrome)">
+        <ol className="flex flex-wrap gap-2 lg:flex-col lg:flex-nowrap lg:gap-1">
           {sections.map((section) => (
             <li key={section.id}>
               <a
@@ -327,7 +327,7 @@ export function ListingForm({
                 aria-current={section.id === current ? "location" : undefined}
                 className={cn(
                   "flex rounded-full border border-line bg-surface-2 px-3 py-2 text-sm whitespace-nowrap transition-colors duration-200 ease-calm hover:bg-mist",
-                  "md:border-transparent md:bg-transparent",
+                  "lg:border-transparent lg:bg-transparent",
                   "aria-[current=location]:bg-mist aria-[current=location]:font-semibold aria-[current=location]:text-primary",
                 )}
               >

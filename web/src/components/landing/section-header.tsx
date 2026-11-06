@@ -2,7 +2,6 @@ import Link from "next/link";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { AccountNav } from "@/components/auth/account-nav";
 import { Logo } from "@/components/landing/logo";
-import { PartnerNav } from "@/components/partner/partner-nav";
 import { CartLink } from "@/components/trips/cart-link";
 import { HeaderSearch } from "./search-bar";
 import { BackdropStrip } from "./site-backdrop";
@@ -49,7 +48,6 @@ export function SectionHeader({ section }: { section: Section }) {
         </Link>
         {section === "guest" && <HeaderSearch />}
         <nav aria-label="Main" className="contents text-sm font-medium text-on-dark">
-          {section === "partner" && <PartnerNav />}
           {section === "admin" && <AdminNav />}
           <div className="flex items-center gap-2">
             {section === "guest" && <CartLink />}
