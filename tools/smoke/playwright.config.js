@@ -4,6 +4,8 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
+  // script/smoke "<name>": only the tests whose name matches.
+  ...(process.env.SMOKE_GREP ? { grep: new RegExp(process.env.SMOKE_GREP) } : {}),
   globalSetup: "./global-setup.js",
   // One worker: a smoke test should be boring.
   workers: 1,

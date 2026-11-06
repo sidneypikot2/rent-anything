@@ -501,6 +501,24 @@ export function useUnsaveLandmark() {
   });
 }
 
+// PATCH /trip_landmarks/:id: how the guest means to see a saved place.
+export function usePlanLandmark() {
+  const invalidate = useInvalidateTrips();
+  const failed = useErrorToast();
+  return useMutation({
+    mutationFn: async ({ id, plan, visitOn }: { id: number; plan: "own" | "skip" | null; visitOn?: string }) => {
+      const { data, error } = await apiClient().PATCH("/api/v1/trip_landmarks/{id}", {
+        params: { path: { id } },
+        body: { plan, visit_on: visitOn ?? null },
+      });
+      if (!data) throw tripError(error, "Couldn't save that. Try again.");
+      return data;
+    },
+    onSuccess: invalidate,
+    onError: failed,
+  });
+}
+
 // DELETE /trip_items/:id.
 export function useRemoveTripItem() {
   const invalidate = useInvalidateTrips();

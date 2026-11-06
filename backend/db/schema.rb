@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_064000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_06_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -715,8 +715,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_064000) do
     t.bigint "landmark_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "plan"
+    t.date "visit_on"
     t.index ["landmark_id"], name: "index_trip_landmarks_on_landmark_id"
     t.index ["trip_id", "landmark_id"], name: "index_trip_landmarks_on_trip_id_and_landmark_id", unique: true
+    t.check_constraint "(visit_on IS NOT NULL) = (NOT plan::text IS DISTINCT FROM 'own'::text)", name: "trip_landmarks_visit_on_check"
+    t.check_constraint "plan::text = ANY (ARRAY['own'::character varying, 'skip'::character varying]::text[])", name: "trip_landmarks_plan_check"
   end
 
   create_table "trips", force: :cascade do |t|
