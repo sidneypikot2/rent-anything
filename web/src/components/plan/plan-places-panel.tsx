@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { dayParts, type PickState, type PickStatus } from "./plan-days";
+import { dayLabel, type PickState, type PickStatus } from "./plan-days";
 import { placeIcon } from "./plan-data";
 import { ResultsMap } from "./plan-results";
 import type { ResultPin } from "./results-map";
@@ -16,14 +16,13 @@ const PIN_TONE: Record<PickState, string> = {
   added: "bg-sky-deep text-white after:bg-sky-deep",
 };
 
+// How a place is settled and on which day, in one form: "On my own · Fri, Nov 6".
 function stateBadge(pick: PickStatus) {
-  if (pick.state === "tour") return <Badge tone="emerald">Covered by a tour</Badge>;
+  const onDay = (how: string, day?: string | null) => (day ? `${how} · ${dayLabel(day)}` : how);
+  if (pick.state === "tour") return <Badge tone="emerald">{onDay("Covered by a tour", pick.tour?.starts_on)}</Badge>;
   if (pick.state === "skip") return <Badge tone="mist">Skipped</Badge>;
-  if (pick.state === "added") return <Badge tone="aqua">Added by a tour</Badge>;
-  if (pick.state === "own" && pick.day) {
-    const { weekday, day } = dayParts(pick.day);
-    return <Badge tone="kind">{`On my own · ${weekday} ${day}`}</Badge>;
-  }
+  if (pick.state === "added") return <Badge tone="aqua">{onDay("Added by a tour", pick.tour?.starts_on)}</Badge>;
+  if (pick.state === "own") return <Badge tone="kind">{onDay("On my own", pick.day)}</Badge>;
   return null;
 }
 

@@ -181,7 +181,6 @@ const PICK_ORDER: Record<PickState, number> = { open: 0, own: 1, tour: 2, skip: 
 export function pickStatuses(trip: Trip, place: PlanPlace, stay: { lat: number; lng: number } | null): PickStatus[] {
   const rides = rowItems(trip, "rental", place);
   const tourTo = (landmark: PlanLandmark) => trip.items.find((item) => !item.unavailable && landmark.visitedBy.includes(item.listing.id));
-  const tourLine = (tour: TripItem) => [tour.listing.title, tour.starts_on && formatDay(tour.starts_on)].filter(Boolean).join(" · ");
   const inTrip = (day: string) => Boolean(trip.starts_on && trip.ends_on && day >= trip.starts_on && day <= trip.ends_on);
   const picks = picksHere(trip, place).map((landmark): PickStatus => {
     const saved = trip.saved_landmarks.find((each) => each.slug === landmark.slug);
@@ -194,7 +193,7 @@ export function pickStatuses(trip: Trip, place: PlanPlace, stay: { lat: number; 
       return { ...base, state: "own", day, noRide, line: noRide ? "No ride that day yet" : far && `${far} from your stay` };
     }
     const tour = tourTo(landmark);
-    if (tour) return { ...base, state: "tour", tour, line: tourLine(tour) };
+    if (tour) return { ...base, state: "tour", tour, line: tour.listing.title };
     return { ...base, state: "open", line: accessLine(landmark, { stay, port: place.port?.location ?? null }) };
   });
   const hearted = heartedSlugs(trip);
@@ -210,6 +209,12 @@ function dayTitle(index: number, count: number) {
   if (index === 0) return "Arrive";
   if (index === count - 1) return "Go home";
   return "";
+}
+
+// "Sat, Nov 7": a day to choose or to name on its own, away from the days' rail.
+export function dayLabel(iso: string) {
+  const { weekday, day, month } = dayParts(iso);
+  return `${weekday}, ${month} ${day}`;
 }
 
 // "Fri 21" and "Nov" for a day's rail.

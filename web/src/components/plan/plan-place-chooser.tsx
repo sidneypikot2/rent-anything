@@ -13,12 +13,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { addDays, daysBetween } from "@/lib/dates";
 import { formatPeso } from "@/lib/money";
 import { distanceText, heartedSlugs, rowItems, type PlanPlace } from "./plan-data";
-import { dayParts, type PickStatus } from "./plan-days";
-
-const dayLabel = (date: string) => {
-  const { weekday, day } = dayParts(date);
-  return `${weekday} ${day}`;
-};
+import { dayLabel, type PickStatus } from "./plan-days";
 
 // How a guest means to see a place (RAA-263): a tour, which covers it by being in the trip; on
 // their own on a day of the trip; or not this trip. A rental decides none of this: it only makes
@@ -136,7 +131,10 @@ export function PlanPlaceChooser({
                 </ButtonLink>
               </div>
             )}
-            <p className="text-sm font-semibold">Which day?</p>
+            <div>
+              <p className="text-sm font-semibold">Which day will you visit {pick.name}?</p>
+              <p className="text-small text-muted">We&apos;ll put it on that day of your plan.</p>
+            </div>
             <div className="flex flex-wrap gap-2">
               {days.map((each) => (
                 <button
