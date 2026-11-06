@@ -145,7 +145,6 @@ export function PlanReviewSkeleton() {
               <Line className="h-4 w-28" />
               {Array.from({ length: events }, (_, event) => (
                 <div key={event} className="flex items-start gap-3 rounded-card border border-line p-3">
-                  <span className={cn("size-12 shrink-0 rounded-control", BLOCK)} />
                   <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                     <Line className="h-5 w-20" />
                     <Line className="h-4 w-2/3" />

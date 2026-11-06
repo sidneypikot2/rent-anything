@@ -7,7 +7,6 @@ import { CheckoutSheet } from "@/components/bookings/checkout-sheet";
 import { HeartGlyph, PlusGlyph, TickGlyph } from "@/components/discovery/tag-glyphs";
 import { BOOKING_STATE } from "@/components/landing/launch-area";
 import { guestsLabel, formatDateRange, thingCount } from "@/components/trips/format";
-import { ItemThumb } from "@/components/trips/item-thumb";
 import { bookable } from "@/components/trips/trip-details";
 import { useTripHere } from "@/components/trips/use-trip-here";
 import { itemPriceLabel, itemProblem, itemQuote, pickedTotal, useTripQuote, type Trip } from "@/components/trips/use-trips";
@@ -169,11 +168,7 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
                     return (
                       <div key={`${event.item.id}-${at}`} className="flex flex-col gap-1.5" data-testid="plan-event">
                         <div className="flex items-start gap-3 rounded-card border border-line bg-surface p-3">
-                          {event.time ? (
-                            <span className="w-14 shrink-0 pt-0.5 text-sm font-extrabold text-navy tabular-nums">{event.time}</span>
-                          ) : (
-                            <ItemThumb item={event.item} size="sm" />
-                          )}
+                          {event.time && <span className="w-14 shrink-0 pt-0.5 text-sm font-extrabold text-navy tabular-nums">{event.time}</span>}
                           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                             <span className="inline-flex items-center gap-1.5 self-start rounded-chip bg-lagoon-tint px-2 py-0.5 text-xs font-bold text-lagoon-ink">
                               <span aria-hidden className={cn("size-2 rounded-full", KIND_DOT[event.kind])} />
