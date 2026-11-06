@@ -27,7 +27,8 @@ module Trips
       Trip.transaction do
         party = @params.key?(:guests) ? {} : @source.slice(:children, :infants, :pets).symbolize_keys
         trip.update!(name:, guests:, starts_on:, ends_on: shift && @source.ends_on + shift, **party)
-        @source.saved_landmarks.each { trip.saved_landmarks.create!(landmark_id: _1.landmark_id) }
+        # A skipped place stays skipped; a day of the old trip means nothing on the new one.
+        @source.saved_landmarks.each { trip.saved_landmarks.create!(landmark_id: _1.landmark_id, plan: _1.plan == "skip" ? "skip" : nil) }
         items.each do |item|
           trip.items.create!(listing: item.listing, quantity: item.quantity, room_guests: item.room_guests, pets: item.pets,
             starts_on: item.starts_on && item.starts_on + shift, ends_on: item.ends_on && item.ends_on + shift)

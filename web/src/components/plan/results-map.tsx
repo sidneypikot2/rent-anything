@@ -10,7 +10,8 @@ import { FLAT_MAP, keepMapFlat, MAP_STYLE_URL, setMapWorker, toLngLat, type LatL
 
 // `label`: the price on the pill; `name`: what a screen reader hears ("Island hopping, from ₱1,500").
 // `icon`: a tag slug: the pin is that icon on its exact point, with `label` only on hover or when lit.
-export type ResultPin = { id: number; point: LatLng; label: string; name: string; icon?: string };
+// `tone`: an icon pin's colours at rest, in place of white (the review's places, by their state).
+export type ResultPin = { id: number; point: LatLng; label: string; name: string; icon?: string; tone?: string };
 
 const PIN = "tap-target rounded-full px-2.5 py-1 text-small font-bold whitespace-nowrap tabular-nums shadow-lift transition-[background-color,color,scale] duration-300 ease-calm cursor-pointer";
 const PIN_REST = "bg-surface text-navy";
@@ -200,9 +201,10 @@ export default function ResultsMap({
       const button = document.createElement("button");
       button.type = "button";
       const icon = pin.icon !== undefined;
-      button.className = icon ? cn(ICON_PIN, ICON_PIN_REST) : cn(PIN, PIN_REST);
+      button.className = icon ? cn(ICON_PIN, pin.tone ?? ICON_PIN_REST) : cn(PIN, PIN_REST);
       if (icon) {
         button.dataset.icon = "true";
+        if (pin.tone) button.dataset.tone = pin.tone;
         button.append(iconElement(pin.icon ?? ""), nameElement(pin.label));
       } else button.textContent = pin.label;
       button.setAttribute("aria-label", pin.name);
@@ -316,7 +318,7 @@ function lightPins(elements: Map<number, HTMLElement>, active: number | null, pi
     const chosen = picked?.has(id);
     element.dataset.on = String(on);
     element.className = element.dataset.icon
-      ? cn(ICON_PIN, on ? ICON_PIN_ON : chosen ? ICON_PIN_PICKED : ICON_PIN_REST)
+      ? cn(ICON_PIN, on ? ICON_PIN_ON : chosen ? ICON_PIN_PICKED : (element.dataset.tone ?? ICON_PIN_REST))
       : cn(PIN, on ? PIN_ON : chosen ? PIN_PICKED : PIN_REST);
     // Above the stay's pill (0) at rest, above the other prices when lit; on the marker, as the
     // markers are what stack.

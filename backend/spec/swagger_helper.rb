@@ -368,9 +368,15 @@ RSpec.configure do |config|
               id: { type: :integer, description: "The saved place's id, to remove it (DELETE /trip_landmarks/{id})" },
               slug: { type: :string },
               name: { type: :string },
-              area_slug: { type: :string, description: "The place whose page it is on: /<area_slug>#<slug>" }
+              area_slug: { type: :string, description: "The place whose page it is on: /<area_slug>#<slug>" },
+              plan: {
+                type: :string, nullable: true, enum: [ "own", "skip", nil ],
+                description: "How the guest means to see it: `own` on `visit_on`, `skip`, or null (undecided, or " \
+                  "covered when a tour in the trip stops there)"
+              },
+              visit_on: { type: :string, format: :date, nullable: true, description: "The day of the trip for `own`" }
             },
-            required: %w[id slug name area_slug]
+            required: %w[id slug name area_slug plan visit_on]
           },
           trip_item: {
             type: :object,

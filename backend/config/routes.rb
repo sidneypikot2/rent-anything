@@ -71,7 +71,7 @@ Rails.application.routes.draw do
       resources :shared_trips, only: :show, param: :token
       resources :trip_items, only: %i[create update destroy]
       # Places to see a guest saved to a trip, with no dates; saving may start a trip.
-      resources :trip_landmarks, only: %i[create destroy]
+      resources :trip_landmarks, only: %i[create update destroy]
       # Booking a trip's items, and the guest's bookings (RAA-132), which a guest can change
       # (RAA-134) and pay for once accepted (RAA-143). Guest-only.
       resources :checkouts, only: :create

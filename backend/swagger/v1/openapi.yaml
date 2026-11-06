@@ -5089,6 +5089,72 @@ paths:
       schema:
         type: integer
       required: true
+    patch:
+      summary: Say how the guest means to see a saved place
+      tags:
+      - Trips
+      description: 'Guest-only. `plan` is `own` with `visit_on`, a day of the trip;
+        `skip`; or null to leave it undecided. A rental never sets this, and a tour
+        needs none: a tour in the trip covers a place by stopping there. Answers with
+        the trip.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: null goes back to undecided
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/trip"
+        '422':
+          description: no plan sent
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another guest's saved place
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a partner
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan:
+                  type: string
+                  nullable: true
+                  enum:
+                  - own
+                  - skip
+                  -
+                visit_on:
+                  type: string
+                  format: date
+                  nullable: true
+                  description: Required for `own`
+              required:
+              - plan
     delete:
       summary: Remove a saved place from its trip
       tags:
@@ -6213,11 +6279,27 @@ components:
         area_slug:
           type: string
           description: 'The place whose page it is on: /<area_slug>#<slug>'
+        plan:
+          type: string
+          nullable: true
+          enum:
+          - own
+          - skip
+          -
+          description: 'How the guest means to see it: `own` on `visit_on`, `skip`,
+            or null (undecided, or covered when a tour in the trip stops there)'
+        visit_on:
+          type: string
+          format: date
+          nullable: true
+          description: The day of the trip for `own`
       required:
       - id
       - slug
       - name
       - area_slug
+      - plan
+      - visit_on
     trip_item:
       type: object
       properties:
