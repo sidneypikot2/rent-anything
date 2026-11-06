@@ -2217,10 +2217,8 @@ RSpec.configure do |config|
                 type: :string, enum: Booking::BOOKING_MODES, nullable: true,
                 description: "The listing's when it was booked; null for one taken offline"
               },
-              total_cents: { type: :integer },
               to_be_agreed: { type: :boolean, description: "Not priced in the app yet (rentals, transfers): settled with the guest" },
-              commission_cents: { type: :integer, description: "The platform's share of the total" },
-              payout_cents: { type: :integer, description: "What the partner receives: the total less the commission" },
+              payout_cents: { type: :integer, description: "What the partner receives" },
               refund_cents: { type: :integer, nullable: true, description: "What the guest got back on cancelling" },
               cancelled_by: { type: :string, enum: Booking::CANCELLED_BY, nullable: true },
               expires_at: {
@@ -2245,7 +2243,7 @@ RSpec.configure do |config|
               created_at: { type: :string, format: "date-time" }
             },
             required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address delivery_location delivery_notes delivery_distance_m child_helmets status source
-              booking_mode total_cents to_be_agreed commission_cents payout_cents refund_cents cancelled_by expires_at notes listing
+              booking_mode to_be_agreed payout_cents refund_cents cancelled_by expires_at notes listing
               created_at]
           },
           # The booking lifecycle (RAA-132).

@@ -9373,12 +9373,9 @@ export interface components {
              * @enum {string|null}
              */
             booking_mode: "instant" | "request" | null;
-            total_cents: number;
             /** @description Not priced in the app yet (rentals, transfers): settled with the guest */
             to_be_agreed: boolean;
-            /** @description The platform's share of the total */
-            commission_cents: number;
-            /** @description What the partner receives: the total less the commission */
+            /** @description What the partner receives */
             payout_cents: number;
             /** @description What the guest got back on cancelling */
             refund_cents: number | null;

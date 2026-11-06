@@ -30,20 +30,19 @@ module PartnerCalendarSerializer
   end
 
   # A booking as its partner sees it: a pending one (Booking::PENDING) holds its days until it
-  # is answered, paid or expires at expires_at. commission_cents is the platform's share and
-  # payout_cents what is left for the partner. A stay's
-  # room_guests and pets show how its guests split into rooms and what pets come (RAA-182). A
+  # is answered, paid or expires at expires_at. payout_cents is what the partner receives; they
+  # never see the total or the commission (RAA-265). A stay's room_guests and pets show how its guests split into rooms and what pets come (RAA-182). A
   # vehicle rental's starts_at and ends_at are its pickup and return (RAA-195), nil for anything else,
   # and delivery / return_pickup whether the shop brings it and collects it, to delivery_address:
   # the guest's pin (delivery_location), how far it is from the listing and their notes (RAA-205).
   # Its listing says enough to show the booking away from the calendar (RAA-260): preload the
   # listing's category and tour_detail.
   def self.booking(booking, listing = booking.listing)
-    fields(booking, listing).merge(payout_cents: booking.payout_cents, listing: { id: listing.id, title: listing.title,
+    fields(booking, listing).except(:total_cents, :commission_cents).merge(payout_cents: booking.payout_cents, listing: { id: listing.id, title: listing.title,
       capacity_unit: Availability::Ledger.capacity_unit(listing), category: { booking_type: listing.category.booking_type } })
   end
 
-  # The booking's own values, without its listing.
+  # The booking's own values, without its listing. Only the team's view keeps the total and commission.
   def self.fields(booking, listing = booking.listing)
     booking.slice(:id, :reference, :guest_name, :guest_email, :guest_phone, :starts_on, :ends_on, :starts_at, :ends_at, :quantity, :guests,
       :room_guests, :pets, :delivery, :return_pickup, :delivery_address, :delivery_distance_m, :delivery_notes, :child_helmets, :status, :source, :booking_mode, :total_cents, :commission_cents, :refund_cents, :cancelled_by,
