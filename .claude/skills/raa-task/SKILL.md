@@ -114,7 +114,7 @@ Test-first for backend behaviour, as described in `.claude/rules/backend.md`.
 ```bash
 script/test spec/path_spec.rb             # affected files while iterating
 script/check <frontend|backend|tooling>   # before the PR: everything CI runs for the area
-script/smoke                              # web changes, or backend changes the web app calls
+script/smoke "<test name>"                # web changes, or backend changes the web app calls: the tests they touch; CI runs them all
 ```
 
 Both must pass before step 5; paste the failing output rather than describing it if they
@@ -131,7 +131,9 @@ foreground limit (5 minutes, set in `.claude/settings.json`) on a full backend s
 
 In a worktree, run `script/worktree-env` once before the first `docker compose` command:
 it gives the worktree its own ports and project name so its containers don't collide with
-the main stack. (The `script/` commands above do this themselves.)
+the main stack. (The `script/` commands above do this themselves.) Then `docker compose up -d`
+before the first migration: `db:prepare` seeds only a database it creates, so one a
+`db:migrate` made first stays empty, with no places for the app or the smoke test.
 
 Don't run the `verify-app` skill or open the browser unless the user asks for it, even
 when the change touches `web/` — the user tests in the browser themselves (step 6).

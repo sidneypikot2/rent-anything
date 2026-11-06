@@ -3,7 +3,8 @@
 # the Playwright container — pages load without script errors and the browser reaches the
 # API (tools/smoke/tests/). The only check that executes the web app. Used by CI.
 #
-#   script/smoke
+#   script/smoke                        every test
+#   script/smoke "plan a whole trip"    only the tests whose name matches
 #
 # Needs Docker only. On failure, traces and screenshots are in tools/smoke/test-results/.
 set -euo pipefail
@@ -33,4 +34,4 @@ wait_for() { # name, url
 wait_for backend "http://localhost:$backend_port/up"
 wait_for web "http://localhost:$web_port/"
 
-docker compose run --rm smoke
+docker compose run --rm -e SMOKE_GREP="${1:-}" smoke
