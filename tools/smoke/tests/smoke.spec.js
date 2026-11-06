@@ -355,7 +355,7 @@ test("sign-up and the partner guard", async ({ page }) => {
   await expect(page.getByTestId("partner-dashboard")).toBeVisible();
   await expect(page.getByTestId("profile-banner")).toHaveCount(0);
 
-  // The partner header links between the partner pages and marks the current one.
+  // The partner's tabs link between the partner pages and mark the current one.
   await expect(page.getByTestId("partner-nav-home")).toHaveAttribute("aria-current", "page");
   await page.getByTestId("partner-nav-listings").click();
   await expect(page).toHaveURL(/\/partner\/listings$/);
@@ -379,6 +379,31 @@ test("sign-up and the partner guard", async ({ page }) => {
   await expect(page).toHaveURL(/\/partner\/inbox$/);
   await expect(page.getByTestId("partner-inbox")).toBeVisible();
   await expect(page.getByTestId("partner-nav-inbox")).toHaveAttribute("aria-current", "page");
+  for (const tab of ["bookings", "businesses", "earnings"]) {
+    await page.getByTestId(`partner-nav-${tab}`).click();
+    await expect(page.getByTestId(`partner-${tab}`)).toBeVisible();
+  }
+
+  // The sidebar is a rail of icons that opens on hover (RAA-267).
+  const sidebar = page.getByTestId("partner-sidebar");
+  await page.mouse.move(640, 500);
+  await expect(sidebar).toHaveCSS("width", "44px");
+  await sidebar.hover();
+  await expect(sidebar).toHaveCSS("width", "224px");
+  await page.mouse.move(640, 500);
+  await expect(sidebar).toHaveCSS("width", "44px");
+
+  // On a phone the tabs move to the window's foot, the rest under More.
+  const desktop = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId("partner-sidebar")).toBeHidden();
+  await page.getByTestId("partner-bar-calendar").click();
+  await expect(page.getByTestId("partner-calendar")).toBeVisible();
+  await page.getByTestId("partner-bar-more").click();
+  await page.getByTestId("partner-more-inbox").click();
+  await expect(page.getByTestId("partner-inbox")).toBeVisible();
+  await page.setViewportSize(desktop);
+
   await page.getByTestId("partner-nav-home").click();
   await expect(page.getByTestId("partner-dashboard")).toBeVisible();
 

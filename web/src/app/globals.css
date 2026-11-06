@@ -126,6 +126,8 @@
   /* Motion: one easing, slow and settling, for a calm feel. 300ms for small state changes,
      500ms for hover lifts, 700–900ms for things arriving; the photo drift is ambient. */
   --ease-calm: cubic-bezier(0.22, 1, 0.36, 1);
+  /* A slow start and a slow stop, for what moves the whole page (the partner rail). */
+  --ease-soft: cubic-bezier(0.65, 0, 0.35, 1);
   --animate-rise: rise 0.9s var(--ease-calm) both;
   --animate-float-in: float-in 0.8s var(--ease-calm) both;
   --animate-drift: drift 28s ease-in-out infinite alternate;
@@ -491,6 +493,17 @@
 @media (width < 46.875rem) {
   :root:has([data-search-bar]) {
     --chrome: 8.75rem;
+  }
+}
+
+/* A partner's tabs along a phone's foot (PartnerShell): the page and what sticks to its foot (the
+   ActionBar, toasts) stay clear of them. */
+@media (width < 48rem) {
+  :root:has([data-partner-bar]) {
+    --bottom-bar: calc(3.75rem + env(safe-area-inset-bottom));
+  }
+  :root:has([data-partner-bar]) body {
+    padding-bottom: var(--bottom-bar);
   }
 }
 

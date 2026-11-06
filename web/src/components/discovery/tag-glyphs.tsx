@@ -332,6 +332,18 @@ export function PersonGlyph({ className }: Props) {
   return <Glyph paths={[circle(12, 8, 4), "M4 21a8 8 0 0 1 16 0"]} className={className} />;
 }
 
+export function TicketGlyph({ className }: Props) {
+  return <Glyph paths={TICKET} className={className} />;
+}
+
+export function InboxGlyph({ className }: Props) {
+  return <Glyph paths={["M4 13l3-8h10l3 8v6H4Z", "M4 13h5l1.5 2.5h3L15 13h5"]} className={className} />;
+}
+
+export function MoreGlyph({ className }: Props) {
+  return <Glyph paths={[circle(5, 12, 1), circle(12, 12, 1), circle(19, 12, 1)]} className={className} />;
+}
+
 export function CogGlyph({ className }: Props) {
   return (
     <Glyph

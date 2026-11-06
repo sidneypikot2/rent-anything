@@ -58,9 +58,9 @@ export function WizardLayout({
   }, [current]);
 
   return (
-    <div className="flex w-full flex-col gap-6 md:grid md:grid-cols-[13rem_1fr] md:items-start md:gap-10">
-      <nav ref={navRef} aria-label="Sections" className="relative -mx-4 overflow-x-auto px-4 md:sticky md:top-24 md:mx-0 md:px-0">
-        <ol data-testid="wizard-sections" className="flex gap-2 md:flex-col md:gap-1">
+    <div className="flex w-full flex-col gap-6 lg:grid lg:grid-cols-[13rem_1fr] lg:items-start lg:gap-10">
+      <nav ref={navRef} aria-label="Sections" className="relative -mx-4 overflow-x-auto px-4 lg:sticky lg:top-(--chrome) lg:mx-0 lg:px-0">
+        <ol data-testid="wizard-sections" className="flex gap-2 lg:flex-col lg:gap-1">
           {steps.map((step, index) => {
             const done = index < reached;
             const active = index === current;

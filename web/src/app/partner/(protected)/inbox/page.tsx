@@ -9,7 +9,7 @@ const PANELS = [
 // The partner inbox: a skeleton until chat exists (M6).
 export default function PartnerInbox() {
   return (
-    <main data-testid="partner-inbox" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-block px-gutter py-page-pad">
+    <main data-testid="partner-inbox" className="flex w-full min-w-0 flex-1 flex-col gap-block py-page-pad">
       <DisplayTitle>Inbox</DisplayTitle>
       <div className="grid gap-3 sm:grid-cols-2">
         {PANELS.map((panel) => (

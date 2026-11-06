@@ -14,7 +14,7 @@ const PANELS = [
 // to come (M1).
 export default function PartnerSettings() {
   return (
-    <main data-testid="partner-settings" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-section px-gutter py-page-pad">
+    <main data-testid="partner-settings" className="flex w-full min-w-0 flex-1 flex-col gap-section py-page-pad">
       <DisplayTitle>Settings</DisplayTitle>
       <div className="w-full max-w-narrow">
         <PayoutSettings />
