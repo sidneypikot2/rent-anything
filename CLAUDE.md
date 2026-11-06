@@ -22,7 +22,7 @@ These apply to every task, whether or not `/raa-task` was run:
 - **Two protected branches**: `staging` (the default branch) is where task PRs merge; `main` is what production runs and only ever receives `staging`, as a release (`/release`). Never commit on either, and never open a task PR against `main`.
 - **Branch**: `<area>/raa-<n>-<kebab-summary>` from an up-to-date `origin/staging`.
 - **Commit subject and PR title**: `RAA-<n> <summary>`, PR base `staging`. CI checks the branch name, PR title and area label, and that a PR into `main` comes from `staging` (`.github/workflows/pr-conventions.yml`).
-- **Done** means `script/check <area>` passes — it runs what CI runs. For backend changes run only the affected specs while iterating (`script/test spec/...`) and `script/check backend` once before the PR. A changed endpoint means regenerating the API contract (`script/check-api --write`) and committing both generated files. For frontend changes, and backend changes the web app calls, also run `script/smoke` — it drives the real app in a browser. It covers one path only: beyond it, say plainly that the change was not verified in the running app unless `/verify-app` was run.
+- **Done** means `script/check <area>` passes — it runs what CI runs. For backend changes run only the affected specs while iterating (`script/test spec/...`) and `script/check backend` once before the PR. A changed endpoint means regenerating the API contract (`script/check-api --write`) and committing both generated files. For frontend changes, and backend changes the web app calls, also run `script/smoke "<test name>"` for the tests the change touches, leaving the full run to CI — it drives the real app in a browser. It covers one path only: beyond it, say plainly that the change was not verified in the running app unless `/verify-app` was run.
 
 ## Git safety
 
@@ -50,7 +50,7 @@ script/test [spec/path_spec.rb[:LINE]]    # backend specs; no argument: the full
 script/lint [backend [-a] | frontend]     # rubocop and eslint
 script/check [frontend|backend|tooling]   # everything CI runs for that area (no argument: all of it)
 script/check-api [--write]    # the API contract: request specs -> openapi.yaml -> web types
-script/smoke                  # browser smoke test (Playwright container) against this checkout's stack
+script/smoke ["test name"]    # browser smoke test (Playwright container) against this checkout's stack; a name runs only the tests matching it
 script/check-docs             # these instruction files vs the repo: dead paths, rules that never load
 script/worktree-env           # in a worktree, once: own ports (8100+N / 3100+N / 8200+N), project name, main checkout's env files
 script/docker-sweep           # Docker stacks left behind by removed worktrees (--apply deletes them)
