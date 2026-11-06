@@ -2543,6 +2543,80 @@ RSpec.configure do |config|
             },
             required: %w[guest_name starts_on ends_on quantity total_cents]
           },
+          # A partner's dashboard (RAA-266); today and this month are Manila's.
+          partner_dashboard: {
+            type: :object,
+            properties: {
+              tiles: {
+                type: :object,
+                properties: {
+                  requests_waiting: { type: :integer },
+                  arriving_today: { type: :integer, description: "Confirmed bookings starting today" },
+                  listings_live: { type: :integer },
+                  estimated_earnings_cents: { type: :integer, description: "An estimate: nothing has been paid" }
+                },
+                required: %w[requests_waiting arriving_today listings_live estimated_earnings_cents]
+              },
+              requests: { type: :array, items: { "$ref" => "#/components/schemas/booking" }, maxItems: 5 },
+              upcoming: { type: :array, items: { "$ref" => "#/components/schemas/booking" }, maxItems: 5 },
+              listings_needing_attention: {
+                type: :array,
+                items: {
+                  type: :object,
+                  properties: {
+                    id: { type: :integer },
+                    title: { type: :string },
+                    status: { type: :string, enum: Listing::STATUSES },
+                    live_blockers: { type: :array, items: { type: :string, enum: Listing::LIVE_BLOCKERS.keys } }
+                  },
+                  required: %w[id title status live_blockers]
+                }
+              },
+              setup: {
+                type: :object,
+                properties: {
+                  id_check_status: { type: :string, enum: PartnerVerification::STATUSES },
+                  id_check: { type: :boolean },
+                  profile: { type: :boolean },
+                  business: { type: :boolean },
+                  payout_account: { type: :boolean }
+                },
+                required: %w[id_check_status id_check profile business payout_account]
+              },
+              activity: {
+                type: :array,
+                items: {
+                  type: :object,
+                  properties: {
+                    id: { type: :integer },
+                    booking_id: { type: :integer },
+                    reference: { type: :string },
+                    guest_name: { type: :string },
+                    listing_id: { type: :integer },
+                    listing_title: { type: :string },
+                    from_status: { allOf: [ { "$ref" => "#/components/schemas/booking_status" } ], nullable: true },
+                    to_status: { "$ref" => "#/components/schemas/booking_status" },
+                    actor: { type: :string, enum: BookingEvent::ACTORS, description: "admin is the team answering for the partner" },
+                    created_at: { type: :string, format: "date-time" }
+                  },
+                  required: %w[id booking_id reference guest_name listing_id listing_title from_status to_status actor created_at]
+                }
+              }
+            },
+            required: %w[tiles requests upcoming listings_needing_attention setup activity]
+          },
+          # An estimate of a partner's month (RAA-266): nothing has been paid yet.
+          partner_earnings: {
+            type: :object,
+            properties: {
+              month: { type: :string },
+              estimate_cents: { type: :integer, description: "What `bookings` pay out" },
+              offline_cents: { type: :integer, description: "What `offline_bookings` came to, paid to the partner directly" },
+              bookings: { type: :array, items: { "$ref" => "#/components/schemas/booking" } },
+              offline_bookings: { type: :array, items: { "$ref" => "#/components/schemas/booking" } }
+            },
+            required: %w[month estimate_cents offline_cents bookings offline_bookings]
+          },
           booking_status_body: {
             type: :object,
             properties: {
@@ -2550,7 +2624,7 @@ RSpec.configure do |config|
                 type: :string, enum: Bookings::ChangeStatus::STATUSES,
                 description: "accepted / declined answer a request; cancelled refunds the guest in full"
               },
-              reason: { type: :string, maxLength: Booking::REASON_LENGTH, description: "Why it was cancelled" }
+              reason: { type: :string, maxLength: Booking::REASON_LENGTH, description: "Why it was declined or cancelled, kept on its history" }
             },
             required: %w[status]
           },

@@ -2568,8 +2568,9 @@ paths:
       description: 'Partner-only (RAA-118, RAA-132). `accepted` or `declined` answers
         a guest''s request: accepting holds it for the guest''s payment (awaiting_payment,
         RAA-143); declining frees its days. `cancelled` cancels a booking that hasn''t
-        started, freeing its days and refunding a paid one in full, with an optional
-        `reason`. A booking already at that status stays as it is.'
+        started, freeing its days and refunding a paid one in full. An optional `reason`
+        is kept on the booking''s history. A booking already at that status stays
+        as it is.'
       security:
       - bearer: []
       parameters: []
@@ -2620,8 +2621,10 @@ paths:
       summary: Every booking of the partner's listings
       tags:
       - Partner
-      description: Partner-only (RAA-132). Newest first, at most 200, each with its
-        listing; `status=requested` lists the requests to answer.
+      description: Partner-only (RAA-132, RAA-266). Newest first, each with its listing,
+        `per_page` at a time (at most 200, the default); the `X-Total-Count` header
+        says how many there are in all. `status=requested` lists the requests to answer,
+        and `from` and `to` those touching those dates (either may be left out).
       security:
       - bearer: []
       parameters:
@@ -2630,9 +2633,41 @@ paths:
         required: false
         schema:
           "$ref": "#/components/schemas/booking_status"
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 200
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
       responses:
         '200':
-          description: the requests to answer
+          description: those touching the dates
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: How many there are across every page
           content:
             application/json:
               schema:
@@ -2640,7 +2675,7 @@ paths:
                 items:
                   "$ref": "#/components/schemas/booking"
         '422':
-          description: a status that doesn't exist
+          description: paging or dates that make no sense
           content:
             application/json:
               schema:
@@ -2916,6 +2951,91 @@ paths:
                 "$ref": "#/components/schemas/partner_calendar"
         '422':
           description: dates missing, backwards or too far apart
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/partner/dashboard":
+    get:
+      summary: The partner's dashboard
+      tags:
+      - Partner
+      description: 'Partner-only (RAA-266). What needs the partner now, with "today"
+        and "this month" in Manila time: the tile counts, up to 5 open requests (soonest
+        to expire first), the next 5 confirmed bookings, listings needing attention,
+        setup steps and the latest activity. `estimated_earnings_cents` is an estimate
+        of what the month''s bookings pay out, as `GET partner/earnings` lists; nothing
+        has been paid.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: recent activity, the team's answers marked by their actor
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_dashboard"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/partner/earnings":
+    get:
+      summary: An estimate of the partner's earnings in a month
+      tags:
+      - Partner
+      description: 'Partner-only (RAA-266). The bookings starting in `month` (YYYY-MM)
+        with what each pays out: an estimate, as nothing has been paid yet. Cancelled,
+        declined and expired bookings are left out, and so are those priced with the
+        guest (`to_be_agreed`), which have no amount to count. Bookings taken offline
+        are listed apart, the guest having paid the partner directly.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      - name: month
+        in: query
+        schema:
+          type: string
+          pattern: "^\\d{4}-(0[1-9]|1[0-2])$"
+        required: true
+      responses:
+        '200':
+          description: the month's bookings and estimate
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_earnings"
+        '422':
+          description: a month missing or badly written
           content:
             application/json:
               schema:
@@ -10973,6 +11093,170 @@ components:
       - ends_on
       - quantity
       - total_cents
+    partner_dashboard:
+      type: object
+      properties:
+        tiles:
+          type: object
+          properties:
+            requests_waiting:
+              type: integer
+            arriving_today:
+              type: integer
+              description: Confirmed bookings starting today
+            listings_live:
+              type: integer
+            estimated_earnings_cents:
+              type: integer
+              description: 'An estimate: nothing has been paid'
+          required:
+          - requests_waiting
+          - arriving_today
+          - listings_live
+          - estimated_earnings_cents
+        requests:
+          type: array
+          items:
+            "$ref": "#/components/schemas/booking"
+          maxItems: 5
+        upcoming:
+          type: array
+          items:
+            "$ref": "#/components/schemas/booking"
+          maxItems: 5
+        listings_needing_attention:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              title:
+                type: string
+              status:
+                type: string
+                enum:
+                - draft
+                - active
+                - paused
+                - delisted
+              live_blockers:
+                type: array
+                items:
+                  type: string
+                  enum:
+                  - photo
+                  - description
+                  - price
+                  - route
+            required:
+            - id
+            - title
+            - status
+            - live_blockers
+        setup:
+          type: object
+          properties:
+            id_check_status:
+              type: string
+              enum:
+              - not_started
+              - in_progress
+              - in_review
+              - approved
+              - declined
+              - expired
+            id_check:
+              type: boolean
+            profile:
+              type: boolean
+            business:
+              type: boolean
+            payout_account:
+              type: boolean
+          required:
+          - id_check_status
+          - id_check
+          - profile
+          - business
+          - payout_account
+        activity:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              booking_id:
+                type: integer
+              reference:
+                type: string
+              guest_name:
+                type: string
+              listing_id:
+                type: integer
+              listing_title:
+                type: string
+              from_status:
+                allOf:
+                - "$ref": "#/components/schemas/booking_status"
+                nullable: true
+              to_status:
+                "$ref": "#/components/schemas/booking_status"
+              actor:
+                type: string
+                enum:
+                - guest
+                - partner
+                - admin
+                - system
+                description: admin is the team answering for the partner
+              created_at:
+                type: string
+                format: date-time
+            required:
+            - id
+            - booking_id
+            - reference
+            - guest_name
+            - listing_id
+            - listing_title
+            - from_status
+            - to_status
+            - actor
+            - created_at
+      required:
+      - tiles
+      - requests
+      - upcoming
+      - listings_needing_attention
+      - setup
+      - activity
+    partner_earnings:
+      type: object
+      properties:
+        month:
+          type: string
+        estimate_cents:
+          type: integer
+          description: What `bookings` pay out
+        offline_cents:
+          type: integer
+          description: What `offline_bookings` came to, paid to the partner directly
+        bookings:
+          type: array
+          items:
+            "$ref": "#/components/schemas/booking"
+        offline_bookings:
+          type: array
+          items:
+            "$ref": "#/components/schemas/booking"
+      required:
+      - month
+      - estimate_cents
+      - offline_cents
+      - bookings
+      - offline_bookings
     booking_status_body:
       type: object
       properties:
@@ -10987,7 +11271,7 @@ components:
         reason:
           type: string
           maxLength: 500
-          description: Why it was cancelled
+          description: Why it was declined or cancelled, kept on its history
       required:
       - status
     admin_area_row:

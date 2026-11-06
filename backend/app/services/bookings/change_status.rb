@@ -17,7 +17,7 @@ module Bookings
       when "accepted", "declined"
         return @booking if @booking.status == status
 
-        Respond.call(@booking, status, user: @partner)
+        Respond.call(@booking, status, user: @partner, reason: @params[:reason])
       when "cancelled"
         Cancel.call(@booking, by: "partner", user: @partner, reason: @params[:reason])
       else

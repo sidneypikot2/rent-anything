@@ -128,7 +128,10 @@ Rails.application.routes.draw do
           resources :availability_blocks, only: %i[index create update destroy]
           resources :bookings, only: %i[index create update]
         end
-        # Every booking of the partner's listings, newest first, by status (RAA-132).
+        # What needs the partner now, and an estimate of a month's earnings (RAA-266).
+        resource :dashboard, only: :show
+        resource :earnings, only: :show
+        # Every booking of the partner's listings, newest first, by status and dates (RAA-132).
         resources :bookings, only: :index, controller: "all_bookings"
         # Every listing's days, blocks and bookings in a window (RAA-118).
         resource :calendar, only: :show, controller: "calendar"
