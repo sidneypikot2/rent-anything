@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  </head>
+  <body style="margin:0;padding:0;background:#dbeafe;">
+    <div style="display:none;max-height:0;overflow:hidden;"><%= @body %></div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#dbeafe" style="background:#dbeafe;">
+      <tr><td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
+          <tr><td bgcolor="#ffffff" style="background:#ffffff;border-radius:12px 12px 0 0;padding:22px 24px 18px;border-bottom:2px dashed #bfdbfe;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="font-size:16px;font-weight:800;">TripKo<span style="color:#2563eb;">Next</span></td>
+              <td align="right" style="font-family:Menlo,Consolas,'Courier New',monospace;font-size:12px;color:#475569;"><%= @slip[:reference] %></td>
+            </tr></table>
+            <p style="margin:18px 0 2px;font-size:14px;line-height:20px;color:#475569;">Your payout if you accept</p>
+            <p style="margin:0;font-size:<%= @slip[:payout].start_with?("₱") ? "38px;line-height:44px" : "22px;line-height:30px" %>;font-weight:800;"><%= @slip[:payout] %></p>
+          </td></tr>
+          <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:16px 24px;border-bottom:2px dashed #bfdbfe;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:14px;line-height:20px;">
+              <% @slip[:rows].each do |label, value| %>
+                <tr><td valign="top" style="padding:5px 12px 5px 0;color:#64748b;white-space:nowrap;"><%= label %></td><td align="right" valign="top" style="padding:5px 0;font-weight:600;"><%= value %></td></tr>
+              <% end %>
+            </table>
+          </td></tr>
+          <tr><td bgcolor="#ffffff" style="background:#ffffff;border-radius:0 0 12px 12px;padding:18px 24px 22px;">
+            <p style="margin:0 0 14px;font-size:14px;line-height:21px;"><% if @slip[:answer_by] %>Answer by <strong><%= @slip[:answer_by] %></strong>. <% end %>Open the site to see the full booking, then accept or decline.</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="#2563eb" style="background:#2563eb;border-radius:10px;"><a href="<%= @link %>" style="display:block;padding:13px 20px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;"><%= @action %></a></td></tr></table>
+          </td></tr>
+          <tr><td align="center" style="padding:14px 8px 0;font-size:12px;line-height:18px;color:#475569;">You get this email because of a booking on TripKoNext.</td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>

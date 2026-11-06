@@ -11,7 +11,7 @@ module Api
         before_action -> { require_role!("partner") }
 
         def index
-          bookings = Booking.joins(:listing).where(listings: { partner_id: current_user.id }).includes(:listing)
+          bookings = Booking.joins(:listing).where(listings: { partner_id: current_user.id }).includes(listing: %i[category tour_detail])
           if params[:status].present?
             return render_bad_status unless Booking::STATUSES.include?(params[:status])
 

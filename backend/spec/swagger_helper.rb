@@ -272,7 +272,7 @@ RSpec.configure do |config|
               kind: { type: :string, description: "What happened, e.g. booking.requested or booking.accepted" },
               title: { type: :string },
               body: { type: :string },
-              path: { type: :string, description: "The web app page it opens, e.g. /cart?trip=12 or /partner/calendar?booking=34" },
+              path: { type: :string, description: "The web app page it opens, e.g. /cart?trip=12, /partner/calendar?booking=34 or /partner/dashboard?booking=34" },
               read: { type: :boolean },
               created_at: { type: :string, format: "date-time" }
             },
@@ -2220,6 +2220,7 @@ RSpec.configure do |config|
               total_cents: { type: :integer },
               to_be_agreed: { type: :boolean, description: "Not priced in the app yet (rentals, transfers): settled with the guest" },
               commission_cents: { type: :integer, description: "The platform's share of the total" },
+              payout_cents: { type: :integer, description: "What the partner receives: the total less the commission" },
               refund_cents: { type: :integer, nullable: true, description: "What the guest got back on cancelling" },
               cancelled_by: { type: :string, enum: Booking::CANCELLED_BY, nullable: true },
               expires_at: {
@@ -2229,13 +2230,22 @@ RSpec.configure do |config|
               notes: { type: :string },
               listing: {
                 type: :object,
-                properties: { id: { type: :integer }, title: { type: :string } },
-                required: %w[id title]
+                properties: {
+                  id: { type: :integer },
+                  title: { type: :string },
+                  capacity_unit: { type: :string, enum: %w[seats groups units], description: "What the booking's quantity counts" },
+                  category: {
+                    type: :object,
+                    properties: { booking_type: { type: :string } },
+                    required: %w[booking_type]
+                  }
+                },
+                required: %w[id title capacity_unit category]
               },
               created_at: { type: :string, format: "date-time" }
             },
             required: %w[id reference guest_name guest_email guest_phone starts_on ends_on starts_at ends_at quantity guests room_guests pets delivery return_pickup delivery_address delivery_location delivery_notes delivery_distance_m child_helmets status source
-              booking_mode total_cents to_be_agreed commission_cents refund_cents cancelled_by expires_at notes listing
+              booking_mode total_cents to_be_agreed commission_cents payout_cents refund_cents cancelled_by expires_at notes listing
               created_at]
           },
           # The booking lifecycle (RAA-132).
