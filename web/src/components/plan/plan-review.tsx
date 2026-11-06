@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
 import { CheckoutSheet } from "@/components/bookings/checkout-sheet";
+import { ShowMore } from "@/components/discovery/show-more";
 import { HeartGlyph, PlusGlyph, TickGlyph } from "@/components/discovery/tag-glyphs";
 import { BOOKING_STATE } from "@/components/landing/launch-area";
 import { guestsLabel, formatDateRange, thingCount } from "@/components/trips/format";
@@ -115,6 +116,11 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
   const staying = trip.own_stay ? (trip.own_stay.name ?? "your own place") : stay?.name;
   // "Ready" only once nothing needed is missing; ideas (a ride to a hearted place) don't count.
   const picks = pickStatuses(trip, place, stay?.point ?? null);
+  // A pick a tour covers already shows as a heart on that tour's day, so its row waits behind
+  // Show. Only when the heart is on the page: an undated tour has no day to show it on.
+  const onTheDays = new Set(days?.flatMap((day) => day.events.flatMap((event) => event.stops.filter((stop) => stop.hearted).map((stop) => stop.name))));
+  const covered = picks.filter((pick) => pick.state === "tour" && onTheDays.has(pick.name));
+  const toShow = picks.filter((pick) => !covered.includes(pick));
   const missing = days?.some((day) => day.gaps.some((gap) => !gap.idea)) ?? false;
   // The date range stays on one line ("Nov 13–15", never "Nov 13–" / "15").
   const title = trip.name.replace(/(\S+)–(\S+)/g, "$1\u2060–\u2060$2");
@@ -134,9 +140,18 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
           <h2 id="plan-picks" className="text-sm font-bold text-muted">
             Places you picked
           </h2>
-          {picks.map((pick) => (
+          {toShow.map((pick) => (
             <PickRow key={pick.slug} pick={pick} back={back} />
           ))}
+          {covered.length > 0 && (
+            <ShowMore more={`Show ${covered.length} covered by a tour`} less={covered.length === 1 ? "Hide covered place" : "Hide covered places"}>
+              <div className="flex flex-col gap-2">
+                {covered.map((pick) => (
+                  <PickRow key={pick.slug} pick={pick} back={back} />
+                ))}
+              </div>
+            </ShowMore>
+          )}
         </section>
       )}
 
