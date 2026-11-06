@@ -1,6 +1,9 @@
 "use client";
 
+import { Suspense } from "react";
 import { PlaceholderBlock } from "@/components/landing/placeholder-block";
+import { BookingRequests } from "@/components/partner/booking-requests";
+import { usePartnerRequests } from "@/components/partner/use-partner-calendar";
 import { Card, CardBody } from "@/components/ui/card";
 import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
 import { useSession } from "@/lib/auth/session";
@@ -10,15 +13,16 @@ const STATS = ["Bookings this month", "Pending requests", "Active listings", "Pa
 const PANELS = [
   { title: "ID verification", note: "Government ID and a selfie, checked by Didit before you list" },
   { title: "Listings", note: "What you offer, with photos and prices (M2)" },
-  { title: "Booking requests", note: "Accept or decline request-to-book items (M4)" },
   { title: "Calendar", note: "Block dates and see what's booked (M3)" },
   { title: "Payouts", note: "Completed bookings, minus commission (M4)" },
 ];
 
-// The partner dashboard: where partners land after signing in. A skeleton until the
-// partner tools exist; the stats read "—" until there is data behind them.
+// The partner dashboard: where partners land after signing in, and where a request email
+// brings them (RAA-261). Requests to answer come first; the rest is a skeleton until the partner
+// tools exist, and a stat reads "—" until there is data behind it.
 export default function PartnerDashboard() {
   const session = useSession();
+  const requests = usePartnerRequests();
 
   return (
     <main data-testid="partner-dashboard" className="mx-auto flex w-full max-w-page flex-1 flex-col gap-block px-gutter py-page-pad">
@@ -29,11 +33,16 @@ export default function PartnerDashboard() {
           <Card key={label}>
             <CardBody>
               <p className="text-xs text-muted">{label}</p>
-              <p className="mt-1 font-display text-3xl font-bold">—</p>
+              <p className="mt-1 font-display text-3xl font-bold">{label === "Pending requests" ? (requests.data?.length ?? "—") : "—"}</p>
             </CardBody>
           </Card>
         ))}
       </div>
+
+      {/* It reads ?booking= (useSearchParams), so it renders in the browser only. */}
+      <Suspense>
+        <BookingRequests />
+      </Suspense>
 
       <section className="flex flex-col gap-3">
         <SectionTitle>Your business</SectionTitle>

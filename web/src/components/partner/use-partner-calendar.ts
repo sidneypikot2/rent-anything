@@ -1,6 +1,6 @@
 "use client";
 
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
@@ -27,6 +27,24 @@ const STEP = 31;
 
 export function partnerCalendarKey(userId: number | undefined) {
   return ["partner-calendar", userId] as const;
+}
+
+export function partnerRequestsKey(userId: number | undefined) {
+  return ["partner-requests", userId] as const;
+}
+
+// The requests waiting for the partner's answer, newest first, on the dashboard (RAA-261).
+export function usePartnerRequests() {
+  const userId = useSession()?.user.id;
+  return useQuery({
+    queryKey: partnerRequestsKey(userId),
+    queryFn: async () => {
+      const { data, response } = await apiClient().GET("/api/v1/partner/bookings", { params: { query: { status: "requested" } } });
+      if (!data) throw new Error(`requests request failed (${response.status})`);
+      return data;
+    },
+    enabled: userId !== undefined,
+  });
 }
 
 // Every window loaded so far, merged per listing into one run of days with the blocks and
@@ -77,13 +95,18 @@ function uniqueById<T extends { id: number }>(items: T[]) {
   return [...new Map(items.map((item) => [item.id, item])).values()];
 }
 
-// Each change reloads every window: a booking or block changes the days around it.
+// Each change reloads every window, as a booking or block changes the days around it, and the
+// dashboard's requests.
 function useCalendarMutation<Vars>(mutationFn: (vars: Vars) => Promise<unknown>) {
   const userId = useSession()?.user.id;
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: partnerCalendarKey(userId) }),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: partnerCalendarKey(userId) }),
+        queryClient.invalidateQueries({ queryKey: partnerRequestsKey(userId) }),
+      ]),
   });
 }
 
