@@ -56,4 +56,6 @@ paths:
 
 **Offline bookings** (`Bookings::CreateOffline`) are the partner's, confirmed from the start, with the total the guest paid them. A listing with any booking, cancelled ones included, can't be deleted: it is delisted instead.
 
+**The partner dashboard and earnings** (RAA-266): `Partners::Dashboard` and `Partners::Earnings` take "today" and "this month" in `Booking::RENTAL_TIME_ZONE`, as UTC is still yesterday in Manila before 8am; the calendar stays on UTC. Partner bookings are `Booking.of_partner`, never `user.bookings` (a booking's user is its guest). Earnings are an estimate from `payout_cents` by `starts_on`: bookings still holding their days, without `to_be_agreed` ones, offline ones apart. `GET partner/bookings` stays a plain array, with the count in `X-Total-Count` (exposed in `cors.rb`).
+
 **Not here yet**: live payments (PayMongo is in test mode), refunds through PayMongo, payouts (including the difference when a paid booking's change costs more or less), `payout_released`, `disputed` and `refunded`, deposits, the partner inbox (answering requests is `PATCH partner/listings/:id/bookings/:id`), the pickup and return checklists that will start and complete rentals, lowering a tour's `max_groups_per_day` below what is booked, and iCal sync.

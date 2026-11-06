@@ -5,7 +5,7 @@ module Bookings
   # "declined" frees its days. A request past its answer-by time has expired instead, and saying so is a
   # 422. `actor` is "system" when requests are accepted automatically (Bookings.auto_accept?),
   # until partners have an inbox, and "admin" when the team answers on the partner's behalf
-  # (RAA-141), with an optional reason kept on the booking's history. Declining a booking paid already (one its guest changed,
+  # (RAA-141). Either can give an optional reason, kept on the booking's history. Declining a booking paid already (one its guest changed,
   # RAA-134) records its whole payment as refunded.
   class Respond < ApplicationService
     DECISIONS = %w[accepted declined].freeze

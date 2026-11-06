@@ -56,6 +56,8 @@ class Booking < ApplicationRecord
 
   scope :holding, -> { where(status: HOLDING) }
   scope :unsettled, -> { where(status: UNSETTLED) }
+  # A partner's, through their listings: a booking's own user is its guest.
+  scope :of_partner, ->(partner) { joins(:listing).where(listings: { partner_id: partner.id }) }
   # Those that may take a day from `from` to `to`; a stay's last date is its check-out.
   scope :overlapping, ->(from, to) { where(starts_on: ..to, ends_on: from..) }
 

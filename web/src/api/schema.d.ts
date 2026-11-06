@@ -3596,7 +3596,7 @@ export interface paths {
         head?: never;
         /**
          * Answer or cancel a booking
-         * @description Partner-only (RAA-118, RAA-132). `accepted` or `declined` answers a guest's request: accepting holds it for the guest's payment (awaiting_payment, RAA-143); declining frees its days. `cancelled` cancels a booking that hasn't started, freeing its days and refunding a paid one in full, with an optional `reason`. A booking already at that status stays as it is.
+         * @description Partner-only (RAA-118, RAA-132). `accepted` or `declined` answers a guest's request: accepting holds it for the guest's payment (awaiting_payment, RAA-143); declining frees its days. `cancelled` cancels a booking that hasn't started, freeing its days and refunding a paid one in full. An optional `reason` is kept on the booking's history. A booking already at that status stays as it is.
          */
         patch: {
             parameters: {
@@ -3676,12 +3676,16 @@ export interface paths {
         };
         /**
          * Every booking of the partner's listings
-         * @description Partner-only (RAA-132). Newest first, at most 200, each with its listing; `status=requested` lists the requests to answer.
+         * @description Partner-only (RAA-132, RAA-266). Newest first, each with its listing, `per_page` at a time (at most 200, the default); the `X-Total-Count` header says how many there are in all. `status=requested` lists the requests to answer, and `from` and `to` those touching those dates (either may be left out).
          */
         get: {
             parameters: {
                 query?: {
                     status?: components["schemas"]["booking_status"];
+                    page?: number;
+                    per_page?: number;
+                    from?: string;
+                    to?: string;
                 };
                 header?: {
                     Authorization?: string;
@@ -3691,9 +3695,11 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description the requests to answer */
+                /** @description those touching the dates */
                 200: {
                     headers: {
+                        /** @description How many there are across every page */
+                        "X-Total-Count"?: number;
                         [name: string]: unknown;
                     };
                     content: {
@@ -3709,7 +3715,7 @@ export interface paths {
                         "application/json": components["schemas"]["error"];
                     };
                 };
-                /** @description a status that doesn't exist */
+                /** @description paging or dates that make no sense */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -4120,6 +4126,135 @@ export interface paths {
                     };
                 };
                 /** @description dates missing, backwards or too far apart */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The partner's dashboard
+         * @description Partner-only (RAA-266). What needs the partner now, with "today" and "this month" in Manila time: the tile counts, up to 5 open requests (soonest to expire first), the next 5 confirmed bookings, listings needing attention, setup steps and the latest activity. `estimated_earnings_cents` is an estimate of what the month's bookings pay out, as `GET partner/earnings` lists; nothing has been paid.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description recent activity, the team's answers marked by their actor */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_dashboard"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/earnings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An estimate of the partner's earnings in a month
+         * @description Partner-only (RAA-266). The bookings starting in `month` (YYYY-MM) with what each pays out: an estimate, as nothing has been paid yet. Cancelled, declined and expired bookings are left out, and so are those priced with the guest (`to_be_agreed`), which have no amount to count. Bookings taken offline are listed apart, the guest having paid the partner directly.
+         */
+        get: {
+            parameters: {
+                query: {
+                    month: string;
+                };
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the month's bookings and estimate */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_earnings"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a month missing or badly written */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -9730,13 +9865,66 @@ export interface components {
             /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
             pickup_time?: string | null;
         };
+        partner_dashboard: {
+            tiles: {
+                requests_waiting: number;
+                /** @description Confirmed bookings starting today */
+                arriving_today: number;
+                listings_live: number;
+                /** @description An estimate: nothing has been paid */
+                estimated_earnings_cents: number;
+            };
+            requests: components["schemas"]["booking"][];
+            upcoming: components["schemas"]["booking"][];
+            listings_needing_attention: {
+                id: number;
+                title: string;
+                /** @enum {string} */
+                status: "draft" | "active" | "paused" | "delisted";
+                live_blockers: ("photo" | "description" | "price" | "route")[];
+            }[];
+            setup: {
+                /** @enum {string} */
+                id_check_status: "not_started" | "in_progress" | "in_review" | "approved" | "declined" | "expired";
+                id_check: boolean;
+                profile: boolean;
+                business: boolean;
+                payout_account: boolean;
+            };
+            activity: {
+                id: number;
+                booking_id: number;
+                reference: string;
+                guest_name: string;
+                listing_id: number;
+                listing_title: string;
+                from_status: components["schemas"]["booking_status"] | null;
+                to_status: components["schemas"]["booking_status"];
+                /**
+                 * @description admin is the team answering for the partner
+                 * @enum {string}
+                 */
+                actor: "guest" | "partner" | "admin" | "system";
+                /** Format: date-time */
+                created_at: string;
+            }[];
+        };
+        partner_earnings: {
+            month: string;
+            /** @description What `bookings` pay out */
+            estimate_cents: number;
+            /** @description What `offline_bookings` came to, paid to the partner directly */
+            offline_cents: number;
+            bookings: components["schemas"]["booking"][];
+            offline_bookings: components["schemas"]["booking"][];
+        };
         booking_status_body: {
             /**
              * @description accepted / declined answer a request; cancelled refunds the guest in full
              * @enum {string}
              */
             status: "accepted" | "declined" | "cancelled";
-            /** @description Why it was cancelled */
+            /** @description Why it was declined or cancelled, kept on its history */
             reason?: string;
         };
         admin_area_row: {

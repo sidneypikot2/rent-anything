@@ -209,8 +209,8 @@ RSpec.describe "Partner bookings", type: :request do
       produces "application/json"
       description "Partner-only (RAA-118, RAA-132). `accepted` or `declined` answers a guest's request: accepting " \
         "holds it for the guest's payment (awaiting_payment, RAA-143); declining frees its days. " \
-        "`cancelled` cancels a booking that hasn't started, freeing its days and refunding a paid one in full, " \
-        "with an optional `reason`. A booking already at that status stays as it is."
+        "`cancelled` cancels a booking that hasn't started, freeing its days and refunding a paid one in full. " \
+        "An optional `reason` is kept on the booking's history. A booking already at that status stays as it is."
       security [ { bearer: [] } ]
       parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/booking_status_body" }
 
@@ -251,6 +251,30 @@ RSpec.describe "Partner bookings", type: :request do
           book(guest_name: "Ana", starts_on: booking.starts_on.iso8601, ends_on: booking.ends_on.iso8601, quantity: 2,
             total_cents: 0)
           expect(response).to have_http_status(:created)
+        end
+      end
+
+      response "200", "a request declined with a reason: kept on its history" do
+        schema "$ref" => "#/components/schemas/booking"
+
+        let(:booking) { create(:booking, :checkout, listing:, status: "requested", expires_at: 1.hour.from_now) }
+        let(:body) { { status: "declined", reason: "Not available on those dates" } }
+
+        run_test! do
+          expect(booking.events.find_by!(to_status: "declined")).to have_attributes(actor: "partner",
+            reason: "Not available on those dates")
+        end
+      end
+
+      response "422", "a reason that is too long" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:booking) { create(:booking, :checkout, listing:, status: "requested", expires_at: 1.hour.from_now) }
+        let(:body) { { status: "declined", reason: "x" * (Booking::REASON_LENGTH + 1) } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "Reason must be text of at most #{Booking::REASON_LENGTH} characters" ])
+          expect(booking.reload).to be_requested
         end
       end
 
@@ -334,12 +358,21 @@ RSpec.describe "Partner bookings", type: :request do
     get "Every booking of the partner's listings" do
       tags "Partner"
       produces "application/json"
-      description "Partner-only (RAA-132). Newest first, at most 200, each with its listing; `status=requested` " \
-        "lists the requests to answer."
+      description "Partner-only (RAA-132, RAA-266). Newest first, each with its listing, `per_page` at a time (at most " \
+        "200, the default); the `X-Total-Count` header says how many there are in all. `status=requested` lists the " \
+        "requests to answer, and `from` and `to` those touching those dates (either may be left out)."
       security [ { bearer: [] } ]
       parameter name: :status, in: :query, required: false, schema: { "$ref" => "#/components/schemas/booking_status" }
+      parameter name: :page, in: :query, required: false, schema: { type: :integer, minimum: 1, default: 1 }
+      parameter name: :per_page, in: :query, required: false, schema: { type: :integer, minimum: 1, maximum: 200, default: 200 }
+      parameter name: :from, in: :query, required: false, schema: { type: :string, format: :date }
+      parameter name: :to, in: :query, required: false, schema: { type: :string, format: :date }
 
       let(:status) { nil }
+      let(:page) { nil }
+      let(:per_page) { nil }
+      let(:from) { nil }
+      let(:to) { nil }
 
       before do
         create(:booking, listing:, guest_name: "Offline")
@@ -349,8 +382,10 @@ RSpec.describe "Partner bookings", type: :request do
 
       response "200", "all of them" do
         schema type: :array, items: { "$ref" => "#/components/schemas/booking" }
+        header "X-Total-Count", schema: { type: :integer }, description: "How many there are across every page"
 
         run_test! do |response|
+          expect(response.headers["X-Total-Count"]).to eq("2")
           expect(response.parsed_body.pluck("guest_name")).to eq(%w[Asking Offline])
           expect(response.parsed_body.first).to include("payout_cents" => 400_000)
           expect(response.parsed_body.first.keys).not_to include("total_cents", "commission_cents")
@@ -367,12 +402,62 @@ RSpec.describe "Partner bookings", type: :request do
         run_test! { |response| expect(response.parsed_body.pluck("guest_name")).to eq(%w[Asking]) }
       end
 
+      response "200", "a page of them, counting them all" do
+        schema type: :array, items: { "$ref" => "#/components/schemas/booking" }
+
+        let(:page) { 2 }
+        let(:per_page) { 1 }
+
+        run_test! do |response|
+          expect(response.parsed_body.pluck("guest_name")).to eq(%w[Offline])
+          expect(response.headers["X-Total-Count"]).to eq("2")
+        end
+      end
+
+      response "200", "those touching the dates" do
+        schema type: :array, items: { "$ref" => "#/components/schemas/booking" }
+
+        let(:from) { (Date.current + 30).iso8601 }
+        let(:to) { (Date.current + 31).iso8601 }
+
+        before do
+          create(:booking, listing:, guest_name: "Overlaps", starts_on: Date.current + 29, ends_on: Date.current + 30)
+          create(:booking, listing:, guest_name: "After", starts_on: Date.current + 32, ends_on: Date.current + 33)
+        end
+
+        run_test! do |first|
+          expect(first.parsed_body.pluck("guest_name")).to eq(%w[Overlaps])
+          get "/api/v1/partner/bookings", params: { from: (Date.current + 32).iso8601 }, headers: { "Authorization" => Authorization() }
+          expect(response.parsed_body.pluck("guest_name")).to eq(%w[After])
+        end
+      end
+
       response "422", "a status that doesn't exist" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
         let(:status) { "pending" }
 
-        run_test!
+        run_test! do |response|
+          expect(response.parsed_body["errors"].first).to start_with("Status must be one of requested")
+        end
+      end
+
+      response "422", "paging or dates that make no sense" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:page) { 0 }
+
+        run_test! do |first|
+          expect(first.parsed_body["errors"]).to eq([ "Page must be from 1 to 100000" ])
+          [ [ { page: "two" }, "Page must be a whole number" ],
+            [ { page: "9" * 30 }, "Page must be from 1 to 100000" ],
+            [ { per_page: 201 }, "Per page must be from 1 to 200" ],
+            [ { from: "soon" }, "From must be a date like 2026-11-12" ],
+            [ { from: "2026-11-12", to: "2026-11-11" }, "To can't be before from" ] ].each do |query, message|
+            get "/api/v1/partner/bookings", params: query, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["errors"]).to eq([ message ])
+          end
+        end
       end
 
       response "403", "a guest" do
