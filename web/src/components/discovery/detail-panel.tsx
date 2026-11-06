@@ -166,6 +166,19 @@ export function LandmarkPanel({
   );
 }
 
+// A listing's own endpoint, fetched once and kept for whoever needs it next.
+export function listingQuery(listingId: number) {
+  return {
+    queryKey: ["listing", listingId],
+    queryFn: async () => {
+      const { data, error } = await apiClient().GET("/api/v1/listings/{id}", { params: { path: { id: listingId } } });
+      if (error || !data) throw new Error("Couldn't load this listing");
+      return data;
+    },
+    staleTime: 5 * 60_000,
+  };
+}
+
 // A thing to book, whole, under its photos and title. What the area page already has shows at once; the description, a
 // tour's facts, a stay's or a vehicle's price and fees come from the listing's own endpoint, fetched when
 // the panel opens and kept, so opening it again is instant. With the page's trip dates a stay's
@@ -190,15 +203,7 @@ export function ListingPanel({
   dates?: TripDates;
 }) {
   const fullHref = useTripHref()(href);
-  const { data: listing, isPending, isError } = useQuery({
-    queryKey: ["listing", listingId],
-    queryFn: async () => {
-      const { data, error } = await apiClient().GET("/api/v1/listings/{id}", { params: { path: { id: listingId } } });
-      if (error || !data) throw new Error("Couldn't load this listing");
-      return data;
-    },
-    staleTime: 5 * 60_000,
-  });
+  const { data: listing, isPending, isError } = useQuery(listingQuery(listingId));
   // The full description only when it says more than the summary above it.
   const description = listing?.description.trim();
 

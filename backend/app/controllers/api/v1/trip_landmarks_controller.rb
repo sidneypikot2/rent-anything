@@ -13,6 +13,10 @@ module Api
         render json: TripSerializer.reloaded(trip), status: :created
       end
 
+      def update
+        render json: TripSerializer.reloaded(Trips::PlanLandmark.call(current_user, params[:id], params.slice(:plan, :visit_on)))
+      end
+
       def destroy
         saved = TripLandmark.joins(:trip).where(trips: { user_id: current_user.id }).find(params[:id])
         saved.destroy!

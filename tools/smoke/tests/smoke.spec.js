@@ -77,6 +77,12 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   const { pathname, search } = new URL(page.url());
   await page.goto(`${pathname}/review${search}`);
   await expect(page.getByTestId("plan-days")).toBeVisible();
+  // The pick from step 2 is in the places panel, undecided until the guest says how.
+  await expect(page.getByTestId("plan-places-count")).toHaveText("0 of 1 sorted");
+  await page.getByTestId("plan-pick-choose").first().click();
+  await page.getByTestId("plan-way-skip").click();
+  await page.getByTestId("plan-chooser-save").click();
+  await expect(page.getByTestId("plan-places-count")).toHaveText("1 of 1 sorted");
   // Planning again with a trip already made asks which on the home page; the trip has dates, so
   // continuing it opens its checklist.
   const tripId = new URL(page.url()).searchParams.get("trip");

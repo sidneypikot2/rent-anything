@@ -38,7 +38,8 @@ RSpec.describe "Saved places", type: :request do
         run_test! do |response|
           saved = trip.saved_landmarks.sole
           expect(response.parsed_body["saved_landmarks"]).to eq(
-            [ { "id" => saved.id, "slug" => "kota-beach", "name" => "Kota Beach", "area_slug" => "santa-fe" } ]
+            [ { "id" => saved.id, "slug" => "kota-beach", "name" => "Kota Beach", "area_slug" => "santa-fe",
+                "plan" => nil, "visit_on" => nil } ]
           )
           expect(response.parsed_body["destinations"]).to eq([])
           expect(trip.reload.name).to eq("Bantayan with friends")
@@ -106,6 +107,111 @@ RSpec.describe "Saved places", type: :request do
     parameter name: :id, in: :path, schema: { type: :integer }
     let(:saved) { trip.saved_landmarks.create!(landmark: kota) }
     let(:id) { saved.id }
+
+    patch "Say how the guest means to see a saved place" do
+      tags "Trips"
+      consumes "application/json"
+      produces "application/json"
+      description "Guest-only. `plan` is `own` with `visit_on`, a day of the trip; `skip`; or null to leave it " \
+        "undecided. A rental never sets this, and a tour needs none: a tour in the trip covers a place by " \
+        "stopping there. Answers with the trip."
+      security [ { bearer: [] } ]
+      parameter name: :Authorization, in: :header, schema: { type: :string }
+      parameter name: :body, in: :body, schema: {
+        type: :object,
+        properties: {
+          plan: { type: :string, nullable: true, enum: [ "own", "skip", nil ] },
+          visit_on: { type: :string, format: :date, nullable: true, description: "Required for `own`" }
+        },
+        required: %w[plan]
+      }
+      let(:trip) { create(:trip, user:, starts_on: Date.new(2027, 2, 10), ends_on: Date.new(2027, 2, 12)) }
+
+      response "200", "going on their own, on a day of the trip" do
+        schema "$ref" => "#/components/schemas/trip"
+        let(:body) { { plan: "own", visit_on: "2027-02-11" } }
+
+        run_test! do |response|
+          expect(response.parsed_body["saved_landmarks"].sole).to include("plan" => "own", "visit_on" => "2027-02-11")
+        end
+      end
+
+      response "200", "skipping it clears the day" do
+        schema "$ref" => "#/components/schemas/trip"
+        let(:saved) { trip.saved_landmarks.create!(landmark: kota, plan: "own", visit_on: Date.new(2027, 2, 11)) }
+        let(:body) { { plan: "skip", visit_on: "2027-02-11" } }
+
+        run_test! { expect(saved.reload).to have_attributes(plan: "skip", visit_on: nil) }
+      end
+
+      response "200", "null goes back to undecided" do
+        schema "$ref" => "#/components/schemas/trip"
+        let(:saved) { trip.saved_landmarks.create!(landmark: kota, plan: "skip") }
+        let(:body) { { plan: nil } }
+
+        run_test! { expect(saved.reload.plan).to be_nil }
+      end
+
+      response "422", "a day outside the trip" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { { plan: "own", visit_on: "2027-02-13" } }
+
+        run_test! { expect(saved.reload.plan).to be_nil }
+      end
+
+      response "422", "going on their own with no day" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { { plan: "own" } }
+
+        run_test!
+      end
+
+      response "422", "an undated trip has no day to go on" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:trip) { create(:trip, user:) }
+        let(:body) { { plan: "own", visit_on: "2027-02-11" } }
+
+        run_test!
+      end
+
+      response "422", "a plan that isn't one" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { { plan: "ride" } }
+
+        run_test!
+      end
+
+      response "422", "no plan sent" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+        let(:body) { { visit_on: "2027-02-11" } }
+
+        run_test!
+      end
+
+      response "404", "another guest's saved place" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:id) { create(:trip).saved_landmarks.create!(landmark: kota).id }
+        let(:body) { { plan: "skip" } }
+
+        run_test!
+      end
+
+      response "401", "signed out" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:Authorization) { nil }
+        let(:body) { { plan: "skip" } }
+
+        run_test!
+      end
+
+      response "403", "a partner" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:Authorization) { bearer_for(create(:user, :partner)) }
+        let(:body) { { plan: "skip" } }
+
+        run_test!
+      end
+    end
 
     delete "Remove a saved place from its trip" do
       tags "Trips"
