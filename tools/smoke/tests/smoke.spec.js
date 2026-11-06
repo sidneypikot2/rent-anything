@@ -389,7 +389,7 @@ test("sign-up and the partner guard", async ({ page }) => {
   await page.mouse.move(640, 500);
   await expect(sidebar).toHaveCSS("width", "44px");
   await sidebar.hover();
-  await expect(sidebar).toHaveCSS("width", "224px");
+  await expect(sidebar).toHaveCSS("width", "176px");
   await page.mouse.move(640, 500);
   await expect(sidebar).toHaveCSS("width", "44px");
 

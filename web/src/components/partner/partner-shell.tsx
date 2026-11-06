@@ -68,9 +68,9 @@ function CountBadge({ count, className }: { count: number; className?: string })
 
 // A rail of icons that opens on hover, or on keyboard focus, taking its room from the page beside
 // it rather than floating over it. Only :focus-visible counts: a clicked link keeps focus and
-// would hold it open. Labels are only faded, so a screen reader always has them, and `title`
-// names an icon on a touch screen's long press. It moves the whole page, so it goes slowly, easing in and out, after
-// a pause that lets a pointer cross it without setting it off, and not at all under reduced motion.
+// would hold it open. Labels are only faded, so a screen reader always has them. It moves the
+// whole page, so it goes slowly, easing in and out, after a pause that lets a pointer cross it
+// without setting it off, and not at all under reduced motion.
 function Sidebar() {
   const pathname = usePathname();
   const requests = useRequestCount();
@@ -82,7 +82,7 @@ function Sidebar() {
     <nav
       aria-label="Partner"
       data-testid="partner-sidebar"
-      className="group sticky top-(--chrome) hidden max-h-[calc(100dvh-var(--chrome))] w-11 shrink-0 flex-col gap-1 self-start overflow-x-hidden overflow-y-auto py-page-pad transition-[width] delay-300 duration-700 ease-soft hover:w-56 hover:delay-150 has-focus-visible:w-56 has-focus-visible:delay-0 motion-reduce:transition-none md:flex"
+      className="group sticky top-(--chrome) hidden max-h-[calc(100dvh-var(--chrome))] w-11 shrink-0 flex-col gap-1 self-start overflow-x-hidden overflow-y-auto py-page-pad transition-[width] delay-300 duration-700 ease-soft hover:w-44 hover:delay-150 has-focus-visible:w-44 has-focus-visible:delay-0 motion-reduce:transition-none md:flex"
     >
       <ul className="flex flex-col gap-1">
         {TABS.map((tab) => {
@@ -93,7 +93,6 @@ function Sidebar() {
                 href={tab.href}
                 data-testid={`partner-nav-${tab.id}`}
                 aria-current={current ? "page" : undefined}
-                title={tab.label}
                 className={cn(row, current ? "bg-sky-mist font-semibold text-primary" : "text-muted hover:bg-mist hover:text-foreground")}
               >
                 {tab.icon}
@@ -105,7 +104,7 @@ function Sidebar() {
         })}
       </ul>
       <div className="mt-1 border-t border-line pt-1">
-        <button type="button" onClick={onSignOut} data-testid="partner-nav-signout" title="Sign out" className={cn(row, "cursor-pointer", MENU_DANGER)}>
+        <button type="button" onClick={onSignOut} data-testid="partner-nav-signout" className={cn(row, "cursor-pointer", MENU_DANGER)}>
           <SignOutGlyph className={ICON} />
           <span className={label}>Sign out</span>
         </button>
