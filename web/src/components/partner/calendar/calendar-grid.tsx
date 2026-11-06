@@ -490,7 +490,7 @@ function BookingBar({
       {booking.status === "requested" && "Request · "}
       {booking.starts_at && booking.ends_at && `${rentalTime(booking.starts_at)}–${rentalTime(booking.ends_at)} · `}
       {booking.guest_name}
-      {booking.quantity > 1 && ` ×${booking.quantity}`} · {formatPeso(booking.total_cents)}
+      {booking.quantity > 1 && ` ×${booking.quantity}`} · {formatPeso(booking.payout_cents)}
     </button>
   );
 }

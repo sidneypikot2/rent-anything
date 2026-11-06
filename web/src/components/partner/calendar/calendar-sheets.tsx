@@ -30,7 +30,11 @@ import { deliveryText } from "@/components/trips/delivery-options";
 
 type Done = (message: string) => void;
 
-const isStay = (listing: CalendarListing) => listing.category.booking_type === "stay";
+// What a booking's sheet needs of its listing: a booking carries this much, so it opens away
+// from the calendar too (the dashboard's requests, RAA-261).
+type SheetListing = CalendarBooking["listing"];
+
+const isStay = (listing: SheetListing) => listing.category.booking_type === "stay";
 const isJoiner = (listing: CalendarListing) => listing.capacity_unit === "seats";
 // A vehicle rental (RAA-195), the one kind with a turnaround: its selected days are rental days,
 // each 24 hours from the pickup, so it comes back on the day after the last one.
@@ -44,7 +48,7 @@ const PICKUP_TIMES = Array.from({ length: 48 }, (_, index) => {
 });
 
 // What a booking's quantity counts, for labels: "joiners", "groups", "units".
-function quantityNoun(listing: CalendarListing, count = 2) {
+function quantityNoun(listing: SheetListing, count = 2) {
   const one = { seats: "joiner", groups: "group", units: "unit" }[listing.capacity_unit];
   return count === 1 ? one : `${one}s`;
 }
@@ -397,7 +401,7 @@ function Confirm({
   );
 }
 
-function bookingDates(listing: CalendarListing, booking: CalendarBooking) {
+function bookingDates(listing: SheetListing, booking: CalendarBooking) {
   if (booking.starts_at && booking.ends_at) {
     return `Pickup ${shortDate(booking.starts_on)}, ${rentalTime(booking.starts_at)} · Back ${shortDate(addDays(booking.starts_on, Math.max(daysBetween(booking.starts_on, booking.ends_on), 1)))}, ${rentalTime(booking.ends_at)}`;
   }
@@ -413,7 +417,7 @@ export function BookingSheet({
   onClose,
   onDone,
 }: {
-  listing: CalendarListing;
+  listing: SheetListing;
   booking: CalendarBooking;
   today: string;
   onClose: () => void;
@@ -434,10 +438,7 @@ export function BookingSheet({
     ...(booking.guests ? [["Guests", String(booking.guests)] as [string, string]] : []),
     ...(rooms ? [["Rooms and pets", rooms] as [string, string]] : []),
     ...(deliveryText(booking, Boolean(booking.starts_at)) ? [["Delivery", deliveryText(booking, Boolean(booking.starts_at)) ?? ""] as [string, string]] : []),
-    ["Total", booking.to_be_agreed ? "To be agreed with the guest" : formatPeso(booking.total_cents)],
-    ...(booking.source === "checkout" && !booking.to_be_agreed
-      ? [["Commission", formatPeso(booking.commission_cents)] as [string, string]]
-      : []),
+    ["Your payout", booking.to_be_agreed ? "To be agreed with the guest" : formatPeso(booking.payout_cents)],
     ["Taken", booking.source === "offline" ? "Offline, by you" : booking.booking_mode === "instant" ? "In the app, instant book" : "In the app, on request"],
     ...(request && booking.expires_at
       ? [["Answer by", new Date(booking.expires_at).toLocaleString("en-PH", { dateStyle: "medium", timeStyle: "short" })] as [string, string]]
@@ -649,7 +650,7 @@ export function JoinerDaySheet({
           <li key={booking.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
             <span>
               <span className="font-semibold">{booking.guest_name}</span> · {booking.quantity}{" "}
-              {quantityNoun(listing, booking.quantity)} · {formatPeso(booking.total_cents)}
+              {quantityNoun(listing, booking.quantity)} · {formatPeso(booking.payout_cents)}
               <span className="text-muted"> · {booking.source === "offline" ? "Offline" : "In the app"}</span>
             </span>
             {booking.ends_on >= today && (
