@@ -67,7 +67,8 @@ module TripSerializer
   # A place to see the guest saved, and the place its page is (`area_slug`, as /<area>#<slug>).
   def self.saved_landmark(saved)
     landmark = saved.landmark
-    { id: saved.id, slug: landmark.slug, name: landmark.name, area_slug: landmark.area.slug }
+    { id: saved.id, slug: landmark.slug, name: landmark.name, area_slug: landmark.area.slug,
+      plan: saved.plan, visit_on: saved.visit_on&.iso8601 }
   end
 
   def self.item(item, ledger, destinations)

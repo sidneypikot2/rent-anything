@@ -27,6 +27,17 @@ RSpec.describe Trips::Copy do
     expect(copy.booked?).to be(false)
   end
 
+  it "keeps a skipped place skipped, and a place planned for a day of the old trip undecided" do
+    trip = create(:trip, user:, starts_on: day, ends_on: day + 2)
+    skipped = trip.saved_landmarks.create!(landmark: create(:landmark), plan: "skip")
+    planned = trip.saved_landmarks.create!(landmark: create(:landmark), plan: "own", visit_on: day + 1)
+
+    copy = described_class.call(trip, { starts_on: (day + 30).iso8601 })[:trip]
+
+    expect(copy.saved_landmarks.find_by(landmark: skipped.landmark).plan).to eq("skip")
+    expect(copy.saved_landmarks.find_by(landmark: planned.landmark)).to have_attributes(plan: nil, visit_on: nil)
+  end
+
   it "keeps a long name within 80 characters" do
     trip = create(:trip, :undated, user:, name: "x" * 80)
 

@@ -6822,7 +6822,82 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Say how the guest means to see a saved place
+         * @description Guest-only. `plan` is `own` with `visit_on`, a day of the trip; `skip`; or null to leave it undecided. A rental never sets this, and a tour needs none: a tour in the trip covers a place by stopping there. Answers with the trip.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @enum {string|null} */
+                        plan: "own" | "skip" | null;
+                        /**
+                         * Format: date
+                         * @description Required for `own`
+                         */
+                        visit_on?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description null goes back to undecided */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["trip"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a partner */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another guest's saved place */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description no plan sent */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
         trace?: never;
     };
     "/api/v1/trips/{trip_id}/share": {
@@ -7858,6 +7933,16 @@ export interface components {
             name: string;
             /** @description The place whose page it is on: /<area_slug>#<slug> */
             area_slug: string;
+            /**
+             * @description How the guest means to see it: `own` on `visit_on`, `skip`, or null (undecided, or covered when a tour in the trip stops there)
+             * @enum {string|null}
+             */
+            plan: "own" | "skip" | null;
+            /**
+             * Format: date
+             * @description The day of the trip for `own`
+             */
+            visit_on: string | null;
         };
         trip_item: {
             id: number;
