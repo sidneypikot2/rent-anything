@@ -11,8 +11,11 @@ class Listing < ApplicationRecord
     "photo" => "a photo",
     "description" => "a description of at least 50 characters",
     "price" => "a price",
-    "route" => "a landmark on its route"
+    "route" => "a landmark on its route",
+    "stops" => "at least two stops on its route"
   }.freeze
+  # A tour goes to several places (RAA-268); a one-place trip is an activity.
+  MIN_TOUR_STOPS = 2
   # What a guest gets back on cancelling (RAA-88), chosen by the partner; refunds follow it in M4.
   CANCELLATION_POLICIES = {
     "free_cancellation" => { name: "Free cancellation",
@@ -186,14 +189,17 @@ class Listing < ApplicationRecord
       ("photo" unless photos.any?(&:ready?)),
       ("description" if description.strip.length < LIVE_DESCRIPTION_MIN),
       ("price" if needs_price?),
-      ("route" if category.activity? && visited_landmarks.empty?)
+      ("route" if category.activity? && !category.tour? && visited_landmarks.empty?),
+      ("stops" if category.tour? && visited_landmarks.size < MIN_TOUR_STOPS)
     ].compact
   end
 
   # Refuses a change that takes from a live listing something it needs to be live (RAA-115);
   # what it lacked already (a listing made live before the rule) doesn't block the change.
   def check_still_live!(blockers_before)
-    added = active? ? live_blockers - blockers_before : []
+    # A tour short of stops was short of a route too, should it become another activity.
+    lacked = blockers_before.include?("stops") ? [ *blockers_before, "route" ] : blockers_before
+    added = active? ? live_blockers - lacked : []
     return if added.empty?
 
     errors.add(:base, "A live listing needs #{added.map { LIVE_BLOCKERS[_1] }.to_sentence}: pause it first")

@@ -415,6 +415,7 @@ export function ListingForm({
 
         {visitsLandmarks && (
           <EditSection id="landmarks" title={tourCategory ? "Destinations" : "Landmarks it visits"} data-testid="listing-landmarks">
+            {tourCategory && <p className="text-sm text-muted">A tour needs at least two to go live.</p>}
             <LandmarkPicker value={landmarks} onChange={setLandmarks} near={location} />
           </EditSection>
         )}

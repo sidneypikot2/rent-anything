@@ -71,7 +71,7 @@ RSpec.describe "Partner listing status", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body["errors"]).to eq(
-            [ "To go live it needs a photo, a description of at least 50 characters, a price, and a landmark on its route" ]
+            [ "To go live it needs a photo, a description of at least 50 characters, a price, and at least two stops on its route" ]
           )
           expect(listing.reload).to be_draft
         end

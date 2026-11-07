@@ -9,6 +9,7 @@ const WAVES = (y: number) => `M3 ${y}c2 1.5 4 1.5 6 0s4-1.5 6 0 4 1.5 6 0`;
 const PIN = ["M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z", circle(12, 10, 2.5)];
 const TICKET = ["M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4Z", "M14 7v10"];
 const SAILBOAT = ["M12 3v13", "M12 5l6 9h-6", "M12 8l-5 6h5", WAVES(19)];
+const WATER_RIDE = [WAVES(13), WAVES(18), "M8 8l4-3 4 3"];
 const CAMERA = ["M4 8h3l2-3h6l2 3h3v11H4Z", circle(12, 13, 3.5)];
 const SNORKEL = [
   "M6 8h9a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2l-1.5-2h-2L8 14H6a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2Z",
@@ -51,6 +52,15 @@ const AREAS: Record<string, string[]> = {
 
 const CATEGORIES: Record<string, string[]> = {
   Tour: SAILBOAT,
+  "Jet ski": WATER_RIDE,
+  "Banana boat ride": WATER_RIDE,
+  Kayaking: WATER_RIDE,
+  "Stand up paddle": WATER_RIDE,
+  Kitesurfing: WATER_RIDE,
+  "Paraw sailing": SAILBOAT,
+  "Sunset cruise": SAILBOAT,
+  "Scuba diving": SNORKEL,
+  Freediving: SNORKEL,
   Camera: CAMERA,
   "Hotel or cottage": HUT,
   "Cottage or bungalow": HUT,

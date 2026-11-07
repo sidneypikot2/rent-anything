@@ -10,6 +10,18 @@ RSpec.describe Category do
     end
   end
 
+  describe "#water_activity? (RAA-268)" do
+    let(:water) { create(:category, :parent, slug: "water-activities", name: "Water activities") }
+
+    it "is an activity under Water activities" do
+      expect(create(:category, slug: "jet-ski", name: "Jet ski", booking_type: "activity", parent: water)).to be_water_activity
+    end
+
+    it "isn't a tour" do
+      expect(create(:category, slug: "tour", name: "Tour", booking_type: "activity")).not_to be_water_activity
+    end
+  end
+
   describe "#guest_group" do
     let(:vehicles) { create(:category, :parent, slug: "vehicle-rentals", name: "Vehicle rental") }
     let(:gear) { create(:category, :parent, slug: "equipment-rentals", name: "Equipment rental") }

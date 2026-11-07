@@ -7,6 +7,7 @@ class Category < ApplicationRecord
   # Where guests find a listing (#guest_group): its booking type, or gear.
   GUEST_GROUPS = %w[stay transfer rental activity gear].freeze
   GEAR_PARENT = "equipment-rentals".freeze
+  WATER_PARENT = "water-activities".freeze
 
   belongs_to :parent, class_name: "Category", optional: true
   has_many :children, class_name: "Category", foreign_key: :parent_id, inverse_of: :parent,
@@ -47,6 +48,11 @@ class Category < ApplicationRecord
   # not its guests (Booking.units_for).
   def gear?
     rental? && parent&.slug == GEAR_PARENT
+  end
+
+  # Something to do on the water (RAA-268): a jet ski, a dive, a paraw sail.
+  def water_activity?
+    activity? && parent&.slug == WATER_PARENT
   end
 
   # A rental that runs 24 hours a day from its pickup (RAA-195), priced by a VehicleRate: a vehicle,

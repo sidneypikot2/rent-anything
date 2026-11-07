@@ -45,6 +45,8 @@ availability works.
 | `activity` | sardine run tour, freediving lesson, island hopping | per person or per group, per slot | slots with a seat capacity |
 | `transfer` | airport ↔ hotel van, private car, shared shuttle | fixed per route, per vehicle or per seat | vehicles blocked for pickup time + duration + buffer |
 
+`activity` covers two groups partners pick from (RAA-268): **Tours**, trips to several places at one price for the whole experience (at least two stops to go live), and **Water activities**, one type each (jet ski, scuba diving, paraw sailing and so on), which share one guided builder. Guests find both under Tours & activities.
+
 - **Duration tiers** (`pricing_tiers`: `duration_minutes`, `price_cents`) cover everything
   from a jetski's ₱2,500/10 min and ₱5,000/30 min to a motorbike's day rate and a stay's
   night (1440 min). A quote picks the cheapest combination of tiers that covers the period.

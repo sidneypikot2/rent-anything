@@ -92,9 +92,21 @@ export function visitsLandmarks(category: { booking_type: string } | undefined) 
   return category?.booking_type === "activity";
 }
 
-// "Vehicle rental › Motorcycle": a bookable category with its parent, as a partner reads it.
+// How each top-level category is offered, in the order partners on the island most often list:
+// tours first. Named as guests find them on an area page (BOOKING_GROUPS), so a partner's
+// "Getting around" is the guest's. A group the API adds later still shows, under its own name, after these.
+export const GROUPS: Record<string, { label: string; description: string }> = {
+  Tours: { label: "Tours", description: "Trips to several places, one price for the whole experience" },
+  "Water activities": { label: "Water activities", description: "Jet skis, diving, paddling and more" },
+  "Vehicle rental": { label: "Getting around", description: "Motorbikes, cars and vans" },
+  Accommodation: { label: "A place to stay", description: "Rooms, cottages, resorts and villas" },
+  Transport: { label: "Transfers", description: "Port and airport pickups, van transfers" },
+  "Equipment rental": { label: "Gear", description: "Cameras, snorkel sets and more" },
+};
+// "Getting around › Motorcycle": a bookable category with its group, as the partner picked it.
 export function categoryLabel(category: ListingCategory) {
-  return category.parent_name ? `${category.parent_name} › ${category.name}` : category.name;
+  const parent = category.parent_name;
+  return parent ? `${GROUPS[parent]?.label ?? parent} › ${category.name}` : category.name;
 }
 
 export type CategoryGroup = { name: string; categories: ListingCategory[] };
@@ -124,9 +136,17 @@ const TITLE_EXAMPLES: Record<string, string> = {
   "action-camera": "GoPro Hero 12 with dive housing",
   camera: "Sony mirrorless with a zoom lens",
   "snorkel-gear": "Mask, snorkel and fins set",
-  photographer: "Sunset photo shoot at Paradise Beach",
   van: "Hagnaya port to Santa Fe van transfer",
   tour: "Island hopping to Virgin Island and Hilantagaan",
+  "jet-ski": "Jet ski ride at Kota Beach",
+  "scuba-diving": "Fun dive at Malapascua",
+  freediving: "Freediving session at Kota Beach",
+  "paraw-sailing": "Paraw sail around Santa Fe",
+  kayaking: "Kayak rental at Sugar Beach",
+  "stand-up-paddle": "Paddle board rental at Sugar Beach",
+  "banana-boat": "Banana boat ride at Kota Beach",
+  "sunset-cruise": "Sunset cruise from Santa Fe port",
+  kitesurfing: "Kitesurfing lesson for beginners",
 };
 
 export function titleExample(category: ListingCategory | undefined) {
