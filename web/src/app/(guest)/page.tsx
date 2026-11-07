@@ -21,8 +21,8 @@ const TRUST = ["Local partners", "Plan your trip free", "Nothing paid in the app
 
 // The guest home: three ways in (2026-11-06, after the Eateria hero on Dribbble). One dark frame
 // over the site's backdrop, under the site's header: a pill saying where we are live, a centred
-// headline, then Plan a trip (the guided planner, the main way in), Book one thing (down to
-// "Book just one thing" below) and Explore Bantayan (the launch area's page) and what is true about booking,
+// headline, then Plan a trip (the guided planner, the main way in), Book one thing (the launch
+// area's What to book, `#listings`) and Explore Bantayan (the launch area's page) and what is true about booking,
 // all over the port's photo. Under it, on a white sheet (the team's E),
 // "Book just one thing" (the five kinds, each opening the launch area's What to book on it), "Get to know
 // Bantayan" (its places to see, streamed in behind a skeleton), How booking works, Why TripKoNext and a
@@ -76,7 +76,7 @@ export default function Home() {
           </p>
           <div className="mt-3 grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:justify-center">
             <HomePlanButton className="max-sm:col-span-2" />
-            <Link href="#book-one" data-testid="home-book-one" className={QUIET_WAY}>
+            <Link href={`${areaHref}#listings`} data-testid="home-book-one" className={QUIET_WAY}>
               <BagGlyph className="size-5 max-sm:hidden" />
               Book one thing
             </Link>

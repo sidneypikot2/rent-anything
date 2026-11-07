@@ -48,6 +48,9 @@ function getDock() {
   dock = document.createElement("div");
   dock.id = "floating-dock";
   dock.className = DOCK_CLASS;
+  // A landmark of its own, as it sits outside main: screen readers' landmark list reaches it.
+  dock.setAttribute("role", "region");
+  dock.setAttribute("aria-label", "Shortcuts");
   document.body.append(dock);
   window.addEventListener("scroll", schedule, { passive: true });
   window.addEventListener("resize", schedule);

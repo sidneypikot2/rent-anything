@@ -21,9 +21,10 @@ export function PlacesGrid({ items }: { items: { id: string; card: ReactNode }[]
 
   useEffect(() => {
     const follow = () => {
-      const id = decodeURIComponent(window.location.hash.slice(1));
-      const at = items.findIndex((item) => item.id === id);
-      if (at < FIRST_PLACES) return;
+      // Compared raw: decoding a mangled hash (#%E0) would throw. Slugs need no decoding.
+      const at = items.findIndex((item) => `#${item.id}` === window.location.hash);
+      const id = items[at]?.id;
+      if (!id || at < FIRST_PLACES) return;
       setOpen(true);
       setReveal({ id });
     };

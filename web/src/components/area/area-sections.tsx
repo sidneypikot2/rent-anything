@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
+import { glassClasses } from "@/components/ui/glass";
 import { SectionTitle } from "@/components/ui/typography";
 import {
   AlertGlyph,
@@ -54,8 +55,10 @@ export function AreaBannerIntro({
       {facts.length > 0 && (
         <dl data-testid="area-facts" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {facts.map((fact) => (
-            <div key={fact.label} className="flex flex-col gap-0.5 rounded-control border border-glass-edge bg-glass-fill px-3 py-2">
-              <dt className="text-small text-sky-pale">{fact.label}</dt>
+            // The card glass, as a photo card's text panel: any banner photo, however bright, keeps
+            // its label at 5:1 (the faint glass fill fell near 2:1 over a pale one).
+            <div key={fact.label} className={cn("flex flex-col gap-0.5 rounded-control px-3 py-2", glassClasses("card"))}>
+              <dt className="text-small text-sky-mist">{fact.label}</dt>
               <dd className="text-sm font-semibold">{fact.value}</dd>
             </div>
           ))}
@@ -141,7 +144,8 @@ function Part({ id, testId, title, intro, children }: { id: string; testId?: str
 const SEASON_TILE: Record<Season, string> = {
   dry: "bg-sky-deep text-white",
   drying: "bg-sky-pale text-navy",
-  wet: "bg-tag text-muted",
+  // An edge, as its tint is close to the sheet's and the key's swatch would vanish without one.
+  wet: "bg-tag text-muted inset-ring-1 inset-ring-line-strong",
 };
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -175,7 +179,8 @@ export function AreaWhenToGo({
                 )}
               >
                 <span className="text-sm font-bold">{MONTHS[month]}</span>
-                <span className="text-small font-semibold max-sm:sr-only">
+                {/* Said on a phone too, so a month's season never rests on its colour alone. */}
+                <span className="text-small font-semibold">
                   {SEASON_LABEL[season]}
                   {busy.has(month) && <span className="sr-only">, busy</span>}
                 </span>
@@ -231,8 +236,15 @@ export function AreaGettingHere({
 }) {
   const here = route.length > 0 || routeText;
   if (!here && around.length === 0) return null;
+  // Side by side only when both columns have something to hold: one way around beside the route
+  // left most of its column empty, so it then goes under the route instead.
+  const beside = here && around.length > 1;
   return (
-    <section id="getting-here" data-testid="area-getting-here" className="grid gap-section lg:grid-cols-[7fr_5fr] lg:gap-gutter">
+    <section
+      id="getting-here"
+      data-testid="area-getting-here"
+      className={cn("grid grid-cols-1 gap-section", beside ? "lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-gutter" : "max-w-narrow")}
+    >
       {here && (
         <div className="flex flex-col gap-block">
           <SectionTitle>Getting to {name}</SectionTitle>
@@ -240,18 +252,19 @@ export function AreaGettingHere({
             {route.length > 0 ? (
               <ol className="divide-y divide-line">
                 {route.map((step, index) => (
-                  <li key={step.what} className="flex items-center gap-3.5 py-3">
+                  // At a large text size the time wraps under the step rather than squeezing it.
+                  <li key={step.what} className="flex flex-wrap items-center gap-x-3.5 gap-y-1 py-3">
                     <span
                       aria-hidden
                       className="flex size-10 shrink-0 items-center justify-center rounded-control bg-tag text-sm font-extrabold text-primary"
                     >
                       {index + 1}
                     </span>
-                    <span className="min-w-0 flex-1">
+                    <span className="min-w-0 flex-1 basis-32">
                       <span className="block font-semibold">{step.what}</span>
                       <span className="block text-sm text-muted">{step.note}</span>
                     </span>
-                    <span className="shrink-0 text-sm font-bold">{step.time}</span>
+                    <span className="ml-auto shrink-0 text-sm font-bold">{step.time}</span>
                   </li>
                 ))}
               </ol>
@@ -274,10 +287,11 @@ export function AreaGettingHere({
       {around.length > 0 && (
         <div className="flex flex-col gap-block">
           <SectionTitle>Getting around</SectionTitle>
-          <ul className="flex flex-col gap-3">
-            {around.map((way) => (
-              <li key={way.label}>
-                <Card edge="line" className="flex items-center gap-3 p-4">
+          {/* Rows in one card, as the route beside it. */}
+          <Card edge="line" className="px-4 py-1 sm:px-5">
+            <ul className="divide-y divide-line">
+              {around.map((way) => (
+                <li key={way.label} className="flex items-center gap-3 py-3">
                   <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-mist text-primary">
                     <CategoryGlyph name={way.icon} className="size-5" />
                   </span>
@@ -285,13 +299,13 @@ export function AreaGettingHere({
                     <span className="block font-semibold">{way.label}</span>
                     <span className="block text-sm text-pretty text-muted">{way.note}</span>
                   </span>
-                  <Link href={way.href} className="shrink-0 text-sm font-bold text-link underline underline-offset-4">
+                  <Link href={way.href} className="tap-target shrink-0 text-sm font-bold text-link underline underline-offset-4">
                     {way.link}
                   </Link>
-                </Card>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          </Card>
         </div>
       )}
     </section>
@@ -332,7 +346,7 @@ export function AreaStays({
                     {place.stay_count === 1 ? "1 stay" : `${place.stay_count} stays`}
                     {near && ` · ${near.distance} from ${near.name}`}
                   </span>
-                  <Link href={hrefFor(place.slug)} className="mt-auto text-sm font-bold text-link underline underline-offset-4">
+                  <Link href={hrefFor(place.slug)} className="tap-target mt-auto self-start text-sm font-bold text-link underline underline-offset-4">
                     Stays in {place.name}
                   </Link>
                 </Card>
@@ -365,21 +379,22 @@ export function AreaGoodToKnow({ notes }: { notes: AreaNotes["know"] }) {
   if (notes.length === 0) return null;
   return (
     <Part id="know" title="Good to know">
-      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {notes.map((note) => (
-          <li key={note.title}>
-            <Card edge="line" className="flex h-full gap-3 p-4">
+      {/* One card of divided notes, not a card each: the card clips each top row's rule. */}
+      <Card edge="line" className="px-4 sm:px-5">
+        <ul className="-my-px grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
+          {notes.map((note) => (
+            <li key={note.title} className="flex gap-3 border-t border-line py-4">
               <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-mist text-primary">
                 {KNOW_ICON[note.topic]}
               </span>
-              <span className="flex flex-col gap-1">
+              <span className="flex min-w-0 flex-col gap-1">
                 <span className="font-semibold">{note.title}</span>
                 <span className="text-sm leading-relaxed text-pretty text-muted">{note.text}</span>
               </span>
-            </Card>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      </Card>
     </Part>
   );
 }

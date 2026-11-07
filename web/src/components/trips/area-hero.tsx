@@ -63,7 +63,7 @@ export function AreaHero({
     eyebrow: string;
     title: ReactNode;
   };
-  // The place's counts, as chip list items ("20 to book" first), and the places inside it with things to book.
+  // The place's counts, as chip list items ("8 places to see"), and the places inside it with things to book.
   statChips: ReactNode[];
   placeLinks: { href: string; name: string; count: number }[];
   areaName: string;
