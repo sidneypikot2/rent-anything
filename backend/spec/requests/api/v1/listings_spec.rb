@@ -137,6 +137,21 @@ RSpec.describe "Listings", type: :request do
         end
       end
 
+      # A jet ski's brand, model, power and features (RAA-273).
+      response "200", "a jet ski's details" do
+        schema "$ref" => "#/components/schemas/listing_detail"
+        let(:id) do
+          create(:listing, area: moalboal, category: create(:category, :water), title: "Jet ski at Panagsama",
+            attrs: { "brand" => "Yamaha", "model" => "VX Cruiser", "engine_cc" => 1049, "horsepower" => 110,
+              "features" => %w[reverse_gear] }).id
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["details"]).to eq("brand" => "Yamaha", "model" => "VX Cruiser", "engine_cc" => 1049,
+            "horsepower" => 110, "features" => %w[reverse_gear])
+        end
+      end
+
       response "200", "its ready photos in the partner's order, and the first as the cover in lists" do
         schema "$ref" => "#/components/schemas/listing_detail"
         let(:id) { gopro.id }

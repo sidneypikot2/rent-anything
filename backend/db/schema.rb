@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -37,8 +37,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_120000) do
     t.datetime "updated_at", null: false
     t.index ["listing_id", "kind"], name: "index_activity_add_ons_on_listing_and_kind", unique: true, where: "(archived_at IS NULL)"
     t.index ["listing_id"], name: "index_activity_add_ons_on_listing_id"
-    t.check_constraint "charged_per::text = ANY (ARRAY['booking'::character varying, 'unit'::character varying, 'person'::character varying]::text[])", name: "activity_add_ons_charged_per_check"
-    t.check_constraint "kind::text = ANY (ARRAY['drone_shot'::character varying, 'action_cam_video'::character varying, 'photo_package'::character varying, 'towel'::character varying]::text[])", name: "activity_add_ons_kind_check"
+    t.check_constraint "charged_per::text = ANY (ARRAY['booking'::character varying::text, 'unit'::character varying::text, 'person'::character varying::text])", name: "activity_add_ons_charged_per_check"
+    t.check_constraint "kind::text = ANY (ARRAY['drone_shot'::character varying::text, 'action_cam_video'::character varying::text, 'photo_package'::character varying::text, 'towel'::character varying::text])", name: "activity_add_ons_kind_check"
     t.check_constraint "price_cents > 0", name: "activity_add_ons_price_check"
   end
 
