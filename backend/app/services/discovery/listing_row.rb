@@ -6,7 +6,7 @@ module Discovery
   module ListingRow
     # A row's carousel shows a few photos; the listing page has them all.
     PHOTOS = 6
-    ASSOCIATIONS = [ { category: :parent }, :area, :business, :units, :stay_rate, :vehicle_rate, :flat_rate, :tour_detail, :cover_photo, :ready_photos, :visited_landmarks ].freeze
+    ASSOCIATIONS = [ { category: :parent }, :area, :business, :units, :stay_rate, :vehicle_rate, :flat_rate, :tour_detail, *Listing::ACTIVITY_ASSOCIATIONS, :cover_photo, :ready_photos, :visited_landmarks ].freeze
 
     def self.call(listing)
       ListingSummarySerializer.call(listing).merge(

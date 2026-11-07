@@ -97,6 +97,23 @@ FactoryBot.define do
       initialize_with { Category.find_or_initialize_by(slug: "van") }
     end
 
+    # The Jet ski water activity (RAA-268), with its builder defaults (RAA-270). There is only one.
+    trait :water do
+      slug { "jet-ski" }
+      name { "Jet ski" }
+      booking_type { "activity" }
+      attribute_schema { {} }
+      activity_defaults do
+        { "sold_by" => "unit", "schedule" => "open_hours", "opens_at" => "08:00", "closes_at" => "17:00",
+          "seats_per_unit" => 2, "offers" => [ { "name" => "30 minutes", "duration_minutes" => 30 } ] }
+      end
+      parent do
+        Category.find_by(slug: "water-activities") ||
+          association(:category, :parent, slug: "water-activities", name: "Water activities")
+      end
+      initialize_with { Category.find_or_initialize_by(slug: "jet-ski") }
+    end
+
     # A car (RAA-150): a vehicle rental that can come with a driver.
     trait :car do
       motorcycle
@@ -168,6 +185,19 @@ FactoryBot.define do
       after(:create) { |listing, context| create(:flat_rate, listing:, price_cents: 150_000) if context.with_rate && !listing.flat_rate }
     end
 
+    # A jet ski rented by the machine in open hours, 30 minutes for ₱1,500 (RAA-270).
+    trait :water_activity do
+      category factory: %i[category water]
+      title { "Santa Fe jet ski rides" }
+      transient { with_detail { true } }
+      after(:create) do |listing, context|
+        next unless context.with_detail && !listing.activity_detail
+
+        create(:activity_detail, listing:)
+        create(:activity_offer, listing:, position: 0)
+      end
+    end
+
     # A daily joiner tour for 2 to 12 guests, 4 hours, at ₱1,500 a head (RAA-110).
     trait :tour do
       category factory: %i[category tour]
@@ -201,6 +231,23 @@ FactoryBot.define do
   end
 
   # A transfer's price per vehicle and trip (RAA-191).
+  factory :activity_detail do
+    listing { association(:listing, :water_activity, with_detail: false) }
+    sold_by { "unit" }
+    schedule { "open_hours" }
+    opens_at { "08:00" }
+    closes_at { "17:00" }
+    seats_per_unit { 2 }
+  end
+
+  factory :activity_offer do
+    listing { association(:listing, :water_activity, with_detail: false) }
+    name { "30 minutes" }
+    duration_minutes { 30 }
+    price_cents { 150_000 }
+    sequence(:position)
+  end
+
   factory :flat_rate do
     listing { association(:listing, :transfer, with_rate: false) }
     price_cents { 150_000 }

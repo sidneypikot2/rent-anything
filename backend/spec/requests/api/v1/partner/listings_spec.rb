@@ -868,6 +868,125 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
+      context "a water activity (RAA-270)" do
+        let(:category) { create(:category, :water) }
+        let(:activity) do
+          { sold_by: "unit", schedule: "open_hours", opens_at: "08:00", closes_at: "17:00", seats_per_unit: 2,
+            min_age: 12, included: " Life vest and a briefing ", requirements: "Can swim",
+            offers: [ { name: "30 minutes", duration_minutes: 30, price_cents: 150_000 },
+              { name: " 1 hour ", duration_minutes: 60, price_cents: 250_000 } ] }
+        end
+
+        before { body.merge!(attrs: {}, activity:) }
+
+        response "201", "a jet ski sold by the machine, with its offers in order" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          run_test! do |response|
+            saved = response.parsed_body["activity"]
+            expect(saved.except("offers")).to eq(
+              "sold_by" => "unit", "schedule" => "open_hours", "opens_at" => "08:00", "closes_at" => "17:00",
+              "departure_times" => [], "seats_per_unit" => 2, "min_age" => 12, "included" => "Life vest and a briefing",
+              "requirements" => "Can swim"
+            )
+            expect(saved["offers"].map { _1.except("id") }).to eq([
+              { "name" => "30 minutes", "duration_minutes" => 30, "price_cents" => 150_000 },
+              { "name" => "1 hour", "duration_minutes" => 60, "price_cents" => 250_000 }
+            ])
+            expect(response.parsed_body["tour"]).to be_nil
+          end
+        end
+
+        response "201", "a dive sold per person at set departures, with no offers yet" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before do
+            activity.merge!(sold_by: "person", schedule: "departures", departure_times: %w[13:00 08:00 13:00], offers: [])
+            activity.except!(:opens_at, :closes_at, :min_age, :included, :requirements)
+          end
+
+          run_test! do |response|
+            expect(response.parsed_body["activity"]).to include(
+              "sold_by" => "person", "departure_times" => %w[08:00 13:00], "opens_at" => nil, "closes_at" => nil,
+              "min_age" => nil, "offers" => []
+            )
+            expect(response.parsed_body["live_blockers"]).to include("price")
+          end
+        end
+
+        response "422", "a water activity without activity details" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          before { body.delete(:activity) }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to include("Activity details are required for a water activity")
+            expect(Listing.count).to eq(0)
+          end
+        end
+
+        response "422", "missing and wrong-typed activity details" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          let(:activity) do
+            { sold_by: "group", schedule: "open_hours", opens_at: "17:00", closes_at: "08:15", seats_per_unit: "2",
+              min_age: 0, included: "x" * 501, offers: [
+                { name: "", duration_minutes: 7, price_cents: 0 },
+                { name: "Ride", duration_minutes: 30, price_cents: 1.5 },
+                { name: "ride", duration_minutes: 900, price_cents: 100_000 },
+                "fast"
+              ] }
+          end
+
+          run_test! do |refused|
+            expect(refused.parsed_body["errors"]).to include(
+              "How it's sold must be unit or person",
+              "Opening and closing times must be on the hour or half hour, opening first",
+              "Seats per unit must be a whole number from 1 to 100",
+              "Minimum age must be a whole number from 1 to 99",
+              "What's included can be at most 500 characters",
+              "Each offer needs a name of at most 60 characters",
+              "An offer's length must be 5 to 720 minutes, in steps of 5",
+              "An offer's price must be a whole number of centavos above 0",
+              "Each offer can be listed once by name",
+              "Each offer must be an object"
+            )
+            body[:activity] = "jet ski"
+            post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["errors"]).to include("Activity details must be an object")
+            body[:activity] = { sold_by: "unit", schedule: "departures", departure_times: %w[9:15], seats_per_unit: 1,
+              offers: Array.new(11) { { name: "Ride #{_1}", duration_minutes: 30, price_cents: 1 } } }
+            post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["errors"]).to include(
+              "Departure times must be 1 to 24 times, each on the hour or half hour",
+              "A water activity can have at most 10 offers"
+            )
+            expect(Listing.count).to eq(0)
+          end
+        end
+
+        response "422", "an offer longer than the open hours" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          before { activity.merge!(opens_at: "16:00", closes_at: "16:30") }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to include("1 hour is longer than the open hours")
+          end
+        end
+      end
+
+      response "422", "activity details on a listing that isn't a water activity" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body[:activity] = { sold_by: "unit" } }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Only water activities have activity details")
+          expect(Listing.count).to eq(0)
+        end
+      end
+
       response "422", "tour details on a listing that isn't a tour" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
@@ -1525,6 +1644,96 @@ RSpec.describe "Partner listings", type: :request do
             expect(response.parsed_body["photo_limit"]).to eq(12)
             expect([ TourDetail.count, TourInclusion.count ]).to eq([ 0, 0 ])
           end
+        end
+      end
+
+      context "a water activity (RAA-270)" do
+        let(:category) { create(:category, :water) }
+        let(:listing) { create(:listing, :water_activity, partner: user, area: moalboal) }
+        let(:kept) { listing.offers.sole }
+        let(:activity) do
+          { sold_by: "unit", schedule: "open_hours", opens_at: "09:00", closes_at: "16:00", seats_per_unit: 2,
+            offers: [ { name: "1 hour", duration_minutes: 60, price_cents: 250_000 },
+              { id: kept.id, name: "Half an hour", duration_minutes: 30, price_cents: 160_000 } ] }
+        end
+
+        before { body.merge!(attrs: {}, activity:) }
+
+        response "200", "offers changed in place by id, added, and archived when left out" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before { create(:activity_offer, listing:, name: "2 hours", duration_minutes: 120, position: 1) }
+
+          run_test! do |response|
+            offers = response.parsed_body["activity"]["offers"]
+            expect(offers.pluck("name")).to eq([ "1 hour", "Half an hour" ])
+            expect(offers.last).to include("id" => kept.id, "price_cents" => 160_000)
+            expect(response.parsed_body["activity"]).to include("opens_at" => "09:00", "closes_at" => "16:00")
+            expect(listing.activity_offers.where.not(archived_at: nil).pluck(:name)).to eq([ "2 hours" ])
+
+            body.delete(:activity)
+            patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["activity"]["offers"].pluck("name")).to eq([ "1 hour", "Half an hour" ])
+          end
+        end
+
+        response "422", "an offer id that isn't one of the listing's current offers" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          before do
+            other = create(:listing, :water_activity).offers.sole
+            activity[:offers] << { id: other.id, name: "Theirs", duration_minutes: 30, price_cents: 1 }
+          end
+
+          run_test! do |refused|
+            expect(refused.parsed_body["errors"]).to include("An offer's id must be one of this listing's offers")
+            expect(listing.reload.offers.sole.price_cents).to eq(150_000)
+          end
+        end
+
+        response "422", "a live water activity left with no offers" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          before do
+            listing.update_columns(status: "active", description: "x" * 60)
+            body[:description] = "x" * 60
+            create_photo(listing)
+            listing.landmark_visits.create!(landmark: create(:landmark))
+            activity[:offers] = []
+          end
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to include("A live listing needs a price: pause it first")
+            expect(listing.reload.offers.count).to eq(1)
+          end
+        end
+
+        response "200", "details dropped and offers archived when it stops being a water activity" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before { body.merge!(category_id: create(:category, booking_type: "activity").id).delete(:activity) }
+
+          run_test! do |response|
+            expect(response.parsed_body["activity"]).to be_nil
+            expect(ActivityDetail.count).to eq(0)
+            expect(listing.activity_offers.where(archived_at: nil)).to be_empty
+          end
+        end
+
+        response "404", "another partner's water activity" do
+          let(:listing) { create(:listing, :water_activity, area: moalboal) }
+
+          run_test! { expect(listing.offers.sole).to have_attributes(name: "30 minutes", price_cents: 150_000) }
+        end
+      end
+
+      response "422", "a listing made a water activity without activity details" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { body.merge!(category_id: create(:category, :water).id, attrs: {}) }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include("Activity details are required for a water activity")
         end
       end
 

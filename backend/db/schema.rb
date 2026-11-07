@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_050000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_090001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -25,6 +25,47 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_050000) do
   create_enum "booking_status", ["confirmed", "cancelled", "requested", "accepted", "awaiting_payment", "in_progress", "completed", "declined", "expired"]
   create_enum "listing_status", ["draft", "active", "paused", "delisted"]
   create_enum "payout_account_kind", ["bank", "gcash", "maya"]
+
+  create_table "activity_details", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.string "sold_by", null: false
+    t.string "schedule", null: false
+    t.string "opens_at"
+    t.string "closes_at"
+    t.string "departure_times", default: [], null: false, array: true
+    t.integer "seats_per_unit", default: 1, null: false
+    t.integer "min_age"
+    t.text "included"
+    t.text "requirements"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["listing_id"], name: "index_activity_details_on_listing_id", unique: true
+    t.check_constraint "array_to_string(departure_times, ','::text) ~ '^(([01][0-9]|2[0-3]):(00|30)(,|$))*$'::text", name: "activity_details_departure_times_check"
+    t.check_constraint "cardinality(departure_times) >= 1 AND cardinality(departure_times) <= 24 OR schedule::text <> 'departures'::text", name: "activity_details_departures_check"
+    t.check_constraint "char_length(included) <= 500", name: "activity_details_included_length_check"
+    t.check_constraint "char_length(requirements) <= 500", name: "activity_details_requirements_length_check"
+    t.check_constraint "min_age >= 1 AND min_age <= 99", name: "activity_details_min_age_check"
+    t.check_constraint "schedule::text <> 'open_hours'::text OR opens_at IS NOT NULL AND closes_at IS NOT NULL AND opens_at::text ~ '^([01][0-9]|2[0-3]):(00|30)$'::text AND closes_at::text ~ '^([01][0-9]|2[0-3]):(00|30)$'::text AND opens_at::text < closes_at::text", name: "activity_details_open_hours_check"
+    t.check_constraint "schedule::text = ANY (ARRAY['open_hours'::character varying, 'departures'::character varying]::text[])", name: "activity_details_schedule_check"
+    t.check_constraint "seats_per_unit >= 1 AND seats_per_unit <= 100", name: "activity_details_seats_check"
+    t.check_constraint "sold_by::text = ANY (ARRAY['unit'::character varying, 'person'::character varying]::text[])", name: "activity_details_sold_by_check"
+  end
+
+  create_table "activity_offers", force: :cascade do |t|
+    t.bigint "listing_id", null: false
+    t.string "name", null: false
+    t.integer "duration_minutes", null: false
+    t.bigint "price_cents", null: false
+    t.integer "position", null: false
+    t.datetime "archived_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index "listing_id, lower((name)::text)", name: "index_activity_offers_on_listing_and_name", unique: true, where: "(archived_at IS NULL)"
+    t.index ["listing_id"], name: "index_activity_offers_on_listing_id"
+    t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 60", name: "activity_offers_name_length_check"
+    t.check_constraint "duration_minutes >= 5 AND duration_minutes <= 720 AND (duration_minutes % 5) = 0", name: "activity_offers_duration_check"
+    t.check_constraint "price_cents > 0", name: "activity_offers_price_check"
+  end
 
   create_table "area_photos", force: :cascade do |t|
     t.bigint "area_id", null: false
@@ -226,6 +267,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_050000) do
     t.string "unit_name"
     t.string "unit_name_plural"
     t.integer "commission_bps", default: 1000, null: false
+    t.jsonb "activity_defaults"
     t.index ["parent_id"], name: "index_categories_on_parent_id"
     t.index ["slug"], name: "index_categories_on_slug", unique: true
     t.check_constraint "booking_type::text = ANY (ARRAY['rental'::character varying::text, 'stay'::character varying::text, 'activity'::character varying::text, 'transfer'::character varying::text])", name: "categories_booking_type_check"
@@ -720,7 +762,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_050000) do
     t.index ["landmark_id"], name: "index_trip_landmarks_on_landmark_id"
     t.index ["trip_id", "landmark_id"], name: "index_trip_landmarks_on_trip_id_and_landmark_id", unique: true
     t.check_constraint "(visit_on IS NOT NULL) = (NOT plan::text IS DISTINCT FROM 'own'::text)", name: "trip_landmarks_visit_on_check"
-    t.check_constraint "plan::text = ANY (ARRAY['own'::character varying, 'skip'::character varying]::text[])", name: "trip_landmarks_plan_check"
+    t.check_constraint "plan::text = ANY (ARRAY['own'::character varying::text, 'skip'::character varying::text])", name: "trip_landmarks_plan_check"
   end
 
   create_table "trips", force: :cascade do |t|
@@ -824,6 +866,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_050000) do
     t.check_constraint "weekly_price_cents > 0", name: "vehicle_rates_weekly_price_check"
   end
 
+  add_foreign_key "activity_details", "listings", on_delete: :cascade
+  add_foreign_key "activity_offers", "listings", on_delete: :cascade
   add_foreign_key "area_photos", "areas", on_delete: :cascade
   add_foreign_key "area_tags", "areas", on_delete: :cascade
   add_foreign_key "area_tags", "tags", on_delete: :cascade

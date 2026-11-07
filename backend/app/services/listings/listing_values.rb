@@ -18,13 +18,15 @@ module Listings
   # rate is checked again on every save, as the guests the place sleeps may change. fees, for
   # any category, replace the listing's fees when sent and keep them when left out. A vehicle
   # rental has a vehicle_rate (RAA-149) by the same rules as a stay_rate.
-  # A tour's details (RAA-110) are read by TourValues.
+  # A tour's details (RAA-110) are read by TourValues, a water activity's (RAA-270) by
+  # ActivityValues.
   # photos (RAA-106) are the ids of the listing's own photos (added through
   # /api/v1/partner/listings/:id/photos) in the partner's order: sent, the order is theirs
   # and a photo left out is deleted; left out, the photos stay as they are.
   module ListingValues
     include RequestValues
     include TourValues
+    include ActivityValues
 
     MAX_LANDMARKS = 30
     MAX_UNITS = 100
@@ -49,6 +51,7 @@ module Listings
       @vehicle_rate = vehicle_rate_for(category)
       @flat_rate = flat_rate_for(category)
       @tour = tour_for(category)
+      @activity = activity_for(category)
       @fees = fees
       @photo_ids = photo_ids
       {
@@ -82,6 +85,7 @@ module Listings
         save_vehicle_rate!(listing)
         save_flat_rate!(listing)
         save_tour!(listing)
+        save_activity!(listing)
         save_fees!(listing)
         save_photos!(listing)
         listing.reload.check_still_live!(@live_blockers) if @live_blockers

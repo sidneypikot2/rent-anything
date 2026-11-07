@@ -48,7 +48,7 @@ class Trip < ApplicationRecord
   scope :due_for_purge, ->(today = Date.current) {
     where(ends_on: ..(today - PURGE_DAYS)).or(where(ends_on: nil, updated_at: ...(today - PURGE_DAYS + 1).beginning_of_day))
   }
-  scope :with_items, -> { includes(saved_landmarks: { landmark: :area }, items: [ :booking, { listing: [ :area, :business, { category: :parent }, :cover_photo, :units, :stay_rate, :tour_detail ] } ]) }
+  scope :with_items, -> { includes(saved_landmarks: { landmark: :area }, items: [ :booking, { listing: [ :area, :business, { category: :parent }, :cover_photo, :units, :stay_rate, :tour_detail, :activity_detail, :offers ] } ]) }
 
   # The cart keeps a trip that ended on or after this date (#deletes_on is still to come)...
   def self.ended_cutoff(today = Date.current)

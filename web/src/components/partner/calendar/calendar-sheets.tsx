@@ -271,7 +271,7 @@ function BlockForm({ selection, onClose, onDone }: { selection: Selection; onClo
   );
 }
 
-const PRICE_UNITS = { night: "night", group: "group", person: "joiner", day: "day", trip: "trip" } as const;
+const PRICE_UNITS = { night: "night", group: "group", person: "joiner", day: "day", trip: "trip", unit: "unit" } as const;
 
 function DaysForm({
   mode,

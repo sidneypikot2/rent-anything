@@ -13,7 +13,8 @@ module Businesses
   class ListingsFor < ApplicationService
     include Trips::Values
 
-    ASSOCIATIONS = [ :area, :business, :cover_photo, :units, :stay_rate, { vehicle_rate: :delivery_zones }, :flat_rate, :tour_detail, { category: :parent } ].freeze
+    ASSOCIATIONS = [ :area, :business, :cover_photo, :units, :stay_rate, { vehicle_rate: :delivery_zones }, :flat_rate, :tour_detail, *Listing::ACTIVITY_ASSOCIATIONS,
+      { category: :parent } ].freeze
 
     def initialize(business_id, params)
       @business_id = business_id

@@ -37,6 +37,30 @@ RSpec.describe "Listings", type: :request do
         end
       end
 
+      # A water activity is from its cheapest offer (RAA-270): per unit, or per guest when sold by the seat.
+      response "200", "a water activity's pin carries its cheapest offer" do
+        schema type: :array, items: { "$ref" => "#/components/schemas/listing_pin" }
+        let!(:jet_ski) { create(:listing, :water_activity, area: moalboal) }
+        let!(:banana_boat) do
+          create(:listing, :water_activity, area: moalboal, title: "Banana boat rides").tap do
+            _1.activity_detail.update!(sold_by: "person", seats_per_unit: 6)
+          end
+        end
+
+        before do
+          create(:activity_offer, listing: jet_ski, name: "15 minutes", duration_minutes: 15, price_cents: 90_000)
+          create(:activity_offer, listing: jet_ski, name: "Old", price_cents: 10_000, archived_at: Time.current)
+        end
+
+        run_test! do |response|
+          pin = response.parsed_body.find { |row| row["id"] == jet_ski.id }
+          expect(pin).to include("booking_type" => "activity", "price_from_cents" => 90_000, "price_unit" => "unit")
+          expect(response.parsed_body.find { |row| row["id"] == banana_boat.id }).to include(
+            "price_from_cents" => 150_000, "price_unit" => "person"
+          )
+        end
+      end
+
       # The map's pins show a price where the listing has one, as the area page's rows do.
       response "200", "a priced stay's pin carries its nightly price" do
         schema type: :array, items: { "$ref" => "#/components/schemas/listing_pin" }

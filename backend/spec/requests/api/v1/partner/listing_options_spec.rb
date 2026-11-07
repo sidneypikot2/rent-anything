@@ -37,6 +37,21 @@ RSpec.describe "Partner listing options", type: :request do
           expect(response.parsed_body["booking_modes"].pluck("value", "name")).to eq(
             [ [ "request", "Request to book" ] ]
           )
+          expect(categories.pluck("activity_defaults")).to eq([ nil, nil ])
+        end
+      end
+
+      response "200", "a water activity with its builder defaults (RAA-270)" do
+        schema "$ref" => "#/components/schemas/listing_options"
+
+        before { create(:category, :water) }
+
+        run_test! do |response|
+          expect(response.parsed_body["categories"].sole).to include(
+            "name" => "Jet ski", "parent_name" => "Water activities",
+            "activity_defaults" => include("sold_by" => "unit", "schedule" => "open_hours", "opens_at" => "08:00",
+              "offers" => [ { "name" => "30 minutes", "duration_minutes" => 30 } ])
+          )
         end
       end
 
