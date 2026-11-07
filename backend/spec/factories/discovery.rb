@@ -248,6 +248,14 @@ FactoryBot.define do
     sequence(:position)
   end
 
+  factory :activity_add_on do
+    listing { association(:listing, :water_activity, with_detail: false) }
+    kind { "drone_shot" }
+    price_cents { 50_000 }
+    charged_per { "booking" }
+    sequence(:position)
+  end
+
   factory :flat_rate do
     listing { association(:listing, :transfer, with_rate: false) }
     price_cents { 150_000 }

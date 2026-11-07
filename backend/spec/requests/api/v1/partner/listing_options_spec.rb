@@ -52,6 +52,9 @@ RSpec.describe "Partner listing options", type: :request do
             "activity_defaults" => include("sold_by" => "unit", "schedule" => "open_hours", "opens_at" => "08:00",
               "offers" => [ { "name" => "30 minutes", "duration_minutes" => 30 } ])
           )
+          expect(response.parsed_body["activity_inclusions"].first).to eq("kind" => "life_vest", "name" => "Life vest")
+          expect(response.parsed_body["activity_add_ons"].first).to eq("kind" => "drone_shot", "name" => "Drone shot")
+          expect(response.parsed_body["activity_add_on_charged_per"].pluck("value")).to eq(%w[booking unit person])
         end
       end
 

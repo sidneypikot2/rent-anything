@@ -34,7 +34,7 @@ class VehicleRate < ApplicationRecord
     excess_km_fee_cents driver_fee_cents
   ].freeze
 
-  MAX_DELIVERY_ZONES = 5
+  include DeliveryZoned
 
   belongs_to :listing, inverse_of: :vehicle_rate
   has_many :delivery_zones, -> { order(:max_distance_m) }, class_name: "VehicleDeliveryZone",
@@ -64,7 +64,7 @@ class VehicleRate < ApplicationRecord
   validate :excess_km_fee_has_a_limit
   validate :driver_fee_goes_with_a_choice
   validate :child_helmets_on_a_motorcycle
-  validate :zones_in_order
+  validate :zones_to_deliver
 
   def priced?
     daily_price_cents.positive?
@@ -85,30 +85,15 @@ class VehicleRate < ApplicationRecord
   # Replaces the zones (max_distance_m and fee_cents each) and whether the shop delivers and
   # collects with them; saved with the rate.
   def assign_delivery(delivers:, picks_up:, zones:)
-    delivery_zones.each(&:mark_for_destruction)
-    zones.each { delivery_zones.build(_1) }
+    assign_zones(zones)
     self.delivery_fee_cents = (0 if delivers)
     self.return_pickup_fee_cents = (0 if picks_up)
-  end
-
-  # The zone a point `distance_m` from the shop falls in, nil beyond the farthest.
-  def zone_for(distance_m)
-    zones.find { _1.max_distance_m >= distance_m }
   end
 
   # What delivery or pick-up costs a vehicle `distance_m` away; nil out of reach. Without a
   # distance (an item from before zones), the nearest zone's fee.
   def handover_fee_for(distance_m)
     distance_m.nil? ? (delivery_fee_cents || return_pickup_fee_cents) : zone_for(distance_m)&.fee_cents
-  end
-
-  def max_delivery_m
-    zones.last&.max_distance_m
-  end
-
-  # The zones as they will be saved, nearest first.
-  def zones
-    delivery_zones.reject(&:marked_for_destruction?).sort_by { _1.max_distance_m.to_i }
   end
 
   def self_drive?
@@ -148,18 +133,8 @@ class VehicleRate < ApplicationRecord
     self.return_pickup_fee_cents = nearest if picks_up?
   end
 
-  def zones_in_order
-    list = zones
-    errors.add(:delivery_zones, "need at least one zone to deliver or collect") if (delivers? || picks_up?) && list.empty?
-    errors.add(:delivery_zones, "can be at most #{MAX_DELIVERY_ZONES}") if list.size > MAX_DELIVERY_ZONES
-    list.each_cons(2) do |near, far|
-      next unless near.max_distance_m.is_a?(Integer) && far.max_distance_m.is_a?(Integer)
-
-      errors.add(:delivery_zones, "can't end at the same distance") if near.max_distance_m == far.max_distance_m
-      if near.fee_cents.is_a?(Integer) && far.fee_cents.is_a?(Integer) && far.fee_cents < near.fee_cents
-        errors.add(:delivery_zones, "can't cost less farther from the shop")
-      end
-    end
+  def zones_to_deliver
+    errors.add(:delivery_zones, "need at least one zone to deliver or collect") if (delivers? || picks_up?) && zones.empty?
   end
 
   def listing_is_a_timed_rental
