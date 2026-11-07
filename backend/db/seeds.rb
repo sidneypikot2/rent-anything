@@ -148,6 +148,10 @@ unless Rails.env.test?
   require Rails.root.join("db/migrate/20261105020000_move_gear_to_vehicle_rates").to_s
   MoveGearToVehicleRates.backfill(ActiveRecord::Base.connection)
 
+  # Tours and Water activities (RAA-268), over the Services group the loaders above create.
+  require Rails.root.join("db/migrate/20261107050000_split_tours_and_activities").to_s
+  SplitToursAndActivities.new.migrate(:up)
+
   # Every sample listing has a price (RAA-191): there is no "to be agreed" in production, so the
   # add sheet and checkout total every kind. Only rates still at 0 or missing get one; a price a
   # partner set stays.

@@ -55,7 +55,7 @@ const STEPS = [
 
 const INTROS: Partial<Record<(typeof STEPS)[number]["key"], string>> = {
   meeting: "Where guests meet you. Guests see the area, not the pin.",
-  destinations: "The places the tour visits. Travellers find it from each one.",
+  destinations: "The places the tour visits: at least two before it can go live. Travellers find it from each one.",
   review: "Check it over. Saving keeps it as a draft; then add photos.",
 };
 
@@ -179,7 +179,7 @@ export function TourWizard({
           {step.key === "basics" && (
             <>
               <p className="text-sm text-muted">
-                Listing a <span className="font-medium text-foreground">{categoryLabel(category)}</span> for{" "}
+                Listing under <span className="font-medium text-foreground">{categoryLabel(category)}</span> for{" "}
                 <span className="font-medium text-foreground">{business.name}</span>.{" "}
                 <ChangeCategoryLink
                   href={`/partner/listings/new?business=${business.id}&category=${category.id}`}

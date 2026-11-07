@@ -101,7 +101,7 @@ RSpec.describe Listing do
       stay.stay_rate.update_column(:nightly_price_cents, 0)
       tour = create(:listing, :tour, description:)
       tour.tour_detail.update_column(:base_price_cents, 0)
-      tour.landmark_visits.create!(landmark: create(:landmark))
+      2.times { tour.landmark_visits.create!(landmark: create(:landmark)) }
       vehicle = create(:listing, :vehicle, description:)
       vehicle.vehicle_rate.update_column(:daily_price_cents, 0)
       [ stay, tour, vehicle ].each { create_photo(_1) }
@@ -110,10 +110,38 @@ RSpec.describe Listing do
       expect(vehicle.reload.live_blockers).to eq(%w[price])
     end
 
-    it "asks an activity for a landmark on its route" do
-      tour = create(:listing, :tour, description:)
-      create_photo(tour)
-      expect(tour.reload.live_blockers).to eq(%w[route])
+    describe "a tour's stops and an activity's landmark (RAA-268)" do
+      let(:tour) { create(:listing, :tour, description:).tap { create_photo(_1) } }
+      let(:activity) do
+        category = create(:category, slug: "jet-ski", name: "Jet ski", booking_type: "activity", attribute_schema: {})
+        create(:listing, category:, description:).tap { create_photo(_1) }
+      end
+
+      it "asks a tour for at least two stops" do
+        expect(tour.reload.live_blockers).to eq(%w[stops])
+        tour.landmark_visits.create!(landmark: create(:landmark))
+        expect(tour.reload.live_blockers).to eq(%w[stops])
+        tour.landmark_visits.create!(landmark: create(:landmark))
+        expect(tour.reload.live_blockers).to eq([])
+      end
+
+      it "asks any other activity for one landmark" do
+        expect(activity.reload.live_blockers).to eq(%w[route])
+        activity.landmark_visits.create!(landmark: create(:landmark))
+        expect(activity.reload.live_blockers).to eq([])
+      end
+
+      it "lets a tour already live with one stop stay live, but not drop to one" do
+        visit = tour.landmark_visits.create!(landmark: create(:landmark))
+        tour.update_column(:status, "active")
+        one_stop = tour.reload.live_blockers
+        expect { tour.check_still_live!(one_stop) }.not_to raise_error
+
+        tour.landmark_visits.create!(landmark: create(:landmark))
+        two_stops = tour.reload.live_blockers
+        visit.destroy!
+        expect { tour.reload.check_still_live!(two_stops) }.to raise_error(ActiveRecord::RecordInvalid, /two stops/)
+      end
     end
   end
 
