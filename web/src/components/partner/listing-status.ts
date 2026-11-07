@@ -16,6 +16,7 @@ export const BLOCKER_LABELS: Record<PartnerListing["live_blockers"][number], str
   description: "Write a description",
   price: "Set a price",
   route: "Add a destination to its route",
+  stops: "Add at least two destinations to its route",
 };
 
 // A stay still on the back-filled nightly price of 0 (RAA-105), or a tour made before tours had

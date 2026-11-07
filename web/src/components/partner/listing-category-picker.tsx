@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { ArrowGlyph } from "@/components/discovery/tag-glyphs";
 import { ActionBar } from "@/components/ui/action-bar";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ChoiceCards } from "@/components/ui/choice-cards";
-import { groupCategories, type CategoryGroup } from "./listing-fields";
+import { GROUPS, groupCategories, type CategoryGroup } from "./listing-fields";
 import { isStay } from "./stay-fields";
 import type { PartnerBusiness } from "./use-partner-businesses";
 import type { ListingOptions } from "./use-partner-listings";
@@ -17,19 +17,10 @@ function subcategoryLegend(group: CategoryGroup) {
   if (group.categories.every(isStay)) return "Property type";
   if (group.name === "Vehicle rental") return "Type of vehicle";
   if (group.name === "Equipment rental") return "Type of equipment";
+  if (group.name === "Water activities") return "Type of activity";
   return "Type";
 }
 
-// How each top-level category is offered, in the order partners on the island most often list:
-// tours first. Named as guests find them on an area page (BOOKING_GROUPS), so a partner's
-// "Getting around" is the guest's. A group the API adds later still shows, under its own name, after these.
-const GROUPS: Record<string, { label: string; description: string }> = {
-  Services: { label: "Tours and services", description: "Island hopping, snorkelling trips, a photographer" },
-  "Vehicle rental": { label: "Getting around", description: "Motorbikes, cars and vans" },
-  Accommodation: { label: "A place to stay", description: "Rooms, cottages, resorts and villas" },
-  Transport: { label: "Transfers", description: "Port and airport pickups, van transfers" },
-  "Equipment rental": { label: "Gear", description: "Cameras, snorkel sets and more" },
-};
 const GROUP_ORDER = Object.keys(GROUPS);
 
 function orderedGroups(groups: CategoryGroup[]) {
@@ -37,13 +28,7 @@ function orderedGroups(groups: CategoryGroup[]) {
     const index = GROUP_ORDER.indexOf(group.name);
     return index === -1 ? GROUP_ORDER.length : index;
   };
-  return [...groups]
-    .sort((a, b) => rank(a) - rank(b))
-    .map((group) => ({
-      ...group,
-      // A tour leads its group: it's what most partners here offer.
-      categories: [...group.categories].sort((a, b) => Number(b.slug === "tour") - Number(a.slug === "tour")),
-    }));
+  return [...groups].sort((a, b) => rank(a) - rank(b));
 }
 
 function listingsCount(business: PartnerBusiness) {
@@ -51,21 +36,26 @@ function listingsCount(business: PartnerBusiness) {
   return count === 0 ? "No listings yet" : `${count} ${count === 1 ? "listing" : "listings"}`;
 }
 
+function detailsHref(businessId: string, categoryId: string | number) {
+  return `/partner/listings/new/details?business=${businessId}&category=${categoryId}`;
+}
+
 // The first step of adding a listing (RAA-50): which of the partner's businesses it is for
-// (RAA-101; the only one is preselected), then what it is, as a category and then a
-// subcategory, both as cards each saying what it means (RAA-83, RAA-89). A group with one
-// kind (transfers) picks it straight away.
-// Next opens the rest of the steps for that business and category.
+// (RAA-101; the only one is preselected), then what it is, as cards each saying what it means
+// (RAA-83, RAA-89). Next opens the group's kinds on their own page (RAA-268), or, for a group
+// with one kind (tours, transfers), the rest of the steps for that business and category.
 export function ListingCategoryPicker({
   options,
   businesses,
   initialId,
   initialBusinessId,
+  initialGroup,
 }: {
   options: ListingOptions;
   businesses: PartnerBusiness[];
   initialId?: number;
   initialBusinessId?: number;
+  initialGroup?: string;
 }) {
   const router = useRouter();
   const initialBusiness =
@@ -74,24 +64,24 @@ export function ListingCategoryPicker({
   const [businessId, setBusinessId] = useState(initialBusiness ? String(initialBusiness.id) : "");
   const groups = orderedGroups(groupCategories(options.categories));
   const initial = options.categories.find((category) => category.id === initialId);
-  const [groupName, setGroupName] = useState(initial ? (initial.parent_name ?? initial.name) : "");
-  const [categoryId, setCategoryId] = useState(initial ? String(initial.id) : "");
+  const [groupName, setGroupName] = useState(initial ? (initial.parent_name ?? initial.name) : (initialGroup ?? ""));
   const group = groups.find((option) => option.name === groupName);
-  const subcategories = useRef<HTMLDivElement>(null);
   // Why Next is still disabled, said beside it.
   const missing = !businessId
     ? "Pick a business to continue"
-    : !groupName
+    : !group
       ? "Pick what you're listing to continue"
-      : !categoryId
-        ? `Pick a ${group ? subcategoryLegend(group).toLowerCase() : "type"} to continue`
-        : undefined;
+      : undefined;
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (businessId && categoryId) {
-      router.push(`/partner/listings/new/details?business=${businessId}&category=${categoryId}`);
+    if (!businessId || !group) return;
+    if (group.categories.length === 1) {
+      router.push(detailsHref(businessId, group.categories[0].id));
+      return;
     }
+    const kept = initial && group.categories.includes(initial) ? `&category=${initial.id}` : "";
+    router.push(`/partner/listings/new/type?business=${businessId}&group=${encodeURIComponent(group.name)}${kept}`);
   }
 
   return (
@@ -120,70 +110,122 @@ export function ListingCategoryPicker({
           Add business
         </Link>
       </div>
-      <div className="flex flex-col gap-4">
-        <ChoiceCards
-          legend="What are you listing?"
-          name="category_group"
-          required
-          value={groupName}
-          onChange={(name) => {
-            setGroupName(name);
-            const only = groups.find((option) => option.name === name)?.categories;
-            setCategoryId(only?.length === 1 ? String(only[0].id) : "");
-            // The group's kinds open below the cards, often under the fold on a phone.
-            if (only && only.length > 1) {
-              const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
-              requestAnimationFrame(() => subcategories.current?.scrollIntoView({ behavior: calm, block: "nearest" }));
-            }
-          }}
-          choices={groups.map((option) => ({
-            value: option.name,
-            label: GROUPS[option.name]?.label ?? option.name,
-            description: GROUPS[option.name]?.description,
-          }))}
-          data-testid="listing-group-cards"
-        />
-        {group && group.categories.length > 1 && (
-          <div ref={subcategories} className="scroll-mb-28">
-            <ChoiceCards
-              legend={subcategoryLegend(group)}
-              name="category_id"
-              required
-              value={categoryId}
-              onChange={setCategoryId}
-              choices={group.categories.map((option) => ({
-                value: String(option.id),
-                label: option.name,
-                description: option.description,
-              }))}
-              data-testid="listing-subcategory-cards"
-            />
-          </div>
-        )}
-      </div>
-      <div className="flex flex-col gap-2">
-        {missing && (
-          <p id="listing-category-missing" className="text-sm text-muted">
-            {missing}
-          </p>
-        )}
-        <ActionBar>
-          <ButtonLink href="/partner/listings" variant="glass" size="pill">
-            Cancel
-          </ButtonLink>
-          <Button
-            type="submit"
-            variant="glow"
-            size="pill"
-            disabled={missing !== undefined}
-            aria-describedby={missing ? "listing-category-missing" : undefined}
-            data-testid="listing-category-next"
-          >
-            Next
-            <ArrowGlyph className="size-4" />
-          </Button>
-        </ActionBar>
-      </div>
+      <ChoiceCards
+        legend="What are you listing?"
+        name="category_group"
+        required
+        value={groupName}
+        onChange={setGroupName}
+        choices={groups.map((option) => ({
+          value: option.name,
+          label: GROUPS[option.name]?.label ?? option.name,
+          description: GROUPS[option.name]?.description,
+        }))}
+        data-testid="listing-group-cards"
+      />
+      <PickerFoot missing={missing} cancelHref="/partner/listings" cancelLabel="Cancel" testId="listing-category-next" />
     </form>
+  );
+}
+
+// The second step (RAA-268): the kinds in the group picked on the first, on a page of their own.
+// A group that doesn't exist, from an old link, goes back to the first step.
+export function ListingTypePicker({
+  options,
+  businessId,
+  groupName,
+  initialId,
+}: {
+  options: ListingOptions;
+  businessId?: number;
+  groupName?: string;
+  initialId?: number;
+}) {
+  const router = useRouter();
+  const group = groupCategories(options.categories).find((option) => option.name === groupName);
+  const [categoryId, setCategoryId] = useState(
+    group?.categories.some((category) => category.id === initialId) ? String(initialId) : "",
+  );
+
+  if (!group || !businessId) {
+    return (
+      <Link href="/partner/listings/new" className="self-start text-sm text-link underline">
+        Choose what you&apos;re listing
+      </Link>
+    );
+  }
+
+  const legend = subcategoryLegend(group);
+  const back = `/partner/listings/new?business=${businessId}&${
+    categoryId ? `category=${categoryId}` : `group=${encodeURIComponent(group.name)}`
+  }`;
+
+  return (
+    <form
+      data-testid="listing-type-picker"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (categoryId) router.push(detailsHref(String(businessId), categoryId));
+      }}
+      className="flex w-full flex-col gap-6"
+    >
+      <ChoiceCards
+        legend={legend}
+        name="category_id"
+        required
+        value={categoryId}
+        onChange={setCategoryId}
+        choices={group.categories.map((option) => ({
+          value: String(option.id),
+          label: option.name,
+          description: option.description,
+        }))}
+        data-testid="listing-subcategory-cards"
+      />
+      <PickerFoot
+        missing={categoryId ? undefined : `Pick a ${legend.toLowerCase()} to continue`}
+        cancelHref={back}
+        cancelLabel="Back"
+        testId="listing-type-next"
+      />
+    </form>
+  );
+}
+
+function PickerFoot({
+  missing,
+  cancelHref,
+  cancelLabel,
+  testId,
+}: {
+  missing?: string;
+  cancelHref: string;
+  cancelLabel: string;
+  testId: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      {missing && (
+        <p id="listing-category-missing" className="text-sm text-muted">
+          {missing}
+        </p>
+      )}
+      <ActionBar>
+        <ButtonLink href={cancelHref} variant="glass" size="pill">
+          {cancelLabel}
+        </ButtonLink>
+        <Button
+          type="submit"
+          variant="glow"
+          size="pill"
+          disabled={missing !== undefined}
+          aria-describedby={missing ? "listing-category-missing" : undefined}
+          data-testid={testId}
+        >
+          Next
+          <ArrowGlyph className="size-4" />
+        </Button>
+      </ActionBar>
+    </div>
   );
 }

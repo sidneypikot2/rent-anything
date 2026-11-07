@@ -165,7 +165,7 @@ export function StayWizard({
           {step.key === "place" && (
             <>
               <p className="text-sm text-muted">
-                Listing a <span className="font-medium text-foreground">{categoryLabel(category)}</span> for{" "}
+                Listing under <span className="font-medium text-foreground">{categoryLabel(category)}</span> for{" "}
                 <span className="font-medium text-foreground">{business.name}</span>.{" "}
                 <ChangeCategoryLink
                   href={`/partner/listings/new?business=${business.id}&category=${category.id}`}
