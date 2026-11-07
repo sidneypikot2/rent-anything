@@ -86,10 +86,10 @@ export function addressChanged(address: PhAddress, saved: PartnerListing["addres
   );
 }
 
-// Whether a listing of this category picks the landmarks it visits (RAA-70): tours and other
-// activities do.
-export function visitsLandmarks(category: { booking_type: string } | undefined) {
-  return category?.booking_type === "activity";
+// Whether a listing of this category picks the landmarks it visits (RAA-70): only a tour does
+// (RAA-270). A water activity goes from its meeting place, its pin.
+export function visitsLandmarks(category: { slug: string } | undefined) {
+  return category?.slug === "tour";
 }
 
 // How each top-level category is offered, in the order partners on the island most often list:

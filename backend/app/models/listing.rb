@@ -11,10 +11,10 @@ class Listing < ApplicationRecord
     "photo" => "a photo",
     "description" => "a description of at least 50 characters",
     "price" => "a price",
-    "route" => "a landmark on its route",
     "stops" => "at least two stops on its route"
   }.freeze
-  # A tour goes to several places (RAA-268); a one-place trip is an activity.
+  # A tour goes to several places (RAA-268); any other activity goes from its meeting place
+  # and needs no route (RAA-270).
   MIN_TOUR_STOPS = 2
   # What a guest gets back on cancelling (RAA-88), chosen by the partner; refunds follow it in M4.
   CANCELLATION_POLICIES = {
@@ -190,15 +190,14 @@ class Listing < ApplicationRecord
 
   # What it still lacks to go live (LIVE_BLOCKERS' keys): a ready photo, a description of
   # LIVE_DESCRIPTION_MIN characters, a price (a stay's, a tour's, a vehicle's or gear's, a
-  # transfer's flat one, RAA-191, or a water activity's offer, RAA-270), and a landmark on an
-  # activity's route. Reads photos, stay_rate, tour_detail, vehicle_rate, flat_rate, offers,
-  # category: :parent and visited_landmarks.
+  # transfer's flat one, RAA-191, or a water activity's offer, RAA-270), and a tour's stops.
+  # Reads photos, stay_rate, tour_detail, vehicle_rate, flat_rate, offers, category: :parent
+  # and visited_landmarks.
   def live_blockers
     [
       ("photo" unless photos.any?(&:ready?)),
       ("description" if description.strip.length < LIVE_DESCRIPTION_MIN),
       ("price" if needs_price?),
-      ("route" if category.activity? && !category.tour? && visited_landmarks.empty?),
       ("stops" if category.tour? && visited_landmarks.size < MIN_TOUR_STOPS)
     ].compact
   end
@@ -206,9 +205,7 @@ class Listing < ApplicationRecord
   # Refuses a change that takes from a live listing something it needs to be live (RAA-115);
   # what it lacked already (a listing made live before the rule) doesn't block the change.
   def check_still_live!(blockers_before)
-    # A tour short of stops was short of a route too, should it become another activity.
-    lacked = blockers_before.include?("stops") ? [ *blockers_before, "route" ] : blockers_before
-    added = active? ? live_blockers - lacked : []
+    added = active? ? live_blockers - blockers_before : []
     return if added.empty?
 
     errors.add(:base, "A live listing needs #{added.map { LIVE_BLOCKERS[_1] }.to_sentence}: pause it first")

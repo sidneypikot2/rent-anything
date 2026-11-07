@@ -125,9 +125,8 @@ RSpec.describe Listing do
         expect(tour.reload.live_blockers).to eq([])
       end
 
-      it "asks any other activity for one landmark" do
-        expect(activity.reload.live_blockers).to eq(%w[route])
-        activity.landmark_visits.create!(landmark: create(:landmark))
+      # Only tours have a route (RAA-270): a jet ski goes from its meeting place.
+      it "asks any other activity for no landmark" do
         expect(activity.reload.live_blockers).to eq([])
       end
 
@@ -148,10 +147,7 @@ RSpec.describe Listing do
   describe "a water activity's offers (RAA-270)" do
     let(:description) { "Ride a jet ski along the white sand of Santa Fe, life vests and a briefing included." }
     let(:jet_ski) do
-      create(:listing, :water_activity, description:).tap do
-        create_photo(_1)
-        _1.landmark_visits.create!(landmark: create(:landmark))
-      end
+      create(:listing, :water_activity, description:).tap { create_photo(_1) }
     end
 
     it "asks for an offer, an archived one not counting" do

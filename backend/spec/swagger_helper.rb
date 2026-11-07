@@ -716,8 +716,8 @@ RSpec.configure do |config|
               },
               live_blockers: {
                 type: :array, items: { type: :string, enum: Listing::LIVE_BLOCKERS.keys },
-                description: "What it still needs to go live: a ready photo, a description, a price (stays and " \
-                  "tours), two stops on a tour's route and a landmark on another activity's. Empty when it can go live."
+                description: "What it still needs to go live: a ready photo, a description, a price (every " \
+                  "listing; a water activity's is an offer) and two stops on a tour's route. Empty when it can go live."
               },
               category: {
                 type: :object,

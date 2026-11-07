@@ -8336,8 +8336,8 @@ export interface components {
              * @enum {string}
              */
             status: "draft" | "active" | "paused" | "delisted";
-            /** @description What it still needs to go live: a ready photo, a description, a price (stays and tours), two stops on a tour's route and a landmark on another activity's. Empty when it can go live. */
-            live_blockers: ("photo" | "description" | "price" | "route" | "stops")[];
+            /** @description What it still needs to go live: a ready photo, a description, a price (every listing; a water activity's is an offer) and two stops on a tour's route. Empty when it can go live. */
+            live_blockers: ("photo" | "description" | "price" | "stops")[];
             category: {
                 id: number;
                 slug: string;
@@ -9955,7 +9955,7 @@ export interface components {
                 title: string;
                 /** @enum {string} */
                 status: "draft" | "active" | "paused" | "delisted";
-                live_blockers: ("photo" | "description" | "price" | "route" | "stops")[];
+                live_blockers: ("photo" | "description" | "price" | "stops")[];
             }[];
             setup: {
                 /** @enum {string} */
