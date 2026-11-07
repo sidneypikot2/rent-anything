@@ -30,13 +30,18 @@ test("home page renders and reaches the API", async ({ page }) => {
   collectErrors(page, errors);
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Bantayan Island");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByText("Live on Bantayan")).toBeVisible();
   await expect(page.getByTestId("nav-signin")).toBeVisible();
   await expect(page.getByTestId("nav-register")).toHaveAttribute("href", "/register");
-  // Rendered on the server from the API (the sample destinations, RAA-33): those beyond the
-  // launch area, as links while there are few, as cards once there are more.
-  await expect(page.getByTestId(/^destination-(card|link)$/).first()).toBeVisible();
-  await expect(page.getByTestId("activity-card").first()).toBeVisible();
+  // The home's three ways in: Plan a trip (below), Book one thing down to the kinds under the
+  // hero, and Explore to the launch area's page.
+  await expect(page.getByTestId("home-book-one")).toHaveAttribute("href", "#book-one");
+  await expect(page.getByTestId("home-explore")).toHaveAttribute("href", "/bantayan-island");
+  // Under the hero: the five kinds of things to book, and the places to see, rendered on the
+  // server from the API, each opening its card on the launch area's page.
+  await expect(page.getByTestId("home-service")).toHaveCount(5);
+  await expect(page.getByTestId("home-place").first()).toHaveAttribute("href", /^\/bantayan-island#[a-z0-9-]+$/);
 
   expect(errors).toEqual([]);
 });
@@ -101,18 +106,19 @@ test("search a landmark and open its destination", async ({ page }) => {
   const errors = [];
   collectErrors(page, errors);
 
-  await page.goto("/");
-  // The hero offers Browse the launch area or "Decided yet?"; the search is Book a thing or two's.
-  await page.getByTestId("plan-one-thing").click();
-  await page.getByTestId("search-input").fill("kota");
-  const suggestions = page.getByTestId("search-suggestions");
+  // The home page (the team's E) has no search: start from the results page's, which has no place.
+  await page.goto("/search");
+  const homeBar = page.getByTestId("search-bar");
+  await homeBar.getByTestId("search-bar-pill").click();
+  await homeBar.getByTestId("search-input").fill("kota");
+  const suggestions = homeBar.getByTestId("search-suggestions");
   await expect(suggestions).toContainText("Kota Beach");
   // Listings near Kota Beach are suggested too; take the landmark, named with its destination.
   await suggestions.getByRole("option", { name: "Kota Beach Bantayan Island" }).click();
   // Picking a place opens nothing yet: the dates come next, and Search goes there.
-  await expect(page.getByTestId("search-input")).toHaveValue("Kota Beach");
-  await expect(page).toHaveURL(/\/(\?book=one)?$/);
-  await page.getByTestId("search-submit").click();
+  await expect(homeBar.getByTestId("search-input")).toHaveValue("Kota Beach");
+  await expect(page).toHaveURL(/\/search$/);
+  await homeBar.getByTestId("search-submit").click();
 
   await expect(page).toHaveURL(/\/bantayan-island#kota-beach$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bantayan Island");
@@ -162,10 +168,11 @@ test("search a landmark and open its destination", async ({ page }) => {
   if (listing !== business) await listing.close();
   await business.close();
 
-  // Enter on the home search with several matches opens the results page, which lists them.
-  await page.goto("/?book=one");
-  await page.getByTestId("search-input").fill("snorkelling");
-  await page.getByTestId("search-input").press("Enter");
+  // A search with several matches opens the results page, which lists them.
+  await page.goto("/search");
+  await homeBar.getByTestId("search-bar-pill").click();
+  await homeBar.getByTestId("search-input").fill("snorkelling");
+  await homeBar.getByTestId("search-submit").click();
   await expect(page).toHaveURL(/\/search\?q=snorkelling$/);
   await expect(page.getByTestId("search-results")).toContainText("Bantayan Island");
 

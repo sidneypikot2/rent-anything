@@ -630,8 +630,9 @@ export function SearchBox({
           event.preventDefault();
           setPanel(null);
           router.push(withDates(here.href, carry), { scroll: false });
-        } else if (typed && hero) {
-          // Typed, not picked, on the hero: where it matched (typedHref).
+        } else if (typed && (hero || !hereArea)) {
+          // Typed, not picked, on the hero or a page with no place (the home page's header):
+          // where it matched (typedHref).
           event.preventDefault();
           setPanel(null);
           const ready = data && enabled && query === typed;

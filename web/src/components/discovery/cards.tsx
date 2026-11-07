@@ -504,13 +504,16 @@ export function ListingCard({
             <CategoryGlyph name={category} className="size-5" />
           </span>
           <span className="min-w-0 flex-1">
-            {/* On the home page it keeps the hero search's dates and guests, as its other cards do. */}
+            {/* On the home page it keeps the hero search's dates and guests, as its other cards do.
+                It stretches over the card, so a tap on the photo opens the listing too; on a
+                white card its focus ring is the primary blue, not the glass's sky-pale. */}
             <HeroTripLink
               href={href}
               data-testid="listing-link"
               className={cn(
+                STRETCHED_LINK,
                 "line-clamp-2 font-display text-title-sm leading-snug font-extrabold tracking-tight break-words underline-offset-4 hover:underline",
-                stacked ? "text-foreground" : "text-white",
+                stacked ? "text-foreground [--focus:var(--color-primary)]" : "text-white",
               )}
             >
               {title}
@@ -534,7 +537,8 @@ export function ListingCard({
               <span />
             )}
             {/* On its own line once the row wraps (a phone's narrow card), it keeps to the right. */}
-            {action && <div className="ml-auto">{action}</div>}
+            {/* Above the title's stretched link, so a tap here works the action, not the link. */}
+            {action && <div className="relative z-10 ml-auto">{action}</div>}
           </div>
         )
       }
