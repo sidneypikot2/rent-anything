@@ -7879,11 +7879,45 @@ components:
           type: integer
           minimum: 1
           description: Per unit, or per guest when sold per person
+        max_guests:
+          type: integer
+          minimum: 1
+          maximum: 100
+          nullable: true
+          description: 'Riders who may share or take turns on one unit for this offer
+            (RAA-271); null: seats_per_unit'
       required:
       - id
       - name
       - duration_minutes
       - price_cents
+      - max_guests
+    activity_add_on:
+      type: object
+      properties:
+        id:
+          type: integer
+        kind:
+          type: string
+          enum:
+          - drone_shot
+          - action_cam_video
+          - photo_package
+          - towel
+        price_cents:
+          type: integer
+          minimum: 1
+        charged_per:
+          type: string
+          enum:
+          - booking
+          - unit
+          - person
+      required:
+      - id
+      - kind
+      - price_cents
+      - charged_per
     partner_activity:
       type: object
       properties:
@@ -7938,6 +7972,29 @@ components:
           items:
             "$ref": "#/components/schemas/activity_offer"
           description: The current offers, in the partner's order
+        inclusions:
+          type: array
+          items:
+            type: string
+            enum:
+            - life_vest
+            - safety_briefing
+            - fuel
+            - marshal_boat
+            - waterproof_bag
+            - shower_room
+          description: What comes with it (RAA-271), in the list's order
+        add_ons:
+          type: array
+          items:
+            "$ref": "#/components/schemas/activity_add_on"
+          description: The current add-ons, in the partner's order
+        delivery_zones:
+          type: array
+          items:
+            "$ref": "#/components/schemas/delivery_zone"
+          description: 'Drop-off of the unit at the guest''s beach or chosen spot,
+            nearest first; empty: no drop-off'
       required:
       - sold_by
       - schedule
@@ -7949,6 +8006,9 @@ components:
       - included
       - requirements
       - offers
+      - inclusions
+      - add_ons
+      - delivery_zones
     activity_body:
       type: object
       description: The whole water activity, replaced when sent
@@ -8021,10 +8081,66 @@ components:
               price_cents:
                 type: integer
                 minimum: 1
+              max_guests:
+                type: integer
+                minimum: 1
+                maximum: 100
+                nullable: true
+                description: 'Riders who may share or take turns on one unit (RAA-271).
+                  Left out: seats_per_unit'
             required:
             - name
             - duration_minutes
             - price_cents
+        inclusions:
+          type: array
+          items:
+            type: string
+            enum:
+            - life_vest
+            - safety_briefing
+            - fuel
+            - marshal_boat
+            - waterproof_bag
+            - shower_room
+          description: 'From listing_options activity_inclusions; repeats dropped.
+            Left out: none (RAA-271)'
+        add_ons:
+          type: array
+          description: 'Replaces the current add-ons, in this order, one per kind.
+            One with a current add-on''s kind changes it; a current one left out is
+            archived. Left out: none (RAA-271)'
+          items:
+            type: object
+            properties:
+              kind:
+                type: string
+                enum:
+                - drone_shot
+                - action_cam_video
+                - photo_package
+                - towel
+              price_cents:
+                type: integer
+                minimum: 1
+              charged_per:
+                type: string
+                enum:
+                - booking
+                - unit
+                - person
+            required:
+            - kind
+            - price_cents
+            - charged_per
+        delivery_zones:
+          type: array
+          maxItems: 5
+          items:
+            "$ref": "#/components/schemas/delivery_zone"
+          description: 'Drop-off of the unit at the guest''s beach or chosen spot
+            (RAA-271); each a different distance, none cheaper than a nearer one.
+            Left out or empty: no drop-off'
       required:
       - sold_by
       - schedule
@@ -9003,6 +9119,61 @@ components:
             required:
             - kind
             - options
+        activity_inclusions:
+          type: array
+          description: What a water activity can include (RAA-271), in order
+          items:
+            type: object
+            properties:
+              kind:
+                type: string
+                enum:
+                - life_vest
+                - safety_briefing
+                - fuel
+                - marshal_boat
+                - waterproof_bag
+                - shower_room
+              name:
+                type: string
+            required:
+            - kind
+            - name
+        activity_add_ons:
+          type: array
+          description: The add-ons a water activity can offer (RAA-271), in order
+          items:
+            type: object
+            properties:
+              kind:
+                type: string
+                enum:
+                - drone_shot
+                - action_cam_video
+                - photo_package
+                - towel
+              name:
+                type: string
+            required:
+            - kind
+            - name
+        activity_add_on_charged_per:
+          type: array
+          description: What an add-on's price is for (RAA-271)
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+                enum:
+                - booking
+                - unit
+                - person
+              name:
+                type: string
+            required:
+            - value
+            - name
         categories:
           type: array
           items:
@@ -9052,6 +9223,9 @@ components:
       - cancellation_policies
       - booking_modes
       - tour_inclusions
+      - activity_inclusions
+      - activity_add_ons
+      - activity_add_on_charged_per
     area:
       type: object
       properties:

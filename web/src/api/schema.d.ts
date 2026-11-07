@@ -8622,6 +8622,16 @@ export interface components {
             duration_minutes: number;
             /** @description Per unit, or per guest when sold per person */
             price_cents: number;
+            /** @description Riders who may share or take turns on one unit for this offer (RAA-271); null: seats_per_unit */
+            max_guests: number | null;
+        };
+        activity_add_on: {
+            id: number;
+            /** @enum {string} */
+            kind: "drone_shot" | "action_cam_video" | "photo_package" | "towel";
+            price_cents: number;
+            /** @enum {string} */
+            charged_per: "booking" | "unit" | "person";
         };
         partner_activity: {
             /** @enum {string} */
@@ -8648,6 +8658,12 @@ export interface components {
             requirements: string | null;
             /** @description The current offers, in the partner's order */
             offers: components["schemas"]["activity_offer"][];
+            /** @description What comes with it (RAA-271), in the list's order */
+            inclusions: ("life_vest" | "safety_briefing" | "fuel" | "marshal_boat" | "waterproof_bag" | "shower_room")[];
+            /** @description The current add-ons, in the partner's order */
+            add_ons: components["schemas"]["activity_add_on"][];
+            /** @description Drop-off of the unit at the guest's beach or chosen spot, nearest first; empty: no drop-off */
+            delivery_zones: components["schemas"]["delivery_zone"][];
         };
         /** @description The whole water activity, replaced when sent */
         activity_body: {
@@ -8678,7 +8694,21 @@ export interface components {
                 /** @description In steps of 5 */
                 duration_minutes: number;
                 price_cents: number;
+                /** @description Riders who may share or take turns on one unit (RAA-271). Left out: seats_per_unit */
+                max_guests?: number | null;
             }[];
+            /** @description From listing_options activity_inclusions; repeats dropped. Left out: none (RAA-271) */
+            inclusions?: ("life_vest" | "safety_briefing" | "fuel" | "marshal_boat" | "waterproof_bag" | "shower_room")[];
+            /** @description Replaces the current add-ons, in this order, one per kind. One with a current add-on's kind changes it; a current one left out is archived. Left out: none (RAA-271) */
+            add_ons?: {
+                /** @enum {string} */
+                kind: "drone_shot" | "action_cam_video" | "photo_package" | "towel";
+                price_cents: number;
+                /** @enum {string} */
+                charged_per: "booking" | "unit" | "person";
+            }[];
+            /** @description Drop-off of the unit at the guest's beach or chosen spot (RAA-271); each a different distance, none cheaper than a nearer one. Left out or empty: no drop-off */
+            delivery_zones?: components["schemas"]["delivery_zone"][];
         };
         /** @description The whole tour, replaced when sent. A tour runs every day. */
         tour_body: {
@@ -9050,6 +9080,24 @@ export interface components {
                 /** @enum {string} */
                 kind: "accommodation" | "transport" | "meal";
                 options: string[];
+            }[];
+            /** @description What a water activity can include (RAA-271), in order */
+            activity_inclusions: {
+                /** @enum {string} */
+                kind: "life_vest" | "safety_briefing" | "fuel" | "marshal_boat" | "waterproof_bag" | "shower_room";
+                name: string;
+            }[];
+            /** @description The add-ons a water activity can offer (RAA-271), in order */
+            activity_add_ons: {
+                /** @enum {string} */
+                kind: "drone_shot" | "action_cam_video" | "photo_package" | "towel";
+                name: string;
+            }[];
+            /** @description What an add-on's price is for (RAA-271) */
+            activity_add_on_charged_per: {
+                /** @enum {string} */
+                value: "booking" | "unit" | "person";
+                name: string;
             }[];
             categories: {
                 id: number;

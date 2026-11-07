@@ -19,7 +19,11 @@ module Api
             end,
             cancellation_policies: Listing::CANCELLATION_POLICIES.map { |value, policy| { value:, **policy } },
             booking_modes: Listing::OFFERED_BOOKING_MODES.map { |value, mode| { value:, **mode } },
-            tour_inclusions: TourInclusion::KINDS.map { |kind, options| { kind:, options: } }
+            tour_inclusions: TourInclusion::KINDS.map { |kind, options| { kind:, options: } },
+            # What a water activity can include and add, from fixed lists (RAA-271).
+            activity_inclusions: ActivityDetail::INCLUSIONS.map { |kind, name| { kind:, name: } },
+            activity_add_ons: ActivityAddOn::KINDS.map { |kind, name| { kind:, name: } },
+            activity_add_on_charged_per: ActivityAddOn::CHARGED_PER.map { |value, name| { value:, name: } }
           }
         end
       end

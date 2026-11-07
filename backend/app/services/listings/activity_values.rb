@@ -5,6 +5,10 @@ module Listings
   # other category and dropped when the listing stops being one. An offer sent with the id of
   # one of the listing's current offers changes it in place; one sent without makes a new one;
   # a current offer left out is archived, never deleted, so a booking made with it keeps it.
+  #
+  # RAA-271 adds riders per offer (max_guests), inclusions and add-ons from fixed lists, and
+  # drop-off delivery_zones. Add-ons are one per kind: one sent with a current add-on's kind
+  # changes it, a current one left out is archived. The zones are replaced; none, no drop-off.
   module ActivityValues
     TIME_LABEL = "on the hour or half hour".freeze
 
@@ -22,19 +26,39 @@ module Listings
       return error("Activity details must be an object") unless value.respond_to?(:key?)
 
       detail = activity_detail(value)
-      { detail:, offers: activity_offers(value[:offers], detail[:schedule] == "open_hours" && detail) }
+      { detail:, offers: activity_offers(value[:offers], detail[:schedule] == "open_hours" && detail),
+        add_ons: activity_add_ons(value[:add_ons]), zones: delivery_zones_for(value[:delivery_zones]) }
     end
 
     def save_activity!(listing)
       unless listing.category.water_activity?
         listing.activity_detail&.destroy!
         listing.activity_offers.current.update_all(archived_at: Time.current, updated_at: Time.current)
+        listing.activity_add_ons.current.update_all(archived_at: Time.current, updated_at: Time.current)
         return
       end
       return if @activity.nil?
 
-      (listing.activity_detail || listing.build_activity_detail).update!(@activity[:detail])
+      detail = listing.activity_detail || listing.build_activity_detail
+      detail.assign_attributes(@activity[:detail])
+      detail.assign_zones(@activity[:zones])
+      detail.save!
       save_offers!(listing, @activity[:offers])
+      save_add_ons!(listing, @activity[:add_ons])
+    end
+
+    # Archived ones step aside first, so their kind is free for a new add-on.
+    def save_add_ons!(listing, add_ons)
+      current = listing.activity_add_ons.current.index_by(&:kind)
+      kept = add_ons.map { _1[:kind] }
+      listing.activity_add_ons.where(id: current.except(*kept).values.map(&:id))
+        .update_all(archived_at: Time.current, updated_at: Time.current)
+      add_ons.each_with_index do |add_on, position|
+        attributes = add_on.merge(position:)
+        current[add_on[:kind]] ? current[add_on[:kind]].update!(attributes) : listing.activity_add_ons.create!(attributes)
+      end
+      listing.add_ons.reset
+      listing.activity_add_ons.reset
     end
 
     # Archived ones step aside first, so a name they had is free for a new offer.
@@ -71,8 +95,45 @@ module Listings
         seats_per_unit: whole(value[:seats_per_unit], 1..ActivityDetail::MAX_SEATS, "Seats per unit"),
         min_age: value[:min_age].nil? ? nil : whole(value[:min_age], ActivityDetail::MIN_AGES, "Minimum age"),
         included: activity_text(value[:included], "What's included"),
-        requirements: activity_text(value[:requirements], "What guests need")
+        requirements: activity_text(value[:requirements], "What guests need"),
+        inclusions: activity_inclusions(value[:inclusions])
       }
+    end
+
+    # Known kinds only, in the list's order, repeats dropped.
+    def activity_inclusions(value)
+      return [] if value.nil?
+
+      known = ActivityDetail::INCLUSIONS.keys
+      unless value.is_a?(Array) && value.all? { known.include?(_1) }
+        return error("Inclusions must be from: #{known.join(', ')}") || []
+      end
+
+      known & value
+    end
+
+    def activity_add_ons(value)
+      return [] if value.nil?
+      return error("Add-ons must be a list") || [] unless value.is_a?(Array)
+
+      add_ons = value.filter_map { |add_on| activity_add_on(add_on) }
+      kinds = add_ons.filter_map { _1[:kind] }
+      error("Each add-on can be listed once") if kinds.uniq.size < kinds.size
+      add_ons
+    end
+
+    def activity_add_on(add_on)
+      return error("Each add-on must be an object") unless add_on.respond_to?(:key?)
+
+      kind = add_on[:kind]
+      kind = error("An add-on must be one of: #{ActivityAddOn::KINDS.keys.join(', ')}") unless ActivityAddOn::KINDS.key?(kind)
+      charged_per = add_on[:charged_per]
+      unless ActivityAddOn::CHARGED_PER.key?(charged_per)
+        charged_per = error("An add-on is charged per #{sentence(ActivityAddOn::CHARGED_PER.keys)}")
+      end
+      price = add_on[:price_cents]
+      price = error("An add-on's price must be a whole number of centavos above 0") unless price.is_a?(Integer) && price.positive?
+      { kind:, charged_per:, price_cents: price }
     end
 
     def open_hours(value)
@@ -116,7 +177,8 @@ module Listings
         name = error("Each offer needs a name of at most #{ActivityOffer::NAME_LENGTH.max} characters")
       end
       { id:, name:, duration_minutes: offer_duration(offer[:duration_minutes], name, open_hours),
-        price_cents: offer_price(offer[:price_cents]) }
+        price_cents: offer_price(offer[:price_cents]),
+        max_guests: offer[:max_guests].nil? ? nil : whole(offer[:max_guests], 1..ActivityDetail::MAX_SEATS, "Riders per offer") }
     end
 
     def offer_duration(value, name, open_hours)

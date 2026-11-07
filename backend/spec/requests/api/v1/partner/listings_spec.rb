@@ -887,13 +887,73 @@ RSpec.describe "Partner listings", type: :request do
             expect(saved.except("offers")).to eq(
               "sold_by" => "unit", "schedule" => "open_hours", "opens_at" => "08:00", "closes_at" => "17:00",
               "departure_times" => [], "seats_per_unit" => 2, "min_age" => 12, "included" => "Life vest and a briefing",
-              "requirements" => "Can swim"
+              "requirements" => "Can swim", "inclusions" => [], "add_ons" => [], "delivery_zones" => []
             )
             expect(saved["offers"].map { _1.except("id") }).to eq([
-              { "name" => "30 minutes", "duration_minutes" => 30, "price_cents" => 150_000 },
-              { "name" => "1 hour", "duration_minutes" => 60, "price_cents" => 250_000 }
+              { "name" => "30 minutes", "duration_minutes" => 30, "price_cents" => 150_000, "max_guests" => nil },
+              { "name" => "1 hour", "duration_minutes" => 60, "price_cents" => 250_000, "max_guests" => nil }
             ])
             expect(response.parsed_body["tour"]).to be_nil
+          end
+        end
+
+        response "201", "riders per offer, inclusions, add-ons and drop-off zones (RAA-271)" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before do
+            activity[:offers][0][:max_guests] = 2
+            activity[:offers][1][:max_guests] = 4
+            activity.merge!(
+              inclusions: %w[fuel life_vest fuel],
+              add_ons: [ { kind: "drone_shot", price_cents: 80_000, charged_per: "booking" },
+                { kind: "photo_package", price_cents: 30_000, charged_per: "person" } ],
+              delivery_zones: [ { max_distance_m: 5_000, fee_cents: 30_000 }, { max_distance_m: 2_000, fee_cents: 0 } ]
+            )
+          end
+
+          run_test! do |response|
+            saved = response.parsed_body["activity"]
+            expect(saved["offers"].pluck("max_guests")).to eq([ 2, 4 ])
+            expect(saved["inclusions"]).to eq(%w[life_vest fuel])
+            expect(saved["add_ons"].map { _1.except("id") }).to eq([
+              { "kind" => "drone_shot", "price_cents" => 80_000, "charged_per" => "booking" },
+              { "kind" => "photo_package", "price_cents" => 30_000, "charged_per" => "person" }
+            ])
+            expect(saved["delivery_zones"]).to eq([
+              { "max_distance_m" => 2_000, "fee_cents" => 0 }, { "max_distance_m" => 5_000, "fee_cents" => 30_000 }
+            ])
+          end
+        end
+
+        response "422", "unknown inclusions and add-ons, riders out of range, bad zones (RAA-271)" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          before do
+            activity[:offers][0][:max_guests] = 0
+            activity.merge!(
+              inclusions: %w[life_vest jetpack],
+              add_ons: [ { kind: "drone_shot", price_cents: 80_000, charged_per: "night" },
+                { kind: "drone_shot", price_cents: 0, charged_per: "booking" }, { kind: "unicorn", price_cents: 1, charged_per: "unit" } ],
+              delivery_zones: [ { max_distance_m: 2_000, fee_cents: 10_000 }, { max_distance_m: "far", fee_cents: 0 } ]
+            )
+          end
+
+          run_test! do |refused|
+            expect(refused.parsed_body["errors"]).to include(
+              "Riders per offer must be a whole number from 1 to 100",
+              "Inclusions must be from: #{ActivityDetail::INCLUSIONS.keys.join(', ')}",
+              "An add-on must be one of: #{ActivityAddOn::KINDS.keys.join(', ')}",
+              "An add-on is charged per booking, unit or person",
+              "An add-on's price must be a whole number of centavos above 0",
+              "Each add-on can be listed once",
+              "A delivery zone's distance must be a whole number of metres"
+            )
+            expect(Listing.count).to eq(0)
+
+            body[:activity] = activity.merge(add_ons: [], inclusions: [], offers: activity[:offers].map { _1.except(:max_guests) },
+              delivery_zones: [ { max_distance_m: 2_000, fee_cents: 10_000 }, { max_distance_m: 5_000, fee_cents: 0 } ])
+            post "/api/v1/partner/listings", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["errors"]).to eq([ "Delivery zones can't cost less farther from the shop" ])
           end
         end
 
@@ -1674,6 +1734,33 @@ RSpec.describe "Partner listings", type: :request do
             body.delete(:activity)
             patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
             expect(response.parsed_body["activity"]["offers"].pluck("name")).to eq([ "1 hour", "Half an hour" ])
+          end
+        end
+
+        response "200", "add-ons changed in place by kind and archived when left out; zones replaced (RAA-271)" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          let!(:drone) { create(:activity_add_on, listing:, kind: "drone_shot", price_cents: 50_000, position: 0) }
+
+          before do
+            create(:activity_add_on, listing:, kind: "towel", position: 1)
+            listing.activity_detail.delivery_zones.create!(max_distance_m: 1_000, fee_cents: 0)
+            activity.merge!(add_ons: [ { kind: "drone_shot", price_cents: 90_000, charged_per: "unit" } ],
+              delivery_zones: [ { max_distance_m: 3_000, fee_cents: 20_000 } ])
+          end
+
+          run_test! do |response|
+            saved = response.parsed_body["activity"]
+            expect(saved["add_ons"]).to eq([
+              { "id" => drone.id, "kind" => "drone_shot", "price_cents" => 90_000, "charged_per" => "unit" }
+            ])
+            expect(listing.activity_add_ons.where.not(archived_at: nil).pluck(:kind)).to eq([ "towel" ])
+            expect(saved["delivery_zones"]).to eq([ { "max_distance_m" => 3_000, "fee_cents" => 20_000 } ])
+
+            body.delete(:activity)
+            patch "/api/v1/partner/listings/#{id}", params: body, as: :json, headers: { "Authorization" => Authorization() }
+            expect(response.parsed_body["activity"]["add_ons"].pluck("kind")).to eq([ "drone_shot" ])
+            expect(response.parsed_body["activity"]["delivery_zones"].size).to eq(1)
           end
         end
 

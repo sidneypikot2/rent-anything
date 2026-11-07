@@ -16,6 +16,8 @@ class ActivityOffer < ApplicationRecord
   validate :duration_in_fives
   validates :price_cents, numericality: { only_integer: true, greater_than: 0 }
   validates :position, numericality: { only_integer: true }
+  # Riders who may share or take turns on one unit for this offer (RAA-271); nil: seats_per_unit.
+  validates :max_guests, numericality: { only_integer: true, in: 1..ActivityDetail::MAX_SEATS }, allow_nil: true
 
   def archived?
     archived_at.present?

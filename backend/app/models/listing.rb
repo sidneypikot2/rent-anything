@@ -45,7 +45,7 @@ class Listing < ApplicationRecord
   # What TourSerializer reads, to preload (RAA-110).
   TOUR_ASSOCIATIONS = %i[tour_detail tour_inclusions].freeze
   # What ActivitySerializer reads, to preload (RAA-270).
-  ACTIVITY_ASSOCIATIONS = %i[activity_detail offers].freeze
+  ACTIVITY_ASSOCIATIONS = [ { activity_detail: :delivery_zones }, :offers, :add_ons ].freeze
 
   belongs_to :area
   belongs_to :partner, class_name: "User"
@@ -79,6 +79,9 @@ class Listing < ApplicationRecord
   has_one :activity_detail, dependent: :delete, inverse_of: :listing
   has_many :activity_offers, dependent: :delete_all, inverse_of: :listing
   has_many :offers, -> { current.order(:position) }, class_name: "ActivityOffer", inverse_of: :listing
+  # Its add-ons (RAA-271), kept like offers: `add_ons` the current ones, in the partner's order.
+  has_many :activity_add_ons, dependent: :delete_all, inverse_of: :listing
+  has_many :add_ons, -> { current.order(:position) }, class_name: "ActivityAddOn", inverse_of: :listing
   # Its photos in the partner's order (RAA-106), with those still uploading. Destroyed one by
   # one so each one's files are deleted from storage too.
   has_many :photos, -> { order(:position) }, class_name: "ListingPhoto", dependent: :destroy, inverse_of: :listing

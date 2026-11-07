@@ -155,6 +155,9 @@ unless Rails.env.test?
   # What pre-fills the builder for each water activity (RAA-270).
   require Rails.root.join("db/migrate/20261107090000_create_activity_details_and_offers").to_s
   CreateActivityDetailsAndOffers.backfill(ActiveRecord::Base.connection)
+  # Jet ski's inclusions and riders per offer (RAA-271).
+  require Rails.root.join("db/migrate/20261107120000_add_activity_riders_add_ons_and_delivery_zones").to_s
+  AddActivityRidersAddOnsAndDeliveryZones.backfill(ActiveRecord::Base.connection)
 
   # Every sample listing has a price (RAA-191): there is no "to be agreed" in production, so the
   # add sheet and checkout total every kind. Only rates still at 0 or missing get one; a price a

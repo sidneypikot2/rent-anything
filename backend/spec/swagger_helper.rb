@@ -1104,9 +1104,24 @@ RSpec.configure do |config|
               id: { type: :integer },
               name: { type: :string, minLength: 1, maxLength: 60, description: "E.g. \"30 minutes\", \"Try dive\"" },
               duration_minutes: { type: :integer, minimum: 5, maximum: 720, description: "In steps of 5" },
-              price_cents: { type: :integer, minimum: 1, description: "Per unit, or per guest when sold per person" }
+              price_cents: { type: :integer, minimum: 1, description: "Per unit, or per guest when sold per person" },
+              max_guests: {
+                type: :integer, minimum: 1, maximum: 100, nullable: true,
+                description: "Riders who may share or take turns on one unit for this offer (RAA-271); null: seats_per_unit"
+              }
             },
-            required: %w[id name duration_minutes price_cents]
+            required: %w[id name duration_minutes price_cents max_guests]
+          },
+          # An extra a guest may add (RAA-271), from a fixed list (listing_options activity_add_ons).
+          activity_add_on: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              kind: { type: :string, enum: ActivityAddOn::KINDS.keys },
+              price_cents: { type: :integer, minimum: 1 },
+              charged_per: { type: :string, enum: ActivityAddOn::CHARGED_PER.keys }
+            },
+            required: %w[id kind price_cents charged_per]
           },
           partner_activity: {
             type: :object,
@@ -1131,10 +1146,22 @@ RSpec.configure do |config|
               offers: {
                 type: :array, items: { "$ref" => "#/components/schemas/activity_offer" },
                 description: "The current offers, in the partner's order"
+              },
+              inclusions: {
+                type: :array, items: { type: :string, enum: ActivityDetail::INCLUSIONS.keys },
+                description: "What comes with it (RAA-271), in the list's order"
+              },
+              add_ons: {
+                type: :array, items: { "$ref" => "#/components/schemas/activity_add_on" },
+                description: "The current add-ons, in the partner's order"
+              },
+              delivery_zones: {
+                type: :array, items: { "$ref" => "#/components/schemas/delivery_zone" },
+                description: "Drop-off of the unit at the guest's beach or chosen spot, nearest first; empty: no drop-off"
               }
             },
             required: %w[sold_by schedule opens_at closes_at departure_times seats_per_unit min_age included
-              requirements offers]
+              requirements offers inclusions add_ons delivery_zones]
           },
           activity_body: {
             type: :object,
@@ -1166,10 +1193,38 @@ RSpec.configure do |config|
                     id: { type: :integer },
                     name: { type: :string, minLength: 1, maxLength: 60 },
                     duration_minutes: { type: :integer, minimum: 5, maximum: 720, description: "In steps of 5" },
-                    price_cents: { type: :integer, minimum: 1 }
+                    price_cents: { type: :integer, minimum: 1 },
+                    max_guests: {
+                      type: :integer, minimum: 1, maximum: 100, nullable: true,
+                      description: "Riders who may share or take turns on one unit (RAA-271). Left out: seats_per_unit"
+                    }
                   },
                   required: %w[name duration_minutes price_cents]
                 }
+              },
+              inclusions: {
+                type: :array, items: { type: :string, enum: ActivityDetail::INCLUSIONS.keys },
+                description: "From listing_options activity_inclusions; repeats dropped. Left out: none (RAA-271)"
+              },
+              add_ons: {
+                type: :array,
+                description: "Replaces the current add-ons, in this order, one per kind. One with a current add-on's " \
+                  "kind changes it; a current one left out is archived. Left out: none (RAA-271)",
+                items: {
+                  type: :object,
+                  properties: {
+                    kind: { type: :string, enum: ActivityAddOn::KINDS.keys },
+                    price_cents: { type: :integer, minimum: 1 },
+                    charged_per: { type: :string, enum: ActivityAddOn::CHARGED_PER.keys }
+                  },
+                  required: %w[kind price_cents charged_per]
+                }
+              },
+              delivery_zones: {
+                type: :array, maxItems: DeliveryZoned::MAX_DELIVERY_ZONES,
+                items: { "$ref" => "#/components/schemas/delivery_zone" },
+                description: "Drop-off of the unit at the guest's beach or chosen spot (RAA-271); each a different " \
+                  "distance, none cheaper than a nearer one. Left out or empty: no drop-off"
               }
             },
             required: %w[sold_by schedule seats_per_unit]
@@ -1685,6 +1740,30 @@ RSpec.configure do |config|
                   required: %w[kind options]
                 }
               },
+              activity_inclusions: {
+                type: :array, description: "What a water activity can include (RAA-271), in order",
+                items: {
+                  type: :object,
+                  properties: { kind: { type: :string, enum: ActivityDetail::INCLUSIONS.keys }, name: { type: :string } },
+                  required: %w[kind name]
+                }
+              },
+              activity_add_ons: {
+                type: :array, description: "The add-ons a water activity can offer (RAA-271), in order",
+                items: {
+                  type: :object,
+                  properties: { kind: { type: :string, enum: ActivityAddOn::KINDS.keys }, name: { type: :string } },
+                  required: %w[kind name]
+                }
+              },
+              activity_add_on_charged_per: {
+                type: :array, description: "What an add-on's price is for (RAA-271)",
+                items: {
+                  type: :object,
+                  properties: { value: { type: :string, enum: ActivityAddOn::CHARGED_PER.keys }, name: { type: :string } },
+                  required: %w[value name]
+                }
+              },
               categories: {
                 type: :array,
                 items: {
@@ -1710,7 +1789,8 @@ RSpec.configure do |config|
                 }
               }
             },
-            required: %w[categories cancellation_policies booking_modes tour_inclusions]
+            required: %w[categories cancellation_policies booking_modes tour_inclusions activity_inclusions
+              activity_add_ons activity_add_on_charged_per]
           },
           area: {
             type: :object,
