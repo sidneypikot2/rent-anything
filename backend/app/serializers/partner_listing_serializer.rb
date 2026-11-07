@@ -2,11 +2,11 @@
 # spec/swagger_helper.rb). The exact location is fine here: the reader owns the listing.
 # A tour's landmarks come by name, and `covers` is the destinations they're in (RAA-70).
 # Its photos, still uploading ones too, come with the ids a change sends back (RAA-106).
-# A tour's details (RAA-110), and how many photos it takes. Its live_blockers (RAA-115) say
+# A tour's details (RAA-110), a water activity's (RAA-270), and how many photos it takes. Its live_blockers (RAA-115) say
 # what it lacks to go live. Preload ASSOCIATIONS, and pass destinations for a list.
 module PartnerListingSerializer
-  ASSOCIATIONS = [ :business, :category, :area, :units, :stay_rate, :vehicle_rate, :flat_rate, :fees, :photos, *Listing::TOUR_ASSOCIATIONS,
-    { visited_landmarks: :area } ].freeze
+  ASSOCIATIONS = [ :business, :area, :units, :stay_rate, :vehicle_rate, :flat_rate, :fees, :photos, *Listing::TOUR_ASSOCIATIONS,
+    *Listing::ACTIVITY_ASSOCIATIONS, { category: :parent, visited_landmarks: :area } ].freeze
 
   def self.call(listing, destinations: PartnerLandmarkSerializer.destinations_for(listing.visited_landmarks))
     category = listing.category
@@ -30,6 +30,7 @@ module PartnerListingSerializer
       flat_rate: PricingSerializer.flat_rate(listing.flat_rate),
       fees: PricingSerializer.fees(listing),
       tour: TourSerializer.partner(listing),
+      activity: ActivitySerializer.partner(listing),
       business: { id: listing.business.id, name: listing.business.name },
       landmarks:,
       covers: landmarks.filter_map { |landmark| landmark[:destination] }.uniq.sort_by { |place| place[:name] },

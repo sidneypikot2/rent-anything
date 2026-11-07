@@ -8,7 +8,8 @@ module Partners
     ACTIVITY_LIMIT = 10
     # Firm bookings: an accepted request waiting for payment may yet expire.
     UPCOMING = %w[confirmed in_progress].freeze
-    LISTING_ASSOCIATIONS = [ :category, :stay_rate, :vehicle_rate, :flat_rate, :photos, :tour_detail, :visited_landmarks ].freeze
+    LISTING_ASSOCIATIONS = [ { category: :parent }, :stay_rate, :vehicle_rate, :flat_rate, :photos, :tour_detail, :offers,
+      :visited_landmarks ].freeze
     BOOKING_ASSOCIATIONS = { listing: %i[category tour_detail] }.freeze
 
     def initialize(partner)

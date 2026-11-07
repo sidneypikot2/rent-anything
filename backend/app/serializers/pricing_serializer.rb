@@ -34,8 +34,9 @@ module PricingSerializer
   end
 
   # What a guest sees on a listing row: a stay's nightly price, a tour's base price (RAA-110)
-  # a vehicle's daily price (RAA-149) or a flat price (RAA-191) once one is set, else null.
-  # Preload stay_rate, tour_detail, vehicle_rate, flat_rate and category: :parent.
+  # a vehicle's daily price (RAA-149), a flat price (RAA-191) or a water activity's cheapest
+  # offer (RAA-270) once one is set, else null. Preload stay_rate, tour_detail, vehicle_rate,
+  # flat_rate, Listing::ACTIVITY_ASSOCIATIONS and category: :parent.
   def self.price_from_cents(listing)
     rate = listing.stay_rate
     return rate.nightly_price_cents if rate&.priced?
@@ -47,17 +48,23 @@ module PricingSerializer
     return flat.price_cents if flat&.priced?
 
     tour = listing.tour_detail
-    tour&.priced? ? tour.base_price_cents : nil
+    return tour.base_price_cents if tour&.priced?
+
+    listing.offers.map(&:price_cents).min if listing.activity_detail
   end
 
   # What price_from_cents is for: "night", a private tour's "group", a joiner's "person" or
-  # a vehicle's or gear's "day", a transfer's "trip".
+  # a vehicle's or gear's "day", a transfer's "trip", a water activity's "unit" (a machine,
+  # kayak or boat) or "person" when sold by the seat.
   def self.price_unit(listing)
     return "night" if listing.stay_rate&.priced?
     return "day" if listing.vehicle_rate&.priced?
     return "trip" if listing.flat_rate&.priced?
 
     tour = listing.tour_detail
-    tour&.priced? ? tour.price_unit : nil
+    return tour.price_unit if tour&.priced?
+
+    activity = listing.activity_detail
+    activity.sold_by if activity && listing.offers.any?
   end
 end

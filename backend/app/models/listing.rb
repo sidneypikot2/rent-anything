@@ -11,10 +11,10 @@ class Listing < ApplicationRecord
     "photo" => "a photo",
     "description" => "a description of at least 50 characters",
     "price" => "a price",
-    "route" => "a landmark on its route",
     "stops" => "at least two stops on its route"
   }.freeze
-  # A tour goes to several places (RAA-268); a one-place trip is an activity.
+  # A tour goes to several places (RAA-268); any other activity goes from its meeting place
+  # and needs no route (RAA-270).
   MIN_TOUR_STOPS = 2
   # What a guest gets back on cancelling (RAA-88), chosen by the partner; refunds follow it in M4.
   CANCELLATION_POLICIES = {
@@ -44,6 +44,8 @@ class Listing < ApplicationRecord
   LIVE_DESCRIPTION_MIN = 50
   # What TourSerializer reads, to preload (RAA-110).
   TOUR_ASSOCIATIONS = %i[tour_detail tour_inclusions].freeze
+  # What ActivitySerializer reads, to preload (RAA-270).
+  ACTIVITY_ASSOCIATIONS = %i[activity_detail offers].freeze
 
   belongs_to :area
   belongs_to :partner, class_name: "User"
@@ -71,6 +73,12 @@ class Listing < ApplicationRecord
   # with it; the foreign keys cascade too.
   has_one :tour_detail, dependent: :delete, inverse_of: :listing
   has_many :tour_inclusions, -> { order(:kind) }, dependent: :delete_all, inverse_of: :listing
+  # A water activity's way of selling and hours, and the offers guests pick (RAA-270); every
+  # water activity has the detail. `offers` are the current ones, in the partner's order;
+  # activity_offers keeps the archived ones too. The foreign keys cascade.
+  has_one :activity_detail, dependent: :delete, inverse_of: :listing
+  has_many :activity_offers, dependent: :delete_all, inverse_of: :listing
+  has_many :offers, -> { current.order(:position) }, class_name: "ActivityOffer", inverse_of: :listing
   # Its photos in the partner's order (RAA-106), with those still uploading. Destroyed one by
   # one so each one's files are deleted from storage too.
   has_many :photos, -> { order(:position) }, class_name: "ListingPhoto", dependent: :destroy, inverse_of: :listing
@@ -181,15 +189,15 @@ class Listing < ApplicationRecord
   end
 
   # What it still lacks to go live (LIVE_BLOCKERS' keys): a ready photo, a description of
-  # LIVE_DESCRIPTION_MIN characters, a price (a stay's, a tour's, a vehicle's or gear's, or a
-  # transfer's flat one, RAA-191), and a landmark on an activity's route. Reads photos, stay_rate,
-  # tour_detail, vehicle_rate, flat_rate and visited_landmarks.
+  # LIVE_DESCRIPTION_MIN characters, a price (a stay's, a tour's, a vehicle's or gear's, a
+  # transfer's flat one, RAA-191, or a water activity's offer, RAA-270), and a tour's stops.
+  # Reads photos, stay_rate, tour_detail, vehicle_rate, flat_rate, offers, category: :parent
+  # and visited_landmarks.
   def live_blockers
     [
       ("photo" unless photos.any?(&:ready?)),
       ("description" if description.strip.length < LIVE_DESCRIPTION_MIN),
       ("price" if needs_price?),
-      ("route" if category.activity? && !category.tour? && visited_landmarks.empty?),
       ("stops" if category.tour? && visited_landmarks.size < MIN_TOUR_STOPS)
     ].compact
   end
@@ -197,9 +205,7 @@ class Listing < ApplicationRecord
   # Refuses a change that takes from a live listing something it needs to be live (RAA-115);
   # what it lacked already (a listing made live before the rule) doesn't block the change.
   def check_still_live!(blockers_before)
-    # A tour short of stops was short of a route too, should it become another activity.
-    lacked = blockers_before.include?("stops") ? [ *blockers_before, "route" ] : blockers_before
-    added = active? ? live_blockers - lacked : []
+    added = active? ? live_blockers - blockers_before : []
     return if added.empty?
 
     errors.add(:base, "A live listing needs #{added.map { LIVE_BLOCKERS[_1] }.to_sentence}: pause it first")
@@ -219,7 +225,8 @@ class Listing < ApplicationRecord
     (category.accommodation? && !stay_rate&.nightly_price_cents&.positive?) ||
       (category.tour? && !tour_detail&.base_price_cents&.positive?) ||
       (category.timed_rental? && !vehicle_rate&.priced?) ||
-      (category.flat_priced? && !flat_rate&.priced?)
+      (category.flat_priced? && !flat_rate&.priced?) ||
+      (category.water_activity? && offers.none?)
   end
 
   def partner_is_a_partner

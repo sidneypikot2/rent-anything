@@ -125,9 +125,8 @@ RSpec.describe Listing do
         expect(tour.reload.live_blockers).to eq([])
       end
 
-      it "asks any other activity for one landmark" do
-        expect(activity.reload.live_blockers).to eq(%w[route])
-        activity.landmark_visits.create!(landmark: create(:landmark))
+      # Only tours have a route (RAA-270): a jet ski goes from its meeting place.
+      it "asks any other activity for no landmark" do
         expect(activity.reload.live_blockers).to eq([])
       end
 
@@ -142,6 +141,44 @@ RSpec.describe Listing do
         visit.destroy!
         expect { tour.reload.check_still_live!(two_stops) }.to raise_error(ActiveRecord::RecordInvalid, /two stops/)
       end
+    end
+  end
+
+  describe "a water activity's offers (RAA-270)" do
+    let(:description) { "Ride a jet ski along the white sand of Santa Fe, life vests and a briefing included." }
+    let(:jet_ski) do
+      create(:listing, :water_activity, description:).tap { create_photo(_1) }
+    end
+
+    it "asks for an offer, an archived one not counting" do
+      expect(jet_ski.reload.live_blockers).to eq([])
+      jet_ski.activity_offers.update_all(archived_at: Time.current)
+      expect(jet_ski.reload.live_blockers).to eq(%w[price])
+    end
+
+    it "refuses a live one losing its last offer" do
+      before = jet_ski.reload.live_blockers
+      jet_ski.activity_offers.update_all(archived_at: Time.current)
+      expect { jet_ski.reload.check_still_live!(before) }.to raise_error(ActiveRecord::RecordInvalid, /a price/)
+    end
+
+    it "keeps details and offers to water activities, priced above 0 in steps of 5 minutes" do
+      tour = create(:listing, :tour)
+      expect(build(:activity_detail, listing: tour)).not_to be_valid
+      offer = build(:activity_offer, listing: jet_ski, price_cents: 0, duration_minutes: 7)
+      expect(offer).not_to be_valid
+      expect(offer.errors.full_messages).to include("Price cents must be greater than 0", "Duration minutes must be in steps of 5 minutes")
+      expect { offer.save!(validate: false) }.to raise_error(ActiveRecord::StatementInvalid, /activity_offers_duration_check/)
+    end
+
+    it "needs open hours or departures on the half hour" do
+      detail = jet_ski.activity_detail
+      detail.assign_attributes(opens_at: "17:00", closes_at: "08:15")
+      expect(detail).not_to be_valid
+      expect { detail.save!(validate: false) }.to raise_error(ActiveRecord::StatementInvalid, /activity_details_open_hours_check/)
+      detail.reload.assign_attributes(schedule: "departures", departure_times: %w[09:00 25:00])
+      expect(detail).not_to be_valid
+      expect { detail.save!(validate: false) }.to raise_error(ActiveRecord::StatementInvalid, /activity_details_departure_times_check/)
     end
   end
 

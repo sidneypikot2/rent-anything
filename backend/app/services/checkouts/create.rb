@@ -24,7 +24,8 @@ module Checkouts
 
     MAX_ITEMS = 20
     KEY_LENGTH = 8..80
-    ASSOCIATIONS = [ { category: :parent }, :units, :stay_rate, { vehicle_rate: :delivery_zones }, :flat_rate, :tour_detail, :fees ].freeze
+    ASSOCIATIONS = [ { category: :parent }, :units, :stay_rate, { vehicle_rate: :delivery_zones }, :flat_rate, :tour_detail, :fees,
+      *Listing::ACTIVITY_ASSOCIATIONS ].freeze
 
     def initialize(user, params)
       @user = user

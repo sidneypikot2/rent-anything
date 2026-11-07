@@ -716,8 +716,8 @@ RSpec.configure do |config|
               },
               live_blockers: {
                 type: :array, items: { type: :string, enum: Listing::LIVE_BLOCKERS.keys },
-                description: "What it still needs to go live: a ready photo, a description, a price (stays and " \
-                  "tours), two stops on a tour's route and a landmark on another activity's. Empty when it can go live."
+                description: "What it still needs to go live: a ready photo, a description, a price (every " \
+                  "listing; a water activity's is an offer) and two stops on a tour's route. Empty when it can go live."
               },
               category: {
                 type: :object,
@@ -757,6 +757,10 @@ RSpec.configure do |config|
                 allOf: [ { "$ref" => "#/components/schemas/partner_tour" } ], nullable: true,
                 description: "A tour's details (RAA-110); null for any other category"
               },
+              activity: {
+                allOf: [ { "$ref" => "#/components/schemas/partner_activity" } ], nullable: true,
+                description: "A water activity's details and offers (RAA-270); null for any other category"
+              },
               business: {
                 type: :object,
                 properties: { id: { type: :integer }, name: { type: :string } },
@@ -779,7 +783,8 @@ RSpec.configure do |config|
               updated_at: { type: :string, format: "date-time" }
             },
             required: %w[id title description status live_blockers category area address location attrs cancellation_policy booking_mode units_count
-              stay_rate vehicle_rate flat_rate fees tour business landmarks covers photos photo_limit created_at updated_at]
+              stay_rate vehicle_rate flat_rate fees tour activity business landmarks covers photos photo_limit created_at
+              updated_at]
           },
           # A business a partner runs (RAA-100); its listings are shown under its name.
           partner_business: {
@@ -997,6 +1002,12 @@ RSpec.configure do |config|
                   "replaces the tour's details and inclusions when sent; left out on a change, they stay. " \
                   "Refused for any other category."
               },
+              activity: {
+                allOf: [ { "$ref" => "#/components/schemas/activity_body" } ],
+                description: "Water activities only (RAA-270), and required on a new one or one moved into a water " \
+                  "activity category: replaces its details and offers when sent; left out on a change, they stay. " \
+                  "Refused for any other category."
+              },
               photos: {
                 type: :array, items: { type: :integer }, maxItems: 12,
                 description: "The ids of the listing's photos (POST /api/v1/partner/listings/{listing_id}/photos) in " \
@@ -1011,10 +1022,11 @@ RSpec.configure do |config|
           # per head, its inclusions in the price. Money is in centavos.
           tour_type: { type: :string, enum: %w[private joiner] },
           price_unit: {
-            type: :string, enum: %w[night group person day trip], nullable: true,
+            type: :string, enum: %w[night group person day trip unit], nullable: true,
             description: "What price_from_cents is for: a night of a stay, a private tour's whole group or one " \
-              "joiner, a day of a vehicle rental (RAA-149) or of gear, a transfer's trip (RAA-191); null when there " \
-              "is no price"
+              "joiner, a day of a vehicle rental (RAA-149) or of gear, a transfer's trip (RAA-191), a water " \
+              "activity's unit (a machine, kayak or boat) or one guest when sold by the seat (RAA-270); null when " \
+              "there is no price"
           },
           tour_inclusion: {
             type: :object,
@@ -1081,6 +1093,86 @@ RSpec.configure do |config|
             },
             required: %w[tour_type min_guests max_guests duration_value duration_unit base_price_cents price_unit
               inclusions]
+          },
+          # A water activity (RAA-270). Sold per unit, a guest takes a whole machine, kayak or boat for
+          # their party; per person, guests take seats. It runs in open hours (a start on any half
+          # hour, ending by closing) or at set departures. Offers are what a guest picks and pays:
+          # a length and a price, per unit or per guest. Money is in centavos.
+          activity_offer: {
+            type: :object,
+            properties: {
+              id: { type: :integer },
+              name: { type: :string, minLength: 1, maxLength: 60, description: "E.g. \"30 minutes\", \"Try dive\"" },
+              duration_minutes: { type: :integer, minimum: 5, maximum: 720, description: "In steps of 5" },
+              price_cents: { type: :integer, minimum: 1, description: "Per unit, or per guest when sold per person" }
+            },
+            required: %w[id name duration_minutes price_cents]
+          },
+          partner_activity: {
+            type: :object,
+            properties: {
+              sold_by: { type: :string, enum: %w[unit person] },
+              schedule: { type: :string, enum: %w[open_hours departures] },
+              opens_at: { type: :string, nullable: true, example: "08:00", description: "Open hours only" },
+              closes_at: { type: :string, nullable: true, example: "17:00", description: "Open hours only" },
+              departure_times: {
+                type: :array, items: { type: :string, example: "08:00" },
+                description: "Departures only, in order; empty otherwise"
+              },
+              seats_per_unit: {
+                type: :integer, minimum: 1, maximum: 100,
+                description: "Per unit: the most guests on one; per person: the seats each unit sells"
+              },
+              min_age: { type: :integer, minimum: 1, maximum: 99, nullable: true },
+              included: { type: :string, maxLength: 500, nullable: true },
+              requirements: {
+                type: :string, maxLength: 500, nullable: true, description: "What guests need, e.g. \"Can swim\""
+              },
+              offers: {
+                type: :array, items: { "$ref" => "#/components/schemas/activity_offer" },
+                description: "The current offers, in the partner's order"
+              }
+            },
+            required: %w[sold_by schedule opens_at closes_at departure_times seats_per_unit min_age included
+              requirements offers]
+          },
+          activity_body: {
+            type: :object,
+            description: "The whole water activity, replaced when sent",
+            properties: {
+              sold_by: { type: :string, enum: %w[unit person] },
+              schedule: { type: :string, enum: %w[open_hours departures] },
+              opens_at: {
+                type: :string, example: "08:00",
+                description: "Open hours: required, on the hour or half hour, before closes_at"
+              },
+              closes_at: { type: :string, example: "17:00", description: "Open hours: required, on the hour or half hour" },
+              departure_times: {
+                type: :array, items: { type: :string, example: "08:00" }, minItems: 1, maxItems: 24,
+                description: "Departures: required, each on the hour or half hour; sorted, repeats dropped"
+              },
+              seats_per_unit: { type: :integer, minimum: 1, maximum: 100 },
+              min_age: { type: :integer, minimum: 1, maximum: 99, nullable: true },
+              included: { type: :string, maxLength: 500, nullable: true },
+              requirements: { type: :string, maxLength: 500, nullable: true },
+              offers: {
+                type: :array, maxItems: 10,
+                description: "Replaces the current offers, in this order; names are unique ignoring case. One with " \
+                  "the id of a current offer changes it; one without is new; a current one left out is archived. " \
+                  "With open hours, none longer than them. Left out: none",
+                items: {
+                  type: :object,
+                  properties: {
+                    id: { type: :integer },
+                    name: { type: :string, minLength: 1, maxLength: 60 },
+                    duration_minutes: { type: :integer, minimum: 5, maximum: 720, description: "In steps of 5" },
+                    price_cents: { type: :integer, minimum: 1 }
+                  },
+                  required: %w[name duration_minutes price_cents]
+                }
+              }
+            },
+            required: %w[sold_by schedule seats_per_unit]
           },
           tour_body: {
             type: :object,
@@ -1607,9 +1699,14 @@ RSpec.configure do |config|
                     attribute_schema: {
                       type: :object, additionalProperties: true,
                       description: "The JSON Schema a listing's attrs must match"
+                    },
+                    activity_defaults: {
+                      type: :object, additionalProperties: true, nullable: true,
+                      description: "A water activity's builder defaults (RAA-270), shaped as activity_body with " \
+                        "offers that have no price; null for any other category"
                     }
                   },
-                  required: %w[id slug name booking_type parent_name description attribute_schema]
+                  required: %w[id slug name booking_type parent_name description attribute_schema activity_defaults]
                 }
               }
             },

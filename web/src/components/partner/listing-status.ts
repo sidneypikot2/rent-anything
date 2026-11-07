@@ -15,7 +15,6 @@ export const BLOCKER_LABELS: Record<PartnerListing["live_blockers"][number], str
   photo: "Add a photo",
   description: "Write a description",
   price: "Set a price",
-  route: "Add a destination to its route",
   stops: "Add at least two destinations to its route",
 };
 

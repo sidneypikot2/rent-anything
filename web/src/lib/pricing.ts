@@ -43,9 +43,11 @@ export function nightUnit(perGuest: boolean) {
 
 // The unit after a listing's "from" price (price_unit): a night of a stay, a private tour's
 // whole group or one joiner (RAA-110), a day of a vehicle rental (RAA-149) or of gear, or a
-// transfer's trip (RAA-191).
+// transfer's trip (RAA-191), or a water activity's unit, a machine, kayak or boat (RAA-270).
 export function priceUnitText(unit: components["schemas"]["price_unit"]) {
-  return unit ? { night: "/ night", group: "/ group", person: "/ guest", day: "/ day", trip: "/ trip" }[unit] : undefined;
+  return unit
+    ? { night: "/ night", group: "/ group", person: "/ guest", day: "/ day", trip: "/ trip", unit: "each" }[unit]
+    : undefined;
 }
 
 // What an unpriced listing says where its price would be: only stays and tours have prices

@@ -4369,7 +4369,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description leaf categories */
+                /** @description a water activity with its builder defaults (RAA-270) */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -4974,7 +4974,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description tour details dropped when the listing stops being a tour */
+                /** @description details dropped and offers archived when it stops being a water activity */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -8336,8 +8336,8 @@ export interface components {
              * @enum {string}
              */
             status: "draft" | "active" | "paused" | "delisted";
-            /** @description What it still needs to go live: a ready photo, a description, a price (stays and tours), two stops on a tour's route and a landmark on another activity's. Empty when it can go live. */
-            live_blockers: ("photo" | "description" | "price" | "route" | "stops")[];
+            /** @description What it still needs to go live: a ready photo, a description, a price (every listing; a water activity's is an offer) and two stops on a tour's route. Empty when it can go live. */
+            live_blockers: ("photo" | "description" | "price" | "stops")[];
             category: {
                 id: number;
                 slug: string;
@@ -8369,6 +8369,8 @@ export interface components {
             fees: components["schemas"]["listing_fee"][];
             /** @description A tour's details (RAA-110); null for any other category */
             tour: components["schemas"]["partner_tour"] | null;
+            /** @description A water activity's details and offers (RAA-270); null for any other category */
+            activity: components["schemas"]["partner_activity"] | null;
             business: {
                 id: number;
                 name: string;
@@ -8547,16 +8549,18 @@ export interface components {
             fees?: components["schemas"]["listing_fee_body"][];
             /** @description Tours only (category slug `tour`), and required on a new one or one moved into it: replaces the tour's details and inclusions when sent; left out on a change, they stay. Refused for any other category. */
             tour?: components["schemas"]["tour_body"];
+            /** @description Water activities only (RAA-270), and required on a new one or one moved into a water activity category: replaces its details and offers when sent; left out on a change, they stay. Refused for any other category. */
+            activity?: components["schemas"]["activity_body"];
             /** @description The ids of the listing's photos (POST /api/v1/partner/listings/{listing_id}/photos) in order, the first uploaded one the cover. A photo left out is deleted; left out on a change, they stay as they are. A new listing has none yet. A tour has at most 5. */
             photos?: number[];
         };
         /** @enum {string} */
         tour_type: "private" | "joiner";
         /**
-         * @description What price_from_cents is for: a night of a stay, a private tour's whole group or one joiner, a day of a vehicle rental (RAA-149) or of gear, a transfer's trip (RAA-191); null when there is no price
+         * @description What price_from_cents is for: a night of a stay, a private tour's whole group or one joiner, a day of a vehicle rental (RAA-149) or of gear, a transfer's trip (RAA-191), a water activity's unit (a machine, kayak or boat) or one guest when sold by the seat (RAA-270); null when there is no price
          * @enum {string|null}
          */
-        price_unit: "night" | "group" | "person" | "day" | "trip" | null;
+        price_unit: "night" | "group" | "person" | "day" | "trip" | "unit" | null;
         tour_inclusion: {
             /** @enum {string} */
             kind: "accommodation" | "transport" | "meal";
@@ -8609,6 +8613,72 @@ export interface components {
             /** @enum {string} */
             price_unit: "group" | "person";
             inclusions: components["schemas"]["tour_inclusion"][];
+        };
+        activity_offer: {
+            id: number;
+            /** @description E.g. "30 minutes", "Try dive" */
+            name: string;
+            /** @description In steps of 5 */
+            duration_minutes: number;
+            /** @description Per unit, or per guest when sold per person */
+            price_cents: number;
+        };
+        partner_activity: {
+            /** @enum {string} */
+            sold_by: "unit" | "person";
+            /** @enum {string} */
+            schedule: "open_hours" | "departures";
+            /**
+             * @description Open hours only
+             * @example 08:00
+             */
+            opens_at: string | null;
+            /**
+             * @description Open hours only
+             * @example 17:00
+             */
+            closes_at: string | null;
+            /** @description Departures only, in order; empty otherwise */
+            departure_times: string[];
+            /** @description Per unit: the most guests on one; per person: the seats each unit sells */
+            seats_per_unit: number;
+            min_age: number | null;
+            included: string | null;
+            /** @description What guests need, e.g. "Can swim" */
+            requirements: string | null;
+            /** @description The current offers, in the partner's order */
+            offers: components["schemas"]["activity_offer"][];
+        };
+        /** @description The whole water activity, replaced when sent */
+        activity_body: {
+            /** @enum {string} */
+            sold_by: "unit" | "person";
+            /** @enum {string} */
+            schedule: "open_hours" | "departures";
+            /**
+             * @description Open hours: required, on the hour or half hour, before closes_at
+             * @example 08:00
+             */
+            opens_at?: string;
+            /**
+             * @description Open hours: required, on the hour or half hour
+             * @example 17:00
+             */
+            closes_at?: string;
+            /** @description Departures: required, each on the hour or half hour; sorted, repeats dropped */
+            departure_times?: string[];
+            seats_per_unit: number;
+            min_age?: number | null;
+            included?: string | null;
+            requirements?: string | null;
+            /** @description Replaces the current offers, in this order; names are unique ignoring case. One with the id of a current offer changes it; one without is new; a current one left out is archived. With open hours, none longer than them. Left out: none */
+            offers?: {
+                id?: number;
+                name: string;
+                /** @description In steps of 5 */
+                duration_minutes: number;
+                price_cents: number;
+            }[];
         };
         /** @description The whole tour, replaced when sent. A tour runs every day. */
         tour_body: {
@@ -8994,6 +9064,10 @@ export interface components {
                 attribute_schema: {
                     [key: string]: unknown;
                 };
+                /** @description A water activity's builder defaults (RAA-270), shaped as activity_body with offers that have no price; null for any other category */
+                activity_defaults: {
+                    [key: string]: unknown;
+                } | null;
             }[];
         };
         area: {
@@ -9881,7 +9955,7 @@ export interface components {
                 title: string;
                 /** @enum {string} */
                 status: "draft" | "active" | "paused" | "delisted";
-                live_blockers: ("photo" | "description" | "price" | "route" | "stops")[];
+                live_blockers: ("photo" | "description" | "price" | "stops")[];
             }[];
             setup: {
                 /** @enum {string} */
