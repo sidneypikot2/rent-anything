@@ -12,7 +12,7 @@ import type { Trip } from "@/components/trips/use-trips";
 // has trips, and a place page's Switch trip (AreaHero). `selected`: the trip being worked on, else
 // the first (the one the home page would have continued). `places`, on a place page: the trips
 // with something here come first, under "In <place>", so the one wanted is near the top however
-// many trips the guest has. The home page's Plan a whole trip (HeroPlanChoice) asks it too, in its own words (`meta`,
+// many trips the guest has. The home page's Plan a trip (HomePlanButton) asks it too, in its own words (`meta`,
 // `newDetail`).
 export function TripChoiceSheet({
   trips,
