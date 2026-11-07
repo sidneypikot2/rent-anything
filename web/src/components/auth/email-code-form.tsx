@@ -27,7 +27,7 @@ export function EmailCodeForm({ onSignedIn, tabOnly }: { onSignedIn: () => void;
 
   if (email === null) {
     return (
-      <form onSubmit={sendCode} data-testid="email-code-request">
+      <form method="post" onSubmit={sendCode} data-testid="email-code-request">
         <fieldset disabled={pending} className="flex flex-col gap-3">
           <Field label="Email" name="email" type="email" autoComplete="email" hint="The one you booked with" required />
           {error && (
@@ -84,7 +84,7 @@ export function CodeForm({
   }
 
   return (
-    <form onSubmit={verify} data-testid="email-code-verify">
+    <form method="post" onSubmit={verify} data-testid="email-code-verify">
       <fieldset disabled={pending} className="flex flex-col gap-3">
         <p className="text-sm text-muted">{intro}</p>
         <Field

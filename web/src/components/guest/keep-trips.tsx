@@ -65,7 +65,7 @@ export function KeepTrips() {
     );
   } else {
     body = (
-      <form onSubmit={submit} data-testid="keep-trips-form">
+      <form method="post" onSubmit={submit} data-testid="keep-trips-form">
         <fieldset disabled={register.isPending} className="flex flex-col gap-3">
           <p className="text-sm text-muted">
             Without an account, a trip is deleted 60 days after it ends. Set a password for{" "}
