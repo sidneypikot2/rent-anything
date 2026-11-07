@@ -2,7 +2,6 @@
 
 import type { components } from "@/api/schema";
 import { Button } from "@/components/ui/button";
-import { Card, CardBody } from "@/components/ui/card";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { ChoiceCards } from "@/components/ui/choice-cards";
 import { Field } from "@/components/ui/field";
@@ -12,6 +11,7 @@ import { TextareaField } from "@/components/ui/textarea-field";
 import type { LatLng } from "@/lib/map";
 import { formatPeso, fromCents, toCents } from "@/lib/money";
 import { DeliveryZoneFields, FIRST_ZONE, toZoneValues, zoneBody, zonesError, type ZoneValues } from "./delivery-zones-field";
+import { PricingSection } from "./pricing-section";
 import type { ListingCategory, ListingOptions } from "./use-partner-listings";
 
 type PartnerActivity = components["schemas"]["partner_activity"];
@@ -38,10 +38,10 @@ export function activityCatalogues(options: ListingOptions): ActivityCatalogues 
 const MAX_SEATS = 100;
 const MAX_DEPARTURES = 24;
 const MAX_OFFERS = 10;
-const NAME_MAX = 60;
 const TEXT_MAX = 500;
 const DURATION = { min: 5, max: 720 };
-const QUICK_LENGTHS = [15, 30, 60];
+// The lengths a rate can pick, in minutes (any step of 5 from 5 to 720 is valid).
+const LENGTHS = [10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 300, 360, 480, 720];
 
 // A water activity (RAA-268): the API sends its builder defaults only for these.
 export function isWaterActivity(category: Pick<ListingCategory, "activity_defaults"> | undefined) {
@@ -73,13 +73,14 @@ export function lengthText(minutes: number) {
   return parts.filter(Boolean).join(" ");
 }
 
-// One offer as typed: length and price are text until saved; `riders` null means up to the
-// seats on one unit. `id` is the saved offer it changes.
-export type OfferValues = { id?: number; name: string; minutes: string; price: string; riders: number | null };
-type AddOnValues = { on: boolean; price: string; chargedPer: ChargedPer };
+// One rate as typed: its length in minutes and its price as text; `riders` null means up to the
+// seats on one unit. `id` is the saved offer it changes. A rate has no name of its own: the API's
+// is its length ("30 minutes").
+export type OfferValues = { id?: number; minutes: string; price: string; riders: number | null };
+type AddOnValues = { kind: AddOnKind; price: string; chargedPer: ChargedPer };
 
 // A water activity as the form holds it (RAA-272). Text kept under a switch that's off (a
-// minimum age, an unticked add-on's price, drop-off zones) comes back when it is switched on.
+// minimum age, drop-off zones) comes back when it is switched on.
 export type ActivityValues = {
   soldBy: SoldBy;
   schedule: Schedule;
@@ -93,12 +94,11 @@ export type ActivityValues = {
   offers: OfferValues[];
   inclusions: ActivityInclusionKind[];
   included: string;
-  addOns: Partial<Record<AddOnKind, AddOnValues>>;
+  addOns: AddOnValues[];
   dropOff: boolean;
   zones: ZoneValues[];
 };
 
-const BLANK_OFFER: OfferValues = { name: "", minutes: "60", price: "", riders: null };
 
 // The category's builder defaults (activity_body without prices), read defensively: the team
 // sets them.
@@ -109,8 +109,7 @@ type Defaults = Partial<Omit<ActivityBody, "offers">> & {
 export function newActivityValues(defaults: ListingCategory["activity_defaults"] | undefined): ActivityValues {
   const d = (defaults ?? {}) as Defaults;
   const offers = (d.offers ?? []).map((offer) => ({
-    name: offer.name ?? "",
-    minutes: offer.duration_minutes ? String(offer.duration_minutes) : "",
+    minutes: String(offer.duration_minutes ?? 60),
     price: "",
     riders: offer.max_guests ?? null,
   }));
@@ -124,10 +123,10 @@ export function newActivityValues(defaults: ListingCategory["activity_defaults"]
     minAgeOn: d.min_age != null,
     minAge: d.min_age ?? 12,
     requirements: d.requirements ?? "",
-    offers: offers.length ? offers : [BLANK_OFFER],
+    offers: offers.length ? offers : [{ minutes: "60", price: "", riders: null }],
     inclusions: d.inclusions ?? [],
     included: d.included ?? "",
-    addOns: {},
+    addOns: [],
     dropOff: false,
     zones: [FIRST_ZONE],
   };
@@ -137,10 +136,6 @@ export function newActivityValues(defaults: ListingCategory["activity_defaults"]
 // category) starts from the category's defaults.
 export function toActivityValues(activity: PartnerActivity | null, defaults: ListingCategory["activity_defaults"] | undefined): ActivityValues {
   if (!activity) return newActivityValues(defaults);
-  const addOns: ActivityValues["addOns"] = {};
-  for (const addOn of activity.add_ons) {
-    addOns[addOn.kind] = { on: true, price: fromCents(addOn.price_cents), chargedPer: addOn.charged_per };
-  }
   return {
     soldBy: activity.sold_by,
     schedule: activity.schedule,
@@ -153,14 +148,13 @@ export function toActivityValues(activity: PartnerActivity | null, defaults: Lis
     requirements: activity.requirements ?? "",
     offers: activity.offers.map((offer) => ({
       id: offer.id,
-      name: offer.name,
       minutes: String(offer.duration_minutes),
       price: fromCents(offer.price_cents),
       riders: offer.max_guests,
     })),
     inclusions: activity.inclusions,
     included: activity.included ?? "",
-    addOns,
+    addOns: activity.add_ons.map((addOn) => ({ kind: addOn.kind, price: fromCents(addOn.price_cents), chargedPer: addOn.charged_per })),
     dropOff: activity.delivery_zones.length > 0,
     zones: activity.delivery_zones.length ? toZoneValues(activity.delivery_zones) : [FIRST_ZONE],
   };
@@ -181,16 +175,14 @@ export function toActivityBody(values: ActivityValues): ActivityBody {
     requirements: values.requirements.trim() || null,
     offers: values.offers.map((offer) => ({
       ...(offer.id ? { id: offer.id } : {}),
-      name: offer.name.trim(),
+      name: lengthText(Number(offer.minutes)),
       duration_minutes: Number(offer.minutes),
       price_cents: toCents(offer.price) ?? 0,
       // Riders taking turns are a unit's; sold by the seat, each guest has their own.
       max_guests: values.soldBy === "unit" ? offer.riders : null,
     })),
     inclusions: values.inclusions,
-    add_ons: (Object.entries(values.addOns) as [AddOnKind, AddOnValues][])
-      .filter(([, addOn]) => addOn.on)
-      .map(([kind, addOn]) => ({ kind, price_cents: toCents(addOn.price) ?? 0, charged_per: addOn.chargedPer })),
+    add_ons: values.addOns.map((addOn) => ({ kind: addOn.kind, price_cents: toCents(addOn.price) ?? 0, charged_per: addOn.chargedPer })),
     delivery_zones: values.dropOff ? zoneBody(values.zones) : [],
   };
 }
@@ -202,10 +194,8 @@ export type ActivityErrors = Partial<
 // The steps of the wizard (and sections of the edit page) each error belongs to.
 export const ACTIVITY_SECTIONS = {
   runs: ["hours", "departures", "minAge", "requirements"],
-  rates: ["offers"],
+  pricing: ["offers", "zones", "addOns"],
   inclusions: ["included"],
-  addOns: ["addOns"],
-  dropOff: ["zones"],
 } as const satisfies Record<string, (keyof ActivityErrors)[]>;
 
 export type ActivitySection = keyof typeof ACTIVITY_SECTIONS;
@@ -223,12 +213,7 @@ export function activityErrors(values: ActivityValues, section?: ActivitySection
   if (values.included.trim().length > TEXT_MAX) errors.included = `At most ${TEXT_MAX} characters`;
   errors.offers = offersError(values);
 
-  for (const [kind, addOn] of Object.entries(values.addOns)) {
-    if (addOn.on && !toCents(addOn.price)) {
-      errors.addOns = `Set a price above ₱0 for each add-on you offer (${kind.replaceAll("_", " ")}), or untick it`;
-      break;
-    }
-  }
+  if (values.addOns.some((addOn) => !toCents(addOn.price))) errors.addOns = "Set a price above ₱0 for each add-on, or remove it";
   if (values.dropOff) errors.zones = zonesError(values.zones);
 
   const keys: readonly (keyof ActivityErrors)[] = section ? ACTIVITY_SECTIONS[section] : (Object.keys(errors) as (keyof ActivityErrors)[]);
@@ -241,18 +226,16 @@ function offersError(values: ActivityValues): string | undefined {
   const { offers } = values;
   if (offers.length < 1) return "Add at least one rate";
   if (offers.length > MAX_OFFERS) return `At most ${MAX_OFFERS} rates`;
-  const names = new Set<string>();
+  const lengths = new Set<number>();
   const open = values.schedule === "open_hours" ? minutesOf(values.closesAt) - minutesOf(values.opensAt) : null;
-  for (const [index, offer] of offers.entries()) {
-    const name = offer.name.trim();
-    const which = name || `Rate ${index + 1}`;
-    if (!name || name.length > NAME_MAX) return `Give each rate a name of at most ${NAME_MAX} characters`;
-    if (names.has(name.toLowerCase())) return `Two rates are called ${name}`;
-    names.add(name.toLowerCase());
-    const minutes = /^\d+$/.test(offer.minutes.trim()) ? Number(offer.minutes) : 0;
-    if (minutes < DURATION.min || minutes > DURATION.max || minutes % 5 !== 0) {
-      return `${which}: a length from ${DURATION.min} to ${DURATION.max} minutes, in steps of 5`;
+  for (const offer of offers) {
+    const minutes = Number(offer.minutes);
+    if (!Number.isInteger(minutes) || minutes < DURATION.min || minutes > DURATION.max || minutes % 5 !== 0) {
+      return `A rate's length must be ${DURATION.min} to ${DURATION.max} minutes, in steps of 5`;
     }
+    const which = `The ${lengthText(minutes)} rate`;
+    if (lengths.has(minutes)) return `Two rates are ${lengthText(minutes)}: give each a different length`;
+    lengths.add(minutes);
     if (open !== null && open > 0 && minutes > open) return `${which} is longer than your open hours`;
     if (!toCents(offer.price)) return `${which}: set a price above ₱0`;
   }
@@ -389,107 +372,206 @@ function nextHalfHour(time: string | undefined) {
   return HALF_HOURS[Math.min(index + 2, HALF_HOURS.length - 1)]?.value ?? "09:00";
 }
 
-// The rates (RAA-270, riders RAA-271): each a name, a length and a price.
-export function ActivityOfferFields({ values, onChange, errors }: SectionProps) {
+// The lengths to pick from, with a saved one that isn't in the list kept as an option.
+function lengthOptions(current: string) {
+  const minutes = Number(current);
+  const lengths = LENGTHS.includes(minutes) || !minutes ? LENGTHS : [...LENGTHS, minutes].sort((a, b) => a - b);
+  return lengths.map((length) => ({ value: String(length), label: lengthText(length) }));
+}
+
+// A water activity's pricing (RAA-272), laid out as a vehicle rental's: its rates (a length, a
+// price and, per unit, the riders on it), drop-off and shop pick-up, and add-ons from the fixed
+// list, added like a vehicle's common fees.
+export function ActivityPricingFields({
+  values,
+  onChange,
+  errors,
+  location,
+  addOnKinds,
+  chargedPer,
+}: SectionProps & {
+  location?: LatLng | null;
+  addOnKinds: ActivityCatalogues["addOns"];
+  chargedPer: ActivityCatalogues["chargedPer"];
+}) {
   const perUnit = values.soldBy === "unit";
+  const set = (patch: Partial<ActivityValues>) => onChange({ ...values, ...patch });
   const setOffer = (index: number, patch: Partial<OfferValues>) =>
-    onChange({ ...values, offers: values.offers.map((offer, at) => (at === index ? { ...offer, ...patch } : offer)) });
+    set({ offers: values.offers.map((offer, at) => (at === index ? { ...offer, ...patch } : offer)) });
+  const setAddOn = (kind: AddOnKind, patch: Partial<AddOnValues>) =>
+    set({ addOns: values.addOns.map((addOn) => (addOn.kind === kind ? { ...addOn, ...patch } : addOn)) });
+  const used = new Set(values.offers.map((offer) => Number(offer.minutes)));
+  const nextLength = LENGTHS.find((length) => !used.has(length)) ?? 60;
+  const addOnName = (kind: AddOnKind) => addOnKinds.find((option) => option.kind === kind)?.name ?? kind;
+  const perOptions = chargedPer.map((option) => ({ value: option.value, label: option.name }));
+  const presets = addOnKinds.filter((option) => !values.addOns.some((addOn) => addOn.kind === option.kind));
+
   return (
-    <div data-testid="activity-offers" className="flex flex-col gap-4">
-      <p className="text-sm text-muted">
-        What guests pick: a length and its price, {perUnit ? "for one unit and the riders on it" : "for each guest"}.
-      </p>
-      {values.offers.map((offer, index) => (
-        <Card key={offer.id ?? `new-${index}`} edge="line" data-testid="activity-offer">
-          <CardBody className="flex flex-col gap-4">
-            <Field
-              label="Name"
-              maxLength={NAME_MAX}
-              value={offer.name}
-              onChange={(event) => setOffer(index, { name: event.target.value })}
-              placeholder="e.g. 30 minutes"
-              data-testid="activity-offer-name"
-            />
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-wrap gap-2" role="group" aria-label="Quick lengths">
-                {QUICK_LENGTHS.map((minutes) => (
-                  <Button
-                    key={minutes}
-                    type="button"
-                    size="sm"
-                    variant={offer.minutes === String(minutes) ? "primary" : "tint"}
-                    aria-pressed={offer.minutes === String(minutes)}
-                    onClick={() => setOffer(index, { minutes: String(minutes) })}
-                  >
-                    {lengthText(minutes)}
-                  </Button>
-                ))}
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field
-                  label="Length (minutes)"
-                  type="number"
-                  min={DURATION.min}
-                  max={DURATION.max}
-                  step={5}
-                  inputMode="numeric"
-                  value={offer.minutes}
-                  onChange={(event) => setOffer(index, { minutes: event.target.value })}
-                  data-testid="activity-offer-minutes"
-                />
-                <Field
-                  label={perUnit ? "Price per unit (₱)" : "Price per guest (₱)"}
-                  type="number"
-                  min={0.01}
-                  step="0.01"
-                  inputMode="decimal"
-                  value={offer.price}
-                  onChange={(event) => setOffer(index, { price: event.target.value })}
-                  data-testid="activity-offer-price"
-                />
-              </div>
-            </div>
-            {perUnit && (
-              <StepperField
-                label={`Up to ${offer.riders ?? values.seats} riders`}
-                hint="Who may share or take turns on one unit"
-                value={offer.riders ?? values.seats}
-                onChange={(riders) => setOffer(index, { riders })}
-                min={1}
-                max={MAX_SEATS}
-                data-testid="activity-offer-riders"
+    <div data-testid="activity-pricing" className="flex flex-col">
+      <PricingSection
+        title="Rates"
+        intro={`What guests pick: a length and its price, ${perUnit ? "for one unit and the riders on it" : "for each guest"}.`}
+        data-testid="activity-offers"
+      >
+        {values.offers.map((offer, index) => (
+          <div key={offer.id ?? `new-${index}`} className="flex flex-col gap-3 rounded-control border border-line p-4" data-testid="activity-offer">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <SelectField
+                label="Length"
+                options={lengthOptions(offer.minutes)}
+                value={offer.minutes}
+                onChange={(event) => setOffer(index, { minutes: event.target.value })}
+                data-testid="activity-offer-minutes"
               />
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="self-start"
-              disabled={values.offers.length === 1}
-              onClick={() => onChange({ ...values, offers: values.offers.filter((_, at) => at !== index) })}
-            >
-              Remove this rate
-            </Button>
-          </CardBody>
-        </Card>
-      ))}
-      {errors?.offers && (
-        <p role="alert" className="text-sm font-semibold text-danger">
-          {errors.offers}
-        </p>
-      )}
-      {values.offers.length < MAX_OFFERS && (
-        <Button
-          type="button"
-          variant="tint"
-          size="sm"
-          className="self-start"
-          onClick={() => onChange({ ...values, offers: [...values.offers, BLANK_OFFER] })}
-          data-testid="activity-offer-add"
-        >
-          + Add a rate
-        </Button>
-      )}
+              <Field
+                label={perUnit ? "Price per unit (₱)" : "Price per guest (₱)"}
+                type="number"
+                min={0.01}
+                step="0.01"
+                inputMode="decimal"
+                value={offer.price}
+                onChange={(event) => setOffer(index, { price: event.target.value })}
+                data-testid="activity-offer-price"
+              />
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {perUnit ? (
+                <div className="min-w-0 flex-1">
+                  <StepperField
+                    label={`Up to ${offer.riders ?? values.seats} riders`}
+                    hint="Who may share or take turns on one unit"
+                    value={offer.riders ?? values.seats}
+                    onChange={(riders) => setOffer(index, { riders })}
+                    min={1}
+                    max={MAX_SEATS}
+                    data-testid="activity-offer-riders"
+                  />
+                </div>
+              ) : (
+                <span />
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={values.offers.length === 1}
+                onClick={() => set({ offers: values.offers.filter((_, at) => at !== index) })}
+                data-testid="activity-offer-remove"
+              >
+                Remove
+              </Button>
+            </div>
+          </div>
+        ))}
+        {errors?.offers && (
+          <p role="alert" className="text-sm font-semibold text-danger">
+            {errors.offers}
+          </p>
+        )}
+        {values.offers.length < MAX_OFFERS && (
+          <Button
+            type="button"
+            variant="soft"
+            size="sm"
+            className="self-start"
+            onClick={() => set({ offers: [...values.offers, { minutes: String(nextLength), price: "", riders: null }] })}
+            data-testid="activity-offer-add"
+          >
+            Add a rate
+          </Button>
+        )}
+      </PricingSection>
+
+      <PricingSection
+        title="Drop-off and pick-up"
+        intro="Guests come to your shop, or you bring it to their beach or a spot they pick, priced by how far it is from your pin."
+        data-testid="activity-drop-off"
+      >
+        <div className="flex flex-col gap-2">
+          <CheckboxField label="Guests pick it up at your shop" aside="Always offered" checked disabled readOnly />
+          <CheckboxField
+            label="Drop it off at the guest's beach or spot"
+            checked={values.dropOff}
+            onChange={(event) => set({ dropOff: event.currentTarget.checked })}
+            data-testid="activity-drop-off-on"
+          />
+        </div>
+        {values.dropOff && (
+          <DeliveryZoneFields
+            zones={values.zones}
+            onChange={(zones) => set({ zones })}
+            error={errors?.zones}
+            location={location}
+            feeLabel="Fee (₱)"
+            beyond="drop-off"
+          />
+        )}
+      </PricingSection>
+
+      <PricingSection title="Add-ons" intro="Extras guests can choose when they book." data-testid="activity-add-ons">
+        {values.addOns.map((addOn) => (
+          <div
+            key={addOn.kind}
+            className="flex flex-col gap-3 rounded-control border border-line p-4"
+            data-testid={`activity-add-on-${addOn.kind}`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-semibold">{addOnName(addOn.kind)}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => set({ addOns: values.addOns.filter((other) => other.kind !== addOn.kind) })}
+              >
+                Remove
+              </Button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field
+                label="Amount (₱)"
+                type="number"
+                min={0.01}
+                step="0.01"
+                inputMode="decimal"
+                value={addOn.price}
+                onChange={(event) => setAddOn(addOn.kind, { price: event.target.value })}
+                data-testid="activity-add-on-price"
+              />
+              <SelectField
+                label="Charged"
+                options={perOptions}
+                value={addOn.chargedPer}
+                onChange={(event) => setAddOn(addOn.kind, { chargedPer: event.target.value as ChargedPer })}
+                data-testid="activity-add-on-per"
+              />
+            </div>
+          </div>
+        ))}
+        {errors?.addOns && (
+          <p role="alert" className="text-sm font-semibold text-danger">
+            {errors.addOns}
+          </p>
+        )}
+        {presets.length > 0 && (
+          <div className="flex flex-col gap-2" data-testid="activity-add-on-presets">
+            <span className="text-xs text-muted">Common add-ons:</span>
+            <div className="flex flex-wrap gap-2">
+              {presets.map((option) => (
+                <Button
+                  key={option.kind}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => set({ addOns: [...values.addOns, { kind: option.kind, price: "", chargedPer: "booking" }] })}
+                  data-testid={`activity-add-on-preset-${option.kind}`}
+                >
+                  + {option.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+      </PricingSection>
     </div>
   );
 }
@@ -529,112 +611,21 @@ export function ActivityInclusionFields({ values, onChange, errors, kinds }: Sec
   );
 }
 
-// Extras guests can add (RAA-271), each priced per booking, unit or person.
-export function ActivityAddOnFields({
-  values,
-  onChange,
-  errors,
-  kinds,
-  chargedPer,
-}: SectionProps & { kinds: ActivityCatalogues["addOns"]; chargedPer: ActivityCatalogues["chargedPer"] }) {
-  const set = (kind: AddOnKind, patch: Partial<AddOnValues>) => {
-    const current = values.addOns[kind] ?? { on: false, price: "", chargedPer: "booking" as ChargedPer };
-    onChange({ ...values, addOns: { ...values.addOns, [kind]: { ...current, ...patch } } });
-  };
-  const perOptions = chargedPer.map((option) => ({ value: option.value, label: option.name }));
-  return (
-    <div data-testid="activity-add-ons" className="flex flex-col gap-3">
-      <p className="text-sm text-muted">Guests choose these when they book. Leave them all unticked if you offer none.</p>
-      {kinds.map((option) => {
-        const addOn = values.addOns[option.kind];
-        return (
-          <Card key={option.kind} edge="line" data-testid={`activity-add-on-${option.kind}`}>
-            <CardBody className="flex flex-col gap-3">
-              <CheckboxField
-                label={<span className="text-base font-semibold">{option.name}</span>}
-                checked={addOn?.on ?? false}
-                onChange={(event) => set(option.kind, { on: event.currentTarget.checked })}
-                data-testid="activity-add-on-on"
-              />
-              {addOn?.on && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field
-                    label="Price (₱)"
-                    type="number"
-                    min={0.01}
-                    step="0.01"
-                    inputMode="decimal"
-                    value={addOn.price}
-                    onChange={(event) => set(option.kind, { price: event.target.value })}
-                    data-testid="activity-add-on-price"
-                  />
-                  <SelectField
-                    label="Charged"
-                    options={perOptions}
-                    value={addOn.chargedPer}
-                    onChange={(event) => set(option.kind, { chargedPer: event.target.value as ChargedPer })}
-                    data-testid="activity-add-on-per"
-                  />
-                </div>
-              )}
-            </CardBody>
-          </Card>
-        );
-      })}
-      {errors?.addOns && (
-        <p role="alert" className="text-sm font-semibold text-danger">
-          {errors.addOns}
-        </p>
-      )}
-    </div>
-  );
-}
-
-// Bringing the unit to the guest's beach or chosen spot (RAA-271): no zones, no drop-off.
-export function ActivityDropOffFields({ values, onChange, errors, location }: SectionProps & { location?: LatLng | null }) {
-  return (
-    <div data-testid="activity-drop-off" className="flex flex-col gap-4">
-      <ChoiceCards
-        legend="Do you bring it to the guest?"
-        name="drop_off"
-        value={values.dropOff ? "yes" : "no"}
-        onChange={(choice) => onChange({ ...values, dropOff: choice === "yes" })}
-        choices={[
-          { value: "no", label: "No", description: "Guests come to your pin" },
-          { value: "yes", label: "Yes", description: "To their beach or a spot they choose, priced by distance" },
-        ]}
-        data-testid="activity-drop-off-choice"
-      />
-      {values.dropOff && (
-        <DeliveryZoneFields
-          zones={values.zones}
-          onChange={(zones) => onChange({ ...values, zones })}
-          error={errors?.zones}
-          location={location}
-          feeLabel="Fee (₱)"
-          beyond="drop-off"
-        />
-      )}
-    </div>
-  );
-}
-
 // The activity's lines of a review, as a guest will read them.
 export function activityReviewRows(values: ActivityValues, catalogues: ActivityCatalogues): [string, string][] {
   const perUnit = values.soldBy === "unit";
   const offers = values.offers.map((offer) => {
     const cents = toCents(offer.price);
     const riders = perUnit ? `, up to ${offer.riders ?? values.seats} riders` : "";
-    return `${offer.name.trim() || "—"}: ${cents ? formatPeso(cents) : "—"}${riders}`;
+    return `${lengthText(Number(offer.minutes))}: ${cents ? formatPeso(cents) : "—"}${riders}`;
   });
   const inclusions = catalogues.inclusions.filter((option) => values.inclusions.includes(option.kind)).map((option) => option.name);
   if (values.included.trim()) inclusions.push(values.included.trim());
-  const addOns = catalogues.addOns.flatMap((option) => {
-    const addOn = values.addOns[option.kind];
-    if (!addOn?.on) return [];
+  const addOns = values.addOns.map((addOn) => {
+    const name = catalogues.addOns.find((option) => option.kind === addOn.kind)?.name ?? addOn.kind;
     const cents = toCents(addOn.price);
     const per = catalogues.chargedPer.find((each) => each.value === addOn.chargedPer)?.name ?? "";
-    return [`${option.name} ${cents ? formatPeso(cents) : "—"} ${per}`.trim()];
+    return `${name} ${cents ? formatPeso(cents) : "—"} ${per}`.trim();
   });
   const zones = zoneBody(values.zones).map((zone) => `up to ${zone.max_distance_m / 1000} km ${zone.fee_cents ? formatPeso(zone.fee_cents) : "free"}`);
   return [
@@ -648,6 +639,6 @@ export function activityReviewRows(values: ActivityValues, catalogues: ActivityC
     ["Rates", offers.join("; ")],
     ["Included", inclusions.join(", ") || "Nothing listed"],
     ["Add-ons", addOns.join("; ") || "None"],
-    ["Drop-off", values.dropOff ? zones.join("; ") : "No"],
+    ["Drop-off", values.dropOff ? zones.join("; ") : "No: guests pick it up at your shop"],
   ];
 }

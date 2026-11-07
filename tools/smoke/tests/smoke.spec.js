@@ -492,27 +492,24 @@ test("water activity wizard", async ({ browser, baseURL }) => {
   await expect(page.getByTestId("activity-runs")).toBeVisible();
   await next();
 
-  // Rates: the defaults' three lengths come without prices; keep two.
+  // Pricing, laid out as a vehicle's: the defaults' three lengths come without prices; keep two.
   const offers = page.getByTestId("activity-offer");
   await expect(offers).toHaveCount(3);
-  await expect(offers.nth(0).getByTestId("activity-offer-name")).toHaveValue("15 minutes");
-  await offers.nth(2).getByRole("button", { name: "Remove this rate" }).click();
+  await expect(offers.nth(0).getByTestId("activity-offer-minutes")).toHaveValue("15");
+  await offers.nth(2).getByTestId("activity-offer-remove").click();
   await expect(offers).toHaveCount(2);
   await offers.nth(0).getByTestId("activity-offer-price").fill("1500");
   await offers.nth(1).getByTestId("activity-offer-price").fill("2500");
+  // Drop-off by distance, beside the shop pick-up that is always offered.
+  await page.getByTestId("activity-drop-off-on").check();
+  await page.getByTestId("pricing-zone-add").click();
+  await page.getByTestId("pricing-zone").nth(1).getByTestId("pricing-zone-fee").fill("300");
+  // An add-on is added like a vehicle's common fee.
+  await page.getByTestId("activity-add-on-preset-drone_shot").click();
+  await page.getByTestId("activity-add-on-drone_shot").getByTestId("activity-add-on-price").fill("500");
   await next();
 
   await expect(page.getByTestId("activity-inclusion-life_vest")).toBeChecked();
-  await next();
-
-  const drone = page.getByTestId("activity-add-on-drone_shot");
-  await drone.getByTestId("activity-add-on-on").check();
-  await drone.getByTestId("activity-add-on-price").fill("500");
-  await next();
-
-  await page.getByTestId("activity-drop-off-choice").getByRole("radio", { name: /Yes/ }).check();
-  await page.getByTestId("pricing-zone-add").click();
-  await page.getByTestId("pricing-zone").nth(1).getByTestId("pricing-zone-fee").fill("300");
   await next(); // units
   await next(); // cancellation policy
   await next(); // review
@@ -531,7 +528,7 @@ test("water activity wizard", async ({ browser, baseURL }) => {
   // The edit page holds what the wizard saved.
   await page.getByRole("link", { name: "Edit listing" }).click();
   await expect(page).toHaveURL(/\/partner\/listings\/\d+\/edit$/, { timeout: 45_000 });
-  const editOffers = page.getByTestId("listing-activity-rates").getByTestId("activity-offer");
+  const editOffers = page.getByTestId("listing-activity-pricing").getByTestId("activity-offer");
   await expect(editOffers).toHaveCount(2, { timeout: 30_000 });
   await expect(editOffers.nth(1).getByTestId("activity-offer-price")).toHaveValue("2500");
   await expect(page.getByTestId("activity-inclusion-life_vest")).toBeChecked();

@@ -7,10 +7,8 @@ import { Field } from "@/components/ui/field";
 import { TextareaField } from "@/components/ui/textarea-field";
 import type { LatLng } from "@/lib/map";
 import {
-  ActivityAddOnFields,
-  ActivityDropOffFields,
   ActivityInclusionFields,
-  ActivityOfferFields,
+  ActivityPricingFields,
   activityErrors,
   activityReviewRows,
   ActivityRunFields,
@@ -43,10 +41,8 @@ const STEPS = [
   { key: "basics", label: "The activity" },
   { key: "meeting", label: "Where guests start" },
   { key: "runs", label: "How it runs" },
-  { key: "rates", label: "Rates" },
+  { key: "pricing", label: "Pricing" },
   { key: "inclusions", label: "Inclusions" },
-  { key: "addOns", label: "Add-ons" },
-  { key: "dropOff", label: "Drop-off" },
   { key: "units", label: UNITS_LABEL },
   { key: "cancellation", label: "Cancellation policy" },
   { key: "review", label: "Review" },
@@ -58,15 +54,14 @@ type StepKey = (typeof STEPS)[number]["key"];
 const INTROS: Partial<Record<StepKey, string>> = {
   meeting: "Where guests meet you, and what drop-off distances are measured from. Guests see the area, not the pin.",
   inclusions: "What every guest gets, at no extra cost.",
-  dropOff: "Bring the jet ski, kayak or boat to the guest's beach or a spot they pick: free up to a distance, then by zone.",
   review: "Check it over. Saving keeps it as a draft; then add photos.",
 };
 
 const isActivityStep = (key: StepKey): key is ActivitySection => key in ACTIVITY_SECTIONS;
 
 // Adding a water activity (RAA-272): what it is, where guests start, how it is sold and when it
-// runs, its rates (a length, a price and the riders on one unit), what it includes, add-ons
-// from a fixed list, drop-off zones, how many units, the cancellation policy, then a review
+// runs, its pricing (rates of a length, a price and the riders on one unit; drop-off zones;
+// add-ons from a fixed list), what it includes, how many units, the cancellation policy, then a review
 // that saves the draft, photos, booking and status. Pre-filled from the category's builder
 // defaults (RAA-270); otherwise it works like the tour wizard: only the current step is on the
 // page, every value is kept here and any step already reached opens again.
@@ -230,23 +225,20 @@ export function ActivityWizard({
 
           {step.key === "runs" && <ActivityRunFields values={activity} onChange={changeActivity} errors={errors} />}
 
-          {step.key === "rates" && <ActivityOfferFields values={activity} onChange={changeActivity} errors={errors} />}
-
-          {step.key === "inclusions" && (
-            <ActivityInclusionFields values={activity} onChange={changeActivity} errors={errors} kinds={catalogues.inclusions} />
-          )}
-
-          {step.key === "addOns" && (
-            <ActivityAddOnFields
+          {step.key === "pricing" && (
+            <ActivityPricingFields
               values={activity}
               onChange={changeActivity}
               errors={errors}
-              kinds={catalogues.addOns}
+              location={location}
+              addOnKinds={catalogues.addOns}
               chargedPer={catalogues.chargedPer}
             />
           )}
 
-          {step.key === "dropOff" && <ActivityDropOffFields values={activity} onChange={changeActivity} errors={errors} location={location} />}
+          {step.key === "inclusions" && (
+            <ActivityInclusionFields values={activity} onChange={changeActivity} errors={errors} kinds={catalogues.inclusions} />
+          )}
 
           {step.key === "units" && <UnitsField bookingType={category.booking_type} water value={units} onChange={setUnits} />}
 
@@ -270,7 +262,7 @@ export function ActivityWizard({
               </dl>
               <div className="flex flex-wrap gap-2 text-sm">
                 <span className="text-muted">Change:</span>
-                {(["basics", "runs", "rates", "inclusions", "addOns", "dropOff"] as const).map((key) => (
+                {(["basics", "runs", "pricing", "inclusions"] as const).map((key) => (
                   <button
                     key={key}
                     type="button"

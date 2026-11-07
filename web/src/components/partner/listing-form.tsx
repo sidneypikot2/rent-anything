@@ -35,11 +35,9 @@ import { LandmarkPicker } from "./landmark-picker";
 import { ListingPhotos, orderedPhotos } from "./listing-photos";
 import { STATUS } from "./listing-status";
 import {
-  ActivityAddOnFields,
-  ActivityDropOffFields,
   activityErrors,
   ActivityInclusionFields,
-  ActivityOfferFields,
+  ActivityPricingFields,
   ActivityRunFields,
   isWaterActivity,
   toActivityBody,
@@ -334,10 +332,8 @@ export function ListingForm({
     ...(waterCategory
       ? [
           { id: "runs", label: "How it runs" },
-          { id: "rates", label: "Rates" },
+          { id: "activity-pricing", label: "Pricing" },
           { id: "inclusions", label: "Inclusions" },
-          { id: "add-ons", label: "Add-ons" },
-          { id: "drop-off", label: "Drop-off" },
         ]
       : []),
     ...(vehicleCategory ? [{ id: "vehicle", label: "Vehicle details" }] : []),
@@ -542,8 +538,15 @@ export function ListingForm({
               )}
               <ActivityRunFields values={activity} onChange={changeActivity} errors={activityProblems} />
             </EditSection>
-            <EditSection id="rates" title="Rates" data-testid="listing-activity-rates">
-              <ActivityOfferFields values={activity} onChange={changeActivity} errors={activityProblems} />
+            <EditSection id="activity-pricing" title="Pricing" data-testid="listing-activity-pricing">
+              <ActivityPricingFields
+                values={activity}
+                onChange={changeActivity}
+                errors={activityProblems}
+                location={location}
+                addOnKinds={options.activity_add_ons}
+                chargedPer={options.activity_add_on_charged_per}
+              />
             </EditSection>
             <EditSection id="inclusions" title="Inclusions" data-testid="listing-activity-inclusions">
               <ActivityInclusionFields
@@ -552,18 +555,6 @@ export function ListingForm({
                 errors={activityProblems}
                 kinds={options.activity_inclusions}
               />
-            </EditSection>
-            <EditSection id="add-ons" title="Add-ons" data-testid="listing-activity-add-ons">
-              <ActivityAddOnFields
-                values={activity}
-                onChange={changeActivity}
-                errors={activityProblems}
-                kinds={options.activity_add_ons}
-                chargedPer={options.activity_add_on_charged_per}
-              />
-            </EditSection>
-            <EditSection id="drop-off" title="Drop-off" data-testid="listing-activity-drop-off">
-              <ActivityDropOffFields values={activity} onChange={changeActivity} errors={activityProblems} location={location} />
             </EditSection>
           </>
         )}
