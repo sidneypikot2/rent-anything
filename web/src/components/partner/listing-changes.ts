@@ -106,6 +106,42 @@ export function listingChanges(listing: PartnerListing, body: ListingBody) {
     if (saved?.base_price_cents !== tour.base_price_cents) changes.push("Price");
   }
 
+  // A water activity's details (RAA-272), by part: the body replaces them whole.
+  if (body.activity) {
+    const saved = listing.activity;
+    const next = body.activity;
+    const same = (before: unknown, after: unknown) => JSON.stringify(before) === JSON.stringify(after);
+    type Runs = {
+      sold_by: string;
+      schedule: string;
+      opens_at?: string | null;
+      closes_at?: string | null;
+      departure_times?: string[];
+      seats_per_unit: number;
+      min_age?: number | null;
+      requirements?: string | null;
+    };
+    const runs = (value: Runs | null) =>
+      value && [
+        value.sold_by,
+        value.schedule,
+        value.schedule === "open_hours" ? [value.opens_at, value.closes_at] : value.departure_times,
+        value.seats_per_unit,
+        value.min_age ?? null,
+        value.requirements ?? null,
+      ];
+    const offers = (list: { id?: number; name: string; duration_minutes: number; price_cents: number; max_guests?: number | null }[]) =>
+      list.map((offer) => [offer.id ?? null, offer.name, offer.duration_minutes, offer.price_cents, offer.max_guests ?? null]);
+    const addOns = (list: { kind: string; price_cents: number; charged_per: string }[]) =>
+      list.map((addOn) => [addOn.kind, addOn.price_cents, addOn.charged_per]);
+    const zones = (list: { max_distance_m: number; fee_cents: number }[]) => list.map((zone) => [zone.max_distance_m, zone.fee_cents]);
+    if (!same(runs(saved), runs(next))) changes.push("How it runs");
+    if (!same(offers(saved?.offers ?? []), offers(next.offers ?? []))) changes.push("Rates");
+    if (!same([saved?.inclusions ?? [], saved?.included ?? null], [next.inclusions ?? [], next.included ?? null])) changes.push("Inclusions");
+    if (!same(addOns(saved?.add_ons ?? []), addOns(next.add_ons ?? []))) changes.push("Add-ons");
+    if (!same(zones(saved?.delivery_zones ?? []), zones(next.delivery_zones ?? []))) changes.push("Drop-off");
+  }
+
   const attrs = body.attrs ?? {};
   for (const key of new Set([...Object.keys(listing.attrs), ...Object.keys(attrs)])) {
     if (displayValue(listing.attrs[key], key) !== displayValue(attrs[key], key)) changes.push(attributeLabel(key));
