@@ -22,6 +22,38 @@ RSpec.describe Category do
     end
   end
 
+  describe "jet ski details (RAA-273)" do
+    before do
+      require Rails.root.join("db/migrate/20261107150000_add_jet_ski_details").to_s
+      jet_ski
+      2.times { AddJetSkiDetails.apply(ActiveRecord::Base.connection) }
+    end
+
+    let(:jet_ski) { create(:category, :water) }
+    let(:attrs_errors) { ->(attrs) { build(:listing, category: jet_ski.reload, attrs:).tap(&:valid?).errors[:attrs] } }
+
+    it "takes a brand, model, engine size, power and features, none of them required" do
+      expect(attrs_errors.call({})).to be_empty
+      expect(attrs_errors.call("brand" => "Yamaha", "model" => "VX Cruiser", "engine_cc" => 1049, "horsepower" => 110,
+        "features" => %w[reverse_gear bluetooth_audio])).to be_empty
+    end
+
+    it "refuses an engine too small, an unknown feature and a blank brand" do
+      expect(attrs_errors.call("engine_cc" => 20)).not_to be_empty
+      expect(attrs_errors.call("features" => %w[jetpack])).not_to be_empty
+      expect(attrs_errors.call("brand" => "")).not_to be_empty
+    end
+
+    it "isn't a vehicle rental" do
+      expect(jet_ski.reload).not_to be_vehicle
+    end
+
+    it "is put back to an empty schema on rollback" do
+      AddJetSkiDetails.unapply(ActiveRecord::Base.connection)
+      expect(jet_ski.reload.attribute_schema).to eq({})
+    end
+  end
+
   describe "#guest_group" do
     let(:vehicles) { create(:category, :parent, slug: "vehicle-rentals", name: "Vehicle rental") }
     let(:gear) { create(:category, :parent, slug: "equipment-rentals", name: "Equipment rental") }

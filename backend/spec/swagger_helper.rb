@@ -1685,7 +1685,8 @@ RSpec.configure do |config|
             additionalProperties: true,
             description: "Only the keys the listing has, from: guide_included, seats, luggage (bags a transfer " \
               "carries), route, sizes, accessories, lenses, engine_cc, transmission, guests (how many a stay " \
-              "sleeps), rooms ([{beds: [{type, count}]}]), bathroom, amenities (a stay's or a vehicle's), place_type"
+              "sleeps), rooms ([{beds: [{type, count}]}]), bathroom, amenities (a stay's or a vehicle's), place_type, " \
+              "and a jet ski's brand, model, horsepower and features (RAA-273)"
           },
           # What a guest gets back on cancelling (RAA-88); refunds follow it from M4.
           cancellation_policy: {
