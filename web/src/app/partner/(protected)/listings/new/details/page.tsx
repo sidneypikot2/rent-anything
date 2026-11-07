@@ -2,6 +2,8 @@
 
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { activityCatalogues, isWaterActivity } from "@/components/partner/activity-fields";
+import { ActivityWizard } from "@/components/partner/activity-wizard";
 import { ListingWizard } from "@/components/partner/listing-wizard";
 import { NewListingStep } from "@/components/partner/new-listing-step";
 import { isStay } from "@/components/partner/stay-fields";
@@ -12,7 +14,8 @@ import { ButtonLink } from "@/components/ui/button";
 
 // The steps after the business and category (RAA-50, RAA-101): ?business= and ?category=
 // are the ones chosen on /partner/listings/new; a partner with one business may leave the
-// business out. Accommodation (RAA-83) and tours (RAA-111) have their own steps.
+// business out. Accommodation (RAA-83), tours (RAA-111) and water activities (RAA-272) have
+// their own steps.
 export default function NewPartnerListingDetails() {
   return (
     <Suspense>
@@ -56,6 +59,17 @@ function DetailSteps() {
               category={category}
               policies={policies}
               inclusions={options.tour_inclusions}
+            />
+          );
+        }
+        if (isWaterActivity(category)) {
+          return (
+            <ActivityWizard
+              key={key}
+              business={business}
+              category={category}
+              policies={policies}
+              catalogues={activityCatalogues(options)}
             />
           );
         }

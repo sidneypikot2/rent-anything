@@ -234,7 +234,7 @@ test("a sign-in sent before the page loads keeps the password out of the URL", a
 
 test("sign-up and the partner guard", async ({ page }) => {
   // Two sign-ups and most of the partner pages: about a minute, more on a cold dev server.
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   const errors = [];
   collectErrors(page, errors);
   const stamp = Date.now();
@@ -436,6 +436,106 @@ test("sign-up and the partner guard", async ({ page }) => {
   await expect(page).toHaveURL(/\/partner\/login$/);
 
   expect(errors).toEqual([]);
+});
+
+// The water activity wizard (RAA-272): a verified sample partner (development seeds, which the
+// smoke stack runs) lists a jet ski with two rates, a life vest, a drone shot add-on and two
+// drop-off zones, then finds them all on its edit page. The pin comes from "Use my location"
+// with an emulated position on Bantayan, so the test never clicks the map.
+test("water activity wizard", async ({ browser, baseURL }) => {
+  test.setTimeout(180_000);
+  const context = await browser.newContext({
+    baseURL,
+    geolocation: { latitude: 11.172, longitude: 123.801 },
+    permissions: ["geolocation"],
+  });
+  const page = await context.newPage();
+  const errors = [];
+  collectErrors(page, errors);
+
+  // Sent before the page's JavaScript runs, the form posts itself and stays on the sign-in page
+  // (RAA-269): try again once it has.
+  await expect(async () => {
+    await page.goto("/partner/login");
+    await page.getByLabel("Email").fill("kota-beach-boat-tours@example.com");
+    await page.getByLabel("Password", { exact: true }).fill("password123");
+    await page.getByLabel("Password", { exact: true }).press("Enter");
+    await expect(page).toHaveURL(/\/partner\/dashboard$/, { timeout: 20_000 });
+  }).toPass({ timeout: 60_000 });
+
+  await page.goto("/partner/listings/new?group=Water%20activities");
+  await page.getByTestId("listing-category-next").click();
+  await expect(page).toHaveURL(/\/partner\/listings\/new\/type/);
+  await page.getByRole("radio", { name: /Jet ski/ }).check();
+  await page.getByTestId("listing-type-next").click();
+
+  const wizard = page.getByTestId("activity-wizard");
+  await expect(wizard).toBeVisible();
+  const next = () => page.getByTestId("listing-next").click();
+  await wizard.getByLabel("Title").fill(`Smoke jet ski ${Date.now()}`);
+  await next();
+
+  await expect(page.getByTestId("listing-step-meeting")).toBeVisible();
+  const same = wizard.getByLabel(/^Same as /);
+  if ((await same.count()) && (await same.isChecked())) await same.uncheck();
+  await wizard.getByRole("combobox", { name: "Region" }).fill("central vis");
+  await page.getByRole("option", { name: "Central Visayas" }).click();
+  await wizard.getByRole("combobox", { name: "Province" }).fill("Cebu");
+  await page.getByRole("option", { name: "Cebu", exact: true }).click();
+  await wizard.getByRole("combobox", { name: "City / Municipality" }).fill("Santa Fe");
+  await page.getByRole("option", { name: "Santa Fe" }).first().click();
+  await wizard.getByLabel("Street").fill("Kota Beach");
+  await page.getByTestId("use-my-location").click();
+  await next();
+
+  // How it runs: the jet ski's defaults (per unit, 8:00 to 17:00).
+  await expect(page.getByTestId("activity-runs")).toBeVisible();
+  await next();
+
+  // Pricing, laid out as a vehicle's: the defaults' three lengths come without prices; keep two.
+  const offers = page.getByTestId("activity-offer");
+  await expect(offers).toHaveCount(3);
+  await expect(offers.nth(0).getByTestId("activity-offer-minutes")).toHaveValue("15");
+  await offers.nth(2).getByTestId("activity-offer-remove").click();
+  await expect(offers).toHaveCount(2);
+  await offers.nth(0).getByTestId("activity-offer-price").fill("1500");
+  await offers.nth(1).getByTestId("activity-offer-price").fill("2500");
+  // Drop-off by distance, beside the shop pick-up that is always offered.
+  await page.getByTestId("activity-drop-off-on").check();
+  await page.getByTestId("pricing-zone-add").click();
+  await page.getByTestId("pricing-zone").nth(1).getByTestId("pricing-zone-fee").fill("300");
+  // An add-on is added like a vehicle's common fee.
+  await page.getByTestId("activity-add-on-preset-drone_shot").click();
+  await page.getByTestId("activity-add-on-drone_shot").getByTestId("activity-add-on-price").fill("500");
+  await next();
+
+  await expect(page.getByTestId("activity-inclusion-life_vest")).toBeChecked();
+  await next(); // units
+  await next(); // cancellation policy
+  await next(); // review
+
+  const review = page.getByTestId("activity-review");
+  await expect(review).toContainText("15 minutes: ₱1,500, up to 2 riders");
+  await expect(review).toContainText("Drone shot ₱500");
+  await page.getByTestId("listing-save").click();
+  await expect(page.getByTestId("listing-step-photos")).toBeVisible();
+  await page.getByTestId("listing-photos-next").click();
+  await page.getByTestId("listing-booking-next").click();
+  await page.getByTestId("listing-save-draft").click();
+  // These pages may compile on first use on a dev server.
+  await expect(page).toHaveURL(/\/partner\/listings\/\d+$/, { timeout: 45_000 });
+
+  // The edit page holds what the wizard saved.
+  await page.getByRole("link", { name: "Edit listing" }).click();
+  await expect(page).toHaveURL(/\/partner\/listings\/\d+\/edit$/, { timeout: 45_000 });
+  const editOffers = page.getByTestId("listing-activity-pricing").getByTestId("activity-offer");
+  await expect(editOffers).toHaveCount(2, { timeout: 30_000 });
+  await expect(editOffers.nth(1).getByTestId("activity-offer-price")).toHaveValue("2500");
+  await expect(page.getByTestId("activity-inclusion-life_vest")).toBeChecked();
+  await expect(page.getByTestId("activity-add-on-drone_shot").getByTestId("activity-add-on-price")).toHaveValue("500");
+  await expect(page.getByTestId("pricing-zone")).toHaveCount(2);
+  expect(errors).toEqual([]);
+  await context.close();
 });
 
 // Gear rents like a vehicle, by the count (RAA-255): a card's Choose gear opens the shop's sheet,
