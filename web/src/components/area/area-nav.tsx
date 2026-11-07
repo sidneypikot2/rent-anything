@@ -1,21 +1,93 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentProps, type CSSProperties, type MouseEvent, type RefObject } from "react";
 import { useTripHere } from "@/components/trips/use-trip-here";
 import { cn } from "@/components/ui/cn";
-import { ArrowGlyph } from "@/components/discovery/tag-glyphs";
+import { ButtonLink } from "@/components/ui/button";
 
 type Tab = { id: string; label: string };
 
-// Where a section counts as reached: just under the header (--chrome, in rem or px) and this bar.
-function readLine() {
+// How far down the header reaches (--chrome, in rem or px).
+function readChrome() {
   const chrome = getComputedStyle(document.documentElement).getPropertyValue("--chrome").trim();
   const px = chrome.endsWith("rem") ? parseFloat(chrome) * 16 : parseFloat(chrome);
-  return (Number.isFinite(px) ? px : 80) + 64;
+  return Number.isFinite(px) ? px : 80;
 }
 
-// The section the guest is reading: the last one whose top has passed under the bar.
+// Where a section counts as reached: just under the header and this bar.
+function readLine() {
+  return readChrome() + 80;
+}
+
+// A tab's jump: a smooth scroll that lands the section under the header and this bar, which
+// html's scroll padding (--chrome) alone leaves the heading under. What to book's own chips take
+// the bar's place there, so it clears the header only.
+function jumpTo(event: MouseEvent<HTMLAnchorElement>, id: string, bar: HTMLElement | null) {
+  if (!document.getElementById(id) || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+  event.preventDefault();
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  scrollToSection(id, bar, reduce ? "auto" : "smooth");
+  history.replaceState(history.state, "", `#${id}`);
+  // Where an anchor's own jump would leave it: the keyboard's next Tab goes on inside the section.
+  const target = document.getElementById(id);
+  if (target && target.tabIndex < 0 && !target.hasAttribute("tabindex")) {
+    target.setAttribute("tabindex", "-1");
+    target.setAttribute("data-jump-target", "");
+  }
+  target?.focus({ preventScroll: true });
+}
+
+// A link elsewhere on the page down to one of the bar's sections (the banner's "8 places to
+// see"), jumping as the bar's own tabs do.
+export function SectionLink({ id, ...props }: { id: string } & Omit<ComponentProps<"a">, "href" | "onClick">) {
+  return (
+    <a
+      {...props}
+      href={`#${id}`}
+      onClick={(event) => jumpTo(event, id, document.querySelector<HTMLElement>("[data-area-nav]"))}
+    />
+  );
+}
+
+function scrollToSection(id: string, bar: HTMLElement | null, behavior: ScrollBehavior) {
+  const target = document.getElementById(id);
+  if (!target) return;
+  const below = id === "listings" ? 0 : (bar?.offsetHeight ?? 56) + 16;
+  const top = target.getBoundingClientRect().top + window.scrollY - readChrome() - below;
+  window.scrollTo({ top, behavior });
+}
+
+// A load or refresh at a tab's #section lands the same as the tab's jump, once the page has laid
+// out: the browser's own jump leaves the heading under the bar, and the banner's late layout
+// throws it off. What to book's own browser does this for #listings.
+function useLandOnHash(tabs: Tab[], bar: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    // Compared raw, as ListingBrowser does: decoding a mangled hash (#%E0) would throw.
+    const id = tabs.find((tab) => `#${tab.id}` === window.location.hash)?.id;
+    if (!id || id === "listings") return;
+    const land = () => scrollToSection(id, bar.current, "auto");
+    const frame = requestAnimationFrame(land);
+    // Again once images and fonts are in, unless the guest has scrolled away meanwhile.
+    let moved = false;
+    const away = () => (moved = true);
+    const settled = () => !moved && land();
+    window.addEventListener("wheel", away, { passive: true, once: true });
+    window.addEventListener("touchmove", away, { passive: true, once: true });
+    window.addEventListener("keydown", away, { once: true });
+    if (document.readyState !== "complete") window.addEventListener("load", settled, { once: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("wheel", away);
+      window.removeEventListener("touchmove", away);
+      window.removeEventListener("keydown", away);
+      window.removeEventListener("load", settled);
+    };
+    // Only on arrival: tabs come from the server and don't change after.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}
+
+// The section the guest is reading: the one whose top passed under the bar most recently.
 function useCurrent(tabs: Tab[]) {
   const [current, setCurrent] = useState<string | null>(null);
   const [inListings, setInListings] = useState(false);
@@ -24,10 +96,16 @@ function useCurrent(tabs: Tab[]) {
     const update = () => {
       frame = 0;
       const line = readLine();
+      // The passed one nearest the bar, not the last in tab order: with a trip shown What to book
+      // moves to the top of the page but stays the last tab, so it would be marked everywhere.
       let found: string | null = null;
+      let nearest = -Infinity;
       for (const tab of tabs) {
         const top = document.getElementById(tab.id)?.getBoundingClientRect().top;
-        if (top !== undefined && top <= line + 8) found = tab.id;
+        if (top !== undefined && top <= line + 8 && top > nearest) {
+          nearest = top;
+          found = tab.id;
+        }
       }
       setCurrent(found);
       // What to book's own chips and rail stick under the header there, so the bar steps aside.
@@ -52,10 +130,46 @@ function useCurrent(tabs: Tab[]) {
 // An area page's sections as one white bar that sticks under the header (RAA-252), the current
 // one marked, with Plan a trip at its end from sm. Only the sections the place has. It steps
 // aside while What to book is under it, whose own filters stick there.
+// Which ends of a sideways row have more past them, so the row can fade there: with its scrollbar
+// hidden, a tab cut at the edge is the only sign the row scrolls, and it read as a cut-off label.
+function useScrollEdges(row: RefObject<HTMLElement | null>) {
+  const [edges, setEdges] = useState({ start: false, end: false });
+  useEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    const update = () => {
+      const start = el.scrollLeft > 1;
+      const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+      setEdges((was) => (was.start === start && was.end === end ? was : { start, end }));
+    };
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const resize = new ResizeObserver(update);
+    resize.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      resize.disconnect();
+    };
+  }, [row]);
+  return edges;
+}
+
+function fadeMask({ start, end }: { start: boolean; end: boolean }): CSSProperties | undefined {
+  if (!start && !end) return undefined;
+  const mask = `linear-gradient(to right, ${start ? "transparent, black 2.5rem" : "black"}, ${end ? "black calc(100% - 2.5rem), transparent" : "black"})`;
+  return { maskImage: mask, WebkitMaskImage: mask };
+}
+
+// An area page's sections as one white bar that sticks under the header (RAA-252), the current
+// one marked, with Plan a trip at its end from sm. Only the sections the place has. It steps
+// aside while What to book is under it, whose own filters stick there.
 export function AreaNav({ tabs, planHref }: { tabs: Tab[]; planHref: string }) {
   const { current, inListings } = useCurrent(tabs);
   const list = useRef<HTMLUListElement>(null);
-  // Keep the marked tab in view on a phone, where the row scrolls sideways.
+  const bar = useRef<HTMLElement>(null);
+  const edges = useScrollEdges(list);
+  useLandOnHash(tabs, bar);
+  // Keep the marked tab in view where the row scrolls sideways.
   useEffect(() => {
     const link = current && list.current?.querySelector<HTMLElement>(`[data-tab="${current}"]`);
     if (!link || !list.current) return;
@@ -66,6 +180,8 @@ export function AreaNav({ tabs, planHref }: { tabs: Tab[]; planHref: string }) {
   if (tabs.length < 3) return null;
   return (
     <nav
+      ref={bar}
+      data-area-nav
       aria-label="On this page"
       data-testid="area-nav"
       className={cn(
@@ -74,16 +190,19 @@ export function AreaNav({ tabs, planHref }: { tabs: Tab[]; planHref: string }) {
         inListings && "pointer-events-none -translate-y-2 opacity-0",
       )}
     >
-      <ul ref={list} className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none]">
+      <ul ref={list} style={fadeMask(edges)} className="flex min-w-0 flex-1 gap-1 overflow-x-auto xl:gap-0 [scrollbar-width:none]">
         {tabs.map((tab) => (
           <li key={tab.id} className="shrink-0">
             <a
               href={`#${tab.id}`}
               data-tab={tab.id}
+              onClick={(event) => jumpTo(event, tab.id, bar.current)}
               aria-current={current === tab.id ? "location" : undefined}
               className={cn(
-                "flex min-h-10 items-center rounded-full px-3.5 text-sm font-semibold whitespace-nowrap transition-colors duration-300 ease-calm",
-                current === tab.id ? "bg-action text-white" : "text-muted hover:bg-tag hover:text-navy",
+                // The current one subtly: ink text over a short underline that grows in.
+                "relative flex min-h-11 items-center rounded-full px-3.5 text-sm font-semibold xl:px-2.5 whitespace-nowrap transition-colors duration-300 ease-calm hover:bg-tag",
+                "after:absolute after:inset-x-3.5 after:bottom-1.5 xl:after:inset-x-2.5 after:h-0.5 after:origin-center after:rounded-full after:bg-action after:transition-transform after:duration-300 after:ease-calm",
+                current === tab.id ? "text-action-ink after:scale-x-100" : "text-muted after:scale-x-0 hover:text-navy",
               )}
             >
               {tab.label}
@@ -91,13 +210,9 @@ export function AreaNav({ tabs, planHref }: { tabs: Tab[]; planHref: string }) {
           </li>
         ))}
       </ul>
-      <Link
-        href={planHref}
-        className="hidden min-h-10 shrink-0 items-center gap-1.5 rounded-full bg-action px-4 text-sm font-bold text-white sm:flex"
-      >
+      <ButtonLink href={planHref} size="sm" arrow className="shrink-0 max-sm:hidden">
         Plan a trip
-        <ArrowGlyph className="size-4" />
-      </Link>
+      </ButtonLink>
     </nav>
   );
 }
@@ -158,14 +273,9 @@ export function PlanFoot({
         <span className="block truncate text-sm font-bold">{place}</span>
         <span className="block truncate text-small text-muted">{when}</span>
       </span>
-      <Link
-        href={href}
-        tabIndex={shown ? undefined : -1}
-        className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-action px-5 text-sm font-bold text-white"
-      >
+      <ButtonLink href={href} tabIndex={shown ? undefined : -1} size="sm" arrow className="shrink-0">
         Plan a trip
-        <ArrowGlyph className="size-4" />
-      </Link>
+      </ButtonLink>
     </div>
   );
 }

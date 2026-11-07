@@ -499,6 +499,26 @@
   }
 }
 
+/* At a large text size a phone's header, wrapping onto more rows, would hold a third of the
+   window; em in a media query grows with the browser's text size, so a window under 30em tall
+   and 40em wide (a phone at about 175% text and up, not one on its side at the usual size) lets
+   it scroll away, and what sticks takes the window's top. HeaderSearch's UNSTUCK_HEADER matches. */
+@media (max-height: 30em) and (max-width: 40em) {
+  [data-site-header] {
+    position: relative;
+  }
+  :root,
+  :root:has([data-search-bar]) {
+    --chrome: 0.75rem;
+  }
+}
+
+/* A section the area page's tabs moved focus to (area-nav.tsx's jumpTo): focus is for the next
+   Tab, not something to show. */
+[data-jump-target]:focus {
+  outline: none;
+}
+
 /* A partner's tabs along a phone's foot (PartnerShell): the page and what sticks to its foot (the
    ActionBar, toasts) stay clear of them. */
 @media (width < 48rem) {

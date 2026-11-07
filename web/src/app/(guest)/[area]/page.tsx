@@ -14,7 +14,7 @@ import {
   stayPlaces,
   vibesOf,
 } from "@/components/area/area-guide";
-import { AreaNav, PlanFoot } from "@/components/area/area-nav";
+import { AreaNav, PlanFoot, SectionLink } from "@/components/area/area-nav";
 import { AREA_NOTES, busyMonths } from "@/components/area/area-notes";
 import {
   AreaAbout,
@@ -260,20 +260,18 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           landmarks: Object.fromEntries(landmarkInfo),
         }
       : null;
-  // The banner's counts link down to their sections, so the places to see are a tap away on a
-  // phone, however long What to book is. "To book" counts What to book's cards (one per partner
-  // per section), the same as its All, so the two numbers agree.
-  const cards = needs.reduce((sum, need) => sum + need.businesses.length, 0);
+  // The banner's count links down to Places to see, a tap away on a phone however long What to
+  // book is. What to book has no count chip: guests didn't read "10 to book" (2026-10-31), and
+  // the trip lead's Browse leads there.
   const stats = [
-    listings.length > 0 && { count: cards, label: "to book", href: "#listings" },
     landmarks.length > 0 && {
       count: landmarks.length,
       label: landmarks.length === 1 ? "place to see" : "places to see",
-      href: "#places",
+      section: "places",
     },
   ].filter((stat) => stat !== false);
   // What to book's intro names the partners the rail's cards stand for (one card per partner per
-  // section, so the rail's All and the banner count cards).
+  // section, which the rail's All counts).
   const partners = new Set(listings.map((listing) => listing.business.id)).size;
   // A single place inside with things to book is already the banner's "5 in Santa Fe" chip, so
   // it gets no section of its own repeating it.
@@ -377,14 +375,14 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   // one with things to book, which the total counts, linked to their own pages (RAA-85).
   const statChips = stats.map((stat) => (
     <li key={stat.label} className="shrink-0">
-      <a href={stat.href} className={cn(STAT_CHIP, glassClasses(), "hover:bg-glass-hover")}>
+      <SectionLink id={stat.section} className={cn(STAT_CHIP, glassClasses(), "hover:bg-glass-hover")}>
         <StatCount count={stat.count} /> {stat.label}
         {/* Down the page, as the places inside go to their own pages (→). */}
         <ArrowGlyph direction="down" className="size-4 text-sky-pale" />
-      </a>
+      </SectionLink>
     </li>
   ));
-  // Counted as cards too, so "5 in Santa Fe" matches "10 to book" and Santa Fe's own page.
+  // Counted as What to book's cards, so "5 in Santa Fe" matches Santa Fe's own page.
   const cardsIn = (slugs: Set<string>) =>
     new Set(listings.filter((listing) => slugs.has(listing.area_slug)).map((listing) => `${listing.business.id}:${listing.group}`)).size;
   const placeLinks = (counts?.more ?? []).map((child) => ({

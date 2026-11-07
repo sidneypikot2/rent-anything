@@ -31,9 +31,8 @@ const BLURB: Record<GroupKey, string> = {
   gear: "Snorkels and cameras",
 };
 
-// "Book just one thing" (2026-11-08: the kinds alone, no listings): the hero's Book one thing
-// scrolls here (`#book-one`). Each of the five kinds opens the launch area's What to book on that
-// kind (`?show=`), where its listings can be compared and added; the count of each streams in,
+// "Book just one thing" (2026-11-08: the kinds alone, no listings). Each of the five kinds opens
+// the launch area's What to book on that kind (`?show=`), where its listings can be compared and added; the count of each streams in,
 // and the tiles work without it.
 export function HomeServices() {
   return (

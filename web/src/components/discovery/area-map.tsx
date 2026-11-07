@@ -376,7 +376,8 @@ export function AreaMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map) return;
-    const hash = decodeURIComponent(window.location.hash.slice(1));
+    // Compared raw: decoding a mangled hash (#%E0) would throw. Slugs and ids need no decoding.
+    const hash = window.location.hash.slice(1);
     const target = pins.find((pin) => (pin.kind === "place" ? pin.slug === hash : `listing-${pin.id}` === hash));
     if (target) {
       map.jumpTo({ center: toLngLat(target), zoom: 14 });

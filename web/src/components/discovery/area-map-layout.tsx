@@ -95,7 +95,7 @@ export function AreaMapLayout({
             onPointerEnter={loadMap}
             data-testid="map-toggle"
             data-floating
-            className="order-1 flex min-h-12 items-center gap-2 rounded-full bg-navy px-5 font-bold text-white shadow-float lg:hidden"
+            className="order-1 flex min-h-12 items-center gap-2 rounded-full bg-navy px-5 font-semibold text-white shadow-float lg:hidden"
           >
             {fullOpen ? <ListGlyph className="size-4.5" /> : <MapGlyph className="size-4.5" />}
             {fullOpen ? "List" : "Map"}
