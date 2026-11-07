@@ -40,11 +40,13 @@ import {
   ActivityPricingFields,
   ActivityRunFields,
   isWaterActivity,
+  MAX_SEATS,
   toActivityBody,
   toActivityValues,
   type ActivityErrors,
   type ActivityValues,
 } from "./activity-fields";
+import { isJetSki, JetSkiFields, toJetSkiAttrs, toJetSkiValues, type JetSkiValues } from "./jet-ski-fields";
 import { ListingStatusSection, type StatusMove } from "./listing-status-section";
 import { uploadedPhotos } from "./use-listing-photos";
 import { LocationPicker } from "./location-picker";
@@ -128,6 +130,7 @@ export function ListingForm({
   const [flatPrice, setFlatPrice] = useState(() => toFlatPriceValue(listing.flat_rate));
   const [priceErrors, setPriceErrors] = useState<PricingErrors>();
   const [vehicleValues, setVehicleValues] = useState<VehicleValues>(() => toVehicleValues(listing.attrs));
+  const [jetSkiValues, setJetSkiValues] = useState<JetSkiValues>(() => toJetSkiValues(listing.attrs));
   const [vehiclePricing, setVehiclePricing] = useState<VehiclePricingValues>(() =>
     toVehiclePricingValues(listing.vehicle_rate, listing.fees),
   );
@@ -173,6 +176,7 @@ export function ListingForm({
   const flatCategory = isFlatPriced(category);
   const tourCategory = isTour(category);
   const waterCategory = isWaterActivity(category);
+  const jetSkiCategory = waterCategory && isJetSki(category);
   const fields = stayCategory || vehicleCategory || tourCategory || waterCategory ? [] : attributeFields(category);
   const extras = tourExtras(category);
   // Made a tour here, the listing takes a tour's photos before it is saved as one.
@@ -206,7 +210,9 @@ export function ListingForm({
         ? toStayAttrs(stay)
         : vehicleCategory
           ? toVehicleAttrs(vehicleValues, savedAsVehicle ? listing.attrs : {}, category?.slug)
-          : toAttrs(fields, attrValues),
+          : jetSkiCategory
+            ? toJetSkiAttrs(jetSkiValues, isJetSki(listing.category) ? listing.attrs : {})
+            : toAttrs(fields, attrValues),
       cancellation_policy: policy,
       booking_mode: bookingMode,
       // A tour has no units: groups a day stand in for them (RAA-111).
@@ -329,6 +335,7 @@ export function ListingForm({
           { id: "tour-pricing", label: "Pricing" },
         ]
       : []),
+    ...(jetSkiCategory ? [{ id: "jet-ski", label: "The jet ski" }] : []),
     ...(waterCategory
       ? [
           { id: "runs", label: "How it runs" },
@@ -530,13 +537,24 @@ export function ListingForm({
 
         {waterCategory && (
           <>
+            {jetSkiCategory && (
+              <EditSection id="jet-ski" title="The jet ski" data-testid="listing-activity-jet-ski">
+                <JetSkiFields
+                  values={jetSkiValues}
+                  onChange={setJetSkiValues}
+                  seats={activity.seats}
+                  onSeatsChange={(seats) => changeActivity({ ...activity, seats })}
+                  maxSeats={MAX_SEATS}
+                />
+              </EditSection>
+            )}
             <EditSection id="runs" title="How it runs" data-testid="listing-activity-runs">
               {!listing.activity?.offers.length && (
                 <p role="status" className="text-sm font-medium text-warning">
                   Set its rates: guests don&apos;t see a price for it until you do.
                 </p>
               )}
-              <ActivityRunFields values={activity} onChange={changeActivity} errors={activityProblems} />
+              <ActivityRunFields values={activity} onChange={changeActivity} errors={activityProblems} seats={!jetSkiCategory} />
             </EditSection>
             <EditSection id="activity-pricing" title="Pricing" data-testid="listing-activity-pricing">
               <ActivityPricingFields
