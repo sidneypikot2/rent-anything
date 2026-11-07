@@ -1,3 +1,4 @@
+import { JET_SKI_FEATURE_LABELS } from "@/components/listings/jet-ski-labels";
 import { STAY_LABELS } from "@/components/listings/stay-labels";
 import { transmissionLabel, VEHICLE_AMENITY_LABELS } from "@/components/listings/vehicle-labels";
 
@@ -40,8 +41,14 @@ export function listingFeatures(listing: { details: Details; cancellation_policy
   const sizes = list(d.sizes);
   add("sizes", sizes.length > 0 && `Sizes ${sizes.join(", ")}`);
   for (const item of [...list(d.accessories), ...list(d.lenses)]) add("accessory", capitalise(item));
+  // A jet ski (RAA-273): "Yamaha VX Cruiser", its engine and power, then its features.
+  // Only with a brand: a vehicle's model goes by its make, which guests don't see.
+  if (typeof d.brand === "string" && d.brand) add("engine", [d.brand, typeof d.model === "string" ? d.model : ""].join(" ").trim());
   const engine = count(d.engine_cc);
   add("engine", engine && `${engine} cc`);
+  const power = count(d.horsepower);
+  add("engine", power && `${power} hp`);
+  for (const feature of list(d.features)) add("amenity", JET_SKI_FEATURE_LABELS[feature]);
   add("transmission", transmissionLabel(d.transmission));
   const guests = count(d.guests);
   add("guests", guests && `Sleeps ${guests}`);

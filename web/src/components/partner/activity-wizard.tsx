@@ -13,6 +13,7 @@ import {
   activityReviewRows,
   ActivityRunFields,
   ACTIVITY_SECTIONS,
+  MAX_SEATS,
   newActivityValues,
   toActivityBody,
   type ActivityCatalogues,
@@ -27,6 +28,15 @@ import {
   type CancellationPolicies,
   type CancellationPolicy,
 } from "./cancellation-policy";
+import {
+  isJetSki,
+  jetSkiFeaturesText,
+  JetSkiFields,
+  jetSkiText,
+  NEW_JET_SKI,
+  toJetSkiAttrs,
+  type JetSkiValues,
+} from "./jet-ski-fields";
 import { categoryLabel, descriptionHint, LISTING_TEXT } from "./listing-fields";
 import { LocationPicker } from "./location-picker";
 import { NewListingPhotos, SAVED_STEPS } from "./new-listing-photos";
@@ -39,6 +49,8 @@ import { WizardActions, WizardLayout, WizardNext, WizardTitle } from "./wizard-s
 
 const STEPS = [
   { key: "basics", label: "The activity" },
+  // A jet ski's brand, model, engine, seats and features (RAA-273); other activities skip it.
+  { key: "jet-ski", label: "The jet ski" },
   { key: "meeting", label: "Where guests start" },
   { key: "runs", label: "How it runs" },
   { key: "pricing", label: "Pricing" },
@@ -77,12 +89,15 @@ export function ActivityWizard({
   catalogues: ActivityCatalogues;
 }) {
   const create = useCreateListing();
+  const jetSki = isJetSki(category);
+  const steps = STEPS.filter((other) => jetSki || other.key !== "jet-ski");
+  const stepAt = (key: StepKey) => steps.findIndex((other) => other.key === key);
   const [stepIndex, setStepIndex] = useState(0);
   const [reached, setReached] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
-  const step = STEPS[stepIndex];
+  const step = steps[stepIndex];
   // Review, the step before Photos, saves the listing.
-  const isLast = stepIndex === STEPS.length - SAVED_STEPS.length - 1;
+  const isLast = stepIndex === steps.length - SAVED_STEPS.length - 1;
   const [saved, setSaved] = useState<{ listing: PartnerListing; body: ListingBody }>();
 
   const [title, setTitle] = useState("");
@@ -95,6 +110,7 @@ export function ActivityWizard({
     setLocationError(undefined);
   });
   const [activity, setActivity] = useState<ActivityValues>(() => newActivityValues(category.activity_defaults));
+  const [jetSkiValues, setJetSkiValues] = useState<JetSkiValues>(NEW_JET_SKI);
   const [errors, setErrors] = useState<ActivityErrors>();
   const [units, setUnits] = useState(1);
   const [policy, setPolicy] = useState<CancellationPolicy>(DEFAULT_CANCELLATION_POLICY);
@@ -137,7 +153,7 @@ export function ActivityWizard({
     // the first that doesn't.
     const broken = (Object.keys(ACTIVITY_SECTIONS) as ActivitySection[]).find((key) => activityErrors(activity, key));
     if (broken) {
-      setStepIndex(STEPS.findIndex((other) => other.key === broken));
+      setStepIndex(stepAt(broken));
       setErrors(activityErrors(activity, broken));
       return;
     }
@@ -150,12 +166,12 @@ export function ActivityWizard({
       location,
       cancellation_policy: policy,
       units_count: units,
+      ...(jetSki ? { attrs: toJetSkiAttrs(jetSkiValues) } : {}),
       activity: toActivityBody(activity),
     };
     create.mutate(body, { onSuccess: (listing) => setSaved({ listing, body }) });
   }
 
-  const steps = [...STEPS];
   if (saved) return <NewListingPhotos steps={steps} listing={saved.listing} body={saved.body} />;
 
   return (
@@ -223,7 +239,17 @@ export function ActivityWizard({
             </>
           )}
 
-          {step.key === "runs" && <ActivityRunFields values={activity} onChange={changeActivity} errors={errors} />}
+          {step.key === "jet-ski" && (
+            <JetSkiFields
+              values={jetSkiValues}
+              onChange={setJetSkiValues}
+              seats={activity.seats}
+              onSeatsChange={(seats) => changeActivity({ ...activity, seats })}
+              maxSeats={MAX_SEATS}
+            />
+          )}
+
+          {step.key === "runs" && <ActivityRunFields values={activity} onChange={changeActivity} errors={errors} seats={!jetSki} />}
 
           {step.key === "pricing" && (
             <ActivityPricingFields
@@ -249,6 +275,12 @@ export function ActivityWizard({
               <dl className="grid gap-x-6 gap-y-3 rounded-card bg-surface-2 p-5 text-sm sm:grid-cols-[9rem_1fr]">
                 {[
                   ["Title", title.trim()],
+                  ...(jetSki
+                    ? [
+                        ["Jet ski", jetSkiText(jetSkiValues) || "—"],
+                        ["Features", jetSkiFeaturesText(jetSkiValues)],
+                      ]
+                    : []),
                   ["Where guests start", [address.values.street, address.values.city].filter(Boolean).join(", ") || "—"],
                   ...activityReviewRows(activity, catalogues),
                   [UNITS_LABEL, String(units)],
@@ -262,14 +294,14 @@ export function ActivityWizard({
               </dl>
               <div className="flex flex-wrap gap-2 text-sm">
                 <span className="text-muted">Change:</span>
-                {(["basics", "runs", "pricing", "inclusions"] as const).map((key) => (
+                {(["basics", ...(jetSki ? (["jet-ski"] as const) : []), "runs", "pricing", "inclusions"] as const).map((key) => (
                   <button
                     key={key}
                     type="button"
-                    onClick={() => goTo(STEPS.findIndex((other) => other.key === key))}
+                    onClick={() => goTo(stepAt(key))}
                     className="font-medium text-link underline"
                   >
-                    {STEPS.find((other) => other.key === key)?.label}
+                    {steps.find((other) => other.key === key)?.label}
                   </button>
                 ))}
               </div>
