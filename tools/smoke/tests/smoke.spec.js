@@ -217,6 +217,21 @@ for (const [path, heading, testId] of [
 
 // Sign-up through the real API (email and password only), and the /partner guard: signed
 // out goes to /partner/login, a guest is sent home, a partner gets the dashboard.
+// Sent before the page's JavaScript loads, the browser posts the form itself (RAA-269): a GET
+// would put the password in the URL.
+test("a sign-in sent before the page loads keeps the password out of the URL", async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto("/partner/login");
+  await page.getByLabel("Email").fill("early@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("password123");
+  const sent = page.waitForResponse((response) => response.request().method() === "POST");
+  await page.getByLabel("Password", { exact: true }).press("Enter");
+  expect((await sent).status()).toBe(200);
+  expect(page.url()).not.toContain("password123");
+  await context.close();
+});
+
 test("sign-up and the partner guard", async ({ page }) => {
   // Two sign-ups and most of the partner pages: about a minute, more on a cold dev server.
   test.setTimeout(120_000);

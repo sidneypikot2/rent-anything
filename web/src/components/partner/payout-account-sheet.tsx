@@ -86,7 +86,7 @@ function PayoutAccountForm({
   }
 
   return (
-    <form data-testid="payout-account-form" onSubmit={onSubmit} className="flex flex-col gap-5">
+    <form method="post" data-testid="payout-account-form" onSubmit={onSubmit} className="flex flex-col gap-5">
       {save.error && (
         <p role="alert" className="text-sm text-danger">
           {save.error.message}

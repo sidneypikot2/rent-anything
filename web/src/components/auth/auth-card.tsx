@@ -133,7 +133,7 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
   );
 
   const form = (
-    <form onSubmit={submit}>
+    <form method="post" onSubmit={submit}>
       <fieldset disabled={pending} className={cn("flex flex-col", plain ? "gap-2.5" : "gap-3")}>
         <Field label="Email" name="email" type="email" autoComplete="email" compact={plain} required />
         {/* Side by side on the one-screen page, where sign-up is the tallest form. */}

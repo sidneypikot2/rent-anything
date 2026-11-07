@@ -56,7 +56,7 @@ export function TripLinkUnlock({ token, next = "/cart" }: { token: string; next?
             </Button>
           </div>
         ) : (
-          <form onSubmit={unlock}>
+          <form method="post" onSubmit={unlock}>
             <fieldset disabled={pending} className="flex flex-col gap-3">
               <p className="text-sm text-muted">Enter the 6-digit PIN that came with this link.</p>
               <Field

@@ -40,4 +40,6 @@ Google sign-in works only on port 8100, the one origin registered on the OAuth c
 
 **Session-dependent UI above the fold**: the session is read from localStorage after hydration, so server-render the signed-out/traveller version and swap it once `useSession()` resolves. Rendering nothing until then is only fine below the fold, and even there hold the space (`PlanCta` renders the signed-out band `invisible`) so the page doesn't grow — above it, the main call to action is missing from the first paint (RAA-80).
 
+**Forms holding a secret**: a form with a password, PIN, code or account number has `method="post"` (RAA-269). Sent before the page's JavaScript loads, the browser submits it itself, and with no `method` that is a GET, putting every named field in the URL. The POST just reloads the page.
+
 **One-shot URL flags** (like `?start=trip`): read them once into client state and drop them with `history.replaceState`. sign-in returns to `pathname + search` (`?next=`), and the header's search rebuilds the query when dates are set, so a flag left in the URL either comes back after sign-in or vanishes then (RAA-80).
