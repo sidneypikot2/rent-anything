@@ -9048,7 +9048,7 @@ export interface components {
             /** @enum {boolean} */
             uploaded: true;
         };
-        /** @description Only the keys the listing has, from: guide_included, seats, luggage (bags a transfer carries), route, sizes, accessories, lenses, engine_cc, transmission, guests (how many a stay sleeps), rooms ([{beds: [{type, count}]}]), bathroom, amenities (a stay's or a vehicle's), place_type */
+        /** @description Only the keys the listing has, from: guide_included, seats, luggage (bags a transfer carries), route, sizes, accessories, lenses, engine_cc, transmission, guests (how many a stay sleeps), rooms ([{beds: [{type, count}]}]), bathroom, amenities (a stay's or a vehicle's), place_type, and a jet ski's brand, model, horsepower and features (RAA-273) */
         listing_details: {
             [key: string]: unknown;
         };
