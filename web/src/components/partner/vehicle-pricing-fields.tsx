@@ -1,7 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import type { ReactNode } from "react";
 import type { components } from "@/api/schema";
 import { hasChildHelmets, hasDriverOption, isFourWheel, VEHICLE_AMENITY_LABELS } from "@/components/listings/vehicle-labels";
 import { Button } from "@/components/ui/button";
@@ -12,22 +10,14 @@ import { SelectField } from "@/components/ui/select-field";
 import type { LatLng } from "@/lib/map";
 import { formatPeso, fromCents, toCents } from "@/lib/money";
 import { VEHICLE_CHARGED_PER } from "@/lib/pricing";
+import { DeliveryZoneFields, zoneBody, zonesError, type ZoneValues } from "./delivery-zones-field";
 import { FeeFields, feesError, newFee, toFeeValues, type FeeValues } from "./fee-fields";
+import { OptionalRate, PricingSection } from "./pricing-section";
 
 type VehicleRate = components["schemas"]["vehicle_rate"];
 type VehicleRateBody = components["schemas"]["vehicle_rate_body"];
 type ListingFee = components["schemas"]["listing_fee"];
 type Driving = components["schemas"]["vehicle_driving"];
-
-// MapLibre loads only once the shop delivers or collects.
-const ZoneMap = dynamic(() => import("@/components/trips/zone-map"), { ssr: false, loading: () => <div className="h-64 w-full rounded-control bg-mist" /> });
-
-// VehicleRate's delivery zones (RAA-205).
-const MAX_ZONES = 5;
-const ZONE_KM = { min: 0.1, max: 50 };
-
-// A delivery zone as typed: how far it reaches, in km, and its fee in pesos (empty: free).
-export type ZoneValues = { km: string; fee: string };
 
 // VehicleRate's limits (RAA-149).
 const WEEK_DAYS = 7;
@@ -161,13 +151,6 @@ const optionalCents = (text: string) => (text.trim() ? toCents(text) : null);
 const switchedCents = (on: boolean, text: string) => (on ? optionalCents(text) : null);
 const serviceCents = (choice: Service, fee: string) => (choice === "none" ? null : choice === "free" ? 0 : toCents(fee));
 
-// The zones as the API takes them, nearest first.
-function zoneBody(zones: ZoneValues[]) {
-  return zones
-    .map((zone) => ({ max_distance_m: Math.round(Number(zone.km) * 1000), fee_cents: optionalCents(zone.fee) ?? 0 }))
-    .sort((a, b) => a.max_distance_m - b.max_distance_m);
-}
-
 // Gear has a daily price, a deposit, hours and delivery only (RAA-255): whatever else the fields
 // hold, from a category changed on the form, goes back to its default.
 function forGear(values: VehiclePricingValues): VehiclePricingValues {
@@ -283,19 +266,6 @@ export function vehiclePricingErrors(typed: VehiclePricingValues, included: stri
   for (const key of Object.keys(errors) as (keyof VehiclePricingErrors)[]) if (!errors[key]) delete errors[key];
   return Object.keys(errors).length > 0 ? errors : undefined;
 }
-
-// The rules VehicleRate checks for its zones (RAA-205), said for the form.
-function zonesError(zones: ZoneValues[]): string | undefined {
-  const distances = zones.map((zone) => Number(zone.km));
-  if (distances.some((km) => !zoneOk(km))) return `Each zone reaches from ${ZONE_KM.min} to ${ZONE_KM.max} km`;
-  if (zones.some((zone) => zone.fee.trim() && toCents(zone.fee) === null)) return "Enter each fee in pesos, or leave it empty for free";
-  const body = zoneBody(zones);
-  if (new Set(body.map((zone) => zone.max_distance_m)).size < body.length) return "Two zones can't end at the same distance";
-  if (body.some((zone, index) => index > 0 && zone.fee_cents < body[index - 1].fee_cents)) return "A farther zone can't cost less than a nearer one";
-  return undefined;
-}
-
-const zoneOk = (km: number) => Number.isFinite(km) && km >= ZONE_KM.min && km <= ZONE_KM.max;
 
 // The fees PH rental shops charge on top, one click each: a row with its name and how it's
 // charged, the partner types the amount. Motorbikes and trikes have their own list. Delivery and
@@ -633,7 +603,13 @@ export function VehiclePricingFields({
             />
           </div>
           {(values.delivers || values.picksUp) && (
-            <DeliveryZoneFields zones={values.zones} onChange={(zones) => set({ zones })} error={errors?.zones} location={location} gear={gear} />
+            <DeliveryZoneFields
+              zones={values.zones}
+              onChange={(zones) => set({ zones })}
+              error={errors?.zones}
+              location={location}
+              feeLabel={gear ? "Fee (₱)" : "Fee a vehicle (₱)"}
+            />
           )}
         </div>
       </PricingSection>
@@ -689,147 +665,6 @@ export function VehiclePricingFields({
         </div>
       </PricingSection>
       )}
-    </div>
-  );
-}
-
-// The delivery zones (RAA-205): rows of "Up to [1] km · ₱ [ ]" (empty is free), at most five,
-// and, once the listing has a pin, the rings they make around it, redrawn as they are typed.
-function DeliveryZoneFields({
-  zones,
-  onChange,
-  error,
-  location,
-  gear,
-}: {
-  zones: ZoneValues[];
-  onChange: (zones: ZoneValues[]) => void;
-  error?: string;
-  location?: LatLng | null;
-  gear: boolean;
-}) {
-  const set = (index: number, patch: Partial<ZoneValues>) => onChange(zones.map((zone, at) => (at === index ? { ...zone, ...patch } : zone)));
-  const body = zoneBody(zones.filter((zone) => zoneOk(Number(zone.km))));
-  const farthest = body.at(-1);
-  return (
-    <div className="flex flex-col gap-3" data-testid="pricing-zones">
-      {zones.map((zone, index) => (
-        <div key={index} className="grid grid-cols-[1fr_1fr_auto] items-end gap-3" data-testid="pricing-zone">
-          <Field
-            label={index === 0 ? "Up to (km)" : "Then up to (km)"}
-            type="number"
-            min={ZONE_KM.min}
-            max={ZONE_KM.max}
-            step="0.1"
-            inputMode="decimal"
-            value={zone.km}
-            onChange={(event) => set(index, { km: event.target.value })}
-            data-testid="pricing-zone-km"
-          />
-          <Field
-            label={gear ? "Fee (₱)" : "Fee a vehicle (₱)"}
-            type="number"
-            min={0}
-            step="0.01"
-            inputMode="decimal"
-            placeholder="Free"
-            value={zone.fee}
-            onChange={(event) => set(index, { fee: event.target.value })}
-            data-testid="pricing-zone-fee"
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={zones.length === 1}
-            onClick={() => onChange(zones.filter((_, at) => at !== index))}
-            aria-label="Remove this zone"
-          >
-            Remove
-          </Button>
-        </div>
-      ))}
-      {error && <p className="text-sm font-semibold text-danger">{error}</p>}
-      {zones.length < MAX_ZONES && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="self-start"
-          onClick={() => {
-            const last = zones.at(-1);
-            onChange([...zones, { km: String(Math.min(Number(last?.km || 0) + 2, ZONE_KM.max)), fee: last?.fee ?? "" }]);
-          }}
-          data-testid="pricing-zone-add"
-        >
-          + Add a zone
-        </Button>
-      )}
-      <p className="text-sm text-muted">
-        {farthest ? `No delivery beyond ${farthest.max_distance_m / 1000} km, in a straight line from your pin. ` : ""}
-        Guests see these rings around an approximate point, never your exact pin.
-      </p>
-      {location ? (
-        <ZoneMap center={location} zones={body} shop />
-      ) : (
-        <p className="text-sm text-muted">Drop the listing&apos;s pin to see the zones on a map.</p>
-      )}
-    </div>
-  );
-}
-
-// One part of the pricing, divided from the one above: a title and a line on what it's for.
-// Without a title it's only the divider (the extra fees, which head themselves).
-function PricingSection({
-  title,
-  intro,
-  children,
-  ...props
-}: {
-  title?: string;
-  intro?: string;
-  children: ReactNode;
-  "data-testid"?: string;
-}) {
-  return (
-    <div className="border-t border-line py-6 last:pb-0">
-      <fieldset className="flex flex-col" {...props}>
-        {title && (
-          <legend className="mb-4 flex flex-col gap-1">
-            <span className="text-base font-semibold">{title}</span>
-            {intro && <span className="text-sm text-muted">{intro}</span>}
-          </legend>
-        )}
-        <div className="flex flex-col gap-4">{children}</div>
-      </fieldset>
-    </div>
-  );
-}
-
-// An optional rate: a tick box that says what it is, and once ticked its fields under it.
-function OptionalRate({
-  label,
-  name,
-  on,
-  onToggle,
-  children,
-}: {
-  label: string;
-  name: string;
-  on: boolean;
-  onToggle: (on: boolean) => void;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <CheckboxField
-        label={label}
-        name={`${name}_on`}
-        checked={on}
-        onChange={(event) => onToggle(event.target.checked)}
-        data-testid={`pricing-${name}-on`}
-      />
-      {on && <div className="grid gap-4 pl-6 sm:grid-cols-2">{children}</div>}
     </div>
   );
 }

@@ -34,6 +34,17 @@ import {
 import { LandmarkPicker } from "./landmark-picker";
 import { ListingPhotos, orderedPhotos } from "./listing-photos";
 import { STATUS } from "./listing-status";
+import {
+  activityErrors,
+  ActivityInclusionFields,
+  ActivityPricingFields,
+  ActivityRunFields,
+  isWaterActivity,
+  toActivityBody,
+  toActivityValues,
+  type ActivityErrors,
+  type ActivityValues,
+} from "./activity-fields";
 import { ListingStatusSection, type StatusMove } from "./listing-status-section";
 import { uploadedPhotos } from "./use-listing-photos";
 import { LocationPicker } from "./location-picker";
@@ -123,6 +134,11 @@ export function ListingForm({
   const [vehiclePriceErrors, setVehiclePriceErrors] = useState<VehiclePricingErrors>();
   const [tour, setTour] = useState<TourValues>(() => toTourValues(listing));
   const [tourProblems, setTourProblems] = useState<TourErrors>();
+  // A water activity's details (RAA-272); one moved into a water category starts from its defaults.
+  const [activity, setActivity] = useState<ActivityValues>(() =>
+    toActivityValues(listing.activity, options.categories.find((option) => option.id === listing.category.id)?.activity_defaults),
+  );
+  const [activityProblems, setActivityProblems] = useState<ActivityErrors>();
   const [policy, setPolicy] = useState<CancellationPolicy>(listing.cancellation_policy);
   const [bookingMode, setBookingMode] = useState<BookingMode>(listing.booking_mode);
   const [units, setUnits] = useState(listing.units_count);
@@ -156,7 +172,8 @@ export function ListingForm({
   const rentalCategory = vehicleCategory || gearCategory;
   const flatCategory = isFlatPriced(category);
   const tourCategory = isTour(category);
-  const fields = stayCategory || vehicleCategory || tourCategory ? [] : attributeFields(category);
+  const waterCategory = isWaterActivity(category);
+  const fields = stayCategory || vehicleCategory || tourCategory || waterCategory ? [] : attributeFields(category);
   const extras = tourExtras(category);
   // Made a tour here, the listing takes a tour's photos before it is saved as one.
   const photoLimit = tourCategory && !listing.tour ? TOUR_PHOTO_LIMIT : listing.photo_limit;
@@ -164,6 +181,10 @@ export function ListingForm({
   const changeTour = (values: TourValues) => {
     setTour(values);
     setTourProblems(undefined);
+  };
+  const changeActivity = (values: ActivityValues) => {
+    setActivity(values);
+    setActivityProblems(undefined);
   };
   // A vehicle keeps the attrs the form doesn't show (a plate number) while it stays a vehicle.
   const savedAsVehicle = isVehicle(options.categories.find((option) => option.id === listing.category.id));
@@ -200,6 +221,7 @@ export function ListingForm({
       ...(vehicleCategory ? { fees: toFeesBody(vehiclePricing) } : {}),
       ...(flatCategory && flatPrice ? { flat_rate: toFlatRateBody(flatPrice) } : {}),
       ...(tourCategory ? toTourListingBody(tour, extras) : {}),
+      ...(waterCategory ? { activity: toActivityBody(activity) } : {}),
       // Sent only once moved: a body's photos deletes any photo it leaves out.
       ...(photoOrder ? { photos: orderedPhotos(listing.photos, photoOrder).map((photo) => photo.id) } : {}),
     };
@@ -222,6 +244,10 @@ export function ListingForm({
     setAttrValues({});
     setStay(toStayValues({}));
     setVehicleValues(toVehicleValues({}));
+    // Another water activity starts from its own defaults; the saved one's come back with it.
+    const next = options.categories.find((option) => String(option.id) === id);
+    setActivity(toActivityValues(next?.id === listing.category.id ? listing.activity : null, next?.activity_defaults));
+    setActivityProblems(undefined);
     setNextCategoryId(undefined);
   }
 
@@ -247,6 +273,10 @@ export function ListingForm({
     }
     if (tourCategory && tourErrors(tour)) {
       setTourProblems(tourErrors(tour));
+      return;
+    }
+    if (waterCategory && activityErrors(activity)) {
+      setActivityProblems(activityErrors(activity));
       return;
     }
     const changes = listingChanges(listing, body);
@@ -299,6 +329,13 @@ export function ListingForm({
           { id: "tour-pricing", label: "Pricing" },
         ]
       : []),
+    ...(waterCategory
+      ? [
+          { id: "runs", label: "How it runs" },
+          { id: "activity-pricing", label: "Pricing" },
+          { id: "inclusions", label: "Inclusions" },
+        ]
+      : []),
     ...(vehicleCategory ? [{ id: "vehicle", label: "Vehicle details" }] : []),
     ...(rentalCategory ? [{ id: "vehicle-pricing", label: "Pricing" }] : []),
     ...(fields.length > 0 ? [{ id: "details", label: "Details" }] : []),
@@ -347,6 +384,11 @@ export function ListingForm({
         {tourProblems && (
           <div role="alert" className="rounded-card bg-danger-tint px-5 py-4 text-sm font-semibold text-danger">
             Check the tour&apos;s details: the sections below say what&apos;s missing.
+          </div>
+        )}
+        {activityProblems && (
+          <div role="alert" className="rounded-card bg-danger-tint px-5 py-4 text-sm font-semibold text-danger">
+            Check the activity&apos;s details: the sections below say what&apos;s missing.
           </div>
         )}
 
@@ -486,6 +528,37 @@ export function ListingForm({
           </>
         )}
 
+        {waterCategory && (
+          <>
+            <EditSection id="runs" title="How it runs" data-testid="listing-activity-runs">
+              {!listing.activity?.offers.length && (
+                <p role="status" className="text-sm font-medium text-warning">
+                  Set its rates: guests don&apos;t see a price for it until you do.
+                </p>
+              )}
+              <ActivityRunFields values={activity} onChange={changeActivity} errors={activityProblems} />
+            </EditSection>
+            <EditSection id="activity-pricing" title="Pricing" data-testid="listing-activity-pricing">
+              <ActivityPricingFields
+                values={activity}
+                onChange={changeActivity}
+                errors={activityProblems}
+                location={location}
+                addOnKinds={options.activity_add_ons}
+                chargedPer={options.activity_add_on_charged_per}
+              />
+            </EditSection>
+            <EditSection id="inclusions" title="Inclusions" data-testid="listing-activity-inclusions">
+              <ActivityInclusionFields
+                values={activity}
+                onChange={changeActivity}
+                errors={activityProblems}
+                kinds={options.activity_inclusions}
+              />
+            </EditSection>
+          </>
+        )}
+
         {vehicleCategory && (
           <EditSection id="vehicle" title="Vehicle details">
             <VehicleFields values={vehicleValues} onChange={setVehicleValues} slug={category?.slug} />
@@ -541,7 +614,7 @@ export function ListingForm({
 
         {!tourCategory && (
           <EditSection id="units" title={UNITS_LABEL}>
-            <UnitsField bookingType={category?.booking_type} value={units} onChange={setUnits} />
+            <UnitsField bookingType={category?.booking_type} water={waterCategory} value={units} onChange={setUnits} />
             {stayCategory && <StayGuestRules values={stay} onChange={setStay} units={units} fees={pricing.fees} />}
           </EditSection>
         )}

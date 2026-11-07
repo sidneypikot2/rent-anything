@@ -17,18 +17,23 @@ const WORDING: Record<BookingType, { question: string; count: string }> = {
   transfer: { question: "Do you have more than one identical vehicle for this?", count: "How many vehicles?" },
 };
 
+// A water activity's units are its jet skis, kayaks or boats (RAA-272), not groups.
+const WATER = { question: "Do you have more than one of these to rent out at once?", count: "How many do you have?" };
+
 // How many identical units a listing has (RAA-99): five pairs of fins are one listing with
 // five units, each booked on its own. No is one unit; Yes starts at two.
 export function UnitsField({
   bookingType,
+  water = false,
   value,
   onChange,
 }: {
   bookingType: ListingCategory["booking_type"] | undefined;
+  water?: boolean;
   value: number;
   onChange: (value: number) => void;
 }) {
-  const wording = WORDING[bookingType ?? "rental"];
+  const wording = water ? WATER : WORDING[bookingType ?? "rental"];
   return (
     <div data-testid="listing-units" className="flex flex-col gap-2">
       <ChoiceCards
