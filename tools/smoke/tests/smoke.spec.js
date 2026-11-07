@@ -34,9 +34,9 @@ test("home page renders and reaches the API", async ({ page }) => {
   await expect(page.getByText("Live on Bantayan")).toBeVisible();
   await expect(page.getByTestId("nav-signin")).toBeVisible();
   await expect(page.getByTestId("nav-register")).toHaveAttribute("href", "/register");
-  // The home's three ways in: Plan a trip (below), Book one thing down to the kinds under the
-  // hero, and Explore to the launch area's page.
-  await expect(page.getByTestId("home-book-one")).toHaveAttribute("href", "#book-one");
+  // The home's three ways in: Plan a trip (below), Book one thing to the launch area's What
+  // to book, and Explore to the launch area's page.
+  await expect(page.getByTestId("home-book-one")).toHaveAttribute("href", "/bantayan-island#listings");
   await expect(page.getByTestId("home-explore")).toHaveAttribute("href", "/bantayan-island");
   // Under the hero: the five kinds of things to book, and the places to see, rendered on the
   // server from the API, each opening its card on the launch area's page.

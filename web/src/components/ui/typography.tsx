@@ -6,12 +6,14 @@ import { cn } from "./cn";
 // relaxed leading, and meta at text-sm in muted. Each step is clearly smaller than the last.
 // The bigger the title, the tighter it is set: at the hero's size the usual tracking-tight
 // leaves the extra-bold letters looking spaced out. From sm up the hero and page titles also
-// size by the window's height (RAA-125), so a banner fits the first screen of a laptop.
+// size by the window's height (RAA-125), so a banner fits the first screen of a laptop. On a
+// phone the page and section titles stop growing at a share of its width, so at a large text
+// size a place name still fits whole rather than breaking mid-word (wrap-anywhere is the last resort).
 // compact is a work page's h1 (the cart, Trips, Bookings), one step under page, so its banner
 // stays one short row over the content the guest came for.
 const TITLE_SIZES = {
   compact: "text-2xl leading-tight tracking-tight sm:text-4xl",
-  page: "text-4xl leading-[1.08] tracking-tight sm:text-[min(7svh,3rem)]",
+  page: "text-[min(2.25rem,11vw)] leading-[1.08] tracking-tight sm:text-[min(7svh,3rem)]",
   hero: "text-[clamp(2.25rem,11vw,3rem)] leading-[1.02] tracking-[-0.035em] sm:text-[min(7.2svh,3.75rem)] landscape-phone:text-4xl",
 };
 
@@ -36,7 +38,7 @@ export function DisplayTitle({
 export function SectionTitle({ className, ...props }: ComponentProps<"h2">) {
   return (
     <h2
-      className={cn("font-display text-3xl leading-[1.1] font-extrabold tracking-tight text-balance wrap-anywhere sm:text-4xl", className)}
+      className={cn("font-display text-[min(1.875rem,9vw)] leading-[1.1] font-extrabold tracking-tight text-balance wrap-anywhere sm:text-4xl", className)}
       {...props}
     />
   );

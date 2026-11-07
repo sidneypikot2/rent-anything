@@ -268,7 +268,6 @@ export function ListingBrowser({
     setFrozen(null);
   }
   const matches = matcher(query);
-  const asked = Boolean(query || initial);
   // Passes the page's search and a section's filters.
   const shows = (offer: ListingOffer, filters: Filters) => (!matches || matches(offer)) && passes(offer, filters);
   // The home hero's shortcut to a group this place has nothing in.
@@ -293,12 +292,21 @@ export function ListingBrowser({
     if (!row || !chip || row.scrollWidth <= row.clientWidth) return;
     row.scrollLeft = chip.offsetLeft - (row.clientWidth - chip.offsetWidth) / 2;
   }, [current]);
+  // Read by the hash follower below, which runs on arrival and on a hash change only: the server
+  // page renders again (a trip putting its dates in the URL keeps the hash) with new groups, and
+  // following #listings then would pull a guest reading another section back here.
+  const groupsRef = useRef(groups);
+  useEffect(() => {
+    groupsRef.current = groups;
+  }, [groups]);
   useEffect(() => {
     const follow = () => {
-      // Arrived from a search or a category (`?q=`, `?show=`): What to book itself, once the page has
-      // laid out, rather than the browser's own jump, which the banner's late layout throws off.
+      const groups = groupsRef.current;
+      // A link or refresh at #listings (a search, a category, the nav's tab): What to book itself,
+      // once the page has laid out, rather than the browser's own jump, which the banner's late
+      // layout throws off.
       if (window.location.hash === "#listings") {
-        if (asked) setReveal({ id: "listings" });
+        setReveal({ id: "listings" });
         return;
       }
       // A link to a section (#need-stay: the trip card's "A place to stay") picks it.
@@ -320,7 +328,7 @@ export function ListingBrowser({
     follow();
     window.addEventListener("hashchange", follow);
     return () => window.removeEventListener("hashchange", follow);
-  }, [groups, asked]);
+  }, []);
   useEffect(() => {
     if (reveal === null) return;
     document.getElementById(reveal.id)?.scrollIntoView({ block: "start" });
