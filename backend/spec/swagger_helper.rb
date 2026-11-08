@@ -121,6 +121,45 @@ EXPLORE_PLACE = {
   distance_km: { type: :number, description: "From the starting point, one decimal" }
 }.freeze
 
+# What a business tells guests on its shop page (RAA-281), as its partner and its guests both
+# get it (BusinessShopSerializer). Each part is null until the partner fills it in.
+HALF_HOUR_TIME = { type: :string, pattern: "^([01][0-9]|2[0-3]):(00|30)$", example: "08:30" }.freeze
+BUSINESS_SHOP = {
+  hours: {
+    type: :object, nullable: true, description: "One daily range, and the weekdays it is closed (0 Sunday to 6)",
+    properties: {
+      opens_at: HALF_HOUR_TIME, closes_at: HALF_HOUR_TIME,
+      closed_days: { type: :array, items: { type: :integer, minimum: 0, maximum: 6 } }
+    },
+    required: %w[opens_at closes_at closed_days]
+  },
+  languages: { type: :array, items: { type: :string, enum: %w[en tl ceb ilo ko zh ja de fr es] } },
+  host: {
+    type: :object, nullable: true, description: "Who hosts a stay there",
+    properties: { name: { type: :string, maxLength: 60 }, intro: { type: :string, maxLength: 160, nullable: true } },
+    required: %w[name intro]
+  },
+  stay_rules: {
+    type: :object, nullable: true, description: "The rules every stay there keeps",
+    properties: {
+      check_in_from: HALF_HOUR_TIME.merge(nullable: true), check_in_until: HALF_HOUR_TIME.merge(nullable: true),
+      check_out_by: HALF_HOUR_TIME.merge(nullable: true),
+      house_rules: { type: :array, items: { type: :string, enum: %w[no_smoking no_parties quiet_hours no_visitors] } },
+      quiet_from: HALF_HOUR_TIME.merge(nullable: true),
+      note: { type: :string, maxLength: 300, nullable: true }
+    },
+    required: %w[check_in_from check_in_until check_out_by house_rules quiet_from note]
+  },
+  faqs: {
+    type: :array, maxItems: 6, description: "Good to know: questions and answers, in the partner's order",
+    items: {
+      type: :object,
+      properties: { question: { type: :string, maxLength: 120 }, answer: { type: :string, maxLength: 500 } },
+      required: %w[question answer]
+    }
+  }
+}.freeze
+
 # The address and map pin a partner sends for a listing (RAA-41) or a business (RAA-100).
 ADDRESS_BODY = {
   type: :object,
@@ -810,10 +849,20 @@ RSpec.configure do |config|
                 },
                 required: %w[id kind label account_number_last4]
               },
+              **BUSINESS_SHOP,
+              logo: {
+                allOf: [ { "$ref" => "#/components/schemas/partner_photo" } ], nullable: true,
+                description: "Its logo (RAA-281); null for none"
+              },
+              cover_photos: {
+                type: :array, maxItems: 8, items: { "$ref" => "#/components/schemas/partner_photo" },
+                description: "Its cover photos in order (RAA-281); the first leads its shop page"
+              },
               created_at: { type: :string, format: "date-time" },
               updated_at: { type: :string, format: "date-time" }
             },
-            required: %w[id name description address location listings_count payout_account created_at updated_at]
+            required: %w[id name description address location listings_count payout_account hours languages host
+              stay_rules faqs logo cover_photos created_at updated_at]
           },
           business_body: {
             type: :object,
@@ -825,7 +874,19 @@ RSpec.configure do |config|
               payout_account_id: {
                 type: :integer, nullable: true,
                 description: "One of the partner's payout accounts (RAA-145); null clears it, left out it stays"
-              }
+              },
+              # Its shop page (RAA-281): each part left out stays, null clears it.
+              hours: BUSINESS_SHOP[:hours].merge(description: "Opening hours; both times or neither"),
+              languages: BUSINESS_SHOP[:languages],
+              host: {
+                type: :object, nullable: true,
+                properties: { name: { type: :string, maxLength: 60 }, intro: { type: :string, maxLength: 160, nullable: true } }
+              },
+              stay_rules: {
+                type: :object, nullable: true, description: "Every key optional; a missing one is cleared",
+                properties: BUSINESS_SHOP[:stay_rules][:properties]
+              },
+              faqs: BUSINESS_SHOP[:faqs]
             },
             required: %w[name]
           },
@@ -1031,11 +1092,11 @@ RSpec.configure do |config|
           tour_inclusion: {
             type: :object,
             properties: {
-              kind: { type: :string, enum: %w[accommodation transport meal] },
+              kind: { type: :string, enum: %w[accommodation transport meal guide gear entrance_fees] },
               options: {
                 type: :array, items: { type: :string },
                 description: "transport: van, tricycle, boat, motorbike, car or other (at least one); meal: snack, " \
-                  "breakfast, lunch or dinner (at least one); accommodation: none. In that order"
+                  "breakfast, lunch or dinner (at least one); accommodation, guide, gear, entrance_fees (RAA-281): none. In that order"
               },
               note: { type: :string, maxLength: 120, nullable: true, description: "E.g. \"Beach cottage, 1 night\"" },
               price_per_head_cents: {
@@ -1047,7 +1108,7 @@ RSpec.configure do |config|
           tour_inclusion_body: {
             type: :object,
             properties: {
-              kind: { type: :string, enum: %w[accommodation transport meal], description: "Each kind at most once" },
+              kind: { type: :string, enum: %w[accommodation transport meal guide gear entrance_fees], description: "Each kind at most once" },
               options: { type: :array, items: { type: :string }, description: "As in tour_inclusion" },
               note: { type: :string, maxLength: 120, nullable: true },
               price_per_head_cents: {
@@ -1071,13 +1132,18 @@ RSpec.configure do |config|
               duration_unit: { type: :string, enum: %w[hours days] },
               base_price_cents: { type: :integer, minimum: 0, description: "0: no price yet (tours made before RAA-110)" },
               price_unit: { type: :string, enum: %w[group person], description: "Private: group; joiner: person" },
+              start_times: {
+                type: :array, maxItems: 8, items: { type: :string, pattern: "^([01][0-9]|2[0-3]):(00|30)$" },
+                description: "When it starts, sorted (RAA-281); empty: any time"
+              },
+              not_included: { type: :string, maxLength: 300, nullable: true, description: "What it leaves out (RAA-281)" },
               inclusions: {
                 type: :array, items: { "$ref" => "#/components/schemas/tour_inclusion" },
-                description: "accommodation, meal, transport, each at most once"
+                description: "Each kind at most once"
               }
             },
             required: %w[tour_type min_guests max_guests max_groups_per_day duration_value duration_unit
-              base_price_cents price_unit inclusions]
+              base_price_cents price_unit start_times not_included inclusions]
           },
           guest_tour: {
             type: :object,
@@ -1089,10 +1155,15 @@ RSpec.configure do |config|
               duration_unit: { type: :string, enum: %w[hours days] },
               base_price_cents: { type: :integer },
               price_unit: { type: :string, enum: %w[group person] },
+              start_times: {
+                type: :array, maxItems: 8, items: { type: :string, pattern: "^([01][0-9]|2[0-3]):(00|30)$" },
+                description: "When it starts, sorted (RAA-281); empty: any time"
+              },
+              not_included: { type: :string, maxLength: 300, nullable: true, description: "What it leaves out (RAA-281)" },
               inclusions: { type: :array, items: { "$ref" => "#/components/schemas/tour_inclusion" } }
             },
             required: %w[tour_type min_guests max_guests duration_value duration_unit base_price_cents price_unit
-              inclusions]
+              start_times not_included inclusions]
           },
           # A water activity (RAA-270). Sold per unit, a guest takes a whole machine, kayak or boat for
           # their party; per person, guests take seats. It runs in open hours (a start on any half
@@ -1240,8 +1311,13 @@ RSpec.configure do |config|
               duration_value: { type: :integer, minimum: 1, description: "At most 24 hours or 30 days" },
               duration_unit: { type: :string, enum: %w[hours days] },
               base_price_cents: { type: :integer, minimum: 1 },
+              start_times: {
+                type: :array, maxItems: 8, items: { type: :string, example: "07:30" },
+                description: "Each on the hour or half hour (RAA-281); left out or empty: any time"
+              },
+              not_included: { type: :string, maxLength: 300, nullable: true, description: "Optional (RAA-281)" },
               inclusions: {
-                type: :array, items: { "$ref" => "#/components/schemas/tour_inclusion_body" }, maxItems: 3,
+                type: :array, items: { "$ref" => "#/components/schemas/tour_inclusion_body" }, maxItems: 6,
                 description: "Left out: none"
               }
             },
@@ -1686,7 +1762,7 @@ RSpec.configure do |config|
             description: "Only the keys the listing has, from: guide_included, seats, luggage (bags a transfer " \
               "carries), route, sizes, accessories, lenses, engine_cc, transmission, guests (how many a stay " \
               "sleeps), rooms ([{beds: [{type, count}]}]), bathroom, amenities (a stay's or a vehicle's), place_type, " \
-              "and a jet ski's brand, model, horsepower and features (RAA-273)"
+              "a jet ski's brand, model, horsepower and features (RAA-273), and a vehicle's licence_required (RAA-281)"
           },
           # What a guest gets back on cancelling (RAA-88); refunds follow it from M4.
           cancellation_policy: {
@@ -1735,7 +1811,7 @@ RSpec.configure do |config|
                 items: {
                   type: :object,
                   properties: {
-                    kind: { type: :string, enum: %w[accommodation transport meal] },
+                    kind: { type: :string, enum: %w[accommodation transport meal guide gear entrance_fees] },
                     options: { type: :array, items: { type: :string } }
                   },
                   required: %w[kind options]
@@ -1932,13 +2008,23 @@ RSpec.configure do |config|
               },
               details: { "$ref" => "#/components/schemas/listing_details" },
               tour: {
-                type: :object, nullable: true, description: "A tour's kind and the group it takes; null for anything else",
+                type: :object, nullable: true,
+                description: "A tour's kind and the group it takes, and for its shop page (RAA-281) when it starts, " \
+                  "its jump-off point, what it includes and leaves out; null for anything else",
                 properties: {
                   tour_type: { "$ref" => "#/components/schemas/tour_type" },
                   min_guests: { type: :integer, minimum: 1 },
-                  max_guests: { type: :integer, minimum: 1 }
+                  max_guests: { type: :integer, minimum: 1 },
+                  start_times: { type: :array, items: { type: :string }, description: "Sorted; empty: any time" },
+                  not_included: { type: :string, nullable: true },
+                  inclusions: { type: :array, items: { type: :string, enum: %w[accommodation transport meal guide gear entrance_fees] }, description: "Its inclusions' kinds" },
+                  jump_off: {
+                    type: :object, description: "Where it leaves from: the listing's street and town",
+                    properties: { street: { type: :string, nullable: true }, city: { type: :string, nullable: true } },
+                    required: %w[street city]
+                  }
                 },
-                required: %w[tour_type min_guests max_guests]
+                required: %w[tour_type min_guests max_guests start_times not_included inclusions jump_off]
               },
               cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" },
               handover: {
@@ -1950,12 +2036,13 @@ RSpec.configure do |config|
                   child_helmet_fee_cents: {
                     type: :integer, nullable: true,
                     description: "A motorcycle's child helmet per helmet and day (0 is included); null when the shop has none (RAA-205)"
-                  }
+                  },
+                  deposit_cents: { type: :integer, nullable: true, description: "Its security deposit (0: none); null with no rate (RAA-281)" }
                 },
-                required: %w[delivery_fee_cents return_pickup_fee_cents child_helmet_fee_cents]
+                required: %w[delivery_fee_cents return_pickup_fee_cents child_helmet_fee_cents deposit_cents]
               },
               goes_to: {
-                type: :array, description: "The published places to see it stops at, by name; stops have no order",
+                type: :array, description: "The published places to see it stops at, in the order it makes them (RAA-281)",
                 items: {
                   type: :object,
                   properties: { slug: { type: :string }, name: { type: :string } },
@@ -2034,9 +2121,20 @@ RSpec.configure do |config|
                   name: { type: :string },
                   description: { type: :string, description: "What it says about itself; empty when it says nothing" },
                   city: { type: :string, nullable: true },
-                  province: { type: :string, nullable: true }
+                  province: { type: :string, nullable: true },
+                  # Its shop page (RAA-281).
+                  street: { type: :string, nullable: true, description: "Null when it only offers stays: shown once booked" },
+                  location: {
+                    allOf: [ { "$ref" => "#/components/schemas/lat_lng" } ], nullable: true,
+                    description: "Its pin; null when it only offers stays or has none"
+                  },
+                  verified: { type: :boolean, description: "Its partner passed the ID check" },
+                  **BUSINESS_SHOP,
+                  logo: { allOf: [ { "$ref" => "#/components/schemas/photo_urls" } ], nullable: true },
+                  cover_photos: { type: :array, items: { "$ref" => "#/components/schemas/photo_urls" }, description: "Ready ones, in order" }
                 },
-                required: %w[id name description city province]
+                required: %w[id name description city province street location verified hours languages host stay_rules
+                  faqs logo cover_photos]
               },
               area: {
                 allOf: [ { "$ref" => "#/components/schemas/area" } ],

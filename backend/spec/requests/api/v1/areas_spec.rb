@@ -323,7 +323,7 @@ RSpec.describe "Areas", type: :request do
 
         run_test! do |response|
           row = response.parsed_body["listings"].find { _1["id"] == joiner.id }
-          expect(row["tour"]).to eq("tour_type" => "joiner", "min_guests" => 2, "max_guests" => 12)
+          expect(row["tour"]).to include("tour_type" => "joiner", "min_guests" => 2, "max_guests" => 12, "start_times" => [])
         end
       end
 

@@ -8,7 +8,7 @@ module ListingPhotos
     AGE = 2.days
 
     def perform
-      [ ListingPhoto, AreaPhoto, LandmarkPhoto ].each do |model|
+      [ ListingPhoto, AreaPhoto, LandmarkPhoto, BusinessPhoto, BusinessLogo ].each do |model|
         model.where(uploaded_at: nil, created_at: ...AGE.ago).find_each(&:destroy!)
       end
     end

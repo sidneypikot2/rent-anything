@@ -16,6 +16,7 @@ import {
 } from "./cancellation-policy";
 import { categoryLabel, descriptionHint, LISTING_TEXT } from "./listing-fields";
 import { LandmarkPicker } from "./landmark-picker";
+import { timeText } from "./time-fields";
 import { LocationPicker } from "./location-picker";
 import { NewListingPhotos, SAVED_STEPS } from "./new-listing-photos";
 import { SameAsBusinessAddress, startingAddress, startingPin, useSameAsBusinessAddress } from "./same-as-business-address";
@@ -43,9 +44,9 @@ import { WizardActions, WizardLayout, WizardNext, WizardTitle } from "./wizard-s
 
 const STEPS = [
   { key: "basics", label: "The tour" },
-  { key: "meeting", label: "Meeting point" },
-  { key: "destinations", label: "Destinations" },
-  { key: "group", label: "Group and duration" },
+  { key: "meeting", label: "Jump-off point" },
+  { key: "destinations", label: "Stops" },
+  { key: "group", label: "Group, duration and start times" },
   { key: "inclusions", label: "Inclusions" },
   { key: "pricing", label: "Pricing" },
   { key: "cancellation", label: "Cancellation policy" },
@@ -54,8 +55,9 @@ const STEPS = [
 ] as const;
 
 const INTROS: Partial<Record<(typeof STEPS)[number]["key"], string>> = {
-  meeting: "Where guests meet you. Guests see the area, not the pin.",
-  destinations: "The places the tour visits: at least two before it can go live. Travellers find it from each one.",
+  meeting: "Where the tour leaves from. Guests see its street and town on your shop page, not the pin.",
+  destinations:
+    "The places the tour stops at, in the order it makes them: at least two before it can go live. Travellers find it from each one.",
   review: "Check it over. Saving keeps it as a draft; then add photos.",
 };
 
@@ -247,8 +249,8 @@ export function TourWizard({
               rows={[
                 ["Title", title.trim()],
                 ["Tour", tourTypeLabel(tour.tourType)],
-                ["Meeting point", [address.values.street, address.values.city].filter(Boolean).join(", ") || "—"],
-                ["Destinations", landmarks.map((landmark) => landmark.name).join(", ") || "None picked"],
+                ["Jump-off point", [address.values.street, address.values.city].filter(Boolean).join(", ") || "—"],
+                ["Stops", landmarks.map((landmark) => landmark.name).join(" → ") || "None picked"],
                 ...reviewRows(tour, extras.filter((field) => tour.attrs[field.key] === true).map((field) => field.label)),
                 ["Cancellation policy", cancellationPolicyName(policies, policy)],
               ]}
@@ -292,7 +294,9 @@ function reviewRows(tour: TourValues, extras: string[]): [string, string][] {
   return [
     ["Group", `${groupText(body.min_guests, body.max_guests)}, ${body.max_groups_per_day} a day`],
     ["Duration", durationText(body.duration_value, body.duration_unit)],
+    ["Starts", body.start_times?.length ? body.start_times.map(timeText).join(", ") : "Any time, agreed with each group"],
     [body.tour_type === "private" ? "Add-ons" : "Included", included.join("; ") || "Nothing listed"],
+    ["Not included", body.not_included || "Nothing listed"],
     ["Price", basePriceText(tour)],
     ["Fees", tour.fees.map((fee) => fee.name.trim()).join(", ") || "None"],
   ];

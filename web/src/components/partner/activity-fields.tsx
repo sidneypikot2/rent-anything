@@ -10,6 +10,7 @@ import { StepperField } from "@/components/ui/stepper-field";
 import { TextareaField } from "@/components/ui/textarea-field";
 import type { LatLng } from "@/lib/map";
 import { formatPeso, fromCents, toCents } from "@/lib/money";
+import { HALF_HOURS, TimesListField, timeText } from "./time-fields";
 import { DeliveryZoneFields, FIRST_ZONE, toZoneValues, zoneBody, zonesError, type ZoneValues } from "./delivery-zones-field";
 import { PricingSection } from "./pricing-section";
 import type { ListingCategory, ListingOptions } from "./use-partner-listings";
@@ -48,20 +49,7 @@ export function isWaterActivity(category: Pick<ListingCategory, "activity_defaul
   return category?.activity_defaults != null;
 }
 
-// Every half hour of the day, as the API takes times: "08:30", read "8:30 AM".
-const HALF_HOURS = Array.from({ length: 48 }, (_, index) => {
-  const hour = Math.floor(index / 2);
-  const minute = index % 2 ? "30" : "00";
-  return { value: `${String(hour).padStart(2, "0")}:${minute}`, label: timeLabel(hour, minute) };
-});
-
-function timeLabel(hour: number, minute: string) {
-  return `${hour % 12 === 0 ? 12 : hour % 12}:${minute} ${hour < 12 ? "AM" : "PM"}`;
-}
-
-export function timeText(time: string) {
-  return HALF_HOURS.find((option) => option.value === time)?.label ?? time;
-}
+export { timeText };
 
 const minutesOf = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
 
@@ -298,40 +286,16 @@ export function ActivityRunFields({ values, onChange, errors, seats = true }: Se
           />
         </div>
       ) : (
-        <div className="flex flex-col gap-3" data-testid="activity-departures">
-          {values.departures.map((time, index) => (
-            <div key={index} className="grid grid-cols-[1fr_auto] items-end gap-3">
-              <SelectField
-                label={`Departure ${index + 1}`}
-                options={HALF_HOURS}
-                value={time}
-                onChange={(event) => set({ departures: values.departures.map((other, at) => (at === index ? event.target.value : other)) })}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={values.departures.length === 1}
-                onClick={() => set({ departures: values.departures.filter((_, at) => at !== index) })}
-                aria-label={`Remove departure ${index + 1}`}
-              >
-                Remove
-              </Button>
-            </div>
-          ))}
-          {errors?.departures && <p className="text-sm font-semibold text-danger">{errors.departures}</p>}
-          {values.departures.length < MAX_DEPARTURES && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="self-start"
-              onClick={() => set({ departures: [...values.departures, nextHalfHour(values.departures.at(-1))] })}
-            >
-              + Add a departure
-            </Button>
-          )}
-        </div>
+        <TimesListField
+          times={values.departures}
+          onChange={(departures) => set({ departures })}
+          itemLabel="Departure"
+          addLabel="Add a departure"
+          max={MAX_DEPARTURES}
+          min={1}
+          error={errors?.departures}
+          testId="activity-departures"
+        />
       )}
       {seats && (
         <StepperField
@@ -368,11 +332,6 @@ export function ActivityRunFields({ values, onChange, errors, seats = true }: Se
       />
     </div>
   );
-}
-
-function nextHalfHour(time: string | undefined) {
-  const index = HALF_HOURS.findIndex((option) => option.value === time);
-  return HALF_HOURS[Math.min(index + 2, HALF_HOURS.length - 1)]?.value ?? "09:00";
 }
 
 // The lengths to pick from, with a saved one that isn't in the list kept as an option.

@@ -26,6 +26,9 @@ export const INCLUSION_LABELS: Record<InclusionKind, string> = {
   accommodation: "Accommodation",
   transport: "Transport",
   meal: "Meals",
+  guide: "Guide",
+  gear: "Gear",
+  entrance_fees: "Entrance fees",
 };
 
 export function capitalize(text: string) {

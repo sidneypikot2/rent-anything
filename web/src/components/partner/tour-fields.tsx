@@ -9,6 +9,7 @@ import { cn } from "@/components/ui/cn";
 import { Field } from "@/components/ui/field";
 import { Pill } from "@/components/ui/pill";
 import { StepperField } from "@/components/ui/stepper-field";
+import { TextareaField } from "@/components/ui/textarea-field";
 import { Eyebrow } from "@/components/ui/typography";
 import { formatPeso, fromCents, toCents } from "@/lib/money";
 import {
@@ -21,6 +22,7 @@ import {
 } from "@/lib/tours";
 import { exampleFees, FeeFields, feesError, toFeesBody, toFeeValues, type FeeValues } from "./fee-fields";
 import { AttributeFields, attributeFields, toAttrs, type AttributeField, type AttributeValues } from "./listing-fields";
+import { TimesListField } from "./time-fields";
 import type { ListingBody, ListingCategory, ListingOptions, PartnerListing } from "./use-partner-listings";
 
 type PartnerTour = components["schemas"]["partner_tour"];
@@ -32,6 +34,9 @@ const MAX_GUESTS = 100;
 const MAX_GROUPS_PER_DAY = 100;
 const LONGEST = { hours: 24, days: 30 } as const;
 const NOTE_LENGTH = 120;
+// When it starts and what it leaves out (RAA-281).
+const MAX_START_TIMES = 8;
+const NOT_INCLUDED_LENGTH = 300;
 
 type InclusionValues = { on: boolean; options: string[]; note: string; price: string };
 
@@ -44,6 +49,9 @@ export type TourValues = {
   duration: string;
   durationUnit: "hours" | "days";
   inclusions: Record<InclusionKind, InclusionValues>;
+  // When it starts, none meaning any time, and what it leaves out (RAA-281).
+  startTimes: string[];
+  notIncluded: string;
   basePrice: string;
   fees: FeeValues[];
   attrs: AttributeValues;
@@ -58,7 +66,16 @@ export const NEW_TOUR: TourValues = {
   maxGroups: 1,
   duration: "4",
   durationUnit: "hours",
-  inclusions: { accommodation: NO_INCLUSION, transport: NO_INCLUSION, meal: NO_INCLUSION },
+  inclusions: {
+    accommodation: NO_INCLUSION,
+    transport: NO_INCLUSION,
+    meal: NO_INCLUSION,
+    guide: NO_INCLUSION,
+    gear: NO_INCLUSION,
+    entrance_fees: NO_INCLUSION,
+  },
+  startTimes: [],
+  notIncluded: "",
   basePrice: "",
   fees: [],
   attrs: {},
@@ -87,6 +104,8 @@ export function toTourValues(listing: Pick<PartnerListing, "tour" | "fees" | "at
     duration: String(tour.duration_value),
     durationUnit: tour.duration_unit,
     inclusions,
+    startTimes: tour.start_times,
+    notIncluded: tour.not_included ?? "",
     basePrice: tour.base_price_cents ? fromCents(tour.base_price_cents) : "",
     fees: toFeeValues(listing.fees),
     attrs,
@@ -104,6 +123,8 @@ export function toTourBody(values: TourValues): TourBody {
     duration_value: Number(values.duration),
     duration_unit: values.durationUnit,
     base_price_cents: toCents(values.basePrice) ?? 0,
+    start_times: [...new Set(values.startTimes)].sort(),
+    not_included: values.notIncluded.trim() || null,
     inclusions: (Object.keys(values.inclusions) as InclusionKind[]).flatMap((kind) => {
       const inclusion = values.inclusions[kind];
       if (!inclusion.on) return [];
@@ -146,13 +167,13 @@ export function tourExtras(category: ListingCategory | undefined) {
 }
 
 export type TourErrors = Partial<
-  Record<"duration" | "transport" | "meal" | "accommodation" | "basePrice" | "fees", string>
+  Record<"duration" | InclusionKind | "notIncluded" | "basePrice" | "fees", string>
 >;
 
 // The sections of a tour, for checking one step at a time.
 export const TOUR_SECTIONS = {
   group: ["duration"],
-  inclusions: ["accommodation", "transport", "meal"],
+  inclusions: ["accommodation", "transport", "meal", "guide", "gear", "entrance_fees", "notIncluded"],
   pricing: ["basePrice", "fees"],
 } as const satisfies Record<string, (keyof TourErrors)[]>;
 
@@ -167,7 +188,7 @@ export function tourErrors(values: TourValues, section?: keyof typeof TOUR_SECTI
   for (const kind of Object.keys(values.inclusions) as InclusionKind[]) {
     const inclusion = values.inclusions[kind];
     if (!inclusion.on) continue;
-    if (kind !== "accommodation" && inclusion.options.length === 0) {
+    if ((kind === "transport" || kind === "meal") && inclusion.options.length === 0) {
       errors[kind] = kind === "transport" ? "Pick at least one vehicle" : "Pick at least one meal";
     } else if (inclusion.note.trim().length > NOTE_LENGTH) errors[kind] = `A note can be at most ${NOTE_LENGTH} characters`;
     else if (values.tourType === "private" && toCents(inclusion.price) === null) {
@@ -175,6 +196,9 @@ export function tourErrors(values: TourValues, section?: keyof typeof TOUR_SECTI
     }
   }
 
+  if (values.notIncluded.trim().length > NOT_INCLUDED_LENGTH) {
+    errors.notIncluded = `At most ${NOT_INCLUDED_LENGTH} characters`;
+  }
   if (!toCents(values.basePrice)) errors.basePrice = "Set a price above ₱0";
   const fees = feesError(values.fees);
   if (fees) errors.fees = fees;
@@ -284,6 +308,20 @@ export function TourGroupFields({ values, onChange, errors }: SectionProps) {
           )
         )}
       </div>
+      <div className="flex flex-col gap-2">
+        <span className="text-sm font-semibold">Start times</span>
+        <p className="text-sm text-muted">
+          When the tour leaves. Leave it empty if you agree a time with each group.
+        </p>
+        <TimesListField
+          times={values.startTimes}
+          onChange={(startTimes) => set({ startTimes })}
+          itemLabel="Start time"
+          addLabel="Add a start time"
+          max={MAX_START_TIMES}
+          testId="tour-start-times"
+        />
+      </div>
     </div>
   );
 }
@@ -292,6 +330,9 @@ const INCLUSION_HINTS: Record<InclusionKind, { text: string; placeholder: string
   accommodation: { text: "Somewhere to sleep on a tour of several days.", placeholder: "e.g. Beach cottage, 1 night" },
   transport: { text: "How guests get around, by the vehicles you use.", placeholder: "e.g. Hotel pick-up included" },
   meal: { text: "Which meals and snacks guests get.", placeholder: "e.g. Grilled seafood lunch" },
+  guide: { text: "A local guide who goes with the group.", placeholder: "e.g. Licensed, speaks English and Cebuano" },
+  gear: { text: "What guests borrow on the tour.", placeholder: "e.g. Snorkel set and life vest" },
+  entrance_fees: { text: "Fees at the places you stop, paid by you.", placeholder: "e.g. Ogtong Cave entrance" },
 };
 
 // What the tour includes, a card each: on a private tour an add-on the group picks, priced
@@ -396,6 +437,16 @@ export function TourInclusionFields({
           </Card>
         );
       })}
+      <TextareaField
+        label="Not included (optional)"
+        hint="What guests pay for themselves, so it isn't a surprise on the day."
+        maxLength={NOT_INCLUDED_LENGTH}
+        value={values.notIncluded}
+        onChange={(event) => onChange({ ...values, notIncluded: event.target.value })}
+        placeholder="e.g. Environmental fee at Virgin Island, drinks, tips"
+        error={errors?.notIncluded}
+        data-testid="tour-not-included"
+      />
       {extras.length > 0 && (
         <div className="flex flex-col gap-3 pt-2">
           <span className="text-sm font-semibold">Also included</span>

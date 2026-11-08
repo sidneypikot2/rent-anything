@@ -29,12 +29,12 @@ module Api
         private
 
         def with_counts
-          current_user.businesses.includes(:payout_account).left_joins(:listings).group(:id)
+          current_user.businesses.includes(:payout_account, :photos, :logo).left_joins(:listings).group(:id)
             .select("businesses.*, count(listings.id) AS listings_count")
         end
 
         def business_params
-          params.slice(:name, :description, :address, :location, :payout_account_id)
+          params.slice(:name, :description, :address, :location, :payout_account_id, :hours, :languages, :host, :stay_rules, :faqs)
         end
       end
     end

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getBusiness } from "@/api/discovery";
 import { BackLink } from "@/components/discovery/back-link";
@@ -9,6 +10,16 @@ import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { cn } from "@/components/ui/cn";
 import { DisplayTitle } from "@/components/ui/typography";
+
+// "Kuya Jun Moto Rentals" → "KJ".
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0].toUpperCase())
+    .join("");
+}
 
 export async function generateMetadata(props: PageProps<"/businesses/[id]">): Promise<Metadata> {
   const id = businessId((await props.params).id);
@@ -42,10 +53,25 @@ export default async function BusinessPage(props: PageProps<"/businesses/[id]">)
             <BackLink href={backHref} className={cn(backPill, "-order-1 sm:hidden")}>
               <span aria-hidden>←</span> {backLabel}
             </BackLink>
-            <DisplayTitle className="break-words text-balance">{business.name}</DisplayTitle>
-            <p className="flex flex-wrap items-center gap-x-2 text-sky-mist">
+            {/* Its logo beside its name (RAA-281), else its initials. */}
+            <div className="flex items-center gap-4">
+              <span className="relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-control border-2 border-white/80 bg-trip-band font-display text-xl font-extrabold text-white shadow-float max-sm:size-14">
+                {business.logo ? (
+                  <Image src={business.logo.card_url} alt="" fill sizes="64px" unoptimized className="object-cover" />
+                ) : (
+                  initials(business.name)
+                )}
+              </span>
+              <DisplayTitle className="min-w-0 break-words text-balance">{business.name}</DisplayTitle>
+            </div>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sky-mist">
               <PlaceGlyph className="size-4 text-sky-pale" />
               {[town || area.name, businessCount(view)].join(" · ")}
+              {business.verified && (
+                <span data-testid="business-verified" className="inline-flex items-center gap-1 rounded-chip bg-glass-fill px-2.5 py-0.5 text-small font-semibold text-mint">
+                  <span aria-hidden>✓</span> Verified partner
+                </span>
+              )}
             </p>
           </>
         }

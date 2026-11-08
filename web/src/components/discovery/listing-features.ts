@@ -1,6 +1,7 @@
 import { JET_SKI_FEATURE_LABELS } from "@/components/listings/jet-ski-labels";
 import { STAY_LABELS } from "@/components/listings/stay-labels";
 import { transmissionLabel, VEHICLE_AMENITY_LABELS } from "@/components/listings/vehicle-labels";
+import { timeText } from "@/lib/times";
 
 // What a listing includes and how big it is, as the chips on its row (RAA-125), from the
 // guest-safe details the area API sends (RAA-124). Each chip names its FeatureGlyph. Only what
@@ -23,7 +24,10 @@ const AMENITY_ICONS: Record<string, string> = {
   passenger_helmet: "helmet",
 };
 
-export function listingFeatures(listing: { details: Details; cancellation_policy: string }): Feature[] {
+// A tour's start times and jump-off point (RAA-281), on the rows that have them.
+type TourTimes = { start_times?: string[]; jump_off?: { street: string | null; city: string | null } } | null;
+
+export function listingFeatures(listing: { details: Details; cancellation_policy: string; tour?: TourTimes }): Feature[] {
   const d = listing.details;
   const features: Feature[] = [];
   const add = (icon: string, label: string | number | false | null | undefined) => {
@@ -32,7 +36,12 @@ export function listingFeatures(listing: { details: Details; cancellation_policy
   const list = (value: unknown) => (Array.isArray(value) ? value.map(String).filter(Boolean) : []);
   const count = (value: unknown) => (typeof value === "number" && value > 0 ? value : null);
 
+  const tour = listing.tour;
+  const jumpOff = tour?.jump_off && [tour.jump_off.street, tour.jump_off.city].filter(Boolean).join(", ");
+  add("route", jumpOff && `Leaves from ${jumpOff}`);
+  add("clock", tour?.start_times?.length ? `Starts ${tour.start_times.map(timeText).join(", ")}` : null);
   add("guide", d.guide_included === true && "Guide included");
+  add("licence", d.licence_required === true && "Driver's licence needed");
   const seats = count(d.seats);
   add("seats", seats && `${seats} seats`);
   const luggage = count(d.luggage);

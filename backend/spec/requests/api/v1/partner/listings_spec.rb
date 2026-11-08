@@ -126,7 +126,7 @@ RSpec.describe "Partner listings", type: :request do
         end
       end
 
-      response "201", "a tour with the landmarks it visits, and the destinations they cover" do
+      response "201", "a tour with the landmarks it visits in order, and the destinations they cover" do
         schema "$ref" => "#/components/schemas/partner_listing"
 
         let(:island) { create(:area, slug: "bantayan-island", name: "Bantayan Island", kind: "island") }
@@ -136,8 +136,8 @@ RSpec.describe "Partner listings", type: :request do
         before { body[:landmark_ids] = [ kota.id, kawasan.id, kota.id ] }
 
         run_test! do |response|
-          expect(response.parsed_body["landmarks"].pluck("name")).to eq([ "Kawasan Falls", "Kota Beach" ])
-          expect(response.parsed_body["landmarks"].last).to include(
+          expect(response.parsed_body["landmarks"].pluck("name")).to eq([ "Kota Beach", "Kawasan Falls" ])
+          expect(response.parsed_body["landmarks"].first).to include(
             "id" => kota.id, "area" => { "slug" => kota.area.slug, "name" => "Santa Fe" },
             "destination" => { "slug" => "bantayan-island", "name" => "Bantayan Island" }
           )
@@ -756,6 +756,7 @@ RSpec.describe "Partner listings", type: :request do
             expect(response.parsed_body["tour"]).to eq(
               "tour_type" => "private", "min_guests" => 2, "max_guests" => 8, "max_groups_per_day" => 3,
               "duration_value" => 2, "duration_unit" => "days", "base_price_cents" => 900_000, "price_unit" => "group",
+              "start_times" => [], "not_included" => nil,
               "inclusions" => [
                 { "kind" => "accommodation", "options" => [], "note" => "Beach cottage, 1 night", "price_per_head_cents" => 0 },
                 { "kind" => "meal", "options" => %w[snack lunch], "note" => "Fresh seafood", "price_per_head_cents" => 35_000 },
@@ -781,6 +782,33 @@ RSpec.describe "Partner listings", type: :request do
               "inclusions" => [ { "kind" => "meal", "options" => %w[lunch], "note" => nil, "price_per_head_cents" => 0 } ]
             )
             expect(response.parsed_body["tour"].keys).not_to include("weekdays", "dates")
+          end
+        end
+
+        response "201", "when it starts, what it leaves out, and a guide, gear and entrance fees (RAA-281)" do
+          schema "$ref" => "#/components/schemas/partner_listing"
+
+          before do
+            tour.merge!(start_times: %w[13:30 07:30 07:30], not_included: " Drinks and tips ",
+              inclusions: [ { kind: "guide", price_per_head_cents: 0 }, { kind: "gear", price_per_head_cents: 15_000 },
+                            { kind: "entrance_fees", price_per_head_cents: 0 } ])
+          end
+
+          run_test! do |response|
+            expect(response.parsed_body["tour"]).to include("start_times" => %w[07:30 13:30], "not_included" => "Drinks and tips")
+            expect(response.parsed_body["tour"]["inclusions"].pluck("kind")).to contain_exactly("guide", "gear", "entrance_fees")
+          end
+        end
+
+        response "422", "start times off the half hour, too many, or not text (RAA-281)" do
+          schema "$ref" => "#/components/schemas/validation_errors"
+
+          before { tour.merge!(start_times: %w[07:15], not_included: 5) }
+
+          run_test! do |response|
+            expect(response.parsed_body["errors"]).to include(
+              "Start times must be up to 8 times, each on the hour or half hour, like 07:30", "Not included must be text"
+            )
           end
         end
 
@@ -854,7 +882,7 @@ RSpec.describe "Partner listings", type: :request do
               "Transport options must be from van, tricycle, boat, motorbike, car or other",
               "Each kind of inclusion can be listed once",
               "A private tour's inclusions need a price per head: a whole number of centavos, 0 or more",
-              "Inclusions are accommodation, transport or meal",
+              "Inclusions are accommodation, transport, meal, guide, gear or entrance_fees",
               "An inclusion's note can be at most 120 characters",
               "Each inclusion must be an object"
             )

@@ -3,6 +3,8 @@ import { getDestinations, type AreaCard, type BusinessDetail } from "@/api/disco
 import { BookJumpBar } from "@/components/discovery/book-jump-bar";
 import { descendants, offerOf, rentalShop } from "@/components/discovery/browse-offers";
 import { BusinessOptions } from "@/components/discovery/business-row";
+import { BusinessMapLoader } from "@/components/discovery/business-map-loader";
+import { BusinessGoodToKnow, BusinessIncluded, BusinessTrust, closedText, hoursText, shopFacts } from "@/components/discovery/business-shop";
 import { TRIP_ORDER_GROUPS } from "@/components/discovery/categories";
 import { ListingPhotos } from "@/components/discovery/listing-photos";
 import { PlaceGlyph } from "@/components/discovery/tag-glyphs";
@@ -71,13 +73,20 @@ export function businessView(detail: BusinessDetail, destinations: AreaCard[], s
 
 export type BusinessViewData = ReturnType<typeof businessView>;
 
-// A business's page under its banner (or in the plan's phone modal, `inModal`): its photos, what
-// it says about itself, its options by group, each with its price and Add to trip and its details
-// in the side panel, and where it is. Adds go to the trip the place's banner shows, as they would
+// A business's page under its banner (or in the plan's phone modal, `inModal`), as a shop page
+// (RAA-281): its photos (its own covers first), the facts a guest weighs first, what it says about
+// itself, its options by group, each with its price and Add to trip and its details in the side
+// panel, what comes with them, where it is (on a map, but not in the modal) and Good to know. Adds go to the trip the place's banner shows, as they would
 // there (TripAddProvider `places`).
 export function BusinessBody({ view, inModal = false }: { view: BusinessViewData; inModal?: boolean }) {
   const { business, area, dates, from, places, tripId, groups, shown, town } = view;
-  const photos = shown.flatMap((listing) => listing.photos.map((photo) => ({ ...photo, alt: listing.title })));
+  // Its own cover photos lead (RAA-281), then its listings'.
+  const photos = [
+    ...business.cover_photos.map((photo) => ({ ...photo, alt: business.name })),
+    ...shown.flatMap((listing) => listing.photos.map((photo) => ({ ...photo, alt: listing.title }))),
+  ];
+  const facts = shopFacts(business, shown, groups[0].group);
+  const onlyStays = shown.every((listing) => listing.group === "stay");
   // The foot's price is the leading group's (the one it was opened from), never a gear item's
   // beside a stay.
   const cheapest = groups[0].listings
@@ -126,6 +135,8 @@ export function BusinessBody({ view, inModal = false }: { view: BusinessViewData
               </section>
             )}
 
+            <BusinessTrust facts={facts} />
+
             {business.description.trim() && (
               <Section title="About" className="max-sm:px-3">
                 <p className="max-w-prose break-words whitespace-pre-line">{business.description}</p>
@@ -151,16 +162,32 @@ export function BusinessBody({ view, inModal = false }: { view: BusinessViewData
               })}
             </div>
 
-            <Section title="Where it is" className="max-sm:px-3">
+            <BusinessIncluded listings={shown} />
+
+            {/* Its door on a map when it shows one; a business that only offers stays shows its
+                town, the street coming with a booking (RAA-281). */}
+            <Section title="Where it is" className="max-sm:px-3" testId="business-where">
+              {business.location && !inModal && <BusinessMapLoader point={business.location} name={business.name} />}
               <p className="flex items-center gap-3">
                 <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-mist text-primary">
                   <PlaceGlyph className="size-5" />
                 </span>
-                <span>
-                  {[town, area.name !== business.city ? area.name : null].filter(Boolean).join(" · ") || area.name}
+                <span className="flex flex-col">
+                  <span>
+                    {[business.street, town, area.name !== business.city ? area.name : null].filter(Boolean).join(" · ") ||
+                      area.name}
+                  </span>
+                  {onlyStays && <span className="text-sm text-muted">The exact address comes with your booking.</span>}
+                  {business.hours && (
+                    <span className="text-sm text-muted">
+                      Open {hoursText(business.hours)} · {closedText(business.hours.closed_days)}
+                    </span>
+                  )}
                 </span>
               </p>
             </Section>
+
+            <BusinessGoodToKnow business={business} />
           </div>
 
           {/* A phone's foot, down to the options while they are out of view (the page only). */}
