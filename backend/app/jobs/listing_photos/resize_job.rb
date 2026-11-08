@@ -10,10 +10,13 @@ module ListingPhotos
   class ResizeJob < ApplicationJob
     queue_as :default
 
+    # The sizes guests download are saved at a lower JPEG quality than the kept original: at 90 a
+    # card was ~250 KB, the bulk of an area page's weight on a phone, with no visible gain at its
+    # size. (A PNG ignores quality.)
     VERSIONS = {
-      image: ->(image) { image },
-      image_card: ->(image) { image.resize_to_fill(800, 600) },
-      image_large: ->(image) { image.resize_to_limit(1600, 1600) }
+      image: [ ->(image) { image }, 90 ],
+      image_card: [ ->(image) { image.resize_to_fill(800, 600) }, 78 ],
+      image_large: [ ->(image) { image.resize_to_limit(1600, 1600) }, 80 ]
     }.freeze
 
     retry_on Aws::S3::Errors::ServiceError, Seahorse::Client::NetworkingError, wait: :polynomially_longer, attempts: 5
@@ -24,8 +27,8 @@ module ListingPhotos
 
       original = PhotoStorage.download(photo.key)
       # The original is replaced first, so a retry after a failure starts from the clean copy.
-      VERSIONS.each do |field, resize|
-        version = resize.call(ImageProcessing::Vips.source(original).saver(strip: true, quality: 90)).call
+      VERSIONS.each do |field, (resize, quality)|
+        version = resize.call(ImageProcessing::Vips.source(original).saver(strip: true, quality:)).call
         PhotoStorage.upload(photo.key(field), version, content_type: photo.content_type)
       ensure
         version&.close!
