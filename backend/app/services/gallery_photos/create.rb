@@ -19,8 +19,10 @@ module GalleryPhotos
 
       # Two adds at once would both count one under the limit and take the same position.
       @owner.with_lock do
-        if @owner.photos.count >= MAX
-          upload_error("#{@owner.is_a?(Area) ? 'A destination' : 'A place to see'} can have at most #{MAX} photos")
+        max = @owner.is_a?(Business) ? Business::MAX_COVER_PHOTOS : MAX
+        if @owner.photos.count >= max
+          owner = { Area => "A destination", Business => "A business" }.fetch(@owner.class, "A place to see")
+          upload_error("#{owner} can have at most #{max} #{@owner.is_a?(Business) ? 'cover photos' : 'photos'}")
           raise_invalid!(photo)
         end
         photo.update!(position: @owner.photos.maximum(:position).to_i + 1)

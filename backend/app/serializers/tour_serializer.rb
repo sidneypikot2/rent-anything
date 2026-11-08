@@ -2,7 +2,8 @@
 # spec/swagger_helper.rb) and for guests (`guest_tour`). A tour runs every day (RAA-117).
 # Preload tour_detail and tour_inclusions.
 module TourSerializer
-  DETAIL_FIELDS = %w[tour_type min_guests max_guests duration_value duration_unit base_price_cents].freeze
+  # When it starts and what it leaves out (RAA-281).
+  DETAIL_FIELDS = %w[tour_type min_guests max_guests duration_value duration_unit base_price_cents start_times not_included].freeze
 
   def self.partner(listing)
     detail = listing.tour_detail

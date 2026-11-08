@@ -6,7 +6,11 @@ class TourInclusion < ApplicationRecord
   KINDS = {
     "accommodation" => [],
     "transport" => %w[van tricycle boat motorbike car other],
-    "meal" => %w[snack breakfast lunch dinner]
+    "meal" => %w[snack breakfast lunch dinner],
+    # A guide, gear (snorkel set, vest) and entrance fees (RAA-281), with no options.
+    "guide" => [],
+    "gear" => [],
+    "entrance_fees" => []
   }.freeze
   NOTE_LENGTH = 120
 

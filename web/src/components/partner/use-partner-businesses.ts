@@ -16,7 +16,7 @@ export function partnerBusinessesKey(userId: number | undefined) {
   return ["partner-businesses", userId] as const;
 }
 
-function partnerBusinessKey(userId: number | undefined, id: number) {
+export function partnerBusinessKey(userId: number | undefined, id: number) {
   return ["partner-business", userId, id] as const;
 }
 
@@ -55,6 +55,12 @@ export function usePartnerBusiness(id: number) {
       return data;
     },
     enabled: userId !== undefined && Number.isInteger(id),
+    // Asked for again while a photo is uploaded but still being sized (RAA-281).
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      const photos = data ? [...data.cover_photos, ...(data.logo ? [data.logo] : [])] : [];
+      return photos.some((photo) => photo.uploaded && !photo.ready) ? 2000 : false;
+    },
   });
 }
 

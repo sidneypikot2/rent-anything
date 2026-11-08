@@ -11,9 +11,10 @@ module ListingDetailSerializer
   SUMMARY_LENGTH = 160
   # The attrs a guest may see (RAA-124): what a listing includes and how big it is. Never an
   # identifier like a plate or serial number. A jet ski's brand, model, power and features (RAA-273).
+  # Whether a vehicle needs a driver's licence (RAA-281).
   GUEST_DETAILS = %w[guide_included seats luggage route sizes accessories lenses engine_cc transmission
     guests rooms bathroom amenities place_type children_count infants_count pets_allowed max_pets
-    brand model horsepower features].freeze
+    brand model horsepower features licence_required].freeze
 
   def self.call(listing)
     category = listing.category

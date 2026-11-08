@@ -30,10 +30,34 @@ module Listings
           tour_type: type, min_guests:, max_guests:,
           max_groups_per_day: whole(value[:max_groups_per_day], 1..TourDetail::MAX_GROUPS_PER_DAY, "Groups per day"),
           duration_value: duration_value(value[:duration_value], unit), duration_unit: unit,
-          base_price_cents: base_price(value[:base_price_cents])
+          base_price_cents: base_price(value[:base_price_cents]),
+          start_times: tour_start_times(value[:start_times]),
+          not_included: tour_not_included(value[:not_included])
         },
         inclusions: inclusions(value[:inclusions], type)
       }
+    end
+
+    # When it starts (RAA-281): up to MAX_START_TIMES half-hour times, or none for any time.
+    def tour_start_times(value)
+      return [] if value.nil?
+      unless value.is_a?(Array) && value.size <= TourDetail::MAX_START_TIMES &&
+          value.all? { |time| time.is_a?(String) && ActivityDetail::HALF_HOUR.match?(time) }
+        return error("Start times must be up to #{TourDetail::MAX_START_TIMES} times, each on the hour or half hour, like 07:30") || []
+      end
+
+      value.uniq.sort
+    end
+
+    # What it leaves out (RAA-281), shown under its inclusions; optional.
+    def tour_not_included(value)
+      return nil if value.nil?
+      return error("Not included must be text") unless value.is_a?(String)
+      if value.strip.length > TourDetail::NOT_INCLUDED_LENGTH
+        return error("Not included can be at most #{TourDetail::NOT_INCLUDED_LENGTH} characters")
+      end
+
+      value.strip.presence
     end
 
     def save_tour!(listing)

@@ -36,7 +36,41 @@ RSpec.describe "Businesses", type: :request do
         end
       end
 
-      response "200", "a tour names its published stops, by name" do
+      response "200", "its shop page: what the partner tells guests, its photos, pin and ID check (RAA-281)" do
+        schema "$ref" => "#/components/schemas/business_detail"
+        let(:id) { business.id }
+
+        before do
+          business.update!(opens_at: "07:00", closes_at: "21:00", languages: %w[en ceb], host_name: "Marisol",
+            faqs: [ { "question" => "Parking?", "answer" => "Yes." } ])
+          create_photo(business)
+          create_photo(business, uploaded: false)
+          create(:partner_verification, user: business.partner, status: "approved")
+        end
+
+        run_test! do |response|
+          shop = response.parsed_body["business"]
+          expect(shop).to include("verified" => true, "street" => business.street, "languages" => %w[en ceb],
+            "hours" => { "opens_at" => "07:00", "closes_at" => "21:00", "closed_days" => [] },
+            "host" => { "name" => "Marisol", "intro" => nil }, "stay_rules" => nil, "logo" => nil,
+            "faqs" => [ { "question" => "Parking?", "answer" => "Yes." } ])
+          expect(shop["location"]).to be_present
+          expect(shop["cover_photos"].size).to eq(1)
+        end
+      end
+
+      response "200", "a business that only offers stays keeps its street and pin until a booking (RAA-281)" do
+        schema "$ref" => "#/components/schemas/business_detail"
+        let(:id) { business.id }
+
+        before { business.listings.where.not(category: stay.category).destroy_all }
+
+        run_test! do |response|
+          expect(response.parsed_body["business"]).to include("street" => nil, "location" => nil, "verified" => false)
+        end
+      end
+
+      response "200", "a tour names its published stops, in the order it makes them" do
         schema "$ref" => "#/components/schemas/business_detail"
         let(:tour) { create(:listing, area: town, partner: stay.partner, title: "Island hopping") }
         let(:id) { business.id }
@@ -44,15 +78,15 @@ RSpec.describe "Businesses", type: :request do
         before do
           [ create(:landmark, area: town, slug: "virgin-island", name: "Virgin Island"),
             create(:landmark, area: town, slug: "kota-beach", name: "Kota Beach"),
-            create(:landmark, :draft, area: town, slug: "draft-cove", name: "Draft Cove") ].each do |landmark|
-            ListingLandmark.create!(listing: tour, landmark:, relation: "visits")
+            create(:landmark, :draft, area: town, slug: "draft-cove", name: "Draft Cove") ].each.with_index(1) do |landmark, position|
+            ListingLandmark.create!(listing: tour, landmark:, relation: "visits", position:)
           end
         end
 
         run_test! do |response|
           listings = response.parsed_body["listings"].index_by { _1["title"] }
-          expect(listings["Island hopping"]["goes_to"]).to eq([ { "slug" => "kota-beach", "name" => "Kota Beach" },
-            { "slug" => "virgin-island", "name" => "Virgin Island" } ])
+          expect(listings["Island hopping"]["goes_to"]).to eq([ { "slug" => "virgin-island", "name" => "Virgin Island" },
+            { "slug" => "kota-beach", "name" => "Kota Beach" } ])
           expect(listings["Sea view room"]["goes_to"]).to eq([])
         end
       end

@@ -35,6 +35,13 @@ function distantLandmarks(landmarks: PartnerLandmark[]) {
 // The landmarks a tour or activity visits (RAA-70, trips proposal decision 6). Search
 // covers every landmark, each shown with its area; the destination chips are an optional
 // filter with "Select all". A distant landmark gets a warning, not a block.
+function moved<T>(list: T[], index: number, by: number) {
+  const next = [...list];
+  const [item] = next.splice(index, 1);
+  next.splice(index + by, 0, item);
+  return next;
+}
+
 export function LandmarkPicker({
   value,
   onChange,
@@ -163,18 +170,35 @@ export function LandmarkPicker({
           {room <= 0 && <span className="font-normal text-muted"> · {MAX_LANDMARKS} is the most a listing can visit</span>}
         </span>
         {value.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {value.map((landmark) => (
-              <Pill
-                key={landmark.id}
-                on
-                onClick={() => toggle(landmark)}
-                aria-label={`Remove ${landmark.name}`}
-              >
-                {landmark.name} ×
-              </Pill>
+          // In the order the tour makes them (RAA-281): move one up or down, or remove it.
+          <ol className="flex flex-col gap-2" data-testid="landmark-order">
+            {value.map((landmark, index) => (
+              <li key={landmark.id} className="flex items-center gap-2">
+                <span className="w-5 text-right font-semibold text-muted">{index + 1}</span>
+                <Pill on onClick={() => toggle(landmark)} aria-label={`Remove ${landmark.name}`}>
+                  {landmark.name} ×
+                </Pill>
+                <button
+                  type="button"
+                  className="rounded-chip px-2 py-1 text-muted hover:text-foreground disabled:opacity-40"
+                  disabled={index === 0}
+                  onClick={() => onChange(moved(value, index, -1))}
+                  aria-label={`Move ${landmark.name} earlier`}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className="rounded-chip px-2 py-1 text-muted hover:text-foreground disabled:opacity-40"
+                  disabled={index === value.length - 1}
+                  onClick={() => onChange(moved(value, index, 1))}
+                  aria-label={`Move ${landmark.name} later`}
+                >
+                  ↓
+                </button>
+              </li>
             ))}
-          </div>
+          </ol>
         )}
         {covers.length > 0 && (
           <p data-testid="landmark-covers" className="text-muted">

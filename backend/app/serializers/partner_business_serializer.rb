@@ -23,6 +23,9 @@ module PartnerBusinessSerializer
         label: business.payout_account.label,
         account_number_last4: business.payout_account.account_number_last4
       },
+      # Its shop page (RAA-281).
+      **BusinessShopSerializer.call(business),
+      **BusinessShopSerializer.partner_photos(business),
       created_at: business.created_at,
       updated_at: business.updated_at
     }

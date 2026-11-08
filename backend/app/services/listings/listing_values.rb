@@ -133,7 +133,7 @@ module Listings
       return if @landmarks.nil?
 
       listing.landmark_visits.delete_all(:delete_all)
-      @landmarks.each { |landmark| listing.landmark_visits.create!(landmark:) }
+      @landmarks.each.with_index(1) { |landmark, position| listing.landmark_visits.create!(landmark:, position:) }
     end
 
     # Adds or removes units from the end to reach the count, never below the units booked on
@@ -241,7 +241,10 @@ module Listings
       # A landmark unpublished since it was picked can stay, so it doesn't block every edit.
       kept = @listing&.persisted? ? @listing.landmark_visits.select(:landmark_id) : []
       landmarks = Landmark.where(id: ids).merge(Landmark.published.or(Landmark.where(id: kept))).to_a
-      landmarks.size == ids.size ? landmarks : error("Landmarks must be published landmarks")
+      return error("Landmarks must be published landmarks") unless landmarks.size == ids.size
+
+      # In the order sent: a tour's stops in the order it makes them (RAA-281).
+      landmarks.sort_by { |landmark| ids.index(landmark.id) }
     end
 
     # Unlike optional_string, an empty description is kept as "", the column's default.

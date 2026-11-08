@@ -113,7 +113,11 @@ Rails.application.routes.draw do
         resource :me, only: :show, controller: "me"
         resource :profile, only: %i[show update]
         # The businesses a partner runs; each listing belongs to one (RAA-100).
-        resources :businesses, only: %i[index show create update]
+        resources :businesses, only: %i[index show create update] do
+          # Its shop page's cover photos and logo (RAA-281); the files go straight to storage.
+          resources :photos, only: %i[create update destroy], controller: "business_photos"
+          resource :logo, only: %i[create update destroy], controller: "business_logos"
+        end
         # Where payouts go — a bank, GCash or Maya; each business picks one (RAA-145).
         resources :payout_accounts, only: %i[index create update destroy]
         resource :payout_options, only: :show

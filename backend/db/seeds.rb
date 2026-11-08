@@ -89,6 +89,9 @@ unless Rails.env.test?
     # Vehicles' seats (RAA-191), required, and each sample vehicle's. Safe to run again.
     require Rails.root.join("db/migrate/20261028140000_add_seats_to_vehicles_and_units_to_trip_items").to_s
     AddSeatsToVehiclesAndUnitsToTripItems.seat(connection)
+    # Whether a vehicle needs a driver's licence (RAA-281), optional. Safe to run again.
+    require Rails.root.join("db/migrate/20261108100000_add_business_shop_details").to_s
+    AddBusinessShopDetails.licence(connection)
 
     CreateBusinesses.backfill(connection)
     AddUnitNamesToCategories.fill(connection)

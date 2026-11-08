@@ -10,6 +10,9 @@ class TourDetail < ApplicationRecord
   MAX_GROUPS_PER_DAY = 100
   # The longest tour, per unit.
   DURATION_UNITS = { "hours" => 24, "days" => 30 }.freeze
+  # When it starts (RAA-281): none means any time; and what it leaves out.
+  MAX_START_TIMES = 8
+  NOT_INCLUDED_LENGTH = 300
 
   belongs_to :listing, inverse_of: :tour_detail
 
@@ -19,6 +22,8 @@ class TourDetail < ApplicationRecord
   validates :duration_unit, inclusion: { in: DURATION_UNITS.keys }
   validates :duration_value, numericality: { only_integer: true, greater_than_or_equal_to: 1 }
   validates :base_price_cents, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+  validates :start_times, length: { maximum: MAX_START_TIMES }
+  validates :not_included, length: { maximum: NOT_INCLUDED_LENGTH }
   validate :listing_is_a_tour
   validate :max_guests_from_min_guests
   validate :duration_within_unit
