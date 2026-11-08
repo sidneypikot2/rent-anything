@@ -140,7 +140,7 @@ export default function AboutPage() {
             </ul>
           </Section>
 
-          {/* The closing band, as the home page's (PlanCta) but static: one way in, a trip on the launch area. */}
+          {/* The closing band, as the home page's (HomeClosing) but static: one way in, a trip on the launch area. */}
           <section className="band reveal card-edge relative isolate flex flex-col items-start gap-5 overflow-hidden rounded-frame px-inset py-7 text-white sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:py-10">
             <Image src={BAND_PHOTO} alt="" fill sizes="(min-width: 72rem) 72rem, 100vw" className="-z-20 object-cover" />
             <div aria-hidden className="absolute inset-0 -z-10 band-fill" />

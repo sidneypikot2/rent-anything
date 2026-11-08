@@ -32,6 +32,9 @@ export function SearchBar() {
 // second row and opens the same search in a sheet. CSS shows it (globals.css), so the first
 // paint has it. It measures the header for `--chrome`, how far down what sticks at the top
 // reaches plus 12px, for anchors and anything sticking under it.
+// globals.css's query for a header that scrolls away; keep the two the same.
+const UNSTUCK_HEADER = "(max-height: 30em) and (max-width: 40em)";
+
 export function HeaderSearch() {
   const pathname = usePathname();
   const ref = useRef<HTMLDivElement>(null);
@@ -40,10 +43,17 @@ export function HeaderSearch() {
     const header = ref.current?.closest("header");
     if (!header) return;
     const root = document.documentElement;
-    const observer = new ResizeObserver(() => root.style.setProperty("--chrome", `${header.offsetHeight + 12}px`));
+    // Where the header scrolls away (a phone at a large text size: globals.css), nothing
+    // sticks under it, so what sticks takes the window's top.
+    const measure = () =>
+      root.style.setProperty("--chrome", `${getComputedStyle(header).position === "sticky" ? header.offsetHeight + 12 : 12}px`);
+    const observer = new ResizeObserver(measure);
     observer.observe(header);
+    const unstuck = window.matchMedia(UNSTUCK_HEADER);
+    unstuck.addEventListener("change", measure);
     return () => {
       observer.disconnect();
+      unstuck.removeEventListener("change", measure);
       root.style.removeProperty("--chrome");
     };
   }, []);

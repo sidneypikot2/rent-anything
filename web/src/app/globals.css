@@ -47,6 +47,9 @@
   --color-pin-transfer: #7c3aed;
   --color-pin-rental: #0f766e;
   --color-pin-stay: #be185d;
+  /* Gear's own disc in the home page's "Only need one thing?" row (the team's F, 2026-11-06),
+     beside the pin hues above; the map's gear pins keep rental's. White on it is 5.9:1. */
+  --color-pin-gear: #0369a1;
   /* The same groups' hues lightened for an icon on dark glass (RAA-130): the home hero's kinds
      of things to book, so a Tours pill and a tour's pin share a colour. Wayfinding, not brand:
      only for those icons, never a button or text. Each is 7:1 or more on navy glass. */
@@ -496,6 +499,26 @@
   }
 }
 
+/* At a large text size a phone's header, wrapping onto more rows, would hold a third of the
+   window; em in a media query grows with the browser's text size, so a window under 30em tall
+   and 40em wide (a phone at about 175% text and up, not one on its side at the usual size) lets
+   it scroll away, and what sticks takes the window's top. HeaderSearch's UNSTUCK_HEADER matches. */
+@media (max-height: 30em) and (max-width: 40em) {
+  [data-site-header] {
+    position: relative;
+  }
+  :root,
+  :root:has([data-search-bar]) {
+    --chrome: 0.75rem;
+  }
+}
+
+/* A section the area page's tabs moved focus to (area-nav.tsx's jumpTo): focus is for the next
+   Tab, not something to show. */
+[data-jump-target]:focus {
+  outline: none;
+}
+
 /* A partner's tabs along a phone's foot (PartnerShell): the page and what sticks to its foot (the
    ActionBar, toasts) stay clear of them. */
 @media (width < 48rem) {
@@ -577,6 +600,13 @@ body {
    with room for them, so its last controls can scroll clear: they are 48px, 1.25rem up. */
 body:has([data-floating]) {
   padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+}
+
+/* The home page's tab bar on a phone (HomeTabBar): the footer ends above it. */
+@media (width < 40rem) {
+  body:has([data-tab-bar]) {
+    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  }
 }
 
 /* Everything moves only for people who are fine with motion. A scroll-driven animation (reveal)

@@ -184,6 +184,11 @@ export function HomeGlyph({ className }: Props) {
   return <Glyph paths={["M4 11 12 4l8 7", "M6 9.5V20h12V9.5", "M10 20v-5h4v5"]} className={className} />;
 }
 
+// A compass: exploring a place (the home page's Explore).
+export function CompassGlyph({ className }: Props) {
+  return <Glyph paths={[circle(12, 12, 9), "M15.5 8.5 13.5 13.5 8.5 15.5 10.5 10.5Z"]} className={className} />;
+}
+
 // A plus: adding something (Add to trip).
 export function PlusGlyph({ className }: Props) {
   return <Glyph paths={["M12 5v14", "M5 12h14"]} className={className} />;

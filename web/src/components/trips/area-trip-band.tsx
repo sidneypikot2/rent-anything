@@ -9,7 +9,7 @@ import { formatDateRange } from "@/lib/dates";
 import { useTripHere } from "./use-trip-here";
 import type { Trip } from "./use-trips";
 
-// An area page's closing band: the page ends on the trip, as the home page's does (PlanCta).
+// An area page's closing band: the page ends on the trip, as the home page's does (HomeClosing).
 // A guest with a trip sees it by name, with what is in it, and opens it; signed out, or with no
 // trip yet, the band offers Plan a whole trip on this place (`planHref`, RAA-252), which picks the
 // ferry, the stay and the tours with them. The trip is the
