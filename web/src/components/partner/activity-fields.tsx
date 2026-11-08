@@ -35,7 +35,7 @@ export function activityCatalogues(options: ListingOptions): ActivityCatalogues 
 }
 
 // The API's limits (ActivityDetail, ActivityOffer, Listings::ActivityValues).
-const MAX_SEATS = 100;
+export const MAX_SEATS = 100;
 const MAX_DEPARTURES = 24;
 const MAX_OFFERS = 10;
 const TEXT_MAX = 500;
@@ -248,8 +248,9 @@ type SectionProps = {
   errors?: ActivityErrors;
 };
 
-// How it is sold and when it runs (RAA-270).
-export function ActivityRunFields({ values, onChange, errors }: SectionProps) {
+// How it is sold and when it runs (RAA-270). A jet ski's seats are asked with the jet ski
+// itself (RAA-273), so `seats={false}` leaves them out here.
+export function ActivityRunFields({ values, onChange, errors, seats = true }: SectionProps & { seats?: boolean }) {
   const set = (patch: Partial<ActivityValues>) => onChange({ ...values, ...patch });
   const perUnit = values.soldBy === "unit";
   return (
@@ -332,15 +333,17 @@ export function ActivityRunFields({ values, onChange, errors }: SectionProps) {
           )}
         </div>
       )}
-      <StepperField
-        label={perUnit ? "Most guests on one" : "Seats on each"}
-        hint={perUnit ? "On one jet ski, kayak or boat at a time" : "How many guests one session or boat takes"}
-        value={values.seats}
-        onChange={(seats) => set({ seats })}
-        min={1}
-        max={MAX_SEATS}
-        data-testid="activity-seats"
-      />
+      {seats && (
+        <StepperField
+          label={perUnit ? "Most guests on one" : "Seats on each"}
+          hint={perUnit ? "On one jet ski, kayak or boat at a time" : "How many guests one session or boat takes"}
+          value={values.seats}
+          onChange={(count) => set({ seats: count })}
+          min={1}
+          max={MAX_SEATS}
+          data-testid="activity-seats"
+        />
+      )}
       <div className="flex flex-col gap-2">
         <CheckboxField
           label="Guests must be a minimum age"

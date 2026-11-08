@@ -482,6 +482,14 @@ test("water activity wizard", async ({ browser, baseURL }) => {
   await wizard.getByLabel("Title").fill(`Smoke jet ski ${Date.now()}`);
   await next();
 
+  // The jet ski itself (RAA-273): brand, model, engine, its seats and a feature.
+  await expect(page.getByTestId("listing-jet-ski")).toBeVisible();
+  await page.getByTestId("jet-ski-brand").fill("Yamaha");
+  await page.getByTestId("jet-ski-model").fill("VX Cruiser");
+  await page.getByTestId("jet-ski-engine").fill("1049");
+  await page.getByTestId("jet-ski-feature-reverse_gear").check();
+  await next();
+
   await expect(page.getByTestId("listing-step-meeting")).toBeVisible();
   const same = wizard.getByLabel(/^Same as /);
   if ((await same.count()) && (await same.isChecked())) await same.uncheck();
@@ -524,6 +532,8 @@ test("water activity wizard", async ({ browser, baseURL }) => {
   const review = page.getByTestId("activity-review");
   await expect(review).toContainText("15 minutes: ₱1,500, up to 2 riders");
   await expect(review).toContainText("Drone shot ₱500");
+  await expect(review).toContainText("Yamaha VX Cruiser · 1049 cc");
+  await expect(review).toContainText("Reverse gear");
   await page.getByTestId("listing-save").click();
   await expect(page.getByTestId("listing-step-photos")).toBeVisible();
   await page.getByTestId("listing-photos-next").click();
@@ -541,6 +551,8 @@ test("water activity wizard", async ({ browser, baseURL }) => {
   await expect(page.getByTestId("activity-inclusion-life_vest")).toBeChecked();
   await expect(page.getByTestId("activity-add-on-drone_shot").getByTestId("activity-add-on-price")).toHaveValue("500");
   await expect(page.getByTestId("pricing-zone")).toHaveCount(2);
+  await expect(page.getByTestId("jet-ski-model")).toHaveValue("VX Cruiser");
+  await expect(page.getByTestId("jet-ski-feature-reverse_gear")).toBeChecked();
   expect(errors).toEqual([]);
   await context.close();
 });
