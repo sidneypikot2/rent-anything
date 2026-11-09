@@ -30,6 +30,7 @@ import {
   AreaThingsToDo,
   AreaWhenToGo,
 } from "@/components/area/area-sections";
+import type { RowCard } from "@/components/area/listing-row";
 import { AreaMapProvider, MapHoverTarget, MapSwitch } from "@/components/discovery/area-map-context";
 import { AreaMapLayout } from "@/components/discovery/area-map-layout";
 import {
@@ -314,30 +315,37 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   const stays = stayPlaces(areas, landmarks);
   const stayListings = listings.filter((listing) => listing.group === "stay");
   const ownStays = stayListings.length;
-  // Where to stay's and Things to do's cards: priced ones first, then those with a photo, as What
-  // to book leads.
-  const rowCards = (group: string) =>
-    listings
-      .filter((listing) => listing.group === group)
-      .sort((a, b) => Number(!a.price_from_cents) - Number(!b.price_from_cents) || Number(!a.cover_photo_url) - Number(!b.cover_photo_url))
-      .map((listing) => {
-        const unit = listing.price_from_cents ? priceUnitText(listing.price_unit) : null;
+  // Where to stay's, Things to do's and Getting around's cards: one per business, as What to book
+  // shows them (its name, what it sells, its lowest price), opening the business's page on that
+  // group. Priced businesses first, then those with a photo, as What to book leads. `keep` narrows
+  // the group's listings first (Getting around's on-island transfers).
+  const rowCards = (group: string, keep: (listing: Listing) => boolean = () => true): RowCard[] =>
+    byBusiness(listings.filter((listing) => listing.group === group && keep(listing)))
+      .map((offered) => {
+        const first = offered[0];
+        const priced = offered.filter((listing) => listing.price_from_cents);
+        const cheapest = priced.sort((a, b) => a.price_from_cents! - b.price_from_cents!)[0];
+        const cover = offered.find((listing) => listing.cover_photo_url);
+        const forSale = offered.length === 1 ? first.title : `${first.title} + ${offered.length - 1} more`;
+        const onePlace = offered.every((listing) => listing.area_slug === first.area_slug) ? first.area_name : null;
+        const trusts = offered.map((listing) => listingFeatures(listing).find((feature) => feature.trust)?.label);
         return {
-          id: listing.id,
-          href: `/listings/${listing.id}${datesQuery}`,
-          title: listing.title,
-          category: listing.category,
-          note: listing.area_name ? `${listing.category} · ${listing.area_name}` : listing.category,
-          photo: listing.cover_photo_url ? { src: listing.cover_photo_url, alt: listing.title } : undefined,
-          price: listing.price_from_cents
-            ? { prefix: "from", amount: formatPeso(listing.price_from_cents), unit: unit ?? undefined }
+          id: `${group}-${first.business.id}`,
+          href: businessHref(first.business.id, dates, `need-${group}`, slug),
+          title: first.business.name,
+          category: first.category,
+          note: onePlace ? `${forSale} · ${onePlace}` : forSale,
+          photo: cover ? { src: cover.cover_photo_url!, alt: cover.title } : undefined,
+          price: cheapest
+            ? { prefix: "from", amount: formatPeso(cheapest.price_from_cents!), unit: priceUnitText(cheapest.price_unit) }
             : undefined,
-          unpriced: pricedByText(listing.booking_type),
-          instantBook: listing.instant_book,
-          trust: listingFeatures(listing).find((feature) => feature.trust)?.label,
+          unpriced: pricedByText(first.booking_type),
+          instantBook: offered.every((listing) => listing.instant_book),
+          trust: trusts.every((label) => label && label === trusts[0]) ? trusts[0] : undefined,
           kind: group,
         };
-      });
+      })
+      .sort((a, b) => Number(!a.price) - Number(!b.price) || Number(!a.photo) - Number(!b.photo));
   const stayCards = rowCards("stay");
   const activityCards = rowCards("activity");
   // Gear has no row or tab of its own: Things to do leads to it, the gear a guest needs going with
@@ -353,22 +361,19 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     ...Object.values(notes?.towns ?? {}).map((town) => town.name),
     ...landmarks.map((landmark) => landmark.name),
   ];
-  const localTransfers = new Set(
-    listings
-      .filter((listing) => listing.group === "transfer" && onIslandRoute(listing.details.route, islandPlaces))
-      .map((listing) => listing.id),
-  );
-  const aroundCards = [...rowCards("rental"), ...rowCards("transfer").filter((card) => localTransfers.has(card.id))];
+  const isLocalTransfer = (listing: Listing) => onIslandRoute(listing.details.route, islandPlaces);
+  const localTransfers = listings.filter((listing) => listing.group === "transfer" && isLocalTransfer(listing));
+  const aroundCards = [...rowCards("rental"), ...rowCards("transfer", isLocalTransfer)];
   const aroundIntro =
     [
       rentals > 0 ? (notes?.around?.rental ?? `Scooters and cars from ${countText(rentals, "local partner")}.`) : null,
-      localTransfers.size > 0 ? (notes?.around?.localTransfer ?? "Vans run between the towns too.") : null,
+      localTransfers.length > 0 ? (notes?.around?.localTransfer ?? "Vans run between the towns too.") : null,
     ]
       .filter(Boolean)
       .join(" ") || null;
   const aroundLinks = [
     rentals > 0 && { label: "See rentals", href: showHref(slug, "need-rental", datesQuery), testId: "area-around-rentals" },
-    localTransfers.size > 0 && { label: "See transfers", href: showHref(slug, "need-transfer", datesQuery), testId: "area-around-transfers" },
+    localTransfers.length > 0 && { label: "See transfers", href: showHref(slug, "need-transfer", datesQuery), testId: "area-around-transfers" },
   ].filter((link) => link !== false);
   const days = sampleDays(landmarks, listings);
   const questions = questionsAbout({

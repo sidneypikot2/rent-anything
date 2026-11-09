@@ -6,7 +6,8 @@ import { ChevronGlyph } from "@/components/discovery/tag-glyphs";
 import { cn } from "@/components/ui/cn";
 
 export type RowCard = {
-  id: number;
+  // Unique within a row: the group and the business (`stay-12`).
+  id: string;
   href: string;
   title: string;
   category: string;
