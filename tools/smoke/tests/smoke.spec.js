@@ -326,6 +326,14 @@ test("sign-up and the partner guard", async ({ page }) => {
   await signUp("/partner/register", `partner-${stamp}@example.com`);
   await expect(page).toHaveURL(/\/partner\/dashboard$/);
   await expect(page.getByTestId("partner-dashboard")).toBeVisible();
+  // The dashboard's figures come from the API, and a new partner's setup is what needs them
+  // (RAA-284): no business or payout account yet. (Its ID check isn't asserted: a local stack
+  // with SKIP_ID_CHECK approves it on the first look.)
+  await expect(page.getByTestId("dashboard-tile-requests_waiting")).toContainText("0");
+  const attention = page.getByTestId("needs-attention");
+  await expect(attention.locator('[data-item="business"]')).toBeVisible();
+  await expect(attention.locator('[data-item="payout"]')).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your business", exact: true })).toHaveCount(0);
 
   // A new partner's profile is incomplete: the banner leads to the profile form, and
   // saving it shows the profile read-only and hides the banner (RAA-40).

@@ -7,6 +7,7 @@ import type { components } from "@/api/schema";
 import { useSession } from "@/lib/auth/session";
 import { todayIso } from "@/lib/dates";
 import { addDays, daysBetween } from "./calendar/calendar-dates";
+import { partnerDashboardKey } from "./use-partner-dashboard";
 import { saveError } from "./use-partner-listings";
 
 type PartnerCalendar = components["schemas"]["partner_calendar"];
@@ -96,7 +97,7 @@ function uniqueById<T extends { id: number }>(items: T[]) {
 }
 
 // Each change reloads every window, as a booking or block changes the days around it, and the
-// dashboard's requests.
+// dashboard (its requests and figures).
 function useCalendarMutation<Vars>(mutationFn: (vars: Vars) => Promise<unknown>) {
   const userId = useSession()?.user.id;
   const queryClient = useQueryClient();
@@ -106,6 +107,7 @@ function useCalendarMutation<Vars>(mutationFn: (vars: Vars) => Promise<unknown>)
       Promise.all([
         queryClient.invalidateQueries({ queryKey: partnerCalendarKey(userId) }),
         queryClient.invalidateQueries({ queryKey: partnerRequestsKey(userId) }),
+        queryClient.invalidateQueries({ queryKey: partnerDashboardKey(userId) }),
       ]),
   });
 }
