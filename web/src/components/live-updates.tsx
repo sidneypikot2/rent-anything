@@ -6,7 +6,8 @@ import { useEffect, useRef } from "react";
 import { bookingsKey, paymentKey } from "@/components/bookings/use-bookings";
 import { playNotificationSound } from "@/components/notifications/notification-sound";
 import { notificationsKey } from "@/components/notifications/use-notifications";
-import { partnerCalendarKey } from "@/components/partner/use-partner-calendar";
+import { partnerCalendarKey, partnerRequestsKey } from "@/components/partner/use-partner-calendar";
+import { partnerDashboardKey } from "@/components/partner/use-partner-dashboard";
 import { tripsKey } from "@/components/trips/use-trips";
 import { refreshSession } from "@/lib/auth/middleware";
 import { useSession } from "@/lib/auth/session";
@@ -74,7 +75,14 @@ export function LiveUpdates() {
     if (userId === undefined || !tokenRef.current) return;
 
     const refetch = () => {
-      for (const queryKey of [bookingsKey(userId), tripsKey(userId), paymentKey(userId), partnerCalendarKey(userId)]) {
+      for (const queryKey of [
+        bookingsKey(userId),
+        tripsKey(userId),
+        paymentKey(userId),
+        partnerCalendarKey(userId),
+        partnerRequestsKey(userId),
+        partnerDashboardKey(userId),
+      ]) {
         void queryClient.invalidateQueries({ queryKey });
       }
     };

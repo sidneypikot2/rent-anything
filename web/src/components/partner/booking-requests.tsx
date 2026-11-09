@@ -36,7 +36,7 @@ export function BookingRequests() {
   }, [openedParam]);
 
   return (
-    <section data-testid="booking-requests" className="flex flex-col gap-3">
+    <section id="booking-requests" data-testid="booking-requests" className="flex flex-col gap-block">
       <SectionTitle>Booking requests</SectionTitle>
       {isError ? (
         <p role="alert" className="text-sm text-danger">
