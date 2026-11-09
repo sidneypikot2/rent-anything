@@ -6,7 +6,9 @@ module Discovery
   # row also carries its first photos, what its details say it includes and its cancellation
   # policy (RAA-124), for the row's carousel and chips. The listings include those of the
   # published places inside it, however deep, each naming its own place, so an island's page
-  # shows everything to book on it; a place to see names the active listings that visit it.
+  # shows everything to book on it. Its places to see likewise include those of the published
+  # places inside it (RAA-285): a place pinned in Santa Fe is on Bantayan Island's page too.
+  # A place to see names the active listings that visit it.
   # pets: true keeps, of the stays, those that allow pets (RAA-185). listings: false leaves the
   # listings out (the plan pages page through them with Discovery::PlanListings).
   # Its page also gets to know the place (RAA-252): the guide the team wrote (blank fields as
@@ -43,7 +45,7 @@ module Discovery
     end
 
     def landmarks
-      @landmarks ||= @area.landmarks.published.includes(:tags, :ready_photos).order(:name).to_a
+      @landmarks ||= Landmark.published.in_area_tree(@area).includes(:tags, :ready_photos).order(:name).to_a
     end
 
     # landmark id => the ids of the active listings that visit it.
