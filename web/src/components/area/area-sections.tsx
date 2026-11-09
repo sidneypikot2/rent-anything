@@ -1,7 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { isApiPhoto } from "@/components/landing/sample-photos";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,30 +15,45 @@ import {
   WalletGlyph,
 } from "@/components/discovery/tag-glyphs";
 import type { Question, SampleDay, stayPlaces } from "./area-guide";
+import { ListingRow, type RowCard } from "./listing-row";
 import { SEASON_LABEL, type AreaNotes, type KnowTopic, type Season } from "./area-notes";
 
 // The parts of an area page that get to know the place (RAA-252, the area page revamp's
-// mockup): the banner's quick facts, What it's like, and one white sheet of When to go, Getting
-// here and around, Where to stay, Good to know, a sample few days and the questions guests ask.
+// mockup): the banner's intro and quick facts, and one white sheet of When to go, Getting
+// here and around, Where to stay, Things to do, Good to know, a sample few days and the questions guests ask.
 // Each part is left out when the place has nothing for it. What they say is worked out in
 // area-guide.ts and, for what no data holds yet, written in area-notes.ts.
 
-// Under the banner's title: the tagline, what the place is for (its places' tags) and the quick facts.
+// Under the banner's title: the tagline, the team's description (two lines at most, so the
+// banner still fits the first screen), who the place suits, what it is for (its places' tags) and
+// the quick facts.
 export function AreaBannerIntro({
   tagline,
+  description,
+  goodFor,
   vibes,
   facts,
 }: {
   tagline: string | null;
+  description?: string | null;
+  goodFor?: string;
   vibes: string[];
   facts: { label: string; value: string }[];
 }) {
-  if (!tagline && vibes.length === 0 && facts.length === 0) return null;
+  if (!tagline && !description && !goodFor && vibes.length === 0 && facts.length === 0) return null;
   return (
     <div className="flex flex-col gap-3">
       {tagline && (
         <p data-testid="area-tagline" className="max-w-lede text-lg text-pretty text-white/90 max-sm:text-base">
           {tagline}
+        </p>
+      )}
+      {description && (
+        <p className="line-clamp-2 max-w-lede text-base text-pretty text-white/90">{description}</p>
+      )}
+      {goodFor && (
+        <p data-testid="area-good-for" className="max-w-lede text-sm text-pretty text-sky-mist">
+          {goodFor}
         </p>
       )}
       {vibes.length > 0 && (
@@ -53,11 +66,20 @@ export function AreaBannerIntro({
         </ul>
       )}
       {facts.length > 0 && (
-        <dl data-testid="area-facts" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {facts.map((fact) => (
+        // From sm each tile as wide as its words, wrapping as a row of chips, so six fit where four did.
+        <dl data-testid="area-facts" className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          {facts.map((fact, index) => (
             // The card glass, as a photo card's text panel: any banner photo, however bright, keeps
-            // its label at 5:1 (the faint glass fill fell near 2:1 over a pale one).
-            <div key={fact.label} className={cn("flex flex-col gap-0.5 rounded-control px-3 py-2", glassClasses("card"))}>
+            // its label at 5:1 (the faint glass fill fell near 2:1 over a pale one). A phone keeps
+            // the first four, so the banner still fits its first screen.
+            <div
+              key={fact.label}
+              className={cn(
+                "flex flex-col gap-0.5 rounded-control px-3 py-2 sm:whitespace-nowrap",
+                glassClasses("card"),
+                index >= 4 && "max-sm:hidden",
+              )}
+            >
               <dt className="text-small text-sky-mist">{fact.label}</dt>
               <dd className="text-sm font-semibold">{fact.value}</dd>
             </div>
@@ -65,58 +87,6 @@ export function AreaBannerIntro({
         </dl>
       )}
     </div>
-  );
-}
-
-// What it's like, on its own white sheet before the places to see: the team's description, who
-// it suits, and the three places tours go to most, linked to their cards.
-export function AreaAbout({
-  name,
-  description,
-  goodFor,
-  highlights,
-}: {
-  name: string;
-  description: string | null;
-  goodFor?: string;
-  highlights: { slug: string; name: string; line: string; photo: { src: string; alt: string } | null }[];
-}) {
-  if (!description && highlights.length === 0) return null;
-  return (
-    <section id="about" data-surface="paper" className="grid gap-block lg:grid-cols-[5fr_7fr] lg:items-start lg:gap-gutter">
-      <div className="flex flex-col gap-3">
-        <SectionTitle>What {name} is like</SectionTitle>
-        {description && <p className="text-lg leading-relaxed text-pretty whitespace-pre-line">{description}</p>}
-        {goodFor && <p className="text-sm text-pretty text-muted">{goodFor}</p>}
-      </div>
-      {highlights.length > 0 && (
-        <ul className="grid grid-cols-3 gap-3 max-sm:-mx-1 max-sm:overflow-x-auto max-sm:grid-cols-[repeat(3,minmax(10rem,1fr))]">
-          {highlights.map((place) => (
-            <li key={place.slug}>
-              <a
-                href={`#${place.slug}`}
-                className="group relative isolate flex h-52 items-end overflow-hidden rounded-card bg-navy p-2.5 shadow-soft"
-              >
-                {place.photo && (
-                  <Image
-                    src={place.photo.src}
-                    alt={place.photo.alt}
-                    fill
-                    sizes="(min-width: 64rem) 20vw, 40vw"
-                    unoptimized={isApiPhoto(place.photo.src)}
-                    className="-z-10 object-cover transition-transform duration-700 ease-calm motion-safe:group-hover:scale-105"
-                  />
-                )}
-                <span className="w-full rounded-control bg-surface px-3 py-2 text-navy">
-                  <span className="block font-semibold">{place.name}</span>
-                  {place.line && <span className="block truncate text-small text-muted">{place.line}</span>}
-                </span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }
 
@@ -316,54 +286,134 @@ export function AreaStays({
   name,
   places,
   towns,
-  ownStays,
+  stays,
   ownHref,
-  hrefFor,
 }: {
   name: string;
   places: ReturnType<typeof stayPlaces>;
   towns: AreaNotes["towns"];
-  ownStays: number;
+  stays: RowCard[];
   ownHref: string;
-  hrefFor: (slug: string) => string;
 }) {
-  if (places.length === 0 && ownStays === 0) return null;
+  if (stays.length === 0) return null;
+  // Where most stays are, in a line under the title: the town with the most, and its note.
+  const top = places[0];
+  const town = top ? towns?.[top.place.slug] : undefined;
+  const intro = top && (town || places.length > 1) ? `Most stays are in ${top.place.name}${town ? `: ${lowerFirst(town.line)}` : "."}` : undefined;
   return (
-    <Part id="stay" title={`Where to stay in ${name}`}>
-      {places.length > 0 ? (
-        <ul className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-          {places.map(({ place, near }) => {
-            const town = towns?.[place.slug];
-            return (
-              <li key={place.slug}>
-                <Card edge="line" className="flex h-full flex-col gap-2 p-card">
-                  <span className="flex items-center gap-2">
-                    <span className="flex-1 text-lg font-semibold">{place.name}</span>
-                    {town && <Badge tone="mist">{town.tag}</Badge>}
-                  </span>
-                  {town && <span className="text-sm leading-relaxed text-pretty">{town.line}</span>}
-                  <span className="text-sm text-muted">
-                    {place.stay_count === 1 ? "1 stay" : `${place.stay_count} stays`}
-                    {near && ` · ${near.distance} from ${near.name}`}
-                  </span>
-                  <Link href={hrefFor(place.slug)} className="tap-target mt-auto self-start text-sm font-bold text-link underline underline-offset-4">
-                    Stays in {place.name}
-                  </Link>
-                </Card>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p className="text-pretty">
-          {ownStays === 1 ? "1 stay" : `${ownStays} stays`} to book here.{" "}
-          <Link href={ownHref} className="font-semibold text-link underline underline-offset-4">
-            See the stays
-          </Link>
-        </p>
-      )}
-    </Part>
+    <section id="stay" className="flex flex-col gap-block">
+      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div className="flex max-w-prose flex-col gap-2">
+          <SectionTitle>{`Where to stay in ${name}`}</SectionTitle>
+          {intro && <p className="text-pretty text-muted">{intro}</p>}
+        </div>
+        <Link
+          href={ownHref}
+          data-testid="area-stays-all"
+          className="tap-target text-sm font-bold text-link underline underline-offset-4"
+        >
+          See {stays.length === 1 ? "1 stay" : `${stays.length} stays`} in {name}
+        </Link>
+      </header>
+      <ListingRow cards={stays.slice(0, ROW_CARDS)} kind="stay" noun="stays" testId="area-stays" />
+    </section>
   );
+}
+
+// Things to do: the tours and activities here, as a row of cards like Where to stay's.
+export function AreaThingsToDo({
+  name,
+  partners,
+  activities,
+  ownHref,
+  gear = 0,
+  gearHref,
+}: {
+  name: string;
+  partners: number;
+  activities: RowCard[];
+  ownHref: string;
+  gear?: number;
+  gearHref?: string;
+}) {
+  if (activities.length === 0) return null;
+  const intro = `Tours and activities from ${partners === 1 ? "1 local partner" : `${partners} local partners`}.`;
+  return (
+    <section id="do" className="flex flex-col gap-block">
+      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div className="flex max-w-prose flex-col gap-2">
+          <SectionTitle>{`Things to do in ${name}`}</SectionTitle>
+          <p className="text-pretty text-muted">{intro}</p>
+        </div>
+        <div className="flex flex-wrap gap-x-5">
+          <Link
+            href={ownHref}
+            data-testid="area-activities-all"
+            className="tap-target text-sm font-bold text-link underline underline-offset-4"
+          >
+            See {activities.length === 1 ? "1 thing to do" : `${activities.length} things to do`} in {name}
+          </Link>
+          {gear > 0 && gearHref && (
+            <Link
+              href={gearHref}
+              data-testid="area-activities-gear"
+              className="tap-target text-sm font-bold text-link underline underline-offset-4"
+            >
+              Rent gear ({gear})
+            </Link>
+          )}
+        </div>
+      </header>
+      <ListingRow cards={activities.slice(0, ROW_CARDS)} kind="activity" noun="things to do" testId="area-activities" />
+    </section>
+  );
+}
+
+// Getting around: the vehicles to rent here and the transfers that run on the island, as a row of
+// cards (Klook's Transport row). It takes the place of Getting here's list of ways around, whose
+// notes become its intro.
+export function AreaGettingAround({
+  name,
+  cards,
+  intro,
+  links,
+}: {
+  name: string;
+  cards: RowCard[];
+  intro: string | null;
+  links: { label: string; href: string; testId: string }[];
+}) {
+  if (cards.length === 0) return null;
+  return (
+    <section id="around" data-testid="area-around" className="flex flex-col gap-block">
+      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div className="flex max-w-prose flex-col gap-2">
+          <SectionTitle>{`Getting around ${name}`}</SectionTitle>
+          {intro && <p className="text-pretty text-muted">{intro}</p>}
+        </div>
+        <div className="flex flex-wrap gap-x-5">
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              data-testid={link.testId}
+              className="tap-target text-sm font-bold text-link underline underline-offset-4"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      </header>
+      <ListingRow cards={cards.slice(0, ROW_CARDS)} kind="rental" noun="ways around" testId="area-around-row" />
+    </section>
+  );
+}
+
+// A row shows the first few; See N opens What to book on that group for the rest.
+const ROW_CARDS = 10;
+
+function lowerFirst(text: string) {
+  return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
 const KNOW_ICON: Record<KnowTopic, ReactNode> = {

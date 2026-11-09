@@ -9,7 +9,6 @@ import { createPortal } from "react-dom";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import type { TripDates } from "@/components/trips/trip-dates";
-import { SaveLandmarkButton } from "@/components/trips/save-landmark-button";
 import type { AddPreview } from "@/components/trips/use-trips";
 import { pricedByText } from "@/lib/pricing";
 import { Badge } from "@/components/ui/badge";
@@ -944,7 +943,6 @@ function MapPopup({
         title={pin.title}
         media={<PanelPhoto photo={pin.photo} />}
         panel={<LandmarkPanel landmark={pin.landmark} areaName={areaName} />}
-        actions={<SaveLandmarkButton slug={pin.slug} name={pin.title} guests={dates.guests} variant="panel" />}
         className="underline-offset-4 hover:underline"
         data-testid="map-popup-open"
       >

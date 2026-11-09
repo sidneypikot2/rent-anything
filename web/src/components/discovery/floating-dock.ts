@@ -7,8 +7,10 @@ import { useSyncExternalStore } from "react";
 // into it (useFloatingDock) and sets its place with `order`. It's on the body, as a glass blur
 // above it would make it fixed to that element, not the window.
 // It stays out of the way on the first screen, where What to book's chips sit at the foot and the
-// banner already holds the trip: it rises once What to book reaches the window's upper half, and
-// stays up while the full-screen map is open (setDockPinned), as its List button is the way back.
+// banner already holds the trip: it rises once What to book reaches the window's upper half,
+// steps aside again once What to book has scrolled away above (where the phone's foot bar takes
+// over), and stays up while the full-screen map is open (setDockPinned), as its List button is
+// the way back.
 // While the guest scrolls down the list it steps aside too, and comes back on any scroll up.
 // Hidden, it is only out of sight: the keyboard still reaches it (last on the page, or through
 // MapSkipLink near What to book), and focus inside brings it up.
@@ -32,8 +34,11 @@ function update() {
     goingDown = y > lastY;
     lastY = y;
   }
-  const hidden =
-    !pinned && ((section !== null && section.getBoundingClientRect().top > window.innerHeight / 2) || goingDown);
+  // Past What to book it steps aside too, a little before the phone's foot bar (PlanFoot) comes
+  // up there, so the two never show at once.
+  const box = section?.getBoundingClientRect();
+  const away = box !== undefined && (box.top > window.innerHeight / 2 || box.bottom < window.innerHeight / 4);
+  const hidden = !pinned && (away || goingDown);
   dock.toggleAttribute("data-hidden", hidden);
   // Room for it at the window's foot, which a toast keeps clear (Toast).
   document.documentElement.style.setProperty("--dock-space", !hidden && dock.childElementCount > 0 ? "4.5rem" : "0px");

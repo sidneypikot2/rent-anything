@@ -5,20 +5,6 @@ import { BannerCarousel } from "./banner-carousel";
 import { DriftingPhoto } from "./drifting-photo";
 import { SearchBar } from "./search-bar";
 
-// A banner's row of chips (an area's counts, a trip's needs): one row to swipe on a phone, so the
-// banner stays short; its right edge fades, so a chip cut there reads as more to swipe to, and the
-// end padding lets the last one clear it; overscrolling it doesn't take the browser back a page.
-// From sm it wraps. `relative` holds a chip's sr-only
-// text (absolutely positioned) inside the row, which would otherwise widen the page on a phone.
-export const CHIP_ROW =
-  "relative -mx-1 flex gap-2 overflow-x-auto overscroll-x-contain pr-8 pl-1 [scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0";
-// A count on the banner ("20 to book"), on glass.
-export const STAT_CHIP = "flex min-h-11 items-center gap-1.5 rounded-control px-3.5 text-sm whitespace-nowrap text-sky-mist";
-
-export function StatCount({ count }: { count: number }) {
-  return <span className="font-display text-xl font-extrabold tabular-nums text-white">{count}</span>;
-}
-
 // `sizes` defaults to the frame's width; a photo also shown elsewhere passes that one's.
 type Photo = { src: string; alt: string; mirror?: boolean; sizes?: string; placeholder?: `data:image/${string}` };
 

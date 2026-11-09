@@ -7,6 +7,7 @@ import { categoryIcon } from "@/components/discovery/icons";
 import { listingFeatures } from "@/components/discovery/listing-features";
 import { FeatureGlyph } from "@/components/discovery/tag-glyphs";
 import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
+import { BookingTerms } from "@/components/discovery/booking-terms";
 import { StayPrice } from "@/components/discovery/stay-price";
 import { startingArrangement, stayPriceLine, stayQuoteQuery } from "@/components/discovery/stay-quote";
 import { TourFacts, tourPriceLine } from "@/components/discovery/tour-facts";
@@ -100,7 +101,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
         : vehicleRate
           ? vehiclePriceLine(vehicleRate)
           : pricedByText(listing.booking_type);
-  // The detail API sends no cancellation policy, so only the listing's own details make chips.
+  // The cancellation policy has its own line by the price (BookingTerms), so it makes no chip here.
   // A motorcycle shop's child helmets (RAA-205) are on its rate, not its details.
   const helmetFee = vehicleRate?.child_helmet_fee_cents;
   const features = [
@@ -116,6 +117,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
     <div id="book-add" className="flex flex-col items-start gap-1">
       <p className="text-sm text-muted">{FREE_TO_SAVE}</p>
       <InTripBadge listingId={listing.id} />
+      <BookingTerms listing={listing} className="mt-2" />
     </div>
   );
 
@@ -215,6 +217,17 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
                   <InTripBadge listingId={listing.id} />
                 </div>
                 <AddToTripButton listing={listing} dates={dates} />
+                {/* Its terms come with the price, as Klook's do (a stay's or vehicle's card has
+                    them in addAside). The phone's sticky card stays one row: its own card below. */}
+                <BookingTerms listing={listing} className="basis-full border-t border-line pt-3 max-sm:hidden" />
+              </CardBody>
+            </Card>
+          )}
+
+          {!booker && (
+            <Card className="sm:hidden">
+              <CardBody>
+                <BookingTerms listing={listing} />
               </CardBody>
             </Card>
           )}

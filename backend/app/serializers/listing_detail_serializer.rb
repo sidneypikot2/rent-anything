@@ -5,7 +5,8 @@
 # offered_by. Its pricing (RAA-104): a stay's nightly rate once it has a price, the guests it
 # sleeps, and its fees; a vehicle's rate once it has a price (RAA-149). Its ready photos in the
 # partner's order (RAA-106). A tour's details (RAA-110). Its guest-safe attrs (GUEST_DETAILS), as
-# an area page's rows have them. Preload business, category, units, stay_rate, vehicle_rate, flat_rate, fees,
+# an area page's rows have them. Its cancellation policy, which the page states by the price, as Klook
+# does. Preload business, category, units, stay_rate, vehicle_rate, flat_rate, fees,
 # ready_photos, tour_detail and tour_inclusions.
 module ListingDetailSerializer
   SUMMARY_LENGTH = 160
@@ -26,6 +27,7 @@ module ListingDetailSerializer
       booking_type: category.booking_type,
       group: category.guest_group,
       instant_book: listing.instant_book?,
+      cancellation_policy: listing.cancellation_policy,
       area: { slug: listing.area.slug, name: listing.area.name },
       **offered_by(listing),
       price_from_cents: PricingSerializer.price_from_cents(listing),

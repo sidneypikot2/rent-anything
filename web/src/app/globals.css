@@ -262,9 +262,6 @@
 /* A laptop window (under 47.5rem tall): banners tighten their gaps so they still fit the first
    screen (RAA-125). */
 @custom-variant fold (@media (max-height: 47.5rem));
-/* Just over fold: a tablet on its side (1024×768) or a laptop's browser window. Wide layouts
-   that would fill the first screen trim to their essentials here. */
-@custom-variant tablet-fold (@media (max-height: 50rem));
 
 :root {
   @media (width >= 40rem) {

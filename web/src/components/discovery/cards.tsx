@@ -9,7 +9,6 @@ import { GlassPanel } from "@/components/ui/glass";
 import { HeroTripLink } from "@/components/landing/hero-trip";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { InTripBadge } from "@/components/trips/in-trip-badge";
-import { SaveLandmarkButton } from "@/components/trips/save-landmark-button";
 import type { TripDates } from "@/components/trips/trip-dates";
 import { GROUP_ICON } from "./categories";
 import { placeIcon } from "./icons";
@@ -22,7 +21,7 @@ import { DetailPanelButton, LandmarkPanel, ListingPanel, PanelActions, PanelPhot
 import { ListingRowDetails } from "./listing-row-details";
 import { PhotoCardFrame, SamplePhotoTag, type Photo } from "./photo-card";
 import { PHOTO_CARD, PHOTO_CARD_IMAGE, PHOTO_SCRIM, STRETCHED_LINK } from "./photo-card-styles";
-import { ArrowGlyph, CategoryGlyph, PlaceGlyph, TagGlyph } from "./tag-glyphs";
+import { ArrowGlyph, CategoryGlyph, FeatureGlyph, PlaceGlyph, TagGlyph } from "./tag-glyphs";
 import { AreaScene, PlaceScene } from "./scenes";
 
 export { PHOTO_CARD, PHOTO_CARD_IMAGE } from "./photo-card-styles";
@@ -334,7 +333,7 @@ export function LandmarkCard({
   areaName: string;
   // With no tour going there, how to get there yourself (ReachYourself) in the foot instead.
   reach?: ReactNode;
-  // A control in its top-right corner (its heart), above the title's stretched button.
+  // A control in its top-right corner, above the title's stretched button.
   corner?: ReactNode;
 }) {
   const goes = visits && visits.length > 0 ? visitsLine(visits) : null;
@@ -360,7 +359,6 @@ export function LandmarkCard({
               title={landmark.name}
               media={<PanelPhoto photo={photo} />}
               panel={<LandmarkPanel landmark={{ ...landmark, visits }} areaName={areaName} />}
-              actions={<SaveLandmarkButton slug={landmark.slug} name={landmark.name} guests={dates?.guests} variant="panel" />}
               className="truncate"
             >
               {landmark.name}
@@ -420,10 +418,13 @@ export function ListingCard({
   rowOnPhone = false,
   stacked = false,
   instantBook = false,
+  trust,
 }: {
   href: string;
   title: string;
   category: string;
+  // Its cancellation terms when they are a trust point, as a badge beside Instant book.
+  trust?: string;
   // Its booking type, whose hue tints the icon that holds the photo's place (GROUP_ICON).
   kind?: string;
   note: string;
@@ -439,7 +440,7 @@ export function ListingCard({
   // A row on a phone: the photo a column on the left and the text beside it, so a short list
   // of them shows whole in a screen or so (the home page's From partners).
   rowOnPhone?: boolean;
-  // From sm, the photo over the text rather than behind it, and at every width the text on white
+  // The photo over the text rather than behind it (from sm only with rowOnPhone), and at every width the text on white
   // (dark text, navy only under the photo while it loads): the partner's photo shows whole, and
   // the card stands out from the dark page and the sample-photo cards around it (the home page's
   // From partners, RAA-130 critique; white since 2026-10-29, as navy read too dark).
@@ -467,21 +468,27 @@ export function ListingCard({
       // drops the photo's room and is a short row: the icon beside the title says what it is.
       photoClassName={cn(
         rowOnPhone && "max-sm:w-28! max-sm:h-full",
-        stacked && "bg-navy sm:h-40! sm:rounded-b-control",
+        stacked && (rowOnPhone ? "bg-navy sm:h-40! sm:rounded-b-control" : "bg-navy h-40! rounded-b-control"),
         "group-data-photo-missing:hidden",
       )}
       className={cn(
         rowOnPhone && "max-sm:h-auto max-sm:min-h-36 max-sm:pl-31",
         // The text starts just under the photo, and the card takes its row's height with its
         // foot pinned down, so a row's actions line up and a short title leaves no gap above it.
-        stacked && "sm:h-full sm:justify-start sm:pt-42 sm:data-photo-missing:pt-3",
+        stacked &&
+          (rowOnPhone
+            ? "sm:h-full sm:justify-start sm:pt-42 sm:data-photo-missing:pt-3"
+            : "h-full justify-start pt-42 data-photo-missing:pt-3"),
         "data-photo-missing:h-full data-photo-missing:min-h-0 data-photo-missing:justify-start data-photo-missing:pl-3",
       )}
-      scrimClassName={cn(rowOnPhone && "max-sm:hidden", stacked && "sm:hidden")}
+      scrimClassName={cn(rowOnPhone && "max-sm:hidden", stacked && (rowOnPhone ? "sm:hidden" : "hidden"))}
       // No photo to read over, so no glass: a frame inside the navy card would be a card in a card.
       glassClassName={cn(
         rowOnPhone && "max-sm:border-transparent max-sm:bg-transparent max-sm:p-2",
-        stacked && "sm:flex-1 sm:border-transparent sm:bg-transparent sm:px-2 sm:pt-2 sm:pb-1 sm:backdrop-blur-none",
+        stacked &&
+          (rowOnPhone
+            ? "sm:flex-1 sm:border-transparent sm:bg-transparent sm:px-2 sm:pt-2 sm:pb-1 sm:backdrop-blur-none"
+            : "flex-1 border-transparent bg-transparent px-2 pt-2 pb-1 backdrop-blur-none"),
         "group-data-photo-missing:border-transparent group-data-photo-missing:bg-transparent group-data-photo-missing:p-2",
       )}
       sizes={sizes}
@@ -519,7 +526,18 @@ export function ListingCard({
               {title}
             </HeroTripLink>
             <span className={cn("block truncate text-sm", stacked ? "text-muted" : "text-sky-mist")}>{note}</span>
-            {instantBook && <InstantBookBadge small className="mt-1.5" />}
+            {(trust || instantBook) && (
+              <span className="mt-1.5 flex flex-wrap gap-1.5">
+                {/* Cancellation first and in emerald, as What to book's rows (listing-row-details). */}
+                {trust && (
+                  <Badge tone="emerald" className="min-h-6 px-2.5 text-xs">
+                    <FeatureGlyph name="cancellation" className="size-3.5" />
+                    {trust}
+                  </Badge>
+                )}
+                {instantBook && <InstantBookBadge small />}
+              </span>
+            )}
           </span>
         </div>
       }
@@ -528,7 +546,7 @@ export function ListingCard({
       }
       foot={
         (price || unpriced || action) && (
-          <div className={cn("flex flex-wrap items-center justify-between gap-x-3 gap-y-2", stacked && "sm:mt-auto")}>
+          <div className={cn("flex flex-wrap items-center justify-between gap-x-3 gap-y-2", stacked && (rowOnPhone ? "sm:mt-auto" : "mt-auto"))}>
             {price ? (
               <Price onDark={!stacked} {...price} />
             ) : unpriced ? (
