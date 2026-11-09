@@ -13,7 +13,7 @@ import { catalogMakes, catalogModels } from "./vehicle-catalog";
 // attribute_schema holds the limits; this file holds the form. Make and model are suggested
 // from the catalog (vehicle-catalog.ts), and picking a model fills in its cc and transmission.
 
-const VEHICLE_KEYS = ["make", "model", "engine_cc", "transmission", "seats", "color", "amenities", "helmet_included"] as const;
+const VEHICLE_KEYS = ["make", "model", "engine_cc", "transmission", "seats", "color", "amenities", "helmet_included", "licence_required"] as const;
 export type VehicleValues = {
   make: string;
   model: string;
@@ -23,8 +23,24 @@ export type VehicleValues = {
   seats: string;
   color: string;
   amenities: string[];
+  // A car or van that guests need a driver's licence for (RAA-281).
+  licenceRequired: boolean;
 };
-export const NEW_VEHICLE: VehicleValues = { make: "", model: "", engine_cc: "", transmission: "", seats: "", color: "", amenities: [] };
+export const NEW_VEHICLE: VehicleValues = {
+  make: "",
+  model: "",
+  engine_cc: "",
+  transmission: "",
+  seats: "",
+  color: "",
+  amenities: [],
+  licenceRequired: false,
+};
+
+// Cars and vans ask whether guests need a driver's licence (RAA-281); motorbikes don't.
+export function asksForLicence(slug: string | undefined) {
+  return slug === "car" || slug === "van-rental";
+}
 
 // A motorcycle, car or van: its schema asks for make, model and engine.
 export function isVehicle(category: ListingCategory | undefined) {
@@ -48,6 +64,7 @@ export function toVehicleValues(attrs: PartnerListing["attrs"]): VehicleValues {
     seats: text(attrs.seats),
     color: text(attrs.color),
     amenities: Array.isArray(attrs.amenities) ? attrs.amenities.filter((item) => typeof item === "string") : [],
+    licenceRequired: attrs.licence_required === true,
   };
 }
 
@@ -71,6 +88,7 @@ export function toVehicleAttrs(values: VehicleValues, kept: PartnerListing["attr
     seats: Number(values.seats),
     ...(color && { color }),
     amenities: includedAmenities(values, slug),
+    ...(asksForLicence(slug) && { licence_required: values.licenceRequired }),
   };
 }
 
@@ -200,6 +218,14 @@ export function VehicleFields({
           ))}
         </div>
       </fieldset>
+      {asksForLicence(slug) && (
+        <CheckboxField
+          label="Guests need a driver's licence"
+          checked={values.licenceRequired}
+          onChange={(event) => onChange({ ...values, licenceRequired: event.target.checked })}
+          data-testid="vehicle-licence-required"
+        />
+      )}
     </div>
   );
 }

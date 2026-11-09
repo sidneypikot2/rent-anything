@@ -196,6 +196,9 @@ export function PlusGlyph({ className }: Props) {
 
 // What a listing includes (RAA-125), for the chips on its row: listingFeatures names them.
 const FEATURES: Record<string, string[]> = {
+  // A tour's start times and a car's licence (RAA-281).
+  clock: [circle(12, 12, 8.5), "M12 7.5V12l3 2"],
+  licence: ["M3.5 6h17v12h-17Z", circle(8.5, 11, 2), "M5.5 16a3 3 0 0 1 6 0", "M14 10h4", "M14 13.5h3"],
   guide: [circle(9, 7, 3), "M3.5 20a5.5 5.5 0 0 1 11 0", "M17 4v16", "M17 4l4 2.5-4 2.5"],
   seats: ["M7 4h6v9H7Z", "M5 13h12l1 4H5Z", "M7 17v3", "M16 17v3"],
   luggage: ["M6 8h12v12H6Z", "M9 8V5h6v3", "M10 12v4", "M14 12v4"],

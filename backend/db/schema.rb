@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -263,6 +263,40 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_150000) do
     t.check_constraint "total_cents >= 0", name: "bookings_total_check"
   end
 
+  create_table "business_logos", force: :cascade do |t|
+    t.bigint "business_id", null: false
+    t.string "filename", null: false
+    t.string "content_type", null: false
+    t.bigint "byte_size", null: false
+    t.string "checksum", null: false
+    t.datetime "uploaded_at"
+    t.datetime "sized_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["business_id"], name: "index_business_logos_on_business_id", unique: true
+    t.index ["created_at"], name: "index_business_logos_unfinished", where: "(uploaded_at IS NULL)"
+    t.check_constraint "byte_size > 0", name: "business_logos_byte_size_check"
+    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "business_logos_content_type_check"
+  end
+
+  create_table "business_photos", force: :cascade do |t|
+    t.bigint "business_id", null: false
+    t.integer "position", null: false
+    t.string "filename", null: false
+    t.string "content_type", null: false
+    t.bigint "byte_size", null: false
+    t.string "checksum", null: false
+    t.datetime "uploaded_at"
+    t.datetime "sized_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["business_id"], name: "index_business_photos_on_business_id"
+    t.index ["created_at"], name: "index_business_photos_unfinished", where: "(uploaded_at IS NULL)"
+    t.check_constraint "\"position\" >= 1", name: "business_photos_position_check"
+    t.check_constraint "byte_size > 0", name: "business_photos_byte_size_check"
+    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "business_photos_content_type_check"
+  end
+
   create_table "businesses", force: :cascade do |t|
     t.bigint "partner_id", null: false
     t.string "name", null: false
@@ -277,13 +311,38 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_150000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.bigint "payout_account_id"
+    t.string "opens_at"
+    t.string "closes_at"
+    t.string "check_in_from"
+    t.string "check_in_until"
+    t.string "check_out_by"
+    t.string "quiet_from"
+    t.integer "closed_days", default: [], null: false, array: true
+    t.string "languages", default: [], null: false, array: true
+    t.string "host_name"
+    t.string "host_intro"
+    t.string "house_rules", default: [], null: false, array: true
+    t.string "rules_note"
+    t.jsonb "faqs", default: [], null: false
     t.index "partner_id, lower((name)::text)", name: "index_businesses_on_partner_id_and_lower_name", unique: true
     t.index ["id", "partner_id"], name: "index_businesses_on_id_and_partner_id", unique: true
     t.index ["location"], name: "index_businesses_on_location", using: :gist
     t.index ["partner_id"], name: "index_businesses_on_partner_id"
     t.index ["payout_account_id"], name: "index_businesses_on_payout_account_id"
+    t.check_constraint "(opens_at IS NULL) = (closes_at IS NULL) AND (opens_at IS NULL OR opens_at::text < closes_at::text)", name: "businesses_hours_check"
+    t.check_constraint "char_length(host_intro::text) <= 160", name: "businesses_host_intro_length_check"
+    t.check_constraint "char_length(host_name::text) <= 60", name: "businesses_host_name_length_check"
     t.check_constraint "char_length(name::text) >= 1 AND char_length(name::text) <= 80", name: "businesses_name_length_check"
+    t.check_constraint "char_length(rules_note::text) <= 300", name: "businesses_rules_note_length_check"
+    t.check_constraint "check_in_from IS NULL OR check_in_from::text ~ '^([01][0-9]|2[0-3]):(00|30)$'::text", name: "businesses_check_in_from_check"
+    t.check_constraint "check_in_until IS NULL OR check_in_until::text ~ '^([01][0-9]|2[0-3]):(00|30)$'::text", name: "businesses_check_in_until_check"
+    t.check_constraint "check_out_by IS NULL OR check_out_by::text ~ '^([01][0-9]|2[0-3]):(00|30)$'::text", name: "businesses_check_out_by_check"
+    t.check_constraint "closed_days <@ ARRAY[0, 1, 2, 3, 4, 5, 6]", name: "businesses_closed_days_check"
+    t.check_constraint "closes_at IS NULL OR closes_at::text ~ '^([01][0-9]|2[0-3]):(00|30)$'::text", name: "businesses_closes_at_check"
     t.check_constraint "country::text ~ '^[A-Z]{2}$'::text", name: "businesses_country_check"
+    t.check_constraint "jsonb_typeof(faqs) = 'array'::text AND jsonb_array_length(faqs) <= 6", name: "businesses_faqs_check"
+    t.check_constraint "opens_at IS NULL OR opens_at::text ~ '^([01][0-9]|2[0-3]):(00|30)$'::text", name: "businesses_opens_at_check"
+    t.check_constraint "quiet_from IS NULL OR quiet_from::text ~ '^([01][0-9]|2[0-3]):(00|30)$'::text", name: "businesses_quiet_from_check"
   end
 
   create_table "categories", force: :cascade do |t|
@@ -454,6 +513,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_150000) do
     t.bigint "listing_id", null: false
     t.bigint "landmark_id", null: false
     t.string "relation", default: "visits", null: false
+    t.integer "position"
     t.index ["landmark_id"], name: "index_listing_landmarks_on_landmark_id"
     t.check_constraint "relation::text = ANY (ARRAY['visits'::character varying::text, 'serves'::character varying::text])", name: "listing_landmarks_relation_check"
   end
@@ -709,8 +769,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_150000) do
     t.bigint "base_price_cents", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "start_times", default: [], null: false, array: true
+    t.string "not_included"
     t.index ["listing_id"], name: "index_tour_details_on_listing_id", unique: true
+    t.check_constraint "array_to_string(start_times, ','::text) ~ '^(([01][0-9]|2[0-3]):(00|30)(,|$))*$'::text AND cardinality(start_times) <= 8", name: "tour_details_start_times_check"
     t.check_constraint "base_price_cents >= 0", name: "tour_details_base_price_check"
+    t.check_constraint "char_length(not_included::text) <= 300", name: "tour_details_not_included_length_check"
     t.check_constraint "duration_unit::text = ANY (ARRAY['hours'::character varying::text, 'days'::character varying::text])", name: "tour_details_duration_unit_check"
     t.check_constraint "duration_value >= 1 AND duration_value <=\nCASE duration_unit\n    WHEN 'hours'::text THEN 24\n    ELSE 30\nEND", name: "tour_details_duration_value_check"
     t.check_constraint "max_groups_per_day >= 1 AND max_groups_per_day <= 100", name: "tour_details_max_groups_check"
@@ -728,7 +792,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_150000) do
     t.datetime "updated_at", null: false
     t.index ["listing_id", "kind"], name: "index_tour_inclusions_on_listing_id_and_kind", unique: true
     t.check_constraint "char_length(note::text) <= 120", name: "tour_inclusions_note_length_check"
-    t.check_constraint "kind::text = ANY (ARRAY['accommodation'::character varying::text, 'transport'::character varying::text, 'meal'::character varying::text])", name: "tour_inclusions_kind_check"
+    t.check_constraint "kind::text = ANY (ARRAY['accommodation'::character varying, 'transport'::character varying, 'meal'::character varying, 'guide'::character varying, 'gear'::character varying, 'entrance_fees'::character varying]::text[])", name: "tour_inclusions_kind_check"
     t.check_constraint "price_per_head_cents >= 0", name: "tour_inclusions_price_check"
   end
 
@@ -913,6 +977,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_150000) do
   add_foreign_key "bookings", "payments"
   add_foreign_key "bookings", "trip_items", on_delete: :nullify
   add_foreign_key "bookings", "users", on_delete: :nullify
+  add_foreign_key "business_logos", "businesses", on_delete: :cascade
+  add_foreign_key "business_photos", "businesses", on_delete: :cascade
   add_foreign_key "businesses", "payout_accounts"
   add_foreign_key "businesses", "payout_accounts", column: ["payout_account_id", "partner_id"], primary_key: ["id", "partner_id"], name: "fk_businesses_payout_account_partner"
   add_foreign_key "businesses", "users", column: "partner_id"

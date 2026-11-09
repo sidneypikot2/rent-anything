@@ -81,7 +81,7 @@ const FIRST_INCLUDES = 6;
 // Chips that describe a listing (its size, its route, a tour's group) rather than say what comes
 // with it: shown on the row, never offered under Includes.
 // Pets allowed has its own Pet-friendly choice, a vehicle's transmission its Transmission one.
-const NOT_INCLUDES = new Set(["guests", "seats", "luggage", "route", "engine", "sizes", "bed", "pets", "transmission"]);
+const NOT_INCLUDES = new Set(["guests", "seats", "luggage", "route", "engine", "sizes", "bed", "pets", "transmission", "clock"]);
 const takesPets = (offer: ListingOffer) => offer.features.some((feature) => feature.icon === "pets");
 // Rows a section shows under "All" before its "Show all N": the page stays short enough to reach
 // the places to see below it, on a phone too, and the section's own chip shows the rest.

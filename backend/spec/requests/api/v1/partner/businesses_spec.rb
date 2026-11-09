@@ -281,6 +281,58 @@ RSpec.describe "Partner businesses", type: :request do
         end
       end
 
+      response "200", "its shop page's hours, languages, host, stay rules and questions (RAA-281)" do
+        schema "$ref" => "#/components/schemas/partner_business"
+
+        let(:body) do
+          {
+            name: "Basilia Guest House",
+            hours: { opens_at: "07:00", closes_at: "21:00", closed_days: [ 0 ] },
+            languages: %w[en ceb],
+            host: { name: "Marisol", intro: "Six years on the island." },
+            stay_rules: { check_in_from: "14:00", check_in_until: "22:00", check_out_by: "11:00",
+                          house_rules: %w[no_smoking quiet_hours], quiet_from: "22:00", note: "No parties." },
+            faqs: [ { question: "Is there parking?", answer: "Yes, for two motorbikes." } ]
+          }
+        end
+
+        run_test! do |saved|
+          expect(saved.parsed_body).to include(
+            "hours" => { "opens_at" => "07:00", "closes_at" => "21:00", "closed_days" => [ 0 ] },
+            "languages" => %w[en ceb],
+            "host" => { "name" => "Marisol", "intro" => "Six years on the island." },
+            "faqs" => [ { "question" => "Is there parking?", "answer" => "Yes, for two motorbikes." } ],
+            "logo" => nil, "cover_photos" => []
+          )
+          expect(saved.parsed_body["stay_rules"]).to include("check_out_by" => "11:00", "house_rules" => %w[no_smoking quiet_hours])
+
+          patch "/api/v1/partner/businesses/#{id}", headers: { Authorization: bearer_for(user) }, as: :json,
+            params: { name: "Basilia Guest House", hours: nil, faqs: nil }
+          expect(response.parsed_body).to include("hours" => nil, "faqs" => [], "languages" => %w[en ceb])
+        end
+      end
+
+      response "422", "shop details that don't fit (RAA-281)" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:body) do
+          {
+            name: "Basilia Guest House",
+            hours: { opens_at: "21:00", closes_at: "07:15" },
+            languages: [ "xx" ],
+            faqs: Array.new(7) { { question: "Q?", answer: "A." } }
+          }
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to include(
+            "Closes at must be a time on the hour or half hour", "Languages must be from en, tl, ceb, ilo, ko, zh, ja, de, fr, es",
+            "Good to know can have at most 6 questions"
+          )
+          expect(business.reload.languages).to eq([])
+        end
+      end
+
       response "422", "another partner's payout account, or not an id" do
         schema "$ref" => "#/components/schemas/validation_errors"
 

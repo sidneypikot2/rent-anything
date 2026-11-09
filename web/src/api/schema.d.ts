@@ -1990,7 +1990,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description a tour names its published stops, by name */
+                /** @description a tour names its published stops, in the order it makes them */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -3734,6 +3734,334 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/partner/businesses/{business_id}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a cover photo to a business
+         * @description Partner-only (RAA-281). As a listing photo: `PUT` the file's bytes to `upload.url` with exactly `upload.headers`, then confirm with `PATCH`. It goes after the others; the first leads the shop page. At most 8.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    business_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["photo_upload_body"];
+                };
+            };
+            responses: {
+                /** @description the new photo, still uploading, after the others */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["photo_upload"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's business */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description one too many */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partner/businesses/{business_id}/photos/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: number;
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a business photo
+         * @description Partner-only (RAA-281). The ones after it move up.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    business_id: number;
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description deleted, the next one first */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Confirm a business photo's upload, or move it
+         * @description Partner-only (RAA-281). `uploaded: true` once the file is in storage, and/or `position` to move it; 1 makes it lead the shop page.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    business_id: number;
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["admin_photo_update_body"];
+                };
+            };
+            responses: {
+                /** @description moved first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_photo"];
+                    };
+                };
+                /** @description another partner's business photo */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/partner/businesses/{business_id}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                business_id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a business's logo
+         * @description Partner-only (RAA-281). Replaces the logo before. Then `PUT` the file to `upload.url` and confirm with `PATCH`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    business_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["photo_upload_body"];
+                };
+            };
+            responses: {
+                /** @description the new logo, still uploading, in place of the old one */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["photo_upload"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description another partner's business */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description not a photo we take */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        /**
+         * Delete a business's logo
+         * @description Partner-only (RAA-281).
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    business_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /**
+         * Confirm a business logo's upload
+         * @description Partner-only (RAA-281). `uploaded: true` once the file is in storage.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path: {
+                    business_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        uploaded: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description uploaded, sizes on the way */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["partner_photo"];
+                    };
+                };
+                /** @description no logo yet */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/v1/partner/businesses": {
         parameters: {
             query?: never;
@@ -3941,7 +4269,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description the payout account cleared with null; left out, it stays */
+                /** @description its shop page's hours, languages, host, stay rules and questions (RAA-281) */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -8406,6 +8734,42 @@ export interface components {
                 label: string;
                 account_number_last4: string;
             } | null;
+            /** @description One daily range, and the weekdays it is closed (0 Sunday to 6) */
+            hours: {
+                /** @example 08:30 */
+                opens_at: string;
+                /** @example 08:30 */
+                closes_at: string;
+                closed_days: number[];
+            } | null;
+            languages: ("en" | "tl" | "ceb" | "ilo" | "ko" | "zh" | "ja" | "de" | "fr" | "es")[];
+            /** @description Who hosts a stay there */
+            host: {
+                name: string;
+                intro: string | null;
+            } | null;
+            /** @description The rules every stay there keeps */
+            stay_rules: {
+                /** @example 08:30 */
+                check_in_from: string | null;
+                /** @example 08:30 */
+                check_in_until: string | null;
+                /** @example 08:30 */
+                check_out_by: string | null;
+                house_rules: ("no_smoking" | "no_parties" | "quiet_hours" | "no_visitors")[];
+                /** @example 08:30 */
+                quiet_from: string | null;
+                note: string | null;
+            } | null;
+            /** @description Good to know: questions and answers, in the partner's order */
+            faqs: {
+                question: string;
+                answer: string;
+            }[];
+            /** @description Its logo (RAA-281); null for none */
+            logo: components["schemas"]["partner_photo"] | null;
+            /** @description Its cover photos in order (RAA-281); the first leads its shop page */
+            cover_photos: components["schemas"]["partner_photo"][];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -8434,6 +8798,37 @@ export interface components {
             };
             /** @description One of the partner's payout accounts (RAA-145); null clears it, left out it stays */
             payout_account_id?: number | null;
+            /** @description Opening hours; both times or neither */
+            hours?: {
+                /** @example 08:30 */
+                opens_at: string;
+                /** @example 08:30 */
+                closes_at: string;
+                closed_days: number[];
+            } | null;
+            languages?: ("en" | "tl" | "ceb" | "ilo" | "ko" | "zh" | "ja" | "de" | "fr" | "es")[];
+            host?: {
+                name?: string;
+                intro?: string | null;
+            } | null;
+            /** @description Every key optional; a missing one is cleared */
+            stay_rules?: {
+                /** @example 08:30 */
+                check_in_from?: string | null;
+                /** @example 08:30 */
+                check_in_until?: string | null;
+                /** @example 08:30 */
+                check_out_by?: string | null;
+                house_rules?: ("no_smoking" | "no_parties" | "quiet_hours" | "no_visitors")[];
+                /** @example 08:30 */
+                quiet_from?: string | null;
+                note?: string | null;
+            } | null;
+            /** @description Good to know: questions and answers, in the partner's order */
+            faqs?: {
+                question: string;
+                answer: string;
+            }[];
         };
         payout_account: {
             id: number;
@@ -8564,8 +8959,8 @@ export interface components {
         price_unit: "night" | "group" | "person" | "day" | "trip" | "unit" | null;
         tour_inclusion: {
             /** @enum {string} */
-            kind: "accommodation" | "transport" | "meal";
-            /** @description transport: van, tricycle, boat, motorbike, car or other (at least one); meal: snack, breakfast, lunch or dinner (at least one); accommodation: none. In that order */
+            kind: "accommodation" | "transport" | "meal" | "guide" | "gear" | "entrance_fees";
+            /** @description transport: van, tricycle, boat, motorbike, car or other (at least one); meal: snack, breakfast, lunch or dinner (at least one); accommodation, guide, gear, entrance_fees (RAA-281): none. In that order */
             options: string[];
             /** @description E.g. "Beach cottage, 1 night" */
             note: string | null;
@@ -8577,7 +8972,7 @@ export interface components {
              * @description Each kind at most once
              * @enum {string}
              */
-            kind: "accommodation" | "transport" | "meal";
+            kind: "accommodation" | "transport" | "meal" | "guide" | "gear" | "entrance_fees";
             /** @description As in tour_inclusion */
             options?: string[];
             note?: string | null;
@@ -8600,7 +8995,11 @@ export interface components {
              * @enum {string}
              */
             price_unit: "group" | "person";
-            /** @description accommodation, meal, transport, each at most once */
+            /** @description When it starts, sorted (RAA-281); empty: any time */
+            start_times: string[];
+            /** @description What it leaves out (RAA-281) */
+            not_included: string | null;
+            /** @description Each kind at most once */
             inclusions: components["schemas"]["tour_inclusion"][];
         };
         guest_tour: {
@@ -8613,6 +9012,10 @@ export interface components {
             base_price_cents: number;
             /** @enum {string} */
             price_unit: "group" | "person";
+            /** @description When it starts, sorted (RAA-281); empty: any time */
+            start_times: string[];
+            /** @description What it leaves out (RAA-281) */
+            not_included: string | null;
             inclusions: components["schemas"]["tour_inclusion"][];
         };
         activity_offer: {
@@ -8723,6 +9126,10 @@ export interface components {
             /** @enum {string} */
             duration_unit: "hours" | "days";
             base_price_cents: number;
+            /** @description Each on the hour or half hour (RAA-281); left out or empty: any time */
+            start_times?: string[];
+            /** @description Optional (RAA-281) */
+            not_included?: string | null;
             /** @description Left out: none */
             inclusions?: components["schemas"]["tour_inclusion_body"][];
         };
@@ -9049,7 +9456,7 @@ export interface components {
             /** @enum {boolean} */
             uploaded: true;
         };
-        /** @description Only the keys the listing has, from: guide_included, seats, luggage (bags a transfer carries), route, sizes, accessories, lenses, engine_cc, transmission, guests (how many a stay sleeps), rooms ([{beds: [{type, count}]}]), bathroom, amenities (a stay's or a vehicle's), place_type, and a jet ski's brand, model, horsepower and features (RAA-273) */
+        /** @description Only the keys the listing has, from: guide_included, seats, luggage (bags a transfer carries), route, sizes, accessories, lenses, engine_cc, transmission, guests (how many a stay sleeps), rooms ([{beds: [{type, count}]}]), bathroom, amenities (a stay's or a vehicle's), place_type, a jet ski's brand, model, horsepower and features (RAA-273), and a vehicle's licence_required (RAA-281) */
         listing_details: {
             [key: string]: unknown;
         };
@@ -9079,7 +9486,7 @@ export interface components {
             /** @description What a tour can include (RAA-110), each kind with the options it takes, in order */
             tour_inclusions: {
                 /** @enum {string} */
-                kind: "accommodation" | "transport" | "meal";
+                kind: "accommodation" | "transport" | "meal" | "guide" | "gear" | "entrance_fees";
                 options: string[];
             }[];
             /** @description What a water activity can include (RAA-271), in order */
@@ -9220,11 +9627,21 @@ export interface components {
             /** @description Its first ready photos, in the partner's order */
             photos: components["schemas"]["photo_urls"][];
             details: components["schemas"]["listing_details"];
-            /** @description A tour's kind and the group it takes; null for anything else */
+            /** @description A tour's kind and the group it takes, and for its shop page (RAA-281) when it starts, its jump-off point, what it includes and leaves out; null for anything else */
             tour: {
                 tour_type: components["schemas"]["tour_type"];
                 min_guests: number;
                 max_guests: number;
+                /** @description Sorted; empty: any time */
+                start_times: string[];
+                not_included: string | null;
+                /** @description Its inclusions' kinds */
+                inclusions: ("accommodation" | "transport" | "meal" | "guide" | "gear" | "entrance_fees")[];
+                /** @description Where it leaves from: the listing's street and town */
+                jump_off: {
+                    street: string | null;
+                    city: string | null;
+                };
             } | null;
             cancellation_policy: components["schemas"]["cancellation_policy"];
             /** @description A vehicle's delivery and pick-up fees, priced or not, so its card says how it reaches the guest (RAA-204, RAA-205); null for anything else */
@@ -9235,8 +9652,10 @@ export interface components {
                 return_pickup_fee_cents: number | null;
                 /** @description A motorcycle's child helmet per helmet and day (0 is included); null when the shop has none (RAA-205) */
                 child_helmet_fee_cents: number | null;
+                /** @description Its security deposit (0: none); null with no rate (RAA-281) */
+                deposit_cents: number | null;
             } | null;
-            /** @description The published places to see it stops at, by name; stops have no order */
+            /** @description The published places to see it stops at, in the order it makes them (RAA-281) */
             goes_to: {
                 slug: string;
                 name: string;
@@ -9298,6 +9717,47 @@ export interface components {
                 description: string;
                 city: string | null;
                 province: string | null;
+                /** @description Null when it only offers stays: shown once booked */
+                street: string | null;
+                /** @description Its pin; null when it only offers stays or has none */
+                location: components["schemas"]["lat_lng"] | null;
+                /** @description Its partner passed the ID check */
+                verified: boolean;
+                /** @description One daily range, and the weekdays it is closed (0 Sunday to 6) */
+                hours: {
+                    /** @example 08:30 */
+                    opens_at: string;
+                    /** @example 08:30 */
+                    closes_at: string;
+                    closed_days: number[];
+                } | null;
+                languages: ("en" | "tl" | "ceb" | "ilo" | "ko" | "zh" | "ja" | "de" | "fr" | "es")[];
+                /** @description Who hosts a stay there */
+                host: {
+                    name: string;
+                    intro: string | null;
+                } | null;
+                /** @description The rules every stay there keeps */
+                stay_rules: {
+                    /** @example 08:30 */
+                    check_in_from: string | null;
+                    /** @example 08:30 */
+                    check_in_until: string | null;
+                    /** @example 08:30 */
+                    check_out_by: string | null;
+                    house_rules: ("no_smoking" | "no_parties" | "quiet_hours" | "no_visitors")[];
+                    /** @example 08:30 */
+                    quiet_from: string | null;
+                    note: string | null;
+                } | null;
+                /** @description Good to know: questions and answers, in the partner's order */
+                faqs: {
+                    question: string;
+                    answer: string;
+                }[];
+                logo: components["schemas"]["photo_urls"] | null;
+                /** @description Ready ones, in order */
+                cover_photos: components["schemas"]["photo_urls"][];
             };
             /** @description The published place most of its listings are in: the page's way back and its trip */
             area: components["schemas"]["area"];

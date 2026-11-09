@@ -466,6 +466,14 @@ test("water activity wizard", async ({ browser, baseURL }) => {
   await wizard.getByLabel("Title").fill(`Smoke jet ski ${Date.now()}`);
   await next();
 
+  // The jet ski itself (RAA-273): brand, model, engine, its seats and a feature.
+  await expect(page.getByTestId("listing-jet-ski")).toBeVisible();
+  await page.getByTestId("jet-ski-brand").fill("Yamaha");
+  await page.getByTestId("jet-ski-model").fill("VX Cruiser");
+  await page.getByTestId("jet-ski-engine").fill("1049");
+  await page.getByTestId("jet-ski-feature-reverse_gear").check();
+  await next();
+
   await expect(page.getByTestId("listing-step-meeting")).toBeVisible();
   const same = wizard.getByLabel(/^Same as /);
   if ((await same.count()) && (await same.isChecked())) await same.uncheck();
@@ -508,6 +516,8 @@ test("water activity wizard", async ({ browser, baseURL }) => {
   const review = page.getByTestId("activity-review");
   await expect(review).toContainText("15 minutes: ₱1,500, up to 2 riders");
   await expect(review).toContainText("Drone shot ₱500");
+  await expect(review).toContainText("Yamaha VX Cruiser · 1049 cc");
+  await expect(review).toContainText("Reverse gear");
   await page.getByTestId("listing-save").click();
   await expect(page.getByTestId("listing-step-photos")).toBeVisible();
   await page.getByTestId("listing-photos-next").click();
@@ -525,6 +535,8 @@ test("water activity wizard", async ({ browser, baseURL }) => {
   await expect(page.getByTestId("activity-inclusion-life_vest")).toBeChecked();
   await expect(page.getByTestId("activity-add-on-drone_shot").getByTestId("activity-add-on-price")).toHaveValue("500");
   await expect(page.getByTestId("pricing-zone")).toHaveCount(2);
+  await expect(page.getByTestId("jet-ski-model")).toHaveValue("VX Cruiser");
+  await expect(page.getByTestId("jet-ski-feature-reverse_gear")).toBeChecked();
   expect(errors).toEqual([]);
   await context.close();
 });
@@ -722,6 +734,74 @@ test("add to trip without an account", async ({ page, browser }) => {
   await expect(elsewhere).toHaveURL(/\/cart$/);
   await expect(elsewhere.getByTestId("cart-trip").filter({ hasText: `Smoke trip ${stamp}` })).toBeVisible();
   await other.close();
+
+  expect(errors).toEqual([]);
+});
+
+// A business's shop page (RAA-281): a sample partner sets its opening hours, a language and a
+// question on its business, and a guest finds them on the business's page. The sample businesses
+// have no address yet, which the form requires, so it gets one (and its pin from "Use my
+// location", as in the water activity wizard).
+test("business settings and shop page", async ({ browser, baseURL }) => {
+  test.setTimeout(180_000);
+  const context = await browser.newContext({
+    baseURL,
+    geolocation: { latitude: 11.172, longitude: 123.801 },
+    permissions: ["geolocation"],
+  });
+  const page = await context.newPage();
+  const errors = [];
+  collectErrors(page, errors);
+
+  await expect(async () => {
+    await page.goto("/partner/login");
+    await page.getByLabel("Email").fill("kota-beach-boat-tours@example.com");
+    await page.getByLabel("Password", { exact: true }).fill("password123");
+    await page.getByLabel("Password", { exact: true }).press("Enter");
+    await expect(page).toHaveURL(/\/partner\/dashboard$/, { timeout: 20_000 });
+  }).toPass({ timeout: 60_000 });
+
+  await page.goto("/partner/listings");
+  await page.getByTestId("business-edit").first().click();
+  await expect(page).toHaveURL(/\/partner\/businesses\/\d+\/edit$/, { timeout: 20_000 });
+  const id = page.url().match(/businesses\/(\d+)\/edit/)[1];
+  const form = page.getByTestId("business-form");
+  await expect(form).toBeVisible({ timeout: 20_000 });
+
+  if (!(await form.getByLabel("Street").inputValue())) {
+    await form.getByRole("combobox", { name: "Region" }).fill("central vis");
+    await page.getByRole("option", { name: "Central Visayas" }).click();
+    await form.getByRole("combobox", { name: "Province" }).fill("Cebu");
+    await page.getByRole("option", { name: "Cebu", exact: true }).click();
+    await form.getByRole("combobox", { name: "City / Municipality" }).fill("Santa Fe");
+    await page.getByRole("option", { name: "Santa Fe" }).first().click();
+    await form.getByLabel("Street").fill("Kota Beach");
+    await page.getByTestId("use-my-location").click();
+  }
+
+  const hours = page.getByTestId("business-hours-on");
+  if (!(await hours.isChecked())) await hours.check();
+  await page.getByTestId("business-opens-at").selectOption("07:00");
+  await page.getByTestId("business-closes-at").selectOption("21:00");
+  const english = page.getByTestId("business-languages").getByLabel("English");
+  if (!(await english.isChecked())) await english.check();
+  const question = `Is the boat covered? ${Date.now()}`;
+  await page.getByTestId("business-faq-add").click();
+  await form.getByLabel(/^Question \d+$/).last().fill(question);
+  await form.getByLabel("Answer").last().fill("Yes, there is a shade over the deck.");
+  await page.getByTestId("business-save").click();
+  await expect(page).toHaveURL(/\/partner\/listings$/, { timeout: 20_000 });
+
+  const guest = await context.newPage();
+  collectErrors(guest, errors);
+  await guest.goto(`/businesses/${id}`);
+  await expect(guest.getByTestId("business-trust")).toContainText("English");
+  await expect(guest.getByTestId("business-where")).toContainText("7:00 AM – 9:00 PM");
+  const goodToKnow = guest.getByTestId("business-good-to-know");
+  await goodToKnow.getByText(question).click();
+  await expect(goodToKnow).toContainText("Yes, there is a shade over the deck.");
+  await expect(guest.getByTestId("business-options-list")).toBeVisible();
+  await context.close();
 
   expect(errors).toEqual([]);
 });

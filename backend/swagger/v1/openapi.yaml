@@ -1442,7 +1442,7 @@ paths:
         required: true
       responses:
         '200':
-          description: a tour names its published stops, by name
+          description: a tour names its published stops, in the order it makes them
           content:
             application/json:
               schema:
@@ -2686,6 +2686,225 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+  "/api/v1/partner/businesses/{business_id}/photos":
+    parameters:
+    - name: business_id
+      in: path
+      schema:
+        type: integer
+      required: true
+    post:
+      summary: Add a cover photo to a business
+      tags:
+      - Partner
+      description: 'Partner-only (RAA-281). As a listing photo: `PUT` the file''s
+        bytes to `upload.url` with exactly `upload.headers`, then confirm with `PATCH`.
+        It goes after the others; the first leads the shop page. At most 8.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: the new photo, still uploading, after the others
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/photo_upload"
+        '422':
+          description: one too many
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another partner's business
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/photo_upload_body"
+  "/api/v1/partner/businesses/{business_id}/photos/{id}":
+    parameters:
+    - name: business_id
+      in: path
+      schema:
+        type: integer
+      required: true
+    - name: id
+      in: path
+      schema:
+        type: integer
+      required: true
+    patch:
+      summary: Confirm a business photo's upload, or move it
+      tags:
+      - Partner
+      description: 'Partner-only (RAA-281). `uploaded: true` once the file is in storage,
+        and/or `position` to move it; 1 makes it lead the shop page.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: moved first
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_photo"
+        '404':
+          description: another partner's business photo
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/admin_photo_update_body"
+    delete:
+      summary: Delete a business photo
+      tags:
+      - Partner
+      description: Partner-only (RAA-281). The ones after it move up.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '204':
+          description: deleted, the next one first
+        '403':
+          description: a guest
+  "/api/v1/partner/businesses/{business_id}/logo":
+    parameters:
+    - name: business_id
+      in: path
+      schema:
+        type: integer
+      required: true
+    post:
+      summary: Add a business's logo
+      tags:
+      - Partner
+      description: Partner-only (RAA-281). Replaces the logo before. Then `PUT` the
+        file to `upload.url` and confirm with `PATCH`.
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '201':
+          description: the new logo, still uploading, in place of the old one
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/photo_upload"
+        '422':
+          description: not a photo we take
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '404':
+          description: another partner's business
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/photo_upload_body"
+    patch:
+      summary: Confirm a business logo's upload
+      tags:
+      - Partner
+      description: 'Partner-only (RAA-281). `uploaded: true` once the file is in storage.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '200':
+          description: uploaded, sizes on the way
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/partner_photo"
+        '404':
+          description: no logo yet
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                uploaded:
+                  type: boolean
+              required:
+              - uploaded
+    delete:
+      summary: Delete a business's logo
+      tags:
+      - Partner
+      description: Partner-only (RAA-281).
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '204':
+          description: deleted
+        '401':
+          description: signed out
   "/api/v1/partner/businesses":
     get:
       summary: The signed-in partner's businesses
@@ -2822,7 +3041,8 @@ paths:
       parameters: []
       responses:
         '200':
-          description: the payout account cleared with null; left out, it stays
+          description: its shop page's hours, languages, host, stay rules and questions
+            (RAA-281)
           content:
             application/json:
               schema:
@@ -7293,6 +7513,133 @@ components:
           - kind
           - label
           - account_number_last4
+        hours:
+          type: object
+          nullable: true
+          description: One daily range, and the weekdays it is closed (0 Sunday to
+            6)
+          properties:
+            opens_at:
+              type: string
+              pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+              example: '08:30'
+            closes_at:
+              type: string
+              pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+              example: '08:30'
+            closed_days:
+              type: array
+              items:
+                type: integer
+                minimum: 0
+                maximum: 6
+          required:
+          - opens_at
+          - closes_at
+          - closed_days
+        languages:
+          type: array
+          items:
+            type: string
+            enum:
+            - en
+            - tl
+            - ceb
+            - ilo
+            - ko
+            - zh
+            - ja
+            - de
+            - fr
+            - es
+        host:
+          type: object
+          nullable: true
+          description: Who hosts a stay there
+          properties:
+            name:
+              type: string
+              maxLength: 60
+            intro:
+              type: string
+              maxLength: 160
+              nullable: true
+          required:
+          - name
+          - intro
+        stay_rules:
+          type: object
+          nullable: true
+          description: The rules every stay there keeps
+          properties:
+            check_in_from:
+              type: string
+              pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+              example: '08:30'
+              nullable: true
+            check_in_until:
+              type: string
+              pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+              example: '08:30'
+              nullable: true
+            check_out_by:
+              type: string
+              pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+              example: '08:30'
+              nullable: true
+            house_rules:
+              type: array
+              items:
+                type: string
+                enum:
+                - no_smoking
+                - no_parties
+                - quiet_hours
+                - no_visitors
+            quiet_from:
+              type: string
+              pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+              example: '08:30'
+              nullable: true
+            note:
+              type: string
+              maxLength: 300
+              nullable: true
+          required:
+          - check_in_from
+          - check_in_until
+          - check_out_by
+          - house_rules
+          - quiet_from
+          - note
+        faqs:
+          type: array
+          maxItems: 6
+          description: 'Good to know: questions and answers, in the partner''s order'
+          items:
+            type: object
+            properties:
+              question:
+                type: string
+                maxLength: 120
+              answer:
+                type: string
+                maxLength: 500
+            required:
+            - question
+            - answer
+        logo:
+          allOf:
+          - "$ref": "#/components/schemas/partner_photo"
+          nullable: true
+          description: Its logo (RAA-281); null for none
+        cover_photos:
+          type: array
+          maxItems: 8
+          items:
+            "$ref": "#/components/schemas/partner_photo"
+          description: Its cover photos in order (RAA-281); the first leads its shop
+            page
         created_at:
           type: string
           format: date-time
@@ -7307,6 +7654,13 @@ components:
       - location
       - listings_count
       - payout_account
+      - hours
+      - languages
+      - host
+      - stay_rules
+      - faqs
+      - logo
+      - cover_photos
       - created_at
       - updated_at
     business_body:
@@ -7365,6 +7719,109 @@ components:
           nullable: true
           description: One of the partner's payout accounts (RAA-145); null clears
             it, left out it stays
+        hours:
+          type: object
+          nullable: true
+          description: Opening hours; both times or neither
+          properties:
+            opens_at:
+              type: string
+              pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+              example: '08:30'
+            closes_at:
+              type: string
+              pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+              example: '08:30'
+            closed_days:
+              type: array
+              items:
+                type: integer
+                minimum: 0
+                maximum: 6
+          required:
+          - opens_at
+          - closes_at
+          - closed_days
+        languages:
+          type: array
+          items:
+            type: string
+            enum:
+            - en
+            - tl
+            - ceb
+            - ilo
+            - ko
+            - zh
+            - ja
+            - de
+            - fr
+            - es
+        host:
+          type: object
+          nullable: true
+          properties:
+            name:
+              type: string
+              maxLength: 60
+            intro:
+              type: string
+              maxLength: 160
+              nullable: true
+        stay_rules:
+          type: object
+          nullable: true
+          description: Every key optional; a missing one is cleared
+          properties:
+            check_in_from:
+              type: string
+              pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+              example: '08:30'
+              nullable: true
+            check_in_until:
+              type: string
+              pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+              example: '08:30'
+              nullable: true
+            check_out_by:
+              type: string
+              pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+              example: '08:30'
+              nullable: true
+            house_rules:
+              type: array
+              items:
+                type: string
+                enum:
+                - no_smoking
+                - no_parties
+                - quiet_hours
+                - no_visitors
+            quiet_from:
+              type: string
+              pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+              example: '08:30'
+              nullable: true
+            note:
+              type: string
+              maxLength: 300
+              nullable: true
+        faqs:
+          type: array
+          maxItems: 6
+          description: 'Good to know: questions and answers, in the partner''s order'
+          items:
+            type: object
+            properties:
+              question:
+                type: string
+                maxLength: 120
+              answer:
+                type: string
+                maxLength: 500
+            required:
+            - question
+            - answer
       required:
       - name
     payout_account:
@@ -7729,13 +8186,16 @@ components:
           - accommodation
           - transport
           - meal
+          - guide
+          - gear
+          - entrance_fees
         options:
           type: array
           items:
             type: string
           description: 'transport: van, tricycle, boat, motorbike, car or other (at
-            least one); meal: snack, breakfast, lunch or dinner (at least one); accommodation:
-            none. In that order'
+            least one); meal: snack, breakfast, lunch or dinner (at least one); accommodation,
+            guide, gear, entrance_fees (RAA-281): none. In that order'
         note:
           type: string
           maxLength: 120
@@ -7759,6 +8219,9 @@ components:
           - accommodation
           - transport
           - meal
+          - guide
+          - gear
+          - entrance_fees
           description: Each kind at most once
         options:
           type: array
@@ -7812,11 +8275,23 @@ components:
           - group
           - person
           description: 'Private: group; joiner: person'
+        start_times:
+          type: array
+          maxItems: 8
+          items:
+            type: string
+            pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+          description: 'When it starts, sorted (RAA-281); empty: any time'
+        not_included:
+          type: string
+          maxLength: 300
+          nullable: true
+          description: What it leaves out (RAA-281)
         inclusions:
           type: array
           items:
             "$ref": "#/components/schemas/tour_inclusion"
-          description: accommodation, meal, transport, each at most once
+          description: Each kind at most once
       required:
       - tour_type
       - min_guests
@@ -7826,6 +8301,8 @@ components:
       - duration_unit
       - base_price_cents
       - price_unit
+      - start_times
+      - not_included
       - inclusions
     guest_tour:
       type: object
@@ -7850,6 +8327,18 @@ components:
           enum:
           - group
           - person
+        start_times:
+          type: array
+          maxItems: 8
+          items:
+            type: string
+            pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+          description: 'When it starts, sorted (RAA-281); empty: any time'
+        not_included:
+          type: string
+          maxLength: 300
+          nullable: true
+          description: What it leaves out (RAA-281)
         inclusions:
           type: array
           items:
@@ -7862,6 +8351,8 @@ components:
       - duration_unit
       - base_price_cents
       - price_unit
+      - start_times
+      - not_included
       - inclusions
     activity_offer:
       type: object
@@ -8179,11 +8670,24 @@ components:
         base_price_cents:
           type: integer
           minimum: 1
+        start_times:
+          type: array
+          maxItems: 8
+          items:
+            type: string
+            example: '07:30'
+          description: 'Each on the hour or half hour (RAA-281); left out or empty:
+            any time'
+        not_included:
+          type: string
+          maxLength: 300
+          nullable: true
+          description: Optional (RAA-281)
         inclusions:
           type: array
           items:
             "$ref": "#/components/schemas/tour_inclusion_body"
-          maxItems: 3
+          maxItems: 6
           description: 'Left out: none'
       required:
       - tour_type
@@ -9047,8 +9551,8 @@ components:
       description: 'Only the keys the listing has, from: guide_included, seats, luggage
         (bags a transfer carries), route, sizes, accessories, lenses, engine_cc, transmission,
         guests (how many a stay sleeps), rooms ([{beds: [{type, count}]}]), bathroom,
-        amenities (a stay''s or a vehicle''s), place_type, and a jet ski''s brand,
-        model, horsepower and features (RAA-273)'
+        amenities (a stay''s or a vehicle''s), place_type, a jet ski''s brand, model,
+        horsepower and features (RAA-273), and a vehicle''s licence_required (RAA-281)'
     cancellation_policy:
       type: string
       enum:
@@ -9116,6 +9620,9 @@ components:
                 - accommodation
                 - transport
                 - meal
+                - guide
+                - gear
+                - entrance_fees
               options:
                 type: array
                 items:
@@ -9509,7 +10016,9 @@ components:
         tour:
           type: object
           nullable: true
-          description: A tour's kind and the group it takes; null for anything else
+          description: A tour's kind and the group it takes, and for its shop page
+            (RAA-281) when it starts, its jump-off point, what it includes and leaves
+            out; null for anything else
           properties:
             tour_type:
               "$ref": "#/components/schemas/tour_type"
@@ -9519,10 +10028,47 @@ components:
             max_guests:
               type: integer
               minimum: 1
+            start_times:
+              type: array
+              items:
+                type: string
+              description: 'Sorted; empty: any time'
+            not_included:
+              type: string
+              nullable: true
+            inclusions:
+              type: array
+              items:
+                type: string
+                enum:
+                - accommodation
+                - transport
+                - meal
+                - guide
+                - gear
+                - entrance_fees
+              description: Its inclusions' kinds
+            jump_off:
+              type: object
+              description: 'Where it leaves from: the listing''s street and town'
+              properties:
+                street:
+                  type: string
+                  nullable: true
+                city:
+                  type: string
+                  nullable: true
+              required:
+              - street
+              - city
           required:
           - tour_type
           - min_guests
           - max_guests
+          - start_times
+          - not_included
+          - inclusions
+          - jump_off
         cancellation_policy:
           "$ref": "#/components/schemas/cancellation_policy"
         handover:
@@ -9547,14 +10093,19 @@ components:
               nullable: true
               description: A motorcycle's child helmet per helmet and day (0 is included);
                 null when the shop has none (RAA-205)
+            deposit_cents:
+              type: integer
+              nullable: true
+              description: 'Its security deposit (0: none); null with no rate (RAA-281)'
           required:
           - delivery_fee_cents
           - return_pickup_fee_cents
           - child_helmet_fee_cents
+          - deposit_cents
         goes_to:
           type: array
-          description: The published places to see it stops at, by name; stops have
-            no order
+          description: The published places to see it stops at, in the order it makes
+            them (RAA-281)
           items:
             type: object
             properties:
@@ -9735,12 +10286,159 @@ components:
             province:
               type: string
               nullable: true
+            street:
+              type: string
+              nullable: true
+              description: 'Null when it only offers stays: shown once booked'
+            location:
+              allOf:
+              - "$ref": "#/components/schemas/lat_lng"
+              nullable: true
+              description: Its pin; null when it only offers stays or has none
+            verified:
+              type: boolean
+              description: Its partner passed the ID check
+            hours:
+              type: object
+              nullable: true
+              description: One daily range, and the weekdays it is closed (0 Sunday
+                to 6)
+              properties:
+                opens_at:
+                  type: string
+                  pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+                  example: '08:30'
+                closes_at:
+                  type: string
+                  pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+                  example: '08:30'
+                closed_days:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 0
+                    maximum: 6
+              required:
+              - opens_at
+              - closes_at
+              - closed_days
+            languages:
+              type: array
+              items:
+                type: string
+                enum:
+                - en
+                - tl
+                - ceb
+                - ilo
+                - ko
+                - zh
+                - ja
+                - de
+                - fr
+                - es
+            host:
+              type: object
+              nullable: true
+              description: Who hosts a stay there
+              properties:
+                name:
+                  type: string
+                  maxLength: 60
+                intro:
+                  type: string
+                  maxLength: 160
+                  nullable: true
+              required:
+              - name
+              - intro
+            stay_rules:
+              type: object
+              nullable: true
+              description: The rules every stay there keeps
+              properties:
+                check_in_from:
+                  type: string
+                  pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+                  example: '08:30'
+                  nullable: true
+                check_in_until:
+                  type: string
+                  pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+                  example: '08:30'
+                  nullable: true
+                check_out_by:
+                  type: string
+                  pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+                  example: '08:30'
+                  nullable: true
+                house_rules:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                    - no_smoking
+                    - no_parties
+                    - quiet_hours
+                    - no_visitors
+                quiet_from:
+                  type: string
+                  pattern: "^([01][0-9]|2[0-3]):(00|30)$"
+                  example: '08:30'
+                  nullable: true
+                note:
+                  type: string
+                  maxLength: 300
+                  nullable: true
+              required:
+              - check_in_from
+              - check_in_until
+              - check_out_by
+              - house_rules
+              - quiet_from
+              - note
+            faqs:
+              type: array
+              maxItems: 6
+              description: 'Good to know: questions and answers, in the partner''s
+                order'
+              items:
+                type: object
+                properties:
+                  question:
+                    type: string
+                    maxLength: 120
+                  answer:
+                    type: string
+                    maxLength: 500
+                required:
+                - question
+                - answer
+            logo:
+              allOf:
+              - "$ref": "#/components/schemas/photo_urls"
+              nullable: true
+            cover_photos:
+              type: array
+              items:
+                "$ref": "#/components/schemas/photo_urls"
+              description: Ready ones, in order
           required:
           - id
           - name
           - description
           - city
           - province
+          - street
+          - location
+          - verified
+          - hours
+          - languages
+          - host
+          - stay_rules
+          - faqs
+          - logo
+          - cover_photos
         area:
           allOf:
           - "$ref": "#/components/schemas/area"

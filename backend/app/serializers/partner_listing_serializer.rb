@@ -6,11 +6,12 @@
 # what it lacks to go live. Preload ASSOCIATIONS, and pass destinations for a list.
 module PartnerListingSerializer
   ASSOCIATIONS = [ :business, :area, :units, :stay_rate, :vehicle_rate, :flat_rate, :fees, :photos, *Listing::TOUR_ASSOCIATIONS,
-    *Listing::ACTIVITY_ASSOCIATIONS, { category: :parent, visited_landmarks: :area } ].freeze
+    *Listing::ACTIVITY_ASSOCIATIONS, { category: :parent, visited_landmarks: :area }, :landmark_visits ].freeze
 
   def self.call(listing, destinations: PartnerLandmarkSerializer.destinations_for(listing.visited_landmarks))
     category = listing.category
-    landmarks = listing.visited_landmarks.sort_by(&:name).map { |landmark| PartnerLandmarkSerializer.call(landmark, destinations) }
+    order = listing.landmark_visits.map(&:landmark_id)
+    landmarks = listing.visited_landmarks.sort_by { |landmark| order.index(landmark.id) || order.size }.map { |landmark| PartnerLandmarkSerializer.call(landmark, destinations) }
     {
       id: listing.id,
       title: listing.title,
