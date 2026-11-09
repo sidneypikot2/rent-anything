@@ -35,7 +35,7 @@ export function tripHref(id: number) {
 }
 
 // A trip starts at the top of its destination's page, whose first section asks what the guest
-// wants to see; What to book follows.
+// wants to see.
 export function startTripHref(slug: string) {
   return `/${slug}?start=trip`;
 }

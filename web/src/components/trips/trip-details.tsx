@@ -498,7 +498,7 @@ function findStayHref(trip: Trip, gap: Missing) {
   const item = before ?? trip.items[0];
   const place = item.destination ?? item.area;
   const dates = tripDatesQuery({ from: trip.starts_on ?? undefined, to: trip.ends_on ?? undefined, guests: trip.guests });
-  return `/${place.slug}${dates}#need-stay`;
+  return `/${place.slug}/book${dates}#need-stay`;
 }
 
 function bookedLines(quote: TripQuote, items: TripItem[]) {

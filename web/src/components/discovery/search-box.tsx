@@ -18,7 +18,7 @@ import { apiClient } from "@/api/client";
 import { useHeroTripReport, useStartTrip } from "@/components/landing/hero-trip";
 import { LAUNCH_AREA, startTripHref } from "@/components/landing/launch-area";
 import { headcount, partyFromGuests, type Party } from "@/components/trips/party";
-import { readTripDates, tripDatesQuery, tripOwnQuery, withDates, type TripDates } from "@/components/trips/trip-dates";
+import { readTripDates, tripDatesQuery, withDates, type TripDates } from "@/components/trips/trip-dates";
 import { tripPlaces } from "@/components/trips/trip-places";
 import { useTripHere } from "@/components/trips/use-trip-here";
 import { useContinueTrip, type Trip } from "@/components/trips/use-trips";
@@ -954,17 +954,17 @@ type Item = {
   own?: boolean;
 };
 
-// The trip's other places, on its dates: "In your trip" before anything is typed.
+// The trip's other places: "In your trip" before anything is typed. A place's page never takes
+// the trip's dates (2026-11-09), so the link carries none.
 function tripPlaceItems(trip: Trip | undefined, hereArea: string | undefined, areas: AreaCard[] | undefined): Item[] {
   if (!trip) return [];
-  const dates = tripOwnQuery(trip);
   return tripPlaces(trip)
     .filter((place) => `/${place.slug}` !== hereArea)
     .map((place) => {
       const kind = areas?.find((area) => area.slug === place.slug)?.kind;
       return {
         group: "In your trip",
-        href: `/${place.slug}${dates}`,
+        href: `/${place.slug}`,
         icon: kind ? areaIcon(kind) : placeIcon(),
         title: place.name,
         note: `${thingCount(place.count)} · ${formatDateRange(trip.starts_on, trip.ends_on) ?? "No dates yet"}`,
@@ -977,7 +977,7 @@ function tripPlaceItems(trip: Trip | undefined, hereArea: string | undefined, ar
 
 // A search in the page's place: its What to book, narrowed to what was typed.
 function placeSearchHref(here: { area: string }, typed: string) {
-  return `${here.area}?q=${encodeURIComponent(typed)}#listings`;
+  return `${here.area}/book?q=${encodeURIComponent(typed)}`;
 }
 
 const LAUNCH_ITEM: Item = {
@@ -1081,12 +1081,12 @@ function suggestionItems(results: SearchResults, query: string, here?: { name: s
     })),
     ...results.listings.map((listing) => ({
       group: "Things to book",
-      // The listing's own row on its destination page.
-      href: `/${listing.area_slug}#listing-${listing.id}`,
+      // The listing's own row on its destination's What to book.
+      href: `/${listing.area_slug}/book#listing-${listing.id}`,
       icon: categoryIcon(listing.category),
       title: listing.title,
       note: listingNote(listing, results),
-      trip: `/${listing.area_slug}?start=trip#listing-${listing.id}`,
+      trip: `/${listing.area_slug}/book#listing-${listing.id}`,
     })),
     {
       group: "",

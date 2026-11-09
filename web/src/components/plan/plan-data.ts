@@ -7,14 +7,20 @@ import { distanceKm, type LatLng } from "@/lib/geo";
 
 // What the checklist and the review read of a place (plan a whole trip), built on the server
 // from the area and explore responses: how many options each step has, and the places to see
-// with their points and photos. A step's options are the businesses offering it, a page at a
-// time (usePlanBusinesses), each with its first listing's rounded point and the places to see its
-// listings go to; a card opens the business's own page.
-export type PlanBusiness = Omit<PlanBusinessesPage["businesses"][number], "goes_to"> & { goesTo: string[] };
+// with their points and photos. A step's options are cards, a page at a time (usePlanBusinesses):
+// a stay's is a business, any other one listing title of a business ("Mio 125 by …", `titled`),
+// each with its first listing's rounded point and the places to see its listings go to; a card
+// opens the business's own page (on that listing, a title card). `pin` is the card's own number
+// for its pin and the map (its lowest listing id), as one business can have several cards.
+export type PlanBusiness = Omit<PlanBusinessesPage["businesses"][number], "goes_to"> & {
+  goesTo: string[];
+  titled: boolean;
+  pin: number;
+};
 
 export function toPlanBusiness(business: PlanBusinessesPage["businesses"][number]): PlanBusiness {
   const { goes_to, ...rest } = business;
-  return { ...rest, goesTo: goes_to };
+  return { ...rest, goesTo: goes_to, titled: business.key !== String(business.id), pin: Math.min(...business.listing_ids) };
 }
 export type PlanLandmark = {
   slug: string;

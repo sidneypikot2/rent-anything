@@ -1,24 +1,21 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, type ComponentProps, type ReactNode } from "react";
 import { PageBanner } from "@/components/landing/page-banner";
-import { jumpToSection } from "@/components/area/area-nav";
-import { ButtonLink } from "@/components/ui/button";
+import { PlanTripLink } from "@/components/landing/plan-trip-start";
 import { cn } from "@/components/ui/cn";
 import { glassClasses } from "@/components/ui/glass";
 import { ArrowGlyph } from "@/components/discovery/tag-glyphs";
-import { tripOwnQuery } from "./trip-dates";
 import { type Sight } from "./trip-missing";
 import { TripPlan } from "./trip-plan-panel";
 import { useTripHere } from "./use-trip-here";
 
 // An area page's banner: the place's photo and name (`banner`, built on the server), and nothing about the guest's trip — the trip shows in
-// What to book (Your plan) and the closing band (AreaTripBand). Out of sight it still does two
-// things for the trip the page works on (useTripHere): puts the trip's own dates and guests into
-// a URL that has none (a bare link, the home's place cards), so prices and the add sheet start
-// from the trip; the page has no header search (`search={false}`, 2026-11-08); and mounts its guide (TripPlan), which What to book's Your
-// plan opens. `starting`: arrived from the home's "Start your trip" (RAA-80), dropped from the URL.
+// What to book (its own page, `book`) and the closing band (AreaTripBand). Out of sight it mounts the guide
+// (TripPlan) for the trip the page works on (useTripHere). It never puts that trip's dates or
+// guests into the URL (2026-11-09): the page shows only the dates the guest searched with. The
+// page has no header search (`search={false}`, 2026-11-08). `starting`: arrived from the home's "Start your trip" (RAA-80), dropped from the URL.
 // At its foot, one fixed lead (TripLead) saying how a trip starts and Plan
 // a trip: the same whatever trips the guest has, so the banner never switches on them.
 export function AreaHero({
@@ -30,6 +27,7 @@ export function AreaHero({
   sights = [],
   starting = false,
   plan,
+  book,
 }: {
   banner: {
     photo: ComponentProps<typeof PageBanner>["photo"];
@@ -48,21 +46,11 @@ export function AreaHero({
   starting?: boolean;
   // Plan a whole trip on this place (RAA-252): the lead's main button.
   plan?: { href: string; label: string };
+  // The place's What to book page (2026-11-10), which the phone's lead opens.
+  book: string;
 }) {
   const { session, isGuest, trips, trip } = useTripHere(places);
-  const router = useRouter();
-  const pathname = usePathname();
   const loading = isGuest && trips.isPending;
-
-  // The shown trip's own dates and guests, into a URL that has none. Dates already in the URL stay.
-  const ownQuery = trip && !loading ? tripOwnQuery(trip) : "";
-  useEffect(() => {
-    if (!ownQuery) return;
-    const params = new URLSearchParams(window.location.search);
-    if (["from", "to", "guests"].some((key) => params.has(key))) return;
-    new URLSearchParams(ownQuery).forEach((value, key) => params.set(key, value));
-    router.replace(`${pathname}?${params}${window.location.hash}`, { scroll: false });
-  }, [ownQuery, pathname, router]);
 
   useEffect(() => {
     if (!starting) return;
@@ -81,7 +69,7 @@ export function AreaHero({
       scrim="text"
     >
       {/* A partner or admin browsing sees the place alone. */}
-      {!(session && !isGuest) && <TripLead plan={plan} />}
+      {!(session && !isGuest) && <TripLead plan={plan} book={book} places={places} />}
       {!loading && trip && (
         <TripPlan trip={trip} places={places} island={island} offered={offered} sights={sights} placeName={areaName} />
       )}
@@ -96,7 +84,7 @@ const COMPACT_ONLY = "hidden max-search:flex fold:flex";
 
 // How a trip starts here, and Plan a trip. Wide, one forest glass card;
 // compact, Plan a trip as the main button over one slim row, so a phone's first screen has both.
-function TripLead({ plan }: { plan?: { href: string; label: string } }) {
+function TripLead({ plan, book, places }: { plan?: { href: string; label: string }; book: string; places: string[] }) {
   return (
     <>
       <div
@@ -115,8 +103,9 @@ function TripLead({ plan }: { plan?: { href: string; label: string } }) {
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {plan && (
-              <ButtonLink
+              <PlanTripLink
                 href={plan.href}
+                places={places}
                 variant="paper"
                 size="touch"
                 arrow
@@ -124,27 +113,27 @@ function TripLead({ plan }: { plan?: { href: string; label: string } }) {
                 className="shrink-0"
               >
                 {plan.label}
-              </ButtonLink>
+              </PlanTripLink>
             )}
           </div>
         </div>
       </div>
       {plan && (
         <div className={COMPACT_ONLY}>
-          <ButtonLink
+          <PlanTripLink
             href={plan.href}
+            places={places}
             variant="paper"
             arrow
             data-testid="plan-trip-compact"
             className="w-full justify-center"
           >
             {plan.label}
-          </ButtonLink>
+          </PlanTripLink>
         </div>
       )}
-      <a
-        href="#listings"
-        onClick={jumpToSection("listings")}
+      <Link
+        href={book}
         data-testid="trip-lead-compact"
         className={cn(
           glassClasses("forest"),
@@ -161,9 +150,9 @@ function TripLead({ plan }: { plan?: { href: string; label: string } }) {
         </span>
         <span className="flex shrink-0 items-center gap-1.5 font-semibold">
           <span className="@max-[18rem]:sr-only">What to book</span>
-          <ArrowGlyph className="size-4 rotate-90 text-sky-pale" />
+          <ArrowGlyph className="size-4 text-sky-pale" />
         </span>
-      </a>
+      </Link>
     </>
   );
 }

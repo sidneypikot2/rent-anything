@@ -24,10 +24,13 @@ export function planHref(where: string, datesQuery: string) {
   return `/plan?${params}`;
 }
 
-// A link to this page's What to book on one group (`show`), keeping the page's dates and guests.
-export function showHref(slug: string, show: string, datesQuery: string) {
-  const params = new URLSearchParams([...new URLSearchParams(datesQuery), ["show", show]]);
-  return `/${slug}?${params}#listings`;
+// A place's What to book page (`/<area>/book`, 2026-11-10), opened on one group (`show`, a
+// BOOKING_GROUPS id) or narrowed to words (`q`), keeping the dates and guests (`datesQuery`).
+export function bookHref(slug: string, { show, q, datesQuery = "" }: { show?: string; q?: string; datesQuery?: string } = {}) {
+  const params = new URLSearchParams(datesQuery);
+  if (show) params.set("show", show);
+  if (q) params.set("q", q);
+  return `/${slug}/book${params.size ? `?${params}` : ""}`;
 }
 
 export function countText(count: number, noun: string, plural = `${noun}s`) {

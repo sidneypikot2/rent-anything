@@ -19,11 +19,12 @@ export const ResultsMap = dynamic(() => import("./results-map"), {
 export type ResultGroup = { title?: string; businesses: PlanBusiness[]; count?: number };
 type Stay = { point: { lat: number; lng: number }; name: string } | null;
 
-// A pin per business, at its first listing's rounded point, with its lowest price.
+// A pin per card, at its first listing's rounded point, with its lowest price.
 function pinsOf(businesses: PlanBusiness[]): ResultPin[] {
   return businesses.map((business) => {
     const label = business.price_from_cents ? formatPeso(business.price_from_cents) : "Ask";
-    return { id: business.id, point: business.location, label, name: `${business.name}, ${business.price_from_cents ? `from ${label}` : "price to be agreed"}` };
+    const name = business.titled ? `${business.title} by ${business.name}` : business.name;
+    return { id: business.pin, point: business.location, label, name: `${name}, ${business.price_from_cents ? `from ${label}` : "price to be agreed"}` };
   });
 }
 
@@ -44,8 +45,8 @@ export function PlanResults({
   groups: ResultGroup[];
   context: CardContext;
   stay: Stay;
-  // A business's page, which its card opens.
-  hrefOf: (id: number) => string;
+  // A card's business page, which it opens.
+  hrefOf: (business: PlanBusiness) => string;
   pager?: ReactNode;
   busy?: boolean;
   // Hide map, over the map's corner.
@@ -54,7 +55,7 @@ export function PlanResults({
   const [hovered, setHovered] = useState<number | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
   const businesses = groups.flatMap((group) => group.businesses);
-  const chosen = businesses.find((business) => business.id === picked) ?? null;
+  const chosen = businesses.find((business) => business.pin === picked) ?? null;
 
   return (
     <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(20rem,42%)] lg:items-start" data-testid="plan-results">
@@ -71,12 +72,12 @@ export function PlanResults({
               <div className="grid grid-cols-1 gap-x-5 gap-y-8 @md:grid-cols-2 @2xl:grid-cols-3">
                 {group.businesses.map((business) => (
                   <PlanCard
-                    key={business.id}
+                    key={business.key}
                     business={business}
-                    href={hrefOf(business.id)}
+                    href={hrefOf(business)}
                     context={context}
                     onHover={setHovered}
-                    active={business.id === picked}
+                    active={business.pin === picked}
                   />
                 ))}
               </div>
@@ -93,7 +94,7 @@ export function PlanResults({
           {chosen && (
             <PlanCard
               business={chosen}
-              href={hrefOf(chosen.id)}
+              href={hrefOf(chosen)}
               context={context}
               onClose={() => setPicked(null)}
               className="absolute bottom-4 left-4 z-10 w-80"
@@ -129,12 +130,12 @@ export function PlanMapView({
   onPage: (page: number) => void;
   context: CardContext;
   stay: Stay;
-  hrefOf: (id: number) => string;
+  hrefOf: (business: PlanBusiness) => string;
   onClose: () => void;
 }) {
   const [picked, setPicked] = useState<number | null>(null);
-  const chosen = businesses.find((business) => business.id === picked) ?? null;
-  const noun = total === 1 ? "business" : "businesses";
+  const chosen = businesses.find((business) => business.pin === picked) ?? null;
+  const noun = total === 1 ? "option" : "options";
   const pages = Math.ceil(total / perPage);
   return (
     <MapOverlay
@@ -146,9 +147,9 @@ export function PlanMapView({
     >
       {chosen ? (
         <PlanCard
-          key={chosen.id}
+          key={chosen.key}
           business={chosen}
-          href={hrefOf(chosen.id)}
+          href={hrefOf(chosen)}
           context={context}
           onClose={() => setPicked(null)}
           onLeave={onClose}

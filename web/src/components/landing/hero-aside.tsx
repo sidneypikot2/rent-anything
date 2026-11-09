@@ -88,7 +88,7 @@ function TripKinds({ trip }: { trip: Trip }) {
       <ul className="flex flex-wrap gap-1.5">
         {needs.map(({ kind, done }) => (
           <li key={kind.group}>
-            <KindChip kind={kind} done={done} href={withDates(`/${place}?show=${kind.id}#listings`, carry)} />
+            <KindChip kind={kind} done={done} href={withDates(`/${place}/book?show=${kind.id}`, carry)} />
           </li>
         ))}
       </ul>

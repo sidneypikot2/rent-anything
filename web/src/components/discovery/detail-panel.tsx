@@ -1,28 +1,15 @@
 "use client";
 
-import { skipToken, useQuery } from "@tanstack/react-query";
 import Image from "next/image";
-import Link from "next/link";
-import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { apiClient } from "@/api/client";
 import { isApiPhoto } from "@/components/landing/sample-photos";
-import { tripDatesQuery, type TripDates } from "@/components/trips/trip-dates";
-import { useTripHref } from "@/components/trips/trip-link";
+import { useRowLink } from "@/components/trips/trip-link";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
-import { Price } from "@/components/ui/typography";
-import { formatPeso } from "@/lib/money";
-import { InstantBookBadge } from "./instant-book-badge";
-import type { Feature } from "./listing-features";
-import { StayPrice } from "./stay-price";
-import { shownQuoteKey } from "./stay-quote";
 import { SamplePhotoTag } from "./photo-card";
-import { CategoryGlyph, ChevronGlyph, FeatureGlyph, PlaceGlyph, TagGlyph } from "./tag-glyphs";
-import { TourFacts } from "./tour-facts";
-import { VehicleBookingCard } from "./vehicle-booking-card";
-import { VehiclePrice } from "./vehicle-price";
+import { ChevronGlyph, PlaceGlyph, TagGlyph } from "./tag-glyphs";
 
 type Photo = { src: string; alt: string };
 
@@ -119,6 +106,7 @@ export function LandmarkPanel({
   landmark: { description: string; tags: { slug: string; name: string }[]; visits?: { id: number; title: string; href: string }[] };
   areaName: string;
 }) {
+  const rowLink = useRowLink();
   return (
     <>
       <p className="text-sm text-muted">Place to see · {areaName}</p>
@@ -145,13 +133,7 @@ export function LandmarkPanel({
             {landmark.visits.map((visit) => (
               <li key={visit.id}>
                 <a
-                  href={`#listing-${visit.id}`}
-                  onClick={(event) => {
-                    // The same row again: no hashchange would fire, so send one.
-                    if (window.location.hash !== `#listing-${visit.id}`) return;
-                    event.preventDefault();
-                    window.dispatchEvent(new HashChangeEvent("hashchange"));
-                  }}
+                  {...rowLink(visit.id)}
                   className="flex min-h-11 items-center text-sm font-semibold text-link underline-offset-4 hover:underline"
                 >
                   {visit.title}
@@ -162,163 +144,6 @@ export function LandmarkPanel({
           </ul>
         </PanelSection>
       )}
-    </>
-  );
-}
-
-// A listing's own endpoint, fetched once and kept for whoever needs it next.
-export function listingQuery(listingId: number) {
-  return {
-    queryKey: ["listing", listingId],
-    queryFn: async () => {
-      const { data, error } = await apiClient().GET("/api/v1/listings/{id}", { params: { path: { id: listingId } } });
-      if (error || !data) throw new Error("Couldn't load this listing");
-      return data;
-    },
-    staleTime: 5 * 60_000,
-  };
-}
-
-// A thing to book, whole, under its photos and title. What the area page already has shows at once; the description, a
-// tour's facts, a stay's or a vehicle's price and fees come from the listing's own endpoint, fetched when
-// the panel opens and kept, so opening it again is instant. With the page's trip dates a stay's
-// total comes from /quotes, as on the listing page.
-export function ListingPanel({
-  listingId,
-  href,
-  category,
-  by,
-  summary,
-  features,
-  instantBook = false,
-  dates,
-}: {
-  listingId: number;
-  href: string;
-  category: string;
-  by: string;
-  summary?: string | null;
-  features: Feature[];
-  instantBook?: boolean;
-  dates?: TripDates;
-}) {
-  const fullHref = useTripHref()(href);
-  const { data: listing, isPending, isError } = useQuery(listingQuery(listingId));
-  // The full description only when it says more than the summary above it.
-  const description = listing?.description.trim();
-
-  return (
-    <>
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
-        <Badge tone="kind" className="min-h-6 px-2.5 text-xs">
-          <CategoryGlyph name={category} className="size-3.5" />
-          {category}
-        </Badge>
-        {instantBook && <InstantBookBadge small />}
-        {by}
-      </p>
-      {summary && <p className="text-sm break-words">{summary}</p>}
-      {features.length > 0 && (
-        <PanelSection title="Details">
-          <ul className="flex flex-wrap gap-1.5">
-            {features.map((feature) => (
-              <li key={feature.label}>
-                <Badge tone={feature.trust ? "emerald" : "fact"} className="min-h-7 px-2.5 text-xs">
-                  <FeatureGlyph name={feature.icon} className={cn("size-3.5", !feature.trust && "text-primary")} />
-                  {feature.label}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        </PanelSection>
-      )}
-      {isPending && (
-        <div role="status" aria-busy className="flex flex-col gap-2">
-          <span className="sr-only">Loading the rest of this listing…</span>
-          <div className="h-24 rounded-control bg-mist motion-safe:animate-pulse" />
-          <div className="h-16 rounded-control bg-mist motion-safe:animate-pulse" />
-        </div>
-      )}
-      {isError && (
-        <p className="text-sm text-muted">
-          Couldn&apos;t load the rest.{" "}
-          <Link href={fullHref} className="font-semibold text-link underline">
-            View full listing
-          </Link>
-        </p>
-      )}
-      {listing?.tour && <TourFacts listing={listing} tour={listing.tour} head={false} />}
-      {listing?.stay_rate && (
-        <StayPrice
-          key={dates ? tripDatesQuery(dates) : ""}
-          listing={listing}
-          rate={listing.stay_rate}
-          dates={dates ?? { guests: 1 }}
-          headline={false}
-        />
-      )}
-      {listing?.vehicle_rate && (typeof listing.details.seats === "number" || listing.group === "gear") && (
-        // Its people and vehicles, or gear's count, and what they cost; the panel's foot adds it (RAA-191).
-        <VehicleBookingCard
-          listing={listing}
-          rate={listing.vehicle_rate}
-          dates={dates ?? { guests: 1 }}
-          seats={typeof listing.details.seats === "number" ? listing.details.seats : null}
-          add={false}
-        />
-      )}
-      {listing?.vehicle_rate && <VehiclePrice listing={listing} rate={listing.vehicle_rate} />}
-      {description && description !== summary?.trim() && (
-        <PanelSection title="About this">
-          <p className="text-sm break-words whitespace-pre-line">{description}</p>
-        </PanelSection>
-      )}
-      <Link href={fullHref} data-testid="listing-link" className="w-fit text-sm font-semibold text-link underline-offset-4 hover:underline">
-        View full listing <span aria-hidden>→</span>
-      </Link>
-    </>
-  );
-}
-
-// The panel's foot: the price, or how an unpriced listing is priced, and the action. With the
-// page's dates a stay shows its total for them, the same figure as the body's last line, rather
-// than a "from" price beside it.
-export function PanelActions({
-  price,
-  unpriced,
-  action,
-  listingId,
-  dates,
-}: {
-  price?: ComponentProps<typeof Price>;
-  unpriced?: string;
-  action?: ReactNode;
-  listingId?: number;
-  dates?: TripDates;
-}) {
-  const { data: quote } = useQuery<{ quote: { total_cents: number; nights_count: number } } | { errors: string[] }>({
-    queryKey: shownQuoteKey(listingId ?? 0, dates),
-    queryFn: skipToken,
-    enabled: false,
-  });
-  if (!price && !action) return null;
-  const total = quote && "quote" in quote ? quote.quote : null;
-  return (
-    <>
-      {total ? (
-        <Price amount={formatPeso(total.total_cents)} unit={`for ${total.nights_count} ${total.nights_count === 1 ? "night" : "nights"}`} />
-      ) : price ? (
-        <Price {...price} />
-      ) : unpriced ? (
-        // The one place the panel says it: how it is priced, and that saving it costs nothing.
-        <span className="flex flex-col text-sm text-pretty">
-          <span className="font-semibold">{unpriced}</span>
-          <span className="text-muted">Free to save to your trip</span>
-        </span>
-      ) : (
-        <span />
-      )}
-      {action}
     </>
   );
 }

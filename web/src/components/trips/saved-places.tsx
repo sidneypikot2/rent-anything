@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { HeartGlyph, TrashGlyph } from "@/components/discovery/tag-glyphs";
 import { Card } from "@/components/ui/card";
-import { tripOwnQuery } from "./trip-dates";
 import { useUnsaveLandmark, type Trip } from "./use-trips";
 
 // A trip's saved places in the cart: places to see the guest wants to go to, with no dates or
-// price and never sent to a partner. Each links to its card on its place's page, on the trip's
-// own dates, where the tours that go there are; a bin takes it off the trip.
+// price and never sent to a partner. Each links to its card on its place's page, where the tours
+// that go there are; a bin takes it off the trip.
 export function SavedPlaces({ trip }: { trip: Trip }) {
   const unsave = useUnsaveLandmark();
   return (
@@ -22,7 +21,7 @@ export function SavedPlaces({ trip }: { trip: Trip }) {
         <ul className="flex flex-col divide-y divide-line">
           {trip.saved_landmarks.map((saved) => (
             <li key={saved.id} className="flex min-h-11 items-center justify-between gap-3">
-              <Link href={`/${saved.area_slug}${tripOwnQuery(trip)}#${saved.slug}`} className="font-semibold text-link underline-offset-4 hover:underline">
+              <Link href={`/${saved.area_slug}#${saved.slug}`} className="font-semibold text-link underline-offset-4 hover:underline">
                 {saved.name}
               </Link>
               <button

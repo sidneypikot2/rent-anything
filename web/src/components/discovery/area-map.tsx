@@ -22,7 +22,8 @@ import { useAreaMap } from "./area-map-context";
 import { MapButton, ZoomButton } from "./map-controls";
 import { TRIP_ORDER_GROUPS } from "./categories";
 import { listingPin, placePins, type AreaPin, type LandmarkInfo, type ListingPin } from "./area-map-pins";
-import { DetailPanelButton, LandmarkPanel, ListingPanel, PanelActions, PanelPhoto } from "./detail-panel";
+import { DetailPanelButton, LandmarkPanel, PanelPhoto } from "./detail-panel";
+import { ListingTitleLink } from "./listing-link";
 import { InstantBookBadge } from "./instant-book-badge";
 import {
   CategoryGlyph,
@@ -873,7 +874,7 @@ function StackList({
 }
 
 // A pin's pop-up, in the middle of the map (a card along the bottom on a phone): its photo,
-// name, what it is, its price and Add to trip; the name opens the side panel the rows open.
+// name, what it is, its price and Add to trip; the name opens the listing's page, as the rows do.
 function MapPopup({
   pin,
   full,
@@ -905,39 +906,7 @@ function MapPopup({
     ) : undefined;
   const title =
     pin.kind === "listing" ? (
-      <DetailPanelButton
-        title={pin.title}
-        media={<PanelPhoto photo={pin.photo} icon={<CategoryGlyph name={pin.category} className="size-12" />} />}
-        panel={
-          <ListingPanel
-            listingId={pin.id}
-            href={`/listings/${pin.id}${datesQuery}`}
-            category={pin.category}
-            by={pin.info?.by ?? ""}
-            summary={pin.info?.summary}
-            features={pin.info?.features ?? []}
-            instantBook={pin.instantBook}
-            dates={dates}
-          />
-        }
-        actions={
-          <PanelActions
-            price={price}
-            unpriced={pricedByText(pin.bookingType)}
-            action={
-              <AddToTripButton
-                listing={{ id: pin.id, title: pin.title, booking_type: pin.bookingType }}
-                dates={dates}
-                preview={pinPreview(pin)}
-              />
-            }
-          />
-        }
-        className="underline-offset-4 hover:underline"
-        data-testid="map-popup-open"
-      >
-        {pin.title}
-      </DetailPanelButton>
+      <ListingTitleLink href={`/listings/${pin.id}${datesQuery}`} title={pin.title} testId="map-popup-open" />
     ) : pin.landmark ? (
       <DetailPanelButton
         title={pin.title}

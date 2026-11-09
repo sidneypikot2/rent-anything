@@ -74,22 +74,43 @@ RSpec.describe "Plan businesses", type: :request do
         end
       end
 
-      response "200", "one card per business, with what it offers summed up" do
+      response "200", "one card per listing title per business, with what it offers summed up" do
         schema "$ref" => "#/components/schemas/plan_businesses"
         let(:slug) { "bantayan-island" }
         let(:group) { "rental" }
 
         let!(:shop) { create(:business, name: "Santa Fe Scooters") }
         let!(:click) { create(:listing, :vehicle, area: santa_fe, business: shop, partner: shop.partner, title: "Honda Click") }
+        let!(:click_two) { create(:listing, :vehicle, area: bantayan, business: shop, partner: shop.partner, title: " honda click") }
         let!(:beat) { create(:listing, :vehicle, area: bantayan, business: shop, partner: shop.partner, title: "Honda Beat") }
-        let!(:other) { create(:listing, :vehicle, area: bantayan, title: "Lone scooter") }
+        let!(:other) { create(:listing, :vehicle, area: bantayan, title: "Honda Click") }
 
         run_test! do |response|
           json = response.parsed_body
-          expect(json).to include("total" => 2, "counts" => include("rental" => 3))
-          card = json["businesses"].find { |each| each["id"] == shop.id }
-          expect(card).to include("name" => "Santa Fe Scooters", "title" => "Honda Beat", "listings_count" => 2, "listing_ids" => [ beat.id, click.id ])
-          expect(card["price_from_cents"]).to eq([ beat, click ].map { |each| PricingSerializer.price_from_cents(each) }.compact.min)
+          expect(json).to include("total" => 3, "counts" => include("rental" => 4))
+          expect(json["businesses"].pluck("name", "title")).to eq([
+            [ other.business.name, "Honda Click" ], [ "Santa Fe Scooters", "Honda Beat" ], [ "Santa Fe Scooters", " honda click" ]
+          ].sort_by { |name, title| [ name, title.strip.downcase ] })
+          clicks = json["businesses"].find { |each| each["id"] == shop.id && each["listings_count"] == 2 }
+          expect(clicks).to include("key" => "#{shop.id}-#{click.id}", "listing_ids" => [ click_two.id, click.id ])
+          expect(clicks["price_from_cents"]).to eq([ click, click_two ].map { |each| PricingSerializer.price_from_cents(each) }.compact.min)
+          expect(json["businesses"].pluck("key").uniq.size).to eq(3)
+        end
+      end
+
+      response "200", "stays: one card per business, whatever the titles" do
+        schema "$ref" => "#/components/schemas/plan_businesses"
+        let(:slug) { "bantayan-island" }
+        let(:group) { "stay" }
+
+        let!(:inn) { create(:business, name: "Kota inn") }
+        let!(:room) { create(:listing, :stay, area: bantayan, business: inn, partner: inn.partner, title: "Sea view room") }
+        let!(:hut) { create(:listing, :stay, area: bantayan, business: inn, partner: inn.partner, title: "Garden hut") }
+
+        run_test! do |response|
+          json = response.parsed_body
+          expect(json["total"]).to eq(1)
+          expect(json["businesses"].sole).to include("key" => inn.id.to_s, "listings_count" => 2, "listing_ids" => [ hut.id, room.id ])
         end
       end
 

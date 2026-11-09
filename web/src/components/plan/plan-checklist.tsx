@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, useSyncExternalStore } from "react";
-import { businessHref } from "@/components/discovery/browse-offers";
+import { businessHref, titleCardHref } from "@/components/discovery/browse-offers";
 import { BOOKING_GROUPS } from "@/components/discovery/categories";
 import type { PlanBusinessesPage } from "@/api/discovery";
 import { ChevronGlyph, MapGlyph } from "@/components/discovery/tag-glyphs";
@@ -115,7 +115,7 @@ function Checklist({
   const leader = active.key === "stay" && shown?.page === 1 ? shown.businesses[0] : undefined;
   const best =
     leader && leader.near.length === picks.length && picks.length > 0 && leader.near.every((each) => each.km <= NEAR_KM)
-      ? { id: leader.id, label: picks.length === 1 ? `Near ${picks[0].name}` : `Near all ${picks.length} picks` }
+      ? { id: leader.pin, label: picks.length === 1 ? `Near ${picks[0].name}` : `Near all ${picks.length} picks` }
       : null;
   const cardContext = { landmarks, hearted, stay, when: formatDateRange(trip.starts_on, trip.ends_on) ?? "", best };
 
@@ -142,7 +142,7 @@ function Checklist({
   const businesses = shown?.businesses ?? [];
   const { toHearted, rest } = active.key === "activity" ? byHearts(businesses, hearted) : { toHearted: [] as PlanBusiness[], rest: businesses };
   const sorted = [...toHearted, ...rest];
-  const hrefOf = (key: RowKey) => (id: number) => planBusinessHref(id, key, trip, place.area.slug);
+  const hrefOf = (key: RowKey) => (business: PlanBusiness) => planBusinessHref(business, key, trip, place.area.slug);
   // To another step from its foot: the new panel from its top, as a long list may have scrolled.
   const goTo = (key: StepKey) => {
     setPicked(key);
@@ -203,8 +203,8 @@ function Checklist({
           data-testid={`plan-options-${key}`}
         >
           {sorted.map((business) => (
-            <li key={business.id} className="min-w-0">
-              <PlanCard business={business} href={href(business.id)} context={cardContext} />
+            <li key={business.key} className="min-w-0">
+              <PlanCard business={business} href={href(business)} context={cardContext} />
             </li>
           ))}
         </ul>
@@ -418,10 +418,10 @@ function PicksTray({ picks }: { picks: PlanLandmark[] }) {
   );
 }
 
-// A business's page from a plan step (planned trip, this step's options only, `plan=1`): the
-// trip's dates and party, the step's What to book group, the place and the trip, so adds land in
-// it and the way back returns to the plan.
-function planBusinessHref(id: number, key: RowKey, trip: Trip, slug: string) {
+// A card's page from a plan step (`plan=1`, so the way back returns to the plan): a title card's
+// first listing (the API leads with the one going to hearted places), a stay's business on the
+// step's What to book group; with the trip's dates and party, the place and the trip, so adds land in it.
+function planBusinessHref(business: PlanBusiness, key: RowKey, trip: Trip, slug: string) {
   const group = BOOKING_GROUPS.find((each) => each.group === key);
   const dates = {
     from: trip.starts_on ?? undefined,
@@ -430,7 +430,9 @@ function planBusinessHref(id: number, key: RowKey, trip: Trip, slug: string) {
     children: trip.children,
     infants: trip.infants,
   };
-  const href = businessHref(id, dates, group?.id, slug);
+  const href = business.titled
+    ? titleCardHref([{ id: business.listing_ids[0] }], dates, slug)
+    : businessHref(business.id, dates, group?.id, slug);
   return `${href}${href.includes("?") ? "&" : "?"}trip=${trip.id}&plan=1`;
 }
 

@@ -2059,12 +2059,17 @@ RSpec.configure do |config|
           plan_business: {
             type: :object,
             properties: {
+              key: {
+                type: :string,
+                description: "The card's own: a stay's card is the business's (\"<business id>\"), any other one listing title of it " \
+                  "(\"<business id>-<its lowest listing id>\")"
+              },
               id: { type: :integer, description: "The business's" },
               name: { type: :string },
               title: { type: :string, description: "Its first listing's here (those to hearted places first, then by title)" },
               category: { type: :string, description: "Its first listing's" },
               area_name: { type: :string, description: "Its first listing's place: this area or one inside it" },
-              listings_count: { type: :integer, minimum: 1, description: "How many it has in the group here" },
+              listings_count: { type: :integer, minimum: 1, description: "How many the card holds" },
               listing_ids: { type: :array, items: { type: :integer } },
               instant_book: { type: :boolean, description: "Some of them book at once (RAA-132)" },
               price_from_cents: { type: :integer, nullable: true, description: "The lowest of their prices; null when none is priced" },
@@ -2094,16 +2099,16 @@ RSpec.configure do |config|
                 }
               }
             },
-            required: %w[id name title category area_name listings_count listing_ids instant_book price_from_cents price_unit photos location goes_to near]
+            required: %w[key id name title category area_name listings_count listing_ids instant_book price_from_cents price_unit photos location goes_to near]
           },
           plan_businesses: {
             type: :object,
             properties: {
               businesses: { type: :array, items: { "$ref" => "#/components/schemas/plan_business" } },
-              total: { type: :integer, description: "How many businesses offer the group here, every page" },
+              total: { type: :integer, description: "How many cards the group has here, every page" },
               page: { type: :integer, minimum: 1 },
               per_page: { type: :integer },
-              hearted_total: { type: :integer, description: "Things to do: how many businesses have a tour to a hearted place (they lead); 0 otherwise" },
+              hearted_total: { type: :integer, description: "Things to do: how many cards have a tour to a hearted place (they lead); 0 otherwise" },
               counts: {
                 type: :object, description: "Active listings here per guest group",
                 properties: %w[stay transfer rental activity gear].index_with { { type: :integer } },

@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { createContext, useContext, useEffect, useRef, useSyncExternalStore, type ComponentProps, type ReactNode } from "react";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { handoverLabel, sharedFees } from "@/components/trips/delivery-options";
 import { InTripBadge, InTripCount } from "@/components/trips/in-trip-badge";
@@ -12,17 +13,15 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
-import { Dialog } from "@/components/ui/dialog";
 import { Price } from "@/components/ui/typography";
 import { TO_BE_AGREED } from "@/lib/pricing";
-import { ListingPanel, PanelActions } from "./detail-panel";
 import { InstantBookBadge } from "./instant-book-badge";
 import type { Feature } from "./listing-features";
 import { ListingPhotos } from "./listing-photos";
 import { TourStops } from "./landmark-tours";
 import { ListingRowDetails } from "./listing-row-details";
 import type { Photo } from "./photo-card";
-import { markLeaving, plainClick } from "./back-link";
+import { markLeaving } from "./back-link";
 import { useShopModels } from "./shop-models";
 import { StayMixPicker, type MixOffer } from "./stay-mix-picker";
 import { ArrowGlyph, CategoryGlyph, MapGlyph, PlaceGlyph } from "./tag-glyphs";
@@ -49,9 +48,8 @@ export type Offer = {
   // A rental vehicle's delivery and pick-up fees (RAA-205), each null when the shop doesn't;
   // left out for anything else.
   handover?: { delivery_fee_cents: number | null; return_pickup_fee_cents: number | null } | null;
-  // Add to trip in the panel's list, and the prominent one in its details' foot.
+  // Add to trip on its row.
   action: ReactNode;
-  panelAction: ReactNode;
   // The places to see it goes to (a tour's stops), so its option can name the ones saved to the trip.
   goesTo?: { slug: string; name: string }[];
   // A stay, as the mix picker takes it (RAA-188), so a partner's room types can be booked together.
@@ -87,14 +85,16 @@ export function newTabProps(newTab: boolean) {
   return newTab ? { target: "_blank", rel: "opener" } : {};
 }
 
-// A business in a What to book group (the team's business-first list, Booking.com's way): its
-// name leads, what it offers in the group is its by-line ("Sea view room + 2 more"), from what
-// price, and the chips all of those share. Its name and its See details open the business's
+// A card in a What to book group. A stay's is its business (Booking.com's way): its name leads,
+// what it offers in the group is its by-line ("Sea view room + 2 more"). Any other is one listing
+// title of a business (`title`): the title leads, "by <business>" under it, with "2 options" when
+// the business lists it more than once. Then from what price, and the chips all of those share. Its name and its See details open the business's
 // own page (`href`), where its options are listed and added to a trip (BusinessOptions): in a
 // new tab on a laptop, in the same tab on a phone. Every card ends in the same See details,
 // whatever it offers.
 export function BusinessRow({
   name,
+  title,
   href,
   place,
   groupTitle,
@@ -102,6 +102,8 @@ export function BusinessRow({
   sharedChips = [],
 }: {
   name: string;
+  // The listing title a title card stands for (every group but stays).
+  title?: string;
   // The business's page, with the trip's dates and this group (businessHref).
   href: string;
   // "in Santa Fe", for a business in a place inside this one.
@@ -138,6 +140,10 @@ export function BusinessRow({
   // What is for sale, under the name: the one option, or the first with the rest counted
   // ("DJI Osmo Action 4 + 5 more"); the page lists them all.
   const forSale = single ? single.title : `${offers[0].title} + ${offers.length - 1} more`;
+  const heading = title ?? name;
+  const label = title
+    ? `${title} by ${name}${single ? "" : `, ${offers.length} options`}`
+    : `${name}: ${forSale}`;
   const instant = offers.every((offer) => offer.instantBook);
   // How its vehicles reach the guest (RAA-205): what every one of them here offers.
   const rates = offers.map((offer) => offer.handover ?? null);
@@ -148,7 +154,7 @@ export function BusinessRow({
     <div className="relative grid grid-cols-[minmax(0,1fr)] gap-4 @sm:grid-cols-[10rem_minmax(0,1fr)] @2xl:grid-cols-[19rem_minmax(0,1fr)_auto] @2xl:items-start @2xl:gap-5">
       <ListingPhotos
         photos={photos}
-        label={name}
+        label={heading}
         category={categories[0]}
         inset
         className="z-10 aspect-[2/1] @sm:aspect-square @2xl:aspect-[4/3]"
@@ -163,14 +169,19 @@ export function BusinessRow({
               onClick={() => !newTab && markLeaving()}
               data-testid="business-open"
               // A business can be in several groups: its label says which, for a screen reader's list.
-              aria-label={`${name}: ${forSale}, ${groupTitle}${newTab ? " (opens in a new tab)" : ""}`}
+              aria-label={`${label}, ${groupTitle}${newTab ? " (opens in a new tab)" : ""}`}
               className="cursor-pointer text-left underline-offset-4 outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] hover:underline focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-(--focus)"
             >
-              {name}
+              {heading}
             </Link>
           </h4>
           <p className="line-clamp-1 text-sm font-medium text-foreground" data-testid="business-for-sale">
-            {single ? (
+            {title ? (
+              <>
+                by {name}
+                {!single && <span className="whitespace-nowrap text-muted"> · {offers.length} options</span>}
+              </>
+            ) : single ? (
               forSale
             ) : (
               <>
@@ -247,55 +258,63 @@ function apartOf(offers: Offer[]) {
 
 // A business's options in one group, on its own page (Booking.com's room table): each with its
 // photo, what sets it apart, its price and Add to trip; its title opens the listing's own page in
-// a new tab on a laptop (as the card did this page), and its details in the side panel on a phone. A stay with several room types and the trip's
+// a new tab on a laptop (as the card did this page), in the same tab on a phone. A stay with several room types and the trip's
 // dates offers rooms for the whole party first (StayMixPicker, RAA-188); a rental shop picks its
-// models together (`shop`, RAA-191).
+// models together (`shop`, RAA-191). Opened from a title card, its `items` (the card's listings,
+// already first) are scrolled to and lit briefly on arrival.
 export function BusinessOptions({
   name,
   groupTitle,
   offers,
   dates,
   shop,
+  items = [],
 }: {
   name: string;
   groupTitle: string;
   offers: Offer[];
   dates: TripDates;
   shop?: { businessId: number; counted: boolean };
+  items?: number[];
 }) {
-  // Each option's panel opener, so the mix picker's rows can open one too.
-  const openers = useRef(new Map<number, () => void>());
+  const router = useRouter();
   const newTab = useOpensInNewTab();
   const apart = apartOf(offers);
   const tripHref = useTripHref();
-  const panels = offers.map((offer) => (
-    <OptionPanel
-      key={offer.listingId}
-      offer={offer}
-      dates={dates}
-      register={(open) => {
-        openers.current.set(offer.listingId, open);
-      }}
-    />
-  ));
+  const listRef = useRef<HTMLDivElement>(null);
+  const first = offers.find((offer) => items.includes(offer.listingId))?.listingId;
+  useEffect(() => {
+    if (first === undefined) return;
+    const target = listRef.current?.querySelector(`[data-option="${first}"]`) ?? listRef.current;
+    target?.scrollIntoView({ block: "center" });
+  }, [first]);
   if (shop)
     return (
-      <>
-        <ShopOptions name={name} businessId={shop.businessId} counted={shop.counted} offers={offers} dates={dates} />
-        {panels}
-      </>
+      <div ref={listRef}>
+        <ShopOptions name={name} businessId={shop.businessId} counted={shop.counted} offers={offers} dates={dates} first={items} />
+      </div>
     );
 
   const stays = offers.flatMap((offer) =>
     offer.stay
-      ? [{ ...offer.stay, thumb: <Thumb offer={offer} />, apart: apart(offer), open: () => (newTab ? window.open(tripHref(offer.href), "_blank") : openers.current.get(offer.listingId)?.()) }]
+      ? [{ ...offer.stay, thumb: <Thumb offer={offer} />, apart: apart(offer), open: () => {
+            if (newTab) window.open(tripHref(offer.href), "_blank", "opener");
+            else {
+              markLeaving();
+              router.push(tripHref(offer.href));
+            }
+          } }]
       : [],
   );
   const mixing = stays.length >= 2 && Boolean(dates.from && dates.to);
   const list = (
     <ul aria-label={`${name}: ${groupTitle}`} className="flex flex-col gap-3" data-testid="business-offers">
       {offers.map((offer) => (
-        <li key={offer.listingId} className="@container">
+        <li
+          key={offer.listingId}
+          data-option={offer.listingId}
+          className={cn("@container scroll-mt-(--chrome)", items.includes(offer.listingId) && "just-added")}
+        >
           <Card edge="line" className="group relative transition-colors duration-300 ease-calm hover:border-line-strong">
             <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-3 p-3 @md:grid-cols-[9rem_minmax(0,1fr)_auto] @md:gap-4">
               <Thumb offer={offer} large />
@@ -305,11 +324,7 @@ export function BusinessOptions({
                   data-testid="business-offer"
                   {...newTabProps(newTab)}
                   aria-label={newTab ? `${offer.title} (opens in a new tab)` : undefined}
-                  onClick={(event) => {
-                    if (newTab || !plainClick(event)) return;
-                    event.preventDefault();
-                    openers.current.get(offer.listingId)?.();
-                  }}
+                  onClick={() => !newTab && markLeaving()}
                   className="flex items-start gap-2 text-lg leading-snug font-semibold text-link underline-offset-4 after:absolute after:inset-0 after:rounded-card after:content-[''] hover:underline"
                 >
                   {offer.title}
@@ -335,39 +350,9 @@ export function BusinessOptions({
     </ul>
   );
   return (
-    <>
+    <div ref={listRef}>
       {mixing ? <StayMixPicker offers={stays} dates={dates} fallback={list} /> : list}
-      {panels}
-    </>
-  );
-}
-
-// One option's details in the side panel, opened from its row (or the mix picker).
-function OptionPanel({ offer, dates, register }: { offer: Offer; dates: TripDates; register: (open: () => void) => void }) {
-  const [open, setOpen] = useState(false);
-  useEffect(() => register(() => setOpen(true)));
-  if (!open) return null;
-  return (
-    <Dialog
-      open
-      placement="side"
-      title={offer.title}
-      onClose={() => setOpen(false)}
-      data-testid="detail-panel"
-      media={<ListingPhotos photos={offer.photos} label={offer.title} category={offer.category} count="bottom" className="aspect-[4/3]" />}
-      actions={<PanelActions price={offer.price} unpriced={offer.unpriced} action={offer.panelAction} listingId={offer.listingId} dates={dates} />}
-    >
-      <ListingPanel
-        listingId={offer.listingId}
-        href={offer.href}
-        category={offer.category}
-        by={offer.by}
-        summary={offer.summary}
-        features={offer.features}
-        instantBook={offer.instantBook}
-        dates={dates}
-      />
-    </Dialog>
+    </div>
   );
 }
 
@@ -380,12 +365,14 @@ function ShopOptions({
   counted,
   offers,
   dates,
+  first,
 }: {
   name: string;
   businessId: number;
   counted: boolean;
   offers: Offer[];
   dates: TripDates;
+  first: number[];
 }) {
   const { body, summary, action } = useShopModels({
     business: { id: businessId, name },
@@ -394,6 +381,7 @@ function ShopOptions({
     dates,
     people: dates.guests,
     listingIds: offers.map((offer) => offer.listingId),
+    first,
     place: offers[0].place,
   });
   return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useContext, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type MouseEvent, type ReactNode } from "react";
 import { useSession } from "@/lib/auth/session";
 import { chooseTrip, readChosenTrip } from "./chosen-trip";
 import { tripOwnQuery } from "./trip-dates";
@@ -17,6 +17,12 @@ const TripLinkContext = createContext<{ place: string; places: string[] } | null
 export function TripLinkProvider({ place, places, children }: { place: string; places: string[]; children: ReactNode }) {
   return <TripLinkContext.Provider value={{ place, places }}>{children}</TripLinkContext.Provider>;
 }
+
+// The page's places (its own and the ones inside it), or none outside a TripLinkProvider.
+export function useTripLinkPlaces() {
+  return useContext(TripLinkContext)?.places ?? NO_PLACES;
+}
+const NO_PLACES: string[] = [];
 
 const CARRIED = /^\/(listings|businesses)\/\d+/;
 
@@ -34,6 +40,36 @@ export function useTripHref() {
     if (!params.has("place")) params.set("place", context.place);
     if (trip) params.set("trip", String(trip.id));
     return `${pathname}?${params}${fragment}`;
+  };
+}
+
+// A link to a listing's row in What to book (#listing-<id>: a place to see's tours): on the What to
+// book page (`/<place>/book`) a jump to the row, again on a second tap; on the place's page (or
+// outside a TripLinkProvider's place) that page, with the page's dates, guests and trip.
+export function useRowLink() {
+  const context = useContext(TripLinkContext);
+  const pathname = usePathname();
+  const router = useRouter();
+  const book = context ? `/${context.place}/book` : null;
+  const here = !book || pathname === book;
+  return (id: number, before?: () => void) => {
+    const hash = `#listing-${id}`;
+    return {
+      href: here ? hash : `${book}${hash}`,
+      onClick: (event: MouseEvent<HTMLAnchorElement>) => {
+        before?.();
+        if (here) {
+          // The same row again: no hashchange would fire, so send one.
+          if (window.location.hash !== hash) return;
+          event.preventDefault();
+          window.dispatchEvent(new HashChangeEvent("hashchange"));
+          return;
+        }
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+        event.preventDefault();
+        router.push(`${book}${window.location.search}${hash}`);
+      },
+    };
   };
 }
 

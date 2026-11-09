@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { PlanTripLink } from "@/components/landing/plan-trip-start";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
@@ -8,6 +9,7 @@ import { SectionTitle } from "@/components/ui/typography";
 import {
   AlertGlyph,
   CategoryGlyph,
+  ChevronGlyph,
   FeatureGlyph,
   InfoGlyph,
   TagGlyph,
@@ -491,9 +493,9 @@ export function AreaSampleDays({ days, planHref, planLabel }: { days: SampleDay[
             Start from these days: we&apos;ll line up the transfer, a stay and the tours, and you change anything.
           </span>
         </div>
-        <ButtonLink href={planHref} arrow data-testid="plan-from-days" className="shrink-0 sm:ml-auto sm:whitespace-nowrap">
+        <PlanTripLink href={planHref} arrow data-testid="plan-from-days" className="shrink-0 sm:ml-auto sm:whitespace-nowrap">
           {planLabel}
-        </ButtonLink>
+        </PlanTripLink>
       </div>
     </Part>
   );
@@ -518,14 +520,22 @@ export function AreaQuestions({ name, questions }: { name: string; questions: Qu
         // Escaped so text from the API can't close the script element.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\\u003c") }}
       />
-      <dl className="grid gap-2.5 md:grid-cols-2">
+      {/* Each answer folds under its question; items-start keeps an open card from stretching its neighbour. */}
+      <div className="grid items-start gap-2.5 md:grid-cols-2">
         {questions.map(({ question, answer }) => (
-          <Card key={question} edge="line" className="flex flex-col gap-1 px-4 py-3.5">
-            <dt className="font-semibold">{question}</dt>
-            <dd className="text-sm leading-relaxed text-pretty text-muted">{answer}</dd>
+          <Card key={question} edge="line">
+            <details className="group">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5 font-semibold [&::-webkit-details-marker]:hidden">
+                {question}
+                <ChevronGlyph
+                  className="size-5 shrink-0 text-primary transition-transform duration-300 ease-calm group-open:rotate-180"
+                />
+              </summary>
+              <p className="-mt-1.5 px-4 pb-3.5 text-sm leading-relaxed text-pretty text-muted">{answer}</p>
+            </details>
           </Card>
         ))}
-      </dl>
+      </div>
     </Part>
   );
 }

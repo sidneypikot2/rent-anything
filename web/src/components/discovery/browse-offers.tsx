@@ -105,7 +105,6 @@ export function offerOf(
           }
         : undefined,
     action: <AddToTripButton key={`add-${listing.id}`} listing={listing} dates={dates} preview={preview} />,
-    panelAction: <AddToTripButton key={`panel-add-${listing.id}`} listing={listing} dates={dates} preview={preview} />,
   };
 }
 
@@ -119,22 +118,64 @@ export function rentalShop(listings: BrowseListing[]) {
   return counted || vehicles ? { businessId: listings[0].business.id, counted } : undefined;
 }
 
-// Listings by their business, each business where its first listing is, the order kept.
-export function byBusiness<T extends { business: { id: number } }>(rows: T[]): T[][] {
-  const groups = new Map<number, T[]>();
-  for (const row of rows) groups.set(row.business.id, [...(groups.get(row.business.id) ?? []), row]);
+type CardRow = { id: number; business: { id: number }; group: string; title: string };
+
+// What makes a browse card: a stay's card is its business, any other one listing title of a
+// business ("Mio 125" by one shop, its two "Fortuner" listings together), as the plan API's.
+function sameCard(row: CardRow) {
+  return isTitleCard(row) ? `${row.business.id}-${row.title.trim().toLowerCase()}` : String(row.business.id);
+}
+
+// Listings by their card (sameCard), each card where its first listing is, the order kept.
+export function byCard<T extends CardRow>(rows: T[]): T[][] {
+  return byKey(rows, sameCard);
+}
+
+// A card's id for keys and anchors, from its first listing: the business's id for a stay's card,
+// with that listing's for a title card.
+export function cardKey(first: CardRow) {
+  return isTitleCard(first) ? `${first.business.id}-${first.id}` : String(first.business.id);
+}
+
+// Whether a card stands for one listing title (every group but stays): it is titled with it,
+// "by <business>" under it, and opens the business's page on it (`item`).
+export function isTitleCard(row: { group: string }) {
+  return row.group !== "stay";
+}
+
+function byKey<T>(rows: T[], key: (row: T) => string): T[][] {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) groups.set(key(row), [...(groups.get(key(row)) ?? []), row]);
   return [...groups.values()];
 }
 
 // A business's own page, with the trip's dates and guests, opening on the group the guest came
 // from (`show`, a What to book group's id); `place` is the place's page it was opened on, which
-// its way back returns to.
-export function businessHref(id: number, dates: TripDates, show?: string, place?: string) {
+// its way back returns to; `item` the listing a title card stands for, which its group then leads with.
+export function businessHref(id: number, dates: TripDates, show?: string, place?: string, item?: number) {
   const query = new URLSearchParams(tripDatesQuery(dates).replace(/^\?/, ""));
   if (show) query.set("show", show);
   if (place) query.set("place", place);
+  if (item) query.set("item", String(item));
   const search = query.toString();
   return `/businesses/${id}${search ? `?${search}` : ""}`;
+}
+
+// A title card's link: its cheapest listing's page (else its first's), the card's other options
+// under More from the business there; `place` the place's page it was opened on. From the place
+// page itself (`fromPlace`) the listing's way back is that page, else the place's What to book.
+export function titleCardHref(
+  offered: { id: number; price_from_cents?: number | null }[],
+  dates: TripDates,
+  place: string,
+  fromPlace = false,
+) {
+  const priced = offered.filter((listing) => listing.price_from_cents);
+  const opens = priced.sort((a, b) => a.price_from_cents! - b.price_from_cents!)[0] ?? offered[0];
+  const query = new URLSearchParams(tripDatesQuery(dates).replace(/^\?/, ""));
+  query.set("place", place);
+  if (fromPlace) query.set("from", "place");
+  return `/listings/${opens.id}?${query}`;
 }
 
 // The top-most destination above a place, when the place sits inside one (Santa Fe's Bantayan

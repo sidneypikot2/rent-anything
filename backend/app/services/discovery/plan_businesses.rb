@@ -1,7 +1,8 @@
 module Discovery
-  # One page of a plan step's options (plan a whole trip, /plan/<area>), by business: the
-  # businesses with active listings in one guest group in a place and the published places
-  # inside it, each with what it offers there summed up — how many, the first's title, the
+  # One page of a plan step's options (plan a whole trip, /plan/<area>), as cards: a stay's card
+  # is a business, any other one listing title of a business ("Mio 125" by one shop, its two
+  # "Fortuner" listings together), from the active listings in one guest group in a place and the
+  # published places inside it, each card with what it offers there summed up — how many, the first's title, the
   # lowest price, photos from each, its first listing's rounded point and the published places
   # to see its listings go to. Its card opens the business's own page. Things to do lead with the
   # businesses whose tours go to the most of the guest's hearted places, then those with a price;
@@ -16,6 +17,8 @@ module Discovery
     # half kilometres: finer, and distances to a few known places would give the point away.
     PICK_POINT = "COALESCE(landmarks.boat_departure, landmarks.location)".freeze
     NEAR_STEP_KM = 0.5
+    # A listing title as cards compare it: "Mio 125" and " mio 125" are one card.
+    TITLE_KEY = "LOWER(TRIM(listings.title))".freeze
 
     # Bad parameters, as a 422 (Explore's way).
     Query = Struct.new(:messages) do
@@ -32,14 +35,16 @@ module Discovery
     def call
       read_params!
 
-      ids = ordered.offset((@page - 1) * PER_PAGE).limit(PER_PAGE).pluck("listings.business_id")
-      listings = in_group.where(business_id: ids).includes(*ListingRow::ASSOCIATIONS).to_a
+      keys = ordered.offset((@page - 1) * PER_PAGE).limit(PER_PAGE).pluck(*card_columns).map { |key| Array(key) }
+      in_page = in_group.where(business_id: keys.map(&:first).uniq)
+      key_of = in_page.pluck(:id, *card_columns.drop(1).map { |column| Arel.sql(column) }).to_h { |id, *rest| [ id, rest ] }
+      listings = in_page.includes(*ListingRow::ASSOCIATIONS).to_a
       goes_to = goes_to_of(listings.map(&:id))
       metres = metres_to_picks(listings.map(&:id))
-      by_business = listings.group_by(&:business_id)
+      by_card = listings.group_by { |listing| [ listing.business_id, *key_of.fetch(listing.id) ] }
       {
-        businesses: ids.map { |id| row(by_business.fetch(id), goes_to, metres) },
-        total: in_group.distinct.count(:business_id),
+        businesses: keys.map { |key| row(by_card.fetch(key), goes_to, metres) },
+        total: in_group.group(*card_columns.map { |column| Arel.sql(column) }).count.size,
         page: @page,
         per_page: PER_PAGE,
         hearted_total: hearted_total,
@@ -79,16 +84,26 @@ module Discovery
       @group == "activity"
     end
 
-    # The businesses, one row each, in the page's order.
+    def stays?
+      @group == "stay"
+    end
+
+    # What makes a card: a stay's business, or a business and a listing title.
+    def card_columns
+      stays? ? [ "listings.business_id" ] : [ "listings.business_id", TITLE_KEY ]
+    end
+
+    # The cards, one row each, in the page's order.
     def ordered
-      scope = in_group.joins(:business).group("listings.business_id", "businesses.name")
+      scope = in_group.joins(:business).group(*card_columns.map { |column| Arel.sql(column) }, "businesses.name")
       if tours?
         scope = scope.left_joins(:tour_detail)
         scope = scope.order(Arel::Nodes::NamedFunction.new("MAX", [ hearted_count ]).desc) if @hearted.any?
         scope = scope.order(Arel.sql("BOOL_OR(COALESCE(tour_details.base_price_cents, 0) > 0) DESC"))
       end
       scope = scope.order(Arel::Nodes::NamedFunction.new("MIN", [ average_metres ]).asc) if near_picks?
-      scope.order("businesses.name", "listings.business_id")
+      scope = scope.order("businesses.name", "listings.business_id")
+      stays? ? scope : scope.order(Arel.sql(TITLE_KEY))
     end
 
     # The published places hearted, for ranking stays.
@@ -99,7 +114,7 @@ module Discovery
     def near_picks?
       return @near_picks if defined?(@near_picks)
 
-      @near_picks = @group == "stay" && @hearted.any? && picks.exists?
+      @near_picks = stays? && @hearted.any? && picks.exists?
     end
 
     # How far a listing is from the picks on average, as a subquery.
@@ -139,7 +154,7 @@ module Discovery
     def hearted_total
       return 0 unless tours? && @hearted.any?
 
-      in_group.where(hearted_visits.arel.exists).distinct.count(:business_id)
+      in_group.where(hearted_visits.arel.exists).group(*card_columns.map { |column| Arel.sql(column) }).count.size
     end
 
     # listing id => the slugs of the published places to see it goes to.
@@ -149,7 +164,7 @@ module Discovery
         .group_by(&:first).transform_values { |pairs| pairs.map(&:last) }
     end
 
-    # A business's card: its listings here, the ones to hearted places first, then by title.
+    # A card: its listings here, the ones to hearted places first, then by title.
     def row(listings, goes_to, metres)
       hearted = ->(listing) { (goes_to.fetch(listing.id, []) & @hearted).size }
       listings = listings.sort_by { |listing| [ -hearted.call(listing), listing.title, listing.id ] }
@@ -157,6 +172,7 @@ module Discovery
       priced = listings.filter_map { |listing| PricingSerializer.price_from_cents(listing)&.then { |cents| [ cents, listing ] } }.min_by(&:first)
       photos = listings.flat_map { |listing| listing.ready_photos.first(1) } + listings.flat_map { |listing| listing.ready_photos.drop(1) }
       {
+        key: stays? ? first.business_id.to_s : "#{first.business_id}-#{listings.map(&:id).min}",
         id: first.business.id,
         name: first.business.name,
         title: first.title,

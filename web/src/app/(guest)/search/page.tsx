@@ -153,7 +153,7 @@ function Results({
           title={`Things to book on ${place.name}`}
           action={
             <Link
-              href={withDates(`/${place.slug}?q=${encodeURIComponent(query)}#listings`, carry)}
+              href={withDates(`/${place.slug}/book?q=${encodeURIComponent(query)}`, carry)}
               className="flex min-h-11 items-center gap-1.5 font-semibold text-link underline-offset-4 hover:underline"
             >
               Compare them on {place.name}

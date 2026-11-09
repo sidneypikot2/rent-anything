@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { markLeaving } from "@/components/discovery/back-link";
+import { newTabProps, useOpensInNewTab } from "@/components/discovery/business-row";
 import { ListingCard } from "@/components/discovery/cards";
 import { ChevronGlyph } from "@/components/discovery/tag-glyphs";
 import { cn } from "@/components/ui/cn";
@@ -24,7 +26,8 @@ export type RowCard = {
 
 // A section's listings as a row of cards (the Klook-style hotel row), for Where to stay, Things
 // to do and Getting around: it scrolls sideways, a card snapping to the start, and from sm a round button at each end
-// steps it a screen at a time.
+// steps it a screen at a time. A card opens its page in a new tab on a laptop, in this tab on a
+// phone or tablet, as What to book's cards do (useOpensInNewTab).
 export function ListingRow({
   cards,
   kind,
@@ -39,6 +42,7 @@ export function ListingRow({
 }) {
   const row = useRef<HTMLUListElement>(null);
   const [ends, setEnds] = useState({ start: true, end: true });
+  const newTab = useOpensInNewTab();
 
   useEffect(() => {
     const list = row.current;
@@ -82,6 +86,11 @@ export function ListingRow({
               stacked
               instantBook={card.instantBook}
               trust={card.trust}
+              linkProps={{
+                ...newTabProps(newTab),
+                onClick: () => !newTab && markLeaving(),
+                "aria-label": newTab ? `${card.title} (opens in a new tab)` : undefined,
+              }}
             />
           </li>
         ))}
