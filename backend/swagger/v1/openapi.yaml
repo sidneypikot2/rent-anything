@@ -1095,7 +1095,7 @@ paths:
       responses:
         '200':
           description: a province lists the areas under it that have something to
-            book, and everything to book in them
+            book, and everything to book and see in them
           content:
             application/json:
               schema:

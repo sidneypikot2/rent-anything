@@ -1519,7 +1519,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description a province lists the areas under it that have something to book, and everything to book in them */
+                /** @description a province lists the areas under it that have something to book, and everything to book and see in them */
                 200: {
                     headers: {
                         [name: string]: unknown;

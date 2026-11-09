@@ -165,6 +165,37 @@ RSpec.describe "Areas", type: :request do
         end
       end
 
+      response "200", "the places to see in the places inside it, however deep (RAA-285)" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "bantayan-island" }
+        let!(:santa_fe) { create(:area, slug: "santa-fe", name: "Santa Fe", kind: "town", parent: bantayan) }
+        let!(:port) { create(:area, slug: "santa-fe-port", name: "Santa Fe Port", parent: santa_fe) }
+        let!(:hidden) { create(:area, :draft, slug: "madridejos", name: "Madridejos", kind: "town", parent: bantayan) }
+
+        before do
+          create(:landmark, area: santa_fe, slug: "ogtong-cave", name: "Ogtong Cave")
+          create(:landmark, area: port, slug: "port-pier", name: "Port Pier")
+          create(:landmark, :draft, area: santa_fe, slug: "draft-lagoon", name: "Draft Lagoon")
+          create(:landmark, area: hidden, slug: "draft-town-beach", name: "Draft Town Beach")
+        end
+
+        run_test! do |response|
+          expect(response.parsed_body["landmarks"].pluck("slug")).to eq(%w[kota-beach ogtong-cave port-pier virgin-island])
+        end
+      end
+
+      response "200", "a place inside an island keeps to its own places to see" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "santa-fe" }
+        let!(:santa_fe) { create(:area, slug: "santa-fe", name: "Santa Fe", kind: "town", parent: bantayan) }
+
+        before { create(:landmark, area: santa_fe, slug: "ogtong-cave", name: "Ogtong Cave") }
+
+        run_test! do |response|
+          expect(response.parsed_body["landmarks"].pluck("slug")).to eq(%w[ogtong-cave])
+        end
+      end
+
       response "200", "each place inside it counts its stays and what to book, the places under it included (RAA-252)" do
         schema "$ref" => "#/components/schemas/area_detail"
         let(:slug) { "bantayan-island" }
@@ -327,7 +358,7 @@ RSpec.describe "Areas", type: :request do
         end
       end
 
-      response "200", "a province lists the areas under it that have something to book, and everything to book in them" do
+      response "200", "a province lists the areas under it that have something to book, and everything to book and see in them" do
         schema "$ref" => "#/components/schemas/area_detail"
         let(:slug) { "cebu" }
         let!(:mactan) { create(:area, slug: "mactan", name: "Mactan", parent: cebu) }
@@ -335,7 +366,7 @@ RSpec.describe "Areas", type: :request do
         run_test! do |response|
           json = response.parsed_body
           expect(json["areas"].pluck("slug")).to eq(%w[bantayan-island cebu-city])
-          expect(json["landmarks"]).to be_empty
+          expect(json["landmarks"].pluck("slug")).to eq(%w[fort-san-pedro kota-beach virgin-island])
           expect(json["listings"].pluck("title")).to eq([ "Heritage walk", "Honda Click 125", "Island hopping" ])
         end
       end
