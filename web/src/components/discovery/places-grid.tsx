@@ -42,6 +42,9 @@ export function PlacesGrid({ items }: { items: { id: string; card: ReactNode }[]
       <ul
         className={cn(
           "grid gap-3 sm:grid-cols-2 sm:gap-gutter",
+          // Opened on a phone: one column that can shrink (minmax(0, 1fr)); an implicit one grows to
+          // a card's longest unwrapped line and runs off the screen.
+          open && "grid-cols-1",
           // The row's own padding above and below holds a card's ring (4px out), which its scroll would clip.
           !open && "-mx-3 -my-2 snap-x snap-mandatory auto-cols-[80%] grid-flow-col overflow-x-auto scroll-px-3 px-3 py-2 [scrollbar-width:none] sm:mx-0 sm:my-0 sm:grid-flow-row sm:overflow-visible sm:px-0 sm:py-0",
           !besideMap && "lg:grid-cols-3",

@@ -7,10 +7,11 @@
 export type Season = "dry" | "drying" | "wet";
 
 export type AreaNotes = {
-  // Short quick facts for the banner ("Best time" · "Dec – May").
+  // Short quick facts for the banner ("Best time" · "Dec – May"). Typical prices, from the
+  // listings, follow the first two (typicalPrices in area-guide.ts).
   facts: { label: string; value: string }[];
-  // Who it suits, under What it's like.
-  goodFor?: string;
+  // Who it suits and who it doesn't, as two labelled lines on the banner.
+  goodFor?: { yes: string; no?: string };
   // January to December.
   seasons: [Season, Season, Season, Season, Season, Season, Season, Season, Season, Season, Season, Season];
   // Tips under the months.
@@ -19,9 +20,10 @@ export type AreaNotes = {
   route: { what: string; note: string; time: string }[];
   routeSummary: string;
   // A line on getting around, by What to book group.
-  around?: Partial<Record<"rental" | "transfer" | "activity", string>>;
-  // Each town to stay in, by its slug: a short tag and a line on what it is like.
-  towns?: Record<string, { tag: string; line: string }>;
+  around?: Partial<Record<"rental" | "transfer" | "localTransfer" | "activity", string>>;
+  // Each town, by its slug: its name, a short tag and a line on what it is like. Its names also
+  // say which transfers run on the island (onIslandRoute), as not every town is an area yet.
+  towns?: Record<string, { name: string; tag: string; line: string }>;
   know: { topic: KnowTopic; title: string; text: string }[];
   questions?: { question: string; answer: string }[];
 };
@@ -32,13 +34,13 @@ export const SEASON_LABEL: Record<Season, string> = { dry: "Dry", drying: "Dryin
 
 export const AREA_NOTES: Record<string, AreaNotes> = {
   "bantayan-island": {
+    // Cash and signal are Good to know's; the banner keeps to what decides a trip.
     facts: [
       { label: "Best time", value: "Dec – May" },
       { label: "From Cebu City", value: "4–5 h, bus + ferry" },
-      { label: "Money", value: "Bring cash" },
-      { label: "Signal", value: "Good in towns" },
+      { label: "How long", value: "2–4 days" },
     ],
-    goodFor: "Good for beach days, couples, families and slow travel. Not for nightlife or big resorts.",
+    goodFor: { yes: "beach days, couples, families and slow travel", no: "nightlife or big resorts" },
     seasons: ["dry", "dry", "dry", "dry", "dry", "wet", "wet", "wet", "wet", "wet", "drying", "dry"],
     timing: [
       { title: "Time of day", text: "Beaches before 10 am or after 2 pm; the midday sun is strong." },
@@ -55,12 +57,14 @@ export const AREA_NOTES: Record<string, AreaNotes> = {
     around: {
       rental: "The easy way round the island; the roads are flat.",
       transfer: "From Cebu or the airport to Hagnaya and the ferry.",
+      // Said under Getting around when a van runs between the towns.
+      localTransfer: "Vans run between the towns too.",
       activity: "Boats are the only way to Virgin Island.",
     },
     towns: {
-      "santa-fe": { tag: "Most stays", line: "Beaches, the ferry port and most places to eat. Best for a first visit." },
-      bantayan: { tag: "Local life", line: "The old church, the market and the plaza. A short ride from the beaches." },
-      madridejos: { tag: "Quiet", line: "The quiet north, near Kota Park and the lighthouse." },
+      "santa-fe": { name: "Santa Fe", tag: "Most stays", line: "Beaches, the ferry port and most places to eat. Best for a first visit." },
+      bantayan: { name: "Bantayan", tag: "Local life", line: "The old church, the market and the plaza. A short ride from the beaches." },
+      madridejos: { name: "Madridejos", tag: "Quiet", line: "The quiet north, near Kota Park and the lighthouse." },
     },
     know: [
       { topic: "cash", title: "Cash and ATMs", text: "Few ATMs, and they can run out on busy weekends. Bring pesos for trikes, food and small stays." },

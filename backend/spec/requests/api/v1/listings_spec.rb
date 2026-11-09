@@ -97,7 +97,7 @@ RSpec.describe "Listings", type: :request do
             "id" => id, "title" => "Sardine run snorkel", "booking_type" => "activity",
             "category" => { "slug" => "tour", "name" => "Tour" }, "area" => { "slug" => "moalboal", "name" => "Moalboal" },
             "business" => { "id" => Listing.find(id).business_id, "name" => "Moalboal Gear Rentals" }, "units_count" => 1, "units_label" => "1 unit",
-            "partner_name" => "Moalboal Gear Rentals"
+            "partner_name" => "Moalboal Gear Rentals", "cancellation_policy" => "free_cancellation"
           )
           expect(json["description"]).to end_with("\nFins included.")
           expect(json["summary"].length).to eq(160)

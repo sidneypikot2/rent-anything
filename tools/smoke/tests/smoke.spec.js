@@ -124,22 +124,14 @@ test("search a landmark and open its destination", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Bantayan Island");
   await expect(page.locator("#kota-beach")).toBeVisible();
 
-  // The header's search names the place; its pill opens the search, and new guests apply to
-  // this page (RAA-126).
-  const bar = page.getByTestId("search-bar");
-  await expect(bar.getByTestId("search-bar-pill")).toContainText("Bantayan Island");
-  await bar.getByTestId("search-bar-pill").click();
-  await expect(bar.getByTestId("search-input")).toHaveValue("Bantayan Island");
-  await bar.getByTestId("search-guests").click();
-  await bar.getByTestId("search-adults-more").click();
-  await bar.getByTestId("search-submit").click();
-  await expect(page).toHaveURL(/\/bantayan-island\?guests=2$/);
-  await expect(bar.getByTestId("search-bar-pill")).toContainText("2 guests");
+  // The area page has no header search: the guests come in the URL, and the page keeps them.
+  await expect(page.getByTestId("search-bar-pill")).toBeHidden();
+  await page.goto("/bantayan-island?guests=2");
 
-  // The page gets to know the place (RAA-252): how to get there, and Plan a trip, which opens the
-  // whole-trip planner on this place with the page's guests.
+  // The page gets to know the place (RAA-252): how to get there, and the section bar's Plan a trip,
+  // which opens the whole-trip planner on this place with the page's guests.
   await expect(page.getByTestId("area-getting-here")).toContainText("Getting to Bantayan Island");
-  await expect(page.getByTestId("plan-trip")).toHaveAttribute("href", "/plan?where=bantayan-island&guests=2");
+  await expect(page.getByTestId("area-nav-plan")).toHaveAttribute("href", "/plan?where=bantayan-island&guests=2");
 
   // What to book lists businesses by name (Booking.com's way): a card opens the business's own
   // page, in a new tab on a laptop, with the search's guests and the group it came from. Its
@@ -176,17 +168,10 @@ test("search a landmark and open its destination", async ({ page }) => {
   await expect(page).toHaveURL(/\/search\?q=snorkelling$/);
   await expect(page.getByTestId("search-results")).toContainText("Bantayan Island");
 
-  // On a place's page the search bar searches that place's things to book, says what it found
-  // and offers every place.
-  await page.goto("/bantayan-island");
-  const placeBar = page.getByTestId("search-bar");
-  // Filled in once the page has named its place, which would replace anything typed before.
-  await expect(placeBar.getByTestId("search-bar-pill")).toContainText("Bantayan Island");
-  await placeBar.getByTestId("search-bar-pill").click();
-  await expect(placeBar.getByTestId("search-input")).toHaveValue("Bantayan Island");
-  await placeBar.getByTestId("search-input").fill("snorkelling");
-  await placeBar.getByTestId("search-input").press("Enter");
-  await expect(page).toHaveURL(/\/bantayan-island\?q=snorkelling#listings$/);
+  // A place's page opened with a search (`?q=`, from a listing's header search) narrows its things
+  // to book, says what it found and offers every place.
+  // Without `#listings`: the page scrolls to What to book itself, and a click during the hash's jump can be lost.
+  await page.goto("/bantayan-island?q=snorkelling");
   const searched = page.getByTestId("searched-line");
   await expect(searched).toContainText("snorkelling");
   await searched.getByRole("link", { name: "Search all places" }).click();
@@ -614,8 +599,8 @@ test("add to trip without an account", async ({ page, browser }) => {
   const added = page.getByTestId("trip-added");
   await expect(added).toContainText(/Added .+ to Bantayan Island/);
   await expect(page.getByTestId("trip-toast")).toHaveCount(0);
-  // The place's page stays the place's, saying the guest has a trip here; View trip opens it in the cart.
-  await expect(page.getByTestId("trip-notice-open")).toHaveAttribute("href", /^\/cart\?trip=\d+$/);
+  // The place's page stays the place's: its closing band names the trip, and View trip opens it in the cart.
+  await expect(page.getByTestId("area-trip-band-open")).toHaveAttribute("href", /^\/cart\?trip=\d+$/);
 
   // On a place's page the next add goes to the trip the banner shows, with no trip to pick.
   await page.getByTestId("add-to-trip").nth(1).click();

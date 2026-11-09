@@ -11,23 +11,26 @@ import {
   questionsAbout,
   sampleDays,
   showHref,
+  onIslandRoute,
   stayPlaces,
+  typicalPrices,
   vibesOf,
 } from "@/components/area/area-guide";
-import { AreaNav, PlanFoot, SectionLink } from "@/components/area/area-nav";
+import { AreaNav, PlanFoot } from "@/components/area/area-nav";
 import { AREA_NOTES, busyMonths } from "@/components/area/area-notes";
 import {
-  AreaAbout,
   AreaBannerIntro,
+  AreaGettingAround,
   AreaGettingHere,
   AreaGoodToKnow,
   AreaGuideSheet,
   AreaQuestions,
   AreaSampleDays,
   AreaStays,
+  AreaThingsToDo,
   AreaWhenToGo,
 } from "@/components/area/area-sections";
-import { PlanDock } from "@/components/area/plan-dock";
+import type { RowCard } from "@/components/area/listing-row";
 import { AreaMapProvider, MapHoverTarget, MapSwitch } from "@/components/discovery/area-map-context";
 import { AreaMapLayout } from "@/components/discovery/area-map-layout";
 import {
@@ -58,23 +61,22 @@ import type { LandmarkTour } from "@/components/discovery/landmark-tours";
 import { listingFeatures } from "@/components/discovery/listing-features";
 import { SectionOrder } from "@/components/discovery/section-order";
 import { PlacesGrid } from "@/components/discovery/places-grid";
-import { AreaGlyph, ArrowGlyph } from "@/components/discovery/tag-glyphs";
+import { AreaGlyph } from "@/components/discovery/tag-glyphs";
 import { CurrentPlace } from "@/components/landing/current-place";
 import { LAUNCH_AREA } from "@/components/landing/launch-area";
-import { CHIP_ROW, PageBanner, STAT_CHIP, StatCount } from "@/components/landing/page-banner";
+import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { areaPhoto, landmarkPhotos } from "@/components/landing/sample-photos";
 import { addPreview } from "@/components/trips/add-preview";
 import { guestsLabel } from "@/components/trips/format";
 import { AreaHero } from "@/components/trips/area-hero";
 import { ReachYourself } from "@/components/trips/reach-yourself";
-import { SaveLandmarkButton } from "@/components/trips/save-landmark-button";
 import { BOOKING_STATE, GETTING_HERE } from "@/components/landing/launch-area";
 import { AreaTripBand } from "@/components/trips/area-trip-band";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { AdoptTrip, TripLinkProvider } from "@/components/trips/trip-link";
 import { readTripDates, tripDatesQuery, tripParam } from "@/components/trips/trip-dates";
-import { GlassPanel, glassClasses } from "@/components/ui/glass";
+import { GlassPanel } from "@/components/ui/glass";
 import { cn } from "@/components/ui/cn";
 import { Section } from "@/components/ui/section";
 import { DisplayTitle } from "@/components/ui/typography";
@@ -97,12 +99,22 @@ const TRIP_NEEDS = TRIP_ORDER_GROUPS.map(({ group, id, title, icon, need }) => (
 
 export async function generateMetadata(props: PageProps<"/[area]">): Promise<Metadata> {
   const detail = await getArea((await props.params).area);
-  return { title: detail ? detail.area.name : "Not found" };
+  if (!detail) return { title: "Not found" };
+  const { area, guide, landmarks } = detail;
+  // What a search result shows (Klook's "Singapore 2026: Top places to visit…"): the year and
+  // what the page holds, then the team's words about the place.
+  const year = new Date().getFullYear();
+  const what = landmarks.length > 0 ? "places to see, stays and tours" : "stays, tours and transfers";
+  const description = guide.tagline || guide.description || `Plan a trip to ${area.name}: ${what}, booked in one cart.`;
+  return {
+    title: `${area.name} ${year}: ${what}`,
+    description: description.length > 160 ? `${description.slice(0, 157).trimEnd()}…` : description,
+  };
 }
 
 // A destination: everything to book there, the places to see, and the destinations around
 // it and often visited with it (RAA-58). Listings go into the guest's trips (RAA-66), with
-// the trip dates and guests from the URL, which the header's search sets. Since RAA-108 the banner
+// the trip dates and guests from the URL (no header search here: links and the trip set them). Since RAA-108 the banner
 // shows the place's photo with its counts as chips. What to book comes first, on a paper
 // sheet: a filter rail beside rows with their photos and what they include. It holds the
 // places inside this one too (Santa Fe's on Bantayan Island's), each row naming its place, so
@@ -122,7 +134,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   // Arrived from one of the home hero's category pills (RAA-130): What to book opens on that group;
   // one this place doesn't have opens on All.
   const show = typeof searchParams.show === "string" ? searchParams.show : undefined;
-  // Words typed in the header's search on this page: What to book narrows to them (ListingBrowser).
+  // Words searched for from another page (a listing's header search): What to book narrows to them (ListingBrowser).
   const q = typeof searchParams.q === "string" && searchParams.q.trim() ? searchParams.q.trim() : undefined;
   // A search for something to book (a category, words) puts What to book first; otherwise the
   // trip shown here decides (SectionOrder).
@@ -260,22 +272,9 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           landmarks: Object.fromEntries(landmarkInfo),
         }
       : null;
-  // The banner's count links down to Places to see, a tap away on a phone however long What to
-  // book is. What to book has no count chip: guests didn't read "10 to book" (2026-10-31), and
-  // the trip lead's Browse leads there.
-  const stats = [
-    landmarks.length > 0 && {
-      count: landmarks.length,
-      label: landmarks.length === 1 ? "place to see" : "places to see",
-      section: "places",
-    },
-  ].filter((stat) => stat !== false);
   // What to book's intro names the partners the rail's cards stand for (one card per partner per
   // section, which the rail's All counts).
   const partners = new Set(listings.map((listing) => listing.business.id)).size;
-  // A single place inside with things to book is already the banner's "5 in Santa Fe" chip, so
-  // it gets no section of its own repeating it.
-  const insideShown = !(areas.length === 1 && counts?.more.some((child) => child.area.slug === areas[0].slug));
 
   // Getting to know the place (RAA-252): what the team wrote and what the data shows, each part
   // left out when there is nothing for it, and Plan a trip, which plans the island a town is on.
@@ -314,7 +313,68 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     },
   ].filter((way) => way !== false);
   const stays = stayPlaces(areas, landmarks);
-  const ownStays = listings.filter((listing) => listing.group === "stay").length;
+  const stayListings = listings.filter((listing) => listing.group === "stay");
+  const ownStays = stayListings.length;
+  // Where to stay's, Things to do's and Getting around's cards: one per business, as What to book
+  // shows them (its name, what it sells, its lowest price), opening the business's page on that
+  // group. Priced businesses first, then those with a photo, as What to book leads. `keep` narrows
+  // the group's listings first (Getting around's on-island transfers).
+  const rowCards = (group: string, keep: (listing: Listing) => boolean = () => true): RowCard[] =>
+    byBusiness(listings.filter((listing) => listing.group === group && keep(listing)))
+      .map((offered) => {
+        const first = offered[0];
+        const priced = offered.filter((listing) => listing.price_from_cents);
+        const cheapest = priced.sort((a, b) => a.price_from_cents! - b.price_from_cents!)[0];
+        const cover = offered.find((listing) => listing.cover_photo_url);
+        const forSale = offered.length === 1 ? first.title : `${first.title} + ${offered.length - 1} more`;
+        const onePlace = offered.every((listing) => listing.area_slug === first.area_slug) ? first.area_name : null;
+        const trusts = offered.map((listing) => listingFeatures(listing).find((feature) => feature.trust)?.label);
+        return {
+          id: `${group}-${first.business.id}`,
+          href: businessHref(first.business.id, dates, `need-${group}`, slug),
+          title: first.business.name,
+          category: first.category,
+          note: onePlace ? `${forSale} · ${onePlace}` : forSale,
+          photo: cover ? { src: cover.cover_photo_url!, alt: cover.title } : undefined,
+          price: cheapest
+            ? { prefix: "from", amount: formatPeso(cheapest.price_from_cents!), unit: priceUnitText(cheapest.price_unit) }
+            : undefined,
+          unpriced: pricedByText(first.booking_type),
+          instantBook: offered.every((listing) => listing.instant_book),
+          trust: trusts.every((label) => label && label === trusts[0]) ? trusts[0] : undefined,
+          kind: group,
+        };
+      })
+      .sort((a, b) => Number(!a.price) - Number(!b.price) || Number(!a.photo) - Number(!b.photo));
+  const stayCards = rowCards("stay");
+  const activityCards = rowCards("activity");
+  // Gear has no row or tab of its own: Things to do leads to it, the gear a guest needs going with
+  // what they do (2026-11-09).
+  const gearCount = listings.filter((listing) => listing.group === "gear").length;
+  // Getting around's row: the vehicles to rent here, then the transfers that run on the island
+  // (onIslandRoute: both ends of the route on it). The rest of the transfers are getting there,
+  // which Getting here's Find a transfer leads to (2026-11-09). With the row, Getting here's list
+  // of ways around goes, its notes saying the row's intro instead.
+  const islandPlaces = [
+    planPlace?.name ?? area.name,
+    ...(destinations ? descendants(destinations, island ?? slug).map((each) => each.name) : []),
+    ...Object.values(notes?.towns ?? {}).map((town) => town.name),
+    ...landmarks.map((landmark) => landmark.name),
+  ];
+  const isLocalTransfer = (listing: Listing) => onIslandRoute(listing.details.route, islandPlaces);
+  const localTransfers = listings.filter((listing) => listing.group === "transfer" && isLocalTransfer(listing));
+  const aroundCards = [...rowCards("rental"), ...rowCards("transfer", isLocalTransfer)];
+  const aroundIntro =
+    [
+      rentals > 0 ? (notes?.around?.rental ?? `Scooters and cars from ${countText(rentals, "local partner")}.`) : null,
+      localTransfers.length > 0 ? (notes?.around?.localTransfer ?? "Vans run between the towns too.") : null,
+    ]
+      .filter(Boolean)
+      .join(" ") || null;
+  const aroundLinks = [
+    rentals > 0 && { label: "See rentals", href: showHref(slug, "need-rental", datesQuery), testId: "area-around-rentals" },
+    localTransfers.length > 0 && { label: "See transfers", href: showHref(slug, "need-transfer", datesQuery), testId: "area-around-transfers" },
+  ].filter((link) => link !== false);
   const days = sampleDays(landmarks, listings);
   const questions = questionsAbout({
     name: area.name,
@@ -330,27 +390,28 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   });
   const year = Number((dates.from ?? new Date().toISOString()).slice(0, 4));
   const datesRange = formatDateRange(dates.from, dates.to);
-  // The banner's quick facts: the place's own, else the best time to go when it is short.
-  const facts =
+  // The banner's quick facts: the place's own, else the best time to go when it is short, with
+  // the typical prices from what is here after the first two (the way there, then the cost).
+  const placeFacts =
     notes?.facts ??
     (guide.best_time_to_visit && guide.best_time_to_visit.length <= 24
       ? [{ label: "Best time", value: guide.best_time_to_visit }]
       : []);
-  const highlights = landmarks.slice(0, 3).map((landmark, index) => ({
-    slug: landmark.slug,
-    name: landmark.name,
-    line: landmark.description.split(". ")[0] ?? "",
-    photo: photos[index] ?? null,
-  }));
+  const facts = [...placeFacts.slice(0, 2), ...typicalPrices(listings), ...placeFacts.slice(2)];
+  // The section bar names a few groups, not every part (Klook's has four): a group's tab goes to
+  // its first part on the page, and stays marked through the rest of it.
+  const hasWhen = Boolean(notes || guide.best_time_to_visit);
+  // Getting here shows its list of ways around only without Getting around's row (2026-11-09).
+  const hasGettingHere = Boolean(gettingHere || (notes?.route.length ?? 0) > 0 || (aroundCards.length === 0 && around.length > 0));
+  // Plan your visit runs from When to go through Getting around, its last part.
+  const planId = hasWhen ? "when" : hasGettingHere ? "getting-here" : aroundCards.length > 0 ? "around" : null;
+  const tipsId = [(notes?.know.length ?? 0) > 0 && "know", days.length > 0 && "days", questions.length > 0 && "faq"].find(Boolean);
   const tabs = [
-    (guide.description || highlights.length > 0) && { id: "about", label: "Overview" },
     landmarks.length > 0 && { id: "places", label: "Places to see" },
-    (notes || guide.best_time_to_visit) && { id: "when", label: "When to go" },
-    (gettingHere || (notes?.route.length ?? 0) > 0 || around.length > 0) && { id: "getting-here", label: "Getting here" },
-    (stays.length > 0 || ownStays > 0) && { id: "stay", label: "Where to stay" },
-    (notes?.know.length ?? 0) > 0 && { id: "know", label: "Good to know" },
-    days.length > 0 && { id: "days", label: "Sample days" },
-    questions.length > 0 && { id: "faq", label: "Questions" },
+    planId && { id: planId, label: "Plan your visit" },
+    ownStays > 0 && { id: "stay", label: "Stays" },
+    activityCards.length > 0 && { id: "do", label: "Things to do" },
+    tipsId && { id: tipsId, label: "Tips & questions" },
     listings.length > 0 && { id: "listings", label: "What to book" },
   ].filter((tab) => !!tab);
 
@@ -368,28 +429,9 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   const bannerTitle = (
     <>
       {areaTitle}
-      <AreaBannerIntro tagline={guide.tagline} vibes={vibesOf(landmarks)} facts={facts} />
+      <AreaBannerIntro tagline={guide.tagline} description={guide.description} goodFor={notes?.goodFor} vibes={vibesOf(landmarks)} facts={facts} />
     </>
   );
-  // The banner's chips: its counts, linking down to their sections, and the places inside this
-  // one with things to book, which the total counts, linked to their own pages (RAA-85).
-  const statChips = stats.map((stat) => (
-    <li key={stat.label} className="shrink-0">
-      <SectionLink id={stat.section} className={cn(STAT_CHIP, glassClasses(), "hover:bg-glass-hover")}>
-        <StatCount count={stat.count} /> {stat.label}
-        {/* Down the page, as the places inside go to their own pages (→). */}
-        <ArrowGlyph direction="down" className="size-4 text-sky-pale" />
-      </SectionLink>
-    </li>
-  ));
-  // Counted as What to book's cards, so "5 in Santa Fe" matches Santa Fe's own page.
-  const cardsIn = (slugs: Set<string>) =>
-    new Set(listings.filter((listing) => slugs.has(listing.area_slug)).map((listing) => `${listing.business.id}:${listing.group}`)).size;
-  const placeLinks = (counts?.more ?? []).map((child) => ({
-    href: `/${child.area.slug}${datesQuery}`,
-    name: child.area.name,
-    count: cardsIn(new Set([child.area.slug, ...descendants(destinations ?? [], child.area.slug).map((each) => each.slug)])),
-  }));
 
   return (
     <main className="flex flex-1 flex-col">
@@ -399,8 +441,6 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
         // The place's banner, with the guest's trip here at its foot.
         <AreaHero
           banner={{ photo: banner, carousel: ownPhotos, eyebrow, title: bannerTitle }}
-          statChips={statChips}
-          placeLinks={placeLinks}
           areaName={area.name}
           places={places}
           island={island}
@@ -410,23 +450,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
           plan={plan}
         />
       ) : (
-        <PageBanner photo={banner} carousel={ownPhotos} eyebrow={eyebrow} title={bannerTitle}>
-          {(stats.length > 0 || placeLinks.length > 0) && (
-            <ul aria-label={`In ${area.name}`} className={CHIP_ROW}>
-              {statChips}
-              {placeLinks.map((link) => (
-                <li key={link.href} className="shrink-0">
-                  <Link href={link.href} className={cn(STAT_CHIP, glassClasses(), "hover:bg-glass-hover")}>
-                    <StatCount count={link.count} /> in {link.name}
-                    <span aria-hidden className="text-sky-pale">
-                      →
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </PageBanner>
+        <PageBanner photo={banner} carousel={ownPhotos} eyebrow={eyebrow} title={bannerTitle} search={false} />
       )}
 
       <PageSheet tone="clear">
@@ -446,9 +470,6 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                 <SectionOrder
                   asked={asked}
                   tripPlaces={places}
-                  intro={
-                    <AreaAbout name={area.name} description={guide.description} goodFor={notes?.goodFor} highlights={highlights} />
-                  }
                   guide={
                     <AreaGuideSheet>
                       <AreaWhenToGo
@@ -464,15 +485,23 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                         routeText={gettingHere}
                         routeSummary={notes?.routeSummary ?? null}
                         transferHref={transfers > 0 ? showHref(slug, "need-transfer", datesQuery) : null}
-                        around={around}
+                        around={aroundCards.length > 0 && (notes?.route?.length || gettingHere) ? [] : around}
                       />
+                      <AreaGettingAround name={area.name} cards={aroundCards} intro={aroundIntro} links={aroundLinks} />
                       <AreaStays
                         name={area.name}
                         places={stays}
                         towns={notes?.towns}
-                        ownStays={ownStays}
+                        stays={stayCards}
                         ownHref={showHref(slug, "need-stay", datesQuery)}
-                        hrefFor={(child) => showHref(child, "need-stay", datesQuery)}
+                      />
+                      <AreaThingsToDo
+                        name={area.name}
+                        partners={tours}
+                        activities={activityCards}
+                        ownHref={showHref(slug, "need-activity", datesQuery)}
+                        gear={gearCount}
+                        gearHref={showHref(slug, "need-gear", datesQuery)}
                       />
                       <AreaGoodToKnow notes={notes?.know ?? []} />
                       <AreaSampleDays days={days} planHref={plan.href} planLabel={plan.label} />
@@ -499,7 +528,6 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                                   tours={toursOf(landmark)}
                                   dates={dates}
                                   areaName={area.name}
-                                  corner={<SaveLandmarkButton key={`corner-${landmark.slug}`} slug={landmark.slug} name={landmark.name} guests={dates.guests} />}
                                   reach={
                                     landmarkPoints.has(landmark.slug) && (
                                       <ReachYourself key={`reach-${landmark.slug}`} location={landmarkPoints.get(landmark.slug)!} places={places} stays={stayPoints} />
@@ -589,7 +617,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                   }
                 />
 
-                {areas.length > 0 && insideShown && (
+                {areas.length > 0 && (
                   <Section id="inside" surface="photo" title={`Destinations in ${area.name}`}>
                     {/* One place inside gets the whole row, as a shorter card, rather than half a row. */}
                     <ul className={cn("grid gap-gutter", areas.length > 1 && "sm:grid-cols-2")}>
@@ -657,9 +685,8 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
 
                 {/* The page ends on the trip, which What to book fills. */}
                 {listings.length > 0 && (
-                  <AreaTripBand areaName={planPlace?.name ?? area.name} places={places} planHref={plan.href} />
+                  <AreaTripBand places={places} />
                 )}
-                {listings.length > 0 && <PlanDock href={plan.href} label="Plan a trip" places={places} />}
                 <PlanFoot
                   href={plan.href}
                   place={planPlace?.name ?? area.name}
@@ -706,18 +733,11 @@ function countText(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
-// The counts for the places inside this one (RAA-80): each card's own line, and the ones
-// with things to book, which the banner links to as "5 in Santa Fe" (RAA-85). A place's
-// count includes the places inside it, as its home card's does, and as this page's total does.
+// The counts for the places inside this one (RAA-80): each card's own line. A place's count
+// includes the places inside it, as its home card's does, and as this page's total does.
 function areaCounts(destinations: AreaCard[], slug: string) {
   const inside = destinations.filter((child) => child.parent_slug === slug);
   return {
     children: new Map(inside.map((child) => [child.slug, countLine(child)])),
-    more: inside
-      .map((child) => ({
-        area: child,
-        toBook: child.to_book_count,
-      }))
-      .filter(({ toBook }) => toBook > 0),
   };
 }

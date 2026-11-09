@@ -8582,6 +8582,7 @@ export interface components {
             description: string;
             /** @description Booked at once, without asking the partner (RAA-132) */
             instant_book: boolean;
+            cancellation_policy: components["schemas"]["cancellation_policy"];
             /** @description The description's first non-blank line, cut to 160 characters; empty when there is none */
             summary: string;
             category: {

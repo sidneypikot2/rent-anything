@@ -101,7 +101,7 @@ export function InTripBadge({ listingId }: { listingId: number }) {
 // held ("In your trip" three times read as a bug): "3 in your trip" when the trip being worked
 // on holds some, otherwise "In another trip" when only another one does. Not a button: a tap
 // falls through to the card, whose panel marks each option held with "Add another"; their days
-// are edited from the banner's Edit (HereItemsSheet) or in the cart. `otherTrips: false` leaves
+// are edited in the cart. `otherTrips: false` leaves
 // out "In another trip" (the plan's cards, which only ever plan this trip).
 export function InTripCount({ listingIds, otherTrips = true }: { listingIds: number[]; otherTrips?: boolean }) {
   const trips = useGuestTrips();

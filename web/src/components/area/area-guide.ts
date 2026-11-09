@@ -2,6 +2,8 @@ import type { AreaDetail } from "@/api/discovery";
 import type { GettingHere } from "@/components/landing/launch-area";
 import { kmText } from "@/components/plan/plan-data";
 import { distanceKm, type LatLng } from "@/lib/geo";
+import { formatPeso } from "@/lib/money";
+import { priceUnitText } from "@/lib/pricing";
 
 // What an area page says to get to know the place (RAA-252), worked out from the area response
 // alone: nothing here is written per place, so every destination gets its page from its data,
@@ -41,6 +43,47 @@ export function gettingHereText(guide: AreaDetail["guide"], route: GettingHere |
 // The businesses offering each group here (What to book's cards are one per business).
 export function businessesIn(listings: Listing[], group: Listing["group"]) {
   return new Set(listings.filter((listing) => listing.group === group).map((listing) => listing.business.id)).size;
+}
+
+// Whether a transfer runs on the island rather than getting there (Getting around's row, not
+// Getting here): both ends of its route, as the partner typed it ("Santa Fe to Madridejos"), name
+// a place on the island. A route left blank, or one end off it ("Hagnaya port to Santa Fe"), is
+// getting there. Text only, until a transfer's ends are places in the data.
+export function onIslandRoute(route: unknown, places: string[]) {
+  if (typeof route !== "string") return false;
+  const ends = route.split(/\s+to\s+|\s*[–—→>]\s*|\s+-\s+/i).map((end) => end.trim()).filter(Boolean);
+  if (ends.length < 2) return false;
+  const names = places.map((place) => place.toLowerCase());
+  const onIsland = (end: string) => names.some((name) => new RegExp(`\\b${escapeRegExp(name)}\\b`).test(end.toLowerCase()));
+  return onIsland(ends[0]) && onIsland(ends[ends.length - 1]);
+}
+
+function escapeRegExp(text: string) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// The banner's price facts ("Typical stay" · "₱2,500 / night"): the middle from-price of a
+// group's priced listings, in the unit most of them use, so one odd price doesn't set it. A
+// group with none priced says nothing.
+export function typicalPrices(listings: Listing[]) {
+  const kinds = [
+    { group: "stay", label: "Typical stay" },
+    { group: "activity", label: "Typical tour" },
+  ] as const;
+  return kinds.flatMap(({ group, label }) => {
+    const priced = listings.filter((listing) => listing.group === group && listing.price_from_cents && listing.price_unit);
+    const units = new Map<string, number>();
+    for (const listing of priced) units.set(listing.price_unit!, (units.get(listing.price_unit!) ?? 0) + 1);
+    const unit = [...units].sort((a, b) => b[1] - a[1])[0]?.[0] as Listing["price_unit"] | undefined;
+    if (!unit) return [];
+    const prices = priced
+      .filter((listing) => listing.price_unit === unit)
+      .map((listing) => listing.price_from_cents!)
+      .sort((a, b) => a - b);
+    // The upper middle with an even count: a price someone charges, never understating it.
+    const middle = prices[Math.floor(prices.length / 2)];
+    return [{ label, value: `${formatPeso(middle)} ${priceUnitText(unit)}` }];
+  });
 }
 
 // The places inside this one with stays, most first, each with the place to see nearest to it.

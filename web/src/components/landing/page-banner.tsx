@@ -5,20 +5,6 @@ import { BannerCarousel } from "./banner-carousel";
 import { DriftingPhoto } from "./drifting-photo";
 import { SearchBar } from "./search-bar";
 
-// A banner's row of chips (an area's counts, a trip's needs): one row to swipe on a phone, so the
-// banner stays short; its right edge fades, so a chip cut there reads as more to swipe to, and the
-// end padding lets the last one clear it; overscrolling it doesn't take the browser back a page.
-// From sm it wraps. `relative` holds a chip's sr-only
-// text (absolutely positioned) inside the row, which would otherwise widen the page on a phone.
-export const CHIP_ROW =
-  "relative -mx-1 flex gap-2 overflow-x-auto overscroll-x-contain pr-8 pl-1 [scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0";
-// A count on the banner ("20 to book"), on glass.
-export const STAT_CHIP = "flex min-h-11 items-center gap-1.5 rounded-control px-3.5 text-sm whitespace-nowrap text-sky-mist";
-
-export function StatCount({ count }: { count: number }) {
-  return <span className="font-display text-xl font-extrabold tabular-nums text-white">{count}</span>;
-}
-
 // `sizes` defaults to the frame's width; a photo also shown elsewhere passes that one's.
 type Photo = { src: string; alt: string; mirror?: boolean; sizes?: string; placeholder?: `data:image/${string}` };
 
@@ -48,7 +34,9 @@ const HERO_PHOTO_PAD = "pb-8 pt-16 max-sm:short:pb-5 max-sm:short:pt-5! sm:py-12
 // cart, Trips, Bookings): no photo, the title and its actions on one short row (never wrapping on a
 // phone, RAA-161), so the page's own content starts in the first screen. `carousel` is a
 // destination's own photos (RAA-211), `photo` the first of them: with more than one the banner
-// turns through them (BannerCarousel) instead of showing `photo` alone.
+// turns through them (BannerCarousel) instead of showing `photo` alone. `scrim="text"` (an area's
+// banner, whose tall text runs up the photo) darkens the photo under all of its text — from lg the
+// left, fading out to the right — and softly shadows the text (`text-on-photo`).
 export function PageBanner({
   eyebrow,
   title,
@@ -60,6 +48,7 @@ export function PageBanner({
   aside,
   search = true,
   compact = false,
+  scrim,
 }: {
   eyebrow?: ReactNode;
   title: ReactNode;
@@ -73,10 +62,11 @@ export function PageBanner({
   aside?: ReactNode;
   search?: boolean;
   compact?: boolean;
+  scrim?: "text";
 }) {
   const contents = (
     <>
-      <div className={cn("flex min-w-0 max-w-prose flex-col gap-4 text-white", hero && "max-sm:short:gap-3 landscape-phone:row-span-2 landscape-phone:gap-3")}>
+      <div className={cn("flex min-w-0 max-w-prose flex-col gap-4 text-white", scrim === "text" && "text-on-photo", hero && "max-sm:short:gap-3 landscape-phone:row-span-2 landscape-phone:gap-3")}>
         {eyebrow && (
           // A mint dot leads it, as on the trust ticks (RAA-130): something is live here.
           // `card` glass: it sits at the top of the photo, where the scrim is lightest, and
@@ -158,6 +148,12 @@ export function PageBanner({
               <div
                 aria-hidden
                 className="absolute inset-0 -z-10 bg-linear-to-t from-scrim/90 via-scrim/78 via-72% to-scrim/10 max-sm:short:to-scrim/60 lg:bg-linear-to-r lg:from-scrim/90 lg:via-scrim/76 lg:via-52% lg:to-scrim/0 lg:mask-t-from-65% lg:mask-t-to-100% landscape-phone:from-scrim/90 landscape-phone:via-scrim/82 landscape-phone:to-scrim/70 landscape-phone:mask-none"
+              />
+            ) : scrim === "text" ? (
+              // Text runs most of the way up: dense under it, the photo clear on the right from lg.
+              <div
+                aria-hidden
+                className="absolute inset-0 -z-10 bg-linear-to-t from-scrim/90 via-scrim/70 via-60% to-scrim/30 lg:bg-linear-to-r lg:from-scrim/85 lg:via-scrim/65 lg:via-50% lg:to-scrim/10"
               />
             ) : (
               // Darkest at the foot, where the text is; the top of the photo stays clear.

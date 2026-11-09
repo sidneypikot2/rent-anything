@@ -11,7 +11,6 @@ import { Field } from "@/components/ui/field";
 import { Pill } from "@/components/ui/pill";
 import { transmissionLabel } from "@/components/listings/vehicle-labels";
 import { formatPeso } from "@/lib/money";
-import { openPlan, usePlanSummary } from "@/components/trips/plan-open";
 import { gapGroup, planGaps, stillMissing } from "@/components/trips/trip-missing";
 import { useTripAdd } from "@/components/trips/trip-add-provider";
 import { useTripHere } from "@/components/trips/use-trip-here";
@@ -19,7 +18,7 @@ import { ShownOffersContext } from "./business-row";
 import { BOOKING_GROUPS } from "./categories";
 import { listingKey, MapHoverTarget, MapSwitch, useAreaMap, useBesideMap } from "./area-map-context";
 import type { Feature } from "./listing-features";
-import { AlertGlyph, CategoryGlyph, CloseGlyph, FeatureGlyph, FilterGlyph, GridGlyph, ListGlyph, TickGlyph } from "./tag-glyphs";
+import { CategoryGlyph, CloseGlyph, FeatureGlyph, FilterGlyph, GridGlyph } from "./tag-glyphs";
 import { focusDock } from "./floating-dock";
 import { useFitRows } from "./use-fit-rows";
 
@@ -220,29 +219,6 @@ export function ListingBrowser({
     void row.offsetWidth;
     row.classList.add("just-added");
   }, [lastAdded]);
-  // "a transfer", "a place to stay": what a section gives the trip, for its "still needs" line.
-  const needOf = (group: ListingGroup) => {
-    const need = BOOKING_GROUPS.find((each) => each.group === group.group)?.need ?? group.title;
-    return need.charAt(0).toLowerCase() + need.slice(1);
-  };
-  // What a section's "still needs" line says. A stay or transfer the trip lacks is named as a need;
-  // when the section's only gaps are items already in the trip that can't be had (fully booked on
-  // their dates, or no date yet), the line names them instead: their nights may well be covered,
-  // and "still needs a place to stay" would send the guest looking for a stay they already have.
-  const neededLine = (group: ListingGroup) => {
-    const here = gaps.filter((gap) => gapGroup(gap) === group.group);
-    if (here.some((gap) => gap.kind === "stay" || gap.kind === "need")) return `Your trip still needs ${needOf(group)}`;
-    const items = here.flatMap((gap) => (gap.kind === "unavailable" || gap.kind === "undated" ? [gap] : []));
-    if (items.length === 1) {
-      const [gap] = items;
-      return `${gap.item.listing.title}: ${gap.kind === "unavailable" ? gap.reason : "no date yet"}`;
-    }
-    if (items.length > 1) return `${items.length} in your trip can't be booked as they are. See Your plan`;
-    return `Your trip still needs ${needOf(group)}`;
-  };
-  // A chip's mark: a dot for what's missing, a tick for what the trip has.
-  const markOf = (group: ListingGroup) => (group.group && lacks.has(group.group) ? "missing" : inTrip(group) ? "has" : undefined);
-  const planSummary = usePlanSummary();
   const [current, setCurrent] = useState<string>(() =>
     initial && groups.some((group) => group.id === initial) ? initial : "all",
   );
@@ -368,7 +344,7 @@ export function ListingBrowser({
   const total = groups.reduce((sum, group) => sum + visible(group).length, 0);
   // Under a search, only the sections it found something in (and the one picked).
   const options = [
-    { id: "all", title: "All", icon: "", count: total, set: 0, mark: undefined },
+    { id: "all", title: "All", icon: "", count: total, set: 0 },
     ...ordered
       .map((group) => ({
         id: group.id,
@@ -376,7 +352,6 @@ export function ListingBrowser({
         icon: group.icon,
         count: visible(group).length,
         set: setCount(filtersOf(group.id)),
-        mark: markOf(group),
       }))
       .filter((option) => !matches || option.count > 0 || option.id === current),
   ];
@@ -415,33 +390,6 @@ export function ListingBrowser({
               rail && "lg:static lg:mx-0 lg:my-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:rounded-card lg:bg-surface lg:p-2 lg:card-edge-line lg:shadow-soft",
             )}
           >
-            {/* The trip's plan, first in the row (and the rail): it says what to look for here. */}
-            {planSummary && (
-              <button
-                type="button"
-                onClick={openPlan}
-                aria-haspopup="dialog"
-                data-testid="trip-plan-button"
-                aria-label={planSummary.missing > 0 ? `Your plan: ${planSummary.missing} missing` : "Your plan"}
-                className={cn(
-                  "flex min-h-11 shrink-0 items-center gap-2 rounded-button bg-surface px-4 text-sm font-semibold whitespace-nowrap text-navy shadow-xs inset-ring-1 inset-ring-line-strong transition-colors duration-150 ease-calm hover:bg-surface-2",
-                  rail && "lg:mb-1 lg:bg-surface lg:hover:bg-mist lg:grid lg:grid-cols-[1.75rem_minmax(0,1fr)_auto] lg:gap-2.5 lg:rounded-control lg:border-line lg:px-2.5 lg:py-2 lg:text-left",
-                )}
-              >
-                <span aria-hidden className={cn("flex items-center justify-center", rail && "lg:size-7 lg:rounded-lg lg:bg-navy lg:text-white")}>
-                  {planSummary.problem ? <AlertGlyph className={cn("size-4 text-warning", rail && "lg:text-warning-tint")} /> : <ListGlyph className="size-4" />}
-                </span>
-                <span>Your plan</span>
-                {planSummary.missing > 0 && (
-                  <span
-                    aria-hidden
-                    className="grid min-w-6 place-items-center rounded-full bg-aqua px-1.5 text-xs font-bold text-navy tabular-nums"
-                  >
-                    {planSummary.missing}
-                  </span>
-                )}
-              </button>
-            )}
             {options.map((option) => {
               const on = option.id === current;
               return (
@@ -476,10 +424,7 @@ export function ListingBrowser({
                     {option.icon ? <CategoryGlyph name={option.icon} className="size-4" /> : <GridGlyph className="size-4" />}
                   </span>
                   <span className="flex items-center gap-1.5">
-                    {option.mark === "missing" && <span aria-hidden className="size-2 shrink-0 rounded-full bg-danger" />}
                     {option.title}
-                    {option.mark === "has" && <TickGlyph className={cn("size-3.5 shrink-0", on ? "text-mint" : "text-forest", rail && on && "lg:text-forest")} />}
-                    {option.mark && <span className="sr-only">{option.mark === "missing" ? ", missing from your trip" : ", in your trip"}</span>}
                     {option.set > 0 && (
                       <span className={cn("ml-1.5 text-xs font-medium", on ? cn("text-white/80", rail && "lg:text-lagoon-ink") : "text-muted")}>
                         · {option.set} {option.set === 1 ? "filter" : "filters"}
@@ -490,19 +435,6 @@ export function ListingBrowser({
                 </button>
               );
             })}
-            {/* What the marks mean, in the rail, once any shows (screen readers hear it on each). */}
-            {rail && options.some((option) => option.mark) && (
-              <p aria-hidden className="hidden flex-wrap items-center gap-x-3 gap-y-1 border-t border-line px-2.5 pt-2.5 pb-1 text-xs text-muted lg:flex">
-                <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-danger" />
-                  Your trip still needs
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <TickGlyph className="size-3.5 text-forest" />
-                  In your trip
-                </span>
-              </p>
-            )}
             {/* A fade at the row's right edge while it scrolls, so a cut-off chip reads as more. */}
             <span
               aria-hidden
@@ -592,19 +524,6 @@ export function ListingBrowser({
                       </>
                     )}
                   </div>
-                  {/* With a trip shown, whether it needs this section: said once under the title. */}
-                  {trip && markOf(group) === "missing" && (
-                    <p data-testid="section-needed" className="-mt-1 flex items-center gap-2 text-sm font-semibold">
-                      <span aria-hidden className="size-2 shrink-0 rounded-full bg-danger" />
-                      {neededLine(group)}
-                    </p>
-                  )}
-                  {trip && markOf(group) === "has" && (
-                    <p className="-mt-1 flex items-center gap-1.5 text-sm text-muted">
-                      <TickGlyph aria-hidden className="size-3.5 text-forest" />
-                      In your trip
-                    </p>
-                  )}
                   {group.gettingHere && (
                     <div data-testid="getting-here" className="flex max-w-prose items-start gap-3 rounded-control border border-line bg-surface p-3">
                       <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-xl bg-mist text-primary">

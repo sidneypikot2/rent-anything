@@ -40,13 +40,14 @@ function jumpTo(event: MouseEvent<HTMLAnchorElement>, id: string, bar: HTMLEleme
 // A link elsewhere on the page down to one of the bar's sections (the banner's "8 places to
 // see"), jumping as the bar's own tabs do.
 export function SectionLink({ id, ...props }: { id: string } & Omit<ComponentProps<"a">, "href" | "onClick">) {
-  return (
-    <a
-      {...props}
-      href={`#${id}`}
-      onClick={(event) => jumpTo(event, id, document.querySelector<HTMLElement>("[data-area-nav]"))}
-    />
-  );
+  return <a {...props} href={`#${id}`} onClick={jumpToSection(id)} />;
+}
+
+// The same jump for a link drawn by another component (a ButtonLink to #listings): a plain hash
+// link does nothing while the URL already ends in it, and lands the section under the header.
+export function jumpToSection(id: string) {
+  return (event: MouseEvent<HTMLAnchorElement>) =>
+    jumpTo(event, id, document.querySelector<HTMLElement>("[data-area-nav]"));
 }
 
 function scrollToSection(id: string, bar: HTMLElement | null, behavior: ScrollBehavior) {
@@ -127,9 +128,6 @@ function useCurrent(tabs: Tab[]) {
   return { current, inListings };
 }
 
-// An area page's sections as one white bar that sticks under the header (RAA-252), the current
-// one marked, with Plan a trip at its end from sm. Only the sections the place has. It steps
-// aside while What to book is under it, whose own filters stick there.
 // Which ends of a sideways row have more past them, so the row can fade there: with its scrollbar
 // hidden, a tab cut at the edge is the only sign the row scrolls, and it read as a cut-off label.
 function useScrollEdges(row: RefObject<HTMLElement | null>) {
@@ -154,6 +152,47 @@ function useScrollEdges(row: RefObject<HTMLElement | null>) {
   return edges;
 }
 
+// The page's other Plan a trip buttons: the banner's (wide or compact), Sample days' and the
+// closing band's.
+const OTHER_PLANS =
+  "[data-testid='plan-trip'], [data-testid='plan-trip-compact'], [data-testid='plan-from-days'], [data-testid='area-trip-band-open']";
+
+// The first of those on screen below `top`. A display:none one (the other layout's) has no size.
+function otherPlanOnScreen(top: number) {
+  return Array.from(document.querySelectorAll<HTMLElement>(OTHER_PLANS)).find((el) => {
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.bottom > top && rect.top < window.innerHeight;
+  });
+}
+
+// Whether none of those is on screen below the header (and this bar, once it sticks), so the
+// bar's own Plan a trip shows only then and the guest never sees two at once.
+function useOtherPlanHidden(bar: RefObject<HTMLElement | null>) {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const chrome = readChrome();
+      const rect = bar.current?.getBoundingClientRect();
+      const top = rect && rect.top <= chrome + 1 ? rect.bottom : chrome;
+      setHidden(!otherPlanOnScreen(top));
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      cancelAnimationFrame(frame);
+    };
+  }, [bar]);
+  return hidden;
+}
+
 function fadeMask({ start, end }: { start: boolean; end: boolean }): CSSProperties | undefined {
   if (!start && !end) return undefined;
   const mask = `linear-gradient(to right, ${start ? "transparent, black 2.5rem" : "black"}, ${end ? "black calc(100% - 2.5rem), transparent" : "black"})`;
@@ -161,13 +200,14 @@ function fadeMask({ start, end }: { start: boolean; end: boolean }): CSSProperti
 }
 
 // An area page's sections as one white bar that sticks under the header (RAA-252), the current
-// one marked, with Plan a trip at its end from sm. Only the sections the place has. It steps
+// one marked, with Plan a trip at its end from sm while no other one is on screen. Only the sections the place has. It steps
 // aside while What to book is under it, whose own filters stick there.
 export function AreaNav({ tabs, planHref }: { tabs: Tab[]; planHref: string }) {
   const { current, inListings } = useCurrent(tabs);
   const list = useRef<HTMLUListElement>(null);
   const bar = useRef<HTMLElement>(null);
   const edges = useScrollEdges(list);
+  const showPlan = useOtherPlanHidden(bar);
   useLandOnHash(tabs, bar);
   // Keep the marked tab in view where the row scrolls sideways.
   useEffect(() => {
@@ -185,14 +225,14 @@ export function AreaNav({ tabs, planHref }: { tabs: Tab[]; planHref: string }) {
       aria-label="On this page"
       data-testid="area-nav"
       className={cn(
-        "sticky top-(--chrome) z-20 card-edge flex items-center gap-2 rounded-full bg-surface p-1.5 text-navy shadow-soft",
+        "sticky top-(--chrome) z-20 card-edge flex items-center rounded-full bg-surface px-3 py-1.5 text-navy shadow-soft",
         "transition-[opacity,translate] duration-500 ease-calm",
         inListings && "pointer-events-none -translate-y-2 opacity-0",
       )}
     >
-      <ul ref={list} style={fadeMask(edges)} className="flex min-w-0 flex-1 gap-1 overflow-x-auto xl:gap-0 [scrollbar-width:none]">
+      <ul ref={list} style={fadeMask(edges)} className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none]">
         {tabs.map((tab) => (
-          <li key={tab.id} className="shrink-0">
+          <li key={tab.id} className="flex-1 shrink-0">
             <a
               href={`#${tab.id}`}
               data-tab={tab.id}
@@ -200,8 +240,8 @@ export function AreaNav({ tabs, planHref }: { tabs: Tab[]; planHref: string }) {
               aria-current={current === tab.id ? "location" : undefined}
               className={cn(
                 // The current one subtly: ink text over a short underline that grows in.
-                "relative flex min-h-11 items-center rounded-full px-3.5 text-sm font-semibold xl:px-2.5 whitespace-nowrap transition-colors duration-300 ease-calm hover:bg-tag",
-                "after:absolute after:inset-x-3.5 after:bottom-1.5 xl:after:inset-x-2.5 after:h-0.5 after:origin-center after:rounded-full after:bg-action after:transition-transform after:duration-300 after:ease-calm",
+                "relative flex min-h-11 items-center justify-center rounded-full px-4 text-sm font-semibold whitespace-nowrap transition-colors duration-300 ease-calm hover:bg-tag",
+                "after:absolute after:inset-x-4 after:bottom-1.5 after:h-0.5 after:origin-center after:rounded-full after:bg-action after:transition-transform after:duration-300 after:ease-calm",
                 current === tab.id ? "text-action-ink after:scale-x-100" : "text-muted after:scale-x-0 hover:text-navy",
               )}
             >
@@ -210,16 +250,39 @@ export function AreaNav({ tabs, planHref }: { tabs: Tab[]; planHref: string }) {
           </li>
         ))}
       </ul>
-      <ButtonLink href={planHref} size="sm" arrow className="shrink-0 max-sm:hidden">
-        Plan a trip
-      </ButtonLink>
+      {/* Takes no room while hidden. Arriving, its room opens (the tabs glide aside) and then it
+          fades in; leaving, it fades out and then its room closes: one step at a time. */}
+      <div
+        inert={!showPlan}
+        className={cn(
+          "grid shrink-0 transition-[grid-template-columns] duration-300 ease-calm max-sm:hidden",
+          showPlan ? "grid-cols-[1fr]" : "grid-cols-[0fr] delay-200",
+        )}
+      >
+        <div className="min-w-0 overflow-hidden">
+          <ButtonLink
+            href={planHref}
+            size="sm"
+            arrow
+            data-testid="area-nav-plan"
+            className={cn(
+              "ml-2 whitespace-nowrap transition-opacity duration-200 ease-calm",
+              showPlan ? "opacity-100 delay-200" : "opacity-0",
+            )}
+          >
+            Plan a trip
+          </ButtonLink>
+        </div>
+      </div>
     </nav>
   );
 }
 
 // A phone's foot (RAA-252): once the banner has scrolled away, the place and the page's dates
-// with Plan a trip, until What to book comes up (where the floating dock's Map and Plan a trip
-// take over) or the closing band, which has its own. Below lg; partners and admins don't plan.
+// with Plan a trip, until What to book comes up (where the floating dock's Map takes over, and a
+// guest booking one thing needs no Plan a trip), and never while another is on screen (Sample
+// days'; the closing band's View trip).
+// Below sm, where the section bar has none; partners and admins don't plan.
 export function PlanFoot({
   href,
   place,
@@ -242,9 +305,11 @@ export function PlanFoot({
       const band = document.querySelector("[data-testid='area-trip-band']")?.getBoundingClientRect();
       const height = window.innerHeight;
       const pastBanner = Boolean(start && start.top < height * 0.4) || window.scrollY > height * 0.8;
-      const atListings = Boolean(listings && listings.top < height / 2 && listings.bottom > 0);
+      // Well before the dock rises (What to book in the window's upper half), so the two never
+      // slide past each other.
+      const atListings = Boolean(listings && listings.top < height * 0.8 && listings.bottom > 0);
       const atBand = Boolean(band && band.top < height);
-      setShown(pastBanner && !atListings && !atBand);
+      setShown(pastBanner && !atListings && !atBand && !otherPlanOnScreen(readChrome()));
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(update);
@@ -264,7 +329,7 @@ export function PlanFoot({
       data-testid="plan-foot"
       aria-hidden={!shown}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] text-navy shadow-float lg:hidden",
+        "fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-line bg-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] text-navy shadow-float sm:hidden",
         "transition-[opacity,translate] duration-500 ease-calm",
         !shown && "pointer-events-none translate-y-full opacity-0",
       )}

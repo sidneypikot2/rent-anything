@@ -636,6 +636,7 @@ RSpec.configure do |config|
               title: { type: :string },
               description: { type: :string },
               instant_book: { type: :boolean, description: "Booked at once, without asking the partner (RAA-132)" },
+              cancellation_policy: { "$ref" => "#/components/schemas/cancellation_policy" },
               summary: {
                 type: :string,
                 description: "The description's first non-blank line, cut to 160 characters; empty when there is none"
@@ -687,7 +688,7 @@ RSpec.configure do |config|
                 description: "Its photos ready for guests (see partner_photo.ready), in the partner's order; the first is the cover"
               }
             },
-            required: %w[id title description summary category booking_type group instant_book area business units_count units_label flat_rate
+            required: %w[id title description summary category booking_type group instant_book cancellation_policy area business units_count units_label flat_rate
               partner_name price_from_cents price_unit guests stay_rate vehicle_rate fees tour details photos]
           },
           # A listing photo's sizes (RAA-106), served straight from storage. A partner's photo not
