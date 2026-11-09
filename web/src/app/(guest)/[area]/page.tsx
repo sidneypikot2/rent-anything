@@ -104,7 +104,7 @@ export async function generateMetadata(props: PageProps<"/[area]">): Promise<Met
   // what the page holds, then the team's words about the place.
   const year = new Date().getFullYear();
   const what = landmarks.length > 0 ? "places to see, stays and tours" : "stays, tours and transfers";
-  const description = guide.tagline ?? guide.description ?? `Plan a trip to ${area.name}: ${what}, booked in one cart.`;
+  const description = guide.tagline || guide.description || `Plan a trip to ${area.name}: ${what}, booked in one cart.`;
   return {
     title: `${area.name} ${year}: ${what}`,
     description: description.length > 160 ? `${description.slice(0, 157).trimEnd()}…` : description,
@@ -361,7 +361,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   const aroundCards = [...rowCards("rental"), ...rowCards("transfer").filter((card) => localTransfers.has(card.id))];
   const aroundIntro =
     [
-      notes?.around?.rental ?? (rentals > 0 ? `Scooters and cars from ${countText(rentals, "local partner")}.` : null),
+      rentals > 0 ? (notes?.around?.rental ?? `Scooters and cars from ${countText(rentals, "local partner")}.`) : null,
       localTransfers.size > 0 ? (notes?.around?.localTransfer ?? "Vans run between the towns too.") : null,
     ]
       .filter(Boolean)
@@ -480,7 +480,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                         routeText={gettingHere}
                         routeSummary={notes?.routeSummary ?? null}
                         transferHref={transfers > 0 ? showHref(slug, "need-transfer", datesQuery) : null}
-                        around={aroundCards.length > 0 ? [] : around}
+                        around={aroundCards.length > 0 && (notes?.route?.length || gettingHere) ? [] : around}
                       />
                       <AreaGettingAround name={area.name} cards={aroundCards} intro={aroundIntro} links={aroundLinks} />
                       <AreaStays

@@ -170,7 +170,8 @@ test("search a landmark and open its destination", async ({ page }) => {
 
   // A place's page opened with a search (`?q=`, from a listing's header search) narrows its things
   // to book, says what it found and offers every place.
-  await page.goto("/bantayan-island?q=snorkelling#listings");
+  // Without `#listings`: the page scrolls to What to book itself, and a click during the hash's jump can be lost.
+  await page.goto("/bantayan-island?q=snorkelling");
   const searched = page.getByTestId("searched-line");
   await expect(searched).toContainText("snorkelling");
   await searched.getByRole("link", { name: "Search all places" }).click();

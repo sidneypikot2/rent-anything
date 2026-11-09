@@ -296,10 +296,10 @@ export function AreaStays({
   ownHref: string;
 }) {
   if (stays.length === 0) return null;
-  // Where most stays are, in a line under the title: the town with the most, and its note.
+  // Where many stays are, in a line under the title: the town with the most, and its note.
   const top = places[0];
   const town = top ? towns?.[top.place.slug] : undefined;
-  const intro = top && (town || places.length > 1) ? `Most stays are in ${top.place.name}${town ? `: ${lowerFirst(town.line)}` : "."}` : undefined;
+  const intro = top && (town || places.length > 1) ? `Many stays are in ${top.place.name}${town ? `: ${lowerFirst(town.line)}` : "."}` : undefined;
   return (
     <section id="stay" className="flex flex-col gap-block">
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
@@ -312,7 +312,7 @@ export function AreaStays({
           data-testid="area-stays-all"
           className="tap-target text-sm font-bold text-link underline underline-offset-4"
         >
-          See {stays.length === 1 ? "1 stay" : `${stays.length} stays`} in {name}
+          See all stays in {name}
         </Link>
       </header>
       <ListingRow cards={stays.slice(0, ROW_CARDS)} kind="stay" noun="stays" testId="area-stays" />
@@ -351,7 +351,7 @@ export function AreaThingsToDo({
             data-testid="area-activities-all"
             className="tap-target text-sm font-bold text-link underline underline-offset-4"
           >
-            See {activities.length === 1 ? "1 thing to do" : `${activities.length} things to do`} in {name}
+            See all things to do in {name}
           </Link>
           {gear > 0 && gearHref && (
             <Link
