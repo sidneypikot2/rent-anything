@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
@@ -36,7 +35,7 @@ export function AreaBannerIntro({
 }: {
   tagline: string | null;
   description?: string | null;
-  goodFor?: string;
+  goodFor?: AreaNotes["goodFor"];
   vibes: string[];
   facts: { label: string; value: string }[];
 }) {
@@ -49,21 +48,37 @@ export function AreaBannerIntro({
         </p>
       )}
       {description && (
-        <p className="line-clamp-2 max-w-lede text-base text-pretty text-white/90">{description}</p>
+        <p className={cn("line-clamp-2 max-w-lede text-base text-pretty text-white/90", tagline && "max-sm:line-clamp-1")}>{description}</p>
       )}
       {goodFor && (
-        <p data-testid="area-good-for" className="max-w-lede text-sm text-pretty text-sky-mist">
-          {goodFor}
-        </p>
+        // Two labelled lines in white at body size: the small pale line read poorly over a bright photo.
+        <dl data-testid="area-good-for" className="flex max-w-lede flex-col gap-1 text-base text-pretty max-sm:text-sm">
+          <div>
+            <dt className="inline font-semibold text-white">Good for </dt>
+            <dd className="inline text-white/90">{goodFor.yes}</dd>
+          </div>
+          {goodFor.no && (
+            <div>
+              <dt className="inline font-semibold text-white">Not for </dt>
+              <dd className="inline text-white/90">{goodFor.no}</dd>
+            </div>
+          )}
+        </dl>
       )}
       {vibes.length > 0 && (
-        <ul aria-label="Known for" className="flex flex-wrap gap-2 max-sm:hidden">
-          {vibes.map((vibe) => (
-            <li key={vibe}>
-              <Badge tone="glass">{vibe}</Badge>
-            </li>
-          ))}
-        </ul>
+        // Named, and on the fact tiles' card glass, so the chips read over any photo.
+        <div className="flex flex-wrap items-center gap-2 max-sm:hidden">
+          <span id="area-known-for" className="text-small font-semibold text-white/90">
+            Known for
+          </span>
+          <ul aria-labelledby="area-known-for" className="flex flex-wrap gap-2">
+            {vibes.map((vibe) => (
+              <li key={vibe} className={cn("rounded-chip px-3 py-1 text-small font-semibold", glassClasses("card"))}>
+                {vibe}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {facts.length > 0 && (
         // From sm each tile as wide as its words, wrapping as a row of chips, so six fit where four did.

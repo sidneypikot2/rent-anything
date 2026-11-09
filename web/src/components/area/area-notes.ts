@@ -10,8 +10,8 @@ export type AreaNotes = {
   // Short quick facts for the banner ("Best time" · "Dec – May"). Typical prices, from the
   // listings, follow the first two (typicalPrices in area-guide.ts).
   facts: { label: string; value: string }[];
-  // Who it suits, under What it's like.
-  goodFor?: string;
+  // Who it suits and who it doesn't, as two labelled lines on the banner.
+  goodFor?: { yes: string; no?: string };
   // January to December.
   seasons: [Season, Season, Season, Season, Season, Season, Season, Season, Season, Season, Season, Season];
   // Tips under the months.
@@ -40,7 +40,7 @@ export const AREA_NOTES: Record<string, AreaNotes> = {
       { label: "From Cebu City", value: "4–5 h, bus + ferry" },
       { label: "How long", value: "2–4 days" },
     ],
-    goodFor: "Good for beach days, couples, families and slow travel. Not for nightlife or big resorts.",
+    goodFor: { yes: "beach days, couples, families and slow travel", no: "nightlife or big resorts" },
     seasons: ["dry", "dry", "dry", "dry", "dry", "wet", "wet", "wet", "wet", "wet", "drying", "dry"],
     timing: [
       { title: "Time of day", text: "Beaches before 10 am or after 2 pm; the midday sun is strong." },

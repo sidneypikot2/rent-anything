@@ -171,7 +171,7 @@ function PlaceCard({
         ) : (
           <PlaceGlyph className="absolute top-1/2 left-1/2 size-7 -translate-x-1/2 -translate-y-1/2 text-primary/60" />
         )}
-        {sample && <span className="absolute bottom-1.5 left-2 text-small text-white [text-shadow:0_1px_2px_var(--color-scrim)] max-sm:hidden">Sample photo</span>}
+        {sample && <span className="absolute bottom-1.5 left-2 text-small text-white text-on-photo max-sm:hidden">Sample photo</span>}
         {landmark.mustSee && (
           <span className="absolute top-2 left-2 rounded-full bg-surface/90 px-2.5 py-1 text-small font-bold text-forest max-sm:hidden" data-testid="plan-must-see">
             Must see

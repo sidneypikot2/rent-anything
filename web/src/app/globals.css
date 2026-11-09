@@ -273,6 +273,11 @@
 /* The one edge for cards, photo cards, dialogs, menus and popovers: a 1px frosted glass rim
    (the background stops inside it, so it shows the photo, glass or page behind) ringed by a
    faint outline. Over the guest backdrop the rim reads; on a white page the outline does. */
+/* Text on a photo: a soft dark shadow so it holds over a bright patch the scrim leaves. */
+@utility text-on-photo {
+  text-shadow: 0 1px 2px var(--color-scrim);
+}
+
 @utility card-edge {
   @apply border border-card-edge bg-clip-padding ring-1 ring-card-outline;
 }

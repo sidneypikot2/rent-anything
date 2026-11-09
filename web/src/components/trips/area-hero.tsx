@@ -78,6 +78,7 @@ export function AreaHero({
       eyebrow={banner.eyebrow}
       title={banner.title}
       search={false}
+      scrim="text"
     >
       {/* A partner or admin browsing sees the place alone. */}
       {!(session && !isGuest) && <TripLead plan={plan} />}
