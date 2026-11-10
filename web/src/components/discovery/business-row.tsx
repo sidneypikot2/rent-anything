@@ -8,7 +8,6 @@ import { handoverLabel, sharedFees } from "@/components/trips/delivery-options";
 import { InTripBadge, InTripCount } from "@/components/trips/in-trip-badge";
 import type { TripDates } from "@/components/trips/trip-dates";
 import { useTripHref } from "@/components/trips/trip-link";
-import { vehicleNoun } from "@/components/trips/vehicle-party";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
@@ -90,11 +89,10 @@ export function newTabProps(newTab: boolean) {
 
 // A business in a What to book group (the team's business-first list, Booking.com's way): its
 // name leads, what it offers in the group is its by-line ("Sea view room + 2 more"), from what
-// price, and the chips all of those share. Its name and its See N options open the business's
-// own page (`href`), where its options are listed (BusinessOptions): in a new tab on a laptop,
-// in the same tab on a phone. A business with one listing here keeps that listing's Add to trip
-// on the card; a rental shop (`shop`) offers Choose motorbikes or Choose gear, as its models are
-// picked together on its page (RAA-195).
+// price, and the chips all of those share. Its name and its See details open the business's
+// own page (`href`), where its options are listed and added to a trip (BusinessOptions): in a
+// new tab on a laptop, in the same tab on a phone. Every card ends in the same See details,
+// whatever it offers.
 export function BusinessRow({
   name,
   href,
@@ -102,7 +100,6 @@ export function BusinessRow({
   groupTitle,
   offers: allOffers,
   sharedChips = [],
-  shop,
 }: {
   name: string;
   // The business's page, with the trip's dates and this group (businessHref).
@@ -114,8 +111,6 @@ export function BusinessRow({
   // Chips every card in its group has, which the group's note says once instead (its page
   // still lists them).
   sharedChips?: string[];
-  // A shop whose listings here are all rentals of one kind (RAA-191, `rentalShop`).
-  shop?: { businessId: number; counted: boolean };
 }) {
   const shown = useContext(ShownOffersContext);
   const offers = shown ? allOffers.filter((offer) => shown.has(offer.listingId)) : allOffers;
@@ -219,26 +214,22 @@ export function BusinessRow({
         ) : (
           offers[0].unpriced && <span className="text-sm text-pretty text-muted @2xl:max-w-36 @2xl:text-right">{TO_BE_AGREED}</span>
         )}
-        {/* The same slot as a listing's Add to trip, so every card ends in an action. The name's
-            link already opens the page for the keyboard and a screen reader. */}
-        {shop || !single ? (
-          <ButtonLink
-            href={pageHref}
-            {...target}
-            onClick={() => !newTab && markLeaving()}
-            variant={shop ? undefined : "soft"}
-            size="touch"
-            arrow
-            tabIndex={-1}
-            aria-hidden
-            data-testid={shop ? "business-choose" : "business-options"}
-            className="max-w-full shrink-0"
-          >
-            {shop ? `Choose ${shop.counted ? "gear" : vehicleNoun(categories[0], 2)}` : `See ${offers.length} options`}
-          </ButtonLink>
-        ) : (
-          single.action
-        )}
+        {/* Every card ends in the same action. The name's link already opens the page for the
+            keyboard and a screen reader. */}
+        <ButtonLink
+          href={pageHref}
+          {...target}
+          onClick={() => !newTab && markLeaving()}
+          variant="soft"
+          size="touch"
+          arrow
+          tabIndex={-1}
+          aria-hidden
+          data-testid="business-details"
+          className="max-w-full shrink-0"
+        >
+          See details
+        </ButtonLink>
       </div>
     </div>
   );

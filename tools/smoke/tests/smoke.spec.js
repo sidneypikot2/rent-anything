@@ -550,7 +550,7 @@ test("water activity wizard", async ({ browser, baseURL }) => {
   await context.close();
 });
 
-// Gear rents like a vehicle, by the count (RAA-255): a card's Choose gear opens the shop's sheet,
+// Gear rents like a vehicle, by the count (RAA-255): a card's See details opens the shop's sheet,
 // with a pickup time and no seats to fill, and what is picked goes straight into a new trip.
 test("rent gear from a shop's sheet", async ({ page }) => {
   test.setTimeout(60_000);
@@ -561,7 +561,7 @@ test("rent gear from a shop's sheet", async ({ page }) => {
   const offset = 30 + (Math.floor(Date.now() / 1000) % 240);
 
   await page.goto(`/bantayan-island?from=${day(offset)}&to=${day(offset + 2)}&guests=2&show=need-gear`);
-  const [shop] = await Promise.all([page.waitForEvent("popup"), page.getByTestId("business-choose").first().click()]);
+  const [shop] = await Promise.all([page.waitForEvent("popup"), page.getByTestId("business-details").first().click()]);
   collectErrors(shop, errors);
   const gear = shop.locator("#need-gear");
   await expect(gear.getByTestId("shop-options")).toBeVisible();
@@ -594,7 +594,13 @@ test("add to trip without an account", async ({ page, browser }) => {
   const from = day(offset);
   const to = day(offset + 2);
 
-  await page.goto(`/bantayan-island?from=${from}&to=${to}&guests=2`);
+  // A place's cards all say See details: the adds happen on a business's page. Opened in this
+  // tab, as on a phone, so the trip the first add starts stays the one this tab works on.
+  const place = `/bantayan-island?from=${from}&to=${to}&guests=2`;
+  await page.goto(`${place}&show=need-activity`);
+  const cards = page.getByTestId("business-open");
+  const [firstBusiness, secondBusiness] = [await cards.nth(0).getAttribute("href"), await cards.nth(1).getAttribute("href")];
+  await page.goto(firstBusiness);
   await page.getByTestId("add-to-trip").first().click();
   // Every add is confirmed in the add sheet, the first one too: it starts a new trip.
   const firstAdd = page.getByTestId("which-trip-sheet");
@@ -608,10 +614,12 @@ test("add to trip without an account", async ({ page, browser }) => {
   await expect(added).toContainText(/Added .+ to Bantayan Island/);
   await expect(page.getByTestId("trip-toast")).toHaveCount(0);
   // The place's page stays the place's: its closing band names the trip, and View trip opens it in the cart.
+  await page.goto(place);
   await expect(page.getByTestId("area-trip-band-open")).toHaveAttribute("href", /^\/cart\?trip=\d+$/);
 
-  // On a place's page the next add goes to the trip the banner shows, with no trip to pick.
-  await page.getByTestId("add-to-trip").nth(1).click();
+  // From a place's cards the next add goes to the trip the banner shows, with no trip to pick.
+  await page.goto(secondBusiness);
+  await page.getByTestId("add-to-trip").first().click();
   const whichTrip = page.getByTestId("which-trip-sheet");
   await expect(whichTrip.getByTestId("add-sheet-trip")).toContainText("Bantayan Island");
   // The trip is named after its place and dates, so the button says "your trip", not the island.
