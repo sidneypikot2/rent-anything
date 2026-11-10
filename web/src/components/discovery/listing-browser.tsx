@@ -106,6 +106,14 @@ export function ListingBrowser({
   const map = useAreaMap();
   const near = map?.near ?? null;
   const nearIds = near ? [...near.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id) : null;
+  // A new distance search starts every section on page 1, as a new filter does: page 3 of the old
+  // results may not exist in the new ones.
+  const nearKey = nearIds?.join(",") ?? "";
+  const [pagedNear, setPagedNear] = useState(nearKey);
+  if (pagedNear !== nearKey) {
+    setPagedNear(nearKey);
+    setPages({});
+  }
   const rail = !useBesideMap();
 
   // A section's query: under All its first rows, picked a page of PER_PAGE.

@@ -11,7 +11,7 @@ module Areas
 
     FIELDS = %i[name slug kind status parent_slug aliases center psgc_code tagline description getting_there
       best_time_to_visit tag_slugs wikidata_id port].freeze
-    TEXTS = { tagline: "Tagline", description: "Description", getting_there: "Transfer",
+    TEXTS = { tagline: "Tagline", description: "Description", getting_there: "Getting there",
       best_time_to_visit: "Best time to visit" }.freeze
     MAX_ALIASES = 20
     MAX_ALIAS_LENGTH = 60
