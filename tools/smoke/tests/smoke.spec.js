@@ -77,8 +77,9 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   // The steps sit in a row; picking one shows its options, Things to do with its places.
   await page.getByTestId("plan-step-activity").click();
   await expect(page.getByTestId("plan-places-tours")).toBeVisible();
-  // Review trip shows only once a listing is in the trip; with none picked, open the review by its URL.
-  await expect(page.getByTestId("plan-review")).toHaveCount(0);
+  // The foot's trip button shows only once a listing is in the trip, and Next stays the main
+  // button; with none picked, open the review by its URL.
+  await expect(page.getByTestId("plan-trip-open")).toHaveCount(0);
   const { pathname, search } = new URL(page.url());
   await page.goto(`${pathname}/review${search}`);
   await expect(page.getByTestId("plan-days")).toBeVisible();

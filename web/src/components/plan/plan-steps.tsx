@@ -16,15 +16,20 @@ const STEP: Record<RowKey, { icon: string; short: string }> = {
 };
 const SHORT = (key: StepKey) => (key === "places" ? "See" : STEP[key].short);
 
+// The open step's share of the track against each closed step's: the track keeps its width and
+// only its split changes, so the open step has room for its full name.
+const OPEN_SHARE = 3;
+
 // The checklist's steps as a segmented stepper (team, 2026-11-03, after the row of pills): one
-// tinted track split into equal segments with the labels underneath. The open step's segment is
-// filled in the action colour with its icon and slides between steps; the others show a dot —
+// tinted track with the labels underneath. The open step's segment widens, filled in the action
+// colour with its icon and full name, and the others shrink to a short label and a dot —
 // a forest disc with a tick once done (the open one's icon becomes a tick too), a hollow ring when
 // skipped. Any step opens in any
 // order. It sticks under the header while the options scroll; its height is in `--plan-chrome`
 // (globals.css), which whatever sticks under it uses.
 export function PlanSteps({ rows, active, onPick }: { rows: PlanStep[]; active: StepKey; onPick: (key: StepKey) => void }) {
   const activeIndex = Math.max(0, rows.findIndex((row) => row.key === active));
+  const shares = rows.length - 1 + OPEN_SHARE;
 
   return (
     <div className="sticky top-[calc(var(--chrome)-0.75rem)] z-10 -mx-3 bg-surface px-3 pt-3 pb-2 sm:-mx-6 sm:px-6" data-plan-steps>
@@ -32,10 +37,14 @@ export function PlanSteps({ rows, active, onPick }: { rows: PlanStep[]; active: 
         <div aria-hidden className="absolute inset-x-0 top-0 h-10 rounded-full bg-primary/10" />
         <span
           aria-hidden
-          className="absolute top-0 left-0 h-10 rounded-full bg-primary shadow-sm transition-transform duration-300 ease-calm motion-reduce:transition-none"
-          style={{ width: `${100 / rows.length}%`, transform: `translateX(${activeIndex * 100}%)` }}
+          className="absolute top-0 h-10 rounded-full bg-primary shadow-sm transition-[left,width] duration-300 ease-calm motion-reduce:transition-none"
+          style={{ left: `${(activeIndex / shares) * 100}%`, width: `${(OPEN_SHARE / shares) * 100}%` }}
         />
-        <ol className="relative grid" style={{ gridTemplateColumns: `repeat(${rows.length}, minmax(0, 1fr))` }} data-testid="plan-checklist">
+        <ol
+          className="relative grid transition-[grid-template-columns] duration-300 ease-calm motion-reduce:transition-none"
+          style={{ gridTemplateColumns: rows.map((row) => `minmax(0, ${row.key === active ? OPEN_SHARE : 1}fr)`).join(" ") }}
+          data-testid="plan-checklist"
+        >
           {rows.map((row) => {
             const isActive = row.key === active;
             const isDone = row.state === "done";
@@ -49,17 +58,20 @@ export function PlanSteps({ rows, active, onPick }: { rows: PlanStep[]; active: 
                   className="group flex w-full flex-col items-center gap-1.5 rounded-full focus-visible:outline-offset-2"
                   data-testid={`plan-step-${row.key}`}
                 >
-                  <span aria-hidden className="flex h-10 w-full items-center justify-center">
+                  <span aria-hidden className="flex h-10 w-full min-w-0 items-center justify-center gap-1.5 px-3">
                     {isActive ? (
-                      // A finished step trades its icon for a tick, even while open; not Places
-                      // to see, whose first heart would otherwise swap it mid-pick.
-                      row.key === "places" ? (
-                        <PlaceGlyph className="size-5 text-white" />
-                      ) : isDone ? (
-                        <TickGlyph className="size-5 text-white motion-safe:animate-tick" />
-                      ) : (
-                        <CategoryGlyph name={STEP[row.key].icon} className="size-5 text-white" />
-                      )
+                      <>
+                        {/* A finished step trades its icon for a tick, even while open; not Places
+                            to see, whose first heart would otherwise swap it mid-pick. */}
+                        {row.key === "places" ? (
+                          <PlaceGlyph className="size-5 shrink-0 text-white" />
+                        ) : isDone ? (
+                          <TickGlyph className="size-5 shrink-0 text-white motion-safe:animate-tick" />
+                        ) : (
+                          <CategoryGlyph name={STEP[row.key].icon} className="size-5 shrink-0 text-white" />
+                        )}
+                        <span className="min-w-0 truncate text-small font-semibold text-white motion-safe:animate-swap-in">{row.title}</span>
+                      </>
                     ) : isDone ? (
                       <span className="flex size-6 items-center justify-center rounded-full bg-forest text-white shadow-sm transition-transform duration-200 group-hover:scale-110 motion-safe:animate-tick">
                         <TickGlyph className="size-3.5" />
@@ -73,14 +85,16 @@ export function PlanSteps({ rows, active, onPick }: { rows: PlanStep[]; active: 
                       />
                     )}
                   </span>
+                  {/* The open step names itself in its segment; the space under it stays, so the
+                      track keeps its height. */}
                   <span
+                    aria-hidden
                     className={cn(
                       "block max-w-full truncate text-small whitespace-nowrap transition-colors",
-                      isActive ? "font-bold text-navy" : isDone ? "font-semibold text-forest" : "font-medium text-muted group-hover:text-navy",
+                      isActive ? "invisible" : isDone ? "font-semibold text-forest" : "font-medium text-muted group-hover:text-navy",
                     )}
                   >
-                    <span className="md:hidden">{SHORT(row.key)}</span>
-                    <span className="max-md:hidden">{row.title}</span>
+                    {SHORT(row.key)}
                   </span>
                   <span className="sr-only">
                     {row.title}
