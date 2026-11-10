@@ -4,7 +4,7 @@ import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import { businessHref, titleCardHref } from "@/components/discovery/browse-offers";
 import { BOOKING_GROUPS } from "@/components/discovery/categories";
 import type { PlanBusinessesPage } from "@/api/discovery";
-import { ChevronGlyph, MapGlyph } from "@/components/discovery/tag-glyphs";
+import { MapGlyph } from "@/components/discovery/tag-glyphs";
 import { formatDateRange, thingCount } from "@/components/trips/format";
 import { useTripHere } from "@/components/trips/use-trip-here";
 import { pickedTotal, useTripQuote, type Trip } from "@/components/trips/use-trips";
@@ -35,6 +35,7 @@ import { PlanSee, PlanSeeMapView } from "./plan-see";
 import { PlanChecklistSkeleton, PlanOptionsSkeleton } from "./plan-skeletons";
 import { PlanStayChoice } from "./plan-stay";
 import { PlanSteps } from "./plan-steps";
+import { PlanTripButton, PlanTripSheet } from "./plan-trip-sheet";
 import { usePlanBusinesses } from "./use-plan-businesses";
 
 // Step 2: the trip's checklist (our Path B) as a sticky row of step pills (PlanSteps). The trip (with
@@ -78,6 +79,7 @@ function Checklist({
   const showMap = mapOn && wide;
   // Below lg: the step whose map view covers the screen (PlanMapView); null shows the list.
   const [mapView, setMapView] = useState<StepKey | null>(null);
+  const [tripOpen, setTripOpen] = useState(false);
   const closeMapView = useCallback(() => setMapView(null), [setMapView]);
   const [skipped, toggleSkip] = useSkipped(trip.id);
   // The step shown under the stepper: the one the guest tapped, else the first still open.
@@ -161,6 +163,7 @@ function Checklist({
       : undefined;
   const noListings = trip.items.length === 0;
   const nextOf = (key: StepKey) => rows[rows.findIndex((row) => row.key === key) + 1];
+  const reviewHref = `/plan/${place.area.slug}/review?trip=${trip.id}`;
 
   // The open step's options under it, a page at a time, the pager under them: a sideways row to
   // swipe on a phone, two across on a tablet (the Map pill floating over the foot opens the map
@@ -310,25 +313,13 @@ function Checklist({
                     {row.key === "activity" && <PlanPlaces mode="tours" landmarks={place.landmarks} trip={trip} stay={stay?.point ?? null} />}
                   </>
                 ))}
-              {/* With no listings yet, the foot holds Next. */}
-              {next && !noListings && (
-                <button
-                  type="button"
-                  onClick={() => setPicked(next.key)}
-                  className="flex min-h-11 items-center gap-1 self-end text-sm font-semibold text-primary underline-offset-4 hover:underline"
-                  data-testid="plan-step-next"
-                >
-                  Next: {next.title}
-                  <ChevronGlyph direction="right" className="size-4" />
-                </button>
-              )}
             </div>
           );
         })()}
       </section>
 
       <PlanFoot
-        row={noListings || onPlaces}
+        row
         float={
           active && !skipped.has(active.key) && (onPlaces || place.counts[optionsKey] > 0) ? (
             <button
@@ -343,33 +334,43 @@ function Checklist({
           ) : undefined
         }
         summary={
-          onPlaces ? (
+          // Once the trip holds a listing, the trip opens from here at any step; Next stays the
+          // main button (2026-11-10).
+          !noListings ? (
+            <PlanTripButton count={trip.items.length} total={total} onOpen={() => setTripOpen(true)} />
+          ) : onPlaces ? (
             <PicksTray picks={picks} />
-          ) : noListings ? (
+          ) : (
             <p className="text-sm text-muted">
               {picks.length > 0 ? `Your trip: ${picks.length} ${picks.length === 1 ? "place" : "places"} to see` : "Pick something from a step to review your trip."}
             </p>
-          ) : (
-            <div className="flex items-baseline justify-between gap-3 font-bold text-navy">
-              <span>{thingCount(trip.items.length)}</span>
-              <span className="tabular-nums">{total ?? ""}</span>
-            </div>
           )
         }
       >
-        {/* Nothing to review until a listing is in the trip; until then the foot moves on. */}
-        {!noListings ? (
-          <ButtonLink href={`/plan/${place.area.slug}/review?trip=${trip.id}`} size="md" glyph="arrow" data-testid="plan-review">
+        {/* Next on every step; the last one's moves on to Review. */}
+        {nextOf(active.key) ? (
+          <Button type="button" size="md" glyph="arrow" onClick={() => goTo(nextOf(active.key).key)} data-testid="plan-foot-next">
+            Next: {nextOf(active.key).title}
+          </Button>
+        ) : (
+          <ButtonLink href={reviewHref} size="md" glyph="arrow" data-testid="plan-review">
             Review trip
           </ButtonLink>
-        ) : (
-          nextOf(active.key) && (
-            <Button type="button" size="md" glyph="arrow" onClick={() => goTo(nextOf(active.key).key)} data-testid="plan-foot-next">
-              Next: {nextOf(active.key).title}
-            </Button>
-          )
         )}
       </PlanFoot>
+
+      {!noListings && (
+        <PlanTripSheet
+          open={tripOpen}
+          onClose={() => setTripOpen(false)}
+          trip={trip}
+          place={place.area.name}
+          quote={quote.data}
+          total={total}
+          stillOpen={rows.filter((row) => row.key !== "places" && !done.get(row.key) && !skipped.has(row.key)).map((row) => row.title)}
+          reviewHref={reviewHref}
+        />
+      )}
 
       {/* The map view is always the open step's: the Map pill is under it. */}
       {mapView === "places" && onPlaces && (
