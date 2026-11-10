@@ -17,8 +17,6 @@ module Discovery
     # half kilometres: finer, and distances to a few known places would give the point away.
     PICK_POINT = "COALESCE(landmarks.boat_departure, landmarks.location)".freeze
     NEAR_STEP_KM = 0.5
-    # A listing title as cards compare it: "Mio 125" and " mio 125" are one card.
-    TITLE_KEY = "LOWER(TRIM(listings.title))".freeze
 
     # Bad parameters, as a 422 (Explore's way).
     Query = Struct.new(:messages) do
@@ -27,9 +25,12 @@ module Discovery
       validate { messages.each { |message| errors.add(:base, message) } }
     end
 
-    def initialize(area, group:, page: nil, hearted: nil)
+    # filters: the step's own (ListingFilters, What to book's for its category), applied listing
+    # by listing, so a card keeps only its listings that pass; `facets` counts the choices.
+    def initialize(area, group:, page: nil, hearted: nil, filters: {})
       @area = area
       @params = { group:, page:, hearted: }
+      @filters = ListingFilters.new(filters)
     end
 
     def call
@@ -48,7 +49,8 @@ module Discovery
         page: @page,
         per_page: PER_PAGE,
         hearted_total: hearted_total,
-        counts:
+        counts:,
+        facets: @filters.facets(here.in_guest_group(@group), Cards.key_sql(@group))
       }
     end
 
@@ -67,6 +69,7 @@ module Discovery
       @hearted = hearted.nil? ? [] : hearted
       errors << "Hearted must be a list of slugs" unless @hearted.is_a?(Array) && @hearted.all?(String)
       @hearted = @hearted.uniq if errors.empty?
+      errors.concat(@filters.errors)
 
       query = Query.new(errors)
       raise ActiveRecord::RecordInvalid, query if query.invalid?
@@ -76,8 +79,9 @@ module Discovery
       Listing.active.in_area_tree(@area)
     end
 
+    # The group's listings here that the filters leave.
     def in_group
-      here.in_guest_group(@group)
+      @filters.apply(here.in_guest_group(@group))
     end
 
     def tours?
@@ -90,7 +94,7 @@ module Discovery
 
     # What makes a card: a stay's business, or a business and a listing title.
     def card_columns
-      stays? ? [ "listings.business_id" ] : [ "listings.business_id", TITLE_KEY ]
+      Cards.columns(@group)
     end
 
     # The cards, one row each, in the page's order.
@@ -103,7 +107,7 @@ module Discovery
       end
       scope = scope.order(Arel::Nodes::NamedFunction.new("MIN", [ average_metres ]).asc) if near_picks?
       scope = scope.order("businesses.name", "listings.business_id")
-      stays? ? scope : scope.order(Arel.sql(TITLE_KEY))
+      stays? ? scope : scope.order(Arel.sql(Cards::TITLE_KEY))
     end
 
     # The published places hearted, for ranking stays.

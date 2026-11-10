@@ -39,6 +39,8 @@ Rails.application.routes.draw do
       resources :areas, only: %i[index show], param: :slug do
         # A page of the businesses offering one plan step there (plan a whole trip).
         get :plan_businesses, on: :member, to: "plan_businesses#index"
+        # A page of one What to book section's cards there, filtered.
+        get :book_cards, on: :member, to: "book_cards#index"
       end
       resources :activities, only: :index
       # Map pins for the guest nearby map (RAA-52), and one listing's page (RAA-86).

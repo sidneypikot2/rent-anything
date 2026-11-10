@@ -1619,6 +1619,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/areas/{slug}/book_cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A page of one What to book section's cards in a place
+         * @description What to book: the cards of one guest group here and in the published places inside it, a stay's per business, any other per business and listing title, each with its listings as browse rows; priced first, then by title. The filters and search apply listing by listing; facets count the filter sheet's choices, counts the cards per group with the search, pin_ids every listing that passes.
+         */
+        get: {
+            parameters: {
+                query: {
+                    group: "stay" | "transfer" | "rental" | "activity" | "gear";
+                    /** @description From 1 (the default) */
+                    page?: number;
+                    /** @description 1 to 18 (the default) */
+                    per_page?: number;
+                    /** @description A listing id: answers with the page holding its card (a link to its row) */
+                    around?: number;
+                    /** @description Only these listings, in this order (the map's distance search) */
+                    "listing_ids[]"?: number[];
+                    /** @description Only listings free to cancel, any time or up to some days before */
+                    free_cancellation?: boolean;
+                    /** @description Only stays that take pets */
+                    pets?: boolean;
+                    /** @description Only a from-price at least this (unpriced ones drop out) */
+                    min_price_cents?: number;
+                    /** @description Only a from-price at most this (unpriced ones drop out) */
+                    max_price_cents?: number;
+                    /** @description Rentals: only these categories (slugs) */
+                    "kinds[]"?: string[];
+                    /** @description Rentals: only these transmissions */
+                    "transmissions[]"?: string[];
+                    /** @description Rentals: only those that drop off */
+                    delivery?: boolean;
+                    /** @description Rentals: only those that pick up at the end */
+                    pickup?: boolean;
+                    /** @description Rentals: only those with child helmets */
+                    child_helmets?: boolean;
+                    /** @description Only listings that include all of these (facets' keys) */
+                    "includes[]"?: string[];
+                    /** @description Only listings with every word somewhere in them */
+                    q?: string;
+                };
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description a page of cards, priced first, a card with its listings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["book_cards"];
+                    };
+                };
+                /** @description a draft place */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description bad paging or filters */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/bookings": {
         parameters: {
             query?: never;
@@ -6093,6 +6180,28 @@ export interface paths {
                     page?: number;
                     /** @description The slugs of the trip's hearted places to see: Things to do that go there lead, and the stays closest to them */
                     "hearted[]"?: string[];
+                    /** @description Only listings free to cancel, any time or up to some days before */
+                    free_cancellation?: boolean;
+                    /** @description Only stays that take pets */
+                    pets?: boolean;
+                    /** @description Only a from-price at least this (unpriced ones drop out) */
+                    min_price_cents?: number;
+                    /** @description Only a from-price at most this (unpriced ones drop out) */
+                    max_price_cents?: number;
+                    /** @description Rentals: only these categories (slugs) */
+                    "kinds[]"?: string[];
+                    /** @description Rentals: only these transmissions */
+                    "transmissions[]"?: string[];
+                    /** @description Rentals: only those that drop off */
+                    delivery?: boolean;
+                    /** @description Rentals: only those that pick up at the end */
+                    pickup?: boolean;
+                    /** @description Rentals: only those with child helmets */
+                    child_helmets?: boolean;
+                    /** @description Only listings that include all of these (facets' keys) */
+                    "includes[]"?: string[];
+                    /** @description Only listings with every word somewhere in them */
+                    q?: string;
                 };
                 header?: never;
                 path: {
@@ -6102,7 +6211,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description things to do with nothing hearted: priced first, then by name */
+                /** @description filtered listing by listing: a card keeps only those that pass, the totals follow, facets count all */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -6118,7 +6227,7 @@ export interface paths {
                     };
                     content?: never;
                 };
-                /** @description a page that isn't a whole number from 1 */
+                /** @description a filter that isn't true or false */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -9824,6 +9933,63 @@ export interface components {
                 km: number;
             }[];
         };
+        /** @description A group's filter choices (Discovery::ListingFilters), each counted in cards: before the filters but with the search, except includes, counted among the cards the other filters leave */
+        listing_facets: {
+            cards: number;
+            free_cancellation: number;
+            pets: number;
+            price_min_cents: number | null;
+            price_max_cents: number | null;
+            /** @description Some have no price yet */
+            unpriced: boolean;
+            /** @description Rentals' categories */
+            kinds: {
+                value: string;
+                label: string;
+                count: number;
+            }[];
+            transmissions: {
+                value: string;
+                count: number;
+            }[];
+            delivery: number;
+            pickup: number;
+            child_helmets: number;
+            /** @description Keys: guide, licence, bathroom:<kind>, amenity:<name>, accessory:<name>, feature:<name> */
+            includes: {
+                key: string;
+                count: number;
+            }[];
+            /** @description What every listing has, with two cards or more */
+            shared: {
+                includes: string[];
+                pets: boolean;
+                cancellation_policy: string | null;
+            };
+            unpriced_booking_type: string | null;
+        };
+        book_cards: {
+            cards: {
+                /** @description A stay's business id; any other card's business and first listing ids */
+                key: string;
+                listings: components["schemas"]["area_listing"][];
+            }[];
+            /** @description How many cards pass, every page */
+            total: number;
+            page: number;
+            per_page: number;
+            facets: components["schemas"]["listing_facets"];
+            /** @description Cards per guest group here with the search (not the filters) */
+            counts: {
+                stay: number;
+                transfer: number;
+                rental: number;
+                activity: number;
+                gear: number;
+            };
+            /** @description Every listing of the group that passes */
+            pin_ids: number[];
+        };
         plan_businesses: {
             businesses: components["schemas"]["plan_business"][];
             /** @description How many cards the group has here, every page */
@@ -9840,6 +10006,7 @@ export interface components {
                 activity: number;
                 gear: number;
             };
+            facets: components["schemas"]["listing_facets"];
         };
         business_detail: {
             business: {
