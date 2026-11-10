@@ -1312,6 +1312,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How the app is doing, day by day
+         * @description Admin-only (RAA-290). Per Manila day over the last `days` (7, 30 or 90, default 30; today included, every day present): visitors (browsers counted by POST /visits), online bookings made, and the total and our commission of online bookings paid that day that still stand (confirmed, in progress or completed). Offline bookings, a partner's own records, are left out.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    days?: "7" | "30" | "90";
+                };
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the last 7 days */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["admin_overview"];
+                    };
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description days other than 7, 30 or 90 */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/search_term_queue": {
         parameters: {
             query?: never;
@@ -8101,6 +8173,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/visits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Count a visit to a guest page
+         * @description RAA-290. The web app sends a random UUID it keeps in the browser, once a day. The API keeps only a digest of it with the day, so each browser counts once per Manila day for the admin overview's visitors and can't be followed from one day to the next. No IP or user agent is stored.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        visitor_id: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description counted (or already counted today) */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description no visitor id */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description too many from one IP */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks/didit": {
         parameters: {
             query?: never;
@@ -10449,6 +10579,40 @@ export interface components {
             notes?: string;
             /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
             pickup_time?: string | null;
+        };
+        admin_overview_day: {
+            /**
+             * Format: date
+             * @description A Manila day
+             */
+            date: string;
+            /** @description Browsers that opened a guest page that day */
+            visitors: number;
+            /** @description Online bookings made that day, whatever became of them */
+            bookings: number;
+            /** @description Total of the online bookings paid that day */
+            booking_amount_cents: number;
+            /** @description Our commission on those bookings */
+            revenue_cents: number;
+        };
+        admin_overview: {
+            /** @enum {integer} */
+            days: 7 | 30 | 90;
+            /** Format: date */
+            from: string;
+            /**
+             * Format: date
+             * @description Today in Manila
+             */
+            to: string;
+            totals: {
+                /** @description Summed per day: a browser back on another day counts again */
+                visitors: number;
+                bookings: number;
+                booking_amount_cents: number;
+                revenue_cents: number;
+            };
+            series: components["schemas"]["admin_overview_day"][];
         };
         partner_dashboard: {
             tiles: {
