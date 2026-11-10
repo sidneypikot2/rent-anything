@@ -19,6 +19,6 @@ export const SOCIALS = {
 // mailbox (production's mail account, .claude/rules/email.md).
 export const SUPPORT_EMAIL = "team@tripkonext.com";
 
-// Where the business is, shown in the guest footer with the name and SUPPORT_EMAIL, so
+// Where the business is, shown in the guest footer with the name (SUPPORT_EMAIL is its Contact us), so
 // travellers can see who runs the site.
 export const BUSINESS_ADDRESS = "Santa Fe, Bantayan Island, Cebu";

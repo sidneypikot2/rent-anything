@@ -625,15 +625,19 @@ body {
 }
 
 /* A page with buttons floating at the window's foot (the area page's Map, Trip still needs) ends
-   with room for them, so its last controls can scroll clear: they are 48px, 1.25rem up. */
-body:has([data-floating]) {
-  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+   with room for them, so its last controls can scroll clear: they are 48px, 1.25rem up. The
+   room goes inside the footer (SiteFooter), which then still reaches the window's foot. Below lg
+   only: the Map button is lg:hidden. */
+@media (width < 64rem) {
+  body:has([data-floating]) {
+    --foot-space: calc(4.5rem + env(safe-area-inset-bottom));
+  }
 }
 
-/* The home page's tab bar on a phone (HomeTabBar): the footer ends above it. */
+/* The home page's tab bar on a phone (HomeTabBar): the footer's text ends above it. */
 @media (width < 40rem) {
   body:has([data-tab-bar]) {
-    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+    --foot-space: calc(4.75rem + env(safe-area-inset-bottom));
   }
 }
 
