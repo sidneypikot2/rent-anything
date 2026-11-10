@@ -118,8 +118,9 @@ module Discovery
       by_card = listings.group_by { |listing| key_of.fetch(listing.id) }
       keys.map do |key|
         rows = by_card.fetch(key).sort_by { |listing| [ PricingSerializer.price_from_cents(listing) ? 0 : 1, listing.title, listing.id ] }
-        first = rows.first
-        { key: @group == "stay" ? first.business_id.to_s : "#{first.business_id}-#{first.id}", listings: rows.map { |listing| ListingRow.call(listing) } }
+        # Keyed by its lowest listing id, as PlanBusinesses does, so a filter never changes a card's key.
+        business_id = rows.first.business_id
+        { key: @group == "stay" ? business_id.to_s : "#{business_id}-#{rows.map(&:id).min}", listings: rows.map { |listing| ListingRow.call(listing) } }
       end
     end
   end
