@@ -58,7 +58,7 @@ RSpec.describe Category do
     let(:vehicles) { create(:category, :parent, slug: "vehicle-rentals", name: "Vehicle rental") }
     let(:gear) { create(:category, :parent, slug: "equipment-rentals", name: "Equipment rental") }
 
-    it "is gear for a rental under Equipment rental, so it isn't a trip's Getting around" do
+    it "is gear for a rental under Equipment rental, so it isn't a trip's Vehicle rental" do
       expect(create(:category, slug: "snorkel-gear", name: "Snorkel gear", parent: gear).guest_group).to eq("gear")
     end
 

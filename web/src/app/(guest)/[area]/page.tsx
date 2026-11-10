@@ -222,11 +222,11 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   const stays = stayPlaces(areas, landmarks);
   const stayListings = listings.filter((listing) => listing.group === "stay");
   const ownStays = stayListings.length;
-  // Where to stay's, Things to do's and Getting around's cards, as What to book shows them (byCard):
+  // Where to stay's, Things to do's and Vehicle rental's cards, as What to book shows them (byCard):
   // a stay's per business (its name, what it sells), any other per listing title of a business
   // ("Mio 125", "by <business>"), with the lowest price, a stay's opening the business's page on
   // that group, a title card's its listing's page. Priced cards first, then those with a photo, as What to book
-  // leads. `keep` narrows the group's listings first (Getting around's on-island transfers).
+  // leads. `keep` narrows the group's listings first (Vehicle rental's on-island transfers).
   const rowCards = (group: string, keep: (listing: Listing) => boolean = () => true): RowCard[] =>
     byCard(listings.filter((listing) => listing.group === group && keep(listing)))
       .map((offered) => {
@@ -266,7 +266,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   // Gear has no row or tab of its own: Things to do leads to it, the gear a guest needs going with
   // what they do (2026-11-09).
   const gearCount = listings.filter((listing) => listing.group === "gear").length;
-  // Getting around's row: the vehicles to rent here, then the transfers that run on the island
+  // Vehicle rental's row: the vehicles to rent here, then the transfers that run on the island
   // (onIslandRoute: both ends of the route on it). The rest of the transfers are getting there,
   // which Getting here's Find a transfer leads to (2026-11-09). With the row, Getting here's list
   // of ways around goes, its notes saying the row's intro instead.
@@ -318,9 +318,9 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   // its first part on the page, and stays marked through the rest of it. What to book has no tab
   // (2026-11-10): the rows' See all links and the banner lead go there.
   const hasWhen = Boolean(notes || guide.best_time_to_visit);
-  // Getting here shows its list of ways around only without Getting around's row (2026-11-09).
+  // Getting here shows its list of ways around only without Vehicle rental's row (2026-11-09).
   const hasGettingHere = Boolean(gettingHere || (notes?.route.length ?? 0) > 0 || (aroundCards.length === 0 && around.length > 0));
-  // Plan your visit runs from When to go through Getting around, its last part.
+  // Plan your visit runs from When to go through Vehicle rental, its last part.
   const planId = hasWhen ? "when" : hasGettingHere ? "getting-here" : aroundCards.length > 0 ? "around" : null;
   const tipsId = [(notes?.know.length ?? 0) > 0 && "know", days.length > 0 && "days", questions.length > 0 && "faq"].find(Boolean);
   const tabs = [

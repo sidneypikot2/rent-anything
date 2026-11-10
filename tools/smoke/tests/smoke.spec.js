@@ -200,6 +200,18 @@ test("search a landmark and open its destination", async ({ page }) => {
   await searched.getByRole("link", { name: "Search all places" }).click();
   await expect(page).toHaveURL(/\/search\?q=snorkelling$/);
 
+  // A section's filters are its own and run on the server: a price no option has leaves none,
+  // and Clear brings them back.
+  await page.goto("/bantayan-island/book?show=need-rental");
+  await expect(page.getByTestId("business-open").first()).toBeVisible();
+  await page.getByTestId("section-filter").click();
+  await page.getByTestId("filter-dialog").getByLabel("Max").fill("1");
+  await expect(page.getByTestId("filter-apply")).toHaveText("Show 0 results");
+  await page.getByTestId("filter-apply").click();
+  await expect(page.getByTestId("business-open")).toHaveCount(0);
+  await page.getByRole("button", { name: "Clear" }).first().click();
+  await expect(page.getByTestId("business-open").first()).toBeVisible();
+
   expect(errors).toEqual([]);
 });
 

@@ -62,8 +62,8 @@ export type RowKey = PlanGroup;
 // there, how to get around, then what to do and the gear to rent. `pick`: the listing page's button.
 export const PLAN_ROWS: { key: RowKey; title: string; idle: string; pick: string }[] = [
   { key: "stay", title: "Where you'll stay", idle: "Beach resorts, cottages and hostels", pick: "Pick this stay" },
-  { key: "transfer", title: "Getting there", idle: "Vans and boats to the island", pick: "Pick this ride" },
-  { key: "rental", title: "Getting around", idle: "Scooters, trikes, e-bikes", pick: "Pick this ride" },
+  { key: "transfer", title: "Transfer", idle: "Vans and boats to the island", pick: "Pick this ride" },
+  { key: "rental", title: "Vehicle rental", idle: "Scooters, trikes, e-bikes", pick: "Pick this ride" },
   { key: "activity", title: "Things to do", idle: "Island hopping, caves, diving", pick: "Pick this tour" },
   { key: "gear", title: "Gear to rent", idle: "Snorkels, fins, cameras", pick: "Pick this gear" },
 ];

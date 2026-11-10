@@ -10,7 +10,7 @@ import { distanceKm } from "@/lib/geo";
 import { distanceText, heartedSlugs, type PlanLandmark } from "./plan-data";
 
 // Places to see inside a step (the team's A3, in the place page's card format): a row of photo
-// cards to swipe, each with a heart that saves it to the trip. Getting around (`ride`) puts the
+// cards to swipe, each with a heart that saves it to the trip. Vehicle rental (`ride`) puts the
 // picks first, then the nearest, and says how far each is from the stay (a boat-only place says
 // so instead, as no ride reaches it); Things to do (`tours`) puts the hearted
 // first and says the trip's day a tour goes there or how many tours do. Sorted once when the trip

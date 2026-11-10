@@ -67,7 +67,7 @@ export function PlanStartSkeleton() {
 function CardSkeleton({ className }: { className?: string }) {
   return (
     <div className={cn("flex min-w-0 flex-col gap-2.5", className)}>
-      <span className={cn("aspect-[20/19] rounded-card", BLOCK)} />
+      <span className={cn("aspect-[4/3] sm:aspect-[20/19] rounded-card", BLOCK)} />
       <div className="flex flex-col gap-1.5">
         <Line className="h-4 w-3/4" />
         <Line className="h-3.5 w-2/3" />
@@ -100,7 +100,7 @@ export function PlanChecklistSkeleton() {
       <div className="flex flex-col gap-3 pb-8">
         <div aria-hidden className="mx-auto flex w-full max-w-narrow flex-col gap-1.5 pt-3 pb-2">
           <span className={cn("h-10 w-full rounded-full", BLOCK)} />
-          <div className="grid grid-cols-6 gap-2">
+          <div className="grid grid-cols-6">
             {[0, 1, 2, 3, 4, 5].map((index) => (
               <span key={index} className={cn("mx-auto h-4.5 w-3/5 rounded-full", BLOCK)} />
             ))}

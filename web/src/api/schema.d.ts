@@ -8581,7 +8581,7 @@ export interface components {
             title: string;
             category: string;
             /**
-             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Getting around"
+             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Vehicle rental"
              * @enum {string}
              */
             group: "activity" | "transfer" | "rental" | "stay" | "gear";
@@ -8799,7 +8799,7 @@ export interface components {
             title: string;
             category: string;
             /**
-             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Getting around"
+             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Vehicle rental"
              * @enum {string}
              */
             group: "activity" | "transfer" | "rental" | "stay" | "gear";
@@ -8831,7 +8831,7 @@ export interface components {
             /** @enum {string} */
             booking_type: "rental" | "stay" | "activity" | "transfer";
             /**
-             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Getting around"
+             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Vehicle rental"
              * @enum {string}
              */
             group: "activity" | "transfer" | "rental" | "stay" | "gear";
@@ -9836,7 +9836,7 @@ export interface components {
             title: string;
             category: string;
             /**
-             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Getting around"
+             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Vehicle rental"
              * @enum {string}
              */
             group: "activity" | "transfer" | "rental" | "stay" | "gear";
@@ -10109,7 +10109,7 @@ export interface components {
             title: string;
             category: string;
             /**
-             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Getting around"
+             * @description Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a vehicle rental: its own section, never a trip's "Vehicle rental"
              * @enum {string}
              */
             group: "activity" | "transfer" | "rental" | "stay" | "gear";

@@ -25,7 +25,7 @@ export type RowCard = {
 };
 
 // A section's listings as a row of cards (the Klook-style hotel row), for Where to stay, Things
-// to do and Getting around: it scrolls sideways, a card snapping to the start, and from sm a round button at each end
+// to do and Vehicle rental: it scrolls sideways, a card snapping to the start, and from sm a round button at each end
 // steps it a screen at a time. A card opens its page in a new tab on a laptop, in this tab on a
 // phone or tablet, as What to book's cards do (useOpensInNewTab).
 export function ListingRow({
