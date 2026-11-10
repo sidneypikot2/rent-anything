@@ -89,7 +89,7 @@ UNITS_BODY = {
 LISTING_GROUP = {
   type: :string, enum: %w[activity transfer rental stay gear],
   description: "Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a " \
-    "vehicle rental: its own section, never a trip's \"Getting around\""
+    "vehicle rental: its own section, never a trip's \"Vehicle rental\""
 }.freeze
 
 # An area's last seeding run from the admin console (RAA-168), on its list row and its page.
@@ -2101,6 +2101,76 @@ RSpec.configure do |config|
             },
             required: %w[key id name title category area_name listings_count listing_ids instant_book price_from_cents price_unit photos location goes_to near]
           },
+          listing_facets: {
+            type: :object,
+            description: "A group's filter choices (Discovery::ListingFilters), each counted in cards: before the filters but with " \
+              "the search, except includes, counted among the cards the other filters leave",
+            properties: {
+              cards: { type: :integer },
+              free_cancellation: { type: :integer },
+              pets: { type: :integer },
+              price_min_cents: { type: :integer, nullable: true },
+              price_max_cents: { type: :integer, nullable: true },
+              unpriced: { type: :boolean, description: "Some have no price yet" },
+              kinds: {
+                type: :array, description: "Rentals' categories",
+                items: {
+                  type: :object, properties: { value: { type: :string }, label: { type: :string }, count: { type: :integer } },
+                  required: %w[value label count]
+                }
+              },
+              transmissions: {
+                type: :array,
+                items: { type: :object, properties: { value: { type: :string }, count: { type: :integer } }, required: %w[value count] }
+              },
+              delivery: { type: :integer },
+              pickup: { type: :integer },
+              child_helmets: { type: :integer },
+              includes: {
+                type: :array, description: "Keys: guide, licence, bathroom:<kind>, amenity:<name>, accessory:<name>, feature:<name>",
+                items: { type: :object, properties: { key: { type: :string }, count: { type: :integer } }, required: %w[key count] }
+              },
+              shared: {
+                type: :object, description: "What every listing has, with two cards or more",
+                properties: {
+                  includes: { type: :array, items: { type: :string } },
+                  pets: { type: :boolean },
+                  cancellation_policy: { type: :string, nullable: true }
+                },
+                required: %w[includes pets cancellation_policy]
+              },
+              unpriced_booking_type: { type: :string, nullable: true }
+            },
+            required: %w[cards free_cancellation pets price_min_cents price_max_cents unpriced kinds transmissions delivery pickup
+              child_helmets includes shared unpriced_booking_type]
+          },
+          book_cards: {
+            type: :object,
+            properties: {
+              cards: {
+                type: :array,
+                items: {
+                  type: :object,
+                  properties: {
+                    key: { type: :string, description: "A stay's business id; any other card's business and first listing ids" },
+                    listings: { type: :array, items: { "$ref" => "#/components/schemas/area_listing" } }
+                  },
+                  required: %w[key listings]
+                }
+              },
+              total: { type: :integer, description: "How many cards pass, every page" },
+              page: { type: :integer, minimum: 1 },
+              per_page: { type: :integer },
+              facets: { "$ref" => "#/components/schemas/listing_facets" },
+              counts: {
+                type: :object, description: "Cards per guest group here with the search (not the filters)",
+                properties: %w[stay transfer rental activity gear].index_with { { type: :integer } },
+                required: %w[stay transfer rental activity gear]
+              },
+              pin_ids: { type: :array, items: { type: :integer }, description: "Every listing of the group that passes" }
+            },
+            required: %w[cards total page per_page facets counts pin_ids]
+          },
           plan_businesses: {
             type: :object,
             properties: {
@@ -2113,9 +2183,10 @@ RSpec.configure do |config|
                 type: :object, description: "Active listings here per guest group",
                 properties: %w[stay transfer rental activity gear].index_with { { type: :integer } },
                 required: %w[stay transfer rental activity gear]
-              }
+              },
+              facets: { "$ref" => "#/components/schemas/listing_facets" }
             },
-            required: %w[businesses total page per_page hearted_total counts]
+            required: %w[businesses total page per_page hearted_total counts facets]
           },
           business_detail: {
             type: :object,

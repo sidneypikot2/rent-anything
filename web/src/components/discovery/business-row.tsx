@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createContext, useContext, useEffect, useRef, useSyncExternalStore, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useRef, useSyncExternalStore, type ComponentProps, type ReactNode } from "react";
 import { isApiPhoto } from "@/components/landing/sample-photos";
 import { handoverLabel, sharedFees } from "@/components/trips/delivery-options";
 import { InTripBadge, InTripCount } from "@/components/trips/in-trip-badge";
@@ -56,10 +56,6 @@ export type Offer = {
   stay?: MixOffer;
 };
 
-// The listings What to book's filters (and a distance search) leave, by id; null for all. Set by
-// ListingBrowser around each business card, so the card and its panel show only those.
-export const ShownOffersContext = createContext<Set<number> | null>(null);
-
 // Photos a card shows: each listing's first, then the rest, so a swipe meets every listing.
 const CARD_PHOTOS = 6;
 
@@ -98,7 +94,7 @@ export function BusinessRow({
   href,
   place,
   groupTitle,
-  offers: allOffers,
+  offers,
   sharedChips = [],
 }: {
   name: string;
@@ -114,8 +110,6 @@ export function BusinessRow({
   // still lists them).
   sharedChips?: string[];
 }) {
-  const shown = useContext(ShownOffersContext);
-  const offers = shown ? allOffers.filter((offer) => shown.has(offer.listingId)) : allOffers;
   // With the trip here, so the page it opens adds to it without asking (useTripHref).
   const pageHref = useTripHref()(href);
   const newTab = useOpensInNewTab();

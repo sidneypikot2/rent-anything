@@ -37,6 +37,9 @@ const GRID_X = 80;
 const GRID_Y = 36;
 const FIT_PADDING = 64;
 const NAME_PADDING = 84;
+// The most of the map's width (each side) and height (top) the fit's padding may take.
+const MAX_SIDE_SHARE = 0.2;
+const MAX_TOP_SHARE = 0.15;
 
 const pointKey = ({ lat, lng }: LatLng) => `${lat},${lng}`;
 
@@ -67,17 +70,66 @@ function nameElement(text: string) {
   return name;
 }
 
+// A pin's place in a grid of `count`, in pixels from the grid's middle.
+function gridSpot(index: number, count: number): [number, number] {
+  const rows = Math.ceil(count / GRID_COLUMNS);
+  const row = Math.floor(index / GRID_COLUMNS);
+  const across = Math.min(GRID_COLUMNS, count - row * GRID_COLUMNS);
+  return [((index % GRID_COLUMNS) - (across - 1) / 2) * GRID_X, (row - (rows - 1) / 2) * GRID_Y];
+}
+
 // Each pin's place in the grid around its point, in pixels; a pin alone stays on its point.
 function gridOffsets(pins: ResultPin[]) {
   const points = new Map<string, ResultPin[]>();
   for (const pin of pins) points.set(pointKey(pin.point), [...(points.get(pointKey(pin.point)) ?? []), pin]);
   const offsets = new Map<number, [number, number]>();
-  for (const group of points.values()) {
-    const rows = Math.ceil(group.length / GRID_COLUMNS);
-    group.forEach((pin, index) => {
-      const row = Math.floor(index / GRID_COLUMNS);
-      const across = Math.min(GRID_COLUMNS, group.length - row * GRID_COLUMNS);
-      offsets.set(pin.id, [((index % GRID_COLUMNS) - (across - 1) / 2) * GRID_X, (row - (rows - 1) / 2) * GRID_Y]);
+  for (const group of points.values()) group.forEach((pin, index) => offsets.set(pin.id, gridSpot(index, group.length)));
+  return offsets;
+}
+
+// The same grids once the map is fitted, with any that would overlap on screen (points a few
+// pixels apart at this zoom, as a town's rounded points are) merged into one grid around their
+// middle, so no pill covers another.
+function screenGridOffsets(map: MapLibreMap, pins: ResultPin[]) {
+  type Group = { pins: ResultPin[]; x: number; y: number };
+  const groups: Group[] = [];
+  for (const pin of pins) {
+    const same = groups.find((group) => pointKey(group.pins[0].point) === pointKey(pin.point));
+    if (same) same.pins.push(pin);
+    else {
+      const { x, y } = map.project(toLngLat(pin.point));
+      groups.push({ pins: [pin], x, y });
+    }
+  }
+  const size = (group: Group) => [Math.min(GRID_COLUMNS, group.pins.length) * GRID_X, Math.ceil(group.pins.length / GRID_COLUMNS) * GRID_Y];
+  const overlap = (a: Group, b: Group) => {
+    const [aw, ah] = size(a);
+    const [bw, bh] = size(b);
+    return Math.abs(a.x - b.x) < (aw + bw) / 2 && Math.abs(a.y - b.y) < (ah + bh) / 2;
+  };
+  for (let merged = true; merged; ) {
+    merged = false;
+    for (let i = 0; i < groups.length && !merged; i++) {
+      for (let j = i + 1; j < groups.length && !merged; j++) {
+        const [a, b] = [groups[i], groups[j]];
+        if (!overlap(a, b)) continue;
+        const count = a.pins.length + b.pins.length;
+        groups[i] = {
+          pins: [...a.pins, ...b.pins],
+          x: (a.x * a.pins.length + b.x * b.pins.length) / count,
+          y: (a.y * a.pins.length + b.y * b.pins.length) / count,
+        };
+        groups.splice(j, 1);
+        merged = true;
+      }
+    }
+  }
+  const offsets = new Map<number, [number, number]>();
+  for (const group of groups) {
+    group.pins.forEach((pin, index) => {
+      const [dx, dy] = gridSpot(index, group.pins.length);
+      const own = map.project(toLngLat(pin.point));
+      offsets.set(pin.id, [dx + group.x - own.x, dy + group.y - own.y]);
     });
   }
   return offsets;
@@ -255,15 +307,29 @@ export default function ResultsMap({
     const spread = [...offsets.values()];
     // An icon pin's name opens centred over it, so room for that at the sides.
     const edge = pins.some((pin) => pin.icon !== undefined) ? NAME_PADDING : FIT_PADDING;
-    const side = edge + Math.max(0, ...spread.map(([x]) => Math.abs(x)));
-    const top = FIT_PADDING + Math.max(0, ...spread.map(([, y]) => Math.abs(y)));
+    const reachX = Math.max(0, ...spread.map(([x]) => Math.abs(x)));
+    const reachY = Math.max(0, ...spread.map(([, y]) => Math.abs(y)));
     // One point fits too, so it moves up out from under the sheet.
     const fit = (animate: boolean) => {
-      const bottom = top + map.getContainer().clientHeight * coveredRef.current;
+      // Capped by the map's size: on a phone a grid's full reach left ~100px across for the
+      // points, so the map zoomed far out and its pins piled up.
+      const { clientWidth, clientHeight } = map.getContainer();
+      const side = Math.min(edge + reachX, clientWidth * MAX_SIDE_SHARE);
+      const top = Math.min(FIT_PADDING + reachY, clientHeight * MAX_TOP_SHARE);
+      const bottom = top + clientHeight * coveredRef.current;
       const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       map.fitBounds(bounds, { padding: { top, right: side, left: side, bottom }, maxZoom: 14, animate: animate && !reduce, duration: 500 });
     };
     fit(false);
+    // Fitted, so nearby grids can merge (the stay's tag keeps its place under its own point).
+    const priced = pins.filter((pin) => pin.icon === undefined);
+    if (priced.length > 1) {
+      const placed = screenGridOffsets(map, priced);
+      pins.forEach((pin, index) => {
+        const offset = placed.get(pin.id);
+        if (offset) markers[index].setOffset(offset);
+      });
+    }
     fitRef.current = fit;
     return () => {
       fitRef.current = null;

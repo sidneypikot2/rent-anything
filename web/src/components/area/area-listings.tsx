@@ -1,4 +1,4 @@
-import type { AreaDetail, Explore } from "@/api/discovery";
+import { getBookCards, type AreaDetail, type BookCardsPage, type Explore } from "@/api/discovery";
 import { countText } from "@/components/area/area-guide";
 import {
   listingPin,
@@ -6,27 +6,15 @@ import {
   type LandmarkInfo,
   type ListingPanelInfo,
 } from "@/components/discovery/area-map-pins";
-import { BusinessRow } from "@/components/discovery/business-row";
-import {
-  businessHref,
-  byCard,
-  cardKey,
-  isTitleCard,
-  listingByLine,
-  listingChips,
-  listingPhotos,
-  offerOf,
-  titleCardHref,
-} from "@/components/discovery/browse-offers";
+import { FIRST_ROWS, firstQuery, PER_PAGE, type BookQuery } from "@/components/discovery/book-query";
+import { byCard, listingByLine, listingChips, listingPhotos } from "@/components/discovery/browse-offers";
 import { TRIP_ORDER_GROUPS } from "@/components/discovery/categories";
-import { ListingBrowser } from "@/components/discovery/listing-browser";
-import { listingFeatures } from "@/components/discovery/listing-features";
+import { ListingBrowser, type BookSection } from "@/components/discovery/listing-browser";
 import { BOOKING_STATE, GETTING_HERE } from "@/components/landing/launch-area";
 import { landmarkPhotos } from "@/components/landing/sample-photos";
 import { addPreview } from "@/components/trips/add-preview";
 import type { TripDates } from "@/components/trips/trip-dates";
 import { Section } from "@/components/ui/section";
-import { pricedByNote } from "@/lib/pricing";
 
 // What a place's page and its What to book page (`/<area>/book`) build alike from the area
 // response: the listings grouped by trip need, and the map's pins.
@@ -136,20 +124,11 @@ export function areaMapData({
   return { landmarks, photos, listingById, visitsOf, byLine, map };
 }
 
-// The chips every listing in a group has, when it holds more than one card (one card has
-// nothing to repeat): its note says them once.
-function sharedChipsOf(cards: Listing[][]) {
-  const all = cards.flat();
-  if (cards.length < 2) return [];
-  const labels = (listing: Listing) => listingFeatures(listing).map((feature) => feature.label);
-  return labels(all[0]).filter((label) => all.every((listing) => labels(listing).includes(label)));
-}
-
 // What to book: every card here by trip need, in a sidebar of sections beside rows of white
 // cards (ListingBrowser), on its own page since 2026-11-10 (the place's page has the card rows).
 export function WhatToBook({
   detail,
-  needs,
+  seed,
   slug,
   dates,
   datesQuery,
@@ -159,7 +138,8 @@ export function WhatToBook({
   island,
 }: {
   detail: AreaDetail;
-  needs: TripNeed[];
+  // The first view's pages, fetched on the server (bookSeed).
+  seed: { query: BookQuery; data: BookCardsPage }[];
   slug: string;
   dates: TripDates;
   datesQuery: string;
@@ -179,64 +159,36 @@ export function WhatToBook({
       intro={`From ${countText(partners, "local partner")}: tours, transfers, rentals and stays. Saving to a trip is free; ${BOOKING_STATE.unpaid}.`}
     >
       <ListingBrowser
+        slug={slug}
+        sections={BOOK_SECTIONS}
+        seed={seed}
+        dates={dates}
         initial={show}
         query={q}
         placeName={area.name}
         clearHref={`/${slug}/book${datesQuery}`}
+        gettingHere={GETTING_HERE[slug]}
         tripPlaces={places}
         tripIsland={island}
         empty={<p className="text-muted">Nothing here yet.</p>}
-        groups={needs.map((need) => {
-          const shared = sharedChipsOf(need.cards);
-          const unpricedNote = need.cards
-            .flat()
-            .map((listing) => !listing.price_from_cents && pricedByNote(listing.booking_type))
-            .find(Boolean);
-          return {
-            id: need.id,
-            title: need.title,
-            icon: need.icon,
-            group: need.group,
-            // Said once here rather than on every card: what they all include, and how the
-            // unpriced ones are priced. Transfers also say how a traveller reaches the place at
-            // all (the trip plan's Getting here).
-            gettingHere: need.group === "transfer" ? GETTING_HERE[slug] : undefined,
-            shared,
-            note: unpricedNote || undefined,
-            items: need.cards.map((offered) => {
-              const offers = offered.map((listing) => offerOf(listing, { dates, pageSlug: slug, groupTitle: need.title }));
-              const first = offered[0];
-              // Its place, when all its listings here are in one place inside this one.
-              const place =
-                offered.every((listing) => listing.area_slug === first.area_slug) && first.area_slug !== slug
-                  ? `in ${first.area_name}`
-                  : undefined;
-              return {
-                key: `${need.id}-card-${cardKey(first)}`,
-                offers: offers.map(({ listingId, priceCents, priceUnit, features, text, vehicle }) => ({
-                  id: listingId,
-                  priceCents,
-                  priceUnit,
-                  features,
-                  text,
-                  vehicle,
-                })),
-                content: (
-                  <BusinessRow
-                    name={first.business.name}
-                    title={isTitleCard(first) ? first.title : undefined}
-                    href={isTitleCard(first) ? titleCardHref(offered, dates, slug) : businessHref(first.business.id, dates, need.id, slug)}
-                    place={place}
-                    groupTitle={need.title}
-                    offers={offers}
-                    sharedChips={shared}
-                  />
-                ),
-              };
-            }),
-          };
-        })}
       />
     </Section>
   );
+}
+
+// What to book's sections, in the order the trip's needs come (TRIP_ORDER_GROUPS).
+export const BOOK_SECTIONS: BookSection[] = TRIP_ORDER_GROUPS.map(({ group, id, title, icon }) => ({ group, id, title, icon }));
+
+// The pages What to book opens on, fetched on the server for the first paint: `?show=`'s section's
+// first page, else every section's first rows (All).
+export async function bookSeed(slug: string, show: string | undefined, q: string | undefined) {
+  const picked = BOOK_SECTIONS.find((section) => section.id === show);
+  const wanted = picked ? [{ section: picked, perPage: PER_PAGE }] : BOOK_SECTIONS.map((section) => ({ section, perPage: FIRST_ROWS }));
+  const pages = await Promise.all(
+    wanted.map(async ({ section, perPage }) => {
+      const data = await getBookCards(slug, section.group, perPage, q);
+      return data && { query: firstQuery(section.group, perPage, q), data };
+    }),
+  );
+  return pages.filter((page) => page !== null);
 }

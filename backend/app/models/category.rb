@@ -39,7 +39,7 @@ class Category < ApplicationRecord
 
   # Where guests find it: its booking type, except that gear (cameras, snorkel sets) is told
   # apart from the vehicles it shares `rental` with, so it gets its own section and never
-  # counts as a trip's "Getting around". Preload category: :parent.
+  # counts as a trip's "Vehicle rental". Preload category: :parent.
   def guest_group
     gear? ? "gear" : booking_type
   end

@@ -273,7 +273,7 @@ export function AreaGettingHere({
       )}
       {around.length > 0 && (
         <div className="flex flex-col gap-block">
-          <SectionTitle>Getting around</SectionTitle>
+          <SectionTitle>Vehicle rental</SectionTitle>
           {/* Rows in one card, as the route beside it. */}
           <Card edge="line" className="px-4 py-1 sm:px-5">
             <ul className="divide-y divide-line">
@@ -386,7 +386,7 @@ export function AreaThingsToDo({
   );
 }
 
-// Getting around: the vehicles to rent here and the transfers that run on the island, as a row of
+// Vehicle rental: the vehicles to rent here and the transfers that run on the island, as a row of
 // cards (Klook's Transport row). It takes the place of Getting here's list of ways around, whose
 // notes become its intro.
 export function AreaGettingAround({
@@ -405,7 +405,7 @@ export function AreaGettingAround({
     <section id="around" data-testid="area-around" className="flex flex-col gap-block">
       <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="flex max-w-prose flex-col gap-2">
-          <SectionTitle>{`Getting around ${name}`}</SectionTitle>
+          <SectionTitle>{`Vehicle rental in ${name}`}</SectionTitle>
           {intro && <p className="text-pretty text-muted">{intro}</p>}
         </div>
         <div className="flex flex-wrap gap-x-5">

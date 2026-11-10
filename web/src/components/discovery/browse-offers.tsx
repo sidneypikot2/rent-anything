@@ -49,7 +49,20 @@ export function listingChips(listing: BrowseListing): Feature[] {
 }
 
 // One listing as a business card and its options show it, with Add to trip; `text` is what a
-// What to book search matches, and `vehicle` what Getting around's filters ask of it (RAA-205).
+// What to book search matches, and `vehicle` what Vehicle rental's filters ask of it (RAA-205).
+// A rental's facts for Vehicle rental's and Gear's filters (RAA-205); undefined for anything else.
+export function vehicleFactsOf(listing: BrowseListing) {
+  return listing.handover
+    ? {
+        kind: listing.category,
+        transmission: typeof listing.details?.transmission === "string" ? listing.details.transmission : null,
+        delivery: listing.handover.delivery_fee_cents !== null,
+        returnPickup: listing.handover.return_pickup_fee_cents !== null,
+        childHelmets: listing.handover.child_helmet_fee_cents !== null,
+      }
+    : undefined;
+}
+
 export function offerOf(
   listing: BrowseListing,
   {
@@ -83,15 +96,7 @@ export function offerOf(
     place: listing.area_name,
     goesTo: listing.goes_to,
     handover: listing.handover,
-    vehicle: listing.handover
-      ? {
-          kind: listing.category,
-          transmission: typeof listing.details?.transmission === "string" ? listing.details.transmission : null,
-          delivery: listing.handover.delivery_fee_cents !== null,
-          returnPickup: listing.handover.return_pickup_fee_cents !== null,
-          childHelmets: listing.handover.child_helmet_fee_cents !== null,
-        }
-      : undefined,
+    vehicle: vehicleFactsOf(listing),
     stay:
       listing.booking_type === "stay"
         ? {

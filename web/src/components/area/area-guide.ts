@@ -48,7 +48,7 @@ export function businessesIn(listings: Listing[], group: Listing["group"]) {
   return new Set(listings.filter((listing) => listing.group === group).map((listing) => listing.business.id)).size;
 }
 
-// Whether a transfer runs on the island rather than getting there (Getting around's row, not
+// Whether a transfer runs on the island rather than getting there (Vehicle rental's row, not
 // Getting here): both ends of its route, as the partner typed it ("Santa Fe to Madridejos"), name
 // a place on the island. A route left blank, or one end off it ("Hagnaya port to Santa Fe"), is
 // getting there. Text only, until a transfer's ends are places in the data.

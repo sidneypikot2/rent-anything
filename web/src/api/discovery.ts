@@ -20,6 +20,7 @@ export type ExploreRecommendation = components["schemas"]["explore_recommendatio
 export type StayQuote = components["schemas"]["stay_quote"];
 export type PlanBusinessesPage = components["schemas"]["plan_businesses"];
 export type PlanGroup = keyof PlanBusinessesPage["counts"];
+export type BookCardsPage = components["schemas"]["book_cards"];
 
 // Cached per request: the home page's hero card and its sections share one fetch (RAA-125).
 export const getDestinations = cache(async (): Promise<AreaCard[]> => {
@@ -67,6 +68,20 @@ export const getPlanBusinesses = cache(async (slug: string, group: PlanGroup): P
   if (!data) throw new Error("Couldn't load what to book here");
   return data;
 });
+
+// The first page of one What to book section's cards (`perPage` of them: All shows 3), with the
+// page's search. null for an unknown place.
+export const getBookCards = cache(
+  async (slug: string, group: PlanGroup, perPage: number, q?: string): Promise<BookCardsPage | null> => {
+    await connection();
+    const { data, response } = await serverApiClient().GET("/api/v1/areas/{slug}/book_cards", {
+      params: { path: { slug }, query: { group, per_page: perPage, ...(q ? { q } : {}) } },
+    });
+    if (response.status === 404) return null;
+    if (!data) throw new Error("Couldn't load what to book here");
+    return data;
+  },
+);
 
 // One active listing (RAA-86). null for a draft, pending or unknown one. Cached per request:
 // the page and its metadata share one call.

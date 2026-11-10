@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getArea, getDestinations, getExplore } from "@/api/discovery";
 import { planHref } from "@/components/area/area-guide";
-import { areaMapData, tripNeeds, WhatToBook } from "@/components/area/area-listings";
+import { areaMapData, bookSeed, tripNeeds, WhatToBook } from "@/components/area/area-listings";
 import { BackLink } from "@/components/discovery/back-link";
 import { AreaMapProvider } from "@/components/discovery/area-map-context";
 import { AreaMapLayout } from "@/components/discovery/area-map-layout";
@@ -29,7 +29,9 @@ export async function generateMetadata(props: PageProps<"/[area]/book">): Promis
 }
 
 // A place's What to book on a page of its own (2026-11-10): every business there by trip need,
-// in ListingBrowser's sidebar of sections beside rows of cards, with the map. The place's page
+// in ListingBrowser's sidebar of sections beside rows of cards, a page at a time from the API
+// (book_cards: the first view's pages fetched here, the rest in the browser), with the map,
+// whose pins and pop-ups still take every listing (explore and the area's rows). The place's page
 // (`/<area>`) is the guide, with a few cards per kind; its What to book tab, its See all links,
 // the home's kinds, the search and a business page's way back come here. `?show=` opens a group,
 // `?q=` narrows to words, `?trip=` picks the trip, as on the place's page.
@@ -41,8 +43,9 @@ export default async function AreaBookPage(props: PageProps<"/[area]/book">) {
   const tripId = tripParam(searchParams.trip);
   const show = typeof searchParams.show === "string" ? searchParams.show : undefined;
   const q = typeof searchParams.q === "string" && searchParams.q.trim() ? searchParams.q.trim() : undefined;
-  const [detail, explored, destinations] = await Promise.all([
+  const [detail, seed, explored, destinations] = await Promise.all([
     getArea(slug),
+    bookSeed(slug, show, q),
     // The map: without it the page still lists everything.
     getExplore({ area: slug }).catch((error: unknown) => {
       console.error(error);
@@ -106,7 +109,7 @@ export default async function AreaBookPage(props: PageProps<"/[area]/book">) {
                 <div className="page-sections flex min-w-0 flex-col gap-section pt-block pb-page-pad" data-testid="area-book">
                   <WhatToBook
                     detail={detail}
-                    needs={needs}
+                    seed={seed}
                     slug={slug}
                     dates={dates}
                     datesQuery={datesQuery}

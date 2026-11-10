@@ -7,9 +7,10 @@ export { listingKey, placeKey } from "./area-map-pins";
 
 // What an area page's map shares with the cards and rows beside it: the pin under the pointer
 // (from either side), the pin whose pop-up is open, whether the map is shown, what What to book
-// is showing (its group and the rows its filters hide), and, while searching by distance, how
-// far each listing is from the guest's pin. A pin's key is `listing-<id>` or `place-<slug>`.
-export type MapView = { group: string | null; hidden: number[] };
+// is showing (its group, and for a group narrowed by its filters or a search, the listings that
+// pass: `shown`, by group; a group not in it shows every pin), and, while searching by distance,
+// how far each listing is from the guest's pin. A pin's key is `listing-<id>` or `place-<slug>`.
+export type MapView = { group: string | null; shown: Record<string, number[]> };
 
 type AreaMapState = {
   // The pins lit by a pointer: one pin, or a business card's pins.
@@ -84,7 +85,7 @@ export function AreaMapProvider({ children }: { children: ReactNode }) {
   );
   const [selected, setSelected] = useState<string | null>(null);
   const mapOn = useSyncExternalStore(subscribeMapOn, readMapOn, () => false);
-  const [view, setView] = useState<MapView>({ group: null, hidden: [] });
+  const [view, setView] = useState<MapView>({ group: null, shown: {} });
   const [near, setNear] = useState<Map<number, number> | null>(null);
   const value = useMemo(
     () => ({ hover, setHover, selected, setSelected, mapOn, setMapOn: keepingPlace, view, setView, near, setNear }),
