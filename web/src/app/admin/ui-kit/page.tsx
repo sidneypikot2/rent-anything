@@ -18,6 +18,7 @@ import { Pill, PillLink } from "@/components/ui/pill";
 import { DisplayTitle, Eyebrow, Price, SectionTitle } from "@/components/ui/typography";
 import { DialogDemo, MenuDemo, ToastDemo } from "./dialog-demo";
 import { InteractiveFields } from "./interactive-fields";
+import { LineChart } from "@/components/ui/line-chart";
 
 export const metadata: Metadata = {
   title: "UI kit",
@@ -335,9 +336,21 @@ export default function UiKit() {
           </CardLink>
         </div>
       </Showcase>
+
+      <Showcase title="Line chart">
+        <Card edge="line" className="p-5">
+          <LineChart data={SAMPLE_SERIES} label="Sample visitors per day" />
+        </Card>
+      </Showcase>
     </main>
   );
 }
+
+// Two weeks of made-up daily counts for the line chart's sample.
+const SAMPLE_SERIES = [12, 18, 15, 22, 30, 26, 19, 24, 35, 41, 38, 29, 44, 52].map((value, i) => ({
+  date: `2026-11-${String(i + 1).padStart(2, "0")}`,
+  value,
+}));
 
 function Showcase({ title, children }: { title: string; children: ReactNode }) {
   return (

@@ -3,6 +3,7 @@ import { CurrentPlaceProvider } from "@/components/landing/current-place";
 import { SectionHeader } from "@/components/landing/section-header";
 import { SiteBackdrop } from "@/components/landing/site-backdrop";
 import { SiteFooter } from "@/components/landing/site-footer";
+import { VisitPing } from "@/components/visit-ping";
 
 // The skip link is the first thing a keyboard reaches; it jumps past the header to the page's
 // content, whose wrapper takes the focus and lays the page out as the body did.
@@ -23,6 +24,7 @@ export default function GuestLayout({ children }: { children: ReactNode }) {
         </div>
       </CurrentPlaceProvider>
       <SiteFooter />
+      <VisitPing />
     </>
   );
 }
