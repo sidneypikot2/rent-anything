@@ -195,8 +195,8 @@ export function ListingBrowser({
   // just added would otherwise drop to the end with "what the trip has" and leave the guest
   // looking at scooters. The dots and ticks still update; only the order holds.
   const { busyListingId, lastAdded } = useTripAdd();
-  // Kept outside the component too (heldOrder), as a first add signs a guest in and the page
-  // then swaps its sections (SectionOrder), mounting this list afresh.
+  // Kept outside the component too (heldOrder), as a first add signing a guest in can mount this
+  // list afresh.
   const [frozen, setFrozen] = useState<string[] | null>(() => heldOrderFor(pathnameNow()));
   if (busyListingId !== null && frozen === null) setFrozen(planned.map((group) => group.id));
   useEffect(() => {

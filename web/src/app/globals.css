@@ -515,6 +515,32 @@
   }
 }
 
+/* An area page on a phone: once its section bar reaches the header (AreaNav's useHeaderAway), the
+   header fades up a little while the bar glides into its place, in the same 500ms and
+   ease-soft, so the two move as one. !important outranks the
+   inline --chrome HeaderSearch measures. */
+@media (width < 40rem) {
+  [data-site-header] {
+    transition: translate 500ms var(--ease-soft), opacity 400ms var(--ease-soft), visibility 0s 500ms;
+  }
+  :root[data-header-away] [data-site-header] {
+    translate: 0 -1.5rem;
+    opacity: 0;
+    visibility: hidden;
+  }
+  :root:not([data-header-away]) [data-site-header] {
+    transition-delay: 0s;
+  }
+  :root[data-header-away] {
+    --chrome: 0.75rem !important;
+  }
+}
+@media (width < 40rem) and (prefers-reduced-motion: reduce) {
+  [data-site-header] {
+    transition: none;
+  }
+}
+
 /* A section the area page's tabs moved focus to (area-nav.tsx's jumpTo): focus is for the next
    Tab, not something to show. */
 [data-jump-target]:focus {

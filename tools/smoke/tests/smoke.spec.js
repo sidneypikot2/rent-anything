@@ -36,7 +36,7 @@ test("home page renders and reaches the API", async ({ page }) => {
   await expect(page.getByTestId("nav-register")).toHaveAttribute("href", "/register");
   // The home's three ways in: Plan a trip (below), Book one thing to the launch area's What
   // to book, and Explore to the launch area's page.
-  await expect(page.getByTestId("home-book-one")).toHaveAttribute("href", "/bantayan-island#listings");
+  await expect(page.getByTestId("home-book-one")).toHaveAttribute("href", "/bantayan-island/book");
   await expect(page.getByTestId("home-explore")).toHaveAttribute("href", "/bantayan-island");
   // Under the hero: the five kinds of things to book, and the places to see, rendered on the
   // server from the API, each opening its card on the launch area's page.
@@ -97,6 +97,14 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   await expect(page).toHaveURL(/\/$/);
   await page.getByTestId("trip-choice-go").click();
   await expect(page).toHaveURL(new RegExp(`/plan/bantayan-island\\?trip=${tripId}$`));
+  // A place page's Plan a trip asks too, with the trip here picked; New trip goes to step 1 on it.
+  await page.goto("/bantayan-island");
+  await page.getByTestId("area-trip-band-plan").click();
+  await expect(page.getByTestId("trip-choice-sheet")).toBeVisible();
+  await expect(page.getByTestId("trip-choice-go")).toHaveText(/Continue this trip/);
+  await page.getByTestId("trip-choice-sheet").getByText("New trip").click();
+  await page.getByTestId("trip-choice-go").click();
+  await expect(page).toHaveURL(/\/plan\?where=bantayan-island$/);
   expect(errors).toEqual([]);
 });
 
@@ -133,13 +141,25 @@ test("search a landmark and open its destination", async ({ page }) => {
   await expect(page.getByTestId("area-getting-here")).toContainText("Getting to Bantayan Island");
   await expect(page.getByTestId("area-nav-plan")).toHaveAttribute("href", "/plan?where=bantayan-island&guests=2");
 
-  // What to book lists businesses by name (Booking.com's way): a card opens the business's own
-  // page, in a new tab on a laptop, with the search's guests and the group it came from. Its
-  // options' titles open the listing's page, also rendered on the server, in another new tab, with
-  // its own Add to trip. A vehicle shop's models open their details in place instead (RAA-205),
+  // What to book has its own page (2026-11-10), which the banner's phone lead opens with the
+  // guests; the section bar has no tab for it.
+  await expect(page.getByTestId("area-nav-listings")).toHaveCount(0);
+  await expect(page.getByTestId("trip-lead-compact")).toHaveAttribute("href", "/bantayan-island/book?guests=2");
+  await page.goto("/bantayan-island/book?guests=2");
+
+  // What to book lists a card per listing title per business ("Mio 125 by …"; a stay's per
+  // business): a title card opens its cheapest listing's page, a stay's card the business's own
+  // page, in a new tab on a laptop, with the search's guests and the group it came from. The
+  // business's options' titles open the listing's page (no side panel since 2026-11-10), also rendered on the
+  // server, in another new tab, with its own Add to trip. A vehicle shop's models open their details in place instead (RAA-205),
   // which link to the listing's page in the same tab.
-  const [business] = await Promise.all([page.waitForEvent("popup"), page.getByTestId("business-open").first().click()]);
-  await expect(business).toHaveURL(/\/businesses\/\d+\?guests=2&show=need-[a-z]+&place=bantayan-island$/);
+  await expect(page.locator('[data-testid="business-open"][href^="/listings/"]').first()).toHaveAttribute(
+    "href",
+    /^\/listings\/\d+\?guests=2&place=bantayan-island$/,
+  );
+  const stayCard = page.locator('[data-testid="business-open"][href^="/businesses/"]').first();
+  const [business] = await Promise.all([page.waitForEvent("popup"), stayCard.click()]);
+  await expect(business).toHaveURL(/\/businesses\/\d+\?guests=2&show=need-stay&place=bantayan-island$/);
   await expect(business.getByTestId("business-options-list")).toBeVisible();
   const models = business.getByTestId("shop-model-toggle");
   let listing = business;
@@ -156,7 +176,10 @@ test("search a landmark and open its destination", async ({ page }) => {
   }
   await expect(listing).toHaveURL(/\/listings\/\d+\?guests=2&place=bantayan-island$/);
   await expect(listing.getByRole("heading", { level: 1 })).toHaveText(listingTitle);
-  await expect(listing.getByTestId("add-to-trip")).toBeVisible();
+  // Laid out as its business's shop (the booking rail): the booking card on the right holds its
+  // Add to trip, and the rest of the business follows under "More from".
+  await expect(listing.getByTestId("listing-book").getByTestId("add-to-trip")).toBeVisible();
+  await expect(listing.getByTestId("listing-business")).toBeVisible();
   if (listing !== business) await listing.close();
   await business.close();
 
@@ -168,10 +191,9 @@ test("search a landmark and open its destination", async ({ page }) => {
   await expect(page).toHaveURL(/\/search\?q=snorkelling$/);
   await expect(page.getByTestId("search-results")).toContainText("Bantayan Island");
 
-  // A place's page opened with a search (`?q=`, from a listing's header search) narrows its things
-  // to book, says what it found and offers every place.
-  // Without `#listings`: the page scrolls to What to book itself, and a click during the hash's jump can be lost.
-  await page.goto("/bantayan-island?q=snorkelling");
+  // A place's What to book opened with a search (`?q=`, from a listing's header search) narrows
+  // its things to book, says what it found and offers every place.
+  await page.goto("/bantayan-island/book?q=snorkelling");
   const searched = page.getByTestId("searched-line");
   await expect(searched).toContainText("snorkelling");
   await searched.getByRole("link", { name: "Search all places" }).click();
@@ -550,8 +572,9 @@ test("water activity wizard", async ({ browser, baseURL }) => {
   await context.close();
 });
 
-// Gear rents like a vehicle, by the count (RAA-255): a card's See details opens the shop's sheet,
-// with a pickup time and no seats to fill, and what is picked goes straight into a new trip.
+// Gear rents like a vehicle, by the count (RAA-255): a card's See details opens the gear's page,
+// whose business link opens the shop's sheet, with a pickup time and no seats to fill, and what
+// is picked goes straight into a new trip.
 test("rent gear from a shop's sheet", async ({ page }) => {
   test.setTimeout(60_000);
   const errors = [];
@@ -560,9 +583,12 @@ test("rent gear from a shop's sheet", async ({ page }) => {
   // A different stretch each run, so bookings left by earlier runs don't fill these days.
   const offset = 30 + (Math.floor(Date.now() / 1000) % 240);
 
-  await page.goto(`/bantayan-island?from=${day(offset)}&to=${day(offset + 2)}&guests=2&show=need-gear`);
+  await page.goto(`/bantayan-island/book?from=${day(offset)}&to=${day(offset + 2)}&guests=2&show=need-gear`);
   const [shop] = await Promise.all([page.waitForEvent("popup"), page.getByTestId("business-details").first().click()]);
   collectErrors(shop, errors);
+  await expect(shop).toHaveURL(/\/listings\/\d+\?/);
+  await shop.getByTestId("listing-business").click();
+  await expect(shop).toHaveURL(/\/businesses\/\d+\?/);
   const gear = shop.locator("#need-gear");
   await expect(gear.getByTestId("shop-options")).toBeVisible();
   await expect(gear.getByTestId("shop-seats")).toHaveCount(0);
@@ -594,10 +620,14 @@ test("add to trip without an account", async ({ page, browser }) => {
   const from = day(offset);
   const to = day(offset + 2);
 
-  // A place's cards all say See details: the adds happen on a business's page. Opened in this
+  // A place's cards all say See details: the adds happen on the listing's page. Opened in this
   // tab, as on a phone, so the trip the first add starts stays the one this tab works on.
   const place = `/bantayan-island?from=${from}&to=${to}&guests=2`;
-  await page.goto(`${place}&show=need-activity`);
+  // With nothing saved yet the closing band offers the two ways in, not an empty trip.
+  await page.goto(place);
+  await expect(page.getByTestId("area-trip-band-plan")).toBeVisible();
+  await expect(page.getByTestId("area-trip-band-book")).toHaveAttribute("href", /^\/bantayan-island\/book\?/);
+  await page.goto(`/bantayan-island/book?from=${from}&to=${to}&guests=2&show=need-activity`);
   const cards = page.getByTestId("business-open");
   const [firstBusiness, secondBusiness] = [await cards.nth(0).getAttribute("href"), await cards.nth(1).getAttribute("href")];
   await page.goto(firstBusiness);

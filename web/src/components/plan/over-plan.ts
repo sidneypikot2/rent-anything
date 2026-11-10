@@ -8,7 +8,7 @@ type Router = ReturnType<typeof useRouter>;
 // the business page's `show` and dates), so a reload keeps the plan with the business open over
 // it. The plan's page renders it (BusinessModal); these open and close it.
 // The keys only the business adds; the dates and guests are the plan's too, so they stay.
-const OVER_PLAN_KEYS = ["business", "show", "place"];
+const OVER_PLAN_KEYS = ["business", "show", "place", "item"];
 const PUSHED = "plan-business-pushed";
 
 // The plan's URL with the business `href` (/businesses/<id>?show=…) over it.

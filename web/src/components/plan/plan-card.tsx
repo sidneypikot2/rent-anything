@@ -31,9 +31,10 @@ const STOP_CHIPS = 3;
 // from each of its options to swipe, with a pill over their top left (Instant book), then its name
 // (with how far from the stay on the right), what it offers here ("Honda Click 125 + 2 more"), what
 // and where the first is, the trip's dates, the places its tours go to and its lowest price
-// underlined. The whole card opens the business's page (`href`, its options in
-// this step): in a new tab on a laptop, so the plan stays as it was; on a phone in this tab,
-// over the plan, in the plan's own URL (`?business=`, openOverPlan), so a reload keeps it open.
+// underlined. The whole card opens `href` — a stay's business's page (its options in this step),
+// a title card's listing page: in a new tab on a laptop, so the plan stays as it was; on a phone
+// in this tab — a business over the plan, in the plan's own URL (`?business=`, openOverPlan), so a
+// reload keeps it open; a listing as its own page, whose way back returns to the plan.
 export function PlanCard({
   business,
   href,
@@ -60,6 +61,8 @@ export function PlanCard({
   const router = useRouter();
   const newTab = useOpensInNewTab();
   const overMap = Boolean(onClose);
+  // A stay's business opens over the plan on a phone; a title card's listing page opens in this tab.
+  const overPlan = href.startsWith("/businesses/");
   const price = business.price_from_cents ? formatPeso(business.price_from_cents) : null;
   const far = distanceText(context.stay?.point, business.location);
   const stops = business.goesTo.flatMap((slug) => {
@@ -67,7 +70,7 @@ export function PlanCard({
     return landmark ? [{ slug, name: landmark.name }] : [];
   });
   const more = business.listings_count - 1;
-  const best = context.best?.id === business.id ? context.best.label : null;
+  const best = context.best?.id === business.pin ? context.best.label : null;
   // How far a stay is from each pick, as the API says it.
   const near = business.near.flatMap(({ slug, km }) => {
     const landmark = context.landmarks.get(slug);
@@ -76,7 +79,8 @@ export function PlanCard({
   const open = () => {
     onLeave?.();
     if (newTab) window.open(href, "_blank");
-    else openOverPlan(router, href);
+    else if (overPlan) openOverPlan(router, href);
+    else router.push(href);
   };
   const openFromPhoto = (event: MouseEvent) => {
     if ((event.target as HTMLElement).closest("button")) return;
@@ -84,7 +88,7 @@ export function PlanCard({
   };
   return (
     <article
-      onPointerEnter={() => onHover?.(business.id)}
+      onPointerEnter={() => onHover?.(business.pin)}
       onPointerLeave={() => onHover?.(null)}
       className={cn(
         "group/card flex min-w-0 flex-col",
@@ -96,8 +100,8 @@ export function PlanCard({
     >
       <div onClick={openFromPhoto} className="relative cursor-pointer">
         <ListingPhotos
-          photos={business.photos.map((photo) => ({ src: photo.card_url, alt: business.name }))}
-          label={business.name}
+          photos={business.photos.map((photo) => ({ src: photo.card_url, alt: business.titled ? business.title : business.name }))}
+          label={business.titled ? business.title : business.name}
           category={business.category}
           count="bottom"
           className={cn(
@@ -138,21 +142,23 @@ export function PlanCard({
             href={href}
             {...newTabProps(newTab)}
             onClick={(event) => {
-              // A plain tap on a phone opens it over the plan; a new tab or a modified click keeps the link.
-              if (newTab || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return onLeave?.();
+              // A plain tap on a phone opens a business over the plan; a listing, a new tab or a
+              // modified click keeps the link.
+              if (newTab || !overPlan || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return onLeave?.();
               event.preventDefault();
               open();
             }}
             data-testid="plan-option"
             className="min-w-0 truncate text-left font-bold text-navy outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:rounded-control focus-visible:after:outline-2 focus-visible:after:outline-(--focus)"
           >
-            {business.name}
+            {business.titled ? business.title : business.name}
           </Link>
           {far && <span className="shrink-0 text-navy tabular-nums">{far} away</span>}
         </div>
+        {/* A title card names its business; a stay's card what it offers. */}
         <span className="truncate text-muted">
-          {business.title}
-          {more > 0 && ` + ${more} more`}
+          {business.titled ? `by ${business.name}` : business.title}
+          {more > 0 && (business.titled ? ` · ${more + 1} options` : ` + ${more} more`)}
         </span>
         <span className="truncate text-muted">
           {business.category} in {business.area_name}

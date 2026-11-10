@@ -7,6 +7,7 @@ import type { AddListing } from "@/components/trips/add-preview";
 import { stopsText } from "@/components/trips/add-sheet-stops";
 import { InTripBadge, useListingsInTrip } from "@/components/trips/in-trip-badge";
 import type { TripDates } from "@/components/trips/trip-dates";
+import { useRowLink } from "@/components/trips/trip-link";
 import type { AddPreview } from "@/components/trips/use-trips";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
@@ -114,6 +115,7 @@ export function LandmarkToursButton({
   dates: TripDates;
 }) {
   const [open, setOpen] = useState(false);
+  const rowLink = useRowLink();
   return (
     <>
       <button
@@ -148,14 +150,7 @@ export function LandmarkToursButton({
                 </span>
                 <div className="flex min-w-0 flex-col gap-1">
                   <a
-                    href={`#listing-${tour.id}`}
-                    onClick={(event) => {
-                      setOpen(false);
-                      // The same row again: no hashchange would fire, so send one.
-                      if (window.location.hash !== `#listing-${tour.id}`) return;
-                      event.preventDefault();
-                      window.dispatchEvent(new HashChangeEvent("hashchange"));
-                    }}
+                    {...rowLink(tour.id, () => setOpen(false))}
                     className="font-semibold break-words text-foreground underline-offset-4 hover:underline"
                   >
                     {tour.title}

@@ -51,6 +51,8 @@ type Options = {
   people: number;
   // Only these of the shop's listings (What to book's filters); left out, all in the category.
   listingIds?: number[];
+  // These lead the list (the model a title card was opened on, `?item=`), the rest in the shop's order.
+  first?: number[];
   // The shop's place ("Santa Fe"), where its vehicles are collected when it doesn't bring them.
   place?: string;
   // After the add has started (the add sheet takes over): a pop-up closes.
@@ -96,7 +98,7 @@ export function splitPeople(picked: { units: number; seats: number }[], people: 
 // opens its details in place (RAA-205), so the guest compares models without leaving the list.
 // Gear (RAA-255) is the same sheet by the count: no seats, no CoverBar, and each model's quantity
 // is how many of it, with the API's words for them.
-export function useShopModels({ business, category, group, dates, people, listingIds, place, onAdding }: Options) {
+export function useShopModels({ business, category, group, dates, people, listingIds, first = [], place, onAdding }: Options) {
   const counted = group === "gear";
   const session = useSession();
   const flow = useOptionalTripAdd();
@@ -113,7 +115,9 @@ export function useShopModels({ business, category, group, dates, people, listin
   const to = rental.from ? rental.to || addDays(rental.from, 1) : undefined;
   const [pickupTime, setPickupTime] = useState<string | null>(null);
   const shop = useShopListings(business.id, { category: category.slug, group }, from, to, pickupTime);
-  const models = (shop.data?.listings ?? []).filter((model) => !listingIds || listingIds.includes(model.id));
+  const models = (shop.data?.listings ?? [])
+    .filter((model) => !listingIds || listingIds.includes(model.id))
+    .sort((a, b) => Number(first.includes(b.id)) - Number(first.includes(a.id)));
   const [counts, setCounts] = useState<Record<number, number>>({});
   const [transmission, setTransmission] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);

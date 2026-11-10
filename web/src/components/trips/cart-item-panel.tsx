@@ -8,7 +8,8 @@ import { formatRentalSpan, rentalTimes } from "./pickup-time";
 import { deliveryText } from "./delivery-options";
 import { roomSplit } from "@/components/bookings/room-split";
 import { useBooking, type GuestBooking } from "@/components/bookings/use-bookings";
-import { ListingPanel, PanelPhoto } from "@/components/discovery/detail-panel";
+import { PanelPhoto } from "@/components/discovery/detail-panel";
+import { ListingPanel } from "@/components/discovery/listing-panel";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { formatPeso } from "@/lib/money";
@@ -31,7 +32,7 @@ function when(iso: string) {
 
 // One item of a trip, opened from the cart (RAA-135), in the side panel: its booking first when
 // it has one (status, reference, dates, guests, total, the partner's answer-by time, history),
-// then the listing (ListingPanel, as on the area page). Unbooked, it says what the item would
+// then the listing (ListingPanel). Unbooked, it says what the item would
 // cost now, the cancellation terms it would be booked under, and what stands in the way
 // (RAA-140). The foot edits or cancels the booking, or, unbooked, re-dates, removes or sends
 // the item; each opens its own sheet over the cart. On the Trips page a past booking offers

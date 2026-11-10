@@ -1,5 +1,5 @@
-// While an area page renders on the server (it waits on the API), the banner's frame and What to
-// book's sheet hold their places, so following a link to a destination answers at once.
+// While an area page renders on the server (it waits on the API), the banner's frame and its
+// sections' sheet hold their places, so following a link to a destination answers at once.
 export default function AreaLoading() {
   return (
     <main role="status" aria-busy className="flex flex-1 flex-col">
@@ -15,7 +15,7 @@ export default function AreaLoading() {
         </div>
       </div>
       <div className="px-3 pb-3 sm:px-6 sm:pb-6">
-        {/* The trip lead's one line, on the trip band's colour (navy on guest pages), then What to book. */}
+        {/* The trip lead's one line, on the trip band's colour (navy on guest pages), then the sections. */}
         <div className="mx-auto mb-3 flex h-24 w-full max-w-page flex-col justify-center gap-2 rounded-frame bg-trip-band px-5 card-edge sm:h-20 sm:px-card">
           <span className="h-5 w-64 max-w-full rounded-full bg-white/15 motion-safe:animate-pulse" />
           <span className="h-4 w-44 rounded-full bg-white/10 motion-safe:animate-pulse" />

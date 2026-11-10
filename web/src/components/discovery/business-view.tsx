@@ -35,7 +35,8 @@ export async function destinationsOrNone() {
 
 // What a business's page shows, from its search params: the place it came from (`?place=`, else
 // the place most of its listings are in) and the places inside it, the group it was opened from
-// first (`?show=`), the trip (`?trip=`), and the way back. Opened from a plan step (`?plan=1`) it
+// first (`?show=`) and, opened from a title card (`?item=`), that listing's title first in its
+// group, the trip (`?trip=`), and the way back. Opened from a plan step (`?plan=1`) it
 // shows only that step's group and its way back returns to the plan.
 export function businessView(detail: BusinessDetail, destinations: AreaCard[], searchParams: SearchParams) {
   const { business, area, listings } = detail;
@@ -45,10 +46,22 @@ export function businessView(detail: BusinessDetail, destinations: AreaCard[], s
   const places = [from.slug, ...descendants(destinations, from.slug).map((each) => each.slug)];
   const show = typeof searchParams.show === "string" ? searchParams.show : undefined;
   const tripId = tripParam(searchParams.trip);
+  // The listing a title card ("Mio 125 by …") stands for, and every one of its title here.
+  const itemId = typeof searchParams.item === "string" ? Number(searchParams.item) : NaN;
+  const item = listings.find((each) => each.id === itemId);
+  const titleOf = (listing: { title: string }) => listing.title.trim().toLowerCase();
+  const isItem = (listing: (typeof listings)[number]) =>
+    Boolean(item) && listing.group === item!.group && titleOf(listing) === titleOf(item!);
+  const items = listings.filter(isItem).map((each) => each.id);
 
-  // Its options by group, in What to book's order, the group it was opened from first; a plan
-  // step's group alone (all of them if it has none in that group).
-  const all = TRIP_ORDER_GROUPS.map((group) => ({ ...group, listings: listings.filter((each) => each.group === group.group) }))
+  // Its options by group, in What to book's order, the group it was opened from first, and in it
+  // the card's title first; a plan step's group alone (all of them if it has none in that group).
+  const all = TRIP_ORDER_GROUPS.map((group) => ({
+    ...group,
+    listings: listings
+      .filter((each) => each.group === group.group)
+      .sort((a, b) => Number(isItem(b)) - Number(isItem(a))),
+  }))
     .filter((group) => group.listings.length > 0)
     .sort((a, b) => Number(b.id === show) - Number(a.id === show));
   const fromPlan = searchParams.plan === "1" && Boolean(tripId);
@@ -63,12 +76,12 @@ export function businessView(detail: BusinessDetail, destinations: AreaCard[], s
     const back = new URLSearchParams(tripDatesQuery(dates).replace(/^\?/, ""));
     if (show) back.set("show", show);
     if (tripId) back.set("trip", String(tripId));
-    backHref = `/${from.slug}${back.size ? `?${back}` : ""}#listings`;
+    backHref = `/${from.slug}/book${back.size ? `?${back}` : ""}`;
     backLabel = from.name;
   }
   const shown = groups.flatMap((group) => group.listings);
   const town = [business.city, business.province].filter(Boolean).join(", ");
-  return { business, area, dates, from, places, tripId, groups, shown, backHref, backLabel, town };
+  return { business, area, dates, from, places, tripId, groups, shown, items, backHref, backLabel, town };
 }
 
 export type BusinessViewData = ReturnType<typeof businessView>;
@@ -79,7 +92,7 @@ export type BusinessViewData = ReturnType<typeof businessView>;
 // panel, what comes with them, where it is (on a map, but not in the modal) and Good to know. Adds go to the trip the place's banner shows, as they would
 // there (TripAddProvider `places`).
 export function BusinessBody({ view, inModal = false }: { view: BusinessViewData; inModal?: boolean }) {
-  const { business, area, dates, from, places, tripId, groups, shown, town } = view;
+  const { business, area, dates, from, places, tripId, groups, shown, items, town } = view;
   // Its own cover photos lead (RAA-281), then its listings'.
   const photos = [
     ...business.cover_photos.map((photo) => ({ ...photo, alt: business.name })),
@@ -100,39 +113,13 @@ export function BusinessBody({ view, inModal = false }: { view: BusinessViewData
         <TripAddProvider places={places}>
           <div className={cn("mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-page-pad max-sm:px-0", inModal && "max-sm:pt-0")}>
             {photos.length > 0 && (
-              <section aria-label={`${business.name}: photos`} data-testid="business-photos">
-                {/* A swipe on a phone; from sm, one large photo beside four (Booking.com's mosaic). */}
-                <ListingPhotos
-                  photos={photos.map((photo) => ({ src: photo.card_url, alt: photo.alt }))}
-                  label={business.name}
-                  category={shown[0].category}
-                  className={cn("aspect-[4/3] sm:hidden", inModal ? "rounded-none" : "rounded-card")}
-                />
-                <ul className="grid grid-cols-4 grid-rows-2 gap-2 max-sm:hidden sm:aspect-[5/2]">
-                  {photos.slice(0, 5).map((photo, index) => (
-                    <li
-                      key={photo.large_url}
-                      className={cn(
-                        "relative overflow-hidden rounded-control bg-mist",
-                        index === 0 && "col-span-2 row-span-2 rounded-l-card",
-                        photos.length === 1 && "col-span-4",
-                        index === 2 && "rounded-tr-card",
-                        index === 4 && "rounded-br-card",
-                      )}
-                    >
-                      <Image
-                        src={index === 0 ? photo.large_url : photo.card_url}
-                        alt={photo.alt}
-                        fill
-                        sizes={index === 0 ? "(min-width: 80rem) 640px, 50vw" : "(min-width: 80rem) 320px, 25vw"}
-                        unoptimized={isApiPhoto(photo.large_url)}
-                        priority={index === 0}
-                        className="object-cover"
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              <ShopPhotos
+                photos={photos}
+                label={business.name}
+                category={shown[0].category}
+                testId="business-photos"
+                className={inModal ? "max-sm:rounded-none" : undefined}
+              />
             )}
 
             <BusinessTrust facts={facts} />
@@ -156,6 +143,7 @@ export function BusinessBody({ view, inModal = false }: { view: BusinessViewData
                       offers={offers}
                       dates={dates}
                       shop={rentalShop(group.listings)}
+                      items={items}
                     />
                   </Section>
                 );
@@ -164,28 +152,7 @@ export function BusinessBody({ view, inModal = false }: { view: BusinessViewData
 
             <BusinessIncluded listings={shown} />
 
-            {/* Its door on a map when it shows one; a business that only offers stays shows its
-                town, the street coming with a booking (RAA-281). */}
-            <Section title="Where it is" className="max-sm:px-3" testId="business-where">
-              {business.location && !inModal && <BusinessMapLoader point={business.location} name={business.name} />}
-              <p className="flex items-center gap-3">
-                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-mist text-primary">
-                  <PlaceGlyph className="size-5" />
-                </span>
-                <span className="flex flex-col">
-                  <span>
-                    {[business.street, town, area.name !== business.city ? area.name : null].filter(Boolean).join(" · ") ||
-                      area.name}
-                  </span>
-                  {onlyStays && <span className="text-sm text-muted">The exact address comes with your booking.</span>}
-                  {business.hours && (
-                    <span className="text-sm text-muted">
-                      Open {hoursText(business.hours)} · {closedText(business.hours.closed_days)}
-                    </span>
-                  )}
-                </span>
-              </p>
-            </Section>
+            <BusinessWhere business={business} area={area} town={town} onlyStays={onlyStays} map={!inModal} />
 
             <BusinessGoodToKnow business={business} />
           </div>
@@ -205,6 +172,99 @@ export function BusinessBody({ view, inModal = false }: { view: BusinessViewData
         </TripAddProvider>
       </TripLinkProvider>
     </>
+  );
+}
+
+type ShopPhoto = { card_url: string; large_url: string; alt: string };
+
+// A shop's or a listing's photos under its banner: a swipe on a phone; from sm, one large photo
+// beside four (Booking.com's mosaic).
+export function ShopPhotos({
+  photos,
+  label,
+  category,
+  testId,
+  className,
+}: {
+  photos: ShopPhoto[];
+  label: string;
+  category: string;
+  testId?: string;
+  className?: string;
+}) {
+  return (
+    <section aria-label={`${label}: photos`} data-testid={testId}>
+      <ListingPhotos
+        photos={photos.map((photo) => ({ src: photo.card_url, alt: photo.alt }))}
+        label={label}
+        category={category}
+        className={cn("aspect-[4/3] rounded-card sm:hidden", className)}
+      />
+      <ul className="grid grid-cols-4 grid-rows-2 gap-2 max-sm:hidden sm:aspect-[5/2]">
+        {photos.slice(0, 5).map((photo, index) => (
+          <li
+            key={photo.large_url}
+            className={cn(
+              "relative overflow-hidden rounded-control bg-mist",
+              index === 0 && "col-span-2 row-span-2 rounded-l-card",
+              photos.length === 1 && "col-span-4",
+              index === 2 && "rounded-tr-card",
+              index === 4 && "rounded-br-card",
+            )}
+          >
+            <Image
+              src={index === 0 ? photo.large_url : photo.card_url}
+              alt={photo.alt}
+              fill
+              sizes={index === 0 ? "(min-width: 80rem) 640px, 50vw" : "(min-width: 80rem) 320px, 25vw"}
+              unoptimized={isApiPhoto(photo.large_url)}
+              priority={index === 0}
+              className="object-cover"
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// Where a business is: its door on a map when it shows one (`map`, not in the plan's modal); a
+// business that only offers stays shows its town, the street coming with a booking (RAA-281).
+export function BusinessWhere({
+  business,
+  area,
+  town,
+  onlyStays,
+  map = true,
+  className = "max-sm:px-3",
+}: {
+  business: BusinessDetail["business"];
+  area: BusinessDetail["area"];
+  town: string;
+  onlyStays: boolean;
+  map?: boolean;
+  className?: string;
+}) {
+  return (
+    <Section title="Where it is" className={className} testId="business-where">
+      {business.location && map && <BusinessMapLoader point={business.location} name={business.name} />}
+      <p className="flex items-center gap-3">
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-mist text-primary">
+          <PlaceGlyph className="size-5" />
+        </span>
+        <span className="flex flex-col">
+          <span>
+            {[business.street, town, area.name !== business.city ? area.name : null].filter(Boolean).join(" · ") || area.name}
+          </span>
+          {onlyStays && <span className="text-sm text-muted">The exact address comes with your booking.</span>}
+          {business.hours && (
+            <span className="text-sm text-muted">
+              Open {hoursText(business.hours)} · {closedText(business.hours.closed_days)}
+            </span>
+          )}
+        </span>
+      </p>
+    </Section>
   );
 }
 

@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDestinations, getListing, getQuote, type AreaCard } from "@/api/discovery";
-import { descendants } from "@/components/discovery/browse-offers";
+import { getBusiness, getDestinations, getListing, getQuote, type AreaCard } from "@/api/discovery";
+import { descendants, offerOf, rentalShop } from "@/components/discovery/browse-offers";
+import { BusinessGoodToKnow, BusinessIncluded, BusinessTrust, shopFacts } from "@/components/discovery/business-shop";
+import { BusinessWhere, ShopPhotos } from "@/components/discovery/business-view";
+import { TRIP_ORDER_GROUPS } from "@/components/discovery/categories";
+import { MoreFromBusiness, type MoreGroup } from "@/components/discovery/more-from-business";
+import { TripLinkProvider } from "@/components/trips/trip-link";
 import { categoryIcon } from "@/components/discovery/icons";
 import { listingFeatures } from "@/components/discovery/listing-features";
 import { FeatureGlyph } from "@/components/discovery/tag-glyphs";
@@ -17,15 +22,16 @@ import { BookJumpBar } from "@/components/discovery/book-jump-bar";
 import { CurrentPlace } from "@/components/landing/current-place";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
-import { ListingGallery } from "@/components/discovery/listing-gallery";
 import { AddToTripButton } from "@/components/trips/add-to-trip-button";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { AdoptTrip } from "@/components/trips/trip-link";
+import { BackLink } from "@/components/discovery/back-link";
 import { readTripDates, tripDatesQuery, tripParam } from "@/components/trips/trip-dates";
 import { InTripBadge } from "@/components/trips/in-trip-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
-import { DisplayTitle, SectionTitle } from "@/components/ui/typography";
+import { DisplayTitle } from "@/components/ui/typography";
+import { Section } from "@/components/ui/section";
 import { formatPeso } from "@/lib/money";
 import { plural, pricedByText } from "@/lib/pricing";
 
@@ -41,13 +47,26 @@ export async function generateMetadata(props: PageProps<"/listings/[id]">): Prom
   return { title: listing.title, description: listing.summary || undefined };
 }
 
-// One listing, for a traveller deciding whether to add it to a trip (RAA-90). Active listings
-// only; it never shows the location. A priced stay shows its nightly price and, with the trip's
-// dates, what the stay costs from /quotes (RAA-105); a tour shows its facts and price (RAA-111);
-// a vehicle its rates, confirmed with the partner (RAA-150); a rental or transfer without one
-// says how it is priced, as its row does. Under the add card, everything its details say (the
-// row's chips, all of them here: seats, bags, route, engine, helmets), so the page never shows
-// less than the row that led to it.
+// "Kuya Jun Island Tours" → "KJ".
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0].toUpperCase())
+    .join("");
+}
+
+// One listing, for a traveller deciding whether to add it to a trip (RAA-90), laid out as its
+// business's shop page (RAA-281, the listing sheet's booking rail and shop mirror): a compact
+// banner naming who offers it, its photos, then from lg its details on the left beside a booking
+// card that sticks on the right; on a phone the card (a stay's rooms, a vehicle's party) follows
+// the trust strip, and a simple listing's price and Add to trip stick to the window's foot. Then
+// the rest of its business ("More from"). Active listings only; it never shows the location. A
+// priced stay shows its nightly price and, with the trip's dates, what the stay costs from
+// /quotes (RAA-105); a tour its facts and price (RAA-111); a vehicle its rates (RAA-150); a rental
+// or transfer without one says how it is priced. Its chips are all of them, so the page never
+// shows less than the row that led to it.
 const FREE_TO_SAVE = "Saving to a trip is free, and there's nothing to pay yet.";
 
 export default async function ListingPage(props: PageProps<"/listings/[id]">) {
@@ -64,17 +83,29 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
     }),
   ]);
   if (!listing) notFound();
+  // Its business's shop (trust facts, hours, Good to know, its other listings): the page still
+  // renders the listing without it.
+  const shop = await getBusiness(listing.business.id).catch((error: unknown) => {
+    console.error(error);
+    return null;
+  });
   const { area, category } = listing;
   // The place it was opened from (`?place=`, a place's page): the header names it, the way back
   // returns to it, and an add goes to the trip it shows (`?trip=`, else as there), as on the
-  // business page; with none, the listing's own place.
+  // business page; with none, the listing's own place. From a plan (`?plan=1`) the way back
+  // returns to the plan; from a place page's card row (`?from=place`) to that place's page.
   const asked = typeof searchParams.place === "string" ? destinations.find((each) => each.slug === searchParams.place) : undefined;
   const from = asked ? { slug: asked.slug, name: asked.name } : { slug: area.slug, name: area.name };
   const places = [from.slug, ...descendants(destinations, from.slug).map((each) => each.slug)];
   const tripId = tripParam(searchParams.trip);
+  const fromPlan = searchParams.plan === "1" && Boolean(tripId);
   const back = new URLSearchParams(tripDatesQuery(dates).replace(/^\?/, ""));
   if (tripId) back.set("trip", String(tripId));
-  const backHref = `/${from.slug}${back.size ? `?${back}` : ""}#listing-${listing.id}`;
+  const fromPlace = searchParams.from === "place" && Boolean(asked);
+  const backHref = fromPlan
+    ? `/plan/${from.slug}?trip=${tripId}`
+    : `/${from.slug}${fromPlace ? "" : "/book"}${back.size ? `?${back}` : ""}${fromPlace ? "" : `#listing-${listing.id}`}`;
+  const backLabel = fromPlan ? "Your plan" : from.name;
   const rate = listing.stay_rate;
   const tour = listing.tour;
   const vehicleRate = listing.vehicle_rate;
@@ -82,7 +113,6 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   // gear has the same card, by the count (RAA-255).
   const vehicleSeats = vehicleRate && typeof listing.details.seats === "number" ? listing.details.seats : null;
   const rentalCard = Boolean(vehicleRate && (vehicleSeats || listing.group === "gear"));
-  const cover = listing.photos.at(0);
   const nightsSet = Boolean(dates.from && dates.to && dates.from < dates.to);
   // The party in the fewest rooms, as the price card starts from (RAA-184).
   const start = startingArrangement(listing, dates);
@@ -90,7 +120,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
     rate && nightsSet && dates.from && dates.to
       ? await getQuote(stayQuoteQuery(listing, dates.from, dates.to, start.rooms, start.pets))
       : undefined;
-  // The add bar's one line: a stay's total for the page's dates, or what the banner says it costs.
+  // The add card's one line: a stay's total for the page's dates, or what it costs.
   const total = quote && "quote" in quote ? quote.quote : undefined;
   const priceLine = total
     ? `${formatPeso(total.total_cents)} for ${plural(total.nights_count, "night")}`
@@ -111,6 +141,29 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
       : []),
   ];
 
+  // The shop's view of this listing (the shape its trust strip and What's included take), and
+  // the rest of what it offers, by group in What to book's order.
+  const business = shop?.business;
+  const own = shop?.listings.find((each) => each.id === listing.id);
+  const facts = business && own ? shopFacts(business, [own], own.group) : [];
+  const town = business ? [business.city, business.province].filter(Boolean).join(", ") : "";
+  const businessHref = `/businesses/${listing.business.id}?place=${from.slug}${tripId ? `&trip=${tripId}` : ""}${tripDatesQuery(dates).replace(/^\?/, "&")}`;
+  const more: MoreGroup[] = shop
+    ? TRIP_ORDER_GROUPS.flatMap((group) => {
+        const listings = shop.listings.filter((each) => each.group === group.group && each.id !== listing.id);
+        if (listings.length === 0) return [];
+        return [
+          {
+            id: group.id,
+            title: group.title,
+            short: group.short,
+            offers: listings.map((each) => offerOf(each, { dates, pageSlug: from.slug, groupTitle: group.title })),
+            shop: rentalShop(listings),
+          },
+        ];
+      })
+    : [];
+
   // A stay's or a vehicle's own card holds its price and Add to trip, so the page prices it once.
   const booker = Boolean(rate || rentalCard);
   const addAside = (
@@ -120,51 +173,163 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
       <BookingTerms listing={listing} className="mt-2" />
     </div>
   );
+  const price = priceLine && (
+    <p data-testid="listing-price" className="font-semibold text-pretty">
+      {priceLine}
+    </p>
+  );
+  const photos = listing.photos.map((photo) => ({ ...photo, alt: listing.title }));
+  const chip = "inline-flex items-center gap-1 rounded-chip bg-glass-fill px-2.5 py-0.5 text-small font-semibold";
 
   return (
     <main className="flex flex-1 flex-col">
       <CurrentPlace name={from.name} slug={from.slug} />
       {tripId && <AdoptTrip id={tripId} />}
       <PageBanner
-        // Its own cover (RAA-109); without one the banner stays on the backdrop (RAA-107).
-        photo={cover && { src: cover.large_url, alt: listing.title }}
+        compact
         eyebrow={
           <span className="flex items-center gap-2">
             <span aria-hidden className="text-sky-pale">
               {categoryIcon(category.name)}
             </span>
-            {category.name} · {area.name}
+            {category.name} · {[business?.city, area.name].filter(Boolean).join(", ")}
           </span>
         }
         title={
           <>
+            <BackLink href={backHref} className={`${BACK_PILL} -order-1 sm:hidden`}>
+              <span aria-hidden>←</span> {backLabel}
+            </BackLink>
             <DisplayTitle className="break-words text-balance">{listing.title}</DisplayTitle>
-            <p className="text-sky-mist">
-              {/* A tour's "1 unit" means nothing to a traveller: its facts say how many it takes. */}
-              by {listing.business.name}
-              {listing.booking_type !== "activity" && ` · ${listing.units_label}`}
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sky-mist">
+              <span className="grid size-8 shrink-0 place-items-center rounded-control border border-white/70 bg-trip-band text-xs font-extrabold text-white">
+                {initials(listing.business.name)}
+              </span>
+              <span>
+                by{" "}
+                <Link href={businessHref} className="font-semibold text-white underline underline-offset-4" data-testid="listing-business">
+                  {listing.business.name}
+                </Link>
+              </span>
+              {business?.verified && (
+                <span className={`${chip} text-mint`}>
+                  <span aria-hidden>✓</span> Verified partner
+                </span>
+              )}
+              {listing.instant_book ? <InstantBookBadge className="w-fit" /> : <span className={`${chip} text-white`}>Request to book</span>}
             </p>
-            {listing.instant_book && <InstantBookBadge className="w-fit" />}
           </>
         }
       >
-        <Link
-          href={backHref}
-          className="tap-target self-start rounded-full border border-glass-edge bg-glass-fill px-4 py-2 text-sm font-semibold text-white hover:bg-glass-hover"
-        >
-          <span aria-hidden>←</span> {from.name}
-        </Link>
+        <BackLink href={backHref} className={`${BACK_PILL} max-sm:hidden`}>
+          <span aria-hidden>←</span> {backLabel}
+        </BackLink>
       </PageBanner>
 
-      <PageSheet>
-        <div className="mx-auto flex w-full max-w-narrow flex-col gap-block px-gutter py-page-pad">
-        {/* Opened from a place's page, an add goes to its trip, as there; from anywhere else (the
-            cart, search, the home page) the add sheet still asks which trip. */}
-        <TripAddProvider places={asked || tripId ? places : undefined}>
-          {booker ? (
-            <>
-              {/* A stay picks its rooms and a vehicle its party in its own card, which holds Add to
-                  trip and leads the sheet; on a phone the foot points down to it. */}
+      <PageSheet tone="paper">
+        <TripLinkProvider place={from.slug} places={places}>
+          {/* Opened from a place's page, an add goes to its trip, as there; from anywhere else (the
+              cart, search, the home page) the add sheet still asks which trip. */}
+          <TripAddProvider places={asked || tripId ? places : undefined}>
+            <div className="mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-page-pad max-sm:px-0">
+              {photos.length > 0 && <ShopPhotos photos={photos} label={listing.title} category={category.name} testId="listing-photos" />}
+
+              {/* The booking rail from lg: details on the left, the card sticking on the right
+                  over both rows; below lg one column, the card after the trust strip. */}
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-section lg:grid-cols-[minmax(0,1fr)_22.5rem] lg:gap-x-10">
+                {facts.length > 0 && (
+                  <div className="lg:col-start-1 lg:row-start-1">
+                    <BusinessTrust facts={facts} />
+                  </div>
+                )}
+
+                <aside
+                  id="book"
+                  aria-label="Book"
+                  data-testid="listing-book"
+                  className={`flex flex-col gap-3 lg:sticky lg:top-(--chrome) lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start ${booker ? "max-sm:px-3" : "max-lg:hidden"}`}
+                >
+                  {booker ? (
+                    rate ? (
+                      <StayPrice key={tripDatesQuery(dates)} listing={listing} rate={rate} dates={dates} initialQuote={quote} add aside={addAside} />
+                    ) : (
+                      vehicleRate && (
+                        <VehicleBookingCard
+                          key={tripDatesQuery(dates)}
+                          listing={listing}
+                          rate={vehicleRate}
+                          dates={dates}
+                          seats={vehicleSeats}
+                          aside={addAside}
+                        />
+                      )
+                    )
+                  ) : (
+                    <Card edge="line" data-testid="listing-add" className="shadow-soft">
+                      <CardBody className="flex flex-col items-start gap-3">
+                        {price}
+                        <InTripBadge listingId={listing.id} />
+                        <AddToTripButton listing={listing} dates={dates} />
+                        <p className="text-sm text-muted">{FREE_TO_SAVE}</p>
+                        <BookingTerms listing={listing} className="w-full border-t border-line pt-3" />
+                      </CardBody>
+                    </Card>
+                  )}
+                </aside>
+
+                <div className="flex min-w-0 flex-col gap-section lg:col-start-1 lg:row-start-2">
+                  {/* Below lg a simple listing's terms have no card to sit in: their own, first. */}
+                  {!booker && (
+                    <Card edge="line" className="lg:hidden max-sm:mx-3">
+                      <CardBody>
+                        <BookingTerms listing={listing} />
+                      </CardBody>
+                    </Card>
+                  )}
+
+                  {(listing.description.trim() || features.length > 0) && (
+                    <Section title="About this" className="max-sm:px-3" testId="listing-about">
+                      {listing.description.trim() && <p className="max-w-prose break-words whitespace-pre-line">{listing.description}</p>}
+                      {features.length > 0 && (
+                        <ul aria-label="Includes" data-testid="listing-features" className="flex flex-wrap gap-2">
+                          {features.map((feature) => (
+                            <li key={feature.label}>
+                              <Badge tone="fact">
+                                <FeatureGlyph name={feature.icon} className="size-4 text-primary" />
+                                {feature.label}
+                              </Badge>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </Section>
+                  )}
+
+                  {tour && (
+                    <div className="max-sm:px-3">
+                      <TourFacts listing={listing} tour={tour} />
+                    </div>
+                  )}
+                  {vehicleRate && (
+                    <div className="max-sm:px-3">
+                      <VehiclePrice listing={listing} rate={vehicleRate} />
+                    </div>
+                  )}
+                  {/* A tour's facts already list what it includes. */}
+                  {own && !tour && <BusinessIncluded listings={[own]} />}
+                  {business && shop && (
+                    <BusinessWhere business={business} area={shop.area} town={town} onlyStays={listing.group === "stay"} />
+                  )}
+                  {business && <BusinessGoodToKnow business={business} />}
+                </div>
+              </div>
+
+              {shop && <MoreFromBusiness name={listing.business.name} href={businessHref} groups={more} dates={dates} />}
+            </div>
+
+            {/* A phone's and tablet's foot: a stay or vehicle points down to its card; anything
+                else adds from here, the price beside the button. */}
+            {booker ? (
               <BookJumpBar target="book" watch="book-add" label={rate ? "Choose rooms" : "Choose vehicles"}>
                 {priceLine && (
                   <p data-testid="listing-price" className="text-sm font-semibold text-pretty">
@@ -172,97 +337,26 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
                   </p>
                 )}
               </BookJumpBar>
-              <div id="book" className="flex flex-col">
-                {rate ? (
-                  <StayPrice
-                    key={tripDatesQuery(dates)}
-                    listing={listing}
-                    rate={rate}
-                    dates={dates}
-                    initialQuote={quote}
-                    add
-                    aside={addAside}
-                  />
-                ) : (
-                  vehicleRate &&
-                  rentalCard && (
-                    <VehicleBookingCard
-                      key={tripDatesQuery(dates)}
-                      listing={listing}
-                      rate={vehicleRate}
-                      dates={dates}
-                      seats={vehicleSeats}
-                      aside={addAside}
-                    />
-                  )
-                )}
-              </div>
-            </>
-          ) : (
-            // The page's one action. On a phone it comes last and sticks to the window's foot, so
-            // Add to trip is on the first screen and stays in reach while the guest reads; the
-            // header's search owns the dates and guests, and the add sheet confirms them.
-            <Card
-              data-testid="listing-add"
-              className="max-sm:sticky max-sm:bottom-[calc(0.5rem+env(safe-area-inset-bottom))] max-sm:z-20 max-sm:order-last max-sm:shadow-float"
-            >
-              <CardBody className="flex flex-wrap items-center justify-between gap-3 max-sm:flex-nowrap max-sm:px-4 max-sm:py-3">
-                <div className="flex min-w-0 flex-col items-start gap-1">
-                  {priceLine && (
-                    <p data-testid="listing-price" className="font-semibold text-pretty max-sm:text-sm">
-                      {priceLine}
-                    </p>
-                  )}
-                  <p className="text-sm text-muted max-sm:hidden">{FREE_TO_SAVE}</p>
-                  <InTripBadge listingId={listing.id} />
-                </div>
-                <AddToTripButton listing={listing} dates={dates} />
-                {/* Its terms come with the price, as Klook's do (a stay's or vehicle's card has
-                    them in addAside). The phone's sticky card stays one row: its own card below. */}
-                <BookingTerms listing={listing} className="basis-full border-t border-line pt-3 max-sm:hidden" />
-              </CardBody>
-            </Card>
-          )}
-
-          {!booker && (
-            <Card className="sm:hidden">
-              <CardBody>
-                <BookingTerms listing={listing} />
-              </CardBody>
-            </Card>
-          )}
-
-          {tour && <TourFacts listing={listing} tour={tour} />}
-        </TripAddProvider>
-
-        {vehicleRate && <VehiclePrice listing={listing} rate={vehicleRate} />}
-
-        {features.length > 0 && (
-          <section data-testid="listing-features" className="flex flex-col gap-3">
-            <SectionTitle>What you get</SectionTitle>
-            <ul aria-label="Includes" className="flex flex-wrap gap-2">
-              {features.map((feature) => (
-                <li key={feature.label}>
-                  <Badge tone="fact">
-                    <FeatureGlyph name={feature.icon} className="size-4 text-primary" />
-                    {feature.label}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {listing.photos.length > 1 && <ListingGallery title={listing.title} photos={listing.photos} />}
-
-        {listing.description.trim() && (
-          <section className="flex flex-col gap-2">
-            <SectionTitle>About this</SectionTitle>
-            <p className="max-w-prose break-words whitespace-pre-line">{listing.description}</p>
-          </section>
-        )}
-        </div>
+            ) : (
+              <Card
+                data-testid="listing-foot"
+                className="sticky bottom-[calc(0.5rem+env(safe-area-inset-bottom))] z-20 mx-2 mb-2 shadow-float lg:hidden"
+              >
+                <CardBody className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="flex min-w-0 flex-col items-start gap-1">
+                    {priceLine && <p className="text-sm font-semibold text-pretty">{priceLine}</p>}
+                    <InTripBadge listingId={listing.id} />
+                  </div>
+                  <AddToTripButton listing={listing} dates={dates} />
+                </CardBody>
+              </Card>
+            )}
+          </TripAddProvider>
+        </TripLinkProvider>
       </PageSheet>
     </main>
   );
 }
+
+const BACK_PILL =
+  "tap-target self-start whitespace-nowrap rounded-full border border-glass-edge bg-glass-fill px-4 py-2 text-sm font-semibold text-white hover:bg-glass-hover";

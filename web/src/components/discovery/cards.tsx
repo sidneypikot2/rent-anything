@@ -17,7 +17,8 @@ import type { LandmarkVisit } from "./area-map-pins";
 import type { Feature } from "./listing-features";
 import { LandmarkLine, LandmarkToursButton, type LandmarkTour } from "./landmark-tours";
 import { ListingPhotos } from "./listing-photos";
-import { DetailPanelButton, LandmarkPanel, ListingPanel, PanelActions, PanelPhoto } from "./detail-panel";
+import { DetailPanelButton, LandmarkPanel, PanelPhoto } from "./detail-panel";
+import { ListingTitleLink } from "./listing-link";
 import { ListingRowDetails } from "./listing-row-details";
 import { PhotoCardFrame, SamplePhotoTag, type Photo } from "./photo-card";
 import { PHOTO_CARD, PHOTO_CARD_IMAGE, PHOTO_SCRIM, STRETCHED_LINK } from "./photo-card-styles";
@@ -419,10 +420,13 @@ export function ListingCard({
   stacked = false,
   instantBook = false,
   trust,
+  linkProps,
 }: {
   href: string;
   title: string;
   category: string;
+  // More for the title's link: a new tab's target, from a client caller (ListingRow).
+  linkProps?: Omit<ComponentProps<typeof HeroTripLink>, "href">;
   // Its cancellation terms when they are a trust point, as a badge beside Instant book.
   trust?: string;
   // Its booking type, whose hue tints the icon that holds the photo's place (GROUP_ICON).
@@ -515,6 +519,7 @@ export function ListingCard({
                 It stretches over the card, so a tap on the photo opens the listing too; on a
                 white card its focus ring is the primary blue, not the glass's sky-pale. */}
             <HeroTripLink
+              {...linkProps}
               href={href}
               data-testid="listing-link"
               className={cn(
@@ -583,9 +588,7 @@ export function ListingRow({
   price,
   unpriced,
   action,
-  panelAction = action,
   instantBook = false,
-  dates,
   sameTitle = 1,
   operator,
 }: {
@@ -602,10 +605,7 @@ export function ListingRow({
   // How it is priced while it has no price (pricedByText).
   unpriced?: string;
   action?: ReactNode;
-  // The action in its side panel's foot, where it is the one action (a prominent Add to trip).
-  panelAction?: ReactNode;
   instantBook?: boolean;
-  dates?: TripDates;
   // How many rows in its section share its title (counting itself; 1 for none), so who offers it
   // (`operator`) follows the title, where the eye compares them, with how many partners do.
   sameTitle?: number;
@@ -617,27 +617,7 @@ export function ListingRow({
       <ListingPhotos photos={photos} label={title} category={category} className="z-10 aspect-[16/10] @sm:aspect-square @2xl:aspect-[4/3]" />
       <div className="flex min-w-0 flex-col gap-2 px-1 @sm:px-0">
         <h3 className="text-lg leading-snug font-semibold text-balance">
-          <DetailPanelButton
-            data-testid="listing-open"
-            title={title}
-            media={<ListingPhotos photos={photos} label={title} category={category} count="bottom" className="aspect-[4/3]" />}
-            panel={
-              <ListingPanel
-                listingId={listingId}
-                href={href}
-                category={category}
-                by={by}
-                summary={summary}
-                features={features}
-                instantBook={instantBook}
-                dates={dates}
-              />
-            }
-            actions={<PanelActions price={price} unpriced={unpriced} action={panelAction} listingId={listingId} dates={dates} />}
-            className="underline-offset-4 hover:underline"
-          >
-            {title}
-          </DetailPanelButton>
+          <ListingTitleLink href={href} title={title} />
         </h3>
         {/* Two rows with one title: who offers it, right under it, is what tells them apart. */}
         {sameTitle > 1 && operator && (

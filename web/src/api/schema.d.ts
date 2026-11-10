@@ -9662,6 +9662,8 @@ export interface components {
             }[];
         };
         plan_business: {
+            /** @description The card's own: a stay's card is the business's ("<business id>"), any other one listing title of it ("<business id>-<its lowest listing id>") */
+            key: string;
             /** @description The business's */
             id: number;
             name: string;
@@ -9671,7 +9673,7 @@ export interface components {
             category: string;
             /** @description Its first listing's place: this area or one inside it */
             area_name: string;
-            /** @description How many it has in the group here */
+            /** @description How many the card holds */
             listings_count: number;
             listing_ids: number[];
             /** @description Some of them book at once (RAA-132) */
@@ -9694,11 +9696,11 @@ export interface components {
         };
         plan_businesses: {
             businesses: components["schemas"]["plan_business"][];
-            /** @description How many businesses offer the group here, every page */
+            /** @description How many cards the group has here, every page */
             total: number;
             page: number;
             per_page: number;
-            /** @description Things to do: how many businesses have a tour to a hearted place (they lead); 0 otherwise */
+            /** @description Things to do: how many cards have a tour to a hearted place (they lead); 0 otherwise */
             hearted_total: number;
             /** @description Active listings here per guest group */
             counts: {

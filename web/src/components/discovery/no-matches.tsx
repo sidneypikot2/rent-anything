@@ -56,7 +56,7 @@ export function NoMatches({
       <ul aria-label={`Browse ${LAUNCH_AREA.name}`} className="flex flex-wrap gap-2">
         {TRIP_ORDER_GROUPS.map((group) => (
           <li key={group.id}>
-            <PillLink href={withDates(`/${LAUNCH_AREA.slug}?show=${group.id}#listings`, carry)}>
+            <PillLink href={withDates(`/${LAUNCH_AREA.slug}/book?show=${group.id}`, carry)}>
               <CategoryGlyph name={group.icon} className="size-4.5 shrink-0 text-primary" />
               {group.short}
             </PillLink>

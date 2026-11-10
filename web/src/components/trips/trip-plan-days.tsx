@@ -21,6 +21,13 @@ export const LINK =
 // setting the same hash again wouldn't fire. Focus follows too, once the panel has closed and
 // handed it back to its opener, so a keyboard or screen reader lands where the page scrolled.
 export function jumpTo(hash: string) {
+  // What to book's sections (#need-stay) are on the place's own What to book page (2026-11-10).
+  if (hash.startsWith("#need-") && !document.getElementById(hash.slice(1)) && !window.location.pathname.endsWith("/book")) {
+    // A plain function (this file renders on the server too, so no router): a full load is fine.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.assign(`${window.location.pathname.replace(/\/$/, "")}/book${window.location.search}${hash}`);
+    return;
+  }
   if (window.location.hash === hash) window.dispatchEvent(new HashChangeEvent("hashchange"));
   else window.location.hash = hash;
   window.setTimeout(() => {

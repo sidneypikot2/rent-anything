@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
 import { CheckoutSheet } from "@/components/bookings/checkout-sheet";
+import { markLeaving } from "@/components/discovery/back-link";
+import { useOpensInNewTab } from "@/components/discovery/business-row";
 import { ChevronGlyph, HeartGlyph, PlusGlyph } from "@/components/discovery/tag-glyphs";
 import { BOOKING_STATE } from "@/components/landing/launch-area";
 import { guestsLabel, formatDateRange, thingCount } from "@/components/trips/format";
@@ -17,7 +20,6 @@ import { cn } from "@/components/ui/cn";
 import { stayPoint, type PlanPlace } from "./plan-data";
 import { dayParts, pickStatuses, planDays, type DayEvent, type DayGap, type PickStatus } from "./plan-days";
 import { PlanFoot, PlanHeading } from "./plan-frame";
-import { PlanListingSheet } from "./plan-listing-sheet";
 import { PlanPlaceChooser } from "./plan-place-chooser";
 import { PlanPlacesPanel } from "./plan-places-panel";
 import { PlanReviewSkeleton } from "./plan-skeletons";
@@ -85,11 +87,18 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
   const [sending, setSending] = useState(false);
   const [tab, setTab] = useState<"days" | "places">("days");
   const [choosing, setChoosing] = useState<string | null>(null);
-  const [listing, setListing] = useState<number | null>(null);
-  const added = useCallback(() => {
-    setListing(null);
-    setChoosing(null);
-  }, []);
+  const router = useRouter();
+  const newTab = useOpensInNewTab();
+  // A listing opens its own page, whose way back returns to this plan (`plan=1`): in a new tab
+  // on a laptop, in this one on a phone.
+  const setListing = (id: number) => {
+    const href = `/listings/${id}?trip=${trip.id}&plan=1&place=${place.area.slug}`;
+    if (newTab) window.open(href, "_blank", "opener");
+    else {
+      markLeaving();
+      router.push(href);
+    }
+  };
   const stay = stayPoint(trip);
   const days = planDays(trip, place, stay?.point ?? null);
   const toSend = trip.items.filter((item) => bookable(item) && !itemProblem(item, itemQuote(quote.data, item)));
@@ -274,7 +283,6 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
       {picking && (
         <PlanPlaceChooser pick={picking} trip={trip} place={place} stay={stay?.point ?? null} back={back} onClose={() => setChoosing(null)} onListing={setListing} />
       )}
-      {listing !== null && <PlanListingSheet listingId={listing} trip={trip} onClose={() => setListing(null)} onAdded={added} />}
     </>
   );
 }

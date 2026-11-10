@@ -2,7 +2,7 @@
 
 import { useQueries } from "@tanstack/react-query";
 import { useState } from "react";
-import { listingQuery } from "@/components/discovery/detail-panel";
+import { listingQuery } from "@/components/discovery/listing-query";
 import { ArrowGlyph } from "@/components/discovery/tag-glyphs";
 import { usePlanLandmark, type Trip } from "@/components/trips/use-trips";
 import { Badge } from "@/components/ui/badge";

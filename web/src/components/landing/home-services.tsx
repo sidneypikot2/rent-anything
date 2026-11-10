@@ -71,7 +71,7 @@ function KindTiles({ counts }: { counts?: Partial<Record<GroupKey, number>> }) {
         return (
           <li key={group.id}>
             <Link
-              href={`${AREA_HREF}?show=${group.id}#listings`}
+              href={`${AREA_HREF}/book?show=${group.id}`}
               data-testid="home-service"
               className="group flex h-full flex-col items-center gap-1.5 text-center text-small text-foreground sm:flex-row sm:gap-3.5 sm:rounded-card sm:border sm:border-line sm:p-3 sm:text-left sm:transition-[box-shadow,border-color] sm:duration-300 sm:ease-calm sm:hover:border-line-strong sm:hover:shadow-soft"
             >
