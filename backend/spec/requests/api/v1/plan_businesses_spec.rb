@@ -35,6 +35,7 @@ RSpec.describe "Plan businesses", type: :request do
       parameter name: :"hearted[]", in: :query, required: false, style: :form, explode: true,
         schema: { type: :array, items: { type: :string } },
         description: "The slugs of the trip's hearted places to see: Things to do that go there lead, and the stays closest to them"
+      listing_filter_parameters
 
       response "200", "one page, with the totals and every group's count" do
         schema "$ref" => "#/components/schemas/plan_businesses"
@@ -54,7 +55,8 @@ RSpec.describe "Plan businesses", type: :request do
 
           run_test! do |response|
             json = response.parsed_body
-            expect(json.except("businesses")).to eq(
+            expect(json["facets"]).to include("cards" => 1, "includes" => [], "transmissions" => [])
+            expect(json.except("businesses", "facets")).to eq(
               "total" => 1, "page" => 1, "per_page" => 18, "hearted_total" => 0,
               "counts" => { "stay" => 1, "transfer" => 0, "rental" => 1, "activity" => 0, "gear" => 1 }
             )
@@ -223,6 +225,31 @@ RSpec.describe "Plan businesses", type: :request do
         end
       end
 
+      response "200", "filtered listing by listing: a card keeps only those that pass, the totals follow, facets count all" do
+        schema "$ref" => "#/components/schemas/plan_businesses"
+        let(:slug) { "bantayan-island" }
+        let(:group) { "rental" }
+
+        let!(:shop) { create(:business, name: "Alpha Scooters") }
+        let!(:beat) do
+          create(:listing, :vehicle, area: bantayan, business: shop, partner: shop.partner, title: "Honda Beat",
+            cancellation_policy: "non_refundable")
+        end
+        let!(:beat_free) do
+          create(:listing, :vehicle, area: bantayan, business: shop, partner: shop.partner, title: "Honda Beat",
+            cancellation_policy: "free_cancellation")
+        end
+        let!(:other) { create(:listing, :vehicle, area: bantayan, title: "Yamaha Mio 125", cancellation_policy: "non_refundable") }
+        let(:free_cancellation) { true }
+
+        run_test! do |response|
+          json = response.parsed_body
+          expect(json["businesses"].pluck("listing_ids")).to eq([ [ beat_free.id ] ])
+          expect(json).to include("total" => 1, "counts" => include("rental" => 3))
+          expect(json["facets"]).to include("cards" => 2, "free_cancellation" => 1)
+        end
+      end
+
       response "404", "an unknown or draft place" do
         let(:slug) { "madridejos" }
 
@@ -244,6 +271,15 @@ RSpec.describe "Plan businesses", type: :request do
 
         run_test! do |response|
           expect(response.parsed_body.to_s).to include("Page must be a whole number from 1")
+        end
+      end
+
+      response "422", "a filter that isn't true or false" do
+        let(:slug) { "bantayan-island" }
+        let(:pets) { "maybe" }
+
+        run_test! do |response|
+          expect(response.parsed_body.to_s).to include("Pets must be true or false")
         end
       end
     end

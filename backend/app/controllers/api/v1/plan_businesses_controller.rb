@@ -5,7 +5,10 @@ module Api
     class PlanBusinessesController < ApplicationController
       def index
         area = Area.published.find_by!(slug: params[:slug])
-        render json: Discovery::PlanBusinesses.call(area, group: params[:group], page: params[:page], hearted: params[:hearted])
+        render json: Discovery::PlanBusinesses.call(
+          area, group: params[:group], page: params[:page], hearted: params[:hearted],
+          filters: Discovery::ListingFilters::PARAMS.index_with { |key| params[key] }
+        )
       end
     end
   end

@@ -26,6 +26,9 @@ class Listing < ApplicationRecord
     "fourteen_days" => { name: "14-day cancellation",
       description: "Free to cancel at least 14 days before the booking starts; non-refundable within 14 days." }
   }.freeze
+  # The policies a guest's Free cancellation filter keeps: free any time, or up to some days before
+  # (the web's chip says "Free cancellation" or "… up to 7 days" for these).
+  FREE_CANCELLATION_POLICIES = %w[free_cancellation seven_days fourteen_days].freeze
   # How guests book it (RAA-132): at once, or by asking the partner, who accepts or declines
   # within Booking::REQUEST_TTL. Instant-book listings show a pill to guests.
   BOOKING_MODES = {
