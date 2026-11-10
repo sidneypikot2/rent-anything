@@ -79,14 +79,14 @@ module Discovery
       includes ? @includes.reduce(scope) { |each, key| each.where(*include_condition(key)) } : scope
     end
 
-    # The filter sheet's choices over a group's cards (`card_sql`: its card's columns), each with
+    # The filter sheet's choices over a group's cards (`group`: whose cards, `Cards::STAY_KEY_SQL` or `TITLE_KEY_SQL`), each with
     # how many cards have it: all of them before the filters, but with the search, except what
     # they include, counted among the cards the other filters leave (What to book's way). `cards`
     # counts them, `prices` spans their from-prices (`unpriced`: some have none yet), `shared` is
     # what every listing of two or more cards has (the section's "All have:"), and
     # `unpriced_booking_type` how the first unpriced one is booked (its note on pricing).
-    def facets(scope, card_sql)
-      rows = facts(search(scope), card_sql)
+    def facets(scope, group)
+      rows = facts(search(scope), group)
       passing = apply(scope, includes: false).pluck(:id).to_set
       cards = rows.group_by { |row| row[:card] }
       having = ->(&test) { cards.count { |_, listings| listings.any?(&test) } }
@@ -180,9 +180,9 @@ module Discovery
     end
 
     # One row per listing: its card and the facts the facets count.
-    def facts(scope, card_sql)
+    def facts(scope, group)
       columns = [
-        "listings.id", Arel.sql("(#{card_sql})"), "listings.cancellation_policy",
+        "listings.id", Arel.sql(group == "stay" ? Cards::STAY_KEY_SQL : Cards::TITLE_KEY_SQL), "listings.cancellation_policy",
         Arel.sql("listings.attrs"), "categories.slug", "categories.name", "categories.booking_type",
         *FEES.values.map { |column| Arel.sql("vehicle_rates.#{column} IS NOT NULL") }, Arel.sql(PRICE_FROM)
       ]

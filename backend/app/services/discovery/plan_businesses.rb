@@ -50,7 +50,7 @@ module Discovery
         per_page: PER_PAGE,
         hearted_total: hearted_total,
         counts:,
-        facets: @filters.facets(here.in_guest_group(@group), Cards.key_sql(@group))
+        facets: @filters.facets(here.in_guest_group(@group), @group)
       }
     end
 
