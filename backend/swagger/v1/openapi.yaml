@@ -953,6 +953,58 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+  "/api/v1/admin/overview":
+    parameters:
+    - name: Authorization
+      in: header
+      schema:
+        type: string
+    get:
+      summary: How the app is doing, day by day
+      tags:
+      - Admin
+      description: 'Admin-only (RAA-290). Per Manila day over the last `days` (7,
+        30 or 90, default 30; today included, every day present): visitors (browsers
+        counted by POST /visits), online bookings made, and the total and our commission
+        of online bookings paid that day that still stand (confirmed, in progress
+        or completed). Offline bookings, a partner''s own records, are left out.'
+      security:
+      - bearer: []
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - '7'
+          - '30'
+          - '90'
+      responses:
+        '200':
+          description: the last 7 days
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/admin_overview"
+        '422':
+          description: days other than 7, 30 or 90
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '403':
+          description: a guest
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/admin/search_term_queue":
     get:
       summary: Searches that need a search term
@@ -6127,6 +6179,34 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+  "/api/v1/visits":
+    post:
+      summary: Count a visit to a guest page
+      tags:
+      - Analytics
+      description: RAA-290. The web app sends a random UUID it keeps in the browser,
+        once a day. The API keeps only a digest of it with the day, so each browser
+        counts once per Manila day for the admin overview's visitors and can't be
+        followed from one day to the next. No IP or user agent is stored.
+      parameters: []
+      responses:
+        '204':
+          description: counted (or already counted today)
+        '422':
+          description: no visitor id
+        '429':
+          description: too many from one IP
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visitor_id:
+                  type: string
+                  format: uuid
+              required:
+              - visitor_id
   "/api/v1/webhooks/didit":
     post:
       summary: Didit reports a change to an ID check
@@ -12170,6 +12250,74 @@ components:
       - ends_on
       - quantity
       - total_cents
+    admin_overview_day:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          description: A Manila day
+        visitors:
+          type: integer
+          description: Browsers that opened a guest page that day
+        bookings:
+          type: integer
+          description: Online bookings made that day, whatever became of them
+        booking_amount_cents:
+          type: integer
+          description: Total of the online bookings paid that day
+        revenue_cents:
+          type: integer
+          description: Our commission on those bookings
+      required:
+      - date
+      - visitors
+      - bookings
+      - booking_amount_cents
+      - revenue_cents
+    admin_overview:
+      type: object
+      properties:
+        days:
+          type: integer
+          enum:
+          - 7
+          - 30
+          - 90
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+          description: Today in Manila
+        totals:
+          type: object
+          properties:
+            visitors:
+              type: integer
+              description: 'Summed per day: a browser back on another day counts again'
+            bookings:
+              type: integer
+            booking_amount_cents:
+              type: integer
+            revenue_cents:
+              type: integer
+          required:
+          - visitors
+          - bookings
+          - booking_amount_cents
+          - revenue_cents
+        series:
+          type: array
+          items:
+            "$ref": "#/components/schemas/admin_overview_day"
+      required:
+      - days
+      - from
+      - to
+      - totals
+      - series
     partner_dashboard:
       type: object
       properties:

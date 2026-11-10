@@ -2826,6 +2826,37 @@ RSpec.configure do |config|
             required: %w[guest_name starts_on ends_on quantity total_cents]
           },
           # A partner's dashboard (RAA-266); today and this month are Manila's.
+          admin_overview_day: {
+            type: :object,
+            properties: {
+              date: { type: :string, format: :date, description: "A Manila day" },
+              visitors: { type: :integer, description: "Browsers that opened a guest page that day" },
+              bookings: { type: :integer, description: "Online bookings made that day, whatever became of them" },
+              booking_amount_cents: { type: :integer, description: "Total of the online bookings paid that day" },
+              revenue_cents: { type: :integer, description: "Our commission on those bookings" }
+            },
+            required: %w[date visitors bookings booking_amount_cents revenue_cents]
+          },
+          admin_overview: {
+            type: :object,
+            properties: {
+              days: { type: :integer, enum: Admin::Overview::DAYS },
+              from: { type: :string, format: :date },
+              to: { type: :string, format: :date, description: "Today in Manila" },
+              totals: {
+                type: :object,
+                properties: {
+                  visitors: { type: :integer, description: "Summed per day: a browser back on another day counts again" },
+                  bookings: { type: :integer },
+                  booking_amount_cents: { type: :integer },
+                  revenue_cents: { type: :integer }
+                },
+                required: %w[visitors bookings booking_amount_cents revenue_cents]
+              },
+              series: { type: :array, items: { "$ref" => "#/components/schemas/admin_overview_day" } }
+            },
+            required: %w[days from to totals series]
+          },
           partner_dashboard: {
             type: :object,
             properties: {

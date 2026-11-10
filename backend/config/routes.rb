@@ -25,6 +25,8 @@ Rails.application.routes.draw do
       # Guests without an account (RAA-175): made on the first add, back through a trip link
       # and PIN or an emailed code, and registered with a password to keep their trips.
       resources :guest_sessions, only: :create
+      # A guest page's visit, counted once per browser per day (RAA-290).
+      resources :visits, only: :create
       post "trip_access/unlock", to: "trip_access#unlock"
       post "trip_access/rotate", to: "trip_access#rotate"
       resources :sign_in_codes, only: :create do
@@ -91,6 +93,8 @@ Rails.application.routes.draw do
       # bookings, whose requests the team answers on partners' behalf (RAA-141).
       namespace :admin do
         resources :bookings, only: %i[index update]
+        # How the app is doing, day by day (RAA-290).
+        resource :overview, only: :show
         resource :search_term_queue, only: :show
         resources :search_terms, only: :create
         resources :link_suggestions, only: :index
