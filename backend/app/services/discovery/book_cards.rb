@@ -34,7 +34,7 @@ module Discovery
         total: keys.size,
         page: @page,
         per_page: @per_page,
-        facets: @filters.facets(in_group, Cards.key_sql(@group)),
+        facets: @filters.facets(in_group, @group),
         counts: Category::GUEST_GROUPS.index_with { |group| Cards.count(@filters.search(here.in_guest_group(group)), group) },
         pin_ids: passing.pluck(:id).sort
       }

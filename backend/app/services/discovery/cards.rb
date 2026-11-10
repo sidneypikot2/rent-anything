@@ -11,10 +11,10 @@ module Discovery
       group == "stay" ? [ "listings.business_id" ] : [ "listings.business_id", TITLE_KEY ]
     end
 
-    # One expression naming a listing's card, for counting cards in Ruby.
-    def self.key_sql(group)
-      group == "stay" ? "listings.business_id::text" : "listings.business_id::text || '-' || #{TITLE_KEY}"
-    end
+    # One expression naming a listing's card, for counting cards in Ruby: a stay's, any other's.
+    # Constants, so the SQL they go into is never built from a value.
+    STAY_KEY_SQL = "listings.business_id::text".freeze
+    TITLE_KEY_SQL = "listings.business_id::text || '-' || #{TITLE_KEY}".freeze
 
     # How many cards the listings make.
     def self.count(scope, group)

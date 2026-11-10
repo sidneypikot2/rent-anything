@@ -3,7 +3,6 @@ require "rails_helper"
 RSpec.describe Discovery::ListingFilters do
   let(:area) { create(:area) }
   # A card per business and title, as the plan's and What to book's rental cards.
-  let(:card_sql) { "listings.business_id::text || '-' || LOWER(TRIM(listings.title))" }
   let(:rentals) { Listing.active.in_guest_group("rental") }
 
   # attrs go in after the create: these are the keys a guest sees, set without each category's schema.
@@ -50,7 +49,7 @@ RSpec.describe Discovery::ListingFilters do
 
   describe "#facets" do
     it "counts each choice in cards, includes among the cards the other filters leave" do
-      facets = described_class.new(includes: %w[licence], transmissions: %w[automatic]).facets(rentals, card_sql)
+      facets = described_class.new(includes: %w[licence], transmissions: %w[automatic]).facets(rentals, "rental")
       expect(facets).to include(
         cards: 2, free_cancellation: 2, pets: 0, price_min_cents: 30_000, price_max_cents: 250_000, unpriced: false,
         delivery: 1, pickup: 0, child_helmets: 0, unpriced_booking_type: nil,
@@ -62,12 +61,12 @@ RSpec.describe Discovery::ListingFilters do
     end
 
     it "counts only what the search finds, and says what every listing shares" do
-      facets = described_class.new(q: "honda").facets(rentals, card_sql)
+      facets = described_class.new(q: "honda").facets(rentals, "rental")
       expect(facets).to include(cards: 1, price_min_cents: 30_000, price_max_cents: 90_000)
       expect(facets[:shared]).to eq(includes: [], pets: false, cancellation_policy: nil)
 
       vios.update_columns(title: "Honda City sedan", attrs: vios.attrs.merge("amenities" => %w[rider_helmet]))
-      expect(described_class.new(q: "honda").facets(rentals, card_sql)[:shared])
+      expect(described_class.new(q: "honda").facets(rentals, "rental")[:shared])
         .to eq(includes: %w[amenity:rider_helmet], pets: false, cancellation_policy: nil)
     end
   end
