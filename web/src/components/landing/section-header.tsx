@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { AdminNav } from "@/components/admin/admin-nav";
 import { AccountNav } from "@/components/auth/account-nav";
 import { Logo } from "@/components/landing/logo";
 import { CartLink } from "@/components/trips/cart-link";
@@ -48,7 +47,6 @@ export function SectionHeader({ section }: { section: Section }) {
         </Link>
         {section === "guest" && <HeaderSearch />}
         <nav aria-label="Main" className="contents text-sm font-medium text-on-dark">
-          {section === "admin" && <AdminNav />}
           <div className="flex items-center gap-2">
             {section === "guest" && <CartLink />}
             <AccountNav section={section} />

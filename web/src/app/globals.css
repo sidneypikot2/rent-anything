@@ -547,13 +547,13 @@
   outline: none;
 }
 
-/* A partner's tabs along a phone's foot (PartnerShell): the page and what sticks to its foot (the
+/* A partner's or admin's tabs along a phone's foot (ConsoleShell): the page and what sticks to its foot (the
    ActionBar, toasts) stay clear of them. */
 @media (width < 48rem) {
-  :root:has([data-partner-bar]) {
+  :root:has([data-console-bar]) {
     --bottom-bar: calc(3.75rem + env(safe-area-inset-bottom));
   }
-  :root:has([data-partner-bar]) body {
+  :root:has([data-console-bar]) body {
     padding-bottom: var(--bottom-bar);
   }
 }

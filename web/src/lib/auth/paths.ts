@@ -6,7 +6,7 @@ type Role = User["role"];
 export const DASHBOARD_PATHS: Record<Role, string> = {
   guest: "/dashboard",
   partner: "/partner/dashboard",
-  admin: "/admin/bookings",
+  admin: "/admin/dashboard",
 };
 
 export const LOGIN_PATHS: Record<Role, string> = {
