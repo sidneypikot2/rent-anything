@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_10_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -722,6 +722,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_08_100000) do
     t.datetime "updated_at", null: false
     t.index ["user_id"], name: "index_sign_in_codes_on_user_id"
     t.check_constraint "attempts >= 0", name: "sign_in_codes_attempts_check"
+  end
+
+  create_table "site_visits", force: :cascade do |t|
+    t.date "visited_on", null: false
+    t.string "visitor_digest", null: false
+    t.datetime "created_at", null: false
+    t.index ["visited_on", "visitor_digest"], name: "index_site_visits_on_visited_on_and_visitor_digest", unique: true
   end
 
   create_table "stay_rates", force: :cascade do |t|
