@@ -187,7 +187,7 @@ function PlaceCard({
               <>
                 <LandmarkPanel landmark={landmark} areaName={place.area.name} />
                 <section className="flex flex-col items-start gap-2" data-testid="plan-see-getting-there">
-                  <h3 className="text-sm font-semibold">Getting there</h3>
+                  <h3 className="text-sm font-semibold">Transfer</h3>
                   <p className="text-sm">{access}</p>
                   {onTours && landmark.visitedBy.length > 0 && (
                     <Button type="button" variant="soft" size="sm" onClick={onTours} data-testid="plan-see-tours">

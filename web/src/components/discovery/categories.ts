@@ -26,9 +26,9 @@ export const BOOKING_GROUPS = [
   {
     group: "rental",
     id: "need-rental",
-    title: "Getting around",
-    short: "Getting around",
-    need: "Getting around",
+    title: "Vehicle rental",
+    short: "Vehicle rental",
+    need: "Vehicle rental",
     icon: "Motorcycle",
   },
   { group: "stay", id: "need-stay", title: "Stays", short: "Stays", need: "A place to stay", icon: "Hotel or cottage" },

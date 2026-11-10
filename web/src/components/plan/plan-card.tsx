@@ -106,7 +106,8 @@ export function PlanCard({
           count="bottom"
           className={cn(
             "transition-shadow duration-300 ease-calm",
-            overMap ? "aspect-[16/9] rounded-none!" : "aspect-[20/19]",
+            // Wider on a phone, where the cards stack one under another and a step runs long.
+            overMap ? "aspect-[16/9] rounded-none!" : "aspect-[4/3] sm:aspect-[20/19]",
             active && !overMap && "ring-2 ring-navy ring-offset-2",
           )}
         />

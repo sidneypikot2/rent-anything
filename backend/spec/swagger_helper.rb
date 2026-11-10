@@ -89,7 +89,7 @@ UNITS_BODY = {
 LISTING_GROUP = {
   type: :string, enum: %w[activity transfer rental stay gear],
   description: "Where guests find it: its booking type, except gear (cameras, snorkel sets), which isn't a " \
-    "vehicle rental: its own section, never a trip's \"Getting around\""
+    "vehicle rental: its own section, never a trip's \"Vehicle rental\""
 }.freeze
 
 # An area's last seeding run from the admin console (RAA-168), on its list row and its page.

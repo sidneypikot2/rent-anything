@@ -94,16 +94,16 @@ export function visitsLandmarks(category: { slug: string } | undefined) {
 
 // How each top-level category is offered, in the order partners on the island most often list:
 // tours first. Named as guests find them on an area page (BOOKING_GROUPS), so a partner's
-// "Getting around" is the guest's. A group the API adds later still shows, under its own name, after these.
+// "Vehicle rental" is the guest's. A group the API adds later still shows, under its own name, after these.
 export const GROUPS: Record<string, { label: string; description: string }> = {
   Tours: { label: "Tours", description: "Trips to several places, one price for the whole experience" },
   "Water activities": { label: "Water activities", description: "Jet skis, diving, paddling and more" },
-  "Vehicle rental": { label: "Getting around", description: "Motorbikes, cars and vans" },
+  "Vehicle rental": { label: "Vehicle rental", description: "Motorbikes, cars and vans" },
   Accommodation: { label: "A place to stay", description: "Rooms, cottages, resorts and villas" },
   Transport: { label: "Transfers", description: "Port and airport pickups, van transfers" },
   "Equipment rental": { label: "Gear", description: "Cameras, snorkel sets and more" },
 };
-// "Getting around › Motorcycle": a bookable category with its group, as the partner picked it.
+// "Vehicle rental › Motorcycle": a bookable category with its group, as the partner picked it.
 export function categoryLabel(category: ListingCategory) {
   const parent = category.parent_name;
   return parent ? `${GROUPS[parent]?.label ?? parent} › ${category.name}` : category.name;

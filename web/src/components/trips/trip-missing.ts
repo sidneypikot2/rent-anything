@@ -97,7 +97,7 @@ export type PlanGap =
 export const isIdea = (gap: PlanGap) => gap.kind === "unseen" || gap.kind === "saved";
 export const stillMissing = (gaps: PlanGap[]) => gaps.filter((gap) => !isIdea(gap));
 
-// A gap the checklist names by its kind (Transfer, Stay, Tours, Getting around, Gear), or one to
+// A gap the checklist names by its kind (Transfer, Stay, Tours, Vehicle rental, Gear), or one to
 // fix on an item already in the trip (replace, date, top up its guests).
 export const isKindGap = (gap: PlanGap) => gap.kind === "stay" || gap.kind === "need";
 

@@ -173,9 +173,11 @@ export function AreaMap({
           ...placePins(results.destinations, landmarkInfo),
         ]
       : pins;
-    const hidden = new Set(view?.hidden ?? []);
+    const shown = Object.fromEntries(Object.entries(view?.shown ?? {}).map(([group, ids]) => [group, new Set(ids)]));
     return base.filter((pin) =>
-      pin.kind === "place" ? placesOn : (!view?.group || pin.group === view.group) && !hidden.has(pin.id),
+      pin.kind === "place"
+        ? placesOn
+        : (!view?.group || pin.group === view.group) && (!shown[pin.group] || shown[pin.group].has(pin.id)),
     );
   }, [pins, landmarks, results, view, placesOn]);
 

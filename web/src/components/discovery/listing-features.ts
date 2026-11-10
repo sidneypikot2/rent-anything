@@ -89,3 +89,19 @@ function beds(rooms: unknown) {
 function capitalise(text: string) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
+
+// The words for an include key the API's filters use (Discovery::ListingFilters), the same as
+// the chip it stands for: `guide`, `licence`, `bathroom:<kind>`, `amenity:<name>`,
+// `accessory:<name>`, `feature:<name>`. null for one with no chip (a jet ski feature we don't word).
+export function includeLabel(key: string): string | null {
+  const colon = key.indexOf(":");
+  const kind = colon < 0 ? key : key.slice(0, colon);
+  const value = colon < 0 ? "" : key.slice(colon + 1);
+  if (kind === "guide") return "Guide included";
+  if (kind === "licence") return "Driver's licence needed";
+  if (kind === "bathroom") return STAY_LABELS[value] ?? null;
+  if (kind === "amenity") return STAY_LABELS[value] ?? VEHICLE_AMENITY_LABELS[value] ?? value;
+  if (kind === "accessory") return capitalise(value);
+  if (kind === "feature") return JET_SKI_FEATURE_LABELS[value] ?? null;
+  return null;
+}

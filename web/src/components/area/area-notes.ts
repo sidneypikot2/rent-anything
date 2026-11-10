@@ -57,7 +57,7 @@ export const AREA_NOTES: Record<string, AreaNotes> = {
     around: {
       rental: "The easy way round the island; the roads are flat.",
       transfer: "From Cebu or the airport to Hagnaya and the ferry.",
-      // Said under Getting around when a van runs between the towns.
+      // Said under Vehicle rental when a van runs between the towns.
       localTransfer: "Vans run between the towns too.",
       activity: "Boats are the only way to Virgin Island.",
     },

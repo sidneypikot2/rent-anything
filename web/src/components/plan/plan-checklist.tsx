@@ -28,7 +28,8 @@ import {
   type StepKey,
 } from "./plan-data";
 import { PlanCard } from "./plan-card";
-import { PlanMapView, PlanPager, PlanResults } from "./plan-results";
+import { PlanMapView, PlanResults } from "./plan-results";
+import { Pager } from "@/components/ui/pager";
 import { PlanFoot } from "./plan-frame";
 import { PlanPlaces } from "./plan-places";
 import { PlanSee, PlanSeeMapView } from "./plan-see";
@@ -37,12 +38,15 @@ import { PlanStayChoice } from "./plan-stay";
 import { PlanSteps } from "./plan-steps";
 import { PlanTripButton, PlanTripSheet } from "./plan-trip-sheet";
 import { usePlanBusinesses } from "./use-plan-businesses";
+import { PlanFilterDialog, PlanFilterPills } from "./plan-filters";
+import { FilterButton } from "@/components/discovery/filter-controls";
+import { NO_FILTERS, setCount, type Filters } from "@/components/discovery/filters";
 
-// Step 2: the trip's checklist (our Path B) as a sticky row of step pills (PlanSteps). The trip (with
+// Step 2: the trip's checklist (our Path B) as a sticky segmented stepper (PlanSteps). The trip (with
 // Change, back to step 1) sits in the plan's slim bar (PlanTripLabel); the steps, ticked once the trip has each here,
 // and the one picked (else the first still open) shows its options under them — Places to see
 // leads (PlanSee), as every later step uses its picks; Where you'll
-// stay asks where the guest is staying first, Getting around and Things to do add the places to
+// stay asks where the guest is staying first, Vehicle rental and Things to do add the places to
 // see (the team's A3). Every step is optional: Skip moves on to the next (remembered in this
 // browser for the trip; Review still names real gaps). An option is a business offering the step,
 // an Airbnb-style card that opens its page with its options in this step (planBusinessHref); from lg the step's page sits beside a sticky map (on by default; Hide map over its corner, Show map in the step's header). The
@@ -70,6 +74,15 @@ function Checklist({
 }) {
   // The page each step is on, kept while the guest moves between steps.
   const [pages, setPages] = useState<Partial<Record<RowKey, number>>>({});
+  // Each step's own filters, What to book's for its category (plan-filters.tsx), applied on the
+  // server; a change starts it on page 1.
+  const [filters, setFilters] = useState<Partial<Record<RowKey, Filters>>>({});
+  const [filtering, setFiltering] = useState<RowKey | null>(null);
+  const filtersOf = (key: RowKey) => filters[key] ?? NO_FILTERS;
+  const setFiltersOf = (key: RowKey, next: Filters) => {
+    setFilters((current) => ({ ...current, [key]: next }));
+    setPages((current) => ({ ...current, [key]: 1 }));
+  };
   const panelRef = useRef<HTMLDivElement>(null);
   // From lg: the step's page of options beside their map instead of a plain grid; kept from step
   // to step. A gap's Add on the review opens its step this way.
@@ -103,7 +116,7 @@ function Checklist({
   // Places to see has no options: the query rests on the stays, disabled.
   const optionsKey: RowKey = active.key === "places" ? "stay" : active.key;
   const page = pages[optionsKey] ?? 1;
-  const results = usePlanBusinesses(place.area.slug, optionsKey, page, hearted, initial, !onPlaces);
+  const results = usePlanBusinesses(place.area.slug, optionsKey, page, hearted, initial, !onPlaces, filtersOf(optionsKey));
   const shown = results.data;
   // A new page: back to the top of its options, under the header.
   const turnPage = (key: RowKey) => (next: number) => {
@@ -170,16 +183,26 @@ function Checklist({
   // view), four across from lg, or with the map on, beside a map of the page's pins that sticks
   // while they scroll.
   const options = (key: RowKey) => {
+    if (shown?.total === 0)
+      return setCount(filtersOf(key)) > 0 ? (
+        <p className="text-sm text-muted" data-testid="plan-filter-empty">
+          Nothing here matches these filters.{" "}
+          <button type="button" onClick={() => setFiltersOf(key, NO_FILTERS)} className="font-semibold text-link underline-offset-4 hover:underline">
+            Clear
+          </button>
+        </p>
+      ) : (
+        <p className="text-sm text-muted">Nothing to book here yet. Local partners are still being added.</p>
+      );
     if (!shown)
       return results.isError ? (
         <p className="text-sm text-muted">Couldn&apos;t load these just now. Try again in a moment.</p>
       ) : (
         <PlanOptionsSkeleton map={mapOn} />
       );
-    if (shown.total === 0) return <p className="text-sm text-muted">Nothing to book here yet. Local partners are still being added.</p>;
     const href = hrefOf(key);
     const busy = results.isPlaceholderData;
-    const pager = <PlanPager page={shown.page} perPage={shown.perPage} total={shown.total} onPage={turnPage(key)} />;
+    const pager = <Pager page={shown.page} perPage={shown.perPage} total={shown.total} onPage={turnPage(key)} />;
     if (showMap) {
       return (
         <div className="flex flex-col gap-3" data-testid={`plan-options-${key}`}>
@@ -255,6 +278,15 @@ function Checklist({
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
+                {/* Filters need more than one option to choose between, or some already set. */}
+                {!isSkipped && row.key !== "places" && ((shown && shown.facets.cards > 1) || setCount(filtersOf(row.key)) > 0) && (
+                  <FilterButton
+                    title={row.title}
+                    set={setCount(filtersOf(row.key))}
+                    onClick={() => setFiltering(row.key as RowKey)}
+                    testId={`plan-filter-${row.key}`}
+                  />
+                )}
                 {/* Only to bring the map back: Hide map is over the map's corner. */}
                 {!isSkipped && !mapOn && row.key !== "places" && (
                   <Button
@@ -278,7 +310,7 @@ function Checklist({
                       if (!isSkipped && next) setPicked(next.key);
                       if (!isDone) toggleSkip(row.key);
                     }}
-                    className="-my-1 flex min-h-11 shrink-0 items-center px-1 text-sm font-semibold text-muted underline-offset-4 hover:underline"
+                    className="-my-1 flex min-h-11 min-w-11 shrink-0 items-center justify-center px-1 text-sm font-semibold text-muted underline-offset-4 hover:underline"
                     data-testid={`plan-skip-${row.key}`}
                   >
                     {isSkipped ? (
@@ -292,6 +324,15 @@ function Checklist({
                 )}
                 </div>
               </div>
+              {!isSkipped && row.key !== "places" && (
+                <PlanFilterPills
+                  title={row.title}
+                  filters={filtersOf(row.key)}
+                  facets={shown?.facets}
+                  onChange={(next) => setFiltersOf(row.key as RowKey, next)}
+                  onMore={() => setFiltering(row.key as RowKey)}
+                />
+              )}
               {!isSkipped &&
                 (row.key === "places" ? (
                   <PlanSee place={place} trip={trip} hearted={hearted} stay={stay?.point ?? null} wide={wide} onTours={toTours} />
@@ -388,6 +429,21 @@ function Checklist({
           stay={stay}
           hrefOf={hrefOf(optionsKey)}
           onClose={closeMapView}
+        />
+      )}
+      {filtering && filtering === optionsKey && shown && (
+        <PlanFilterDialog
+          title={active.title}
+          slug={place.area.slug}
+          stepKey={filtering}
+          hearted={hearted}
+          facets={shown.facets}
+          filters={filtersOf(filtering)}
+          onApply={(next) => {
+            setFiltersOf(filtering, next);
+            setFiltering(null);
+          }}
+          onClose={() => setFiltering(null)}
         />
       )}
     </>

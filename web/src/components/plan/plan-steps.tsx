@@ -9,8 +9,8 @@ export type PlanStep = { key: StepKey; title: string; state: "open" | "done" | "
 // Each step's icon in the filled segment, and the short label a phone shows under the track.
 const STEP: Record<RowKey, { icon: string; short: string }> = {
   stay: { icon: "Hotel or cottage", short: "Stay" },
-  transfer: { icon: "Van transfer", short: "Arrive" },
-  rental: { icon: "Motorcycle", short: "Ride" },
+  transfer: { icon: "Van transfer", short: "Transfer" },
+  rental: { icon: "Motorcycle", short: "Vehicle" },
   activity: { icon: "Tour", short: "Do" },
   gear: { icon: "Snorkel gear", short: "Gear" },
 };
@@ -24,8 +24,7 @@ const OPEN_SHARE = 3;
 // tinted track with the labels underneath. The open step's segment widens, filled in the action
 // colour with its icon and full name, and the others shrink to a short label and a dot —
 // a forest disc with a tick once done (the open one's icon becomes a tick too), a hollow ring when
-// skipped. Any step opens in any
-// order. It sticks under the header while the options scroll; its height is in `--plan-chrome`
+// skipped. Any step opens in any order. It sticks under the header while the options scroll; its height is in `--plan-chrome`
 // (globals.css), which whatever sticks under it uses.
 export function PlanSteps({ rows, active, onPick }: { rows: PlanStep[]; active: StepKey; onPick: (key: StepKey) => void }) {
   const activeIndex = Math.max(0, rows.findIndex((row) => row.key === active));
@@ -55,10 +54,11 @@ export function PlanSteps({ rows, active, onPick }: { rows: PlanStep[]; active: 
                   type="button"
                   onClick={() => onPick(row.key)}
                   aria-current={isActive ? "step" : undefined}
-                  className="group flex w-full flex-col items-center gap-1.5 rounded-full focus-visible:outline-offset-2"
+                  className="group flex w-full flex-col items-center gap-1.5 focus-visible:outline-none"
                   data-testid={`plan-step-${row.key}`}
                 >
-                  <span aria-hidden className="flex h-10 w-full min-w-0 items-center justify-center gap-1.5 px-3">
+                  {/* Keyboard focus rings the step's segment of the track, not the segment and label. */}
+                  <span aria-hidden className="flex h-10 w-full min-w-0 items-center justify-center gap-1.5 rounded-full px-3 group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-(--focus)">
                     {isActive ? (
                       <>
                         {/* A finished step trades its icon for a tick, even while open; not Places
@@ -77,10 +77,12 @@ export function PlanSteps({ rows, active, onPick }: { rows: PlanStep[]; active: 
                         <TickGlyph className="size-3.5" />
                       </span>
                     ) : (
+                      // At 70% on the track both read at 3:1 or more (WCAG 1.4.11); a skipped step
+                      // is a larger hollow ring, so it differs from an open dot by size, not only fill.
                       <span
                         className={cn(
-                          "size-2 rounded-full transition-transform duration-200 group-hover:scale-125",
-                          isSkipped ? "border-[1.5px] border-primary/50" : "bg-primary/45",
+                          "rounded-full transition-transform duration-200 group-hover:scale-125",
+                          isSkipped ? "size-3 border-2 border-primary/70" : "size-2 bg-primary/70",
                         )}
                       />
                     )}

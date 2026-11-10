@@ -6808,7 +6808,7 @@ components:
           - gear
           description: 'Where guests find it: its booking type, except gear (cameras,
             snorkel sets), which isn''t a vehicle rental: its own section, never a
-            trip''s "Getting around"'
+            trip''s "Vehicle rental"'
         area_slug:
           type: string
         instant_book:
@@ -7358,7 +7358,7 @@ components:
           - gear
           description: 'Where guests find it: its booking type, except gear (cameras,
             snorkel sets), which isn''t a vehicle rental: its own section, never a
-            trip''s "Getting around"'
+            trip''s "Vehicle rental"'
         area_slug:
           type: string
         instant_book:
@@ -7442,7 +7442,7 @@ components:
           - gear
           description: 'Where guests find it: its booking type, except gear (cameras,
             snorkel sets), which isn''t a vehicle rental: its own section, never a
-            trip''s "Getting around"'
+            trip''s "Vehicle rental"'
         area:
           "$ref": "#/components/schemas/area_ref"
         business:
@@ -10268,7 +10268,7 @@ components:
           - gear
           description: 'Where guests find it: its booking type, except gear (cameras,
             snorkel sets), which isn''t a vehicle rental: its own section, never a
-            trip''s "Getting around"'
+            trip''s "Vehicle rental"'
         area_slug:
           type: string
         area_name:
@@ -11058,7 +11058,7 @@ components:
           - gear
           description: 'Where guests find it: its booking type, except gear (cameras,
             snorkel sets), which isn''t a vehicle rental: its own section, never a
-            trip''s "Getting around"'
+            trip''s "Vehicle rental"'
         area_slug:
           type: string
         instant_book:

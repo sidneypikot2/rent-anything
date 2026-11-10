@@ -1,196 +1,155 @@
 "use client";
 
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { BookCardsPage, PlanGroup } from "@/api/discovery";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckboxField } from "@/components/ui/checkbox-field";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
-import { Field } from "@/components/ui/field";
-import { Pill } from "@/components/ui/pill";
-import { transmissionLabel } from "@/components/listings/vehicle-labels";
-import { formatPeso } from "@/lib/money";
+import { Pager } from "@/components/ui/pager";
 import { gapGroup, planGaps, stillMissing } from "@/components/trips/trip-missing";
 import { useTripAdd } from "@/components/trips/trip-add-provider";
+import type { TripDates } from "@/components/trips/trip-dates";
 import { useTripHere } from "@/components/trips/use-trip-here";
-import { ShownOffersContext } from "./business-row";
+import { pricedByNote } from "@/lib/pricing";
+import { BusinessRow } from "./business-row";
+import { bookCardsOptions, useBookCards } from "./book-cards";
+import { FIRST_ROWS, PER_PAGE, type BookQuery } from "./book-query";
+import { businessHref, isTitleCard, offerOf, titleCardHref } from "./browse-offers";
 import { BOOKING_GROUPS } from "./categories";
 import { listingKey, MapHoverTarget, MapSwitch, useAreaMap, useBesideMap } from "./area-map-context";
-import type { Feature } from "./listing-features";
-import { CategoryGlyph, CloseGlyph, FeatureGlyph, FilterGlyph, GridGlyph } from "./tag-glyphs";
+import { FilterButton } from "./filter-controls";
+import { FilterMarkers, FilterPanel, sharedLabels } from "./filter-panel";
+import { filtered, NO_FILTERS, setCount, type Facets, type Filters } from "./filters";
+import { CategoryGlyph, FeatureGlyph, GridGlyph } from "./tag-glyphs";
 import { focusDock } from "./floating-dock";
-import { useFitRows } from "./use-fit-rows";
 
-// A listing as the filters see it: its "from" price (null while it has none) and the chips it shows.
-// `text`: what a search on the page matches (title, kind, partner, place, summary).
-export type ListingOffer = {
-  id: number;
-  priceCents: number | null;
-  priceUnit?: string | null;
-  features: Feature[];
-  text?: string;
-  // A rental vehicle's facts for Getting around's filters (RAA-205); left out for anything else.
-  vehicle?: VehicleFacts;
-};
-export type VehicleFacts = {
-  kind: string;
-  transmission: string | null;
-  delivery: boolean;
-  returnPickup: boolean;
-  childHelmets: boolean;
-};
-// A row: a business with its listings in the group (the team's business-first list). `key` is
-// its anchor, unique on the page; `content` is the card itself, rendered on the server, which
-// shows only the listings the filters leave (ShownOffersContext).
-export type ListingItem = { key: string; offers: ListingOffer[]; content: ReactNode };
+// A What to book section: a guest group, its anchor (`need-<group>`), title and rail icon.
+export type BookSection = { id: string; title: string; icon: string; group: PlanGroup };
+type Card = BookCardsPage["cards"][number];
 
 // What to book's held section order (see ListingBrowser), for this page only.
 let heldOrder: { path: string; ids: string[] } | null = null;
 const pathnameNow = () => (typeof window === "undefined" ? "" : window.location.pathname);
 const heldOrderFor = (path: string) => (heldOrder && heldOrder.path === path ? heldOrder.ids : null);
-// `group` (a listing's `group`) tells the area map which pins the group's rows are.
-// Under the section's title, once for all its rows: `gettingHere`, how a traveller reaches the
-// place at all (Transfers, where they look for the ride); `shared`, the chips every row has
-// ("All have"); `note`, one line on how the unpriced ones are priced.
-export type ListingGroup = {
-  id: string;
-  title: string;
-  icon: string;
-  group?: string;
-  gettingHere?: { route: string; note: string };
-  shared?: string[];
-  note?: string;
-  items: ListingItem[];
-};
-
-// pets: only stays that take pets (RAA-186), offered in the stays section's filters alone.
-// vehicle: Getting around's own (RAA-205): the kinds and transmissions picked (any of them), and
-// what the shop must offer — drop-off, pick-up at the end, child helmets.
-type VehicleFilters = { kinds: string[]; transmissions: string[]; delivery: boolean; pickup: boolean; childHelmets: boolean };
-type Filters = { free: boolean; pets: boolean; min: string; max: string; includes: string[]; vehicle: VehicleFilters };
-const NO_VEHICLE_FILTERS: VehicleFilters = { kinds: [], transmissions: [], delivery: false, pickup: false, childHelmets: false };
-const NO_FILTERS: Filters = { free: false, pets: false, min: "", max: "", includes: [], vehicle: NO_VEHICLE_FILTERS };
-const VEHICLE_CHECKS = [
-  { key: "delivery", label: "Drops off at your stay", has: (facts: VehicleFacts) => facts.delivery },
-  { key: "pickup", label: "Picks up at the end", has: (facts: VehicleFacts) => facts.returnPickup },
-  { key: "childHelmets", label: "Child helmets", has: (facts: VehicleFacts) => facts.childHelmets },
-] as const;
-// Includes listed before "Show all".
-const FIRST_INCLUDES = 6;
-// Chips that describe a listing (its size, its route, a tour's group) rather than say what comes
-// with it: shown on the row, never offered under Includes.
-// Pets allowed has its own Pet-friendly choice, a vehicle's transmission its Transmission one.
-const NOT_INCLUDES = new Set(["guests", "seats", "luggage", "route", "engine", "sizes", "bed", "pets", "transmission", "clock"]);
-const takesPets = (offer: ListingOffer) => offer.features.some((feature) => feature.icon === "pets");
-// Rows a section shows under "All" before its "Show all N": the page stays short enough to reach
-// the places to see below it, on a phone too, and the section's own chip shows the rest.
-const FIRST_ROWS = 3;
-
-// A typed price as whole pesos, never below zero ("-5" and "12.5" become "0" and "12").
-const wholePesos = (value: string) => (value === "" ? "" : String(Math.max(0, Math.floor(Number(value)) || 0)));
-
-// A search typed on the page (`?q=`): every word somewhere in the listing's text, a plural
-// matching its singular ("scooters" finds a scooter).
-function matcher(query: string | undefined) {
-  const words = (query ?? "")
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => (word.length > 3 && word.endsWith("s") ? word.slice(0, -1) : word));
-  if (words.length === 0) return null;
-  return (offer: ListingOffer) => {
-    const text = (offer.text ?? "").toLowerCase();
-    return words.every((word) => text.includes(word));
-  };
-}
-
-const vehicleCount = ({ kinds, transmissions, delivery, pickup, childHelmets }: VehicleFilters) =>
-  kinds.length + transmissions.length + Number(delivery) + Number(pickup) + Number(childHelmets);
-
-const setCount = (filters: Filters) =>
-  Number(filters.free) +
-  Number(filters.pets) +
-  Number(Boolean(filters.min || filters.max)) +
-  filters.includes.length +
-  vehicleCount(filters.vehicle);
-
-function passesVehicle(facts: VehicleFacts | undefined, filters: VehicleFilters) {
-  if (vehicleCount(filters) === 0) return true;
-  if (!facts) return false;
-  if (filters.kinds.length > 0 && !filters.kinds.includes(facts.kind)) return false;
-  if (filters.transmissions.length > 0 && !(facts.transmission && filters.transmissions.includes(facts.transmission))) return false;
-  return VEHICLE_CHECKS.every((check) => !filters[check.key] || check.has(facts));
-}
-
-function passes(item: ListingOffer, filters: Filters, skipIncludes = false) {
-  if (filters.free && !item.features.some((feature) => feature.trust)) return false;
-  if (filters.pets && !takesPets(item)) return false;
-  if (!passesVehicle(item.vehicle, filters.vehicle)) return false;
-  const min = Number(filters.min) || 0;
-  const max = Number(filters.max) || 0;
-  if (min || max) {
-    if (item.priceCents === null) return false;
-    const pesos = item.priceCents / 100;
-    if ((min && pesos < min) || (max && pesos > max)) return false;
-  }
-  if (skipIncludes) return true;
-  const labels = item.features.map((feature) => feature.label);
-  return filters.includes.every((label) => labels.includes(label));
-}
+// A card's row id, its anchor on the page.
+const rowId = (section: BookSection, card: Card) => `${section.id}-card-${card.key}`;
 
 // What to book on an area page (RAA-125): the sections beside the listings. From lg it is a
 // rail on the left that stays in view under the header, the sections with their counts and
 // the map's switch (the trip and its dates lead the page above it, AreaHero); on a phone the
 // sections are a row of chips.
-// "All" shows every section under its title; a section shows just its own, still titled.
+// "All" shows every section under its title, its first rows and a "Show all N" that picks it; a
+// section shows just its own, a page at a time (2026-11-10) with the pager under it. The rows come
+// from the API a page at a time (`book_cards`, useQueries: one per section), filtered and searched
+// on the server, so a place with hundreds of listings never sends them all.
 // Filters belong to one section (RAA-126), so a price set for a motorbike never hides a
-// cottage: each title has a filter button opening them in a modal, and what is set shows
-// beside it as pills to remove, one row of them with "+N more" for the rest.
+// cottage: each title has a filter button opening them in a modal (What to book's for its
+// category, FilterPanel), and what is set shows beside it as pills to remove, one row of them
+// with "+N more" for the rest. Setting one under All picks that section.
 // On an area page with its map, the map's pins follow the group and filters shown here, a row
 // and its pin light up together, and a distance search narrows the rows to what is in range,
 // nearest first, each with how far it is. `initial` is the group to open on (the home hero's
-// category pills, RAA-130); one the area doesn't have opens on All, and says so. Under All each
-// section shows its first rows and a "Show all N" that picks it. On a phone the chips stick under
-// the search bar, so another section is always a tap away; so they do from lg while the map is
-// beside the sections, where a rail would leave the rows too narrow to read.
+// category pills, RAA-130); one the area doesn't have opens on All, and says so. On a phone the
+// chips stick under the search bar, so another section is always a tap away; so they do from lg
+// while the map is beside the sections, where a rail would leave the rows too narrow to read.
 // `query`: a search typed on this page's search bar (`?q=`), which narrows every section to the
-// listings matching it and says so, with Clear search (`clearHref`) and a search of every place.
-// `placeName` names the place in those lines.
+// listings matching it (on the server) and says so, with Clear search (`clearHref`) and a search of
+// every place. `placeName` names the place in those lines. `seed`: the pages the server fetched for
+// the first view.
 export function ListingBrowser({
-  groups,
+  slug,
+  sections,
+  seed,
+  dates,
   empty,
   initial,
   query,
   placeName,
   clearHref,
+  gettingHere,
   tripPlaces = [],
   tripIsland,
 }: {
-  groups: ListingGroup[];
+  slug: string;
+  sections: BookSection[];
+  seed: { query: BookQuery; data: BookCardsPage }[];
+  dates: TripDates;
   empty: ReactNode;
   initial?: string;
   query?: string;
   placeName?: string;
   clearHref?: string;
+  // How a traveller reaches the place at all, said over Transfers.
+  gettingHere?: { route: string; note: string };
   // The page's place and the places inside it: a section the guest's trip already has something
   // from here goes to the end, in the rail and the sections, so what the trip still lacks leads.
   tripPlaces?: string[];
   // The island this place is a town of, so its plan counts kinds from anywhere on it (coversHere).
   tripIsland?: string | null;
 }) {
+  const [current, setCurrent] = useState<string>(() => (initial && sections.some((section) => section.id === initial) ? initial : "all"));
+  // The page each section is on, its filters, and a listing a link points at (#listing-<id>).
+  const [pages, setPages] = useState<Record<string, number>>({});
+  const [filters, setFilters] = useState<Record<string, Filters>>({});
+  // `around` stays in the section's query until the guest moves on; `revealed` once scrolled to.
+  const [around, setAround] = useState<number | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const linkTo = (id: number | null) => {
+    setAround(id);
+    setRevealed(false);
+  };
+  const client = useQueryClient();
+  const filtersOf = (id: string) => filters[id] ?? NO_FILTERS;
+  const map = useAreaMap();
+  const near = map?.near ?? null;
+  const nearIds = near ? [...near.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id) : null;
+  const rail = !useBesideMap();
+
+  // A section's query: under All its first rows, picked a page of PER_PAGE.
+  const queryOf = (section: BookSection): BookQuery => ({
+    group: section.group,
+    page: current === section.id ? (pages[section.id] ?? 1) : 1,
+    perPage: current === "all" ? FIRST_ROWS : PER_PAGE,
+    filters: filtersOf(section.id),
+    q: query,
+    around,
+    near: nearIds,
+  });
+  const displayed = (section: BookSection) => current === "all" || current === section.id;
+  const results = useQueries({
+    queries: sections.map((section) => ({
+      ...bookCardsOptions(slug, queryOf(section), seed.find((each) => each.query.group === section.group), client),
+      // Shown, or filtered (the rail counts it); a distance search with nothing in range asks nothing.
+      enabled: (displayed(section) || filtered(filters[section.id])) && !(nearIds && nearIds.length === 0),
+    })),
+  });
+  const resultOf = (section: BookSection) => results[sections.indexOf(section)];
+  const dataOf = (section: BookSection) => resultOf(section)?.data;
+  // Cards per group with the search (any section's answer has them all).
+  const counts = results.find((result) => result.data)?.data?.counts ?? seed[0]?.data.counts;
+  // A section's card count: its own total once filtered or in a distance search, else the counts.
+  const countOf = (section: BookSection) => {
+    if (nearIds && nearIds.length === 0) return 0;
+    const own = dataOf(section);
+    if ((filtered(filters[section.id]) || nearIds) && own) return own.total;
+    return counts?.[section.group] ?? own?.total ?? 0;
+  };
+  const present = sections.filter((section) => (counts?.[section.group] ?? 0) > 0 || section.id === current);
+
   const { trip, has } = useTripHere(tripPlaces);
   // With a trip shown, the plan orders the sections: what it is missing here first (a stay for
   // its nights, a transfer, an item to replace; stillMissing, the banner's count), then the ideas
   // it has nothing of yet, then what it has, and gear, never needed, last. With none, Stays lead.
-  const offered = groups.filter((group) => group.group && group.items.length > 0).map((group) => group.group!);
+  const offered = present.map((section) => section.group);
   const gaps = trip ? stillMissing(planGaps(trip, tripPlaces ?? [], offered, [], tripIsland)) : [];
   const lacks = new Set<string>(gaps.map(gapGroup));
-  const inTrip = (group: ListingGroup) => Boolean(group.group && has.has(group.group) && !lacks.has(group.group));
-  const rank = (group: ListingGroup) =>
-    group.group && lacks.has(group.group) ? 0 : inTrip(group) ? 2 : group.group === "gear" ? 3 : 1;
-  const stayFirst = (a: ListingGroup, b: ListingGroup) => Number(b.group === "stay") - Number(a.group === "stay");
-  const planned = [...groups].sort((a, b) => (trip ? rank(a) - rank(b) : 0) || stayFirst(a, b));
+  const inTrip = (section: BookSection) => has.has(section.group) && !lacks.has(section.group);
+  const rank = (section: BookSection) => (lacks.has(section.group) ? 0 : inTrip(section) ? 2 : section.group === "gear" ? 3 : 1);
+  const stayFirst = (a: BookSection, b: BookSection) => Number(b.group === "stay") - Number(a.group === "stay");
+  const planned = [...present].sort((a, b) => (trip ? rank(a) - rank(b) : 0) || stayFirst(a, b));
   // Once the guest starts an add, the sections keep their order until another is picked: a stay
   // just added would otherwise drop to the end with "what the trip has" and leave the guest
   // looking at scooters. The dots and ticks still update; only the order holds.
@@ -198,11 +157,11 @@ export function ListingBrowser({
   // Kept outside the component too (heldOrder), as a first add signing a guest in can mount this
   // list afresh.
   const [frozen, setFrozen] = useState<string[] | null>(() => heldOrderFor(pathnameNow()));
-  if (busyListingId !== null && frozen === null) setFrozen(planned.map((group) => group.id));
+  if (busyListingId !== null && frozen === null) setFrozen(planned.map((section) => section.id));
   useEffect(() => {
     heldOrder = frozen && { path: pathnameNow(), ids: frozen };
   }, [frozen]);
-  const place = (group: ListingGroup) => (frozen && frozen.includes(group.id) ? frozen.indexOf(group.id) : Number.MAX_SAFE_INTEGER);
+  const place = (section: BookSection) => (frozen && frozen.includes(section.id) ? frozen.indexOf(section.id) : Number.MAX_SAFE_INTEGER);
   const ordered = frozen ? [...planned].sort((a, b) => place(a) - place(b)) : planned;
   // The row just added comes back into view if it left it, and glows once (.just-added), so the
   // guest sees what changed: its In your trip badge and Add another.
@@ -219,15 +178,13 @@ export function ListingBrowser({
     void row.offsetWidth;
     row.classList.add("just-added");
   }, [lastAdded]);
-  const [current, setCurrent] = useState<string>(() =>
-    initial && groups.some((group) => group.id === initial) ? initial : "all",
-  );
   // Picking a section from the rail or the chips while scrolled into the list: the list gets
   // shorter, so the window would be left below it, on the next section. Back to its top instead.
   const root = useRef<HTMLDivElement>(null);
   const [picked, setPicked] = useState(0);
   const pick = (id: string) => {
     setCurrent(id);
+    linkTo(null);
     setPicked((count) => count + 1);
   };
   useEffect(() => {
@@ -243,20 +200,15 @@ export function ListingBrowser({
     setSwitched(true);
     setFrozen(null);
   }
-  const matches = matcher(query);
-  // Passes the page's search and a section's filters.
-  const shows = (offer: ListingOffer, filters: Filters) => (!matches || matches(offer)) && passes(offer, filters);
   // The home hero's shortcut to a group this place has nothing in.
-  const missing = initial && !groups.some((group) => group.id === initial)
-    ? BOOKING_GROUPS.find((group) => group.id === initial)
-    : undefined;
-  const [filters, setFilters] = useState<Record<string, Filters>>({});
-  // The section whose filters are open, and the filters as edited there, applied on Show.
-  const [editing, setEditing] = useState<{ id: string; draft: Filters } | null>(null);
+  const missing =
+    initial && counts && !present.some((section) => section.id === initial) ? BOOKING_GROUPS.find((group) => group.id === initial) : undefined;
+  // The section whose filters are open.
+  const [editing, setEditing] = useState<string | null>(null);
   // A link to a section (#need-<group>) picks it and scrolls to it. A link to a row
-  // (#listing-<id>: a place to see's "1 tour goes here") shows it even while
-  // another section is picked, or past its section's first rows under All, then scrolls to it
-  // once it is in the page. "Show all N" scrolls to the section it picks the same way.
+  // (#listing-<id>: a place to see's "1 tour goes here") asks every section for the page holding
+  // it (`around`), shows it there, even past its section's first rows under All, then scrolls to
+  // it. "Show all N" scrolls to the section it picks the same way.
   // A new object each time, so revealing the same row twice scrolls twice.
   const [reveal, setReveal] = useState<{ id: string } | null>(null);
   // The picked chip in view in a phone's sideways row (a shortcut can pick one past its edge),
@@ -268,16 +220,13 @@ export function ListingBrowser({
     if (!row || !chip || row.scrollWidth <= row.clientWidth) return;
     row.scrollLeft = chip.offsetLeft - (row.clientWidth - chip.offsetWidth) / 2;
   }, [current]);
-  // Read by the hash follower below, which runs on arrival and on a hash change only: the server
-  // page renders again (a trip putting its dates in the URL keeps the hash) with new groups, and
-  // following #listings then would pull a guest reading another section back here.
-  const groupsRef = useRef(groups);
+  // Read by the hash follower below, which runs on arrival and on a hash change only.
+  const sectionsRef = useRef(sections);
   useEffect(() => {
-    groupsRef.current = groups;
-  }, [groups]);
+    sectionsRef.current = sections;
+  }, [sections]);
   useEffect(() => {
     const follow = () => {
-      const groups = groupsRef.current;
       // A link or refresh at #listings (a search, a category, the nav's tab): What to book itself,
       // once the page has laid out, rather than the browser's own jump, which the banner's late
       // layout throws off.
@@ -286,84 +235,84 @@ export function ListingBrowser({
         return;
       }
       // A link to a section (#need-stay: the trip card's "A place to stay") picks it.
-      const picked = groups.find((each) => `#${each.id}` === window.location.hash);
-      if (picked) {
-        setCurrent(picked.id);
-        setReveal({ id: `${picked.id}-top` });
+      const section = sectionsRef.current.find((each) => `#${each.id}` === window.location.hash);
+      if (section) {
+        setCurrent(section.id);
+        setReveal({ id: `${section.id}-top` });
         return;
       }
       const id = Number(/^#listing-(\d+)$/.exec(window.location.hash)?.[1]);
-      const holds = (item: ListingItem) => item.offers.some((offer) => offer.id === id);
-      const group = id ? groups.find((each) => each.items.some(holds)) : undefined;
-      if (!group) return;
-      const index = group.items.findIndex(holds);
-      const early = index < FIRST_ROWS;
-      setCurrent((was) => (was === group.id || (was === "all" && early) ? was : group.id));
-      setReveal({ id: group.items[index].key });
+      if (id) linkTo(id);
     };
     follow();
     window.addEventListener("hashchange", follow);
     return () => window.removeEventListener("hashchange", follow);
   }, []);
+  // A row linked to: once a section's answer holds it, show that section's page with it (All
+  // keeps it when it is among a section's first rows), then scroll to it. Settled while rendering,
+  // as the answers come in.
+  if (around !== null && !revealed) {
+    const holds = (card: Card) => card.listings.some((listing) => listing.id === around);
+    const hit = sections.find((section) => !resultOf(section)?.isPlaceholderData && dataOf(section)?.cards.some(holds));
+    const data = hit && dataOf(hit);
+    if (hit && data) {
+      if (current !== hit.id && (current !== "all" || data.page !== 1)) {
+        setCurrent(hit.id);
+      } else {
+        if (current === hit.id) setPages((all) => ({ ...all, [hit.id]: data.page }));
+        setReveal({ id: rowId(hit, data.cards.find(holds)!) });
+        setRevealed(true);
+      }
+    }
+  }
   useEffect(() => {
     if (reveal === null) return;
     document.getElementById(reveal.id)?.scrollIntoView({ block: "start" });
   }, [reveal]);
-  const filtersOf = (id: string) => filters[id] ?? NO_FILTERS;
-  const setFiltersOf = (id: string, next: Filters) => setFilters((all) => ({ ...all, [id]: next }));
-  const map = useAreaMap();
-  const near = map?.near ?? null;
-  const rail = !useBesideMap();
-  // A business's listings the group's filters leave, and, in a distance search, only those in range.
-  const kept = (group: ListingGroup, item: ListingItem) =>
-    item.offers.filter((offer) => shows(offer, filtersOf(group.id)) && (!near || near.has(offer.id)));
-  // How far a business is: its nearest listing in range.
-  const distance = (group: ListingGroup, item: ListingItem) => Math.min(...kept(group, item).map((offer) => near?.get(offer.id) ?? 0));
-  const filtered = (group: ListingGroup) =>
-    group.items.filter((item) => item.offers.some((offer) => shows(offer, filtersOf(group.id))));
-  const visible = (group: ListingGroup) =>
-    near
-      ? group.items
-          .filter((item) => kept(group, item).length > 0)
-          .sort((a, b) => distance(group, a) - distance(group, b))
-      : filtered(group);
+  const setFiltersOf = (id: string, next: Filters) => {
+    setFilters((all) => ({ ...all, [id]: next }));
+    setPages((all) => ({ ...all, [id]: 1 }));
+    linkTo(null);
+  };
+  // Another page: back to the section's top.
+  const turnPage = (section: BookSection) => (page: number) => {
+    setPages((all) => ({ ...all, [section.id]: page }));
+    linkTo(null);
+    setReveal({ id: `${section.id}-top` });
+  };
 
-  // Tell the map what is showing: the picked group's pins, without the rows its filters hide.
+  // Tell the map what is showing: the picked group's pins, and for a narrowed group only those
+  // that pass.
   const setView = map?.setView;
-  const shownGroup = groups.find((group) => group.id === current)?.group ?? null;
-  const hiddenIds = groups
-    .flatMap((group) => {
-      const offers = group.items.flatMap((item) => item.offers);
-      return offers.filter((offer) => !shows(offer, filtersOf(group.id))).map((offer) => offer.id);
-    })
-    .join(",");
+  const shownGroup = sections.find((section) => section.id === current)?.group ?? null;
+  const narrowed = JSON.stringify(
+    Object.fromEntries(
+      sections.flatMap((section) => {
+        const data = dataOf(section);
+        return data && (filtered(filters[section.id]) || query) ? [[section.group, data.pin_ids]] : [];
+      }),
+    ),
+  );
   useEffect(() => {
-    setView?.({ group: shownGroup, hidden: hiddenIds ? hiddenIds.split(",").map(Number) : [] });
-  }, [setView, shownGroup, hiddenIds]);
+    setView?.({ group: shownGroup, shown: JSON.parse(narrowed) });
+  }, [setView, shownGroup, narrowed]);
 
-  const total = groups.reduce((sum, group) => sum + visible(group).length, 0);
+  const total = ordered.reduce((sum, section) => sum + countOf(section), 0);
   // Under a search, only the sections it found something in (and the one picked).
   const options = [
     { id: "all", title: "All", icon: "", count: total, set: 0 },
     ...ordered
-      .map((group) => ({
-        id: group.id,
-        title: group.title,
-        icon: group.icon,
-        count: visible(group).length,
-        set: setCount(filtersOf(group.id)),
-      }))
-      .filter((option) => !matches || option.count > 0 || option.id === current),
+      .map((section) => ({ id: section.id, title: section.title, icon: section.icon, count: countOf(section), set: setCount(filtersOf(section.id)) }))
+      .filter((option) => !query || option.count > 0 || option.id === current),
   ];
   // Under a search, All keeps to the sections with a match.
   const shown =
-    current === "all"
-      ? ordered.filter((group) => !matches || visible(group).length > 0)
-      : groups.filter((group) => group.id === current);
+    current === "all" ? ordered.filter((section) => !query || countOf(section) > 0) : sections.filter((section) => section.id === current);
   // Arrived on a section from the home page's shortcuts: said once, with the way back to All.
-  const opened = initial && current === initial ? groups.find((group) => group.id === initial) : undefined;
-  const editingGroup = editing && groups.find((group) => group.id === editing.id);
-  const openFilters = (id: string) => setEditing({ id, draft: filtersOf(id) });
+  const opened = initial && current === initial ? sections.find((section) => section.id === initial) : undefined;
+  const editingSection = editing ? sections.find((section) => section.id === editing) : undefined;
+  // Filters are a section's own: setting them under All picks it.
+  const openFilters = (section: BookSection) => setEditing(section.id);
 
   return (
     <div ref={root} className={cn("relative grid gap-5", rail && "lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-6")}>
@@ -377,7 +326,7 @@ export function ListingBrowser({
           rail && "lg:sticky lg:flex lg:top-(--chrome) lg:max-h-[calc(100dvh-var(--chrome)-1rem)] lg:overflow-y-auto lg:overscroll-contain lg:pb-1",
         )}
       >
-        {groups.length > 1 && (
+        {present.length > 1 && (
           <div
             ref={chipsRef}
             role="group"
@@ -415,11 +364,7 @@ export function ListingBrowser({
                 >
                   <span
                     aria-hidden
-                    className={cn(
-                      "hidden size-7 items-center justify-center rounded-lg",
-                      rail && "lg:flex",
-                      on ? "bg-primary text-white" : "bg-tag text-navy",
-                    )}
+                    className={cn("hidden size-7 items-center justify-center rounded-lg", rail && "lg:flex", on ? "bg-primary text-white" : "bg-tag text-navy")}
                   >
                     {option.icon ? <CategoryGlyph name={option.icon} className="size-4" /> : <GridGlyph className="size-4" />}
                   </span>
@@ -431,7 +376,9 @@ export function ListingBrowser({
                       </span>
                     )}
                   </span>
-                  <span className={cn("tabular-nums", rail && "lg:text-right", on ? cn("text-white/80", rail && "lg:text-lagoon-ink") : "text-muted")}>{option.count}</span>
+                  <span className={cn("tabular-nums", rail && "lg:text-right", on ? cn("text-white/80", rail && "lg:text-lagoon-ink") : "text-muted")}>
+                    {option.count}
+                  </span>
                 </button>
               );
             })}
@@ -451,14 +398,7 @@ export function ListingBrowser({
             Nothing in {missing.title} here yet, so here is everything else.
           </p>
         )}
-        {query && (
-          <SearchedLine
-            query={query}
-            count={total}
-            placeName={placeName}
-            clearHref={clearHref}
-          />
-        )}
+        {query && counts && <SearchedLine query={query} count={total} placeName={placeName} clearHref={clearHref} />}
         {!query && opened && (
           <p role="status" data-testid="opened-group" className="flex flex-wrap items-center gap-x-3 text-sm text-muted">
             <span>
@@ -470,76 +410,60 @@ export function ListingBrowser({
             </TextButton>
           </p>
         )}
-        {shown.length === 0
-          ? !matches && empty
-          : shown.map((group, groupIndex) => {
-              const all = visible(group);
-              // A distance search lists everything in range, nearest first.
-              // A search's matches show whole: they are few, and the point of the search.
-              const rows = current === "all" && !near && !matches ? all.slice(0, FIRST_ROWS) : all;
-              const set = setCount(filtersOf(group.id));
-              const clear = () => setFiltersOf(group.id, NO_FILTERS);
+        {counts && shown.length === 0
+          ? !query && empty
+          : shown.map((section, sectionIndex) => {
+              const result = resultOf(section);
+              const data = result?.data;
+              const set = setCount(filtersOf(section.id));
+              const clear = () => setFiltersOf(section.id, NO_FILTERS);
+              const shared = data ? sharedLabels(data.facets) : [];
+              const note = data?.facets.unpriced_booking_type ? pricedByNote(data.facets.unpriced_booking_type) : undefined;
+              const cards = data?.cards ?? [];
+              const busy = result?.isPlaceholderData;
               return (
                 <div
                   // Keyed by the pick too, so a new pick plays the rows' arrival again.
-                  key={`${current}-${group.id}`}
-                  id={`${group.id}-top`}
+                  key={`${current}-${section.id}`}
+                  id={`${section.id}-top`}
                   className={cn("flex scroll-mt-(--chrome) flex-col gap-3", switched && "animate-swap-in")}
-                  style={switched ? { animationDelay: `${Math.min(groupIndex, 3) * 60}ms` } : undefined}
+                  style={switched ? { animationDelay: `${Math.min(sectionIndex, 3) * 60}ms` } : undefined}
                 >
                   {/* On a phone the pills take a row of their own under the title. */}
                   <div className="flex min-w-0 flex-wrap items-center gap-2.5 sm:flex-nowrap">
-                    <h3 id={group.id} className="scroll-mt-36 shrink-0 text-lg font-semibold">
-                      {group.title}
+                    <h3 id={section.id} className="scroll-mt-36 shrink-0 text-lg font-semibold">
+                      {section.title}
                     </h3>
-                    {/* A labelled button (a bare icon circle went unnoticed in testing): the outlined
-                        second action, tinted while filters are set (data-set, globals.css). */}
-                    <Button
-                      variant="soft"
-                      size="touch"
-                      aria-label={`Filter ${group.title}${set > 0 ? `, ${set} set` : ""}`}
-                      aria-haspopup="dialog"
-                      onClick={() => openFilters(group.id)}
-                      data-testid="section-filter"
-                      data-set={set > 0 || undefined}
-                      className="shrink-0 px-4 text-control"
-                    >
-                      <FilterGlyph className="size-5" />
-                      Filter
-                      {set > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-bold text-white tabular-nums">
-                          {set}
-                        </span>
-                      )}
-                    </Button>
+                    <FilterButton title={section.title} set={set} onClick={() => openFilters(section)} testId="section-filter" />
                     {set > 0 && (
                       <>
                         <FilterMarkers
-                          title={group.title}
-                          filters={filtersOf(group.id)}
-                          onChange={(next) => setFiltersOf(group.id, next)}
-                          onMore={() => openFilters(group.id)}
+                          title={section.title}
+                          filters={filtersOf(section.id)}
+                          facets={data?.facets}
+                          onChange={(next) => setFiltersOf(section.id, next)}
+                          onMore={() => openFilters(section)}
                         />
                         <TextButton onClick={clear} className="ml-auto shrink-0 text-sm sm:ml-0" />
                       </>
                     )}
                   </div>
-                  {group.gettingHere && (
+                  {section.group === "transfer" && gettingHere && (
                     <div data-testid="getting-here" className="flex max-w-prose items-start gap-3 rounded-control border border-line bg-surface p-3">
                       <span aria-hidden className="grid size-11 shrink-0 place-items-center rounded-xl bg-mist text-primary">
                         <FeatureGlyph name="route" className="size-5" />
                       </span>
                       <div className="flex min-w-0 flex-col gap-0.5 text-sm">
                         <p className="font-semibold">Getting here</p>
-                        <p className="text-pretty">{group.gettingHere.route}</p>
-                        <p className="text-pretty text-muted">{group.gettingHere.note}</p>
+                        <p className="text-pretty">{gettingHere.route}</p>
+                        <p className="text-pretty text-muted">{gettingHere.note}</p>
                       </div>
                     </div>
                   )}
-                  {group.shared && group.shared.length > 0 && (
+                  {shared.length > 0 && (
                     <p className="-mt-1 flex flex-wrap items-center gap-1.5 text-sm text-muted">
                       All have:
-                      {group.shared.map((chip) => (
+                      {shared.map((chip) => (
                         // Cancellation is trust, in green, as on the rows.
                         <Badge key={chip} tone={/cancel/i.test(chip) ? "emerald" : "fact"} className="min-h-6 px-2.5 text-xs">
                           {chip}
@@ -547,65 +471,68 @@ export function ListingBrowser({
                       ))}
                     </p>
                   )}
-                  {group.note && <p className="-mt-1 max-w-prose text-sm text-pretty text-muted">{group.note}</p>}
-                  {rows.length > 0 ? (
-                    <ul className="flex flex-col gap-3">
-                      {rows.map((item, rowIndex) => (
+                  {note && <p className="-mt-1 max-w-prose text-sm text-pretty text-muted">{note}</p>}
+                  {!data && !(nearIds && nearIds.length === 0) ? (
+                    result?.isError ? (
+                      <p className="text-sm text-muted">Couldn&apos;t load these just now. Try again in a moment.</p>
+                    ) : (
+                      <RowsSkeleton count={current === "all" ? FIRST_ROWS : 4} />
+                    )
+                  ) : cards.length > 0 ? (
+                    <ul aria-busy={busy || undefined} className={cn("flex flex-col gap-3 transition-opacity duration-300 ease-calm", busy && "opacity-60")}>
+                      {cards.map((card, rowIndex) => (
                         // A search suggestion links straight to its row (#listing-<id>).
                         // A container, so the row lays itself out by its own width: beside the map
                         // it is narrower than the window says.
                         <li
-                          key={item.key}
-                          id={item.key}
-                          data-listings={item.offers.map((offer) => offer.id).join(" ")}
+                          key={card.key}
+                          id={rowId(section, card)}
+                          data-listings={card.listings.map((listing) => listing.id).join(" ")}
                           className={cn("@container scroll-mt-36", switched && "animate-swap-in")}
-                          style={switched ? { animationDelay: `${Math.min(groupIndex * 3 + rowIndex + 1, 6) * 60}ms` } : undefined}
+                          style={switched ? { animationDelay: `${Math.min(sectionIndex * 3 + rowIndex + 1, 6) * 60}ms` } : undefined}
                         >
                           {near && (
-                            <p className="mb-1.5 px-1 text-sm font-semibold text-primary">{distance(group, item).toFixed(1)} km from your pin</p>
+                            <p className="mb-1.5 px-1 text-sm font-semibold text-primary">
+                              {Math.min(...card.listings.map((listing) => near.get(listing.id) ?? 0)).toFixed(1)} km from your pin
+                            </p>
                           )}
                           {/* Each row a white card on the pale sheet, so its edge shows at rest, not only when lit. */}
-                          <MapHoverTarget
-                            pin={item.offers.map((offer) => listingKey(offer.id))}
-                            className="border border-line bg-surface p-3 shadow-soft"
-                          >
-                            <ShownOffersContext.Provider value={new Set(kept(group, item).map((offer) => offer.id))}>
-                              {item.content}
-                            </ShownOffersContext.Provider>
+                          <MapHoverTarget pin={card.listings.map((listing) => listingKey(listing.id))} className="border border-line bg-surface p-3 shadow-soft">
+                            <BookRow card={card} section={section} slug={slug} dates={dates} shared={shared} />
                           </MapHoverTarget>
                         </li>
                       ))}
                     </ul>
                   ) : null}
-                  {rows.length < all.length && (
+                  {current === "all" && data && data.total > cards.length && (
                     <Button
                       type="button"
                       variant="soft"
                       size="touch"
                       arrow
                       onClick={() => {
-                        setCurrent(group.id);
-                        setReveal({ id: `${group.id}-top` });
+                        pick(section.id);
+                        setReveal({ id: `${section.id}-top` });
                       }}
                       className="self-start"
                     >
-                      Show all {all.length} in {group.title}
+                      Show all {data.total} in {section.title}
                     </Button>
                   )}
-                  {all.length === 0 && (
+                  {/* Not from All's first rows, still on screen while the section's first page loads. */}
+                  {current === section.id && data && data.per_page === PER_PAGE && (
+                    <Pager page={data.page} perPage={data.per_page} total={data.total} onPage={turnPage(section)} />
+                  )}
+                  {((data && data.total === 0) || (nearIds && nearIds.length === 0)) && (
                     <p className="rounded-card bg-surface p-4 text-sm text-muted card-edge">
-                      {near && filtered(group).length > 0 ? (
+                      {nearIds ? (
                         "Nothing in this section is within that distance of your pin."
-                      ) : (
+                      ) : set > 0 ? (
                         <>
-                          {set > 0 ? (
-                            <>
-                              Nothing here matches these filters. <TextButton onClick={clear} />
-                            </>
-                          ) : (
-                            <>Nothing in {group.title} matches “{query}”.</>
-                          )}
+                          Nothing here matches these filters. <TextButton onClick={clear} />
                         </>
+                      ) : (
+                        <>Nothing in {section.title} matches “{query}”.</>
                       )}
                     </p>
                   )}
@@ -613,49 +540,108 @@ export function ListingBrowser({
               );
             })}
       </div>
-      {editing && editingGroup && (
-        <Dialog
-          open
-          placement="sheet"
-          title={editingGroup.title}
-          meta="Filter what shows here"
+      {editingSection && (
+        <BookFilterDialog
+          slug={slug}
+          section={editingSection}
+          base={queryOf(editingSection)}
+          facets={dataOf(editingSection)?.facets}
+          filters={filtersOf(editingSection.id)}
+          onApply={(next) => {
+            setFiltersOf(editingSection.id, next);
+            setEditing(null);
+            if (current !== editingSection.id) pick(editingSection.id);
+          }}
           onClose={() => setEditing(null)}
-          data-testid="filter-dialog"
-          summary={
-            setCount(editing.draft) > 0 && (
-              <TextButton onClick={() => setEditing({ ...editing, draft: NO_FILTERS })} className="text-sm">
-                Clear all
-              </TextButton>
-            )
-          }
-          actions={
-            <>
-              <Button
-                type="button"
-                data-testid="filter-apply"
-                onClick={() => {
-                  setFiltersOf(editing.id, editing.draft);
-                  setEditing(null);
-                }}
-              >
-                Show {matching(editingGroup, editing.draft, matches)}{" "}
-                {matching(editingGroup, editing.draft, matches) === 1 ? "result" : "results"}
-              </Button>
-            </>
-          }
-        >
-          <FilterPanel group={editingGroup} filters={editing.draft} onChange={(draft) => setEditing({ ...editing, draft })} />
-        </Dialog>
+        />
       )}
     </div>
   );
 }
 
+// One card: its listings as BusinessRow shows them, built from the API's rows as the place's page
+// builds its own (offerOf). A stay's opens its business's page, any other its cheapest listing's.
+function BookRow({ card, section, slug, dates, shared }: { card: Card; section: BookSection; slug: string; dates: TripDates; shared: string[] }) {
+  const listings = card.listings;
+  const first = listings[0];
+  const offers = listings.map((listing) => offerOf(listing, { dates, pageSlug: slug, groupTitle: section.title }));
+  // Its place, when all its listings here are in one place inside this one.
+  const place = listings.every((listing) => listing.area_slug === first.area_slug) && first.area_slug !== slug ? `in ${first.area_name}` : undefined;
+  return (
+    <BusinessRow
+      name={first.business.name}
+      title={isTitleCard(first) ? first.title : undefined}
+      href={isTitleCard(first) ? titleCardHref(listings, dates, slug) : businessHref(first.business.id, dates, section.id, slug)}
+      place={place}
+      groupTitle={section.title}
+      offers={offers}
+      sharedChips={shared}
+    />
+  );
+}
 
-// How many businesses in a group have a listing the filters (and the page's search) leave.
-function matching(group: ListingGroup, filters: Filters, matches: ((offer: ListingOffer) => boolean) | null) {
-  return group.items.filter((item) => item.offers.some((offer) => (!matches || matches(offer)) && passes(offer, filters)))
-    .length;
+// A section's filters in a sheet: What to book's panel for its category (FilterPanel), its
+// counts from the API with the filters as edited, and "Show N results". Closes freely.
+function BookFilterDialog({
+  slug,
+  section,
+  base,
+  facets,
+  filters,
+  onApply,
+  onClose,
+}: {
+  slug: string;
+  section: BookSection;
+  base: BookQuery;
+  facets?: Facets;
+  filters: Filters;
+  onApply: (next: Filters) => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState(filters);
+  const matching = useBookCards(slug, { ...base, page: 1, perPage: 1, around: null, filters: draft });
+  const count = matching.data?.total;
+  const shownFacets = matching.data?.facets ?? facets;
+  return (
+    <Dialog
+      open
+      placement="sheet"
+      title={section.title}
+      meta="Filter what shows here"
+      onClose={onClose}
+      data-testid="filter-dialog"
+      summary={
+        setCount(draft) > 0 && (
+          <TextButton onClick={() => setDraft(NO_FILTERS)} className="text-sm">
+            Clear all
+          </TextButton>
+        )
+      }
+      actions={
+        <Button type="button" data-testid="filter-apply" loading={count === undefined} onClick={() => onApply(draft)}>
+          {count === undefined ? "Show results" : `Show ${count} ${count === 1 ? "result" : "results"}`}
+        </Button>
+      }
+    >
+      {shownFacets ? (
+        <FilterPanel group={section.group} facets={shownFacets} filters={draft} onChange={setDraft} />
+      ) : (
+        <RowsSkeleton count={3} />
+      )}
+    </Dialog>
+  );
+}
+
+// Rows on their way: grey blocks the height of a row.
+function RowsSkeleton({ count }: { count: number }) {
+  return (
+    <div aria-hidden className="flex flex-col gap-3">
+      {Array.from({ length: count }, (_, index) => (
+        <div key={index} className="h-40 rounded-card bg-mist motion-safe:animate-pulse" />
+      ))}
+    </div>
+  );
 }
 
 // A search typed on the page, said back: how many matched here, Clear search, and the same search
@@ -719,290 +705,6 @@ function TextButton({ onClick, children = "Clear", className }: { onClick: () =>
     <button type="button" onClick={onClick} className={cn("font-semibold text-link underline-offset-4 hover:underline", className)}>
       {children}
     </button>
-  );
-}
-
-// One section's filters: free cancellation, for stays whether they take pets, a price range on
-// its "from" prices, and what its rows include, each with how many businesses would match.
-function FilterPanel({
-  group,
-  filters,
-  onChange,
-}: {
-  group: ListingGroup;
-  filters: Filters;
-  onChange: (next: Filters) => void;
-}) {
-  const [allIncludes, setAllIncludes] = useState(false);
-  // Prices are its listings'; the counts are businesses, as the section's rows and its "Show N
-  // results" count them, so a business with two cottages counts once.
-  const offers = group.items.flatMap((item) => item.offers);
-  const prices = offers.flatMap((item) => (item.priceCents === null ? [] : [item.priceCents]));
-  const units = [...new Set(offers.flatMap((item) => (item.priceUnit ? [item.priceUnit] : [])))];
-  const unpriced = offers.some((item) => item.priceCents === null);
-  const businesses = group.items.length;
-  const free = group.items.filter((item) => item.offers.some((offer) => offer.features.some((feature) => feature.trust))).length;
-  const pets = group.group === "stay" ? group.items.filter((item) => item.offers.some(takesPets)).length : 0;
-
-  // What the rows include, counted among the businesses the other filters leave. A choice every
-  // business has filters nothing (the section's note already says it), so it isn't offered, nor is
-  // a size or a route, which describe a listing rather than say what comes with it. One already
-  // ticked stays listed even when nothing left has it.
-  const counts = new Map<string, number>();
-  for (const item of group.items) {
-    const labels = new Set(
-      item.offers
-        .filter((offer) => passes(offer, filters, true))
-        .flatMap((offer) => offer.features.filter((feature) => !feature.trust && !NOT_INCLUDES.has(feature.icon)))
-        .map((feature) => feature.label),
-    );
-    for (const label of labels) counts.set(label, (counts.get(label) ?? 0) + 1);
-  }
-  for (const [label, count] of counts) if (count === businesses && !filters.includes.includes(label)) counts.delete(label);
-  for (const label of filters.includes) if (!counts.has(label)) counts.set(label, 0);
-  const includes = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const listed = allIncludes ? includes : includes.slice(0, FIRST_INCLUDES);
-  const toggle = (label: string, on: boolean) =>
-    onChange({ ...filters, includes: on ? [...filters.includes, label] : filters.includes.filter((l) => l !== label) });
-
-  return (
-    <div className="flex flex-col gap-4" data-testid="listing-filter-panel">
-      {free > 0 && (free < businesses || filters.free) && (
-        <CheckboxField
-          label="Free cancellation"
-          aside={free}
-          checked={filters.free}
-          onChange={(event) => onChange({ ...filters, free: event.target.checked })}
-        />
-      )}
-      {(pets > 0 || filters.pets) && (
-        <CheckboxField
-          label="Pet-friendly"
-          aside={pets}
-          checked={filters.pets}
-          onChange={(event) => onChange({ ...filters, pets: event.target.checked })}
-          data-testid="pet-friendly-filter"
-        />
-      )}
-      {(group.group === "rental" || group.group === "gear") && (
-        <VehicleFilterFields group={group} filters={filters.vehicle} onChange={(vehicle) => onChange({ ...filters, vehicle })} />
-      )}
-      {prices.length > 0 && (
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-2 text-sm font-semibold">
-            Price from, ₱{units.length === 1 && <span className="font-normal text-muted"> {units[0]}</span>}
-          </legend>
-          <div className="grid grid-cols-2 gap-2">
-            <Field
-              label="Min"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              step={100}
-              placeholder={formatPeso(Math.min(...prices))}
-              value={filters.min}
-              onChange={(event) => onChange({ ...filters, min: wholePesos(event.target.value) })}
-            />
-            <Field
-              label="Max"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              step={100}
-              placeholder={formatPeso(Math.max(...prices))}
-              value={filters.max}
-              onChange={(event) => onChange({ ...filters, max: wholePesos(event.target.value) })}
-            />
-          </div>
-          {Number(filters.min) > 0 && Number(filters.max) > 0 && Number(filters.min) > Number(filters.max) && (
-            <p role="alert" className="text-xs text-danger">The lowest price is above the highest, so nothing matches. Lower Min or raise Max.</p>
-          )}
-          {unpriced && (filters.min || filters.max) && (
-            <p className="text-xs text-muted">Ones without a price yet are hidden while a price is set.</p>
-          )}
-        </fieldset>
-      )}
-      {includes.length > 0 && (
-        <fieldset className="flex flex-col gap-0">
-          <legend className="mb-2 text-sm font-semibold">Includes</legend>
-          {listed.map(([label, count]) => (
-            <CheckboxField
-              key={label}
-              label={label}
-              aside={count}
-              checked={filters.includes.includes(label)}
-              onChange={(event) => toggle(label, event.target.checked)}
-            />
-          ))}
-          {includes.length > FIRST_INCLUDES && (
-            <TextButton onClick={() => setAllIncludes(!allIncludes)}>
-              {allIncludes ? "Show fewer" : `Show all ${includes.length}`}
-            </TextButton>
-          )}
-        </fieldset>
-      )}
-    </div>
-  );
-}
-
-// Getting around's and Gear's own filters (RAA-205): the kind of vehicle and its transmission as pills, any
-// of those picked, then what the shop offers. Each shows only when it splits the section (or is
-// set), with how many businesses have it, as the other filters count.
-function VehicleFilterFields({
-  group,
-  filters,
-  onChange,
-}: {
-  group: ListingGroup;
-  filters: VehicleFilters;
-  onChange: (next: VehicleFilters) => void;
-}) {
-  const businesses = group.items.length;
-  const having = (has: (facts: VehicleFacts) => boolean) =>
-    group.items.filter((item) => item.offers.some((offer) => offer.vehicle && has(offer.vehicle))).length;
-  const facts = group.items.flatMap((item) => item.offers.flatMap((offer) => (offer.vehicle ? [offer.vehicle] : [])));
-  const kinds = [...new Set([...facts.map((fact) => fact.kind), ...filters.kinds])].sort();
-  const transmissions = [
-    ...new Set([...facts.flatMap((fact) => (fact.transmission ? [fact.transmission] : [])), ...filters.transmissions]),
-  ].sort();
-  const toggle = (list: string[], value: string) => (list.includes(value) ? list.filter((each) => each !== value) : [...list, value]);
-  const pills = (legend: string, values: string[], picked: string[], label: (value: string) => string, set: (next: string[]) => void, has: (value: string) => (fact: VehicleFacts) => boolean) =>
-    values.length > 1 || picked.length > 0 ? (
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 text-sm font-semibold">{legend}</legend>
-        <div className="flex flex-wrap gap-2">
-          {values.map((value) => (
-            <Pill key={value} on={picked.includes(value)} onClick={() => set(toggle(picked, value))}>
-              {label(value)} <span className="font-normal text-muted">{having(has(value))}</span>
-            </Pill>
-          ))}
-        </div>
-      </fieldset>
-    ) : null;
-
-  return (
-    <>
-      {pills(
-        group.group === "gear" ? "Type" : "Vehicle",
-        kinds,
-        filters.kinds,
-        (kind) => kind,
-        (next) => onChange({ ...filters, kinds: next }),
-        (kind) => (fact) => fact.kind === kind,
-      )}
-      {pills(
-        "Transmission",
-        transmissions,
-        filters.transmissions,
-        (value) => transmissionLabel(value) ?? value,
-        (next) => onChange({ ...filters, transmissions: next }),
-        (value) => (fact) => fact.transmission === value,
-      )}
-      {VEHICLE_CHECKS.map((check) => {
-        const count = having(check.has);
-        if (!filters[check.key] && (count === 0 || count === businesses)) return null;
-        return (
-          <CheckboxField
-            key={check.key}
-            label={check.label}
-            aside={count}
-            checked={filters[check.key]}
-            onChange={(event) => onChange({ ...filters, [check.key]: event.target.checked })}
-            data-testid={`vehicle-filter-${check.key}`}
-          />
-        );
-      })}
-    </>
-  );
-}
-
-// What is set in a section's filters, as pills each removing its own, kept to one row: what
-// doesn't fit is counted in "+N more", which opens the filters.
-function FilterMarkers({
-  title,
-  filters,
-  onChange,
-  onMore,
-}: {
-  title: string;
-  filters: Filters;
-  onChange: (next: Filters) => void;
-  onMore: () => void;
-}) {
-  const min = Number(filters.min) || 0;
-  const max = Number(filters.max) || 0;
-  const peso = (amount: number) => formatPeso(amount * 100);
-  const markers = [
-    filters.free && { key: "free", label: "Free cancellation", remove: () => onChange({ ...filters, free: false }) },
-    filters.pets && { key: "pets", label: "Pet-friendly", remove: () => onChange({ ...filters, pets: false }) },
-    (min || max) && {
-      key: "price",
-      label: min && max ? `${peso(min)}–${peso(max)}` : max ? `Up to ${peso(max)}` : `From ${peso(min)}`,
-      remove: () => onChange({ ...filters, min: "", max: "" }),
-    },
-    ...filters.vehicle.kinds.map((kind) => ({
-      key: `kind:${kind}`,
-      label: kind,
-      remove: () => onChange({ ...filters, vehicle: { ...filters.vehicle, kinds: filters.vehicle.kinds.filter((each) => each !== kind) } }),
-    })),
-    ...filters.vehicle.transmissions.map((value) => ({
-      key: `transmission:${value}`,
-      label: transmissionLabel(value) ?? value,
-      remove: () =>
-        onChange({ ...filters, vehicle: { ...filters.vehicle, transmissions: filters.vehicle.transmissions.filter((each) => each !== value) } }),
-    })),
-    ...VEHICLE_CHECKS.filter((check) => filters.vehicle[check.key]).map((check) => ({
-      key: `vehicle:${check.key}`,
-      label: check.label,
-      remove: () => onChange({ ...filters, vehicle: { ...filters.vehicle, [check.key]: false } }),
-    })),
-    ...filters.includes.map((label) => ({
-      key: `includes:${label}`,
-      label,
-      remove: () => onChange({ ...filters, includes: filters.includes.filter((l) => l !== label) }),
-    })),
-  ].filter((marker) => marker !== false && marker !== 0);
-  const { list, more, shown, hidden } = useFitRows<HTMLUListElement, HTMLLIElement>(
-    1,
-    markers.length,
-    markers.map((marker) => marker.key).join("|"),
-  );
-  const visible = shown === null ? markers : markers.slice(0, shown);
-
-  return (
-    <ul
-      ref={list}
-      aria-label={`${title} filters`}
-      className="order-last flex min-w-0 basis-full flex-wrap gap-1.5 sm:order-none sm:flex-1 sm:basis-auto"
-    >
-      {visible.map((marker) => (
-        <li key={marker.key}>
-          <span className="flex min-h-8 items-center gap-1 rounded-full bg-mist pr-1 pl-3 text-xs font-semibold whitespace-nowrap text-primary">
-            {marker.label}
-            <button
-              type="button"
-              aria-label={`Remove ${marker.label}`}
-              onClick={marker.remove}
-              // A 24px circle with a 44px-tall hit area, so the pill stays slim on a phone.
-              className="relative flex size-6 items-center justify-center rounded-full before:absolute before:-inset-x-1.5 before:-inset-y-2.5 hover:bg-surface"
-            >
-              <CloseGlyph className="size-3.5" />
-            </button>
-          </span>
-        </li>
-      ))}
-      {hidden > 0 && (
-        <li ref={more}>
-          <button
-            type="button"
-            onClick={onMore}
-            className="relative flex min-h-8 items-center rounded-full bg-tag px-3 text-xs font-semibold whitespace-nowrap text-navy/80 before:absolute before:inset-x-0 before:-inset-y-1.5 hover:bg-lagoon-tint"
-          >
-            +{hidden} more
-          </button>
-        </li>
-      )}
-    </ul>
   );
 }
 

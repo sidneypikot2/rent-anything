@@ -380,7 +380,7 @@ function AreaForm({ area }: { area?: AdminArea }) {
             onChange={(event) => set("description", event.target.value)}
           />
           <TextareaField
-            label="Getting there"
+            label="Transfer"
             value={form.getting_there}
             onChange={(event) => set("getting_there", event.target.value)}
           />
