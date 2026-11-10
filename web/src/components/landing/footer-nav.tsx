@@ -48,7 +48,7 @@ function goToSection(event: MouseEvent<HTMLAnchorElement>, id: string) {
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   history.replaceState(null, "", `#${id}`);
 
-  const heading = section.querySelector<HTMLElement>(":scope > header, h2");
+  const heading = section.querySelector<HTMLElement>(":scope > header, :scope > h2");
   let landed = false;
   const land = () => {
     if (landed || !heading) return;
