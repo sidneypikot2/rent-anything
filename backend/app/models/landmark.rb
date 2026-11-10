@@ -21,6 +21,10 @@ class Landmark < ApplicationRecord
 
   enum :status, STATUSES.index_with(&:itself), validate: true
 
+  # In a place or the published places inside it, however deep: a place in Santa Fe is also one
+  # of Bantayan Island's places to see (RAA-285), as Listing.in_area_tree does for listings.
+  scope :in_area_tree, ->(area) { where(area_id: Area.published.subtree_of(area).select(:id)) }
+
   validates :slug, presence: true, uniqueness: true, format: { with: /\A[a-z0-9]+(-[a-z0-9]+)*\z/ }
   validates :name, :location, presence: true
   validates :name, length: { maximum: 120 }
