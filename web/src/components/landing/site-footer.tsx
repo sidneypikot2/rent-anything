@@ -1,50 +1,37 @@
-import Link from "next/link";
-import { LEGAL_LINKS } from "@/components/legal/legal-page";
 import { GlassPanel } from "@/components/ui/glass";
-import { BRAND, BUSINESS_ADDRESS, SUPPORT_EMAIL, TAGLINE } from "@/lib/brand";
+import { BRAND, BUSINESS_ADDRESS, TAGLINE } from "@/lib/brand";
 import { FooterNav } from "./footer-nav";
 import { LAUNCH_AREA } from "./launch-area";
 import { Logo } from "./logo";
 import { SocialLinks } from "./social-links";
 
-// The guest footer: a few links, the line about what we are and who runs the site, on glass over the guest
-// pages' fixed backdrop (Sky & Forest, RAA-102; RAA-107).
+// The guest footer, on the guest pages' fixed backdrop (Sky & Forest, RAA-102; RAA-107): one band of
+// the trip band's glass, edge to edge and down to the page's foot, square — the brand,
+// the links in columns and, at its foot, who runs the site, kept to the page's width inside it. The
+// brand leads on a phone and sits beside the links from lg.
 export function SiteFooter() {
   return (
-    <footer data-site-footer className="focus-light mt-auto text-white">
-      <div className="mx-auto flex w-full max-w-page flex-col gap-gutter px-gutter py-8 sm:flex-row sm:items-stretch sm:py-10">
-        {/* On a phone the brand and socials close the page, under the links panel. */}
-        <div className="order-last flex flex-1 flex-col justify-center gap-1 sm:order-none">
-          <Logo className="text-2xl" />
-          <p className="font-display font-semibold text-sky-mist">{TAGLINE}</p>
-          {/* Who runs the site and how to reach us. */}
-          <address className="mt-2 text-sm not-italic text-sky-mist" data-testid="footer-business">
-            {BRAND} · {BUSINESS_ADDRESS}
-            <br />
-            <a href={`mailto:${SUPPORT_EMAIL}`} className="font-semibold text-white underline underline-offset-4 hover:text-sky-pale">
-              {SUPPORT_EMAIL}
-            </a>
+    <footer data-site-footer className="focus-light mt-auto pt-8 text-white lg:pt-10">
+      <GlassPanel tone="forest" className="border-x-0 border-b-0 text-sm">
+        {/* --foot-space: room for buttons floating at the window's foot (globals.css). */}
+        <div className="mx-auto flex w-full max-w-page flex-col gap-6 px-gutter pt-8 pb-[calc(2rem+var(--foot-space,0px))] lg:pt-10 lg:pb-[calc(2.5rem+var(--foot-space,0px))]">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,16rem)_1fr] lg:gap-gutter">
+            <div className="flex flex-col gap-1">
+              <Logo className="text-2xl" />
+              <p className="font-display text-base font-semibold text-sky-mist">{TAGLINE}</p>
+              <p className="text-pretty text-sky-mist">
+                Local partners · starting on {LAUNCH_AREA.name}, {LAUNCH_AREA.region}
+              </p>
+              <SocialLinks className="mt-2 -ml-1" />
+            </div>
+            <FooterNav />
+          </div>
+          {/* Who runs the site; Company's Contact us is how to reach us. */}
+          <address className="border-t border-glass-edge pt-4 not-italic text-sky-mist" data-testid="footer-business">
+            © {new Date().getFullYear()} {BRAND} · {BUSINESS_ADDRESS}
           </address>
-          <SocialLinks className="mt-3" />
         </div>
-        <GlassPanel tone="forest" className="flex flex-col gap-4 rounded-card p-card text-sm sm:min-w-80">
-          {/* Two to a row on a phone: the four pills read as a set. */}
-          <FooterNav />
-          <p className="text-pretty text-sky-mist">Local partners · starting on {LAUNCH_AREA.name}, {LAUNCH_AREA.region}</p>
-          {/* The legal pages: quiet text links, so the four pills stay the footer's way around. */}
-          <nav aria-label="Legal" className="-mx-2 flex flex-wrap border-t border-glass-edge pt-2">
-            {LEGAL_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="flex min-h-11 items-center px-2 text-sky-mist underline-offset-4 hover:text-white hover:underline"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-        </GlassPanel>
-      </div>
+      </GlassPanel>
     </footer>
   );
 }
