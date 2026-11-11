@@ -7,7 +7,9 @@ module Api
       PER_USER_LIMIT = { to: 5, within: 15.minutes }.freeze
 
       before_action :authenticate_user!, only: :create
-      limit_auth_attempts only: %i[create verify]
+      # One counter per action, so resending the link doesn't use up the tries at opening it.
+      limit_auth_attempts only: :create, name: "send"
+      limit_auth_attempts only: :verify, name: "verify"
       rate_limit(**PER_USER_LIMIT, by: -> { "email_confirmation:#{current_user.id}" }, with: :render_too_many_requests,
         name: "per_user", only: :create)
 
