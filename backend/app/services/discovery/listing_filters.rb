@@ -43,6 +43,18 @@ module Discovery
       ) AS listed)
     SQL
     FREE_CANCELLATION_SQL = "listings.cancellation_policy IN (#{Listing::FREE_CANCELLATION_POLICIES.map { "'#{_1}'" }.join(', ')})".freeze
+    # A listing's facts for the facets, but whether it passes the other filters (`facts`), per card
+    # key: built once from constants, so no request's value reaches the SQL text.
+    FACT_COLUMNS = { true => Cards::STAY_KEY_SQL, false => Cards::TITLE_KEY_SQL }.transform_values do |card|
+      <<~SQL.squish.freeze
+        listings.id, #{card} AS card,
+        listings.cancellation_policy AS policy, #{FREE_CANCELLATION_SQL} AS free_cancellation,
+        COALESCE(listings.attrs->'pets_allowed' = 'true'::jsonb, false) AS pets, #{ATTR_TEXT.call('transmission')} AS transmission,
+        categories.slug, categories.name, categories.booking_type,
+        #{FEES.map { |key, column| "vehicle_rates.#{column} IS NOT NULL AS #{key}" }.join(', ')}, #{PRICE_FROM} AS price,
+        #{INCLUDES_SQL} AS includes
+      SQL
+    end.freeze
     # The filter sheet's counts over the facts (a CTE named `facts`), in one statement. Each count is
     # of cards, so the listings are first grouped by card (hashing, not sorting, at 50k listings);
     # the includes' are among the listings the other filters leave (`passing`).
@@ -208,15 +220,14 @@ module Discovery
 
     # One row per listing the search finds: its card and the facts the facets count.
     def facts(scope, group)
-      passing = other_filters? ? "listings.id IN (#{apply(scope, includes: false).select(:id).to_sql})" : "TRUE"
-      fees = FEES.map { |key, column| "vehicle_rates.#{column} IS NOT NULL AS #{key}" }.join(", ")
-      search(scope).joins(:category).left_joins(:vehicle_rate).select(Arel.sql(<<~SQL.squish))
-        listings.id, #{group == "stay" ? Cards::STAY_KEY_SQL : Cards::TITLE_KEY_SQL} AS card,
-        listings.cancellation_policy AS policy, #{FREE_CANCELLATION_SQL} AS free_cancellation,
-        COALESCE(listings.attrs->'pets_allowed' = 'true'::jsonb, false) AS pets, #{ATTR_TEXT.call('transmission')} AS transmission,
-        categories.slug, categories.name, categories.booking_type, #{fees}, #{PRICE_FROM} AS price,
-        #{passing} AS passing, #{INCLUDES_SQL} AS includes
-      SQL
+      # Whether it passes the other filters, as an Arel node rather than SQL text.
+      passing = if other_filters?
+        Listing.arel_table[:id].in(apply(scope, includes: false).select(:id).arel)
+      else
+        Arel::Nodes::True.new
+      end
+      search(scope).joins(:category).left_joins(:vehicle_rate)
+        .select(Arel.sql(FACT_COLUMNS.fetch(group == "stay")), Arel::Nodes::As.new(Arel::Nodes::Grouping.new(passing), Arel.sql("passing")))
     end
 
     # Runs the facets' statement with Postgres' JIT off: Postgres guesses ~100 includes per listing,
