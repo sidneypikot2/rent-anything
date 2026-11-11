@@ -21,8 +21,8 @@ type AreaMapProps = ComponentProps<Awaited<ReturnType<typeof loadMap>>>;
 
 // The sections under an area page's search bar with its map. From lg, while the map is on, the
 // sections keep to the left and the map sticks to the right under the search bar, all within the
-// page's width, so they line up with the banner and the search bar above (What to book folds its
-// rail into a bar over the rows to keep them readable, BesideMapContext). The map starts off
+// page's width, so they line up with the banner and the search bar above (BesideMapContext tells
+// the sections the map is beside them). The map starts off
 // and the guest's choice is kept (AreaMapProvider). Below lg there's no room for both: a Map
 // button opens it full screen, and List goes back. One map at a time, so MapLibre runs once.
 export function AreaMapLayout({

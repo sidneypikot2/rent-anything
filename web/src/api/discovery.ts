@@ -21,6 +21,8 @@ export type StayQuote = components["schemas"]["stay_quote"];
 export type PlanBusinessesPage = components["schemas"]["plan_businesses"];
 export type PlanGroup = keyof PlanBusinessesPage["counts"];
 export type BookCardsPage = components["schemas"]["book_cards"];
+export type GroupCounts = components["schemas"]["group_counts"];
+export type MapPinsPage = components["schemas"]["map_pins"];
 
 // Cached per request: the home page's hero card and its sections share one fetch (RAA-125).
 export const getDestinations = cache(async (): Promise<AreaCard[]> => {
@@ -37,21 +39,11 @@ export const getActivities = cache(async (): Promise<Activity[]> => {
   return data;
 });
 
-// null when there is no such area. Cached per request: the page and its metadata share
-// one call.
-export const getArea = cache(async (slug: string): Promise<AreaDetail | null> => {
-  await connection();
-  const { data, response } = await serverApiClient().GET("/api/v1/areas/{slug}", { params: { path: { slug } } });
-  if (response.status === 404) return null;
-  if (!data) throw new Error("Couldn't load this destination");
-  return data;
-});
-
-// A place for the plan pages: its places to see and the places inside it, without its listings
-// (a step pages through those, getPlanBusinesses). null when there is no such area.
+// A place: its places to see, the places inside it and what it offers per group (the plan pages,
+// What to book and the place's page, which page through its listings). null when there is no such area.
 export const getAreaPlaces = cache(async (slug: string): Promise<AreaDetail | null> => {
   await connection();
-  const { data, response } = await serverApiClient().GET("/api/v1/areas/{slug}", { params: { path: { slug }, query: { listings: "0" } } });
+  const { data, response } = await serverApiClient().GET("/api/v1/areas/{slug}", { params: { path: { slug } } });
   if (response.status === 404) return null;
   if (!data) throw new Error("Couldn't load this destination");
   return data;
@@ -72,16 +64,41 @@ export const getPlanBusinesses = cache(async (slug: string, group: PlanGroup): P
 // The first page of one What to book section's cards (`perPage` of them: All shows 3), with the
 // page's search. null for an unknown place.
 export const getBookCards = cache(
-  async (slug: string, group: PlanGroup, perPage: number, q?: string): Promise<BookCardsPage | null> => {
+  // `facets: false` for a row that shows no filter sheet (the place's page).
+  async (slug: string, group: PlanGroup, perPage: number, q?: string, from?: string, to?: string, page = 1, facets = true): Promise<BookCardsPage | null> => {
     await connection();
     const { data, response } = await serverApiClient().GET("/api/v1/areas/{slug}/book_cards", {
-      params: { path: { slug }, query: { group, per_page: perPage, ...(q ? { q } : {}) } },
+      params: {
+        path: { slug },
+        // The section chips' counts come from getBookCounts, once for the page.
+        query: {
+          group,
+          per_page: perPage,
+          page,
+          counts: false,
+          ...(q ? { q } : {}),
+          ...(from && to ? { from, to } : {}),
+          ...(facets ? {} : { facets: false }),
+        },
+      },
     });
     if (response.status === 404) return null;
     if (!data) throw new Error("Couldn't load what to book here");
     return data;
   },
 );
+
+// How many cards each What to book section has, with the page's search and dates: its section
+// chips, asked once for the page rather than with every section's cards. null for an unknown place.
+export const getBookCounts = cache(async (slug: string, q?: string, from?: string, to?: string): Promise<GroupCounts | null> => {
+  await connection();
+  const { data, response } = await serverApiClient().GET("/api/v1/areas/{slug}/book_counts", {
+    params: { path: { slug }, query: { ...(q ? { q } : {}), ...(from && to ? { from, to } : {}) } },
+  });
+  if (response.status === 404) return null;
+  if (!data) throw new Error("Couldn't count what to book here");
+  return data.counts;
+});
 
 // One active listing (RAA-86). null for a draft, pending or unknown one. Cached per request:
 // the page and its metadata share one call.

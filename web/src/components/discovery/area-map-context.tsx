@@ -1,16 +1,19 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
+import { MapGlyph } from "./tag-glyphs";
+import type { MapPinsQuery } from "./use-map-pins";
 
 export { listingKey, placeKey } from "./area-map-pins";
 
 // What an area page's map shares with the cards and rows beside it: the pin under the pointer
 // (from either side), the pin whose pop-up is open, whether the map is shown, what What to book
-// is showing (its group, and for a group narrowed by its filters or a search, the listings that
-// pass: `shown`, by group; a group not in it shows every pin), and, while searching by distance,
-// how far each listing is from the guest's pin. A pin's key is `listing-<id>` or `place-<slug>`.
-export type MapView = { group: string | null; shown: Record<string, number[]> };
+// is showing (its group, null under All, and the query its pins are fetched with: the search,
+// the dates and the group's filters, MapPinsQuery), and, while searching by distance, how far
+// each listing is from the guest's pin. A pin's key is `listing-<id>` or `place-<slug>`.
+export type MapView = { group: string | null; query: MapPinsQuery };
 
 type AreaMapState = {
   // The pins lit by a pointer: one pin, or a business card's pins.
@@ -85,7 +88,7 @@ export function AreaMapProvider({ children }: { children: ReactNode }) {
   );
   const [selected, setSelected] = useState<string | null>(null);
   const mapOn = useSyncExternalStore(subscribeMapOn, readMapOn, () => false);
-  const [view, setView] = useState<MapView>({ group: null, shown: {} });
+  const [view, setView] = useState<MapView>({ group: null, query: {} });
   const [near, setNear] = useState<Map<number, number> | null>(null);
   const value = useMemo(
     () => ({ hover, setHover, selected, setSelected, mapOn, setMapOn: keepingPlace, view, setView, near, setNear }),
@@ -132,28 +135,24 @@ export function MapHoverTarget({ pin, children, className }: { pin: string | str
   );
 }
 
-// The rail's switch for the map beside the sections (from lg, where there is room for both).
-// With the map on, the rail folds into a bar over the rows and the map's own Hide map turns it off.
+// What to book's way to the map beside the sections (from lg, where there is room for both): a
+// pill at the end of its row of sections. With the map on, the map's own Hide map turns it off.
 export function MapSwitch() {
   const map = useAreaMap();
-  if (!map) return null;
+  if (!map || map.mapOn) return null;
   return (
-    <div className="hidden flex-col gap-2 rounded-card bg-surface p-4 card-edge-line shadow-soft lg:flex">
-      <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm font-semibold">
+    <span className="ml-auto hidden shrink-0 pl-2 lg:flex">
+      <Button
+        variant="soft"
+        size="touch"
+        title="Pins follow the group and filters you pick"
+        onClick={() => map.setMapOn(true)}
+        data-testid="map-switch"
+        className="px-4 text-control"
+      >
+        <MapGlyph className="size-5" />
         Show map
-        <button
-          type="button"
-          role="switch"
-          aria-checked={map.mapOn}
-          onClick={() => map.setMapOn(!map.mapOn)}
-          data-testid="map-switch"
-          className={cn(
-            "relative h-6.5 w-11 shrink-0 rounded-full transition-colors duration-300 ease-calm after:absolute after:top-0.75 after:left-0.75 after:size-5 after:rounded-full after:bg-surface after:shadow after:transition-transform after:duration-300 after:ease-calm",
-            map.mapOn ? "bg-primary after:translate-x-4.5" : "bg-line-strong",
-          )}
-        />
-      </label>
-      <p className="text-xs text-pretty text-muted">Pins follow the group and filters you pick.</p>
-    </div>
+      </Button>
+    </span>
   );
 }

@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getArea, getDestinations, getExplore, type AreaDetail } from "@/api/discovery";
+import { getAreaPlaces, getBookCards, getDestinations, getExplore, type PlanGroup } from "@/api/discovery";
 import {
-  businessesIn,
   datesSeason,
   gettingHereText,
   planHref,
@@ -15,7 +14,7 @@ import {
   typicalPrices,
   vibesOf,
 } from "@/components/area/area-guide";
-import { areaMapData, tripNeeds } from "@/components/area/area-listings";
+import { placesToSee } from "@/components/area/area-listings";
 import { AreaNav, PlanFoot } from "@/components/area/area-nav";
 import { AREA_NOTES, busyMonths } from "@/components/area/area-notes";
 import {
@@ -33,7 +32,8 @@ import {
 import type { RowCard } from "@/components/area/listing-row";
 import { AreaMapProvider, MapHoverTarget } from "@/components/discovery/area-map-context";
 import { placeKey } from "@/components/discovery/area-map-pins";
-import { businessHref, byCard, titleCardHref, cardKey, descendants, isTitleCard, islandOf, listingPhotos } from "@/components/discovery/browse-offers";
+import { businessHref, titleCardHref, cardKey, descendants, isTitleCard, islandOf, listingByLine, listingPhotos, type BrowseListing } from "@/components/discovery/browse-offers";
+import { TRIP_ORDER_GROUPS } from "@/components/discovery/categories";
 import { LandmarkCard } from "@/components/discovery/cards";
 import { ExploreSections, withoutShown } from "@/components/discovery/explore-sections";
 import type { LandmarkTour } from "@/components/discovery/landmark-tours";
@@ -44,7 +44,7 @@ import { CurrentPlace } from "@/components/landing/current-place";
 import { LAUNCH_AREA } from "@/components/landing/launch-area";
 import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
-import { areaPhoto } from "@/components/landing/sample-photos";
+import { areaPhoto, landmarkPhotos } from "@/components/landing/sample-photos";
 import { addPreview } from "@/components/trips/add-preview";
 import { guestsLabel } from "@/components/trips/format";
 import { AreaHero } from "@/components/trips/area-hero";
@@ -61,10 +61,14 @@ import { formatDateRange } from "@/lib/dates";
 import { formatPeso } from "@/lib/money";
 import { pricedByText, priceUnitText } from "@/lib/pricing";
 
-type Listing = AreaDetail["listings"][number];
+type Listing = BrowseListing;
+// The rows' groups, each fetched as What to book's first page (book_cards).
+const ROW_GROUPS: PlanGroup[] = ["stay", "activity", "rental", "transfer"];
+// A row's cards (area-sections' ROW_CARDS).
+const ROW_SIZE = 10;
 
 export async function generateMetadata(props: PageProps<"/[area]">): Promise<Metadata> {
-  const detail = await getArea((await props.params).area);
+  const detail = await getAreaPlaces((await props.params).area);
   if (!detail) return { title: "Not found" };
   const { area, guide, landmarks } = detail;
   // What a search result shows (Klook's "Singapore 2026: Top places to visit…"): the year and
@@ -105,10 +109,12 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     );
     redirect(`/${slug}/book?${query}`);
   }
-  const [detail, explored, destinations] = await Promise.all([
-    getArea(slug),
+  // The place without its listings, and each row's first cards from What to book's own pages
+  // (book_cards), so a place with tens of thousands of listings loads as fast as one with ten.
+  const [detail, explored, destinations, rowPages] = await Promise.all([
+    getAreaPlaces(slug),
     // What's nearby: without it the page still has everything to book, and says so.
-    getExplore({ area: slug }).catch((error: unknown) => {
+    getExplore({ area: slug, listings: "0" }).catch((error: unknown) => {
       console.error(error);
       return "failed" as const;
     }),
@@ -117,9 +123,24 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
       console.error(error);
       return null;
     }),
+    // A row without its cards still leaves the page.
+    Promise.all(
+      ROW_GROUPS.map((group) =>
+        getBookCards(slug, group, group === "transfer" ? 18 : ROW_SIZE, undefined, undefined, undefined, 1, false).catch(
+          (error: unknown) => {
+            console.error(error);
+            return null;
+          },
+        ),
+      ),
+    ),
   ]);
   if (!detail) notFound();
-  const { area, areas, guide, listings } = detail;
+  const { area, areas, guide, groups } = detail;
+  const listingCount = Object.values(groups).reduce((sum, group) => sum + group.listings, 0);
+  // Each row's cards, as What to book groups them: a stay's per business, any other per title.
+  const cardsOf = (group: PlanGroup): Listing[][] =>
+    rowPages[ROW_GROUPS.indexOf(group)]?.cards.map((card) => card.listings) ?? [];
   const exploreFailed = explored === "failed";
   const explore = exploreFailed ? null : explored;
   // Its own photos once the team has added some (RAA-211), turning in the banner from the first;
@@ -129,16 +150,17 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     alt: detail.photos.length > 1 ? `${area.name}, photo ${index + 1} of ${detail.photos.length}` : area.name,
   }));
   const banner = ownPhotos[0] ?? areaPhoto(slug, area.kind);
-  const needs = tripNeeds(listings);
-  const { landmarks, photos, listingById, visitsOf, byLine } = areaMapData({
-    detail,
-    explore,
-    needs,
-    slug,
-    dates,
-    datesQuery,
-    bannerPhoto: banner.src,
-  });
+  // What it offers, in the trip's order (the hero's lead).
+  const offered = TRIP_ORDER_GROUPS.filter(({ group }) => groups[group].listings > 0).map(({ group }) => group);
+  const landmarks = placesToSee(detail);
+  // A place to see's photo: its own first one (RAA-211), else a stand-in that fits it, never one
+  // another place or the banner has.
+  const photos = landmarkPhotos(landmarks, [banner.src]);
+  const byLine = (listing: Listing) => listingByLine(listing, slug);
+  // The listings that visit each place to see, named by the API, and a few of them as rows.
+  const visitsOf = (landmark: (typeof landmarks)[number]) =>
+    landmark.visits.map((visit) => ({ ...visit, href: `/listings/${visit.id}${datesQuery}` }));
+  const listingById = new Map(detail.visitor_rows.map((listing) => [listing.id, listing]));
   // Nearby places that aren't on this page or inside this place (its landmarks, the places
   // inside it, however deep, and their landmarks).
   const inside = new Set([
@@ -175,13 +197,10 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
         },
       ];
     });
-  // Where the places to see and the stays are, for "about N km from your stay" on a place no tour
-  // goes to (ReachYourself).
+  // Where the places to see are, for "about N km from your stay" on a place no tour goes to
+  // (ReachYourself, which takes the stay's point from the trip).
   const landmarkPoints = new Map(
     (explore?.destinations ?? []).filter((place) => place.type === "landmark").map((place) => [place.slug, place.location]),
-  );
-  const stayPoints = Object.fromEntries(
-    (explore?.listings ?? []).filter((listing) => listing.booking_type === "stay").map((listing) => [listing.id, listing.location]),
   );
   // Getting to know the place (RAA-252): what the team wrote and what the data shows, each part
   // left out when there is nothing for it, and Plan a trip, which plans the island a town is on.
@@ -193,9 +212,9 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   // What no data holds yet, written by hand for the place (or, on a town's page, its island).
   const notes = AREA_NOTES[slug] ?? (island ? AREA_NOTES[island] : undefined);
   const gettingHere = gettingHereText(guide, GETTING_HERE[slug] ?? (island ? GETTING_HERE[island] : undefined));
-  const rentals = businessesIn(listings, "rental");
-  const transfers = businessesIn(listings, "transfer");
-  const tours = businessesIn(listings, "activity");
+  const rentals = groups.rental.businesses;
+  const transfers = groups.transfer.businesses;
+  const tours = groups.activity.businesses;
   const around = [
     rentals > 0 && {
       icon: "Motorcycle",
@@ -220,15 +239,16 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     },
   ].filter((way) => way !== false);
   const stays = stayPlaces(areas, landmarks);
-  const stayListings = listings.filter((listing) => listing.group === "stay");
-  const ownStays = stayListings.length;
+  const ownStays = groups.stay.listings;
   // Where to stay's, Things to do's and Vehicle rental's cards, as What to book shows them (byCard):
   // a stay's per business (its name, what it sells), any other per listing title of a business
   // ("Mio 125", "by <business>"), with the lowest price, a stay's opening the business's page on
   // that group, a title card's its listing's page. Priced cards first, then those with a photo, as What to book
   // leads. `keep` narrows the group's listings first (Vehicle rental's on-island transfers).
-  const rowCards = (group: string, keep: (listing: Listing) => boolean = () => true): RowCard[] =>
-    byCard(listings.filter((listing) => listing.group === group && keep(listing)))
+  const rowCards = (group: PlanGroup, keep: (listing: Listing) => boolean = () => true): RowCard[] =>
+    cardsOf(group)
+      .map((card) => card.filter(keep))
+      .filter((card) => card.length > 0)
       .map((offered) => {
         const first = offered[0];
         const priced = offered.filter((listing) => listing.price_from_cents);
@@ -265,7 +285,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   const activityCards = rowCards("activity");
   // Gear has no row or tab of its own: Things to do leads to it, the gear a guest needs going with
   // what they do (2026-11-09).
-  const gearCount = listings.filter((listing) => listing.group === "gear").length;
+  const gearCount = groups.gear.listings;
   // Vehicle rental's row: the vehicles to rent here, then the transfers that run on the island
   // (onIslandRoute: both ends of the route on it). The rest of the transfers are getting there,
   // which Getting here's Find a transfer leads to (2026-11-09). With the row, Getting here's list
@@ -277,7 +297,8 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     ...landmarks.map((landmark) => landmark.name),
   ];
   const isLocalTransfer = (listing: Listing) => onIslandRoute(listing.details.route, islandPlaces);
-  const localTransfers = listings.filter((listing) => listing.group === "transfer" && isLocalTransfer(listing));
+  // Among the transfers' first cards: enough to know whether vans run between the towns.
+  const localTransfers = cardsOf("transfer").flat().filter(isLocalTransfer);
   const aroundCards = [...rowCards("rental"), ...rowCards("transfer", isLocalTransfer)];
   const aroundIntro =
     [
@@ -290,7 +311,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     rentals > 0 && { label: "See rentals", href: bookHref(slug, { show: "need-rental", datesQuery }), testId: "area-around-rentals" },
     localTransfers.length > 0 && { label: "See transfers", href: bookHref(slug, { show: "need-transfer", datesQuery }), testId: "area-around-transfers" },
   ].filter((link) => link !== false);
-  const days = sampleDays(landmarks, listings);
+  const days = sampleDays(landmarks, new Set(offered));
   const questions = questionsAbout({
     name: area.name,
     guide,
@@ -312,7 +333,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     (guide.best_time_to_visit && guide.best_time_to_visit.length <= 24
       ? [{ label: "Best time", value: guide.best_time_to_visit }]
       : []);
-  const facts = [...placeFacts.slice(0, 2), ...typicalPrices(listings), ...placeFacts.slice(2)];
+  const facts = [...placeFacts.slice(0, 2), ...typicalPrices(detail.typical_prices), ...placeFacts.slice(2)];
 
   // The section bar names a few groups, not every part (Klook's has four): a group's tab goes to
   // its first part on the page, and stays marked through the rest of it. What to book has no tab
@@ -353,14 +374,14 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     <main className="flex flex-1 flex-col">
       <CurrentPlace name={area.name} slug={area.slug} />
       {tripId && <AdoptTrip id={tripId} />}
-      {listings.length > 0 ? (
+      {listingCount > 0 ? (
         // The place's banner, with the guest's trip here at its foot.
         <AreaHero
           banner={{ photo: banner, carousel: ownPhotos, eyebrow, title: bannerTitle }}
           areaName={area.name}
           places={places}
           island={island}
-          offered={needs.map((need) => need.group)}
+          offered={offered}
           sights={landmarks.map((landmark) => ({ slug: landmark.slug, name: landmark.name, visitedBy: landmark.visited_by }))}
           starting={starting}
           plan={plan}
@@ -399,7 +420,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                               areaName={area.name}
                               reach={
                                 landmarkPoints.has(landmark.slug) && (
-                                  <ReachYourself key={`reach-${landmark.slug}`} location={landmarkPoints.get(landmark.slug)!} places={places} stays={stayPoints} />
+                                  <ReachYourself key={`reach-${landmark.slug}`} location={landmarkPoints.get(landmark.slug)!} places={places} />
                                 )
                               }
                             />
@@ -459,7 +480,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                   places={places}
                   place={planPlace?.name ?? area.name}
                   planHref={plan.href}
-                  bookHref={listings.length > 0 ? bookHref(slug, { datesQuery }) : undefined}
+                  bookHref={listingCount > 0 ? bookHref(slug, { datesQuery }) : undefined}
                 />
                 <PlanFoot
                   href={plan.href}
@@ -468,7 +489,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
                   places={places}
                 />
 
-                {areas.length === 0 && landmarks.length === 0 && listings.length === 0 && !hasNearby && (
+                {areas.length === 0 && landmarks.length === 0 && listingCount === 0 && !hasNearby && (
                   <p className="text-muted">
                     Nothing here yet. Local partners are still being added.
                     {slug !== LAUNCH_AREA.slug && (

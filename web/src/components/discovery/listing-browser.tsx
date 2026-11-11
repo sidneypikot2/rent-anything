@@ -1,32 +1,33 @@
 "use client";
 
-import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { BookCardsPage, PlanGroup } from "@/api/discovery";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import { Dialog } from "@/components/ui/dialog";
 import { Pager } from "@/components/ui/pager";
 import { gapGroup, planGaps, stillMissing } from "@/components/trips/trip-missing";
 import { useTripAdd } from "@/components/trips/trip-add-provider";
-import type { TripDates } from "@/components/trips/trip-dates";
+import { tripDatesQuery, withDates, type TripDates } from "@/components/trips/trip-dates";
 import { useTripHere } from "@/components/trips/use-trip-here";
+import { formatDateRange } from "@/lib/dates";
 import { pricedByNote } from "@/lib/pricing";
 import { BusinessRow } from "./business-row";
-import { bookCardsOptions, useBookCards } from "./book-cards";
-import { FIRST_ROWS, PER_PAGE, type BookQuery } from "./book-query";
+import { bookCardsOptions, bookCountsOptions, useBookCards } from "./book-cards";
+import { LIST_PAGE, ROW_SIZE, type BookQuery, type BookSeed } from "./book-query";
 import { businessHref, isTitleCard, offerOf, titleCardHref } from "./browse-offers";
 import { BOOKING_GROUPS } from "./categories";
-import { listingKey, MapHoverTarget, MapSwitch, useAreaMap, useBesideMap } from "./area-map-context";
+import { listingKey, MapHoverTarget, MapSwitch, useAreaMap } from "./area-map-context";
 import { FilterButton } from "./filter-controls";
 import { FilterMarkers, FilterPanel, sharedLabels } from "./filter-panel";
-import { filtered, NO_FILTERS, setCount, type Facets, type Filters } from "./filters";
-import { CategoryGlyph, FeatureGlyph, GridGlyph } from "./tag-glyphs";
+import { filtered, filterQuery, NO_FILTERS, setCount, type Facets, type Filters } from "./filters";
+import { CategoryGlyph, ChevronGlyph, FeatureGlyph, GridGlyph } from "./tag-glyphs";
 import { focusDock } from "./floating-dock";
 
-// A What to book section: a guest group, its anchor (`need-<group>`), title and rail icon.
+// A What to book section: a guest group, its anchor (`need-<group>`), title and chip icon.
 export type BookSection = { id: string; title: string; icon: string; group: PlanGroup };
 type Card = BookCardsPage["cards"][number];
 
@@ -37,14 +38,16 @@ const heldOrderFor = (path: string) => (heldOrder && heldOrder.path === path ? h
 // A card's row id, its anchor on the page.
 const rowId = (section: BookSection, card: Card) => `${section.id}-card-${card.key}`;
 
-// What to book on an area page (RAA-125): the sections beside the listings. From lg it is a
-// rail on the left that stays in view under the header, the sections with their counts and
-// the map's switch (the trip and its dates lead the page above it, AreaHero); on a phone the
-// sections are a row of chips.
-// "All" shows every section under its title, its first rows and a "Show all N" that picks it; a
-// section shows just its own, a page at a time (2026-11-10) with the pager under it. The rows come
-// from the API a page at a time (`book_cards`, useQueries: one per section), filtered and searched
-// on the server, so a place with hundreds of listings never sends them all.
+// What to book on an area page (RAA-125): the sections above the listings, one row of chips with
+// their counts under the intro, stuck under the header (2026-11-11: the rail on the left went,
+// so the rows take the whole width), its icons and the map's Show map at its end from lg.
+// Each section is one sideways row of tall cards (2026-11-11, the UX-laws review's choice
+// overload): 3 in view, 6 loaded a page, the next 6 as the guest scrolls near its end or presses ›, and "Show all N",
+// which opens the section's own page (`/<area>/book/<group>`, `mode="list"`) in a new tab: a grid
+// of the same cards, 10 a page with the pager. "All" shows every section, a chip just one. The
+// cards come from the API a page at a time (`book_cards`, useQueries: one per section's page),
+// filtered and searched on the server, so a place with hundreds of listings never sends them all.
+// The dates picked in the bar over the list (BookDates, in the URL and remembered) keep only what is free.
 // Filters belong to one section (RAA-126), so a price set for a motorbike never hides a
 // cottage: each title has a filter button opening them in a modal (What to book's for its
 // category, FilterPanel), and what is set shows beside it as pills to remove, one row of them
@@ -52,12 +55,11 @@ const rowId = (section: BookSection, card: Card) => `${section.id}-card-${card.k
 // On an area page with its map, the map's pins follow the group and filters shown here, a row
 // and its pin light up together, and a distance search narrows the rows to what is in range,
 // nearest first, each with how far it is. `initial` is the group to open on (the home hero's
-// category pills, RAA-130); one the area doesn't have opens on All, and says so. On a phone the
-// chips stick under the search bar, so another section is always a tap away; so they do from lg
-// while the map is beside the sections, where a rail would leave the rows too narrow to read.
+// category pills, RAA-130); one the area doesn't have opens on All, and says so. The chips stick
+// under the search bar, so another section is always a tap away.
 // `query`: a search typed on this page's search bar (`?q=`), which narrows every section to the
 // listings matching it (on the server) and says so, with Clear search (`clearHref`) and a search of
-// every place. `placeName` names the place in those lines. `seed`: the pages the server fetched for
+// every place. `placeName` names the place in those lines. `seed`: the pages and chip counts the server fetched for
 // the first view.
 export function ListingBrowser({
   slug,
@@ -72,10 +74,11 @@ export function ListingBrowser({
   gettingHere,
   tripPlaces = [],
   tripIsland,
+  mode = "rows",
 }: {
   slug: string;
   sections: BookSection[];
-  seed: { query: BookQuery; data: BookCardsPage }[];
+  seed: BookSeed;
   dates: TripDates;
   empty: ReactNode;
   initial?: string;
@@ -85,59 +88,98 @@ export function ListingBrowser({
   // How a traveller reaches the place at all, said over Transfers.
   gettingHere?: { route: string; note: string };
   // The page's place and the places inside it: a section the guest's trip already has something
-  // from here goes to the end, in the rail and the sections, so what the trip still lacks leads.
+  // from here goes to the end, in the chips and the sections, so what the trip still lacks leads.
   tripPlaces?: string[];
   // The island this place is a town of, so its plan counts kinds from anywhere on it (coversHere).
   tripIsland?: string | null;
+  // `rows`: What to book's sideways rows; `list`: a Show all page, one section 10 a page.
+  mode?: "rows" | "list";
 }) {
+  const rows = mode === "rows";
+  const dated = Boolean(dates.from && dates.to);
   const [current, setCurrent] = useState<string>(() => (initial && sections.some((section) => section.id === initial) ? initial : "all"));
-  // The page each section is on, its filters, and a listing a link points at (#listing-<id>).
+  // The pages of 6 each row has loaded, the page a list is on, each section's filters, and a
+  // listing a link points at (#listing-<id>): first asked for with `around` (`probing`), which
+  // answers with the page holding it, then shown once the row or list has that page.
+  const [loaded, setLoaded] = useState<Record<string, number>>({});
   const [pages, setPages] = useState<Record<string, number>>({});
   const [filters, setFilters] = useState<Record<string, Filters>>({});
-  // `around` stays in the section's query until the guest moves on; `revealed` once scrolled to.
-  const [around, setAround] = useState<number | null>(null);
-  const [revealed, setRevealed] = useState(false);
+  const [target, setTarget] = useState<number | null>(null);
+  const [probing, setProbing] = useState(false);
   const linkTo = (id: number | null) => {
-    setAround(id);
-    setRevealed(false);
+    setTarget(id);
+    setProbing(id !== null);
   };
   const client = useQueryClient();
   const filtersOf = (id: string) => filters[id] ?? NO_FILTERS;
   const map = useAreaMap();
   const near = map?.near ?? null;
   const nearIds = near ? [...near.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id) : null;
-  // A new distance search starts every section on page 1, as a new filter does: page 3 of the old
-  // results may not exist in the new ones.
-  const nearKey = nearIds?.join(",") ?? "";
+  // A new distance search or new dates start every section over, as a new filter does: page 3 of
+  // the old results may not exist in the new ones.
+  const nearKey = `${nearIds?.join(",") ?? ""}|${dates.from}|${dates.to}`;
   const [pagedNear, setPagedNear] = useState(nearKey);
   if (pagedNear !== nearKey) {
     setPagedNear(nearKey);
     setPages({});
+    setLoaded({});
   }
-  const rail = !useBesideMap();
 
-  // A section's query: under All its first rows, picked a page of PER_PAGE.
-  const queryOf = (section: BookSection): BookQuery => ({
+  // A section's query for one of its row's pages, or the list's page.
+  const queryOf = (section: BookSection, page = 1): BookQuery => ({
     group: section.group,
-    page: current === section.id ? (pages[section.id] ?? 1) : 1,
-    perPage: current === "all" ? FIRST_ROWS : PER_PAGE,
+    page: rows ? page : (pages[section.id] ?? 1),
+    perPage: rows ? ROW_SIZE : LIST_PAGE,
     filters: filtersOf(section.id),
     q: query,
-    around,
+    around: probing && page === 1 ? target : null,
     near: nearIds,
+    ...(dated ? { from: dates.from, to: dates.to } : {}),
+    // A row's later pages: the section's filter sheet reads its first.
+    ...(rows && page > 1 ? { facets: false as const } : {}),
   });
   const displayed = (section: BookSection) => current === "all" || current === section.id;
+  // One query per page a row has loaded (a list has one).
+  const slots = sections.flatMap((section) =>
+    Array.from({ length: rows ? (loaded[section.id] ?? 1) : 1 }, (_, index) => ({ section, page: index + 1 })),
+  );
   const results = useQueries({
-    queries: sections.map((section) => ({
-      ...bookCardsOptions(slug, queryOf(section), seed.find((each) => each.query.group === section.group), client),
-      // Shown, or filtered (the rail counts it); a distance search with nothing in range asks nothing.
+    queries: slots.map(({ section, page }) => ({
+      // A later page of a row never stands in with another page's cards while it loads.
+      ...(page === 1
+        ? bookCardsOptions(slug, queryOf(section, page), seed.pages.find((each) => each.query.group === section.group), client)
+        : bookCardsOptions(slug, queryOf(section, page))),
+      // Shown, or filtered (the chips count it); a distance search with nothing in range asks nothing.
       enabled: (displayed(section) || filtered(filters[section.id])) && !(nearIds && nearIds.length === 0),
     })),
   });
-  const resultOf = (section: BookSection) => results[sections.indexOf(section)];
+  const resultsOf = (section: BookSection) => slots.flatMap((slot, index) => (slot.section === section ? [results[index]] : []));
+  const resultOf = (section: BookSection) => resultsOf(section)[0];
   const dataOf = (section: BookSection) => resultOf(section)?.data;
-  // Cards per group with the search (any section's answer has them all).
-  const counts = results.find((result) => result.data)?.data?.counts ?? seed[0]?.data.counts;
+  // A section's cards so far: a row's pages one after another.
+  const cardsOf = (section: BookSection) => {
+    const seen = new Set<string>();
+    return resultsOf(section)
+      .flatMap((result) => result?.data?.cards ?? [])
+      .filter((card) => !seen.has(card.key) && Boolean(seen.add(card.key)));
+  };
+  // The row's next 6, once the last page it asked for is in. The next page is counted from the
+  // pages this render has, never added to: a fast swipe calls this several times before the row
+  // re-renders, and each call adding one asked for up to 9 pages at once (2026-11-12).
+  const loadMore = (section: BookSection) => {
+    const pagesNow = resultsOf(section);
+    const last = pagesNow.at(-1);
+    const data = dataOf(section);
+    if (!last?.data || last.isFetching || !data || cardsOf(section).length >= data.total) return;
+    const next = pagesNow.length + 1;
+    setLoaded((all) => ((all[section.id] ?? 1) >= next ? all : { ...all, [section.id]: next }));
+  };
+  // Its Show all page, with the search and the dates, which the guest's filters don't follow.
+  const showAllHref = (section: BookSection) =>
+    withDates(`/${slug}/book/${section.group}${query ? `?q=${encodeURIComponent(query)}` : ""}`, tripDatesQuery(dates));
+  // Cards per group with the search and dates: one request for the page, which switching sections
+  // or filtering never repeats.
+  const counts = useQuery(bookCountsOptions(slug, { q: query, ...(dated ? { from: dates.from, to: dates.to } : {}) }, seed)).data;
   // A section's card count: its own total once filtered or in a distance search, else the counts.
   const countOf = (section: BookSection) => {
     if (nearIds && nearIds.length === 0) return 0;
@@ -186,7 +228,7 @@ export function ListingBrowser({
     void row.offsetWidth;
     row.classList.add("just-added");
   }, [lastAdded]);
-  // Picking a section from the rail or the chips while scrolled into the list: the list gets
+  // Picking a section from the chips while scrolled into the list: the list gets
   // shorter, so the window would be left below it, on the next section. Back to its top instead.
   const root = useRef<HTMLDivElement>(null);
   const [picked, setPicked] = useState(0);
@@ -256,30 +298,38 @@ export function ListingBrowser({
     window.addEventListener("hashchange", follow);
     return () => window.removeEventListener("hashchange", follow);
   }, []);
-  // A row linked to: once a section's answer holds it, show that section's page with it (All
-  // keeps it when it is among a section's first rows), then scroll to it. Settled while rendering,
-  // as the answers come in.
-  if (around !== null && !revealed) {
-    const holds = (card: Card) => card.listings.some((listing) => listing.id === around);
-    const hit = sections.find((section) => !resultOf(section)?.isPlaceholderData && dataOf(section)?.cards.some(holds));
-    const data = hit && dataOf(hit);
-    if (hit && data) {
-      if (current !== hit.id && (current !== "all" || data.page !== 1)) {
-        setCurrent(hit.id);
-      } else {
-        if (current === hit.id) setPages((all) => ({ ...all, [hit.id]: data.page }));
-        setReveal({ id: rowId(hit, data.cards.find(holds)!) });
-        setRevealed(true);
+  // A row linked to: once a section's answer to `around` holds it, its row loads up to that page
+  // (a list turns to it), then the card is scrolled to, in the page and in its row. Settled while
+  // rendering, as the answers come in.
+  if (target !== null) {
+    const holds = (card: Card) => card.listings.some((listing) => listing.id === target);
+    if (probing) {
+      const hit = sections.find((section) => !resultOf(section)?.isPlaceholderData && dataOf(section)?.cards.some(holds));
+      const data = hit && dataOf(hit);
+      if (hit && data) {
+        if (current !== "all" && current !== hit.id) setCurrent(hit.id);
+        if (rows) setLoaded((all) => ({ ...all, [hit.id]: Math.max(all[hit.id] ?? 1, data.page) }));
+        else setPages((all) => ({ ...all, [hit.id]: data.page }));
+        setProbing(false);
+      }
+    } else {
+      const hit = sections.find(
+        (section) => resultsOf(section).every((result) => result?.data && !result.isPlaceholderData) && cardsOf(section).some(holds),
+      );
+      if (hit) {
+        setReveal({ id: rowId(hit, cardsOf(hit).find(holds)!) });
+        setTarget(null);
       }
     }
   }
   useEffect(() => {
     if (reveal === null) return;
-    document.getElementById(reveal.id)?.scrollIntoView({ block: "start" });
+    document.getElementById(reveal.id)?.scrollIntoView({ block: "start", inline: "nearest" });
   }, [reveal]);
   const setFiltersOf = (id: string, next: Filters) => {
     setFilters((all) => ({ ...all, [id]: next }));
     setPages((all) => ({ ...all, [id]: 1 }));
+    setLoaded((all) => ({ ...all, [id]: 1 }));
     linkTo(null);
   };
   // Another page: back to the section's top.
@@ -289,21 +339,18 @@ export function ListingBrowser({
     setReveal({ id: `${section.id}-top` });
   };
 
-  // Tell the map what is showing: the picked group's pins, and for a narrowed group only those
-  // that pass.
+  // Tell the map what is showing: the picked section's group, search, dates and filters (every
+  // group under All, with the search and dates), which its pins are fetched with (useMapPins).
   const setView = map?.setView;
-  const shownGroup = sections.find((section) => section.id === current)?.group ?? null;
-  const narrowed = JSON.stringify(
-    Object.fromEntries(
-      sections.flatMap((section) => {
-        const data = dataOf(section);
-        return data && (filtered(filters[section.id]) || query) ? [[section.group, data.pin_ids]] : [];
-      }),
-    ),
-  );
+  const shownSection = sections.find((section) => section.id === current) ?? null;
+  const mapQuery = JSON.stringify({
+    ...(shownSection ? { group: shownSection.group, ...filterQuery(filtersOf(shownSection.id)) } : {}),
+    ...(query ? { q: query } : {}),
+    ...(dated ? { from: dates.from, to: dates.to } : {}),
+  });
   useEffect(() => {
-    setView?.({ group: shownGroup, shown: JSON.parse(narrowed) });
-  }, [setView, shownGroup, narrowed]);
+    setView?.({ group: shownSection?.group ?? null, query: JSON.parse(mapQuery) });
+  }, [setView, shownSection?.group, mapQuery]);
 
   const total = ordered.reduce((sum, section) => sum + countOf(section), 0);
   // Under a search, only the sections it found something in (and the one picked).
@@ -317,24 +364,18 @@ export function ListingBrowser({
   const shown =
     current === "all" ? ordered.filter((section) => !query || countOf(section) > 0) : sections.filter((section) => section.id === current);
   // Arrived on a section from the home page's shortcuts: said once, with the way back to All.
-  const opened = initial && current === initial ? sections.find((section) => section.id === initial) : undefined;
+  const opened = rows && initial && current === initial ? sections.find((section) => section.id === initial) : undefined;
   const editingSection = editing ? sections.find((section) => section.id === editing) : undefined;
   // Filters are a section's own: setting them under All picks it.
   const openFilters = (section: BookSection) => setEditing(section.id);
 
   return (
-    <div ref={root} className={cn("relative grid gap-5", rail && "lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-6")}>
+    <div ref={root} className="relative grid gap-5">
       <MapSkipLink />
-      {/* Under the stuck search bar, scrolling on its own if the window is short. */}
-      {/* Below lg its contents join the grid, so the chips can stick for the whole list. */}
-      <aside
-        aria-label="Filter what to book"
-        className={cn(
-          "contents min-w-0 flex-col gap-4",
-          rail && "lg:sticky lg:flex lg:top-(--chrome) lg:max-h-[calc(100dvh-var(--chrome)-1rem)] lg:overflow-y-auto lg:overscroll-contain lg:pb-1",
-        )}
-      >
-        {present.length > 1 && (
+      {/* The sections in one row under the intro, stuck under the header for the whole list (its */}
+      {/* contents join the grid), with Show map at its end from lg. */}
+      <aside aria-label="Filter what to book" className="contents">
+        {present.length > 1 ? (
           <div
             ref={chipsRef}
             role="group"
@@ -343,8 +384,7 @@ export function ListingBrowser({
               // Stuck under the header (which holds the search). On a phone its background reaches
               // up under the header's foot (z-35, under the header's z-40), so no row shows through
               // the 12px between them.
-              "sticky top-(--chrome) z-20 -mx-inset -my-2 flex gap-1.5 overflow-x-auto bg-surface-2 px-inset py-2 [scrollbar-width:none] max-search:top-[calc(var(--chrome)_-_1.25rem)] max-search:-mt-5 max-search:z-35 max-search:pt-5",
-              rail && "lg:static lg:mx-0 lg:my-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:rounded-card lg:bg-surface lg:p-2 lg:card-edge-line lg:shadow-soft",
+              "sticky top-(--chrome) z-20 -mx-inset -my-2 flex items-center gap-1.5 overflow-x-auto bg-surface-2 px-inset py-2 [scrollbar-width:none] max-search:top-[calc(var(--chrome)_-_1.25rem)] max-search:-mt-5 max-search:z-35 max-search:pt-5 lg:gap-2",
             )}
           >
             {options.map((option) => {
@@ -356,49 +396,42 @@ export function ListingBrowser({
                   aria-pressed={on}
                   onClick={() => pick(option.id)}
                   className={cn(
-                    // On a phone each is a chip, so the row reads as something to tap on the pale section.
-                    "flex min-h-11 shrink-0 items-center gap-2 rounded-chip px-3.5 text-sm whitespace-nowrap transition-colors duration-150 ease-calm",
-                    // In the rail: a row with the count in its own right-aligned column, and a long
-                    // name wrapping beside its icon rather than pushing the count out.
-                    rail && "lg:grid lg:grid-cols-[1.75rem_minmax(0,1fr)_2.5ch] lg:gap-2.5 lg:rounded-control lg:shadow-none lg:inset-ring-0 lg:px-2.5 lg:py-2 lg:text-left lg:whitespace-normal",
+                    // Each a chip, so the row reads as something to tap on the pale section.
+                    "flex min-h-11 shrink-0 items-center gap-2 rounded-chip px-3.5 text-sm whitespace-nowrap transition-colors duration-150 ease-calm lg:px-4",
                     on
-                      ? cn("bg-primary font-semibold text-white", rail && "lg:bg-lagoon-tint lg:text-lagoon-ink")
-                      : cn(
-                          // A flat grey tag, as the row's facts are: the outlined teal is for buttons.
-                          "bg-tag font-medium text-navy hover:bg-lagoon-tint",
-                          rail && "lg:bg-surface lg:text-foreground lg:hover:bg-surface-2",
-                        ),
+                      ? "bg-primary font-semibold text-white"
+                      : // A flat grey tag, as the row's facts are: the outlined teal is for buttons.
+                        "bg-tag font-medium text-navy hover:bg-lagoon-tint",
                   )}
                 >
-                  <span
-                    aria-hidden
-                    className={cn("hidden size-7 items-center justify-center rounded-lg", rail && "lg:flex", on ? "bg-primary text-white" : "bg-tag text-navy")}
-                  >
+                  {/* The icon from lg, where the row has room for it. */}
+                  <span aria-hidden className="hidden lg:flex">
                     {option.icon ? <CategoryGlyph name={option.icon} className="size-4" /> : <GridGlyph className="size-4" />}
                   </span>
                   <span className="flex items-center gap-1.5">
                     {option.title}
                     {option.set > 0 && (
-                      <span className={cn("ml-1.5 text-xs font-medium", on ? cn("text-white/80", rail && "lg:text-lagoon-ink") : "text-muted")}>
+                      <span className={cn("ml-1.5 text-xs font-medium", on ? "text-white/80" : "text-muted")}>
                         · {option.set} {option.set === 1 ? "filter" : "filters"}
                       </span>
                     )}
                   </span>
-                  <span className={cn("tabular-nums", rail && "lg:text-right", on ? cn("text-white/80", rail && "lg:text-lagoon-ink") : "text-muted")}>
-                    {option.count}
-                  </span>
+                  <span className={cn("tabular-nums", on ? "text-white/80" : "text-muted")}>{option.count}</span>
                 </button>
               );
             })}
+            <MapSwitch />
             {/* A fade at the row's right edge while it scrolls, so a cut-off chip reads as more. */}
             <span
               aria-hidden
-              className={cn("pointer-events-none sticky -right-inset -ml-1.5 w-12 shrink-0 bg-linear-to-l from-surface-2 from-30% to-transparent", rail && "lg:hidden")}
+              className="pointer-events-none sticky -right-inset -ml-1.5 w-12 shrink-0 self-stretch bg-linear-to-l from-surface-2 from-30% to-transparent"
             />
           </div>
+        ) : (
+          <div className="flex">
+            <MapSwitch />
+          </div>
         )}
-        {/* Beside the map, the map's own Hide map turns it off. */}
-        {rail && <MapSwitch />}
       </aside>
       <div className="flex min-w-0 flex-col gap-8">
         {missing && current === "all" && (
@@ -419,36 +452,53 @@ export function ListingBrowser({
           </p>
         )}
         {counts && shown.length === 0
-          ? !query && empty
+          ? !query &&
+            (dated ? (
+              <p className="rounded-card bg-surface p-4 text-sm text-muted card-edge">Nothing here is free on these dates. Try other dates.</p>
+            ) : (
+              empty
+            ))
           : shown.map((section, sectionIndex) => {
               const result = resultOf(section);
               const data = result?.data;
               const set = setCount(filtersOf(section.id));
               const clear = () => setFiltersOf(section.id, NO_FILTERS);
-              const shared = data ? sharedLabels(data.facets) : [];
-              const note = data?.facets.unpriced_booking_type ? pricedByNote(data.facets.unpriced_booking_type) : undefined;
-              const cards = data?.cards ?? [];
+              const shared = data?.facets ? sharedLabels(data.facets) : [];
+              const note = data?.facets?.unpriced_booking_type ? pricedByNote(data.facets.unpriced_booking_type) : undefined;
+              const cards = cardsOf(section);
               const busy = result?.isPlaceholderData;
+              const more = Boolean(rows && data && cards.length < data.total);
+              const fetchingMore = rows && resultsOf(section).slice(1).some((each) => !each?.data);
               return (
                 <div
                   // Keyed by the pick too, so a new pick plays the rows' arrival again.
                   key={`${current}-${section.id}`}
                   id={`${section.id}-top`}
-                  className={cn("flex scroll-mt-(--chrome) flex-col gap-3", switched && "animate-swap-in")}
+                  className={cn(
+                    "flex scroll-mt-(--chrome) flex-col gap-3",
+                    // A hairline between categories, none above the first.
+                    sectionIndex > 0 && "border-t border-line pt-8",
+                    switched && "animate-swap-in",
+                  )}
                   style={switched ? { animationDelay: `${Math.min(sectionIndex, 3) * 60}ms` } : undefined}
                 >
                   {/* On a phone the pills take a row of their own under the title. */}
                   <div className="flex min-w-0 flex-wrap items-center gap-2.5 sm:flex-nowrap">
-                    <h3 id={section.id} className="scroll-mt-36 shrink-0 text-lg font-semibold">
-                      {section.title}
-                    </h3>
+                    <div className="flex shrink-0 items-center gap-2.5">
+                      <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-xl bg-mist text-primary">
+                        {section.icon ? <CategoryGlyph name={section.icon} className="size-5" /> : <GridGlyph className="size-5" />}
+                      </span>
+                      <h3 id={section.id} className="scroll-mt-36 font-display text-xl font-extrabold tracking-tight sm:text-2xl">
+                        {section.title}
+                      </h3>
+                    </div>
                     <FilterButton title={section.title} set={set} onClick={() => openFilters(section)} testId="section-filter" />
                     {set > 0 && (
                       <>
                         <FilterMarkers
                           title={section.title}
                           filters={filtersOf(section.id)}
-                          facets={data?.facets}
+                          facets={data?.facets ?? undefined}
                           onChange={(next) => setFiltersOf(section.id, next)}
                           onMore={() => openFilters(section)}
                         />
@@ -480,14 +530,29 @@ export function ListingBrowser({
                     </p>
                   )}
                   {note && <p className="-mt-1 max-w-prose text-sm text-pretty text-muted">{note}</p>}
+                  {dated && data && data.total > 0 && (
+                    <p className="-mt-1 text-sm text-muted" data-testid="free-on-dates">
+                      {data.total} free on {formatDateRange(dates.from, dates.to)}
+                    </p>
+                  )}
                   {!data && !(nearIds && nearIds.length === 0) ? (
                     result?.isError ? (
                       <p className="text-sm text-muted">Couldn&apos;t load these just now. Try again in a moment.</p>
                     ) : (
-                      <RowsSkeleton count={current === "all" ? FIRST_ROWS : 4} />
+                      <RowsSkeleton count={rows ? 3 : 4} />
                     )
                   ) : cards.length > 0 ? (
-                    <ul aria-busy={busy || undefined} className={cn("flex flex-col gap-3 transition-opacity duration-300 ease-calm", busy && "opacity-60")}>
+                    <CardRow
+                      rows={rows}
+                      count={cards.length}
+                      more={more}
+                      loading={fetchingMore}
+                      coming={data ? Math.max(1, Math.min(ROW_SIZE, data.total - cards.length)) : 1}
+                      onMore={() => loadMore(section)}
+                      title={section.title}
+                      className={cn("transition-opacity duration-300 ease-calm", rows && busy && "opacity-60")}
+                      busy={busy}
+                    >
                       {cards.map((card, rowIndex) => (
                         // A search suggestion links straight to its row (#listing-<id>).
                         // A container, so the row lays itself out by its own width: beside the map
@@ -496,7 +561,11 @@ export function ListingBrowser({
                           key={card.key}
                           id={rowId(section, card)}
                           data-listings={card.listings.map((listing) => listing.id).join(" ")}
-                          className={cn("@container scroll-mt-36", switched && "animate-swap-in")}
+                          className={cn(
+                            "@container flex scroll-mt-36 flex-col",
+                            rows && ROW_CARD,
+                            switched && "animate-swap-in",
+                          )}
                           style={switched ? { animationDelay: `${Math.min(sectionIndex * 3 + rowIndex + 1, 6) * 60}ms` } : undefined}
                         >
                           {near && (
@@ -505,36 +574,39 @@ export function ListingBrowser({
                             </p>
                           )}
                           {/* Each row a white card on the pale sheet, so its edge shows at rest, not only when lit. */}
-                          <MapHoverTarget pin={card.listings.map((listing) => listingKey(listing.id))} className="border border-line bg-surface p-3 shadow-soft">
+                          <MapHoverTarget
+                            pin={card.listings.map((listing) => listingKey(listing.id))}
+                            className="flex-1 border border-line bg-surface p-3 shadow-soft"
+                          >
                             <BookRow card={card} section={section} slug={slug} dates={dates} shared={shared} />
                           </MapHoverTarget>
                         </li>
                       ))}
-                    </ul>
+                    </CardRow>
                   ) : null}
-                  {current === "all" && data && data.total > cards.length && (
-                    <Button
-                      type="button"
+                  {/* Its own page in a new tab, the whole section 10 a page. */}
+                  {rows && data && data.total > ROW_SIZE && (
+                    <ButtonLink
+                      href={showAllHref(section)}
+                      target="_blank"
+                      rel="opener"
                       variant="soft"
                       size="touch"
                       arrow
-                      onClick={() => {
-                        pick(section.id);
-                        setReveal({ id: `${section.id}-top` });
-                      }}
+                      data-testid="show-all"
+                      aria-label={`Show all ${data.total} in ${section.title} (opens in a new tab)`}
                       className="self-start"
                     >
                       Show all {data.total} in {section.title}
-                    </Button>
+                    </ButtonLink>
                   )}
-                  {/* Not from All's first rows, still on screen while the section's first page loads. */}
-                  {current === section.id && data && data.per_page === PER_PAGE && (
-                    <Pager page={data.page} perPage={data.per_page} total={data.total} onPage={turnPage(section)} />
-                  )}
+                  {!rows && data && <Pager page={data.page} perPage={data.per_page} total={data.total} onPage={turnPage(section)} />}
                   {((data && data.total === 0) || (nearIds && nearIds.length === 0)) && (
                     <p className="rounded-card bg-surface p-4 text-sm text-muted card-edge">
                       {nearIds ? (
                         "Nothing in this section is within that distance of your pin."
+                      ) : dated && !query && set === 0 ? (
+                        "Nothing in this section is free on these dates. Try other dates."
                       ) : set > 0 ? (
                         <>
                           Nothing here matches these filters. <TextButton onClick={clear} />
@@ -553,7 +625,7 @@ export function ListingBrowser({
           slug={slug}
           section={editingSection}
           base={queryOf(editingSection)}
-          facets={dataOf(editingSection)?.facets}
+          facets={dataOf(editingSection)?.facets ?? undefined}
           filters={filtersOf(editingSection.id)}
           onApply={(next) => {
             setFiltersOf(editingSection.id, next);
@@ -584,6 +656,7 @@ function BookRow({ card, section, slug, dates, shared }: { card: Card; section: 
       groupTitle={section.title}
       offers={offers}
       sharedChips={shared}
+      tall
     />
   );
 }
@@ -641,16 +714,153 @@ function BookFilterDialog({
   );
 }
 
-// Rows on their way: grey blocks the height of a row.
+// Cards on their way: grey blocks the size of a tall card, in a row (or a sheet's list).
 function RowsSkeleton({ count }: { count: number }) {
   return (
-    <div aria-hidden className="flex flex-col gap-3">
+    <div aria-hidden className="flex gap-3 overflow-hidden">
       {Array.from({ length: count }, (_, index) => (
-        <div key={index} className="h-40 rounded-card bg-mist motion-safe:animate-pulse" />
+        <div key={index} className="h-96 w-64 shrink-0 rounded-card bg-mist motion-safe:animate-pulse" />
       ))}
     </div>
   );
 }
+
+// One of a row's next cards while its page loads: the tall card's frame, photo and lines in grey,
+// so › moves on at once and the cards fill in where they stand. In a grid (`grid`) it takes the
+// cell's width, standing in for the page being left while the next one loads.
+export function RowCardSkeleton({ grid = false }: { grid?: boolean }) {
+  const bar = "rounded-full bg-mist";
+  return (
+    <li aria-hidden className={cn(!grid && ROW_CARD, "flex flex-col")}>
+      <div className="flex flex-1 flex-col gap-3 rounded-card border border-line bg-surface p-3 shadow-soft motion-safe:animate-pulse">
+        <div className="aspect-[4/3] rounded-xl bg-mist" />
+        <div className="flex flex-col gap-2.5 px-1">
+          <div className={cn(bar, "h-5 w-4/5")} />
+          <div className={cn(bar, "h-4 w-1/2")} />
+          <div className="flex gap-2">
+            <div className={cn(bar, "h-7 w-24")} />
+            <div className={cn(bar, "h-7 w-20")} />
+          </div>
+          <div className={cn(bar, "mt-4 h-6 w-2/5")} />
+          <div className={cn(bar, "h-11 w-32")} />
+        </div>
+      </div>
+    </li>
+  );
+}
+
+// A section's cards: on What to book one sideways row (`rows`), swiped on a phone, with ‹ › over
+// its ends from sm; scrolling near its end, or › at it, asks for the next 6 (`onMore`). On a Show
+// all page a grid, 10 a page, two rows of five on a wide screen.
+function CardRow({
+  rows,
+  count,
+  more,
+  loading,
+  coming,
+  onMore,
+  title,
+  busy,
+  className,
+  children,
+}: {
+  rows: boolean;
+  count: number;
+  more: boolean;
+  loading: boolean;
+  // How many cards the page on its way holds: as many skeletons stand in for them.
+  coming: number;
+  onMore: () => void;
+  title: string;
+  busy?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  const list = useRef<HTMLUListElement>(null);
+  const [edges, setEdges] = useState({ start: true, end: true });
+  // › pressed at the end: scroll on as soon as the row grows (skeletons, or cards from the cache).
+  const pending = useRef(false);
+  const measure = () => {
+    const row = list.current;
+    if (!row) return;
+    const start = row.scrollLeft <= 4;
+    const end = row.scrollLeft + row.clientWidth >= row.scrollWidth - 4;
+    setEdges((was) => (was.start === start && was.end === end ? was : { start, end }));
+    // Within half a screen of the end: the next 6.
+    if (more && !loading && row.scrollLeft > 0 && row.scrollLeft + row.clientWidth >= row.scrollWidth - row.clientWidth / 2) onMore();
+  };
+  useLayoutEffect(() => {
+    if (!rows) return;
+    const row = list.current;
+    if (!row) return;
+    if (pending.current) {
+      pending.current = false;
+      row.scrollBy({ left: stride(row), behavior: still() ? "auto" : "smooth" });
+    }
+    const start = row.scrollLeft <= 4;
+    const end = row.scrollLeft + row.clientWidth >= row.scrollWidth - 4;
+    setEdges((was) => (was.start === start && was.end === end ? was : { start, end }));
+  }, [rows, count, loading]);
+  const step = (direction: 1 | -1) => {
+    const row = list.current;
+    if (!row) return;
+    // Less than a row's width left to show: ask for the next 6 and move on onto their skeletons
+    // (already there while a page is loading).
+    if (direction === 1 && more && !loading && row.scrollWidth - row.scrollLeft - row.clientWidth < row.clientWidth) {
+      pending.current = true;
+      onMore();
+      return;
+    }
+    row.scrollBy({ left: direction * stride(row), behavior: still() ? "auto" : "smooth" });
+  };
+
+  if (!rows) {
+    return (
+      <ul aria-busy={busy || undefined} className={cn("grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5", className)}>
+        {/* Another page on its way: skeletons where the cards go, not the old page dimmed. */}
+        {busy ? Array.from({ length: count }, (_, index) => <RowCardSkeleton key={index} grid />) : children}
+      </ul>
+    );
+  }
+  const arrow = "absolute top-1/3 z-20 hidden size-11 items-center justify-center rounded-full bg-surface text-navy shadow-lift card-edge-line sm:flex hover:bg-mist";
+  return (
+    <div className="relative @container">
+      <ul
+        ref={list}
+        aria-busy={busy || loading || undefined}
+        aria-label={title}
+        onScroll={measure}
+        className={cn(
+          // Room for the cards' shadows, which the sideways scroll would clip.
+          "-mx-1 -my-2 flex snap-x snap-mandatory scroll-px-1 gap-3 overflow-x-auto overscroll-x-contain px-1 py-2 [scrollbar-width:none]",
+          className,
+        )}
+      >
+        {children}
+        {loading && Array.from({ length: coming }, (_, index) => <RowCardSkeleton key={index} />)}
+      </ul>
+      {!edges.start && (
+        <button type="button" aria-label={`Back in ${title}`} onClick={() => step(-1)} className={cn(arrow, "-left-3")} data-testid="row-prev">
+          <ChevronGlyph direction="left" className="size-5" />
+        </button>
+      )}
+      {(!edges.end || more) && (
+        <button type="button" aria-label={`More in ${title}`} onClick={() => step(1)} className={cn(arrow, "-right-3")} data-testid="row-next">
+          <ChevronGlyph direction="right" className="size-5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// A card's width in a row: most of a phone with the next peeking, two and a bit from a 32rem row,
+// exactly three from 48rem, so › moves on by three.
+const ROW_CARD =
+  "w-[82%] shrink-0 snap-start @lg:w-[calc((100%_-_0.75rem)/2.15)] @3xl:w-[calc((100%_-_1.5rem)/3)]";
+
+// A whole row's width and the gap after it, so › moves on by exactly the cards in view.
+const stride = (row: HTMLElement) => row.clientWidth + 12;
+const still = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // A search typed on the page, said back: how many matched here, Clear search, and the same search
 // in every place, which is where a place with nothing for it sends the guest.
@@ -718,8 +928,8 @@ function TextButton({ onClick, children = "Clear", className }: { onClick: () =>
 
 // For the keyboard on a phone, first in What to book: the Map button sits in the floating dock,
 // last on the page after the footer. Hidden until focused, like Skip to content, and then shown
-// where it is, over What to book's first row. Not from lg, where the map has its switch in the
-// rail beside the sections, and not for the plan, whose chip comes right after it. On an area
+// where it is, over What to book's first row. Not from lg, where the map has its Show map at the
+// end of the sections' chips, and not for the plan, whose chip comes right after it. On an area
 // page only (the map's provider), where the dock is.
 function MapSkipLink() {
   if (!useAreaMap()) return null;

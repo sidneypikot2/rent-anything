@@ -10,7 +10,6 @@ import { priceUnitText } from "@/lib/pricing";
 // and a part with nothing to go on is left out rather than shown empty.
 
 type Landmark = AreaDetail["landmarks"][number];
-type Listing = AreaDetail["listings"][number];
 type Place = AreaDetail["areas"][number];
 
 // Two places to see this close (km) share a day of the sample plan.
@@ -43,11 +42,6 @@ export function gettingHereText(guide: AreaDetail["guide"], route: GettingHere |
   return route ? `${route.route}. ${route.note}` : null;
 }
 
-// The businesses offering each group here (What to book's cards are one per business).
-export function businessesIn(listings: Listing[], group: Listing["group"]) {
-  return new Set(listings.filter((listing) => listing.group === group).map((listing) => listing.business.id)).size;
-}
-
 // Whether a transfer runs on the island rather than getting there (Vehicle rental's row, not
 // Getting here): both ends of its route, as the partner typed it ("Santa Fe to Madridejos"), name
 // a place on the island. A route left blank, or one end off it ("Hagnaya port to Santa Fe"), is
@@ -65,28 +59,12 @@ function escapeRegExp(text: string) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// The banner's price facts ("Typical stay" · "₱2,500 / night"): the middle from-price of a
-// group's priced listings, in the unit most of them use, so one odd price doesn't set it. A
-// group with none priced says nothing.
-export function typicalPrices(listings: Listing[]) {
-  const kinds = [
-    { group: "stay", label: "Typical stay" },
-    { group: "activity", label: "Typical tour" },
-  ] as const;
-  return kinds.flatMap(({ group, label }) => {
-    const priced = listings.filter((listing) => listing.group === group && listing.price_from_cents && listing.price_unit);
-    const units = new Map<string, number>();
-    for (const listing of priced) units.set(listing.price_unit!, (units.get(listing.price_unit!) ?? 0) + 1);
-    const unit = [...units].sort((a, b) => b[1] - a[1])[0]?.[0] as Listing["price_unit"] | undefined;
-    if (!unit) return [];
-    const prices = priced
-      .filter((listing) => listing.price_unit === unit)
-      .map((listing) => listing.price_from_cents!)
-      .sort((a, b) => a - b);
-    // The upper middle with an even count: a price someone charges, never understating it.
-    const middle = prices[Math.floor(prices.length / 2)];
-    return [{ label, value: `${formatPeso(middle)} ${priceUnitText(unit)}` }];
-  });
+// The banner's price facts ("Typical stay" · "₱2,500 / night"), as the API works them out: the
+// upper middle from-price of a group's priced listings, in the unit most of them use, so one odd
+// price doesn't set it. A group with none priced says nothing.
+export function typicalPrices(prices: AreaDetail["typical_prices"]) {
+  const labels = { stay: "Typical stay", activity: "Typical tour" } as const;
+  return prices.map(({ group, price_cents, unit }) => ({ label: labels[group], value: `${formatPeso(price_cents)} ${priceUnitText(unit)}` }));
 }
 
 // The places inside this one with stays, most first, each with the place to see nearest to it.
@@ -114,10 +92,9 @@ export type SampleDay = { title: string; plan: string; book: string[] };
 // A sample few days: the places tours go to most, nearby ones sharing a day, and what to book for
 // each (the tours that go there; a transfer and a stay on the first). Under two places to see
 // there is no plan to suggest. `landmarks` comes most visited first.
-export function sampleDays(landmarks: Landmark[], listings: Listing[]): SampleDay[] {
+// `offered`: the groups the place has listings in.
+export function sampleDays(landmarks: Landmark[], offered: Set<string>): SampleDay[] {
   if (landmarks.length < 2) return [];
-  const byId = new Map(listings.map((listing) => [listing.id, listing]));
-  const offered = new Set(listings.map((listing) => listing.group));
   const left = [...landmarks];
   const days: Landmark[][] = [];
   while (left.length > 0 && days.length < SAMPLE_DAYS) {
@@ -129,10 +106,7 @@ export function sampleDays(landmarks: Landmark[], listings: Listing[]): SampleDa
     const names = stops.map((stop) => stop.name);
     const tours = [
       ...new Set(
-        stops.flatMap((stop) => stop.visited_by.flatMap((id) => {
-          const listing = byId.get(id);
-          return listing ? [listing.category] : [];
-        })),
+        stops.flatMap((stop) => stop.visits.map((visit) => visit.category)),
       ),
     ];
     const book = [

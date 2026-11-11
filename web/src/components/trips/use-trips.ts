@@ -126,6 +126,12 @@ function tripsQuery(userId: number | undefined) {
       if (!data) throw new Error("Couldn't load your trips. Try again.");
       return data;
     },
+    // Fresh for a minute, so rows mounting (every listing row's InTripBadge reads it, and picking
+    // a What to book section mounts a new set) don't each fetch it again: every trip write
+    // invalidates it, as do live updates, and the add flow fetches its own (useFetchTrips).
+    // Always again on returning to the tab, where an add in a listing's own tab lands.
+    staleTime: 60_000,
+    refetchOnWindowFocus: "always" as const,
   };
 }
 
