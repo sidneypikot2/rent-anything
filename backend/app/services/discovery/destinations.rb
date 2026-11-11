@@ -3,6 +3,7 @@ module Discovery
   # listings first, each with its top activities by how many published landmarks carry them.
   # to_book_count is what the area's own page counts to book (AreaDetail's listings, as What to
   # book shows them): one per business per guest group, the published areas inside it included.
+  # The caller pages them: the block gets the ordered relation and returns the page to show.
   class Destinations < ApplicationService
     ACTIVITY_LIMIT = 3
 
@@ -12,8 +13,8 @@ module Discovery
           "(SELECT COUNT(*) FROM listings WHERE listings.area_id = areas.id AND listings.status = 'active') AS listing_count",
           "(SELECT COUNT(*) FROM landmarks WHERE landmarks.area_id = areas.id AND landmarks.status = 'published') " \
             "AS landmark_count")
-        .order(Arel.sql("listing_count DESC"), :name)
-        .to_a
+        .order(Arel.sql("listing_count DESC"), :name, :id)
+      areas = yield(areas).to_a
       activities = top_activities(areas.map(&:id))
       to_book = to_book_counts(areas)
 

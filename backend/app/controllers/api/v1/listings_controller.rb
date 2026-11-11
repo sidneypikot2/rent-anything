@@ -2,7 +2,7 @@ module Api
   module V1
     class ListingsController < ApplicationController
       def index
-        render json: Discovery::ListingPins.call
+        render json: Discovery::ListingPins.call { paginate(_1) }
       end
 
       def show

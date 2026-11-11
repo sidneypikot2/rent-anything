@@ -2,7 +2,7 @@ module Api
   module V1
     class AreasController < ApplicationController
       def index
-        render json: Discovery::Destinations.call
+        render json: Discovery::Destinations.call { paginate(_1) }
       end
 
       def show

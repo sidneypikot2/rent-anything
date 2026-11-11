@@ -9,7 +9,8 @@ module Businesses
   # rentals also answers its `pickup_times` on the first day, still ahead, each available when
   # at least one of its models could start then (the pop-up's pickup time before a model is
   # picked); nil otherwise. A query string carries everything as text; a parameter sent empty
-  # counts as not sent.
+  # counts as not sent. The caller pages the listings: the block gets the ordered relation and
+  # returns the page to show, and pickup_times are the page's.
   class ListingsFor < ApplicationService
     include Trips::Values
 
@@ -31,9 +32,10 @@ module Businesses
       group = read_group
       raise_errors!(business)
 
-      listings = business.listings.active.includes(*ASSOCIATIONS).order(:title, :id).to_a
-      listings.select! { _1.category.slug == @params[:category] } if @params[:category].is_a?(String)
-      listings.select! { _1.category.guest_group == group } if group
+      listings = business.listings.active.order(:title, :id)
+      listings = listings.where(category_id: Category.where(slug: @params[:category]).select(:id)) if @params[:category].is_a?(String)
+      listings = listings.in_guest_group(group) if group
+      listings = yield(listings).includes(*ASSOCIATIONS).to_a
       ledger = Availability::Ledger.new(listings, starts_on, ends_on) if starts_on && listings.any?
       {
         business: { id: business.id, name: business.name },
