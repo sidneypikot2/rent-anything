@@ -2,6 +2,7 @@ module Auth
   # Email + password sign-up. Admins are never self-made. A guest with no account yet signing
   # up (current_user, RAA-175) brings their trips into the new account (Guests::Absorb). The
   # account must agree to the Terms and Privacy policy (terms_accepted: true), recorded on it.
+  # It is emailed a link to confirm its email (RAA-214), which it needs before checking out.
   class Register < Base
     def initialize(params, role:, current_user: nil)
       @params = params
@@ -19,6 +20,7 @@ module Auth
       user = User.new(@params.slice(:email, :name, :phone, :password).merge(role: @role, **User.terms_acceptance))
       user.save!(context: :password_signup)
       Guests::Absorb.call(from: @current_user, into: user) if @current_user
+      SendEmailConfirmation.call(user)
       IssueTokens.call(user)
     rescue ActiveRecord::RecordNotUnique
       invalid!("Email has already been taken")

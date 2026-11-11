@@ -1971,7 +1971,7 @@ export interface paths {
         put?: never;
         /**
          * Pay for the guest's accepted bookings
-         * @description Guest-only (RAA-143). Pays for bookings held for payment (awaiting_payment: accepted by their partner, or instant). Every booking must be the guest's and still held, or nothing is paid. With PayMongo set up (test mode only: no real money moves) it answers a pending payment whose checkout_url the guest pays on; they come back to /cart?payment=<id>, and the bookings are confirmed once PayMongo reports the payment. Bookings paid already, or priced at nothing, are confirmed at once with no charge. Without PayMongo a stub pays at once, one payment per checkout, and payment is null.
+         * @description Guest-only (RAA-143). Pays for bookings held for payment (awaiting_payment: accepted by their partner, or instant). Every booking must be the guest's and still held, or nothing is paid. With PayMongo set up (test mode only: no real money moves) it answers a pending payment whose checkout_url the guest pays on; they come back to /cart?payment=<id>, and the bookings are confirmed once PayMongo reports the payment. Bookings paid already, or priced at nothing, are confirmed at once with no charge. Without PayMongo a stub pays at once, one payment per checkout, and payment is null. A password account must have confirmed its email first (403 `email_unconfirmed`, RAA-214).
          */
         post: {
             parameters: {
@@ -2004,6 +2004,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a password account whose email isn't confirmed (RAA-214) */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["email_unconfirmed_error"];
                     };
                 };
                 /** @description another guest's booking */
@@ -2263,7 +2272,7 @@ export interface paths {
         put?: never;
         /**
          * Book a trip's items
-         * @description Guest-only (RAA-132). Books `item_ids` of one of the guest's trips: each item is re-priced and checked against the calendar as it is now, all or nothing. An instant-book listing's booking is held for payment; a request-to-book one's is a request its partner answers within 24 hours. Both hold their days at once. Requests wait for their partner's answer (RAA-134). Nothing is paid here: the guest pays for bookings held for payment afterwards (POST /bookings/pay, RAA-143). Sending the same `idempotency_key` again returns the same checkout.
+         * @description Guest-only (RAA-132). Books `item_ids` of one of the guest's trips: each item is re-priced and checked against the calendar as it is now, all or nothing. An instant-book listing's booking is held for payment; a request-to-book one's is a request its partner answers within 24 hours. Both hold their days at once. Requests wait for their partner's answer (RAA-134). Nothing is paid here: the guest pays for bookings held for payment afterwards (POST /bookings/pay, RAA-143). Sending the same `idempotency_key` again returns the same checkout. A password account must have confirmed its email first (403 `email_unconfirmed`, RAA-214).
          */
         post: {
             parameters: {
@@ -2333,6 +2342,129 @@ export interface paths {
                     content: {
                         "application/json": components["schemas"]["validation_errors"];
                     };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email_confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the signed-in user a link to confirm their email
+         * @description RAA-214. Sends again the link sign-up sends: it opens /confirm-email?token=… on the web app and works for 24 hours, until the email changes. Answers 202 and sends nothing when the email is confirmed already. Limited per IP and per user.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    Authorization?: string;
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description confirmed already: nothing is sent */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description signed out */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a guest with no email yet */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+                /** @description too many from one IP */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/email_confirmation/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm an email with the emailed link's token
+         * @description RAA-214. No sign-in needed: the link may open on another device. A token works for 24 hours, and only while the account's email is still the one it was sent to. Confirming again is harmless.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        token: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description confirmed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description no token */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description too many from one IP */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
                 };
             };
         };
@@ -6264,6 +6396,107 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/password_reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email a link to choose a new password
+         * @description RAA-214. `role` is the page's, as at sign-in. Answers 202 whether or not the email has an account of that role, and only an account with a password gets a link: it opens /reset-password?token=… on the web app and works for 30 minutes, once. Limited per IP and per email.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        email: string;
+                        /** @enum {string} */
+                        role: "guest" | "partner";
+                    };
+                };
+            };
+            responses: {
+                /** @description an account with no password (Google, or a guest without one): nothing sent */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description an admin */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description too many from one IP */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Choose a new password with the emailed link's token
+         * @description RAA-214. The token works for 30 minutes and only until the password changes, so once. Every session of the account is signed out, and the email counts as confirmed: the link proved it. The account then signs in with the new password.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        token: string;
+                        password: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description the password is changed and every session ends */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description no password */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description too many from one IP */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        trace?: never;
+    };
     "/api/v1/payments/{id}": {
         parameters: {
             query?: never;
@@ -8652,6 +8885,8 @@ export interface components {
             registration_complete: boolean;
             /** @description Has a password or a Google or Facebook sign-in. A guest who isn't has their trips deleted 60 days after each ends; POST /api/v1/me/register sets a password */
             registered: boolean;
+            /** @description Has proved it owns its email (RAA-214): the emailed link, a password reset, an emailed sign-in code or Google. A password account needs it to check out or pay; POST /api/v1/email_confirmation sends the link again */
+            email_confirmed: boolean;
         };
         profile_address: {
             street: string | null;
@@ -8712,6 +8947,11 @@ export interface components {
         };
         error: {
             error: string;
+        };
+        email_unconfirmed_error: {
+            error: string;
+            /** @enum {string} */
+            code: "email_unconfirmed";
         };
         validation_errors: {
             errors: string[];

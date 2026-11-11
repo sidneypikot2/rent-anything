@@ -60,6 +60,8 @@ module Auth
         user = User.create!(email: profile[:email], name: profile[:name].presence || profile[:email], role: @role,
           **User.terms_acceptance)
       end
+      # Google vouches for the address (RAA-214); Facebook's never counts as verified.
+      user.update!(email_confirmed_at: Time.current) if profile[:email_verified] && !user.email_confirmed?
 
       user.oauth_identities.create!(provider: @provider, uid: profile[:uid])
       user

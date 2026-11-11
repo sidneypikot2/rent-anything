@@ -34,6 +34,12 @@ Rails.application.routes.draw do
       end
       post "me/register", to: "me/registrations#create", as: :me_register
 
+      # Confirming an email and choosing a new password by emailed link (RAA-214).
+      resource :email_confirmation, only: :create do
+        post :verify, on: :collection
+      end
+      resource :password_reset, only: %i[create update]
+
       # Guest discovery (RAA-33): public, no sign-in.
       get "search", to: "search#index"
       resources :areas, only: %i[index show], param: :slug do

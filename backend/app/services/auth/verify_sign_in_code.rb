@@ -29,6 +29,8 @@ module Auth
         end
       end
       raise NotAuthenticatedError, "That code is wrong or has expired" unless user
+      # The code reached the inbox, so the guest owns the email (RAA-214).
+      user.update!(email_confirmed_at: Time.current) unless user.email_confirmed?
 
       Guests::Absorb.call(from: @current_user, into: user) if @current_user
       IssueTokens.call(user)

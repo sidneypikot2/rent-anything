@@ -15,7 +15,7 @@ RSpec.describe "Me: register", type: :request do
         type: :object, properties: { password: { type: :string } }, required: %w[password]
       }
 
-      let(:user) { create(:user, :profile_complete, password: nil, email: "ana@example.com") }
+      let(:user) { create(:user, :profile_complete, :unconfirmed, password: nil, email: "ana@example.com") }
       let(:Authorization) { bearer_for(user) }
       let(:body) { { password: "keep-my-trip" } }
 
@@ -25,6 +25,8 @@ RSpec.describe "Me: register", type: :request do
         run_test! do |response|
           expect(response.parsed_body).to include("registered" => true)
           expect(user.reload.authenticate("keep-my-trip")).to be_truthy
+          expect(ActionMailer::MailDeliveryJob).to have_been_enqueued
+            .with("AccountMailer", "email_confirmation", "deliver_now", a_hash_including(args: array_including(user)))
         end
       end
 

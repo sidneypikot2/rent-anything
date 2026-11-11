@@ -1,7 +1,7 @@
 require "swagger_helper"
 
 RSpec.describe "Sign-in codes", type: :request do
-  let!(:user) { create(:user, :profile_complete, password: nil, email: "ana@example.com") }
+  let!(:user) { create(:user, :profile_complete, :unconfirmed, password: nil, email: "ana@example.com") }
 
   path "/api/v1/sign_in_codes" do
     post "Email a guest a sign-in code" do
@@ -76,6 +76,8 @@ RSpec.describe "Sign-in codes", type: :request do
         run_test! do |response|
           expect(response.parsed_body.dig("user", "id")).to eq(user.id)
           expect(user.sign_in_codes.usable.count).to eq(0)
+          # The code proved the guest owns the email (RAA-214).
+          expect(user.reload.email_confirmed_at).to be_present
         end
       end
 
