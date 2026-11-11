@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
+import { EmailUnconfirmedError, emailUnconfirmed } from "@/components/auth/email-confirmation";
 import { tripError, tripsKey } from "@/components/trips/use-trips";
 import { useErrorToast } from "@/components/ui/toast";
 import { useSession } from "@/lib/auth/session";
@@ -99,12 +100,13 @@ export function useCheckout() {
         body: { trip_id: tripId, item_ids: itemIds, idempotency_key: idempotencyKey, ...(contact && { contact }) },
       });
       if (response.status === 409) throw new CodeRequiredError((error as { error?: string } | undefined)?.error);
+      if (emailUnconfirmed(response, error)) throw new EmailUnconfirmedError();
       if (!data) throw tripError(error, "Couldn't book those. Try again.");
       return data;
     },
     onSuccess: invalidate,
-    // The sheet asks for the code itself.
-    onError: (error) => error instanceof CodeRequiredError || failed(error),
+    // The sheet asks for the code, or for the email to be confirmed, itself.
+    onError: (error) => error instanceof CodeRequiredError || error instanceof EmailUnconfirmedError || failed(error),
   });
 }
 
@@ -117,12 +119,14 @@ export function usePayBookings() {
   const failed = useErrorToast();
   return useMutation({
     mutationFn: async (bookingIds: number[]) => {
-      const { data, error } = await apiClient().POST("/api/v1/bookings/pay", { body: { booking_ids: bookingIds } });
+      const { data, error, response } = await apiClient().POST("/api/v1/bookings/pay", { body: { booking_ids: bookingIds } });
+      if (emailUnconfirmed(response, error)) throw new EmailUnconfirmedError();
       if (!data) throw tripError(error, "Couldn't pay for those. Try again.");
       return data;
     },
     onSuccess: invalidate,
-    onError: failed,
+    // The sheet asks for the email to be confirmed itself.
+    onError: (error) => error instanceof EmailUnconfirmedError || failed(error),
   });
 }
 

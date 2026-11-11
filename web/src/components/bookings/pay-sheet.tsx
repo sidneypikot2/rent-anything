@@ -1,10 +1,12 @@
 "use client";
 
+import { EmailUnconfirmedError, EmailUnconfirmedNotice } from "@/components/auth/email-confirmation";
 import { formatDateRange } from "@/components/trips/format";
 import type { Trip, TripItem } from "@/components/trips/use-trips";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogSummary } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import { useSession } from "@/lib/auth/session";
 import { formatPeso } from "@/lib/money";
 import { BookingStatusBadge } from "./booking-status";
 import { usePayBookings, type GuestBooking } from "./use-bookings";
@@ -40,6 +42,7 @@ export const TEST_MODE_NOTE =
 // are shown here. All or nothing: one booking past its pay-by time refuses the lot.
 export function PaySheet({ trip, items, onClose }: { trip: Trip; items: TripItem[]; onClose: () => void }) {
   const pay = usePayBookings();
+  const session = useSession();
   const toast = useToast();
   const checkoutUrl = pay.data?.payment?.checkout_url;
   const result = pay.data && !checkoutUrl ? pay.data.bookings : undefined;
@@ -99,10 +102,14 @@ export function PaySheet({ trip, items, onClose }: { trip: Trip; items: TripItem
       }
     >
       {result ? <Paid bookings={result} /> : <ToPay items={items} />}
-      {pay.error && (
-        <p role="alert" data-testid="pay-error" className="text-sm text-danger">
-          {pay.error.message}
-        </p>
+      {pay.error instanceof EmailUnconfirmedError ? (
+        <EmailUnconfirmedNotice email={session?.user.email ?? null} />
+      ) : (
+        pay.error && (
+          <p role="alert" data-testid="pay-error" className="text-sm text-danger">
+            {pay.error.message}
+          </p>
+        )
       )}
     </Dialog>
   );

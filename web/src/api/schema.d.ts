@@ -7110,7 +7110,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description from a guest with no email yet: their trips move into this account */
+                /** @description a password account: signed in, but its email isn't confirmed by the code (RAA-214) */
                 200: {
                     headers: {
                         [name: string]: unknown;

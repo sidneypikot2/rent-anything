@@ -3,6 +3,7 @@
 import type { CountryCode } from "libphonenumber-js";
 import { useState, type FormEvent } from "react";
 import { CodeForm } from "@/components/auth/email-code-form";
+import { EmailUnconfirmedError, EmailUnconfirmedNotice } from "@/components/auth/email-confirmation";
 import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
 import { formatDateRange, itemAmount } from "@/components/trips/format";
 import {
@@ -49,7 +50,8 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
   const checkout = useCheckout();
   const toast = useToast();
   const [key] = useState(newIdempotencyKey);
-  const anonymous = isAnonymous(useSession());
+  const session = useSession();
+  const anonymous = isAnonymous(session);
   // The email waiting for its code (a 409), while the code step shows.
   const [codeFor, setCodeFor] = useState<string | null>(null);
   const [phone, setPhone] = useState("");
@@ -176,10 +178,14 @@ export function CheckoutSheet({ trip, items, onClose }: { trip: Trip; items: Tri
           )}
         </form>
       )}
-      {error && (
-        <p role="alert" data-testid="checkout-error" className="text-sm text-danger">
-          {error.message}
-        </p>
+      {error instanceof EmailUnconfirmedError ? (
+        <EmailUnconfirmedNotice email={session?.user.email ?? null} />
+      ) : (
+        error && (
+          <p role="alert" data-testid="checkout-error" className="text-sm text-danger">
+            {error.message}
+          </p>
+        )
       )}
     </Dialog>
   );

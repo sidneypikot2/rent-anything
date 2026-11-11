@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState } from "react";
 import { apiClient } from "@/api/client";
+import { EmailConfirmBanner } from "@/components/auth/email-confirmation";
 import { tripError } from "@/components/trips/use-trips";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -14,11 +15,13 @@ import { TripLinkCard } from "./trip-link-card";
 // The line over the cart for a guest without an account (RAA-177). Before their first
 // checkout: "Have an account? Sign in". After it: trips are deleted 60 days after they end
 // unless they create an account (/trips/keep), and Reset trip link and PIN, which ends the
-// old pair and shows the new one once. Nothing for a registered guest.
+// old pair and shows the new one once. For a registered guest, only a reminder to confirm their
+// email while it isn't (RAA-215): until then the API won't book or take payment.
 export function CartAccountBar() {
   const session = useSession();
   const [resetting, setResetting] = useState(false);
-  if (!session || session.user.role !== "guest" || session.user.registered) return null;
+  if (!session || session.user.role !== "guest") return null;
+  if (session.user.registered) return <EmailConfirmBanner className="max-sm:mx-gutter" />;
 
   if (isAnonymous(session)) {
     return (

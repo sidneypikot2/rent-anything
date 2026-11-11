@@ -283,6 +283,36 @@ test("a sign-in sent before the page loads keeps the password out of the URL", a
   await context.close();
 });
 
+// Password reset and email confirmation (RAA-215): sign-in's Forgot password? asks for a link and
+// says "if" whatever the email; the emailed links' pages drop their token from the URL at once
+// and say when it is no good. A real token needs the email, so only a bad one is tried here.
+test("forgot password, and the emailed links with a bad token", async ({ page }) => {
+  const errors = [];
+  collectErrors(page, errors);
+
+  await page.goto("/login");
+  await page.getByTestId("forgot-password-link").click();
+  await expect(page).toHaveURL(/\/forgot-password$/);
+  await page.getByLabel("Email").fill(`nobody-${Date.now()}@example.com`);
+  await page.getByRole("button", { name: "Email me a link" }).click();
+  await expect(page.getByTestId("forgot-password-sent")).toContainText("If an account");
+
+  await page.goto("/reset-password?token=not-a-token");
+  await expect(page.getByTestId("reset-password")).toBeVisible();
+  await expect(page).toHaveURL(/\/reset-password$/);
+  await page.getByLabel("New password", { exact: true }).fill("password123");
+  await page.getByLabel("Confirm password", { exact: true }).fill("password123");
+  await page.getByRole("button", { name: "Save new password" }).click();
+  await expect(page.getByTestId("reset-password-error")).toContainText("invalid or has expired");
+
+  await page.goto("/confirm-email?token=not-a-token");
+  await expect(page.getByTestId("confirm-email-error")).toContainText("invalid or has expired");
+  await expect(page).toHaveURL(/\/confirm-email$/);
+
+  // The API's 422s for the bad tokens are the only errors.
+  expect(errors.filter((error) => !error.includes("status of 422"))).toEqual([]);
+});
+
 test("sign-up and the partner guard", async ({ page }) => {
   // Two sign-ups and most of the partner pages: about a minute, more on a cold dev server.
   test.setTimeout(180_000);

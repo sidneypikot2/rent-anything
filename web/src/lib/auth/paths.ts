@@ -21,6 +21,15 @@ export const REGISTER_PATHS: Record<Exclude<Role, "admin">, string> = {
   partner: "/partner/register",
 };
 
+// Where the self-serve roles ask for a link to choose a new password (RAA-215).
+export const FORGOT_PASSWORD_PATHS: Record<Exclude<Role, "admin">, string> = {
+  guest: "/forgot-password",
+  partner: "/partner/forgot-password",
+};
+
+// The flag /reset-password sends sign-in with, which then says the password changed.
+export const RESET_DONE_FLAG = "reset";
+
 // A `next` path to come back to after signing in, if it's safe to follow: a path on this
 // site only ("/bantayan-island?from=…"), never "//host" or "/\host", which browsers treat
 // as another site. Browsers drop tabs and newlines from a URL ("/\t/host" is "//host"), so
