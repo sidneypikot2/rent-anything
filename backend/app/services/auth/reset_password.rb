@@ -13,12 +13,12 @@ module Auth
       require_string!(@token, "Token")
       require_string!(@password, "Password")
       user = User.find_by_token_for(:password_reset, @token)
-      invalid!(ConfirmEmail::INVALID) unless user
+      invalid!(INVALID_LINK) unless user
 
       User.transaction do
         user.lock!
         # Checked again under the lock: two resets sent at once must not both spend the token.
-        invalid!(ConfirmEmail::INVALID) unless User.find_by_token_for(:password_reset, @token)
+        invalid!(INVALID_LINK) unless User.find_by_token_for(:password_reset, @token)
         user.update!(password: @password, email_confirmed_at: user.email_confirmed_at || Time.current)
         user.refresh_tokens.active.update_all(revoked_at: Time.current)
       end

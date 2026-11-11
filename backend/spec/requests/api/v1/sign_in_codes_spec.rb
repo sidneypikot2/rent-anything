@@ -94,6 +94,14 @@ RSpec.describe "Sign-in codes", type: :request do
         end
       end
 
+      response "200", "a password account: signed in, but its email isn't confirmed by the code (RAA-214)" do
+        schema "$ref" => "#/components/schemas/auth_tokens"
+        # The code proves the inbox, not that whoever set the password owns it.
+        before { user.update!(password: "password123") }
+
+        run_test! { expect(user.reload.email_confirmed_at).to be_nil }
+      end
+
       response "401", "a wrong code, counted" do
         schema "$ref" => "#/components/schemas/error"
         let(:body) { { email: "ana@example.com", code: wrong } }

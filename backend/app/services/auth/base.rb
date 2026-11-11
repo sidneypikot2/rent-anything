@@ -2,6 +2,9 @@ module Auth
   # Shared request checks for the auth services. A missing or wrong-typed value is a 422,
   # never coerced (see .claude/rules/backend.md).
   class Base < ApplicationService
+    # An emailed link's token that is wrong, expired or spent (RAA-214).
+    INVALID_LINK = "That link is invalid or has expired. Ask for a new one.".freeze
+
     private
 
     def check_role!(role, allowed)
