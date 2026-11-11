@@ -27,9 +27,14 @@ RSpec.describe "Partner bookings", type: :request do
     get "A listing's bookings" do
       tags "Partner"
       produces "application/json"
+      paginated_list
       description "Partner-only (RAA-118). The listing's bookings ending today or later, cancelled ones too, by start " \
         "date."
       security [ { bearer: [] } ]
+
+      it_behaves_like "a paginated list", total: 3 do
+        before { (1..3).each { |n| create(:booking, listing:, starts_on: today + (n * 3), ends_on: today + (n * 3) + 1) } }
+      end
 
       response "200", "the bookings still to come" do
         schema type: :array, items: { "$ref" => "#/components/schemas/booking" }

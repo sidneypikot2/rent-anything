@@ -13,7 +13,7 @@ module Api
         before_action :set_block, only: %i[update destroy]
 
         def index
-          blocks = @listing.availability_blocks.where(ends_on: Date.current..)
+          blocks = paginate(@listing.availability_blocks.where(ends_on: Date.current..).order(:starts_on, :id))
           render json: blocks.map { PartnerCalendarSerializer.block(_1) }
         end
 

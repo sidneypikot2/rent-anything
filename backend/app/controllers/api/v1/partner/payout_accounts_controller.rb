@@ -8,7 +8,7 @@ module Api
         before_action -> { require_role!("partner") }
 
         def index
-          accounts = current_user.payout_accounts.includes(:businesses).order(:created_at, :id)
+          accounts = paginate(current_user.payout_accounts.order(:created_at, :id)).includes(:businesses)
           render json: accounts.map { |account| PayoutAccountSerializer.call(account) }
         end
 

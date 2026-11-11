@@ -12,6 +12,7 @@ RSpec.describe "Trips", type: :request do
     get "The signed-in guest's trips" do
       tags "Trips"
       produces "application/json"
+      paginated_list
       description "Guest-only. The cart: every trip whose `deletes_on` hasn't come, with its items. A trip " \
         "that has ended, or an undated one with no edits for 60 days, shows a deletion notice for 7 days; " \
         "then a daily job deletes its unbooked items. Dated trips come first, " \
@@ -20,6 +21,10 @@ RSpec.describe "Trips", type: :request do
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
       parameter name: :view, in: :query, required: false, schema: { type: :string, enum: %w[booked] }
+
+      it_behaves_like "a paginated list", total: 3 do
+        before { create_list(:trip, 3, user:) }
+      end
 
       response "200", "with view=booked: every trip with a booked item, latest first" do
         schema type: :array, items: { "$ref" => "#/components/schemas/trip" }

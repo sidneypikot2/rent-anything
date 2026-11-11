@@ -6,7 +6,7 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
 
     resource "*",
       headers: :any,
-      expose: %w[X-Total-Count],
+      expose: %w[X-Total-Count X-Page X-Per-Page Link],
       methods: [ :get, :post, :put, :patch, :delete, :options, :head ]
   end
 end

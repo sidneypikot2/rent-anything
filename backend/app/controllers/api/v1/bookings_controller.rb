@@ -1,7 +1,7 @@
 module Api
   module V1
-    # The signed-in guest's bookings (RAA-132): upcoming ones first by date, then past and
-    # cancelled ones, newest first; one booking; changing one, which sends it back to the
+    # The signed-in guest's bookings (RAA-132), a page at a time (Paginated): upcoming ones
+    # first by date, then past and cancelled ones, newest first; one booking; changing one, which sends it back to the
     # partner as a request (Bookings::Change, RAA-134); cancelling one that hasn't started
     # (Bookings::Cancel); and paying for those held for payment (Payments::Pay, RAA-143), on
     # PayMongo's hosted checkout when it is set up.
@@ -12,10 +12,8 @@ module Api
       before_action :set_booking, only: %i[show update cancel]
 
       def index
-        bookings = current_user.bookings.includes(*BookingSerializer::ASSOCIATIONS)
-        upcoming, past = bookings.partition { |booking| booking.holding? && booking.ends_on >= Date.current }
-        ordered = upcoming.sort_by { [ _1.starts_on, _1.id ] } + past.sort_by { [ _1.starts_on, _1.id ] }.reverse
-        render json: ordered.map { BookingSerializer.call(_1) }
+        bookings = paginate(current_user.bookings.upcoming_first).includes(*BookingSerializer::ASSOCIATIONS)
+        render json: bookings.map { BookingSerializer.call(_1) }
       end
 
       def show
