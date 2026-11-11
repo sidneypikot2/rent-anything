@@ -4,17 +4,14 @@ import { ChevronGlyph } from "@/components/discovery/tag-glyphs";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { cn } from "@/components/ui/cn";
 
-export const PLAN_STEPS = 3;
-
 // Plan a whole trip (2026-11-02, the team's guided planner with our checklist): each step on the
 // white sheet (on a phone the whole screen: no site header or footer, data-plan-page in
 // globals.css), under one slim bar as wide as a form on every step (2026-11-03, the compact
-// checklist): the way back, what the step is about (`label`: the trip's where, when and who),
-// "Step 2 of 3" as quiet text (to screen readers only on a phone; the line itself when there is no
-// label) and the step's `action`. No progress bar: the checklist's own row of steps shows that.
+// checklist): the way back, what the step is about (`label`: the trip's where, when and who; "Plan
+// a trip" before there is one) and the step's `action`. No step count or progress bar: the
+// planner's one track (PlanSteps, Trip to Review) shows where the guest is.
 // The step's own content and its pinned foot come as children.
 export function PlanFrame({
-  step,
   back,
   backLabel,
   label,
@@ -22,7 +19,6 @@ export function PlanFrame({
   wide = false,
   children,
 }: {
-  step: number;
   back: string;
   backLabel: string;
   // What the bar says beside the step: "optional", the trip's name.
@@ -46,18 +42,7 @@ export function PlanFrame({
             >
               <ChevronGlyph direction="left" className="size-5" />
             </Link>
-            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-muted">
-              {label ?? (
-                <>
-                  Step {step} of {PLAN_STEPS}
-                </>
-              )}
-            </p>
-            {label && (
-              <span className="shrink-0 text-sm text-muted max-sm:sr-only">
-                Step {step} of {PLAN_STEPS}
-              </span>
-            )}
+            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-muted">{label ?? "Plan a trip"}</p>
             {action}
           </div>
           {children}
@@ -88,7 +73,7 @@ export function PlanFoot({ summary, float, row = false, children }: { summary?: 
   );
 }
 
-// Each step's heading, the same on all three: an optional line above, the title, an optional line
+// Each step's heading, the same on every page: an optional line above, the title, an optional line
 // under it.
 export function PlanHeading({ id, eyebrow, title, sub }: { id?: string; eyebrow?: ReactNode; title: ReactNode; sub?: ReactNode }) {
   return (

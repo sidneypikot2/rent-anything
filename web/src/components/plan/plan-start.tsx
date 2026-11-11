@@ -1,12 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { chooseTrip } from "@/components/trips/chosen-trip";
 import type { TripDates } from "@/components/trips/trip-dates";
 import { currentTrips, useCreateTrip, useTrips, useUpdateTrip } from "@/components/trips/use-trips";
 import { Button } from "@/components/ui/button";
-import { DateRangeField } from "@/components/ui/date-range-field";
+import { DateRangeField, type DateRangeFieldHandle } from "@/components/ui/date-range-field";
 import { SelectField } from "@/components/ui/select-field";
 import { StepperField } from "@/components/ui/stepper-field";
 import { useToast } from "@/components/ui/toast";
@@ -15,6 +15,8 @@ import { useSession } from "@/lib/auth/session";
 import { formatDateRange, localTodayIso } from "@/lib/dates";
 import type { LatLng } from "@/lib/geo";
 import { PlanFoot, PlanHeading } from "./plan-frame";
+import { PlanSteps } from "./plan-steps";
+import { PREVIEW_STOPS } from "./plan-track";
 
 export type PlanPlace = { slug: string; name: string; center: LatLng };
 
@@ -42,6 +44,7 @@ export function PlanStart({
   const create = useCreateTrip();
   const update = useUpdateTrip();
   const [where, setWhere] = useState(initialWhere);
+  const datesField = useRef<DateRangeFieldHandle>(null);
   const [range, setRange] = useState({ from: dates.from ?? "", to: dates.to ?? "" });
   const [adults, setAdults] = useState(Math.max(1, dates.guests - (dates.children ?? 0)));
   const [children, setChildren] = useState(dates.children ?? 0);
@@ -64,6 +67,8 @@ export function PlanStart({
   async function submit(event: FormEvent) {
     event.preventDefault();
     setTried(true);
+    // No dates yet: open the calendar rather than leave them hunting for the field.
+    if (!datesSet) datesField.current?.open();
     if (!ready || !place || working || session === undefined) return;
     if (session && !isGuest) {
       toast.show("Trips are for guests. Sign in with a guest account to plan one.", { tone: "danger" });
@@ -102,6 +107,8 @@ export function PlanStart({
 
   return (
     <form onSubmit={submit} className="flex flex-1 flex-col" noValidate>
+      {/* The planner's whole track from the start, Trip lit; the rest opens once the trip is saved. */}
+      <PlanSteps stops={PREVIEW_STOPS} active="trip" />
       <div className="flex flex-col gap-5 pb-8">
         <PlanHeading title="Where, when and who?" />
         <SelectField
@@ -112,6 +119,8 @@ export function PlanStart({
           data-testid="plan-where"
         />
         <DateRangeField
+          ref={datesField}
+          modal
           label="When"
           from={range.from}
           to={range.to}

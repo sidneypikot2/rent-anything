@@ -31,10 +31,25 @@ function Status({ label, className, children }: { label: string; className?: str
   );
 }
 
-// Step 1: Where, When, Who's coming, then Next.
+// The planner's track (PlanSteps): eight stops, Trip to Review, labels under it.
+function TrackSkeleton() {
+  return (
+    <div aria-hidden className="mx-auto flex w-full max-w-narrow flex-col gap-1.5 pt-3 pb-2">
+      <span className={cn("h-10 w-full rounded-full", BLOCK)} />
+      <div className="grid grid-cols-8">
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
+          <span key={index} className={cn("mx-auto h-4.5 w-3/5 rounded-full", BLOCK)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Step 1: the track, Where, When, Who's coming, then Next.
 export function PlanStartSkeleton() {
   return (
     <Status label="Loading…" className="flex flex-1 flex-col">
+      <TrackSkeleton />
       <div className="flex flex-col gap-5 pb-8">
         <Heading />
         {[0, 1].map((field) => (
@@ -92,20 +107,13 @@ export function PlanOptionsSkeleton({ map = true }: { map?: boolean }) {
   );
 }
 
-// Step 2: the checklist's stepper (a track, labels under it), then the open step's panel (its
+// Step 2: the track, then the open step's panel (its
 // heading, the chips or choices, then the cards beside the map) and the foot.
 export function PlanChecklistSkeleton() {
   return (
     <Status label="Loading your trip…" className="flex flex-1 flex-col">
       <div className="flex flex-col gap-3 pb-8">
-        <div aria-hidden className="mx-auto flex w-full max-w-narrow flex-col gap-1.5 pt-3 pb-2">
-          <span className={cn("h-10 w-full rounded-full", BLOCK)} />
-          <div className="grid grid-cols-6">
-            {[0, 1, 2, 3, 4, 5].map((index) => (
-              <span key={index} className={cn("mx-auto h-4.5 w-3/5 rounded-full", BLOCK)} />
-            ))}
-          </div>
-        </div>
+        <TrackSkeleton />
         <div className="flex flex-col gap-3 rounded-card border border-line p-3 sm:p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -127,10 +135,11 @@ export function PlanChecklistSkeleton() {
   );
 }
 
-// Step 3: the trip's heading, its days down a line (a date disc, then event rows), the foot.
+// Review: the track, the trip's heading, its days down a line (a date disc, then event rows), the foot.
 export function PlanReviewSkeleton() {
   return (
     <Status label="Loading your plan…" className="flex flex-1 flex-col">
+      <TrackSkeleton />
       <div className="pb-2">
         <Heading eyebrow sub />
       </div>
