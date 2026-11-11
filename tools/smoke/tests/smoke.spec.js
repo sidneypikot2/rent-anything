@@ -60,7 +60,11 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   const days = page.locator("[role=grid] button:not([disabled])");
   await days.nth(10).click();
   await days.nth(12).click();
+  await page.getByTestId("plan-dates-ok").click();
   // Next starts the trip (a guest with no account, signed out) and opens its checklist.
+  // Step 1 shows the planner's whole track, Trip lit, from Trip to Review.
+  await expect(page.getByTestId("plan-step-trip")).toHaveAttribute("aria-current", "step");
+  await expect(page.getByTestId("plan-step-review")).toBeVisible();
   await page.getByTestId("plan-next").click();
   await expect(page).toHaveURL(/\/plan\/bantayan-island\?trip=\d+/);
   // Places to see is the first step: a heart picks one, the step stays open, and Next finds a
@@ -78,10 +82,10 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   await page.getByTestId("plan-step-activity").click();
   await expect(page.getByTestId("plan-places-tours")).toBeVisible();
   // The foot's trip button shows only once a listing is in the trip, and Next stays the main
-  // button; with none picked, open the review by its URL.
+  // button; Review is the track's last stop.
   await expect(page.getByTestId("plan-trip-open")).toHaveCount(0);
-  const { pathname, search } = new URL(page.url());
-  await page.goto(`${pathname}/review${search}`);
+  await page.getByTestId("plan-step-review").click();
+  await expect(page).toHaveURL(/\/plan\/bantayan-island\/review\?trip=\d+/);
   await expect(page.getByTestId("plan-days")).toBeVisible();
   // The pick from step 2 is in the places panel, undecided until the guest says how.
   await expect(page.getByTestId("plan-places-count")).toHaveText("0 of 1 sorted");
@@ -89,6 +93,11 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   await page.getByTestId("plan-way-skip").click();
   await page.getByTestId("plan-chooser-save").click();
   await expect(page.getByTestId("plan-places-count")).toHaveText("1 of 1 sorted");
+  // Review keeps the track: a step on it goes back to that step on the checklist.
+  await expect(page.getByTestId("plan-step-review")).toHaveAttribute("aria-current", "step");
+  await page.getByTestId("plan-step-stay").click();
+  await expect(page).toHaveURL(/\/plan\/bantayan-island\?trip=\d+&choose=stay$/);
+  await expect(page.getByTestId("plan-step-stay")).toHaveAttribute("aria-current", "step");
   // Planning again with a trip already made asks which on the home page; the trip has dates, so
   // continuing it opens its checklist.
   const tripId = new URL(page.url()).searchParams.get("trip");

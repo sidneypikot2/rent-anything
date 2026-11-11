@@ -23,6 +23,8 @@ import { PlanFoot, PlanHeading } from "./plan-frame";
 import { PlanPlaceChooser } from "./plan-place-chooser";
 import { PlanPlacesPanel } from "./plan-places-panel";
 import { PlanReviewSkeleton } from "./plan-skeletons";
+import { PlanSteps } from "./plan-steps";
+import { planSteps, planStops, reviewStepHref, tripStepHref, useSkipped } from "./plan-track";
 
 // Step 3 (the team's A6; revamped in RAA-263): the trip day by day, every day saying what happens
 // and when — check-in and check-out, a ride's pickup or delivery and its return, a transfer, a
@@ -116,9 +118,20 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
   const picking = picks.find((pick) => pick.slug === choosing);
   const open = picks.filter((pick) => pick.state === "open").length;
   const beside = picks.length > 0;
+  // The planner's track, Review lit: each step links back to it on the checklist.
+  const [skipped] = useSkipped(trip.id);
+  const steps = planSteps(place, trip);
+  const stops = planStops({
+    ...steps,
+    skipped,
+    tripHref: tripStepHref(trip, place.area.slug),
+    reviewHref: reviewStepHref(trip, place.area.slug),
+    stepHref: (key) => `${back}&choose=${key}`,
+  });
 
   return (
     <>
+      <PlanSteps stops={stops} active="review" />
       <div className="pb-2">
         <PlanHeading
           eyebrow={missing ? "Your plan so far" : "Your plan is ready"}
@@ -256,7 +269,7 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
       )}
         </div>
         {beside && (
-          <aside className={cn("pt-3 pb-8 lg:sticky lg:top-(--chrome)", tab === "days" && "max-lg:hidden")}>
+          <aside className={cn("pt-3 pb-8 lg:sticky lg:top-(--plan-chrome)", tab === "days" && "max-lg:hidden")}>
             <PlanPlacesPanel picks={picks} stay={stay} mapKey={tab} onChoose={(pick: PickStatus) => setChoosing(pick.slug)} onListing={setListing} />
           </aside>
         )}
