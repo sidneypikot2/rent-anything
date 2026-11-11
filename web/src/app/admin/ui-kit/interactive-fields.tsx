@@ -5,8 +5,10 @@ import { ComboboxField } from "@/components/ui/combobox-field";
 import { ChoiceCards } from "@/components/ui/choice-cards";
 import { DateRangeField } from "@/components/ui/date-range-field";
 import { PhoneField } from "@/components/ui/phone-field";
+import { RangeField, type RangeValue } from "@/components/ui/range-field";
 import { StepperField } from "@/components/ui/stepper-field";
 import { todayIso } from "@/lib/dates";
+import { formatPeso } from "@/lib/money";
 
 const ISLANDS = ["Bantayan", "Bohol", "Camotes", "Malapascua", "Siquijor"].map((name) => ({
   value: name.toLowerCase(),
@@ -21,6 +23,7 @@ export function InteractiveFields() {
   const [guests, setGuests] = useState(2);
   const [dates, setDates] = useState({ from: "", to: "" });
   const [day, setDay] = useState({ from: "", to: "" });
+  const [price, setPrice] = useState<RangeValue>([null, null]);
 
   return (
     <>
@@ -47,6 +50,16 @@ export function InteractiveFields() {
       />
       <DateRangeField label="Date" hint="DateRangeField single: one day" single min={todayIso()} from={day.from} to={day.to} onChange={setDay} />
       <StepperField label="Guests (StepperField)" hint="Nudged with − and +" value={guests} min={1} max={10} onChange={setGuests} />
+      <RangeField
+        legend="Price (RangeField)"
+        aside="/ day"
+        min={300}
+        max={3500}
+        step={50}
+        value={price}
+        onChange={setPrice}
+        format={(pesos) => formatPeso(pesos * 100)}
+      />
     </>
   );
 }

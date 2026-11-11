@@ -7,7 +7,8 @@ import { Eyebrow, SectionTitle } from "./typography";
 // `section` step apart in their page (gap-section). It eases up as it scrolls into view, unless
 // it has an `id`: links jump to it and to things in it (#places, #listing-12), and the browser
 // aims a jump at where the section is drawn before the jump, 14px low while it is still rising,
-// so the heading would land under the header.
+// so the heading would land under the header. Without a title (a page whose banner already
+// names it) it has no header and `label` names it for screen readers.
 // In a .page-sections page, `surface` says what it sits on (RAA-125): the bare photo, the
 // faint glass or paper (a pale sheet, for a section of white cards); globals.css draws them.
 // An anchor to it (/#destinations) clears the header through html's scroll padding
@@ -17,6 +18,7 @@ export function Section({
   testId,
   eyebrow,
   title,
+  label,
   intro,
   action,
   surface,
@@ -27,7 +29,8 @@ export function Section({
   id?: string;
   testId?: string;
   eyebrow?: ReactNode;
-  title: ReactNode;
+  title?: ReactNode;
+  label?: string;
   intro?: ReactNode;
   action?: ReactNode;
   surface?: "photo" | "glass" | "paper";
@@ -37,15 +40,28 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section id={id} data-testid={testId} data-surface={surface} className={cn(!id && "reveal", "flex flex-col gap-block", className)}>
-      <header className={cn("flex flex-wrap items-end gap-x-6 gap-y-3", align === "center" ? "justify-center text-center" : "justify-between")}>
-        <div className={cn("flex max-w-prose flex-col gap-2", align === "center" && "items-center")}>
-          {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
-          <SectionTitle>{title}</SectionTitle>
-          {intro && <p className="text-pretty text-muted">{intro}</p>}
-        </div>
-        {action}
-      </header>
+    <section
+      id={id}
+      data-testid={testId}
+      data-surface={surface}
+      aria-label={label}
+      className={cn(!id && "reveal", "flex flex-col gap-block", className)}
+    >
+      {(eyebrow || title || intro || action) && (
+        <header
+          className={cn(
+            "flex flex-wrap items-end gap-x-6 gap-y-3",
+            align === "center" ? "justify-center text-center" : "justify-between",
+          )}
+        >
+          <div className={cn("flex max-w-prose flex-col gap-2", align === "center" && "items-center")}>
+            {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
+            {title && <SectionTitle>{title}</SectionTitle>}
+            {intro && <p className="text-pretty text-muted">{intro}</p>}
+          </div>
+          {action}
+        </header>
+      )}
       {children}
     </section>
   );

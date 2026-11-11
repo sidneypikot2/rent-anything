@@ -23,7 +23,7 @@ export default async function PlanStartPage(props: PageProps<"/plan">) {
   const places: PlanPlace[] = ordered.map(({ area }) => ({ slug: area.slug, name: area.name, center: area.center }));
   const where = typeof searchParams.where === "string" ? searchParams.where : undefined;
   return (
-    <PlanFrame step={1} back="/" backLabel="Back to home">
+    <PlanFrame back="/" backLabel="Back to home">
       <PlanStart
         places={places}
         initialWhere={places.find((place) => place.slug === where)?.slug ?? places[0]?.slug ?? LAUNCH_AREA.slug}

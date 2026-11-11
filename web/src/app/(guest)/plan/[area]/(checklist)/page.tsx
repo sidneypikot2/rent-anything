@@ -6,7 +6,7 @@ import { BusinessModal } from "@/components/plan/business-modal";
 import { PlanFrame } from "@/components/plan/plan-frame";
 import { PlanChecklist } from "@/components/plan/plan-checklist";
 import { loadPlanPlace } from "@/components/plan/load-plan-place";
-import { PLAN_ROWS } from "@/components/plan/plan-data";
+import { PLACES_ROW, PLAN_ROWS } from "@/components/plan/plan-data";
 import { PlanTripChange, PlanTripLabel } from "@/components/plan/plan-trip-bar";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { AdoptTrip } from "@/components/trips/trip-link";
@@ -23,13 +23,14 @@ export default async function PlanChecklistPage(props: PageProps<"/plan/[area]">
   const slug = (await props.params).area;
   const searchParams = await props.searchParams;
   const tripId = tripParam(searchParams.trip);
-  // A gap's Add on the review opens its row (`?choose=transfer`).
-  const choose = PLAN_ROWS.find((row) => row.key === searchParams.choose)?.key;
+  // A gap's Add on the review opens its row (`?choose=transfer`), as does a stop on its track
+  // (`?choose=places` too).
+  const choose = [PLACES_ROW, ...PLAN_ROWS].find((row) => row.key === searchParams.choose)?.key;
   const place = await loadPlanPlace(slug);
   if (!place) notFound();
   // Page 1 of the step it most likely opens on (the stays, or `?choose=`'s), handed over so the
   // browser needn't ask again; any other step loads there.
-  const initialKey = choose ?? "stay";
+  const initialKey = choose && choose !== "places" ? choose : "stay";
   // A step's card tapped on a phone opens its business over the plan (`?business=`, over-plan.ts),
   // in the plan's URL so a reload keeps both.
   const openId = typeof searchParams.business === "string" ? businessId(searchParams.business) : null;
@@ -40,7 +41,7 @@ export default async function PlanChecklistPage(props: PageProps<"/plan/[area]">
   const view = open?.[0] ? businessView(open[0], open[1], { ...searchParams, place: slug, plan: "1" }) : null;
   return (
     <>
-    <PlanFrame step={2} back={`/plan?where=${slug}${tripId ? `&trip=${tripId}` : ""}`} backLabel="Back to where, when and who" label={<PlanTripLabel place={place} />} action={<PlanTripChange place={place} />} wide>
+    <PlanFrame back={`/plan?where=${slug}${tripId ? `&trip=${tripId}` : ""}`} backLabel="Back to where, when and who" label={<PlanTripLabel place={place} />} action={<PlanTripChange place={place} />} wide>
       {tripId && <AdoptTrip id={tripId} />}
       <TripAddProvider places={place.places}>
         <PlanChecklist place={place} choose={choose} initial={initialPage ? { key: initialKey, data: initialPage } : undefined} />

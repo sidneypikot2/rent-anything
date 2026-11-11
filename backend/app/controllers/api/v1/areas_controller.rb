@@ -6,8 +6,7 @@ module Api
       end
 
       def show
-        render json: Discovery::AreaDetail.call(Area.published.find_by!(slug: params[:slug]), pets: params[:pets] == "1",
-          listings: params[:listings] != "0")
+        render json: Discovery::AreaDetail.call(Area.published.find_by!(slug: params[:slug]))
       end
     end
   end

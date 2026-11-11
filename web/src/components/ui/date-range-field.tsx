@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useImperativeHandle, useRef, useState, type KeyboardEvent, type Ref } from "react";
 import { DayPicker, type DayButtonProps } from "react-day-picker";
-import { CalendarGlyph, ChevronGlyph } from "@/components/discovery/tag-glyphs";
+import { CalendarGlyph, ChevronGlyph, CloseGlyph } from "@/components/discovery/tag-glyphs";
 import { formatDateRange } from "@/lib/dates";
+import { Button } from "./button";
 import { cn } from "./cn";
+import { Dialog } from "./dialog";
 
 export type DateRange = { from: string; to: string };
+// Lets a form open the calendar itself, e.g. when it is sent with no dates picked.
+export type DateRangeFieldHandle = { open: () => void };
 
 type Props = {
   label: string;
@@ -33,9 +37,14 @@ type Props = {
   // A ticket row in a dialog (the modal redesign): the calendar icon in its well, the label over
   // the dates, a chevron; the calendar opens under it, inside the ticket.
   row?: boolean;
+  // A field on a page (What to book's dates bar, the planner's When) that opens the calendar in a
+  // centred dialog, two months across from md, the picked days applied by OK. With `row`, a set
+  // range also clears from the bar's own X.
+  modal?: boolean;
   autoFocus?: boolean;
   className?: string;
   "data-testid"?: string;
+  ref?: Ref<DateRangeFieldHandle>;
 };
 
 // The calendar runs in UTC, like the app's dates ("YYYY-MM-DD", a day with no time zone,
@@ -69,27 +78,42 @@ const CLASS_NAMES = {
 };
 
 // A day, styled from its state: the picked ends, the days between, unavailable days.
-function Day({ day, modifiers, className, ...props }: DayButtonProps) {
+function Day({ day, modifiers, className, children, ...props }: DayButtonProps) {
   const ref = useRef<HTMLButtonElement>(null);
   // DayPicker moves keyboard focus by marking a day focused (as its own DayButton does).
   useEffect(() => {
     if (modifiers.focused) ref.current?.focus();
   }, [modifiers.focused]);
   const end = modifiers.selected && !modifiers.range_middle;
+  // A range's band runs from the middle of its first day to the middle of its last, so the round
+  // ends sit on it; a one-day range has none.
+  const band = modifiers.range_middle
+    ? "bg-action-tint"
+    : modifiers.range_start && !modifiers.range_end
+      ? "bg-linear-to-r from-transparent from-50% to-action-tint to-50%"
+      : modifiers.range_end && !modifiers.range_start
+        ? "bg-linear-to-l from-transparent from-50% to-action-tint to-50%"
+        : undefined;
   return (
     <button
       ref={ref}
       {...props}
       data-day={toIso(day.date)}
-      className={cn(
-        className,
-        "h-11 w-full text-sm outline-none focus-visible:ring-2 focus-visible:ring-navy",
-        end ? "rounded-control bg-primary font-semibold text-white" : modifiers.range_middle ? "bg-aqua text-navy" : "rounded-control",
-        !modifiers.selected && !modifiers.disabled && "hover:bg-surface-2",
-        modifiers.disabled && "cursor-not-allowed text-muted/50",
-        modifiers.today && !end && "font-semibold underline underline-offset-4",
-      )}
-    />
+      className={cn(className, "group flex h-11 w-full items-center justify-center text-sm outline-none", band, modifiers.disabled && "cursor-not-allowed")}
+    >
+      <span
+        className={cn(
+          "flex size-11 items-center justify-center rounded-full transition-colors duration-150 ease-calm group-focus-visible:ring-2 group-focus-visible:ring-navy",
+          end && "bg-primary font-semibold text-white",
+          modifiers.range_middle && "font-semibold text-action-ink",
+          !modifiers.selected && !modifiers.disabled && "group-hover:bg-surface-2",
+          modifiers.disabled && "text-muted/50",
+          modifiers.today && !end && "font-semibold underline underline-offset-4",
+        )}
+      >
+        {children}
+      </span>
+    </button>
   );
 }
 
@@ -112,9 +136,11 @@ export function DateRangeField({
   placeholder,
   inline = false,
   row = false,
+  modal = false,
   autoFocus,
   className,
   "data-testid": testId,
+  ref,
 }: Props) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -125,14 +151,25 @@ export function DateRangeField({
   const calendarId = useId();
   const note = error ?? hint;
 
+  // The dialog's picks, applied by OK; it opens on the field's own.
+  const [draft, setDraft] = useState<DateRange>({ from, to });
+
+  useImperativeHandle(ref, () => ({
+    open() {
+      if (modal) setDraft({ from, to });
+      setOpen(true);
+      trigger.current?.focus();
+    },
+  }));
+
   useEffect(() => {
-    if (!open) return;
+    if (!open || modal) return;
     function onPointerDown(event: PointerEvent) {
       if (!root.current?.contains(event.target as Node)) setOpen(false);
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open]);
+  }, [open, modal]);
 
   function close() {
     setOpen(false);
@@ -155,9 +192,17 @@ export function DateRangeField({
         ? `${formatDateRange(from, from)} – pick an end`
         : null;
 
+  // A modal bar with dates set clears from its own X, where the chevron was.
+  const quickClear = row && modal && clearable && Boolean(from);
+  const openCalendar = () => {
+    if (modal && !open) setDraft({ from, to });
+    setOpen(!open);
+  };
+
   return (
     <div ref={root} onKeyDown={onKeyDown} className={cn("relative flex flex-col text-sm font-semibold", !row && "gap-1.5", className)}>
       {row ? (
+        <>
         <button
           ref={trigger}
           type="button"
@@ -167,17 +212,17 @@ export function DateRangeField({
           aria-expanded={open}
           aria-controls={calendarId}
           data-testid={testId}
-          onClick={() => setOpen(!open)}
-          className="flex min-h-16 w-full items-center gap-3 px-3.5 py-3 text-left outline-none transition-colors duration-300 ease-calm hover:bg-surface-2 focus-visible:bg-surface-2"
+          onClick={openCalendar}
+          className={cn("flex min-h-16 w-full items-center gap-3 rounded-[inherit] px-3.5 py-3 text-left outline-none transition-colors duration-300 ease-calm hover:bg-surface-2 focus-visible:bg-surface-2", modal && "max-sm:min-h-14 max-sm:py-2 sm:min-h-20 sm:px-4", quickClear && "pr-16")}
         >
-          <span className="flex size-9.5 shrink-0 items-center justify-center rounded-xl bg-action-tint text-action-ink">
-            <CalendarGlyph className="size-5" />
+          <span className={cn("flex size-9.5 shrink-0 items-center justify-center rounded-xl bg-action-tint text-action-ink", modal && "max-sm:size-8")}>
+            <CalendarGlyph className={cn("size-5", modal && "max-sm:size-4.5")} />
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
             <span id={labelId} className="text-xs font-semibold text-muted">
               {label}
             </span>
-            <span id={valueId} className={cn("text-control font-bold", !value && "text-muted")}>
+            <span id={valueId} className={cn("text-control font-bold", modal && "max-sm:text-sm", !value && "text-muted")}>
               {value ?? placeholder ?? (single ? "Add a date" : "Add dates")}
               {note && (
                 <span id={noteId} className={cn("font-medium", error ? "text-danger" : "text-muted")}>
@@ -186,8 +231,25 @@ export function DateRangeField({
               )}
             </span>
           </span>
-          <ChevronGlyph direction={open ? "down" : "right"} className="size-4.5 shrink-0 text-muted" />
+          {!quickClear && (
+            <ChevronGlyph direction={modal ? "down" : open ? "down" : "right"} className="size-4.5 shrink-0 text-muted" />
+          )}
         </button>
+        {quickClear && (
+          // Beside the trigger rather than in it (a button can't hold one), over its right end.
+          <button
+            type="button"
+            aria-label={single ? "Clear date" : "Clear dates"}
+            onClick={() => {
+              setOpen(false);
+              onChange({ from: "", to: "" });
+            }}
+            className="absolute right-3 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-full text-muted outline-none transition-colors duration-150 ease-calm hover:bg-surface-2 hover:text-foreground focus-visible:ring-4 focus-visible:ring-sky-mist"
+          >
+            <CloseGlyph className="size-4.5" />
+          </button>
+        )}
+        </>
       ) : (
       <>
       <span id={labelId}>{label}</span>
@@ -200,7 +262,7 @@ export function DateRangeField({
         aria-expanded={open}
         aria-controls={calendarId}
         data-testid={testId}
-        onClick={() => setOpen(!open)}
+        onClick={openCalendar}
         className={cn(
           "flex items-center justify-between gap-2 min-h-12 rounded-control border bg-surface px-4 py-2.5 text-left font-normal outline-none",
           "focus:border-primary focus:ring-4 focus:ring-sky-mist disabled:bg-surface-2",
@@ -221,7 +283,7 @@ export function DateRangeField({
       </>
       )}
 
-      {open && (
+      {open && !modal && (
         <div
           id={calendarId}
           role="group"
@@ -252,6 +314,44 @@ export function DateRangeField({
             </button>
           </div>
         </div>
+      )}
+
+      {modal && (
+        <Dialog
+          open={open}
+          onClose={close}
+          placement="overlay"
+          title={label}
+          meta={draft.from && draft.to ? formatDateRange(draft.from, draft.to) : draft.from ? "Now pick the last day" : (placeholder ?? "Pick the first day")}
+          actions={
+            <>
+              <button
+                type="button"
+                onClick={() => setDraft({ from: "", to: "" })}
+                disabled={!draft.from}
+                className="min-h-11 px-2 text-control font-semibold text-primary underline underline-offset-4 disabled:text-muted disabled:no-underline"
+              >
+                Clear
+              </button>
+              <Button
+                type="button"
+                disabled={Boolean(draft.from) && !draft.to}
+                onClick={() => {
+                  onChange(draft);
+                  close();
+                }}
+                data-testid={testId && `${testId}-ok`}
+              >
+                OK
+              </Button>
+            </>
+          }
+          data-testid={testId && `${testId}-dialog`}
+        >
+          <div id={calendarId}>
+            <DateRangeCalendar from={draft.from} to={draft.to} onChange={setDraft} min={min} single={single} keepStart={keepStart} months={2} />
+          </div>
+        </Dialog>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { getArea } from "@/api/discovery";
+import { getAreaPlaces } from "@/api/discovery";
 import { TRIP_ORDER_GROUPS } from "@/components/discovery/categories";
 import { CategoryGlyph, ChevronGlyph } from "@/components/discovery/tag-glyphs";
 import { cn } from "@/components/ui/cn";
@@ -21,7 +21,7 @@ const TILE: Record<GroupKey, string> = {
 };
 
 // The team's E's words and icons where they differ from the groups' own.
-const LABEL: Partial<Record<GroupKey, string>> = { rental: "Rentals" };
+const LABEL: Partial<Record<GroupKey, string>> = { activity: "Activities", rental: "Rentals" };
 const ICON: Partial<Record<GroupKey, string>> = { gear: "Camera" };
 const BLURB: Record<GroupKey, string> = {
   transfer: "Vans and port pickups",
@@ -51,13 +51,15 @@ export function HomeServices() {
 }
 
 async function CountedTiles() {
-  const area = await getArea(LAUNCH_AREA.slug).catch((error: unknown) => {
+  // Its counts per group, without its listings.
+  const area = await getAreaPlaces(LAUNCH_AREA.slug).catch((error: unknown) => {
     console.error(error);
     return null;
   });
   if (!area) return <KindTiles />;
-  const counts: Partial<Record<GroupKey, number>> = {};
-  for (const listing of area.listings) counts[listing.group] = (counts[listing.group] ?? 0) + 1;
+  const counts: Partial<Record<GroupKey, number>> = Object.fromEntries(
+    Object.entries(area.groups).map(([group, { listings }]) => [group, listings]),
+  );
   return <KindTiles counts={counts} />;
 }
 

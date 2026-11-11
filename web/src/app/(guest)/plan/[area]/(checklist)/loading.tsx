@@ -4,7 +4,7 @@ import { PlanChecklistSkeleton } from "@/components/plan/plan-skeletons";
 // Step 2 while the server fetches the place and its first options: the checklist's shape.
 export default function PlanChecklistLoading() {
   return (
-    <PlanFrame step={2} back="/plan" backLabel="Back to where, when and who" wide>
+    <PlanFrame back="/plan" backLabel="Back to where, when and who" wide>
       <PlanChecklistSkeleton />
     </PlanFrame>
   );

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_10_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_11_110614) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -276,7 +276,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_10_120000) do
     t.index ["business_id"], name: "index_business_logos_on_business_id", unique: true
     t.index ["created_at"], name: "index_business_logos_unfinished", where: "(uploaded_at IS NULL)"
     t.check_constraint "byte_size > 0", name: "business_logos_byte_size_check"
-    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "business_logos_content_type_check"
+    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying::text, 'image/png'::character varying::text, 'image/webp'::character varying::text])", name: "business_logos_content_type_check"
   end
 
   create_table "business_photos", force: :cascade do |t|
@@ -294,7 +294,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_10_120000) do
     t.index ["created_at"], name: "index_business_photos_unfinished", where: "(uploaded_at IS NULL)"
     t.check_constraint "\"position\" >= 1", name: "business_photos_position_check"
     t.check_constraint "byte_size > 0", name: "business_photos_byte_size_check"
-    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "business_photos_content_type_check"
+    t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying::text, 'image/png'::character varying::text, 'image/webp'::character varying::text])", name: "business_photos_content_type_check"
   end
 
   create_table "businesses", force: :cascade do |t|
@@ -566,6 +566,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_10_120000) do
     t.string "cancellation_policy", default: "free_cancellation", null: false
     t.bigint "business_id", null: false
     t.string "booking_mode", default: "request", null: false
+    t.bigint "price_from_cents"
+    t.index ["area_id", "category_id"], name: "index_listings_active_by_area_and_category", where: "(status = 'active'::listing_status)"
     t.index ["area_id"], name: "index_listings_on_area_id"
     t.index ["business_id"], name: "index_listings_on_business_id"
     t.index ["category_id"], name: "index_listings_on_category_id"
@@ -576,6 +578,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_10_120000) do
     t.check_constraint "cancellation_policy::text = ANY (ARRAY['free_cancellation'::character varying::text, 'non_refundable'::character varying::text, 'seven_days'::character varying::text, 'fourteen_days'::character varying::text])", name: "listings_cancellation_policy_check"
     t.check_constraint "country::text ~ '^[A-Z]{2}$'::text", name: "listings_country_check"
     t.check_constraint "partner_role::text = 'partner'::text", name: "listings_partner_role_check"
+    t.check_constraint "price_from_cents > 0", name: "listings_price_from_check"
   end
 
   create_table "notifications", force: :cascade do |t|
@@ -799,7 +802,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_10_120000) do
     t.datetime "updated_at", null: false
     t.index ["listing_id", "kind"], name: "index_tour_inclusions_on_listing_id_and_kind", unique: true
     t.check_constraint "char_length(note::text) <= 120", name: "tour_inclusions_note_length_check"
-    t.check_constraint "kind::text = ANY (ARRAY['accommodation'::character varying, 'transport'::character varying, 'meal'::character varying, 'guide'::character varying, 'gear'::character varying, 'entrance_fees'::character varying]::text[])", name: "tour_inclusions_kind_check"
+    t.check_constraint "kind::text = ANY (ARRAY['accommodation'::character varying::text, 'transport'::character varying::text, 'meal'::character varying::text, 'guide'::character varying::text, 'gear'::character varying::text, 'entrance_fees'::character varying::text])", name: "tour_inclusions_kind_check"
     t.check_constraint "price_per_head_cents >= 0", name: "tour_inclusions_price_check"
   end
 
@@ -1126,4 +1129,63 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_10_120000) do
   add_index "search_terms", ["target_type", "target_id", "kind", "term_normalized"], name: "index_search_terms_on_target_and_term", unique: true
   add_index "search_terms", ["term_normalized"], name: "index_search_terms_on_term_normalized", opclass: :gin_trgm_ops, using: :gin
 
+
+  create_function :listing_price_from, sql_definition: <<-'SQL'
+      CREATE OR REPLACE FUNCTION public.listing_price_from(listing bigint)
+       RETURNS bigint
+       LANGUAGE sql
+       STABLE
+      AS $function$
+        SELECT COALESCE(
+          (SELECT NULLIF(nightly_price_cents, 0) FROM stay_rates WHERE listing_id = listing),
+          (SELECT NULLIF(daily_price_cents, 0) FROM vehicle_rates WHERE listing_id = listing),
+          (SELECT NULLIF(price_cents, 0) FROM flat_rates WHERE listing_id = listing),
+          (SELECT NULLIF(base_price_cents, 0) FROM tour_details WHERE listing_id = listing),
+          (SELECT MIN(price_cents) FROM activity_offers
+            WHERE listing_id = listing AND archived_at IS NULL
+              AND EXISTS (SELECT 1 FROM activity_details WHERE activity_details.listing_id = listing))
+        )
+      $function$
+  SQL
+
+  create_function :refresh_listing_price_from, sql_definition: <<-'SQL'
+      CREATE OR REPLACE FUNCTION public.refresh_listing_price_from()
+       RETURNS trigger
+       LANGUAGE plpgsql
+      AS $function$
+      BEGIN
+        IF TG_OP <> 'INSERT' THEN
+          UPDATE listings SET price_from_cents = listing_price_from(OLD.listing_id) WHERE id = OLD.listing_id;
+        END IF;
+        IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND NEW.listing_id IS DISTINCT FROM OLD.listing_id) THEN
+          UPDATE listings SET price_from_cents = listing_price_from(NEW.listing_id) WHERE id = NEW.listing_id;
+        END IF;
+        RETURN NULL;
+      END
+      $function$
+  SQL
+
+  create_trigger :activity_details_refresh_listing_price_from, sql_definition: <<-SQL
+      CREATE TRIGGER activity_details_refresh_listing_price_from AFTER INSERT OR DELETE OR UPDATE ON public.activity_details FOR EACH ROW EXECUTE FUNCTION refresh_listing_price_from()
+  SQL
+
+  create_trigger :activity_offers_refresh_listing_price_from, sql_definition: <<-SQL
+      CREATE TRIGGER activity_offers_refresh_listing_price_from AFTER INSERT OR DELETE OR UPDATE ON public.activity_offers FOR EACH ROW EXECUTE FUNCTION refresh_listing_price_from()
+  SQL
+
+  create_trigger :flat_rates_refresh_listing_price_from, sql_definition: <<-SQL
+      CREATE TRIGGER flat_rates_refresh_listing_price_from AFTER INSERT OR DELETE OR UPDATE ON public.flat_rates FOR EACH ROW EXECUTE FUNCTION refresh_listing_price_from()
+  SQL
+
+  create_trigger :stay_rates_refresh_listing_price_from, sql_definition: <<-SQL
+      CREATE TRIGGER stay_rates_refresh_listing_price_from AFTER INSERT OR DELETE OR UPDATE ON public.stay_rates FOR EACH ROW EXECUTE FUNCTION refresh_listing_price_from()
+  SQL
+
+  create_trigger :tour_details_refresh_listing_price_from, sql_definition: <<-SQL
+      CREATE TRIGGER tour_details_refresh_listing_price_from AFTER INSERT OR DELETE OR UPDATE ON public.tour_details FOR EACH ROW EXECUTE FUNCTION refresh_listing_price_from()
+  SQL
+
+  create_trigger :vehicle_rates_refresh_listing_price_from, sql_definition: <<-SQL
+      CREATE TRIGGER vehicle_rates_refresh_listing_price_from AFTER INSERT OR DELETE OR UPDATE ON public.vehicle_rates FOR EACH ROW EXECUTE FUNCTION refresh_listing_price_from()
+  SQL
 end

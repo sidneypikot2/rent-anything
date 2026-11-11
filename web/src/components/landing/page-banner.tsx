@@ -49,6 +49,7 @@ export function PageBanner({
   search = true,
   compact = false,
   scrim,
+  dim = false,
 }: {
   eyebrow?: ReactNode;
   title: ReactNode;
@@ -63,6 +64,9 @@ export function PageBanner({
   search?: boolean;
   compact?: boolean;
   scrim?: "text";
+  // Without a photo: darkens the glass frame as the home hero's scrim does, densest on the left
+  // under the text, so a lead line reads over any part of the backdrop.
+  dim?: boolean;
 }) {
   const contents = (
     <>
@@ -179,8 +183,14 @@ export function PageBanner({
             hero
               ? cn(HERO_FRAME, HERO_GLASS_PAD)
               : compact
-                ? "flex-row items-center justify-between gap-3 py-3 max-sm:px-3 sm:flex-wrap sm:py-6"
+                ? cn(
+                    "flex-row items-center justify-between gap-3 max-sm:px-3 sm:flex-wrap",
+                    // A dimmed banner holds a lead line too: more room around the three lines.
+                    dim ? "py-5 sm:py-9" : "py-3 sm:py-6",
+                  )
                 : "gap-6 pb-8 pt-10 sm:pb-10 sm:pt-12",
+            // A background image over the glass's colour, so the two don't clash.
+            dim && "bg-linear-to-r from-scrim/85 via-scrim/70 via-55% to-scrim/40",
             frameClass,
           )}
         >
