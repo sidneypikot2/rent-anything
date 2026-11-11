@@ -16,9 +16,22 @@ module Discovery
     STAY_KEY_SQL = "listings.business_id::text".freeze
     TITLE_KEY_SQL = "listings.business_id::text || '-' || #{TITLE_KEY}".freeze
 
-    # How many cards the listings make.
+    # How many cards the listings make in each guest group, in one pass: { "stay" => 3, ... },
+    # every group present.
+    def self.counts(scope)
+      group_sql = Category.guest_group_sql
+      key_sql = "CASE WHEN #{group_sql} = 'stay' THEN #{STAY_KEY_SQL} ELSE #{TITLE_KEY_SQL} END"
+      rows = ActiveRecord::Base.connection.select_rows(<<~SQL.squish)
+        SELECT card_group, COUNT(DISTINCT card) FROM (#{scope.select(Arel.sql("#{group_sql} AS card_group, #{key_sql} AS card")).to_sql}) AS cards
+        WHERE card_group IS NOT NULL GROUP BY card_group
+      SQL
+      Category::GUEST_GROUPS.index_with(0).merge(rows.to_h { |group, count| [ group, count.to_i ] })
+    end
+
+    # How many cards the listings make, counted in the database.
     def self.count(scope, group)
-      scope.group(*columns(group).map { |column| Arel.sql(column) }).count.size
+      grouped = scope.group(*columns(group).map { |column| Arel.sql(column) }).select("1")
+      ActiveRecord::Base.connection.select_value("SELECT COUNT(*) FROM (#{grouped.to_sql}) AS cards").to_i
     end
   end
 end

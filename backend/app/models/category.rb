@@ -19,6 +19,16 @@ class Category < ApplicationRecord
   enum :booking_type, BOOKING_TYPES.index_with(&:itself), validate: { allow_nil: true }
 
   # The categories whose listings guests find in one group: #guest_group in SQL.
+  # A listing's guest group in SQL (`listings.category_id`), null for a category in none: for
+  # counting every group in one pass (Discovery::Cards.counts, AreaDetail's groups).
+  def self.guest_group_sql
+    whens = GUEST_GROUPS.map do |group|
+      ids = in_guest_group(group).pluck(:id).presence || [ 0 ]
+      "WHEN listings.category_id IN (#{ids.map(&:to_i).join(', ')}) THEN '#{group}'"
+    end
+    "CASE #{whens.join(' ')} END"
+  end
+
   scope :in_guest_group, ->(group) {
     gear = where(booking_type: "rental", parent_id: Category.where(slug: GEAR_PARENT).select(:id))
     group == "gear" ? gear : where(booking_type: group).where.not(id: gear.select(:id))

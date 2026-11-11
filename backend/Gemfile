@@ -26,6 +26,8 @@ gem "activerecord-postgis-adapter", "~> 11.1"
 
 # Database views in migrations and schema.rb: the search_terms materialized view (RAA-60)
 gem "scenic", "~> 1.9"
+# Postgres functions and triggers in migrations and schema.rb (listings.price_from_cents, 2026-11-11)
+gem "fx", "~> 0.12"
 
 # Validates listings.attrs against each category's attribute_schema (JSON Schema)
 gem "json_schemer"

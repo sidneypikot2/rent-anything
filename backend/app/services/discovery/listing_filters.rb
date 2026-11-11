@@ -6,7 +6,8 @@ module Discovery
   # in SQL listing by listing (a card keeps only its listings that pass), and counted for the
   # filter sheet (`facets`), in cards. Includes are keys; the web app words them (its chips'
   # labels): `guide`, `licence`, `bathroom:<kind>`, `amenity:<name>`, `accessory:<name>` (an
-  # accessory or a lens) and `feature:<name>` (a jet ski's).
+  # accessory or a lens) and `feature:<name>` (a jet ski's). The facets are counted in the
+  # database (2026-11-11), never listing by listing in Ruby.
   class ListingFilters
     FLAGS = { "true" => true, "1" => true, "false" => false, "0" => false }.freeze
     BOOLEANS = %i[free_cancellation pets delivery pickup child_helmets].freeze
@@ -15,26 +16,66 @@ module Discovery
     PARAMS = [ *BOOLEANS, :min_price_cents, :max_price_cents, *LISTS, :q ].freeze
     # A rental's handover, by the fee its rate sets (nil: not offered).
     FEES = { delivery: "delivery_fee_cents", pickup: "return_pickup_fee_cents", child_helmets: "child_helmet_fee_cents" }.freeze
-    # A listing's from-price in SQL: PricingSerializer.price_from_cents's order (keep the two in
-    # step) — a stay's nightly price, a vehicle's daily one, a flat price, a tour's base price, a
-    # water activity's cheapest current offer; null while it has none.
-    PRICE_FROM = <<~SQL.squish.freeze
-      COALESCE(
-        (SELECT NULLIF(stay_rates.nightly_price_cents, 0) FROM stay_rates WHERE stay_rates.listing_id = listings.id),
-        (SELECT NULLIF(vehicle_rates.daily_price_cents, 0) FROM vehicle_rates WHERE vehicle_rates.listing_id = listings.id),
-        (SELECT NULLIF(flat_rates.price_cents, 0) FROM flat_rates WHERE flat_rates.listing_id = listings.id),
-        (SELECT NULLIF(tour_details.base_price_cents, 0) FROM tour_details WHERE tour_details.listing_id = listings.id),
-        (SELECT MIN(activity_offers.price_cents) FROM activity_offers
-          WHERE activity_offers.listing_id = listings.id AND activity_offers.archived_at IS NULL
-            AND EXISTS (SELECT 1 FROM activity_details WHERE activity_details.listing_id = listings.id))
-      )
-    SQL
+    # A listing's from-price in SQL: stored on it (listings.price_from_cents, 2026-11-11) and kept
+    # by the database as its rates, tour and offers change (listing_price_from, which follows
+    # PricingSerializer.price_from_cents); null while it has none.
+    PRICE_FROM = "listings.price_from_cents".freeze
     # What a search reads: the title, its kind, who offers it, where, and its description.
     SEARCH_TEXT = <<~SQL.squish.freeze
       CONCAT_WS(' ', listings.title, categories.name, businesses.name, areas.name, listings.description)
     SQL
-    # Facts a facet needs, per listing (`facts`).
-    FACT_KEYS = %w[guide_included licence_required bathroom amenities accessories lenses features pets_allowed transmission].freeze
+    # A text value of a listing's attrs, null when missing, not text or blank.
+    ATTR_TEXT = ->(key) { "CASE WHEN jsonb_typeof(listings.attrs->'#{key}') = 'string' AND TRIM(listings.attrs->>'#{key}') <> '' THEN listings.attrs->>'#{key}' END" }
+    # A list in a listing's attrs, each entry with a prefix ('amenity:raincoat').
+    ATTR_LIST = lambda do |key, prefix|
+      list = "CASE WHEN jsonb_typeof(listings.attrs->'#{key}') = 'array' THEN listings.attrs->'#{key}' ELSE '[]'::jsonb END"
+      "SELECT '#{prefix}:' || value AS key FROM jsonb_array_elements_text(#{list}) AS value WHERE TRIM(value) <> ''"
+    end
+    # What a listing includes, as an array of keys (the chips the web app offers under Includes).
+    INCLUDES_SQL = <<~SQL.squish.freeze
+      ARRAY_REMOVE(ARRAY[
+        CASE WHEN listings.attrs->'guide_included' = 'true'::jsonb THEN 'guide' END,
+        CASE WHEN listings.attrs->'licence_required' = 'true'::jsonb THEN 'licence' END,
+        'bathroom:' || (#{ATTR_TEXT.call('bathroom')})
+      ], NULL) || ARRAY(SELECT DISTINCT key FROM (
+        #{ATTR_LIST.call('amenities', 'amenity')} UNION ALL #{ATTR_LIST.call('accessories', 'accessory')}
+        UNION ALL #{ATTR_LIST.call('lenses', 'accessory')} UNION ALL #{ATTR_LIST.call('features', 'feature')}
+      ) AS listed)
+    SQL
+    FREE_CANCELLATION_SQL = "listings.cancellation_policy IN (#{Listing::FREE_CANCELLATION_POLICIES.map { "'#{_1}'" }.join(', ')})".freeze
+    # The filter sheet's counts over the facts (a CTE named `facts`), in one statement. Each count is
+    # of cards, so the listings are first grouped by card (hashing, not sorting, at 50k listings);
+    # the includes' are among the listings the other filters leave (`passing`).
+    FACETS_SQL = <<~SQL.squish.freeze
+      by_card AS (
+        SELECT card, BOOL_OR(free_cancellation) AS free_cancellation, BOOL_OR(pets) AS pets,
+          BOOL_OR(delivery) AS delivery, BOOL_OR(pickup) AS pickup, BOOL_OR(child_helmets) AS child_helmets
+        FROM facts GROUP BY card
+      ),
+      includes_by_card AS (
+        SELECT key, card, BOOL_OR(passing) AS passing, COUNT(*) AS listings
+        FROM facts CROSS JOIN LATERAL unnest(includes) AS key GROUP BY key, card
+      )
+      SELECT json_build_object(
+        'cards', (SELECT row_to_json(totals) FROM (SELECT COUNT(*) AS cards,
+          COUNT(*) FILTER (WHERE free_cancellation) AS free_cancellation, COUNT(*) FILTER (WHERE pets) AS pets,
+          COUNT(*) FILTER (WHERE delivery) AS delivery, COUNT(*) FILTER (WHERE pickup) AS pickup,
+          COUNT(*) FILTER (WHERE child_helmets) AS child_helmets
+          FROM by_card) AS totals),
+        'listings', (SELECT row_to_json(totals) FROM (SELECT COUNT(*) AS listings,
+          MIN(price) AS price_min_cents, MAX(price) AS price_max_cents, COALESCE(BOOL_OR(price IS NULL), false) AS unpriced,
+          (ARRAY_AGG(booking_type ORDER BY id) FILTER (WHERE price IS NULL))[1] AS unpriced_booking_type,
+          COALESCE(BOOL_AND(pets), false) AS pets, MIN(policy) = MAX(policy) AS one_policy, MIN(policy) AS policy
+          FROM facts) AS totals),
+        'kinds', (SELECT json_agg(json_build_array(slug, name, count)) FROM
+          (SELECT slug, name, COUNT(*) AS count FROM (SELECT DISTINCT slug, name, card FROM facts) AS each GROUP BY slug, name) AS kinds),
+        'transmissions', (SELECT json_agg(json_build_array(transmission, count)) FROM
+          (SELECT transmission, COUNT(*) AS count FROM (SELECT DISTINCT transmission, card FROM facts WHERE transmission IS NOT NULL) AS each
+           GROUP BY transmission) AS transmissions),
+        'includes', (SELECT json_agg(json_build_array(key, passing, listings)) FROM
+          (SELECT key, COUNT(*) FILTER (WHERE passing) AS passing, SUM(listings) AS listings FROM includes_by_card GROUP BY key) AS includes)
+      )
+    SQL
 
     attr_reader :errors
 
@@ -46,6 +87,12 @@ module Discovery
       @max_price = read_cents(:max_price_cents)
       LISTS.each { |key| instance_variable_set(:"@#{key}", read_list(key)) }
       @words = read_words
+    end
+
+    # The filters and search as read, for a cache key: two requests that filter alike share it.
+    def key
+      [ *BOOLEANS.map { instance_variable_get(:"@#{_1}") }, @min_price, @max_price,
+        *LISTS.map { instance_variable_get(:"@#{_1}").sort }, @words ].to_json
     end
 
     # Whether any filter (not the search) is set.
@@ -86,28 +133,21 @@ module Discovery
     # what every listing of two or more cards has (the section's "All have:"), and
     # `unpriced_booking_type` how the first unpriced one is booked (its note on pricing).
     def facets(scope, group)
-      rows = facts(search(scope), group)
-      passing = apply(scope, includes: false).pluck(:id).to_set
-      cards = rows.group_by { |row| row[:card] }
-      having = ->(&test) { cards.count { |_, listings| listings.any?(&test) } }
-      kinds = rows.group_by { |row| [ row[:kind], row[:kind_name] ] }.keys.sort_by(&:last)
-      prices = rows.filter_map { |row| row[:price] }
+      sql = "WITH facts AS MATERIALIZED (#{facts(scope, group).to_sql}), #{FACETS_SQL}"
+      data = JSON.parse(without_jit { ActiveRecord::Base.connection.select_value(sql) })
+      cards = data["cards"].symbolize_keys
+      listings = data["listings"].symbolize_keys
+      includes = (data["includes"] || []).filter_map { |key, count, _| [ key, count ] if count.positive? }.to_h
+      @includes.each { |key| includes[key] ||= 0 }
       {
-        cards: cards.size,
-        free_cancellation: having.call { |row| Listing::FREE_CANCELLATION_POLICIES.include?(row[:policy]) },
-        pets: having.call { |row| row[:pets] },
-        price_min_cents: prices.min,
-        price_max_cents: prices.max,
-        unpriced: rows.any? { |row| row[:price].nil? },
-        kinds: kinds.map { |slug, name| { value: slug, label: name, count: having.call { |row| row[:kind] == slug } } },
-        transmissions: rows.filter_map { |row| row[:transmission] }.uniq.sort
-          .map { |value| { value:, count: having.call { |row| row[:transmission] == value } } },
-        delivery: having.call { |row| row[:delivery] },
-        pickup: having.call { |row| row[:pickup] },
-        child_helmets: having.call { |row| row[:child_helmets] },
-        includes: include_counts(cards, passing),
-        shared: shared(cards, rows),
-        unpriced_booking_type: rows.find { |row| row[:price].nil? }&.dig(:booking_type)
+        **cards.slice(:cards, :free_cancellation, :pets),
+        **listings.slice(:price_min_cents, :price_max_cents, :unpriced),
+        kinds: (data["kinds"] || []).sort_by { |slug, name, _| [ name, slug ] }.map { |slug, name, count| { value: slug, label: name, count: } },
+        transmissions: (data["transmissions"] || []).sort.map { |value, count| { value:, count: } },
+        **cards.slice(:delivery, :pickup, :child_helmets),
+        includes: includes.sort_by { |key, count| [ -count, key ] }.map { |key, count| { key:, count: } },
+        shared: shared(cards[:cards], listings, data["includes"] || []),
+        unpriced_booking_type: listings[:unpriced_booking_type]
       }
     end
 
@@ -166,55 +206,43 @@ module Discovery
       end
     end
 
-    # What a listing includes, as keys (the chips the web app offers under Includes).
-    def include_keys(attrs)
-      list = ->(key) { Array(attrs[key]).map(&:to_s).reject(&:blank?) }
-      [
-        ("guide" if attrs["guide_included"] == true),
-        ("licence" if attrs["licence_required"] == true),
-        ("bathroom:#{attrs['bathroom']}" if attrs["bathroom"].is_a?(String) && attrs["bathroom"].present?),
-        *list.call("amenities").map { "amenity:#{_1}" },
-        *(list.call("accessories") + list.call("lenses")).map { "accessory:#{_1}" },
-        *list.call("features").map { "feature:#{_1}" }
-      ].compact.uniq
-    end
-
-    # One row per listing: its card and the facts the facets count.
+    # One row per listing the search finds: its card and the facts the facets count.
     def facts(scope, group)
-      columns = [
-        "listings.id", Arel.sql(group == "stay" ? Cards::STAY_KEY_SQL : Cards::TITLE_KEY_SQL), "listings.cancellation_policy",
-        Arel.sql("listings.attrs"), "categories.slug", "categories.name", "categories.booking_type",
-        *FEES.values.map { |column| Arel.sql("vehicle_rates.#{column} IS NOT NULL") }, Arel.sql(PRICE_FROM)
-      ]
-      scope.joins(:category).left_joins(:vehicle_rate).pluck(*columns).map do |id, card, policy, attrs, slug, name, type, delivery, pickup, helmets, price|
-        attrs = attrs.is_a?(String) ? JSON.parse(attrs) : attrs.to_h
-        { id:, card:, policy:, kind: slug, kind_name: name, booking_type: type, price:, delivery:, pickup:, child_helmets: helmets,
-          pets: attrs["pets_allowed"] == true,
-          transmission: attrs["transmission"].is_a?(String) && attrs["transmission"].present? ? attrs["transmission"] : nil,
-          includes: include_keys(attrs) }
+      passing = other_filters? ? "listings.id IN (#{apply(scope, includes: false).select(:id).to_sql})" : "TRUE"
+      fees = FEES.map { |key, column| "vehicle_rates.#{column} IS NOT NULL AS #{key}" }.join(", ")
+      search(scope).joins(:category).left_joins(:vehicle_rate).select(Arel.sql(<<~SQL.squish))
+        listings.id, #{group == "stay" ? Cards::STAY_KEY_SQL : Cards::TITLE_KEY_SQL} AS card,
+        listings.cancellation_policy AS policy, #{FREE_CANCELLATION_SQL} AS free_cancellation,
+        COALESCE(listings.attrs->'pets_allowed' = 'true'::jsonb, false) AS pets, #{ATTR_TEXT.call('transmission')} AS transmission,
+        categories.slug, categories.name, categories.booking_type, #{fees}, #{PRICE_FROM} AS price,
+        #{passing} AS passing, #{INCLUDES_SQL} AS includes
+      SQL
+    end
+
+    # Runs the facets' statement with Postgres' JIT off: Postgres guesses ~100 includes per listing,
+    # so a 50k-listing place's cost estimate passes jit_above_cost and compiling took ~33 ms of a
+    # ~100 ms query (2026-11-11). SET LOCAL ends with the transaction.
+    def without_jit
+      ActiveRecord::Base.transaction do
+        ActiveRecord::Base.connection.execute("SET LOCAL jit = off")
+        yield
       end
     end
 
-    # Each include with how many cards have it among their listings the other filters leave; one
-    # already picked stays listed with 0.
-    def include_counts(cards, passing)
-      counts = Hash.new(0)
-      cards.each_value do |listings|
-        listings.select { |row| passing.include?(row[:id]) }.flat_map { |row| row[:includes] }.uniq.each { |key| counts[key] += 1 }
-      end
-      @includes.each { |key| counts[key] += 0 }
-      counts.sort_by { |key, count| [ -count, key ] }.map { |key, count| { key:, count: } }
+    # Whether a filter other than the includes is set (else every listing the search finds passes them).
+    def other_filters?
+      BOOLEANS.any? { |key| instance_variable_get(:"@#{key}") } || @min_price || @max_price || @kinds.any? || @transmissions.any?
     end
 
     # What every listing has, once there are two cards or more: includes, pets, its cancellation.
-    def shared(cards, rows)
-      return { includes: [], pets: false, cancellation_policy: nil } if cards.size < 2
+    def shared(cards, listings, includes)
+      return { includes: [], pets: false, cancellation_policy: nil } if cards < 2
 
-      policies = rows.map { |row| row[:policy] }.uniq
+      policy = listings[:policy]
       {
-        includes: rows.map { |row| row[:includes] }.reduce(:&),
-        pets: rows.all? { |row| row[:pets] },
-        cancellation_policy: policies.one? && Listing::FREE_CANCELLATION_POLICIES.include?(policies.first) ? policies.first : nil
+        includes: includes.filter_map { |key, _, count| key if count == listings[:listings] }.sort,
+        pets: listings[:pets],
+        cancellation_policy: listings[:one_policy] && Listing::FREE_CANCELLATION_POLICIES.include?(policy) ? policy : nil
       }
     end
   end

@@ -109,10 +109,12 @@ class Listing < ApplicationRecord
   }
 
   # In a place or the published places inside it, however deep: what a place's page and its
-  # plan offer.
-  scope :in_area_tree, ->(area) { where(area_id: Area.published.subtree_of(area).select(:id)) }
+  # plan offer. This and in_guest_group look their ids up first: as plain lists, unlike subqueries,
+  # Postgres reads only a section's listings through index_listings_active_by_area_and_category
+  # (50k-listing place: 47 ms → 13 ms, 2026-11-11).
+  scope :in_area_tree, ->(area) { where(area_id: Area.published.subtree_of(area).ids) }
   # Where guests find it (Category#guest_group).
-  scope :in_guest_group, ->(group) { where(category_id: Category.in_guest_group(group).select(:id)) }
+  scope :in_guest_group, ->(group) { where(category_id: Category.in_guest_group(group).ids) }
 
   before_destroy :keep_if_booked, prepend: true
 

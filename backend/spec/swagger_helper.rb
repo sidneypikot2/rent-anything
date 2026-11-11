@@ -1909,6 +1909,36 @@ RSpec.configure do |config|
             type: :object,
             properties: {
               area: { "$ref" => "#/components/schemas/area" },
+              center: { "$ref" => "#/components/schemas/lat_lng" },
+              groups: {
+                type: :object,
+                description: "Per guest group, its active listings here and in the places inside it and the businesses offering them",
+                properties: %w[stay transfer rental activity gear].index_with do
+                  { type: :object, properties: { listings: { type: :integer }, businesses: { type: :integer } }, required: %w[listings businesses] }
+                end,
+                required: %w[stay transfer rental activity gear]
+              },
+              typical_prices: {
+                type: :array,
+                description: "The banner's typical stay and tour: the upper middle from-price of the group's priced listings, in the unit most use",
+                items: {
+                  type: :object,
+                  properties: {
+                    group: { type: :string, enum: %w[stay activity] },
+                    price_cents: { type: :integer },
+                    unit: { type: :string, enum: %w[night day trip group person unit] }
+                  },
+                  required: %w[group price_cents unit]
+                }
+              },
+              visitor_rows: {
+                type: :array, items: { "$ref" => "#/components/schemas/area_listing" },
+                description: "The listings that visit its places to see, as browse rows, a few per place (priced first): the place's tour lists"
+              },
+              partner_count: {
+                type: :integer, minimum: 0,
+                description: "The businesses with an active listing here or in the places inside it (What to book's lead line)"
+              },
               photos: {
                 type: :array, maxItems: 12, items: { "$ref" => "#/components/schemas/photo_urls" },
                 description: "Its ready photos in the team's order, for the banner's carousel (RAA-210)"
@@ -1967,19 +1997,23 @@ RSpec.configure do |config|
                     },
                     visited_by: {
                       type: :array, items: { type: :integer },
-                      description: "The ids of the active listings that visit it, from the listings here"
+                      description: "The ids of the active listings that visit it"
+                    },
+                    visits: {
+                      type: :array,
+                      description: "The same listings, named (their title and category)",
+                      items: {
+                        type: :object,
+                        properties: { id: { type: :integer }, title: { type: :string }, category: { type: :string } },
+                        required: %w[id title category]
+                      }
                     }
                   },
-                  required: %w[slug name description tags photos location must_see boat_departure visited_by]
+                  required: %w[slug name description tags photos location must_see boat_departure visited_by visits]
                 }
-              },
-              listings: {
-                description: "What to book here and in the published places inside it, however deep",
-                type: :array,
-                items: { "$ref" => "#/components/schemas/area_listing" }
               }
             },
-            required: %w[area guide port photos areas landmarks listings]
+            required: %w[area guide port photos areas landmarks partner_count center groups typical_prices visitor_rows]
           },
           # One listing as a guest's browse pages list it (Discovery::ListingRow): an area page's
           # What to book and a business's page.
@@ -2144,6 +2178,44 @@ RSpec.configure do |config|
             required: %w[cards free_cancellation pets price_min_cents price_max_cents unpriced kinds transmissions delivery pickup
               child_helmets includes shared unpriced_booking_type]
           },
+          map_pins: {
+            type: :object,
+            properties: {
+              listings: {
+                type: :array,
+                description: "The listings in the box (stays: one per business), when there are at most the cap; empty otherwise",
+                items: {
+                  type: :object,
+                  properties: {
+                    pin: { "$ref" => "#/components/schemas/listing_pin" },
+                    row: { "$ref" => "#/components/schemas/area_listing" },
+                    options: {
+                      type: :integer, nullable: true, minimum: 1,
+                      description: "Stays: the pin is the business's cheapest stay in the box, standing for this many of its stays; null otherwise"
+                    }
+                  },
+                  required: %w[pin row options]
+                }
+              },
+              clusters: {
+                type: :array,
+                description: "Over the cap: the listings (stays: businesses) counted by cell, each at their middle rounded like a pin",
+                items: {
+                  type: :object,
+                  properties: { lat: { type: :number }, lng: { type: :number }, count: { type: :integer, minimum: 1 } },
+                  required: %w[lat lng count]
+                }
+              },
+              total: { type: :integer, description: "How many listings (stays: businesses) are in the box" },
+              bounds: {
+                type: :object, nullable: true,
+                description: "Where all the section's listings are, in the box or not, rounded like a pin (fitting the map); null when it has none",
+                properties: %w[west south east north].index_with { { type: :number } },
+                required: %w[west south east north]
+              }
+            },
+            required: %w[listings clusters total bounds]
+          },
           book_cards: {
             type: :object,
             properties: {
@@ -2161,15 +2233,31 @@ RSpec.configure do |config|
               total: { type: :integer, description: "How many cards pass, every page" },
               page: { type: :integer, minimum: 1 },
               per_page: { type: :integer },
-              facets: { "$ref" => "#/components/schemas/listing_facets" },
-              counts: {
-                type: :object, description: "Cards per guest group here with the search (not the filters)",
-                properties: %w[stay transfer rental activity gear].index_with { { type: :integer } },
-                required: %w[stay transfer rental activity gear]
+              facets: {
+                allOf: [ { "$ref" => "#/components/schemas/listing_facets" } ], nullable: true,
+                description: "The filter sheet's counts; null when asked without (facets=false, a section's later pages)"
               },
-              pin_ids: { type: :array, items: { type: :integer }, description: "Every listing of the group that passes" }
+              counts: {
+                allOf: [ { "$ref" => "#/components/schemas/group_counts" } ], nullable: true,
+                description: "Cards per guest group here with the search (not the filters); null when asked without (counts=false)"
+              }
             },
-            required: %w[cards total page per_page facets counts pin_ids]
+            required: %w[cards total page per_page facets counts]
+          },
+          group_counts: {
+            type: :object, description: "Cards per guest group",
+            properties: %w[stay transfer rental activity gear].index_with { { type: :integer } },
+            required: %w[stay transfer rental activity gear]
+          },
+          book_counts: {
+            type: :object,
+            properties: {
+              counts: {
+                allOf: [ { "$ref" => "#/components/schemas/group_counts" } ],
+                description: "Cards per guest group here with the search and dates (not a section's filters)"
+              }
+            },
+            required: %w[counts]
           },
           plan_businesses: {
             type: :object,

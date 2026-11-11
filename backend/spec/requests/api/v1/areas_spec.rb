@@ -67,21 +67,54 @@ RSpec.describe "Areas", type: :request do
       tags "Discovery"
       produces "application/json"
       parameter name: :slug, in: :path, type: :string
-      parameter name: :pets, in: :query, type: :string, required: false,
-        description: "1 keeps, of the stays, only those that allow pets (RAA-185); other listings stay"
-      parameter name: :listings, in: :query, type: :string, required: false,
-        description: "0 leaves the listings out (the plan pages page through businesses, plan_businesses)"
 
-      response "200", "without its listings: the landmarks still name their visitors" do
+      response "200", "the landmarks still name their visitors, and it counts its partners" do
         schema "$ref" => "#/components/schemas/area_detail"
         let(:slug) { "bantayan-island" }
-        let(:listings) { "0" }
-        before { ListingLandmark.create!(listing: hopping, landmark: virgin, relation: "visits") }
+        before do
+          ListingLandmark.create!(listing: hopping, landmark: virgin, relation: "visits")
+          # A second listing of a business already here counts it once.
+          create(:listing, area: bantayan, category: scooter, title: "Yamaha Mio", partner: basilia.partner, business: basilia)
+        end
 
         run_test! do |response|
           json = response.parsed_body
-          expect(json["listings"]).to eq([])
+          # Island hopping's and Basilia's: the paused scooter's business and Cebu City's don't count.
+          expect(json["partner_count"]).to eq(2)
+          # Its own middle, where its map starts.
+          expect(json["center"]).to eq("lat" => bantayan.center.y.round(5), "lng" => bantayan.center.x.round(5))
           expect(json["landmarks"].find { _1["slug"] == "virgin-island" }["visited_by"]).to eq([ hopping.id ])
+        end
+      end
+
+      response "200", "what it offers per group, its typical prices and the tours to its places" do
+        schema "$ref" => "#/components/schemas/area_detail"
+        let(:slug) { "bantayan-island" }
+        let(:inn) { create(:business, name: "Kota Beach Inn") }
+        let(:guides) { create(:business, name: "Island Guides") }
+
+        before do
+          create(:listing, :stay, area: bantayan, title: "Kota garden room", partner: inn.partner, business: inn).stay_rate.update!(nightly_price_cents: 200_000)
+          create(:listing, :stay, area: bantayan, title: "Kota beach suite", partner: inn.partner, business: inn).stay_rate.update!(nightly_price_cents: 300_000)
+          create(:listing, :tour, area: bantayan, title: "Sunset sail tour", partner: guides.partner, business: guides).tour_detail.update!(base_price_cents: 100_000)
+          create(:listing, :tour, area: bantayan, title: "Cave and lagoon tour", partner: guides.partner, business: guides)
+          ListingLandmark.create!(listing: hopping, landmark: virgin, relation: "visits")
+        end
+
+        run_test! do |response|
+          json = response.parsed_body
+          expect(json["groups"]).to eq(
+            "stay" => { "listings" => 2, "businesses" => 1 }, "transfer" => { "listings" => 0, "businesses" => 0 },
+            "rental" => { "listings" => 1, "businesses" => 1 }, "activity" => { "listings" => 3, "businesses" => 2 },
+            "gear" => { "listings" => 0, "businesses" => 0 }
+          )
+          # The upper middle of the priced ones, in the unit most of them use; Island hopping has no price.
+          expect(json["typical_prices"]).to eq([
+            { "group" => "stay", "price_cents" => 300_000, "unit" => "night" },
+            { "group" => "activity", "price_cents" => 150_000, "unit" => "person" }
+          ])
+          expect(json["visitor_rows"].pluck("id")).to eq([ hopping.id ])
+          expect(json["visitor_rows"].first).to include("title" => "Island hopping")
         end
       end
 
@@ -103,7 +136,7 @@ RSpec.describe "Areas", type: :request do
         end
       end
 
-      response "200", "published landmarks and active listings" do
+      response "200", "its photos and published landmarks" do
         schema "$ref" => "#/components/schemas/area_detail"
         let(:slug) { "bantayan-island" }
 
@@ -127,41 +160,6 @@ RSpec.describe "Areas", type: :request do
           expect(json["landmarks"].pluck("photos")).to eq([ [ ListingPhotoSerializer.call(kota_photo).stringify_keys ], [] ])
           expect(json["landmarks"].first).to include("description" => "Sandbar beach", "visited_by" => [])
           expect(json["landmarks"].first["tags"].pluck("slug")).to eq(%w[swimming white-sand])
-          expect(json["listings"]).to contain_exactly(
-            { "id" => hopping.id, "title" => "Island hopping", "category" => "Tour", "group" => "activity", "area_slug" => "bantayan-island", "area_name" => "Bantayan Island",
-              "instant_book" => false, "cover_photo_url" => nil, "booking_type" => "activity", "summary" => "Four islands and a sandbar in one day.",
-              "business" => { "id" => hopping.business_id, "name" => "Moalboal Gear Rentals" }, "units_count" => 1, "units_label" => "1 unit",
-              "partner_name" => "Moalboal Gear Rentals", "price_from_cents" => nil, "price_unit" => nil,
-              "photos" => [], "details" => {}, "tour" => nil, "cancellation_policy" => "free_cancellation", "handover" => nil, "goes_to" => [] },
-            { "id" => honda.id, "title" => "Honda Click 125", "category" => "Motorcycle", "group" => "rental",
-              "area_slug" => "bantayan-island", "area_name" => "Bantayan Island", "instant_book" => false, "cover_photo_url" => nil,
-              "booking_type" => "rental", "summary" => "",
-              "business" => { "id" => basilia.id, "name" => "Basilia Motor Rentals" }, "units_count" => 50, "units_label" => "50 motorcycles",
-              "partner_name" => "Basilia Motor Rentals", "price_from_cents" => nil, "price_unit" => nil,
-              "photos" => [], "details" => { "engine_cc" => 125, "transmission" => "automatic", "amenities" => [ "rider_helmet" ] }, "tour" => nil,
-              "cancellation_policy" => "free_cancellation", "handover" => nil, "goes_to" => [] }
-          )
-        end
-      end
-
-      response "200", "the listings of the places inside it, however deep, with their place's name" do
-        schema "$ref" => "#/components/schemas/area_detail"
-        let(:slug) { "bantayan-island" }
-        let!(:santa_fe) { create(:area, slug: "santa-fe", name: "Santa Fe", kind: "town", parent: bantayan) }
-        let!(:port) { create(:area, slug: "santa-fe-port", name: "Santa Fe Port", parent: santa_fe) }
-        let!(:hidden) { create(:area, :draft, slug: "madridejos", name: "Madridejos", kind: "town", parent: bantayan) }
-
-        before do
-          create(:listing, area: santa_fe, category: tour, title: "Santa Fe kayaks")
-          create(:listing, area: port, category: tour, title: "Port transfer")
-          create(:listing, area: hidden, category: tour, title: "Draft town tour")
-          create(:listing, :paused, area: santa_fe, category: tour, title: "Paused kayaks")
-        end
-
-        run_test! do |response|
-          rows = response.parsed_body["listings"]
-          expect(rows.pluck("title")).to eq([ "Honda Click 125", "Island hopping", "Port transfer", "Santa Fe kayaks" ])
-          expect(rows.find { _1["title"] == "Santa Fe kayaks" }).to include("area_slug" => "santa-fe", "area_name" => "Santa Fe")
         end
       end
 
@@ -224,7 +222,6 @@ RSpec.describe "Areas", type: :request do
       response "200", "its guide, and where each place to see is (RAA-252)" do
         schema "$ref" => "#/components/schemas/area_detail"
         let(:slug) { "bantayan-island" }
-        let(:listings) { "0" }
 
         before do
           bantayan.update!(tagline: "White sand, slow days", description: "A flat island north of Cebu.", getting_there: " ",
@@ -263,102 +260,13 @@ RSpec.describe "Areas", type: :request do
           landmarks = response.parsed_body["landmarks"].index_by { _1["slug"] }
           expect(landmarks["virgin-island"]["visited_by"]).to eq([ hopping.id ])
           expect(landmarks["kota-beach"]["visited_by"]).to eq([])
+          # Named too, for What to book's map.
+          expect(landmarks["virgin-island"]["visits"]).to eq([ { "id" => hopping.id, "title" => "Island hopping", "category" => "Tour" } ])
+          expect(landmarks["kota-beach"]["visits"]).to eq([])
         end
       end
 
-      response "200", "a row carries its first ready photos (RAA-124)" do
-        schema "$ref" => "#/components/schemas/area_detail"
-        let(:slug) { "bantayan-island" }
-
-        before do
-          create_photo(honda, ready: false)
-          7.times { create_photo(honda) }
-        end
-
-        run_test! do |response|
-          row = response.parsed_body["listings"].find { _1["id"] == honda.id }
-          expect(row["photos"].size).to eq(6)
-          expect(row["photos"].first.keys).to eq(%w[card_url large_url])
-        end
-      end
-
-      response "200", "a stay's row says its nightly price once it has one (RAA-104)" do
-        schema "$ref" => "#/components/schemas/area_detail"
-        let(:slug) { "bantayan-island" }
-
-        before do
-          island = Area.find_by!(slug: "bantayan-island")
-          create(:listing, :stay, area: island, title: "Kota Beach house")
-          create(:listing, :stay, area: island, title: "Unpriced house").stay_rate.update_columns(nightly_price_cents: 0)
-        end
-
-        run_test! do |response|
-          rows = response.parsed_body["listings"].index_by { _1["title"] }
-          expect(rows["Kota Beach house"].values_at("price_from_cents", "price_unit")).to eq([ 200_000, "night" ])
-          expect(rows["Unpriced house"]["price_from_cents"]).to be_nil
-        end
-      end
-
-      response "200", "a vehicle's row says whether the shop delivers and collects it, priced or not (RAA-204)" do
-        schema "$ref" => "#/components/schemas/area_detail"
-        let(:slug) { "bantayan-island" }
-
-        before do
-          door = create(:listing, :vehicle, area: bantayan, title: "Door-to-door bike").vehicle_rate
-          door.update!(child_helmet_fee_cents: 0)
-          deliver_within(door, [ [ 1000, 0 ], [ 3000, 15_000 ] ])
-          deliver_within(create(:listing, :vehicle, area: bantayan, title: "Drop-off bike").vehicle_rate, [ [ 2000, 10_000 ] ],
-            picks_up: false)
-          create(:listing, :vehicle, area: bantayan, title: "Shop-only bike")
-          create(:listing, :vehicle, area: bantayan, title: "Unpriced shop bike").vehicle_rate.update_columns(daily_price_cents: 0)
-          create(:listing, :stay, area: bantayan, title: "Kota Beach house")
-        end
-
-        run_test! do |response|
-          rows = response.parsed_body["listings"].index_by { _1["title"] }
-          handover = ->(title) { rows[title]["handover"]&.values_at("delivery_fee_cents", "return_pickup_fee_cents") }
-          expect(handover.call("Door-to-door bike")).to eq([ 0, 0 ])
-          expect(handover.call("Drop-off bike")).to eq([ 10_000, nil ])
-          expect(handover.call("Shop-only bike")).to eq([ nil, nil ])
-          expect(handover.call("Unpriced shop bike")).to eq([ nil, nil ])
-          expect(handover.call("Kota Beach house")).to be_nil
-          expect(rows["Door-to-door bike"]["handover"]["child_helmet_fee_cents"]).to eq(0)
-          expect(rows["Drop-off bike"]["handover"]["child_helmet_fee_cents"]).to be_nil
-        end
-      end
-
-      response "200", "pet-friendly: of the stays, only those that allow pets (RAA-185)" do
-        schema "$ref" => "#/components/schemas/area_detail"
-        let(:slug) { "bantayan-island" }
-        let(:pets) { "1" }
-
-        before do
-          create(:listing, :stay, area: bantayan, title: "Dog-friendly house",
-            attrs: { "place_type" => "entire_place", "guests" => 4, "pets_allowed" => true, "max_pets" => 2 })
-          create(:listing, :stay, area: bantayan, title: "No pets house",
-            attrs: { "place_type" => "entire_place", "guests" => 4, "pets_allowed" => false })
-          create(:listing, :stay, area: bantayan, title: "Kota Beach house")
-        end
-
-        run_test! do |filtered|
-          expect(filtered.parsed_body["listings"].pluck("title")).to eq([ "Dog-friendly house", "Honda Click 125", "Island hopping" ])
-          get "/api/v1/areas/bantayan-island", params: { pets: "0" }
-          expect(response.parsed_body["listings"].size).to eq(5)
-        end
-      end
-
-      response "200", "a tour's row says its kind and the group it takes" do
-        schema "$ref" => "#/components/schemas/area_detail"
-        let(:slug) { "bantayan-island" }
-        let!(:joiner) { create(:listing, :tour, category: tour, area: bantayan, title: "Sandbar joiner") }
-
-        run_test! do |response|
-          row = response.parsed_body["listings"].find { _1["id"] == joiner.id }
-          expect(row["tour"]).to include("tour_type" => "joiner", "min_guests" => 2, "max_guests" => 12, "start_times" => [])
-        end
-      end
-
-      response "200", "a province lists the areas under it that have something to book, and everything to book and see in them" do
+      response "200", "a province lists the areas under it that have something to book, and the places to see in them" do
         schema "$ref" => "#/components/schemas/area_detail"
         let(:slug) { "cebu" }
         let!(:mactan) { create(:area, slug: "mactan", name: "Mactan", parent: cebu) }
@@ -367,7 +275,6 @@ RSpec.describe "Areas", type: :request do
           json = response.parsed_body
           expect(json["areas"].pluck("slug")).to eq(%w[bantayan-island cebu-city])
           expect(json["landmarks"].pluck("slug")).to eq(%w[fort-san-pedro kota-beach virgin-island])
-          expect(json["listings"].pluck("title")).to eq([ "Heritage walk", "Honda Click 125", "Island hopping" ])
         end
       end
 
