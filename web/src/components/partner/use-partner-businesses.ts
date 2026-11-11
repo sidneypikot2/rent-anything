@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
 import { useSession } from "@/lib/auth/session";
+import { allPages } from "@/api/pages";
 
 // A business the partner runs (RAA-100), with how many listings it has.
 export type PartnerBusiness = components["schemas"]["partner_business"];
@@ -32,7 +33,7 @@ export function usePartnerBusinesses() {
   return useQuery({
     queryKey: partnerBusinessesKey(userId),
     queryFn: async () => {
-      const { data, response } = await apiClient().GET("/api/v1/partner/businesses");
+      const { data, response } = await allPages((query) => apiClient().GET("/api/v1/partner/businesses", { params: { query } }));
       if (!data) throw new Error(`businesses request failed (${response.status})`);
       return data;
     },

@@ -6,6 +6,7 @@ import type { components } from "@/api/schema";
 import { tripError, tripsKey } from "@/components/trips/use-trips";
 import { useErrorToast } from "@/components/ui/toast";
 import { useSession } from "@/lib/auth/session";
+import { allPages } from "@/api/pages";
 
 export type GuestBooking = components["schemas"]["guest_booking"];
 export type BookingStatus = components["schemas"]["booking_status"];
@@ -37,7 +38,7 @@ export function useBookings() {
   return useQuery({
     queryKey: bookingsKey(userId),
     queryFn: async () => {
-      const { data } = await apiClient().GET("/api/v1/bookings");
+      const { data } = await allPages((query) => apiClient().GET("/api/v1/bookings", { params: { query } }));
       if (!data) throw new Error("Couldn't load your bookings. Try again.");
       return data;
     },

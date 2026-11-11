@@ -5,6 +5,7 @@ import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
 import { useSession } from "@/lib/auth/session";
 import { partnerBusinessesKey } from "./use-partner-businesses";
+import { allPages } from "@/api/pages";
 
 export type PartnerListing = components["schemas"]["partner_listing"];
 export type ListingOptions = components["schemas"]["listing_options"];
@@ -34,7 +35,7 @@ export function usePartnerListings() {
   return useQuery({
     queryKey: partnerListingsKey(userId),
     queryFn: async () => {
-      const { data, response } = await apiClient().GET("/api/v1/partner/listings");
+      const { data, response } = await allPages((query) => apiClient().GET("/api/v1/partner/listings", { params: { query } }));
       if (!data) throw new Error(`listings request failed (${response.status})`);
       return data;
     },
