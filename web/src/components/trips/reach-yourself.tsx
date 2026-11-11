@@ -9,16 +9,14 @@ import { useTripHere } from "./use-trip-here";
 export function ReachYourself({
   location,
   places,
-  stays,
 }: {
   location: LatLng;
   places: string[];
-  // The page's stay listings' points, by listing id.
-  stays: Record<number, LatLng>;
 }) {
   const { trip } = useTripHere(places);
-  const stay = trip?.items.find((item) => item.booking_type === "stay" && stays[item.listing.id]);
-  const km = stay ? distanceKm(stays[stay.listing.id], location) : null;
+  // The trip's stay here: its own point, rounded as on every guest map.
+  const stay = trip?.items.find((item) => item.booking_type === "stay" && places.includes(item.area.slug));
+  const km = stay ? distanceKm(stay.location, location) : null;
   const rental = trip?.items.some((item) => item.booking_type === "rental" && !item.unavailable);
   const how = rental ? "ride there on your rental" : "reach it by scooter or trike";
   const far = km === null ? "" : ` · about ${Math.round(km)} km from your stay`;

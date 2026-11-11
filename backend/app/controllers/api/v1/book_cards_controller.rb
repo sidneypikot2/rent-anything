@@ -6,7 +6,8 @@ module Api
         area = Area.published.find_by!(slug: params[:slug])
         render json: Discovery::BookCards.call(
           area, group: params[:group], page: params[:page], per_page: params[:per_page], around: params[:around],
-          listing_ids: params[:listing_ids], filters: Discovery::ListingFilters::PARAMS.index_with { |key| params[key] }
+          listing_ids: params[:listing_ids], from: params[:from], to: params[:to], facets: params[:facets], counts: params[:counts],
+          filters: Discovery::ListingFilters::PARAMS.index_with { |key| params[key] }
         )
       end
     end

@@ -2,8 +2,8 @@
 
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
-import type { BookCardsPage } from "@/api/discovery";
-import { apiQuery, type BookQuery } from "./book-query";
+import type { BookCardsPage, GroupCounts } from "@/api/discovery";
+import { apiQuery, countsQuery, type BookQuery, type BookSearch, type BookSeed } from "./book-query";
 
 // A What to book section's page from the API. While another page of it loads, the section's last
 // page stays on screen (`client`'s cache: useQueries starts a new observer per key, so
@@ -27,6 +27,24 @@ export function bookCardsOptions(
     placeholderData: (previous: BookCardsPage | undefined) => previous ?? (client && lastPage(client, slug, query.group)),
     staleTime: 60_000,
     initialData: same ? initial.data : undefined,
+  };
+}
+
+// The section chips' counts for the page's search and dates. While new dates' counts load, the
+// last ones stay. `seed`: what the server fetched, used when its search and dates are the same.
+export function bookCountsOptions(slug: string, search: BookSearch, seed?: BookSeed) {
+  const params = countsQuery(search);
+  const initial = seed?.counts && JSON.stringify(countsQuery(seed.search)) === JSON.stringify(params) ? seed.counts : undefined;
+  return {
+    queryKey: ["book-counts", slug, params],
+    queryFn: async () => {
+      const { data, error } = await apiClient().GET("/api/v1/areas/{slug}/book_counts", { params: { path: { slug }, query: params } });
+      if (error || !data) throw new Error("Couldn't count these just now");
+      return data.counts;
+    },
+    placeholderData: (previous: GroupCounts | undefined) => previous,
+    staleTime: 60_000,
+    initialData: initial,
   };
 }
 

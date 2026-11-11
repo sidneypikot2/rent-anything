@@ -1621,12 +1621,7 @@ export interface paths {
         /** A destination: its landmarks and what to book there */
         get: {
             parameters: {
-                query?: {
-                    /** @description 1 keeps, of the stays, only those that allow pets (RAA-185); other listings stay */
-                    pets?: string;
-                    /** @description 0 leaves the listings out (the plan pages page through businesses, plan_businesses) */
-                    listings?: string;
-                };
+                query?: never;
                 header?: never;
                 path: {
                     slug: string;
@@ -1635,7 +1630,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description a province lists the areas under it that have something to book, and everything to book and see in them */
+                /** @description a province lists the areas under it that have something to book, and the places to see in them */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1672,7 +1667,7 @@ export interface paths {
         };
         /**
          * A page of one What to book section's cards in a place
-         * @description What to book: the cards of one guest group here and in the published places inside it, a stay's per business, any other per business and listing title, each with its listings as browse rows; priced first, then by title. The filters and search apply listing by listing; facets count the filter sheet's choices, counts the cards per group with the search, pin_ids every listing that passes.
+         * @description What to book: the cards of one guest group here and in the published places inside it, a stay's per business, any other per business and listing title, each with its listings as browse rows; priced first, then by title. The filters and search apply listing by listing; facets count the filter sheet's choices, counts the cards per group with the search.
          */
         get: {
             parameters: {
@@ -1686,6 +1681,20 @@ export interface paths {
                     around?: number;
                     /** @description Only these listings, in this order (the map's distance search) */
                     "listing_ids[]"?: number[];
+                    /**
+                     * Format: date
+                     * @description With to: only listings with a unit free on these dates (a stay's or rental's nights from from to the day before to)
+                     */
+                    from?: string;
+                    /**
+                     * Format: date
+                     * @description The last day, with from (at most 365 days after it)
+                     */
+                    to?: string;
+                    /** @description false leaves the filter sheet's counts out (a section's later pages); true by default */
+                    facets?: boolean;
+                    /** @description false leaves the per-group counts out (the web app asks book_counts once instead); true by default */
+                    counts?: boolean;
                     /** @description Only listings free to cancel, any time or up to some days before */
                     free_cancellation?: boolean;
                     /** @description Only stays that take pets */
@@ -1717,7 +1726,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description a page of cards, priced first, a card with its listings */
+                /** @description only what is free on the dates */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1734,6 +1743,74 @@ export interface paths {
                     content?: never;
                 };
                 /** @description bad paging or filters */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/areas/{slug}/book_counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How many cards each What to book section has in a place
+         * @description What to book's section chips: the cards per guest group here and in the published places inside it, with the search and the dates (not a section's filters), asked once for every section.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Only listings with every word somewhere in them */
+                    q?: string;
+                    /**
+                     * Format: date
+                     * @description With to: only listings with a unit free on these dates (a stay's or rental's nights from from to the day before to)
+                     */
+                    from?: string;
+                    /**
+                     * Format: date
+                     * @description The last day, with from (at most 365 days after it)
+                     */
+                    to?: string;
+                };
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description the cards per group */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["book_counts"];
+                    };
+                };
+                /** @description a draft place */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description bad dates */
                 422: {
                     headers: {
                         [name: string]: unknown;
@@ -2741,6 +2818,97 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/areas/{slug}/map_pins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The listings on the part of a place's map in view
+         * @description What to book's map: the active listings here and in the published places inside it within the box in view, as pins with their browse rows (the pop-up), narrowed like a What to book section (its group, search, dates and, with a group, filters); stays one per business, as their cards. More than 300 in the box come as counted clusters instead.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description west,south,east,north in degrees */
+                    bbox: string;
+                    /** @description One group's listings (the section shown); every group without */
+                    group?: "stay" | "transfer" | "rental" | "activity" | "gear";
+                    /**
+                     * Format: date
+                     * @description With to: only listings with a unit free on these dates, as book_cards
+                     */
+                    from?: string;
+                    /** Format: date */
+                    to?: string;
+                    /** @description Only listings free to cancel, any time or up to some days before */
+                    free_cancellation?: boolean;
+                    /** @description Only stays that take pets */
+                    pets?: boolean;
+                    /** @description Only a from-price at least this (unpriced ones drop out) */
+                    min_price_cents?: number;
+                    /** @description Only a from-price at most this (unpriced ones drop out) */
+                    max_price_cents?: number;
+                    /** @description Rentals: only these categories (slugs) */
+                    "kinds[]"?: string[];
+                    /** @description Rentals: only these transmissions */
+                    "transmissions[]"?: string[];
+                    /** @description Rentals: only those that drop off */
+                    delivery?: boolean;
+                    /** @description Rentals: only those that pick up at the end */
+                    pickup?: boolean;
+                    /** @description Rentals: only those with child helmets */
+                    child_helmets?: boolean;
+                    /** @description Only listings that include all of these (facets' keys) */
+                    "includes[]"?: string[];
+                    /** @description Only listings with every word somewhere in them */
+                    q?: string;
+                };
+                header?: never;
+                path: {
+                    slug: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description too many in the box: counted clusters, never an exact point */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["map_pins"];
+                    };
+                };
+                /** @description a draft place */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a box that isn't one */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
                     };
                 };
             };
@@ -10037,6 +10205,42 @@ export interface components {
         };
         area_detail: {
             area: components["schemas"]["area"];
+            center: components["schemas"]["lat_lng"];
+            /** @description Per guest group, its active listings here and in the places inside it and the businesses offering them */
+            groups: {
+                stay: {
+                    listings: number;
+                    businesses: number;
+                };
+                transfer: {
+                    listings: number;
+                    businesses: number;
+                };
+                rental: {
+                    listings: number;
+                    businesses: number;
+                };
+                activity: {
+                    listings: number;
+                    businesses: number;
+                };
+                gear: {
+                    listings: number;
+                    businesses: number;
+                };
+            };
+            /** @description The banner's typical stay and tour: the upper middle from-price of the group's priced listings, in the unit most use */
+            typical_prices: {
+                /** @enum {string} */
+                group: "stay" | "activity";
+                price_cents: number;
+                /** @enum {string} */
+                unit: "night" | "day" | "trip" | "group" | "person" | "unit";
+            }[];
+            /** @description The listings that visit its places to see, as browse rows, a few per place (priced first): the place's tour lists */
+            visitor_rows: components["schemas"]["area_listing"][];
+            /** @description The businesses with an active listing here or in the places inside it (What to book's lead line) */
+            partner_count: number;
             /** @description Its ready photos in the team's order, for the banner's carousel (RAA-210) */
             photos: components["schemas"]["photo_urls"][];
             /** @description What the team wrote about the place (RAA-164); a blank field is null (RAA-252) */
@@ -10068,11 +10272,15 @@ export interface components {
                 must_see: boolean;
                 /** @description Where its boats leave from; set on a place reached by boat tour only (RAA-257) */
                 boat_departure: components["schemas"]["lat_lng"] | null;
-                /** @description The ids of the active listings that visit it, from the listings here */
+                /** @description The ids of the active listings that visit it */
                 visited_by: number[];
+                /** @description The same listings, named (their title and category) */
+                visits: {
+                    id: number;
+                    title: string;
+                    category: string;
+                }[];
             }[];
-            /** @description What to book here and in the published places inside it, however deep */
-            listings: components["schemas"]["area_listing"][];
         };
         /** @description A listing summary plus its booking type, summary and partner; no location */
         area_listing: {
@@ -10212,6 +10420,30 @@ export interface components {
             };
             unpriced_booking_type: string | null;
         };
+        map_pins: {
+            /** @description The listings in the box (stays: one per business), when there are at most the cap; empty otherwise */
+            listings: {
+                pin: components["schemas"]["listing_pin"];
+                row: components["schemas"]["area_listing"];
+                /** @description Stays: the pin is the business's cheapest stay in the box, standing for this many of its stays; null otherwise */
+                options: number | null;
+            }[];
+            /** @description Over the cap: the listings (stays: businesses) counted by cell, each at their middle rounded like a pin */
+            clusters: {
+                lat: number;
+                lng: number;
+                count: number;
+            }[];
+            /** @description How many listings (stays: businesses) are in the box */
+            total: number;
+            /** @description Where all the section's listings are, in the box or not, rounded like a pin (fitting the map); null when it has none */
+            bounds: {
+                west: number;
+                south: number;
+                east: number;
+                north: number;
+            } | null;
+        };
         book_cards: {
             cards: {
                 /** @description A stay's business id; any other card's business and first listing ids */
@@ -10222,17 +10454,22 @@ export interface components {
             total: number;
             page: number;
             per_page: number;
-            facets: components["schemas"]["listing_facets"];
-            /** @description Cards per guest group here with the search (not the filters) */
-            counts: {
-                stay: number;
-                transfer: number;
-                rental: number;
-                activity: number;
-                gear: number;
-            };
-            /** @description Every listing of the group that passes */
-            pin_ids: number[];
+            /** @description The filter sheet's counts; null when asked without (facets=false, a section's later pages) */
+            facets: components["schemas"]["listing_facets"] | null;
+            /** @description Cards per guest group here with the search (not the filters); null when asked without (counts=false) */
+            counts: components["schemas"]["group_counts"] | null;
+        };
+        /** @description Cards per guest group */
+        group_counts: {
+            stay: number;
+            transfer: number;
+            rental: number;
+            activity: number;
+            gear: number;
+        };
+        book_counts: {
+            /** @description Cards per guest group here with the search and dates (not a section's filters) */
+            counts: components["schemas"]["group_counts"];
         };
         plan_businesses: {
             businesses: components["schemas"]["plan_business"][];

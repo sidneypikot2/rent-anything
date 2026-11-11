@@ -1214,24 +1214,10 @@ paths:
         required: true
         schema:
           type: string
-      - name: pets
-        in: query
-        required: false
-        description: 1 keeps, of the stays, only those that allow pets (RAA-185);
-          other listings stay
-        schema:
-          type: string
-      - name: listings
-        in: query
-        required: false
-        description: 0 leaves the listings out (the plan pages page through businesses,
-          plan_businesses)
-        schema:
-          type: string
       responses:
         '200':
           description: a province lists the areas under it that have something to
-            book, and everything to book and see in them
+            book, and the places to see in them
           content:
             application/json:
               schema:
@@ -1251,8 +1237,7 @@ paths:
         places inside it, a stay''s per business, any other per business and listing
         title, each with its listings as browse rows; priced first, then by title.
         The filters and search apply listing by listing; facets count the filter sheet''s
-        choices, counts the cards per group with the search, pin_ids every listing
-        that passes.'
+        choices, counts the cards per group with the search.'
       parameters:
       - name: slug
         in: path
@@ -1299,6 +1284,35 @@ paths:
           items:
             type: integer
         description: Only these listings, in this order (the map's distance search)
+      - name: from
+        in: query
+        format: date
+        required: false
+        description: 'With to: only listings with a unit free on these dates (a stay''s
+          or rental''s nights from from to the day before to)'
+        schema:
+          type: string
+      - name: to
+        in: query
+        format: date
+        required: false
+        description: The last day, with from (at most 365 days after it)
+        schema:
+          type: string
+      - name: facets
+        in: query
+        required: false
+        description: false leaves the filter sheet's counts out (a section's later
+          pages); true by default
+        schema:
+          type: boolean
+      - name: counts
+        in: query
+        required: false
+        description: false leaves the per-group counts out (the web app asks book_counts
+          once instead); true by default
+        schema:
+          type: boolean
       - name: free_cancellation
         in: query
         required: false
@@ -1379,7 +1393,7 @@ paths:
           type: string
       responses:
         '200':
-          description: a page of cards, priced first, a card with its listings
+          description: only what is free on the dates
           content:
             application/json:
               schema:
@@ -1388,6 +1402,52 @@ paths:
           description: a draft place
         '422':
           description: bad paging or filters
+  "/api/v1/areas/{slug}/book_counts":
+    get:
+      summary: How many cards each What to book section has in a place
+      tags:
+      - Discovery
+      description: 'What to book''s section chips: the cards per guest group here
+        and in the published places inside it, with the search and the dates (not
+        a section''s filters), asked once for every section.'
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        description: Only listings with every word somewhere in them
+        schema:
+          type: string
+      - name: from
+        in: query
+        format: date
+        required: false
+        description: 'With to: only listings with a unit free on these dates (a stay''s
+          or rental''s nights from from to the day before to)'
+        schema:
+          type: string
+      - name: to
+        in: query
+        format: date
+        required: false
+        description: The last day, with from (at most 365 days after it)
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the cards per group
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/book_counts"
+        '404':
+          description: a draft place
+        '422':
+          description: bad dates
   "/api/v1/bookings":
     parameters:
     - name: Authorization
@@ -2238,6 +2298,146 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+  "/api/v1/areas/{slug}/map_pins":
+    get:
+      summary: The listings on the part of a place's map in view
+      tags:
+      - Discovery
+      description: 'What to book''s map: the active listings here and in the published
+        places inside it within the box in view, as pins with their browse rows (the
+        pop-up), narrowed like a What to book section (its group, search, dates and,
+        with a group, filters); stays one per business, as their cards. More than
+        300 in the box come as counted clusters instead.'
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: bbox
+        in: query
+        required: true
+        description: west,south,east,north in degrees
+        schema:
+          type: string
+      - name: group
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - stay
+          - transfer
+          - rental
+          - activity
+          - gear
+        description: One group's listings (the section shown); every group without
+      - name: from
+        in: query
+        format: date
+        required: false
+        description: 'With to: only listings with a unit free on these dates, as book_cards'
+        schema:
+          type: string
+      - name: to
+        in: query
+        format: date
+        required: false
+        schema:
+          type: string
+      - name: free_cancellation
+        in: query
+        required: false
+        description: Only listings free to cancel, any time or up to some days before
+        schema:
+          type: boolean
+      - name: pets
+        in: query
+        required: false
+        description: Only stays that take pets
+        schema:
+          type: boolean
+      - name: min_price_cents
+        in: query
+        required: false
+        description: Only a from-price at least this (unpriced ones drop out)
+        schema:
+          type: integer
+      - name: max_price_cents
+        in: query
+        required: false
+        description: Only a from-price at most this (unpriced ones drop out)
+        schema:
+          type: integer
+      - name: kinds[]
+        in: query
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+        description: 'Rentals: only these categories (slugs)'
+      - name: transmissions[]
+        in: query
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+        description: 'Rentals: only these transmissions'
+      - name: delivery
+        in: query
+        required: false
+        description: 'Rentals: only those that drop off'
+        schema:
+          type: boolean
+      - name: pickup
+        in: query
+        required: false
+        description: 'Rentals: only those that pick up at the end'
+        schema:
+          type: boolean
+      - name: child_helmets
+        in: query
+        required: false
+        description: 'Rentals: only those with child helmets'
+        schema:
+          type: boolean
+      - name: includes[]
+        in: query
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+        description: Only listings that include all of these (facets' keys)
+      - name: q
+        in: query
+        required: false
+        description: Only listings with every word somewhere in them
+        schema:
+          type: string
+      responses:
+        '200':
+          description: 'too many in the box: counted clusters, never an exact point'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/map_pins"
+        '404':
+          description: a draft place
+        '422':
+          description: a box that isn't one
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
   "/api/v1/me/complete_profile":
     put:
       summary: Finish sign-up with a name and phone
@@ -10618,6 +10818,107 @@ components:
       properties:
         area:
           "$ref": "#/components/schemas/area"
+        center:
+          "$ref": "#/components/schemas/lat_lng"
+        groups:
+          type: object
+          description: Per guest group, its active listings here and in the places
+            inside it and the businesses offering them
+          properties:
+            stay:
+              type: object
+              properties:
+                listings:
+                  type: integer
+                businesses:
+                  type: integer
+              required:
+              - listings
+              - businesses
+            transfer:
+              type: object
+              properties:
+                listings:
+                  type: integer
+                businesses:
+                  type: integer
+              required:
+              - listings
+              - businesses
+            rental:
+              type: object
+              properties:
+                listings:
+                  type: integer
+                businesses:
+                  type: integer
+              required:
+              - listings
+              - businesses
+            activity:
+              type: object
+              properties:
+                listings:
+                  type: integer
+                businesses:
+                  type: integer
+              required:
+              - listings
+              - businesses
+            gear:
+              type: object
+              properties:
+                listings:
+                  type: integer
+                businesses:
+                  type: integer
+              required:
+              - listings
+              - businesses
+          required:
+          - stay
+          - transfer
+          - rental
+          - activity
+          - gear
+        typical_prices:
+          type: array
+          description: 'The banner''s typical stay and tour: the upper middle from-price
+            of the group''s priced listings, in the unit most use'
+          items:
+            type: object
+            properties:
+              group:
+                type: string
+                enum:
+                - stay
+                - activity
+              price_cents:
+                type: integer
+              unit:
+                type: string
+                enum:
+                - night
+                - day
+                - trip
+                - group
+                - person
+                - unit
+            required:
+            - group
+            - price_cents
+            - unit
+        visitor_rows:
+          type: array
+          items:
+            "$ref": "#/components/schemas/area_listing"
+          description: 'The listings that visit its places to see, as browse rows,
+            a few per place (priced first): the place''s tour lists'
+        partner_count:
+          type: integer
+          minimum: 0
+          description: The businesses with an active listing here or in the places
+            inside it (What to book's lead line)
         photos:
           type: array
           maxItems: 12
@@ -10709,8 +11010,23 @@ components:
                 type: array
                 items:
                   type: integer
-                description: The ids of the active listings that visit it, from the
-                  listings here
+                description: The ids of the active listings that visit it
+              visits:
+                type: array
+                description: The same listings, named (their title and category)
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+                    category:
+                      type: string
+                  required:
+                  - id
+                  - title
+                  - category
             required:
             - slug
             - name
@@ -10721,12 +11037,7 @@ components:
             - must_see
             - boat_departure
             - visited_by
-        listings:
-          description: What to book here and in the published places inside it, however
-            deep
-          type: array
-          items:
-            "$ref": "#/components/schemas/area_listing"
+            - visits
       required:
       - area
       - guide
@@ -10734,7 +11045,11 @@ components:
       - photos
       - areas
       - landmarks
-      - listings
+      - partner_count
+      - center
+      - groups
+      - typical_prices
+      - visitor_rows
     area_listing:
       type: object
       description: A listing summary plus its booking type, summary and partner; no
@@ -11124,6 +11439,75 @@ components:
       - includes
       - shared
       - unpriced_booking_type
+    map_pins:
+      type: object
+      properties:
+        listings:
+          type: array
+          description: 'The listings in the box (stays: one per business), when there
+            are at most the cap; empty otherwise'
+          items:
+            type: object
+            properties:
+              pin:
+                "$ref": "#/components/schemas/listing_pin"
+              row:
+                "$ref": "#/components/schemas/area_listing"
+              options:
+                type: integer
+                nullable: true
+                minimum: 1
+                description: 'Stays: the pin is the business''s cheapest stay in the
+                  box, standing for this many of its stays; null otherwise'
+            required:
+            - pin
+            - row
+            - options
+        clusters:
+          type: array
+          description: 'Over the cap: the listings (stays: businesses) counted by
+            cell, each at their middle rounded like a pin'
+          items:
+            type: object
+            properties:
+              lat:
+                type: number
+              lng:
+                type: number
+              count:
+                type: integer
+                minimum: 1
+            required:
+            - lat
+            - lng
+            - count
+        total:
+          type: integer
+          description: 'How many listings (stays: businesses) are in the box'
+        bounds:
+          type: object
+          nullable: true
+          description: Where all the section's listings are, in the box or not, rounded
+            like a pin (fitting the map); null when it has none
+          properties:
+            west:
+              type: number
+            south:
+              type: number
+            east:
+              type: number
+            north:
+              type: number
+          required:
+          - west
+          - south
+          - east
+          - north
+      required:
+      - listings
+      - clusters
+      - total
+      - bounds
     book_cards:
       type: object
       properties:
@@ -11152,32 +11536,17 @@ components:
         per_page:
           type: integer
         facets:
-          "$ref": "#/components/schemas/listing_facets"
+          allOf:
+          - "$ref": "#/components/schemas/listing_facets"
+          nullable: true
+          description: The filter sheet's counts; null when asked without (facets=false,
+            a section's later pages)
         counts:
-          type: object
-          description: Cards per guest group here with the search (not the filters)
-          properties:
-            stay:
-              type: integer
-            transfer:
-              type: integer
-            rental:
-              type: integer
-            activity:
-              type: integer
-            gear:
-              type: integer
-          required:
-          - stay
-          - transfer
-          - rental
-          - activity
-          - gear
-        pin_ids:
-          type: array
-          items:
-            type: integer
-          description: Every listing of the group that passes
+          allOf:
+          - "$ref": "#/components/schemas/group_counts"
+          nullable: true
+          description: Cards per guest group here with the search (not the filters);
+            null when asked without (counts=false)
       required:
       - cards
       - total
@@ -11185,7 +11554,36 @@ components:
       - per_page
       - facets
       - counts
-      - pin_ids
+    group_counts:
+      type: object
+      description: Cards per guest group
+      properties:
+        stay:
+          type: integer
+        transfer:
+          type: integer
+        rental:
+          type: integer
+        activity:
+          type: integer
+        gear:
+          type: integer
+      required:
+      - stay
+      - transfer
+      - rental
+      - activity
+      - gear
+    book_counts:
+      type: object
+      properties:
+        counts:
+          allOf:
+          - "$ref": "#/components/schemas/group_counts"
+          description: Cards per guest group here with the search and dates (not a
+            section's filters)
+      required:
+      - counts
     plan_businesses:
       type: object
       properties:

@@ -12,7 +12,7 @@ import type { TripDates } from "@/components/trips/trip-dates";
 import type { AddPreview } from "@/components/trips/use-trips";
 import { pricedByText } from "@/lib/pricing";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { MENU_ROW } from "@/components/ui/menu";
@@ -21,9 +21,13 @@ import { circlePolygon, FLAT_MAP, fromLngLat, keepMapFlat, MAP_STYLE_URL, setMap
 import { useAreaMap } from "./area-map-context";
 import { MapButton, ZoomButton } from "./map-controls";
 import { TRIP_ORDER_GROUPS } from "./categories";
-import { listingPin, placePins, type AreaPin, type LandmarkInfo, type ListingPin } from "./area-map-pins";
+import { listingPin, placePins, rowPanelInfo, type AreaPin, type LandmarkInfo, type ListingPin } from "./area-map-pins";
 import { DetailPanelButton, LandmarkPanel, PanelPhoto } from "./detail-panel";
 import { ListingTitleLink } from "./listing-link";
+import { businessHref } from "./browse-offers";
+import { markLeaving } from "./back-link";
+import { newTabProps, useOpensInNewTab } from "./business-row";
+import { useTripHref } from "@/components/trips/trip-link";
 import { InstantBookBadge } from "./instant-book-badge";
 import {
   CategoryGlyph,
@@ -36,6 +40,7 @@ import {
   RadiusGlyph,
 } from "./tag-glyphs";
 import { useExplore } from "./use-explore";
+import { useMapPins, type MapBox } from "./use-map-pins";
 
 const RADIUS_SOURCE = "radius";
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
@@ -92,6 +97,8 @@ const pointKey = (pin: { lat: number; lng: number }) => `${pin.lat.toFixed(2)},$
 
 type Spec =
   | { id: string; kind: "pin"; pin: AreaPin; lngLat: LatLng; offset: [number, number] }
+  // More listings in view than the API sends (MapPins::CAP): how many are around a point.
+  | { id: string; kind: "cluster"; count: number; lngLat: LatLng; offset: [number, number] }
   // `spread`: its pins are at more than one point, merged only because they overlap at this zoom.
   | { id: string; kind: "stack"; pins: ListingPin[]; lngLat: LatLng; offset: [number, number]; spread: boolean };
 
@@ -102,6 +109,7 @@ type Spec =
 // the card or row under the pointer. Search by distance drops the guest's pin (a tap, or their
 // location) and shows what is within the range, narrowing the rows to match.
 export function AreaMap({
+  slug,
   pins,
   center,
   dates,
@@ -110,6 +118,9 @@ export function AreaMap({
   landmarks,
   full = false,
 }: {
+  // The place whose listings it pins, fetched for the part in view (useMapPins).
+  slug: string;
+  // The places to see; the listings come from the API as the map moves.
   pins: AreaPin[];
   center: LatLng;
   dates: TripDates;
@@ -152,6 +163,19 @@ export function AreaMap({
   const { data: nearby, isFetching } = useExplore(distance ? you : null, queryKm);
   const results = distance && you ? nearby : undefined;
 
+  // The listings in view (2026-11-11): fetched for the box on screen as the map moves, narrowed
+  // as What to book's section is, so a place with tens of thousands never sends them all; past
+  // the API's cap, counted clusters instead.
+  const [box, setBox] = useState<MapBox | null>(null);
+  const { data: inView } = useMapPins(slug, distance ? null : box, view?.query ?? {});
+  const viewPins = useMemo(
+    () =>
+      (inView?.listings ?? []).map(({ pin, row, options }) =>
+        listingPin(pin, rowPanelInfo(row, slug), options ? { ...row.business, offers: options } : undefined),
+      ),
+    [inView, slug],
+  );
+
   // What the rows show while searching by distance: each listing in range with its distance.
   useEffect(() => {
     if (!setNear) return;
@@ -159,27 +183,25 @@ export function AreaMap({
   }, [results, setNear]);
   useEffect(() => () => setNear?.(null), [setNear]);
 
-  // The pins on show: the page's, or what a distance search found (reusing what the page knows
-  // about each), then What to book's group and filters.
+  // The pins on show: the places to see and the listings in view, or what a distance search found
+  // (reusing what the map knows about each, then What to book's group).
   const shown = useMemo(() => {
-    const known = new Map(pins.map((pin) => [pin.key, pin]));
+    const known = new Map(viewPins.map((pin) => [pin.key, pin]));
     const landmarkInfo = new Map(Object.entries(landmarks));
     const base: AreaPin[] = results
       ? [
-          ...results.listings.map((listing) => {
-            const page = known.get(`listing-${listing.id}`);
-            return listingPin(listing, page?.kind === "listing" ? page.info : undefined);
-          }),
+          ...results.listings
+            .filter((listing) => !view?.group || listing.group === view.group)
+            .map((listing) => {
+              const page = known.get(`listing-${listing.id}`);
+              return listingPin(listing, page?.kind === "listing" ? page.info : undefined);
+            }),
           ...placePins(results.destinations, landmarkInfo),
         ]
-      : pins;
-    const shown = Object.fromEntries(Object.entries(view?.shown ?? {}).map(([group, ids]) => [group, new Set(ids)]));
-    return base.filter((pin) =>
-      pin.kind === "place"
-        ? placesOn
-        : (!view?.group || pin.group === view.group) && (!shown[pin.group] || shown[pin.group].has(pin.id)),
-    );
-  }, [pins, landmarks, results, view, placesOn]);
+      : [...pins, ...viewPins];
+    return base.filter((pin) => pin.kind !== "place" || placesOn);
+  }, [pins, viewPins, landmarks, results, view, placesOn]);
+  const clusters = useMemo(() => (results ? [] : (inView?.clusters ?? [])), [results, inView]);
 
   const specs = useMemo<Spec[]>(() => {
     const out: Spec[] = [];
@@ -224,6 +246,22 @@ export function AreaMap({
           spread: new Set(group.map(pointKey)).size > 1,
         });
     }
+    // Clusters that would overlap at this zoom count as one, at the bigger one's point.
+    const merged: { at: { x: number; y: number } | null; lngLat: LatLng; count: number }[] = [];
+    for (const cluster of [...clusters].sort((a, b) => b.count - a.count)) {
+      const at = ready ? worldPixel(cluster, zoom) : null;
+      const near = at && merged.find((each) => each.at && Math.hypot(each.at.x - at.x, each.at.y - at.y) < MERGE_PX);
+      if (near) near.count += cluster.count;
+      else merged.push({ at, lngLat: { lat: cluster.lat, lng: cluster.lng }, count: cluster.count });
+    }
+    for (const cluster of merged)
+      out.push({
+        id: `cluster-${cluster.lngLat.lat},${cluster.lngLat.lng}`,
+        kind: "cluster",
+        count: cluster.count,
+        lngLat: cluster.lngLat,
+        offset: [0, 0],
+      });
     // Places to see that would cover each other (a few in one town) sit side by side, in a row at
     // the first one's point, rather than as one disc hiding the rest.
     if (!ready) return out;
@@ -244,7 +282,7 @@ export function AreaMap({
       });
     }
     return out;
-  }, [shown, expanded, ready, zoom]);
+  }, [shown, clusters, expanded, ready, zoom]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -288,6 +326,13 @@ export function AreaMap({
       setReady(true);
     });
     map.on("zoomend", () => setZoom(map.getZoom()));
+    // The box in view, once it has stopped moving.
+    const report = () => {
+      const bounds = map.getBounds();
+      setBox([bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()]);
+    };
+    map.on("load", report);
+    map.on("moveend", report);
     const markers = markersRef.current;
     mapRef.current = map;
     return () => {
@@ -375,37 +420,64 @@ export function AreaMap({
       animate,
     });
   };
+  // The section's listings' bounds as a box to fit (the API's, wherever they are), with the
+  // places to see when it has none.
+  const fitSection = (animate = true) => {
+    const bounds = inView?.bounds;
+    if (bounds)
+      fit(
+        [
+          { lat: bounds.south, lng: bounds.west },
+          { lat: bounds.north, lng: bounds.east },
+        ],
+        animate,
+      );
+    else fit(pins, animate);
+  };
+
+  // On load: to the place to see the URL names (a search for a place lands on it), else, once
+  // the first pins are in, to where the section's listings are.
+  const fitted = useRef(false);
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map) return;
-    // Compared raw: decoding a mangled hash (#%E0) would throw. Slugs and ids need no decoding.
+    // Compared raw: decoding a mangled hash (#%E0) would throw. Slugs need no decoding.
     const hash = window.location.hash.slice(1);
-    const target = pins.find((pin) => (pin.kind === "place" ? pin.slug === hash : `listing-${pin.id}` === hash));
+    const target = pins.find((pin) => pin.kind === "place" && pin.slug === hash);
     if (target) {
+      fitted.current = true;
       map.jumpTo({ center: toLngLat(target), zoom: 14 });
       shared?.setSelected(target.key);
-    } else {
-      // Where the listings are, close enough that they part; "Show every pin" takes in the places too.
-      const listings = shown.filter((pin) => pin.kind === "listing");
-      fit(listings.length > 0 ? listings : shown, false);
     }
     // Once, when the map is ready.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
-
-  // Another group picked in What to book: fit to its pins.
-  const shownGroup = view?.group ?? null;
-  const firstFit = useRef(true);
   useEffect(() => {
-    if (!ready) return;
-    if (firstFit.current) {
-      firstFit.current = false;
+    if (!ready || !inView || fitted.current) return;
+    fitted.current = true;
+    fitSection(false);
+    // Once, when the first pins are in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, inView]);
+
+  // Another group picked in What to book: once its pins are in, fit to where its listings are.
+  const shownGroup = view?.group ?? null;
+  const refit = useRef(false);
+  const firstGroup = useRef(true);
+  useEffect(() => {
+    if (firstGroup.current) {
+      firstGroup.current = false;
       return;
     }
-    if (!distance) fit(shown);
-    // Only when the group changes, not on every filter or hover.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    refit.current = true;
   }, [shownGroup]);
+  useEffect(() => {
+    if (!ready || !refit.current || !inView || distance) return;
+    refit.current = false;
+    fitSection();
+    // When the new group's first answer is in, not on every pan.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inView?.bounds, ready]);
 
   // Distance search: the guest's pin (draggable), the circle, and the map fitted to it.
   useEffect(() => {
@@ -468,7 +540,9 @@ export function AreaMap({
     (spec): spec is Extract<Spec, { kind: "stack" }> => spec.kind === "stack" && spec.id === listed,
   );
   const near = results ? new Map(results.listings.map((listing) => [listing.id, listing.distance_km])) : null;
-  const groupsShown = GROUP_NAMES.filter(([type]) => pins.some((pin) => pin.kind === "listing" && pin.group === type));
+  const groupsShown = GROUP_NAMES.filter(([type]) =>
+    view?.group ? view.group === type : shown.some((pin) => pin.kind === "listing" && pin.group === type) || clusters.length > 0,
+  );
 
   if (failed)
     return (
@@ -505,7 +579,15 @@ export function AreaMap({
         return (
           element &&
           createPortal(
-            spec.kind === "pin" ? (
+            spec.kind === "cluster" ? (
+              <ClusterButton
+                count={spec.count}
+                onOpen={() => {
+                  const map = mapRef.current;
+                  map?.easeTo({ center: toLngLat(spec.lngLat), zoom: Math.min(map.getZoom() + 2, 16) });
+                }}
+              />
+            ) : spec.kind === "pin" ? (
               <PinButton
                 pin={spec.pin}
                 label={spec.pin.kind === "place" && zoom >= PLACE_LABEL_ZOOM}
@@ -575,7 +657,8 @@ export function AreaMap({
           onClick={() => {
             setExpanded(null);
             setListed(null);
-            fit(results && you ? [you, ...shown] : shown);
+            if (results && you) fit([you, ...shown]);
+            else fitSection();
           }}
         >
           <FitGlyph className="size-4.5" />
@@ -700,10 +783,26 @@ export function AreaMap({
           dates={dates}
           datesQuery={datesQuery}
           areaName={areaName}
+          slug={slug}
           onClose={() => shared?.setSelected(null)}
         />
       )}
     </div>
+  );
+}
+
+// Listings counted around a point, when more are in view than the map is sent: a white disc with
+// the count; a tap zooms in towards them.
+function ClusterButton({ count, onOpen }: { count: number; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`${count} listings here: zoom in`}
+      className="flex min-h-11 min-w-11 items-center justify-center rounded-full border-2 border-primary bg-surface px-2.5 text-sm font-bold text-primary tabular-nums shadow-lift transition-transform duration-300 ease-calm motion-safe:hover:scale-105"
+    >
+      {count > 999 ? `${Math.floor(count / 1000)}k+` : count}
+    </button>
   );
 }
 
@@ -774,11 +873,12 @@ function StackButton({ pins, lit, onOpen }: { pins: ListingPin[]; lit: boolean; 
   const kinds = `${groups.slice(0, 2).map(({ short }) => short).join(" · ")}${groups.length > 2 ? ` +${groups.length - 2}` : ""}`;
   const places = new Set(pins.map((pin) => pin.info?.place));
   const place = places.size === 1 ? [...places][0] : undefined;
+  const noun = stackNoun(pins);
   return (
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`${pins.length} listings ${place ? `in ${place}` : "here"} (${groups.map(({ title }) => title).join(", ")}): show them`}
+      aria-label={`${pins.length} ${noun} ${place ? `in ${place}` : "here"} (${groups.map(({ title }) => title).join(", ")}): show them`}
       data-testid="map-stack"
       className={cn(
         "relative mb-1 flex h-9 items-center gap-1.5 rounded-full border-2 border-surface bg-navy pr-3 pl-1.5 text-small font-extrabold text-white shadow-lift transition-shadow duration-300 ease-calm before:absolute before:-inset-1 before:rounded-full before:content-['']",
@@ -801,6 +901,11 @@ function StackButton({ pins, lit, onOpen }: { pins: ListingPin[]; lit: boolean; 
   );
 }
 
+// What a stack holds: places to stay when every pin is a stay's business, listings otherwise.
+function stackNoun(pins: ListingPin[]) {
+  return pins.every((pin) => pin.business) ? "places to stay" : "listings";
+}
+
 // A big stack's listings as a list over the map, where its pop-up would open: each with its
 // group's colour, category icon and price; picking one opens its pop-up and lights its row.
 function StackList({
@@ -818,10 +923,11 @@ function StackList({
 }) {
   const places = new Set(pins.map((pin) => pin.info?.place));
   const place = places.size === 1 ? [...places][0] : undefined;
+  const noun = stackNoun(pins);
   return (
     <Card
       role="dialog"
-      aria-label={`${pins.length} listings ${place ? `in ${place}` : "here"}`}
+      aria-label={`${pins.length} ${noun} ${place ? `in ${place}` : "here"}`}
       data-testid="map-stack-list"
       className={cn(
         "absolute z-20 flex flex-col shadow-float",
@@ -832,7 +938,7 @@ function StackList({
     >
       <div className="flex items-center justify-between gap-3 border-b border-line py-1.5 pr-1.5 pl-4">
         <p className="font-semibold">
-          {pins.length} listings {place ? `in ${place}` : "here"}
+          {pins.length} {noun} {place ? `in ${place}` : "here"}
         </p>
         <button
           type="button"
@@ -884,6 +990,7 @@ function MapPopup({
   dates,
   datesQuery,
   areaName,
+  slug,
   onClose,
 }: {
   pin: AreaPin;
@@ -892,22 +999,41 @@ function MapPopup({
   dates: TripDates;
   datesQuery: string;
   areaName: string;
+  slug: string;
   onClose: () => void;
 }) {
+  const newTab = useOpensInNewTab();
+  const tripHref = useTripHref();
+  // A stay's business opens its page, as its card does: adds happen there.
+  const business = pin.kind === "listing" ? pin.business : undefined;
+  const businessPage = business && businessHref(business.id, dates, "need-stay", slug);
   const price =
     pin.kind === "listing" && pin.price
       ? { prefix: "from", amount: pin.price.amount, unit: pin.price.unit }
       : undefined;
-  const action =
-    pin.kind === "listing" ? (
+  const action = businessPage ? (
+    <ButtonLink
+      href={tripHref(businessPage)}
+      {...newTabProps(newTab)}
+      onClick={() => !newTab && markLeaving()}
+      variant="soft"
+      arrow
+      tabIndex={-1}
+      aria-hidden
+      data-testid="map-popup-details"
+    >
+      See details
+    </ButtonLink>
+  ) : pin.kind === "listing" ? (
       <AddToTripButton
         listing={{ id: pin.id, title: pin.title, booking_type: pin.bookingType }}
         dates={dates}
         preview={pinPreview(pin)}
       />
     ) : undefined;
-  const title =
-    pin.kind === "listing" ? (
+  const title = businessPage ? (
+    <ListingTitleLink href={businessPage} title={pin.title} testId="map-popup-open" />
+  ) : pin.kind === "listing" ? (
       <ListingTitleLink href={`/listings/${pin.id}${datesQuery}`} title={pin.title} testId="map-popup-open" />
     ) : pin.landmark ? (
       <DetailPanelButton
@@ -982,6 +1108,12 @@ function MapPopup({
             <span className="font-semibold text-foreground">{distanceKm.toFixed(1)} km from your pin</span>
           )}
         </p>
+        {business && (
+          <p className="truncate text-sm">
+            {business.offer}
+            {business.offers > 1 && <span className="text-muted"> + {business.offers - 1} more</span>}
+          </p>
+        )}
         {pin.kind === "listing" && <p className="text-xs text-muted">Approximate location</p>}
         {(price || action) && (
           <div className="relative z-10 flex flex-wrap items-center justify-between gap-2">

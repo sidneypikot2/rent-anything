@@ -69,6 +69,33 @@ RSpec.describe Discovery::ListingFilters do
       expect(described_class.new(q: "honda").facets(rentals, "rental")[:shared])
         .to eq(includes: %w[amenity:rider_helmet], pets: false, cancellation_policy: nil)
     end
+
+    it "reads only well-formed attrs: lists as lists, blank entries and blank text left out, an entry once" do
+      vios.update_column(:attrs, vios.attrs.merge(
+        "amenities" => "air_conditioning", "accessories" => [ "phone_mount", " ", "" ], "lenses" => %w[phone_mount],
+        "features" => nil, "bathroom" => " ", "transmission" => ""
+      ))
+      facets = described_class.new({}).facets(rentals, "rental")
+      expect(facets[:includes]).to eq([
+        { key: "accessory:phone_mount", count: 1 }, { key: "amenity:raincoat", count: 1 },
+        { key: "amenity:rider_helmet", count: 1 }, { key: "licence", count: 1 }
+      ])
+      expect(facets[:transmissions]).to eq([ { value: "automatic", count: 1 } ])
+    end
+
+    it "says a listing is unpriced and how the first one is booked" do
+      click.vehicle_rate.update_columns(daily_price_cents: 0)
+      expect(described_class.new({}).facets(rentals, "rental"))
+        .to include(unpriced: true, unpriced_booking_type: "rental", price_min_cents: 90_000)
+    end
+
+    it "shares a cancellation policy only when every listing has the same free one" do
+      Listing.update_all(cancellation_policy: "seven_days")
+      expect(described_class.new({}).facets(rentals, "rental")[:shared]).to include(cancellation_policy: "seven_days")
+
+      click.update_column(:cancellation_policy, "fourteen_days")
+      expect(described_class.new({}).facets(rentals, "rental")[:shared]).to include(cancellation_policy: nil)
+    end
   end
 
   it "reads bad values as errors" do

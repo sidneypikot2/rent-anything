@@ -60,7 +60,11 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   const days = page.locator("[role=grid] button:not([disabled])");
   await days.nth(10).click();
   await days.nth(12).click();
+  await page.getByTestId("plan-dates-ok").click();
   // Next starts the trip (a guest with no account, signed out) and opens its checklist.
+  // Step 1 shows the planner's whole track, Trip lit, from Trip to Review.
+  await expect(page.getByTestId("plan-step-trip")).toHaveAttribute("aria-current", "step");
+  await expect(page.getByTestId("plan-step-review")).toBeVisible();
   await page.getByTestId("plan-next").click();
   await expect(page).toHaveURL(/\/plan\/bantayan-island\?trip=\d+/);
   // Places to see is the first step: a heart picks one, the step stays open, and Next finds a
@@ -78,10 +82,10 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   await page.getByTestId("plan-step-activity").click();
   await expect(page.getByTestId("plan-places-tours")).toBeVisible();
   // The foot's trip button shows only once a listing is in the trip, and Next stays the main
-  // button; with none picked, open the review by its URL.
+  // button; Review is the track's last stop.
   await expect(page.getByTestId("plan-trip-open")).toHaveCount(0);
-  const { pathname, search } = new URL(page.url());
-  await page.goto(`${pathname}/review${search}`);
+  await page.getByTestId("plan-step-review").click();
+  await expect(page).toHaveURL(/\/plan\/bantayan-island\/review\?trip=\d+/);
   await expect(page.getByTestId("plan-days")).toBeVisible();
   // The pick from step 2 is in the places panel, undecided until the guest says how.
   await expect(page.getByTestId("plan-places-count")).toHaveText("0 of 1 sorted");
@@ -89,6 +93,11 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   await page.getByTestId("plan-way-skip").click();
   await page.getByTestId("plan-chooser-save").click();
   await expect(page.getByTestId("plan-places-count")).toHaveText("1 of 1 sorted");
+  // Review keeps the track: a step on it goes back to that step on the checklist.
+  await expect(page.getByTestId("plan-step-review")).toHaveAttribute("aria-current", "step");
+  await page.getByTestId("plan-step-stay").click();
+  await expect(page).toHaveURL(/\/plan\/bantayan-island\?trip=\d+&choose=stay$/);
+  await expect(page.getByTestId("plan-step-stay")).toHaveAttribute("aria-current", "step");
   // Planning again with a trip already made asks which on the home page; the trip has dates, so
   // continuing it opens its checklist.
   const tripId = new URL(page.url()).searchParams.get("trip");
@@ -200,17 +209,32 @@ test("search a landmark and open its destination", async ({ page }) => {
   await searched.getByRole("link", { name: "Search all places" }).click();
   await expect(page).toHaveURL(/\/search\?q=snorkelling$/);
 
-  // A section's filters are its own and run on the server: a price no option has leaves none,
-  // and Clear brings them back.
+  // A section's filters are its own and run on the server: Manual (1 of the 3 seeded rentals)
+  // leaves fewer, and Clear brings them back. Seeded rentals share one price, so the price
+  // range doesn't show here.
   await page.goto("/bantayan-island/book?show=need-rental");
   await expect(page.getByTestId("business-open").first()).toBeVisible();
+  const rentals = await page.getByTestId("business-open").count();
   await page.getByTestId("section-filter").click();
-  await page.getByTestId("filter-dialog").getByLabel("Max").fill("1");
-  await expect(page.getByTestId("filter-apply")).toHaveText("Show 0 results");
-  await page.getByTestId("filter-apply").click();
-  await expect(page.getByTestId("business-open")).toHaveCount(0);
+  const apply = page.getByTestId("filter-apply");
+  await expect(apply).toHaveText(`Show ${rentals} results`);
+  await page.getByTestId("filter-dialog").getByRole("button", { name: /^Manual/ }).click();
+  const shown = async () => Number(((await apply.textContent()) ?? "").match(/\d+/)?.[0] ?? -1);
+  await expect.poll(shown).toBeLessThan(rentals);
+  const manual = await shown();
+  await apply.click();
+  await expect(page.getByTestId("business-open")).toHaveCount(manual);
   await page.getByRole("button", { name: "Clear" }).first().click();
-  await expect(page.getByTestId("business-open").first()).toBeVisible();
+  await expect(page.getByTestId("business-open")).toHaveCount(rentals);
+
+  // Each section is a sideways row, 6 loaded and 3 in view (2026-11-11); Show all, past 6,
+  // opens the section alone in a new tab, 10 a page (the 8 seeded gear cards on one).
+  await page.goto("/bantayan-island/book?show=need-gear");
+  await expect(page.getByTestId("business-open")).toHaveCount(6);
+  const [showAll] = await Promise.all([page.waitForEvent("popup"), page.getByTestId("show-all").first().click()]);
+  await expect(showAll).toHaveURL(/\/bantayan-island\/book\/gear$/);
+  await expect(showAll.getByTestId("business-open")).toHaveCount(8);
+  await showAll.close();
 
   expect(errors).toEqual([]);
 });

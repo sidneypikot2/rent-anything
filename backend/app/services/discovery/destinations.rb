@@ -36,9 +36,11 @@ module Discovery
     def to_book_counts(areas)
       children = Area.published.where.not(parent_id: nil).pluck(:parent_id, :id)
         .group_by(&:first).transform_values { |pairs| pairs.map(&:last) }
-      cards = Listing.active.where(area_id: Area.published.select(:id)).includes(category: :parent)
-        .group_by(&:area_id)
-        .transform_values { |listings| listings.map { |listing| [ listing.business_id, listing.category.guest_group ] } }
+      # Each area's distinct pairs, from the database: never every listing.
+      group_sql = Arel.sql(Category.guest_group_sql)
+      cards = Listing.active.where(area_id: Area.published.select(:id)).distinct.pluck(:area_id, :business_id, group_sql)
+        .group_by(&:first)
+        .transform_values { |rows| rows.map { |_, business_id, group| [ business_id, group ] } }
       subtree = lambda do |id, seen = Set.new|
         return [] unless seen.add?(id)
         [ id, *children.fetch(id, []).flat_map { |child| subtree.call(child, seen) } ]

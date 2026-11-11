@@ -87,7 +87,8 @@ export function newTabProps(newTab: boolean) {
 // the business lists it more than once. Then from what price, and the chips all of those share. Its name and its See details open the business's
 // own page (`href`), where its options are listed and added to a trip (BusinessOptions): in a
 // new tab on a laptop, in the same tab on a phone. Every card ends in the same See details,
-// whatever it offers.
+// whatever it offers. `tall` (What to book's sideways rows, 2026-11-11): the same card stacked,
+// its photos on top and the price and See details at its foot, filling its row's height.
 export function BusinessRow({
   name,
   title,
@@ -96,6 +97,7 @@ export function BusinessRow({
   groupTitle,
   offers,
   sharedChips = [],
+  tall = false,
 }: {
   name: string;
   // The listing title a title card stands for (every group but stays).
@@ -109,6 +111,7 @@ export function BusinessRow({
   // Chips every card in its group has, which the group's note says once instead (its page
   // still lists them).
   sharedChips?: string[];
+  tall?: boolean;
 }) {
   // With the trip here, so the page it opens adds to it without asking (useTripHref).
   const pageHref = useTripHref()(href);
@@ -145,15 +148,22 @@ export function BusinessRow({
   const target = newTabProps(newTab);
 
   return (
-    <div className="relative grid grid-cols-[minmax(0,1fr)] gap-4 @sm:grid-cols-[10rem_minmax(0,1fr)] @2xl:grid-cols-[19rem_minmax(0,1fr)_auto] @2xl:items-start @2xl:gap-5">
+    <div
+      className={cn(
+        "relative",
+        tall
+          ? "flex h-full flex-col gap-3"
+          : "grid grid-cols-[minmax(0,1fr)] gap-4 @sm:grid-cols-[10rem_minmax(0,1fr)] @2xl:grid-cols-[19rem_minmax(0,1fr)_auto] @2xl:items-start @2xl:gap-5",
+      )}
+    >
       <ListingPhotos
         photos={photos}
         label={heading}
         category={categories[0]}
         inset
-        className="z-10 aspect-[2/1] @sm:aspect-square @2xl:aspect-[4/3]"
+        className={cn("z-10", tall ? "aspect-[4/3]" : "aspect-[2/1] @sm:aspect-square @2xl:aspect-[4/3]")}
       />
-      <div className="flex min-w-0 flex-col gap-2.5 px-1 @sm:px-0">
+      <div className={cn("flex min-w-0 flex-col gap-2.5", tall ? "flex-1 px-1" : "px-1 @sm:px-0")}>
         <div className="flex min-w-0 flex-col gap-0.5">
           <h4 className="line-clamp-2 text-lg leading-snug font-semibold text-balance">
             {/* The whole card is this link (its ::after), under the photos and the action. */}
@@ -213,11 +223,20 @@ export function BusinessRow({
         </p>
         <ListingRowDetails summary={single?.summary} features={common} />
       </div>
-      <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 px-1 @sm:col-span-2 @2xl:col-span-1 @2xl:flex-col @2xl:items-end @2xl:justify-start @2xl:px-0 @2xl:pt-1">
+      <div
+        className={cn(
+          "relative z-10 flex flex-wrap items-center justify-between gap-3 px-1",
+          tall
+            ? "border-t border-line pt-3"
+            : "@sm:col-span-2 @2xl:col-span-1 @2xl:flex-col @2xl:items-end @2xl:justify-start @2xl:px-0 @2xl:pt-1",
+        )}
+      >
         {price ? (
           <Price {...price} />
         ) : (
-          offers[0].unpriced && <span className="text-sm text-pretty text-muted @2xl:max-w-36 @2xl:text-right">{TO_BE_AGREED}</span>
+          offers[0].unpriced && (
+            <span className={cn("text-sm text-pretty text-muted", !tall && "@2xl:max-w-36 @2xl:text-right")}>{TO_BE_AGREED}</span>
+          )
         )}
         {/* Every card ends in the same action. The name's link already opens the page for the
             keyboard and a screen reader. */}

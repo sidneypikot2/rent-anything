@@ -158,6 +158,9 @@ GEM
     fugit (1.14.0)
       et-orbi (~> 1.4)
       raabro (~> 1.4)
+    fx (0.12.0)
+      activerecord (>= 8.1)
+      railties (>= 8.1)
     globalid (1.4.0)
       activesupport (>= 6.1)
     google-cloud-env (2.4.0)
@@ -474,6 +477,7 @@ DEPENDENCIES
   bundler-audit
   debug
   factory_bot_rails
+  fx (~> 0.12)
   googleauth
   image_processing (~> 1.2)
   json (< 3)
@@ -550,6 +554,7 @@ CHECKSUMS
   ffi (1.17.4-x86_64-linux-gnu) sha256=9d3db14c2eae074b382fa9c083fe95aec6e0a1451da249eab096c34002bc752d
   ffi (1.17.4-x86_64-linux-musl) sha256=3fdf9888483de005f8ef8d1cf2d3b20d86626af206cbf780f6a6a12439a9c49e
   fugit (1.14.0) sha256=e311a9cc85a54bb67649df45060e721282a1e2c8ebad40e41874a3a7d576f37e
+  fx (0.12.0) sha256=103c5ae78b2dd9c1a6fbfdf988777eadaa8448ad3e115b692900fa9a73260b27
   globalid (1.4.0) sha256=037f12fbf1d9d7a014d501c2d5c77356fd4ddd96d7a7991d6700bba96706f427
   google-cloud-env (2.4.0) sha256=01cb35ecee5d1c4d1cd4deaed8bb5bddc838e296bcc2a35c5d1ddd07ce40d28d
   google-logging-utils (0.2.0) sha256=675462b4ea5affa825a3442694ca2d75d0069455a1d0956127207498fca3df7b
