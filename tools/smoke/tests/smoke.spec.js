@@ -200,28 +200,31 @@ test("search a landmark and open its destination", async ({ page }) => {
   await searched.getByRole("link", { name: "Search all places" }).click();
   await expect(page).toHaveURL(/\/search\?q=snorkelling$/);
 
-  // A section's filters are its own and run on the server: the price range's Min typed past
-  // the dearest stops at it and leaves fewer, and Clear brings them back.
+  // A section's filters are its own and run on the server: Manual (1 of the 3 seeded rentals)
+  // leaves fewer, and Clear brings them back. Seeded rentals share one price, so the price
+  // range doesn't show here.
   await page.goto("/bantayan-island/book?show=need-rental");
   await expect(page.getByTestId("business-open").first()).toBeVisible();
+  const rentals = await page.getByTestId("business-open").count();
   await page.getByTestId("section-filter").click();
   const apply = page.getByTestId("filter-apply");
-  await expect(apply).toHaveText(/^Show \d+ results?$/);
-  const before = Number((await apply.textContent()).match(/\d+/)[0]);
-  await page.getByTestId("price-range").getByLabel("Min").fill("999999");
-  await page.getByTestId("price-range").getByLabel("Min").press("Enter");
-  await expect.poll(async () => Number(((await apply.textContent()).match(/\d+/) ?? ["-1"])[0])).toBeLessThan(before);
+  await expect(apply).toHaveText(`Show ${rentals} results`);
+  await page.getByTestId("filter-dialog").getByRole("button", { name: /^Manual/ }).click();
+  const shown = async () => Number(((await apply.textContent()) ?? "").match(/\d+/)?.[0] ?? -1);
+  await expect.poll(shown).toBeLessThan(rentals);
+  const manual = await shown();
   await apply.click();
-  await expect(page.getByTestId("business-open").first()).toBeVisible();
+  await expect(page.getByTestId("business-open")).toHaveCount(manual);
   await page.getByRole("button", { name: "Clear" }).first().click();
-  await expect(page.getByTestId("business-open").first()).toBeVisible();
+  await expect(page.getByTestId("business-open")).toHaveCount(rentals);
 
-  // Each section is a sideways row, 6 loaded and 3 in view (2026-11-11); Show all opens the
-  // section alone in a new tab, 10 a page.
+  // Each section is a sideways row, 6 loaded and 3 in view (2026-11-11); Show all, past 6,
+  // opens the section alone in a new tab, 10 a page (the 8 seeded gear cards on one).
+  await page.goto("/bantayan-island/book?show=need-gear");
   await expect(page.getByTestId("business-open")).toHaveCount(6);
   const [showAll] = await Promise.all([page.waitForEvent("popup"), page.getByTestId("show-all").first().click()]);
-  await expect(showAll).toHaveURL(/\/bantayan-island\/book\/rental$/);
-  await expect(showAll.getByTestId("business-open")).toHaveCount(10);
+  await expect(showAll).toHaveURL(/\/bantayan-island\/book\/gear$/);
+  await expect(showAll.getByTestId("business-open")).toHaveCount(8);
   await showAll.close();
 
   expect(errors).toEqual([]);
