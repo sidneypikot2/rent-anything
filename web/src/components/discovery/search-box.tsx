@@ -36,6 +36,7 @@ import { listingNote } from "./categories";
 import { areaIcon, categoryIcon, placeIcon, tagIcon } from "./icons";
 import { ChevronGlyph, CloseGlyph, SearchGlyph } from "./tag-glyphs";
 import { guestsLabel, thingCount } from "@/components/trips/format";
+import { allPages } from "@/api/pages";
 
 const MIN_LENGTH = 2;
 const DEBOUNCE_MS = 250;
@@ -1023,7 +1024,7 @@ async function fetchSearch(q: string) {
 
 // The destinations, under the ["areas"] query key; the home page's Plan a whole trip reads them too.
 export async function fetchAreas() {
-  const { data, error } = await apiClient().GET("/api/v1/areas");
+  const { data, error } = await allPages((query) => apiClient().GET("/api/v1/areas", { params: { query } }));
   if (error || !data) throw new Error("Couldn't load destinations");
   return data;
 }
