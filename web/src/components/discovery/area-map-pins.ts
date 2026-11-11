@@ -1,4 +1,6 @@
 import type { Explore } from "@/api/discovery";
+import { addPreview } from "@/components/trips/add-preview";
+import { listingByLine, listingChips, listingPhotos, type BrowseListing } from "./browse-offers";
 import { formatPeso } from "@/lib/money";
 import { priceUnitText } from "@/lib/pricing";
 import type { AddPreview } from "@/components/trips/use-trips";
@@ -48,6 +50,9 @@ export type ListingPin = {
   // Null when it has no photo of its own: its category icon instead.
   photo: Photo | null;
   info?: ListingPanelInfo;
+  // A stay's business (2026-11-11): its pin stands for all its stays in view, as its card does,
+  // titled with its name, at and priced from its cheapest stay (`offer`), `offers` of them.
+  business?: { id: number; offer: string; offers: number };
 };
 export type PlacePin = {
   key: string;
@@ -63,12 +68,32 @@ export type PlacePin = {
 };
 export type AreaPin = ListingPin | PlacePin;
 
-export function listingPin(listing: Explore["listings"][number], info?: ListingPanelInfo): ListingPin {
+// A listing row's pop-up info, as its card shows it (`slug`: the page's place, which a by-line
+// leaves out).
+export function rowPanelInfo(listing: BrowseListing, slug: string): ListingPanelInfo {
+  const by = listingByLine(listing, slug);
+  return {
+    by,
+    place: listing.area_name,
+    summary: listing.summary,
+    features: listingChips(listing),
+    photo: listingPhotos(listing)[0] ?? null,
+    add: addPreview(listing, by),
+  };
+}
+
+// An explore listing (with its distance) or a map_pins pin; `business` when the pin stands for a
+// stay's business.
+export function listingPin(
+  listing: Omit<Explore["listings"][number], "distance_km">,
+  info?: ListingPanelInfo,
+  business?: { id: number; name: string; offers: number },
+): ListingPin {
   return {
     key: listingKey(listing.id),
     kind: "listing",
     id: listing.id,
-    title: listing.title,
+    title: business ? business.name : listing.title,
     category: listing.category,
     bookingType: listing.booking_type,
     group: listing.group,
@@ -80,6 +105,7 @@ export function listingPin(listing: Explore["listings"][number], info?: ListingP
     lng: listing.location.lng,
     photo: info ? info.photo : listing.cover_photo_url ? { src: listing.cover_photo_url, alt: listing.title } : null,
     info,
+    business: business && { id: business.id, offer: listing.title, offers: business.offers },
   };
 }
 

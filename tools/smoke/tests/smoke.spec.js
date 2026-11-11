@@ -200,17 +200,29 @@ test("search a landmark and open its destination", async ({ page }) => {
   await searched.getByRole("link", { name: "Search all places" }).click();
   await expect(page).toHaveURL(/\/search\?q=snorkelling$/);
 
-  // A section's filters are its own and run on the server: a price no option has leaves none,
-  // and Clear brings them back.
+  // A section's filters are its own and run on the server: the price range's Min typed past
+  // the dearest stops at it and leaves fewer, and Clear brings them back.
   await page.goto("/bantayan-island/book?show=need-rental");
   await expect(page.getByTestId("business-open").first()).toBeVisible();
   await page.getByTestId("section-filter").click();
-  await page.getByTestId("filter-dialog").getByLabel("Max").fill("1");
-  await expect(page.getByTestId("filter-apply")).toHaveText("Show 0 results");
-  await page.getByTestId("filter-apply").click();
-  await expect(page.getByTestId("business-open")).toHaveCount(0);
+  const apply = page.getByTestId("filter-apply");
+  await expect(apply).toHaveText(/^Show \d+ results?$/);
+  const before = Number((await apply.textContent()).match(/\d+/)[0]);
+  await page.getByTestId("price-range").getByLabel("Min").fill("999999");
+  await page.getByTestId("price-range").getByLabel("Min").press("Enter");
+  await expect.poll(async () => Number(((await apply.textContent()).match(/\d+/) ?? ["-1"])[0])).toBeLessThan(before);
+  await apply.click();
+  await expect(page.getByTestId("business-open").first()).toBeVisible();
   await page.getByRole("button", { name: "Clear" }).first().click();
   await expect(page.getByTestId("business-open").first()).toBeVisible();
+
+  // Each section is a sideways row, 6 loaded and 3 in view (2026-11-11); Show all opens the
+  // section alone in a new tab, 10 a page.
+  await expect(page.getByTestId("business-open")).toHaveCount(6);
+  const [showAll] = await Promise.all([page.waitForEvent("popup"), page.getByTestId("show-all").first().click()]);
+  await expect(showAll).toHaveURL(/\/bantayan-island\/book\/rental$/);
+  await expect(showAll.getByTestId("business-open")).toHaveCount(10);
+  await showAll.close();
 
   expect(errors).toEqual([]);
 });

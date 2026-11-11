@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { CheckboxField } from "@/components/ui/checkbox-field";
-import { Field } from "@/components/ui/field";
 import { Pill } from "@/components/ui/pill";
+import { RangeField } from "@/components/ui/range-field";
 import { transmissionLabel } from "@/components/listings/vehicle-labels";
 import { formatPeso } from "@/lib/money";
 import { priceUnitText } from "@/lib/pricing";
@@ -23,8 +23,21 @@ const FIRST_INCLUDES = 6;
 // Things to do mix groups and people, so they say no unit.
 const PRICE_UNIT: Record<string, "night" | "day" | "trip"> = { stay: "night", rental: "day", gear: "day", transfer: "trip" };
 
-// A typed price as whole pesos, never below zero ("-5" and "12.5" become "0" and "12").
-const wholePesos = (value: string) => (value === "" ? "" : String(Math.max(0, Math.floor(Number(value)) || 0)));
+// A set price end as pesos, null when unset.
+const pesosOrNull = (value: string) => (value === "" ? null : Number(value) || null);
+
+// The slider's ends and step from a section's cheapest and dearest from-price (centavos): ₱50
+// steps up to a ₱5,000 spread, ₱100 up to ₱50,000, ₱500 beyond, and `lowest` the real cheapest
+// (whole pesos, at least ₱1), shown instead of ₱0 when rounding down reaches it. Null with one
+// price only.
+function priceRange(minCents: number | null, maxCents: number | null) {
+  if (minCents === null || maxCents === null) return null;
+  const spread = (maxCents - minCents) / 100;
+  const step = spread <= 5000 ? 50 : spread <= 50000 ? 100 : 500;
+  const min = Math.floor(minCents / 100 / step) * step;
+  const max = Math.ceil(maxCents / 100 / step) * step;
+  return max > min ? { min, max, step, lowest: Math.max(1, Math.floor(minCents / 100)) } : null;
+}
 
 // One section's filters from its facets: free cancellation, for stays whether they take pets, a
 // rental's vehicle and handover, a price range on its "from" prices, and what its listings
@@ -44,6 +57,7 @@ export function FilterPanel({
 }) {
   const [allIncludes, setAllIncludes] = useState(false);
   const cards = facets.cards;
+  const price = priceRange(facets.price_min_cents, facets.price_max_cents);
   const unit = group && PRICE_UNIT[group] ? priceUnitText(PRICE_UNIT[group]) : undefined;
   const includes = facets.includes
     .filter((each) => filters.includes.includes(each.key) || (each.count < cards && includeLabel(each.key)))
@@ -74,40 +88,25 @@ export function FilterPanel({
       {(group === "rental" || group === "gear") && (
         <VehicleFilterFields group={group} facets={facets} filters={filters.vehicle} onChange={(vehicle) => onChange({ ...filters, vehicle })} />
       )}
-      {facets.price_min_cents !== null && facets.price_max_cents !== null && (
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-2 text-sm font-semibold">
-            Price from, ₱{unit && <span className="font-normal text-muted"> {unit}</span>}
-          </legend>
-          <div className="grid grid-cols-2 gap-2">
-            <Field
-              label="Min"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              step={100}
-              placeholder={formatPeso(facets.price_min_cents)}
-              value={filters.min}
-              onChange={(event) => onChange({ ...filters, min: wholePesos(event.target.value) })}
-            />
-            <Field
-              label="Max"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              step={100}
-              placeholder={formatPeso(facets.price_max_cents)}
-              value={filters.max}
-              onChange={(event) => onChange({ ...filters, max: wholePesos(event.target.value) })}
-            />
-          </div>
-          {Number(filters.min) > 0 && Number(filters.max) > 0 && Number(filters.min) > Number(filters.max) && (
-            <p role="alert" className="text-xs text-danger">The lowest price is above the highest, so nothing matches. Lower Min or raise Max.</p>
-          )}
+      {price && (
+        <div className="flex flex-col gap-2">
+          <RangeField
+            legend="Price from, ₱"
+            aside={unit}
+            min={price.min}
+            max={price.max}
+            step={price.step}
+            lowest={price.lowest}
+            value={[pesosOrNull(filters.min), pesosOrNull(filters.max)]}
+            onChange={([min, max]) => onChange({ ...filters, min: min === null ? "" : String(min), max: max === null ? "" : String(max) })}
+            format={(pesos) => formatPeso(pesos * 100)}
+            labels={["Lowest price", "Highest price"]}
+            data-testid="price-range"
+          />
           {facets.unpriced && (filters.min || filters.max) && (
             <p className="text-xs text-muted">Ones without a price yet are hidden while a price is set.</p>
           )}
-        </fieldset>
+        </div>
       )}
       {includes.length > 0 && (
         <fieldset className="flex flex-col gap-0">
