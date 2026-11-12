@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CheckoutSheet } from "@/components/bookings/checkout-sheet";
 import { useOpensInNewTab } from "@/components/discovery/business-row";
-import { BOOKING_STATE } from "@/components/landing/launch-area";
 import { guestsLabel, formatDateRange, thingCount } from "@/components/trips/format";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { bookable } from "@/components/trips/trip-details";
@@ -102,15 +101,10 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
 
       <PlanFoot
         summary={
-          <>
-            <div className="flex items-baseline justify-between gap-3 font-bold text-navy">
-              <span>{toSend.length === 0 ? "Nothing to send yet" : thingCount(toSend.length)}</span>
-              <span className="tabular-nums">{toSend.length > 0 ? (total ?? "") : ""}</span>
-            </div>
-            <p className="text-small text-muted">
-              Each goes to its partner as a request; {BOOKING_STATE.answer}, and {BOOKING_STATE.unpaid}.
-            </p>
-          </>
+          <div className="flex items-baseline justify-between gap-3 font-bold text-navy">
+            <span>{toSend.length === 0 ? "Nothing to send yet" : thingCount(toSend.length)}</span>
+            <span className="tabular-nums">{toSend.length > 0 ? (total ?? "") : ""}</span>
+          </div>
         }
       >
         <Button type="button" size="md" glyph="arrow" disabled={toSend.length === 0} onClick={() => setSending(true)} data-testid="plan-send">

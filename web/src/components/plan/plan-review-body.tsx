@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
-import { ChevronGlyph, HeartGlyph, PlusGlyph } from "@/components/discovery/tag-glyphs";
-import { itemAmount } from "@/components/trips/format";
+import { ChevronGlyph, PlusGlyph } from "@/components/discovery/tag-glyphs";
 import { itemPriceLabel, itemProblem, itemQuote, type Trip, type TripItem, type TripQuote } from "@/components/trips/use-trips";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/components/ui/cn";
+import { formatDateRange } from "@/lib/dates";
 import { PLAN_ROWS, stayPoint, type PlanPlace, type RowKey } from "./plan-data";
-import { dayParts, pickStatuses, planDays, type DayEvent, type DayGap, type PickStatus } from "./plan-days";
+import { dayParts, pickStatuses, planDays, type DayGap, type PickStatus } from "./plan-days";
 import { PlanPlaceChooser } from "./plan-place-chooser";
 import { PlanPlacesPanel } from "./plan-places-panel";
 
@@ -106,7 +105,7 @@ export function PlanReviewBody({
                         </p>
                       )}
                       {day.events.map((event, at) => (
-                        <EventRow key={`${event.item.id}-${at}`} event={event} quote={quote} onOpen={onEvent} />
+                        <EventRow key={`${event.item.id}-${at}`} item={event.item} priced={event.priced} quote={quote} onOpen={onEvent} />
                       ))}
                       {day.runs.map((run) => (
                         <p
@@ -159,12 +158,7 @@ export function PlanReviewBody({
                 Not on a day yet
               </h3>
               {undated.map((item) => (
-                <EventRow
-                  key={item.id}
-                  event={{ item, kind: eventKind(item), label: `${kindName(item)} · no date yet`, time: null, priced: true, lines: [itemAmount(item)], stops: [] }}
-                  quote={quote}
-                  onOpen={onEvent}
-                />
+                <EventRow key={item.id} item={item} priced quote={quote} onOpen={onEvent} />
               ))}
             </section>
           )}
@@ -184,74 +178,37 @@ export function PlanReviewBody({
   );
 }
 
-// What an event is, as a row's type leads it (Badge kind): lagoon ink on its tint, one colour for
-// every kind, with the kind's icon hue as a dot beside it.
-const KIND_DOT: Record<DayEvent["kind"], string> = {
-  stay: "bg-kind-stay",
-  ride: "bg-kind-rental",
-  gear: "bg-kind-rental",
-  transfer: "bg-kind-transfer",
-  tour: "bg-kind-activity",
-};
-
-function eventKind(item: TripItem): DayEvent["kind"] {
-  if (item.booking_type === "stay") return "stay";
-  if (item.booking_type === "transfer") return "transfer";
-  if (item.booking_type === "rental") return item.listing.group === "gear" ? "gear" : "ride";
-  return "tour";
-}
-
-function kindName(item: TripItem) {
-  return { stay: "Stay", transfer: "Transfer", ride: "Ride", gear: "Gear", tour: "Tour" }[eventKind(item)];
-}
-
-// One thing on a day: its kind, the listing, its lines and its price (or its booking's status),
-// with why it can't be sent as it is (dates taken, listing off) in warning.
-function EventRow({ event, quote, onOpen }: { event: DayEvent; quote: TripQuote | undefined; onOpen: (item: TripItem) => void }) {
-  const line = itemQuote(quote, event.item);
-  const price = event.priced ? itemPriceLabel(line) : null;
-  const problem = event.priced ? itemProblem(event.item, line) : null;
+// One thing on a day, kept to its title, its dates and where it stands: its booking's status once
+// sent, its price until then (on the day that carries it, `priced`), and why it can't be sent as
+// it is (dates taken, listing off) in warning.
+function EventRow({ item, priced, quote, onOpen }: { item: TripItem; priced: boolean; quote: TripQuote | undefined; onOpen: (item: TripItem) => void }) {
+  const line = itemQuote(quote, item);
+  const price = priced ? itemPriceLabel(line) : null;
+  const problem = priced ? itemProblem(item, line) : null;
+  const dates = formatDateRange(item.starts_on, item.ends_on ?? item.starts_on) ?? "No date yet";
   return (
-    <div className="flex flex-col gap-1.5" data-testid="plan-event">
-      <button
-        type="button"
-        onClick={() => onOpen(event.item)}
-        data-testid="plan-event-open"
-        className="flex w-full items-start gap-3 rounded-card border border-line bg-surface p-3 text-left transition-colors duration-300 ease-calm hover:border-line-strong hover:bg-surface-2"
-      >
-        {event.time && <span className="w-14 shrink-0 pt-0.5 text-sm font-extrabold text-navy tabular-nums">{event.time}</span>}
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="inline-flex items-center gap-1.5 self-start rounded-chip bg-lagoon-tint px-2 py-0.5 text-xs font-bold text-lagoon-ink">
-            <span aria-hidden className={cn("size-2 rounded-full", KIND_DOT[event.kind])} />
-            {event.label}
+    <button
+      type="button"
+      onClick={() => onOpen(item)}
+      data-testid="plan-event"
+      className="flex w-full items-center gap-3 rounded-card border border-line bg-surface p-3 text-left transition-colors duration-300 ease-calm hover:border-line-strong hover:bg-surface-2"
+    >
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5" data-testid="plan-event-open">
+        <span className="font-semibold text-navy">{item.listing.title}</span>
+        <span className="text-small text-muted">{dates}</span>
+        {problem && (
+          <span className="text-small font-semibold text-warning" data-testid="plan-event-problem">
+            {problem}
           </span>
-          <span className="font-semibold text-navy">{event.item.listing.title}</span>
-          {event.lines.length > 0 && <span className="text-small text-muted">{event.lines.join(" · ")}</span>}
-          {problem && (
-            <span className="text-small font-semibold text-warning" data-testid="plan-event-problem">
-              {problem}
-            </span>
-          )}
-        </span>
-        {event.priced &&
-          (event.item.booking ? (
-            <BookingStatusBadge status={event.item.booking.status} small />
-          ) : (
-            <span className="shrink-0 text-sm font-extrabold text-primary tabular-nums">{price ?? ""}</span>
-          ))}
-        <ChevronGlyph direction="right" className="mt-0.5 size-4 shrink-0 text-muted" />
-      </button>
-      {event.stops.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {event.stops.map((stop) => (
-            <Badge key={stop.name} tone={stop.hearted ? "emerald" : "mist"}>
-              {stop.hearted && <HeartGlyph filled className="size-3.5" />}
-              {stop.name}
-            </Badge>
-          ))}
-        </div>
+        )}
+      </span>
+      {item.booking ? (
+        <BookingStatusBadge status={item.booking.status} small />
+      ) : (
+        price && <span className="shrink-0 text-sm font-extrabold text-primary tabular-nums">{price}</span>
       )}
-    </div>
+      <ChevronGlyph direction="right" className="size-4 shrink-0 text-muted" />
+    </button>
   );
 }
 
