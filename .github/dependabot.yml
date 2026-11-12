@@ -44,6 +44,20 @@ updates:
   - dependency-name: "*"
     update-types: [ "version-update:semver-major" ]
   - dependency-name: "mcr.microsoft.com/playwright"
+# The hosted staging stack: Caddy, PostGIS, Valkey and AnyCable in deploy/staging/compose.yml.
+# The API and web images are our own, tagged per commit by deploy-staging.yml.
+- package-ecosystem: docker-compose
+  directory: "/deploy/staging"
+  target-branch: staging
+  schedule:
+    interval: monthly
+  open-pull-requests-limit: 5
+  ignore:
+  - dependency-name: "*"
+    update-types: [ "version-update:semver-major" ]
+  - dependency-name: "ghcr.io/sidneypikot2/*"
+# Workflow actions are pinned to commit SHAs with a "# vX.Y.Z" comment; Dependabot moves
+# both together.
 - package-ecosystem: github-actions
   directory: "/"
   target-branch: staging
