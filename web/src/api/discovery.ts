@@ -2,6 +2,7 @@ import { connection } from "next/server";
 import { cache } from "react";
 import { serverApiClient } from "./server-client";
 import type { components, paths } from "./schema";
+import { allPages } from "@/api/pages";
 
 // Guest discovery (RAA-33): destinations, activities, one area, and search. These run in
 // Server Components; connection() keeps them out of the build-time prerender, so the
@@ -27,14 +28,14 @@ export type MapPinsPage = components["schemas"]["map_pins"];
 // Cached per request: the home page's hero card and its sections share one fetch (RAA-125).
 export const getDestinations = cache(async (): Promise<AreaCard[]> => {
   await connection();
-  const { data, error } = await serverApiClient().GET("/api/v1/areas");
+  const { data, error } = await allPages((query) => serverApiClient().GET("/api/v1/areas", { params: { query } }));
   if (error || !data) throw new Error("Couldn't load destinations");
   return data;
 });
 
 export const getActivities = cache(async (): Promise<Activity[]> => {
   await connection();
-  const { data, error } = await serverApiClient().GET("/api/v1/activities");
+  const { data, error } = await allPages((query) => serverApiClient().GET("/api/v1/activities", { params: { query } }));
   if (error || !data) throw new Error("Couldn't load activities");
   return data;
 });

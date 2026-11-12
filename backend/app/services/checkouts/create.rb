@@ -17,7 +17,8 @@ module Checkouts
   # once while Bookings.auto_accept? is on; the guest pays for what is held for payment
   # afterwards (Payments::Pay, RAA-143). A guest with no email yet (RAA-175) also sends
   # `contact` (Guests::ClaimContact), and each booking keeps its own copy of the guest's
-  # name, email and phone, which partners keep after an unregistered guest is purged.
+  # name, email and phone, which partners keep after an unregistered guest is purged. A password
+  # account must have confirmed its email first (EmailUnconfirmedError, 403, RAA-214).
   # Returns the checkout.
   class Create < ApplicationService
     include Trips::Values
@@ -34,6 +35,7 @@ module Checkouts
     end
 
     def call
+      raise EmailUnconfirmedError if @user.email_confirmation_required?
       trip_id = integer_value(:trip_id, "Trip", required: true)
       item_ids = read_item_ids
       key = read_key

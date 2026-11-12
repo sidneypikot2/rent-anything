@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_11_110614) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_12_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -908,6 +908,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_11_110614) do
     t.boolean "registration_complete", default: false, null: false
     t.datetime "terms_accepted_at"
     t.string "terms_version"
+    t.datetime "email_confirmed_at"
     t.index ["email", "role"], name: "index_users_on_email_and_role", unique: true
     t.index ["id", "role"], name: "index_users_on_id_and_role", unique: true
     t.check_constraint "(terms_accepted_at IS NULL) = (terms_version IS NULL)", name: "users_terms_acceptance_check"

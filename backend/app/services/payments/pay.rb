@@ -8,7 +8,8 @@ module Payments
   # it, bookings paid already (a changed one accepted again) and those priced at nothing are
   # confirmed straight away, with no charge, and the rest go to one PayMongo checkout
   # (Payments::StartCheckout), confirmed once paid (Payments::Sync). Returns the bookings and the
-  # payment to finish on PayMongo's page, if any.
+  # payment to finish on PayMongo's page, if any. A password account must have confirmed its
+  # email first (EmailUnconfirmedError, 403, RAA-214).
   class Pay < ApplicationService
     MAX_BOOKINGS = 50
     Result = Data.define(:bookings, :payment)
@@ -19,6 +20,7 @@ module Payments
     end
 
     def call
+      raise EmailUnconfirmedError if @user.email_confirmation_required?
       ids = read_ids
       bookings = @user.bookings.where(id: ids).order(:id).to_a
       raise ActiveRecord::RecordNotFound, "Couldn't find Booking" if bookings.size != ids.size

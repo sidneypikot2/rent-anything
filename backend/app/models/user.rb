@@ -20,7 +20,16 @@ class User < ApplicationRecord
     { terms_accepted_at: Time.current, terms_version: TERMS_VERSION }
   end
 
-  has_secure_password validations: false
+  # Its own password_reset token below, so not has_secure_password's 15-minute one.
+  has_secure_password validations: false, reset_token: false
+
+  # Emailed links (RAA-214), signed with the app's secret, so no table holds them. A confirmation
+  # link works only for the email it was sent to; a reset link only until the password changes,
+  # so once.
+  EMAIL_CONFIRMATION_LIFETIME = 24.hours
+  PASSWORD_RESET_LIFETIME = 30.minutes
+  generates_token_for(:email_confirmation, expires_in: EMAIL_CONFIRMATION_LIFETIME) { email }
+  generates_token_for(:password_reset, expires_in: PASSWORD_RESET_LIFETIME) { password_salt&.last(10) }
 
   has_many :oauth_identities, dependent: :destroy
   has_many :refresh_tokens, dependent: :delete_all
@@ -75,6 +84,19 @@ class User < ApplicationRecord
   # A guest who hasn't checked out yet: no email.
   def anonymous?
     email.nil?
+  end
+
+  # Proved it owns its email (RAA-214): by the emailed link, a password reset, an emailed sign-in
+  # code, or Google vouching for it.
+  def email_confirmed?
+    email_confirmed_at.present?
+  end
+
+  # A password account must confirm its email before it checks out or pays (RAA-214), since anyone
+  # can sign up with any address. A guest without one gave their email at checkout and comes back
+  # only through their trip link or an emailed code, so isn't held up.
+  def email_confirmation_required?
+    password_digest.present? && !email_confirmed?
   end
 
   # Has a password or a Google or Facebook sign-in: never purged.

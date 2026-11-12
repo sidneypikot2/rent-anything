@@ -4,6 +4,8 @@ FactoryBot.define do
     name { "Ana Reyes" }
     password { "password123" }
     role { "guest" }
+    # Has proved it owns its email (RAA-214), so may check out and pay.
+    email_confirmed_at { Time.current }
 
     trait :partner do
       role { "partner" }
@@ -27,6 +29,11 @@ FactoryBot.define do
     trait :profile_complete do
       phone { "+639171234567" }
       registration_complete { true }
+    end
+
+    # Hasn't confirmed its email yet (RAA-214): a password account can't check out or pay.
+    trait :unconfirmed do
+      email_confirmed_at { nil }
     end
 
     # Made with Google or Facebook: no password.

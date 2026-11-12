@@ -19,8 +19,24 @@ RSpec.describe "Listings", type: :request do
     get "Active listings with their approximate location" do
       tags "Discovery"
       produces "application/json"
-      description "Every active listing, by title, with its location rounded to two decimals (about 1 km). " \
+      paginated_list
+      description "Active listings a page at a time, by title, each with its location rounded to two decimals (about 1 km). " \
         "The exact point is revealed only after a paid booking."
+
+      include_examples "a paginated list", total: 2
+
+      # Asked for no page, a client (or a bot) still gets one: never the whole table.
+      response "200", "the first 50 when no page is asked for" do
+        schema type: :array, items: { "$ref" => "#/components/schemas/listing_pin" }
+
+        before { create_list(:listing, 49, area: moalboal, category: camera) }
+
+        run_test! do |response|
+          expect(response.parsed_body.size).to eq(50)
+          expect(%w[X-Total-Count X-Page X-Per-Page].map { response.headers[_1] }).to eq(%w[51 1 50])
+          expect(response.headers["Link"]).to end_with('page=2>; rel="next"')
+        end
+      end
 
       response "200", "active listings, location rounded" do
         schema type: :array, items: { "$ref" => "#/components/schemas/listing_pin" }

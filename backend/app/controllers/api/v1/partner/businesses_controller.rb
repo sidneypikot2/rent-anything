@@ -8,7 +8,7 @@ module Api
         before_action -> { require_role!("partner") }
 
         def index
-          businesses = with_counts.order(Arel.sql("lower(businesses.name)"))
+          businesses = paginate(with_counts.order(Arel.sql("lower(businesses.name)"), :id))
           render json: businesses.map { |business| PartnerBusinessSerializer.call(business) }
         end
 

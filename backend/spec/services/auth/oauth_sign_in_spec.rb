@@ -26,6 +26,17 @@ RSpec.describe Auth::OauthSignIn do
 
     expect(sign_in.dig(:user, "id")).to eq(user.id)
     expect(user.oauth_identities.pluck(:provider)).to contain_exactly("facebook", "google")
+    expect(user.reload.email_confirmed_at).to be_present
+  end
+
+  it "confirms the email of an account Google makes, when Google has verified it (RAA-214)" do
+    sign_in
+    expect(User.sole.email_confirmed_at).to be_present
+  end
+
+  it "leaves the email of an account Facebook makes unconfirmed: Facebook doesn't verify it" do
+    sign_in(provider: "facebook")
+    expect(User.sole.email_confirmed_at).to be_nil
   end
 
   # Email sign-ups don't prove the address: linking would let whoever registered it first

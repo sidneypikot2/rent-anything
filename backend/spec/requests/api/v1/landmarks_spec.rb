@@ -13,7 +13,10 @@ RSpec.describe "Landmarks", type: :request do
     get "Published landmarks with their location" do
       tags "Discovery"
       produces "application/json"
-      description "Every published landmark, by name, with its exact location: landmarks are public places."
+      paginated_list
+      description "Published landmarks a page at a time, by name, each with its exact location: landmarks are public places."
+
+      include_examples "a paginated list", total: 2
 
       response "200", "published landmarks" do
         schema type: :array, items: { "$ref" => "#/components/schemas/landmark_pin" }

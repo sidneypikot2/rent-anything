@@ -15,7 +15,7 @@ RSpec.describe "Me", type: :request do
         schema "$ref" => "#/components/schemas/user"
 
         run_test! do |response|
-          expect(response.parsed_body).to include("id" => user.id, "role" => "guest")
+          expect(response.parsed_body).to include("id" => user.id, "role" => "guest", "email_confirmed" => true)
         end
       end
 

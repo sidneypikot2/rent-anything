@@ -16,9 +16,14 @@ RSpec.describe "Bookings", type: :request do
     get "The guest's bookings" do
       tags "Bookings"
       produces "application/json"
+      paginated_list
       description "Guest-only (RAA-132). Upcoming bookings (those holding their days, pending ones too) first by " \
         "date, then past, cancelled, declined and expired ones, newest first."
       security [ { bearer: [] } ]
+
+      it_behaves_like "a paginated list", total: 3 do
+        before { (1..3).each { |n| guest_booking(starts_on: today + (n * 3), ends_on: today + (n * 3) + 1) } }
+      end
 
       response "200", "upcoming first, then the rest" do
         schema type: :array, items: { "$ref" => "#/components/schemas/guest_booking" }
@@ -181,7 +186,8 @@ RSpec.describe "Bookings", type: :request do
         "set up (test mode only: no real money moves) it answers a pending payment whose checkout_url the guest " \
         "pays on; they come back to /cart?payment=<id>, and the bookings are confirmed once PayMongo reports the " \
         "payment. Bookings paid already, or priced at nothing, are confirmed at once with no charge. Without " \
-        "PayMongo a stub pays at once, one payment per checkout, and payment is null."
+        "PayMongo a stub pays at once, one payment per checkout, and payment is null. A password account must " \
+        "have confirmed its email first (403 `email_unconfirmed`, RAA-214)."
       security [ { bearer: [] } ]
       parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/booking_pay_body" }
 
@@ -227,6 +233,17 @@ RSpec.describe "Bookings", type: :request do
         end
 
         run_test! { expect(held.reload).to be_awaiting_payment }
+      end
+
+      response "403", "a password account whose email isn't confirmed (RAA-214)" do
+        schema "$ref" => "#/components/schemas/email_unconfirmed_error"
+
+        before { user.update!(email_confirmed_at: nil) }
+
+        run_test! do |response|
+          expect(response.parsed_body).to include("code" => "email_unconfirmed")
+          expect(held.reload).to be_awaiting_payment
+        end
       end
 
       response "422", "one is not held for payment" do

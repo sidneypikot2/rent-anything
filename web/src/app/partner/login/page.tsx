@@ -9,8 +9,9 @@ export const metadata: Metadata = {
   description: `List your tours, transfers, rentals and stays with ${BRAND}.`,
 };
 
-// Partner sign-in; new partners sign up at /partner/register. These two are the only
-// public partner pages: every other one needs a partner account (RoleGuard).
+// Partner sign-in; new partners sign up at /partner/register. These two and
+// /partner/forgot-password are the only public partner pages: every other one needs a partner
+// account (RoleGuard).
 export default function PartnerLogin() {
   return (
     <PartnerAuthFrame pitch={<PartnerPitch />}>

@@ -1,7 +1,10 @@
 class ApplicationController < ActionController::API
+  include Paginated
+
   rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
   rescue_from NotAuthenticatedError, with: :render_unauthorized
   rescue_from NotAuthorizedError, with: :render_forbidden
+  rescue_from EmailUnconfirmedError, with: :render_email_unconfirmed
   rescue_from CodeRequiredError, with: :render_conflict
   rescue_from OpenBookingsError, with: :render_conflict
   rescue_from TripLinkLockedError, with: :render_locked
@@ -52,6 +55,10 @@ class ApplicationController < ActionController::API
 
   def render_forbidden(exception)
     render json: { error: error_message(exception, "Forbidden") }, status: :forbidden
+  end
+
+  def render_email_unconfirmed(exception)
+    render json: { error: exception.message, code: EmailUnconfirmedError::CODE }, status: :forbidden
   end
 
   def render_conflict(exception)

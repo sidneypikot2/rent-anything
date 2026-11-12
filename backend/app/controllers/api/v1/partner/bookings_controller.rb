@@ -12,7 +12,7 @@ module Api
         before_action :set_listing
 
         def index
-          bookings = @listing.bookings.where(ends_on: Date.current..).order(:starts_on, :id)
+          bookings = paginate(@listing.bookings.where(ends_on: Date.current..).order(:starts_on, :id))
           render json: bookings.map { PartnerCalendarSerializer.booking(_1) }
         end
 
