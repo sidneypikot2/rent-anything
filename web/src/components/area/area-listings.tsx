@@ -103,9 +103,11 @@ export function WhatToBook({
   island: string | null;
 }) {
   const { area } = detail;
-  // No heading: the banner's title says it, with bookIntro under it.
+  // No visible heading: the banner's title says it, with bookIntro under it. A hidden h2 keeps the
+  // outline whole (RAA-235): the sections' titles are h3, and would otherwise follow the h1.
   return (
     <Section id="listings" surface="paper" label="What to book" className={SEAM_ROOM}>
+      <h2 className="sr-only">What to book</h2>
       <ListingBrowser
         slug={slug}
         sections={BOOK_SECTIONS}

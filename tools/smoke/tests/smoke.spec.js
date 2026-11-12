@@ -393,17 +393,19 @@ test("Open Graph tags and JSON-LD", async ({ request }) => {
 
 // One h1 per page (RAA-243, RAA-235): the public pages, sign-in and the not-found pages each have
 // exactly one, in the server's HTML (what a crawler reads) and once the page has run in the browser.
-// The error page (app/(guest)/error.tsx) can't be reached from here: it needs the API to fail.
+// A missing place is a real 404 with its h1 on the server: its check sits above the loading
+// skeleton (`[area]/(place)/layout.tsx`). The error page (app/(guest)/error.tsx) can't be reached
+// from here: it needs the API to fail.
 test("one h1 per page", async ({ page, request }) => {
   const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1]).pathname;
   const pages = [
-    "/", "/bantayan-island", "/bantayan-island/book", listing, "/search", "/search?q=boat", "/about",
+    "/", "/bantayan-island", "/bantayan-island/book", "/bantayan-island/book/gear", listing, "/search", "/search?q=boat", "/about",
     "/terms", "/privacy", "/refunds", "/partner-terms", "/login", "/register",
   ];
   const missing = ["/no-such-place", "/listings/999999999", "/businesses/999999999", "/no/such/page"];
   for (const path of [...pages, ...missing]) {
     const response = await request.get(path);
-    if (!missing.includes(path)) expect(response.status(), path).toBe(200);
+    expect(response.status(), path).toBe(missing.includes(path) ? 404 : 200);
     expect((await response.text()).match(/<h1[\s>]/g) ?? [], `${path}: h1s in the server HTML`).toHaveLength(1);
     await page.goto(path);
     await expect(page.locator("h1"), `${path}: h1s in the page`).toHaveCount(1);
@@ -1075,7 +1077,7 @@ test("TEMP axe audit", async ({ browser, baseURL, request }) => {
   const page = await (await browser.newContext({ baseURL, bypassCSP: true })).newPage();
   const axeSource = await (await request.get("https://cdn.jsdelivr.net/npm/axe-core@4.10.2/axe.min.js")).text();
   const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1]).pathname;
-  const paths = ["/", "/bantayan-island", "/bantayan-island/book", listing, "/search", "/search?q=boat", "/about", "/terms", "/privacy", "/refunds", "/partner-terms", "/no-such-place", "/listings/999999999", "/businesses/999999999", "/no/such/page"];
+  const paths = ["/", "/bantayan-island", "/bantayan-island/book", "/bantayan-island/book/gear", listing, "/search", "/search?q=boat", "/about", "/terms", "/privacy", "/refunds", "/partner-terms", "/no-such-place", "/listings/999999999", "/businesses/999999999", "/no/such/page"];
   for (const path of paths) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
