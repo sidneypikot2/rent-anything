@@ -28,6 +28,7 @@ module PhotoHelpers
 
   def stub_photo_missing
     PhotoStorage.client.stub_responses(:head_object, "NotFound")
+    PhotoStorage.client.stub_responses(:get_object, "NoSuchKey")
   end
 
   def storage_requests(operation)

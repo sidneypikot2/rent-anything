@@ -94,6 +94,19 @@ RSpec.describe "Admin place to see photos", type: :request do
         end
       end
 
+      response "422", "a file whose first bytes aren't the type declared: it is deleted, row and all" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:id) { create_photo(landmark, uploaded: false).id }
+
+        before { stub_photo_in_storage("<html><body>not a photo</body></html>") }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "photo.jpg isn't a JPEG, PNG or WebP image" ])
+          expect(LandmarkPhoto.exists?(id)).to be(false)
+        end
+      end
+
       response "404", "another place's photo" do
         schema "$ref" => "#/components/schemas/error"
 

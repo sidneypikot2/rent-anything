@@ -742,6 +742,13 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/admin_photo"
+        '422':
+          description: 'a file whose first bytes aren''t the type declared: it is
+            deleted, row and all'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
         '404':
           description: another place's photo
           content:
@@ -4293,9 +4300,10 @@ paths:
       tags:
       - Partner
       description: 'Partner-only (RAA-106). Once the browser''s `PUT` has finished:
-        checks the file is in storage, then guests see the photo and its card and
-        large sizes are made (until then both URLs are the original''s). Sending it
-        again is harmless.'
+        checks the file is in storage and that its first bytes are the declared type''s
+        (RAA-221; if not, the photo is deleted and this is a 422), then guests see
+        the photo and its card and large sizes are made (until then both URLs are
+        the original''s). Sending it again is harmless.'
       security:
       - bearer: []
       parameters: []

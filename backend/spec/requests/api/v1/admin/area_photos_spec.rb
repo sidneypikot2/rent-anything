@@ -127,6 +127,19 @@ RSpec.describe "Admin destination photos", type: :request do
         end
       end
 
+      response "422", "a file whose first bytes aren't the type declared: it is deleted, row and all" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        let(:id) { create_photo(area, uploaded: false).id }
+
+        before { stub_photo_in_storage("<html><body>not a photo</body></html>") }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "photo.jpg isn't a JPEG, PNG or WebP image" ])
+          expect(AreaPhoto.exists?(id)).to be(false)
+        end
+      end
+
       response "422", "the file isn't there yet, or a position past the end" do
         schema "$ref" => "#/components/schemas/validation_errors"
 
