@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AccountMenu } from "@/components/auth/account-menu";
@@ -17,6 +18,7 @@ import type { Section } from "@/components/landing/section-header";
 // signed-out links; the cart shows their trips.
 export function AccountNav({ section }: { section: Section }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const pathname = usePathname();
   const session = useSession();
   if (session === undefined) return null;
@@ -55,7 +57,7 @@ export function AccountNav({ section }: { section: Section }) {
   }
 
   async function onSignOut() {
-    await signOut();
+    await signOut(queryClient);
     router.replace(LOGIN_PATHS[section]);
   }
 

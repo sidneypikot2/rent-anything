@@ -70,7 +70,7 @@ module Payments
     end
 
     def return_url(payment)
-      "#{ENV.fetch('FRONTEND_ORIGIN', 'http://localhost:8100')}/cart?payment=#{payment.id}"
+      "#{Rails.configuration.x.frontend_origins.first}/cart?payment=#{payment.id}"
     end
 
     def format_peso(cents)

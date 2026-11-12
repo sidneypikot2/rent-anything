@@ -742,6 +742,13 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/admin_photo"
+        '422':
+          description: 'a file whose first bytes aren''t the type declared: it is
+            deleted, row and all'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
         '404':
           description: another place's photo
           content:
@@ -4316,9 +4323,10 @@ paths:
       tags:
       - Partner
       description: 'Partner-only (RAA-106). Once the browser''s `PUT` has finished:
-        checks the file is in storage, then guests see the photo and its card and
-        large sizes are made (until then both URLs are the original''s). Sending it
-        again is harmless.'
+        checks the file is in storage and that its first bytes are the declared type''s
+        (RAA-221; if not, the photo is deleted and this is a 422), then guests see
+        the photo and its card and large sizes are made (until then both URLs are
+        the original''s). Sending it again is harmless.'
       security:
       - bearer: []
       parameters: []
@@ -7597,6 +7605,12 @@ components:
           type: string
         refresh_token:
           type: string
+        cable_token:
+          type: string
+          nullable: true
+          description: Opens the WebSocket (anycable-go JWT, sent as the `anycable-token.<token>`
+            sub-protocol, never in the URL); expires with the access token. Null when
+            real-time is off.
         expires_in:
           type: integer
           description: Seconds until the access token expires
@@ -7605,6 +7619,7 @@ components:
       required:
       - access_token
       - refresh_token
+      - cable_token
       - expires_in
       - user
     error:

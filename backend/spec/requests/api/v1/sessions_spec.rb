@@ -156,6 +156,9 @@ RSpec.describe "Sessions", type: :request do
       response "204", "signed out" do
         run_test! do
           expect(RefreshToken.find_by_token(refresh_token).revoked_at).to be_present
+          # Its open WebSockets close, so each reconnects only with a token still valid (RAA-224).
+          expect(ActionCable.server.pubsub.broadcasts("action_cable/#{user.to_gid_param}").map { JSON.parse(_1) })
+            .to include({ "type" => "disconnect", "reconnect" => true })
         end
       end
 

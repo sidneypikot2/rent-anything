@@ -13,6 +13,8 @@ RSpec.describe PhotoStorage::Disk do
   it "stores, reads back and deletes a file by its key" do
     described_class.upload(key, StringIO.new("bytes"), content_type: "image/jpeg")
     expect(described_class.exist?(key)).to be(true)
+    expect(described_class.read_start(key, 3)).to eq("byt".b)
+    expect(described_class.read_start("development/me/listing_photos/2/image.jpg", 16)).to be_nil
 
     file = described_class.download(key)
     expect(file.read).to eq("bytes")

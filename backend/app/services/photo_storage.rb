@@ -32,6 +32,16 @@ module PhotoStorage
     false
   end
 
+  # The object's first bytes (RAA-221), a ranged GET so a confirm doesn't download the whole
+  # file: a binary String, shorter for a smaller file, or nil when the object isn't there.
+  def read_start(key, length = 16)
+    return Disk.read_start(key, length) if disk?
+
+    client.get_object(bucket:, key:, range: "bytes=0-#{length - 1}").body.read.b
+  rescue Aws::S3::Errors::NotFound, Aws::S3::Errors::NoSuchKey
+    nil
+  end
+
   # The object's bytes, in a binary Tempfile the caller closes.
   def download(key)
     return Disk.download(key) if disk?

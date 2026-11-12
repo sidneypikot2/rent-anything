@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
 import { useSession } from "@/lib/auth/session";
+import { DIDIT_HOSTS, safeExternalUrl } from "@/lib/external-url";
+import { useToast } from "@/components/ui/toast";
 
 export type PartnerVerification = components["schemas"]["partner_verification"];
 
@@ -15,6 +17,13 @@ const POLL_MS = 5000;
 // share it.
 function partnerVerificationKey(userId: number | undefined) {
   return ["partner-verification", userId] as const;
+}
+
+// Didit's URL wasn't on its hosts, so the partner stays here (RAA-223).
+export class UnsafeRedirectError extends Error {
+  constructor() {
+    super("Couldn't open the ID check. Please try again.");
+  }
 }
 
 export function isVerified(verification: PartnerVerification | undefined) {
@@ -49,10 +58,12 @@ export function usePartnerVerification({ poll = false }: { poll?: boolean } = {}
   });
 }
 
-// Starts the check, or resumes the unfinished one, and sends the partner to Didit's page.
+// Starts the check, or resumes the unfinished one, and sends the partner to Didit's page —
+// only a URL on Didit's hosts (RAA-223); any other fails the start with an error toast.
 export function useStartVerification() {
   const userId = useSession()?.user.id;
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   return useMutation({
     mutationFn: async () => {
@@ -64,10 +75,15 @@ export function useStartVerification() {
           "Couldn't start the ID check.";
         throw new Error(message);
       }
-      return data;
+      const url = safeExternalUrl(data.url, DIDIT_HOSTS);
+      if (!url) throw new UnsafeRedirectError();
+      return url;
     },
-    onSuccess: (data) => window.location.assign(data.url),
+    onSuccess: (url) => window.location.assign(url),
     // A refused start (under review, cooling down) means the status we show is stale.
-    onError: () => queryClient.invalidateQueries({ queryKey: partnerVerificationKey(userId) }),
+    onError: (error) => {
+      if (error instanceof UnsafeRedirectError) toast.show(error.message, { tone: "danger", "data-testid": "error-toast" });
+      return queryClient.invalidateQueries({ queryKey: partnerVerificationKey(userId) });
+    },
   });
 }

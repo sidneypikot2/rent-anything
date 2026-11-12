@@ -2,8 +2,10 @@ Rails.application.routes.draw do
   # 200 when the app boots, for load balancers and uptime monitors.
   get "up" => "rails/health#show", as: :rails_health_check
 
-  # The OpenAPI document generated from the request specs (swagger/v1/openapi.yaml).
-  mount Rswag::Api::Engine => "/api-docs"
+  # The OpenAPI document generated from the request specs (swagger/v1/openapi.yaml). Local
+  # stacks only, unless PUBLIC_API_DOCS=1 (RAA-222): deployed, it would list every endpoint,
+  # admin ones included. The team reads the docs on Scalar, published from the repo's file.
+  mount Rswag::Api::Engine => "/api-docs" if Rails.env.local? || ENV["PUBLIC_API_DOCS"] == "1"
 
   # The local stack's stand-in for R2's signed photo uploads (PhotoStorage::Disk, RAA-106).
   put "dev/photo_uploads/:token", to: "dev/photo_uploads#update" if Rails.env.local?

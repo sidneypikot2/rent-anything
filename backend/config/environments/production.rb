@@ -48,8 +48,8 @@ Rails.application.configure do
   config.solid_queue.connects_to = { database: { writing: :queue } }
 
   # Links in emails point to the web app. Delivery (SMTP from SMTP_* env vars) is set in
-  # config/initializers/mailer.rb.
-  frontend = URI(ENV.fetch("FRONTEND_ORIGIN", "https://staging.tripkonext.com"))
+  # config/initializers/mailer.rb. FRONTEND_ORIGIN is required here (config/application.rb).
+  frontend = URI(config.x.frontend_origins.first)
   config.action_mailer.default_url_options = { host: frontend.host, protocol: frontend.scheme }
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to
@@ -62,12 +62,13 @@ Rails.application.configure do
   # Only use :id for inspections in production.
   config.active_record.attributes_for_inspect = [ :id ]
 
-  # Enable DNS rebinding protection and other `Host` header attacks.
-  # config.hosts = [
-  #   "example.com",     # Allow requests from example.com
-  #   /.*\.example\.com/ # Allow requests from subdomains like `www.example.com`
-  # ]
-  #
-  # Skip DNS rebinding protection for the default health check endpoint.
-  # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+  # Answer only the API's own hostnames (RAA-218), so a forged Host header can't steer the
+  # absolute URLs Rails builds from the request. API_HOSTS is comma-separated and has no
+  # default: without it the boot fails. It must name the public API host and every host the
+  # Compose network calls it by (the web's server-side rendering and AnyCable's /_anycable both
+  # use http://backend:3000); a name matches with any port. Anything else gets a 403.
+  config.hosts = ENV.fetch("API_HOSTS").split(",").map(&:strip).reject(&:empty?)
+
+  # The container's health check calls http://localhost:3000/up.
+  config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 end

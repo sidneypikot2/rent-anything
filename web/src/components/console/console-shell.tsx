@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
@@ -35,8 +36,9 @@ function isCurrent(tab: ConsoleTab, pathname: string) {
 
 function useSignOut(role: ConsoleRole) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   return async () => {
-    await signOut();
+    await signOut(queryClient);
     router.replace(LOGIN_PATHS[role]);
   };
 }

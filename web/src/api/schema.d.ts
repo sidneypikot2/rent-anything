@@ -1045,6 +1045,15 @@ export interface paths {
                         "application/json": components["schemas"]["error"];
                     };
                 };
+                /** @description a file whose first bytes aren't the type declared: it is deleted, row and all */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
             };
         };
         trace?: never;
@@ -5560,7 +5569,7 @@ export interface paths {
         head?: never;
         /**
          * Confirm a photo's upload
-         * @description Partner-only (RAA-106). Once the browser's `PUT` has finished: checks the file is in storage, then guests see the photo and its card and large sizes are made (until then both URLs are the original's). Sending it again is harmless.
+         * @description Partner-only (RAA-106). Once the browser's `PUT` has finished: checks the file is in storage and that its first bytes are the declared type's (RAA-221; if not, the photo is deleted and this is a 422), then guests see the photo and its card and large sizes are made (until then both URLs are the original's). Sending it again is harmless.
          */
         patch: {
             parameters: {
@@ -9260,6 +9269,8 @@ export interface components {
         auth_tokens: {
             access_token: string;
             refresh_token: string;
+            /** @description Opens the WebSocket (anycable-go JWT, sent as the `anycable-token.<token>` sub-protocol, never in the URL); expires with the access token. Null when real-time is off. */
+            cable_token: string | null;
             /** @description Seconds until the access token expires */
             expires_in: number;
             user: components["schemas"]["user"];

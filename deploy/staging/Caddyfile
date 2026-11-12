@@ -1,8 +1,15 @@
 # Caddy gets and renews a Let's Encrypt certificate for each name on its own, once the
 # GoDaddy A records point both names at the instance's static IP (RAA-156).
 
+# HSTS (RAA-222): browsers remember it for max-age seconds, so it starts at 5 minutes and is
+# raised (1 day, then a year with includeSubDomains) once staging is seen working over it.
+# The API host gets HSTS from Rails' force_ssl. -Server drops Caddy's name.
 staging.tripkonext.com {
 	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=300"
+		-Server
+	}
 	reverse_proxy web:3000
 }
 
