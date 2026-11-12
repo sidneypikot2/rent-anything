@@ -86,12 +86,12 @@ export function businessView(detail: BusinessDetail, destinations: AreaCard[], s
 
 export type BusinessViewData = ReturnType<typeof businessView>;
 
-// A business's page under its banner (or in the plan's phone modal, `inModal`), as a shop page
-// (RAA-281): its photos (its own covers first), the facts a guest weighs first, what it says about
-// itself, its options by group, each with its price and Add to trip and its details in the side
-// panel, what comes with them, where it is (on a map, but not in the modal) and Good to know. Adds go to the trip the place's banner shows, as they would
-// there (TripAddProvider `places`).
-export function BusinessBody({ view, inModal = false }: { view: BusinessViewData; inModal?: boolean }) {
+// A business's page under its banner (or in the planner's frame, `inPlan`, under the plan's bar
+// and stepper), as a shop page (RAA-281): its photos (its own covers first), the facts a guest
+// weighs first, what it says about itself, its options by group, each with its price and Add to
+// trip and its details in the side panel, what comes with them, where it is and Good to know.
+// Adds go to the trip the place's banner shows, as they would there (TripAddProvider `places`).
+export function BusinessBody({ view, inPlan = false }: { view: BusinessViewData; inPlan?: boolean }) {
   const { business, area, dates, from, places, tripId, groups, shown, items, town } = view;
   // Its own cover photos lead (RAA-281), then its listings'.
   const photos = [
@@ -111,14 +111,18 @@ export function BusinessBody({ view, inModal = false }: { view: BusinessViewData
       {tripId && <AdoptTrip id={tripId} />}
       <TripLinkProvider place={from.slug} places={places}>
         <TripAddProvider places={places}>
-          <div className={cn("mx-auto flex w-full max-w-page flex-col gap-section px-gutter py-page-pad max-sm:px-0", inModal && "max-sm:pt-0")}>
+          <div
+            className={cn(
+              "flex w-full flex-col gap-section",
+              inPlan ? "pt-2 pb-page-pad" : "mx-auto max-w-page px-gutter py-page-pad max-sm:px-0",
+            )}
+          >
             {photos.length > 0 && (
               <ShopPhotos
                 photos={photos}
                 label={business.name}
                 category={shown[0].category}
                 testId="business-photos"
-                className={inModal ? "max-sm:rounded-none" : undefined}
               />
             )}
 
@@ -152,23 +156,21 @@ export function BusinessBody({ view, inModal = false }: { view: BusinessViewData
 
             <BusinessIncluded listings={shown} />
 
-            <BusinessWhere business={business} area={area} town={town} onlyStays={onlyStays} map={!inModal} />
+            <BusinessWhere business={business} area={area} town={town} onlyStays={onlyStays} />
 
             <BusinessGoodToKnow business={business} />
           </div>
 
-          {/* A phone's foot, down to the options while they are out of view (the page only). */}
-          {!inModal && (
-            <BookJumpBar target="options" watch="options" label="See options">
-              {cheapest?.price_from_cents && (
-                <Price
-                  prefix="from"
-                  amount={formatPeso(cheapest.price_from_cents)}
-                  unit={priceUnitText(cheapest.price_unit) ?? undefined}
-                />
-              )}
-            </BookJumpBar>
-          )}
+          {/* A phone's foot, down to the options while they are out of view. */}
+          <BookJumpBar target="options" watch="options" label="See options">
+            {cheapest?.price_from_cents && (
+              <Price
+                prefix="from"
+                amount={formatPeso(cheapest.price_from_cents)}
+                unit={priceUnitText(cheapest.price_unit) ?? undefined}
+              />
+            )}
+          </BookJumpBar>
         </TripAddProvider>
       </TripLinkProvider>
     </>
@@ -228,7 +230,7 @@ export function ShopPhotos({
   );
 }
 
-// Where a business is: its door on a map when it shows one (`map`, not in the plan's modal); a
+// Where a business is: its door on a map when it shows one (`map`); a
 // business that only offers stays shows its town, the street coming with a booking (RAA-281).
 export function BusinessWhere({
   business,
