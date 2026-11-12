@@ -1,8 +1,7 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
-import { ChevronGlyph } from "@/components/discovery/tag-glyphs";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { cn } from "@/components/ui/cn";
+import { PlanBackButton } from "./leave-plan-guard";
 
 // Plan a whole trip (2026-11-02, the team's guided planner with our checklist): each step on the
 // white sheet (on a phone the whole screen: no site header or footer, data-plan-page in
@@ -14,6 +13,7 @@ import { cn } from "@/components/ui/cn";
 export function PlanFrame({
   back,
   backLabel,
+  leaves = false,
   label,
   action,
   wide = false,
@@ -21,6 +21,8 @@ export function PlanFrame({
 }: {
   back: string;
   backLabel: string;
+  // The way back leaves the planner (step 1's, to home): it asks first (PlanBackButton).
+  leaves?: boolean;
   // What the bar says beside the step: "optional", the trip's name.
   label?: ReactNode;
   // At the bar's right end: the checklist's Change (back to step 1).
@@ -35,13 +37,7 @@ export function PlanFrame({
       <PageSheet tone="paper" flushOnPhone>
         <div className={cn("mx-auto flex w-full flex-1 flex-col pt-3 sm:pt-6", !wide && "max-w-narrow")}>
           <div className="mx-auto flex w-full max-w-narrow items-center gap-3 pb-2">
-            <Link
-              href={back}
-              aria-label={backLabel}
-              className="flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-navy transition-colors duration-300 ease-calm hover:bg-surface-2"
-            >
-              <ChevronGlyph direction="left" className="size-5" />
-            </Link>
+            <PlanBackButton href={back} label={backLabel} leaves={leaves} />
             <p className="min-w-0 flex-1 truncate text-sm font-semibold text-muted">{label ?? "Plan a trip"}</p>
             {action}
           </div>

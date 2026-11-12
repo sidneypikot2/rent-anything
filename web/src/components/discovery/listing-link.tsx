@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useTripHref } from "@/components/trips/trip-link";
-import { markLeaving } from "./back-link";
 import { newTabProps, useOpensInNewTab } from "./business-row";
 
 // A listing row's title: its ::after covers the card, so a click anywhere on it opens the
@@ -15,7 +14,6 @@ export function ListingTitleLink({ href, title, testId = "listing-open" }: { hre
     <Link
       href={tripHref(href)}
       {...newTabProps(newTab)}
-      onClick={() => !newTab && markLeaving()}
       data-testid={testId}
       aria-label={newTab ? `${title} (opens in a new tab)` : undefined}
       className="underline-offset-4 outline-none after:absolute after:inset-0 after:rounded-card after:content-[''] hover:underline focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-(--focus)"

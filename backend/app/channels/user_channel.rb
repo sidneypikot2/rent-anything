@@ -37,10 +37,12 @@ class UserChannel < ApplicationCable::Channel
     Rails.error.report(e, handled: true)
   end
 
-  # Closes a user's open connections, as when their account is deleted: a connection is only
-  # checked when it opens.
-  def self.disconnect(user)
-    ActionCable.server.remote_connections.where(current_user: user).disconnect(reconnect: false) if live?
+  # Closes a user's open connections, since a connection is only checked when it opens: for
+  # good when their account is deleted, or to reconnect, which checks the token again, when
+  # they sign out or a token expires (RAA-224). Needs anycable-go's sessions cache off
+  # (ANYCABLE_SESSIONS_TTL=0): a cached session is restored on reconnect without asking Rails.
+  def self.disconnect(user, reconnect: false)
+    ActionCable.server.remote_connections.where(current_user: user).disconnect(reconnect:) if live?
   rescue StandardError => e
     Rails.error.report(e, handled: true)
   end

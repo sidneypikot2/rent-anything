@@ -143,6 +143,14 @@ services:
       ANYCABLE_BROADCAST_ADAPTER: http
       # Keeps each stream's recent messages, so a client that reconnects gets what it missed.
       ANYCABLE_BROKER: memory
+      # No sessions cache (RAA-224): a cached session is restored on reconnect without a token
+      # check, so a connection closed at sign-out or when its token expired would come back.
+      # A reconnect subscribes again and still gets the missed messages.
+      ANYCABLE_SESSIONS_TTL: "0"
+      # JWT identification is on, since ANYCABLE_SECRET is its key (RAA-224): a client sending
+      # the API's cable_token as the `anycable-token.<token>` sub-protocol is identified here,
+      # and an expired one refused. Not enforced yet: the web still sends `?token=`, which
+      # Rails checks (ApplicationCable::Connection), until RAA-304; then ANYCABLE_ENFORCE_JWT.
       # The web host without a scheme ("https://..." is refused with a 403).
       ANYCABLE_ALLOWED_ORIGINS: staging.tripkonext.com
     mem_limit: 128m

@@ -10,17 +10,18 @@ export function plainClick(event: MouseEvent) {
   return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 }
 
-// Where the guest left from in this tab (a What to book card's link to a business's page), held
-// in memory: it lasts through a client navigation and is gone in a new tab or after a reload.
-let leftFrom: string | null = null;
-export function markLeaving() {
-  leftFrom = window.location.pathname;
+// Whether this tab has a page of this site behind the current one: the Navigation API lists only
+// the tab's same-origin entries, so `canGoBack` is false on a shared link, a new tab or the first
+// page. A browser without the API gets the link.
+function canGoBackInSite() {
+  const navigation = (window as { navigation?: { canGoBack?: boolean } }).navigation;
+  return navigation?.canGoBack === true;
 }
 
-// A page's way back to the place it came from (a business's page, reached from What to book in
-// the same tab on a phone): Back, so the place opens where the guest left it, scrolled as it was;
-// opened in a tab of its own (from a laptop, or a shared link) there is nothing to go back to, so
-// it links there.
+// A page's way back (a listing's, a business's, What to book's): Back to whatever page of the
+// site opened it in this tab — a place, What to book, a business, a plan step or the shop sheet
+// over it — so it opens as the guest left it, scrolled as it was. With nothing of ours behind it
+// (a shared link, a new tab from a laptop) it links to `href`, the page it would have come from.
 export function BackLink({ href, className, children }: { href: string; className?: string; children: ReactNode }) {
   const router = useRouter();
   return (
@@ -29,9 +30,8 @@ export function BackLink({ href, className, children }: { href: string; classNam
       className={className}
       data-testid="back-link"
       onClick={(event) => {
-        if (!plainClick(event) || !leftFrom || leftFrom !== new URL(href, window.location.href).pathname) return;
+        if (!plainClick(event) || !canGoBackInSite()) return;
         event.preventDefault();
-        leftFrom = null;
         router.back();
       }}
     >
