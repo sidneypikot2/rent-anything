@@ -9269,6 +9269,8 @@ export interface components {
         auth_tokens: {
             access_token: string;
             refresh_token: string;
+            /** @description Opens the WebSocket (anycable-go JWT, sent as the `anycable-token.<token>` sub-protocol, never in the URL); expires with the access token. Null when real-time is off. */
+            cable_token: string | null;
             /** @description Seconds until the access token expires */
             expires_in: number;
             user: components["schemas"]["user"];
