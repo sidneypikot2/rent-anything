@@ -64,6 +64,16 @@ RSpec.describe "PayMongo webhook", type: :request do
         run_test! { expect(Paymongo).not_to have_received(:checkout_session) }
       end
 
+      response "429", "a flood from one IP (120 a minute)" do
+        schema "$ref" => "#/components/schemas/error"
+        header "Retry-After", schema: { type: :integer }, description: "Seconds until the limit resets"
+        before { exceed_rate_limit(Api::V1::Webhooks::PaymongoController, ApplicationController::WEBHOOK_RATE_LIMIT) }
+
+        run_test! do |response|
+          expect(response.headers["Retry-After"]).to eq("60")
+        end
+      end
+
       response "401", "a bad signature" do
         schema "$ref" => "#/components/schemas/error"
 

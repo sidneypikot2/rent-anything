@@ -9,7 +9,7 @@ module Api
       # One counter per action, so asking for links doesn't use up the tries at using one.
       limit_auth_attempts only: :create, name: "request"
       limit_auth_attempts only: :update, name: "reset"
-      rate_limit(**PER_EMAIL_LIMIT, by: -> { "password_reset:#{email_key}" }, with: :render_too_many_requests,
+      limit_requests(PER_EMAIL_LIMIT, by: -> { "password_reset:#{email_key}" },
         name: "per_email", only: :create)
 
       def create

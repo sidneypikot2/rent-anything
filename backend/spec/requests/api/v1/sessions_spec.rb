@@ -118,8 +118,22 @@ RSpec.describe "Sessions", type: :request do
         run_test!
       end
 
-      response "429", "too many attempts from one IP" do
+      response "429", "too many attempts: 10 in 3 minutes from one IP, or 10 in 15 minutes on one email from any IP" do
         schema "$ref" => "#/components/schemas/error"
+        header "Retry-After", schema: { type: :integer }, description: "Seconds until the limit resets"
+        before { exceed_rate_limit(Api::V1::SessionsController, ApplicationController::SIGN_IN_PER_EMAIL_LIMIT, name: "per_email") }
+
+        run_test! do |response|
+          expect(response.headers["Retry-After"]).to eq("900")
+          # Counted on the email as typed, trimmed and in lower case.
+          expect(Api::V1::SessionsController.cache_store).to have_received(:increment)
+            .with("rate-limit:api/v1/sessions:per_email:ana@example.com", 1, expires_in: 15.minutes)
+        end
+      end
+
+      response "429", "too many attempts: 10 in 3 minutes from one IP, or 10 in 15 minutes on one email from any IP" do
+        schema "$ref" => "#/components/schemas/error"
+        header "Retry-After", schema: { type: :integer }, description: "Seconds until the limit resets"
         before { exceed_auth_rate_limit(Api::V1::SessionsController) }
 
         run_test!

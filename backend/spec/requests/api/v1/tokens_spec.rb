@@ -73,6 +73,16 @@ RSpec.describe "Tokens", type: :request do
         run_test!
       end
 
+      response "429", "too many from one IP (30 a minute)" do
+        schema "$ref" => "#/components/schemas/error"
+        header "Retry-After", schema: { type: :integer }, description: "Seconds until the limit resets"
+        before { exceed_rate_limit(Api::V1::TokensController, ApplicationController::REFRESH_RATE_LIMIT) }
+
+        run_test! do |response|
+          expect(response.headers["Retry-After"]).to eq("60")
+        end
+      end
+
       response "422", "token given as an array" do
         schema "$ref" => "#/components/schemas/validation_errors"
         let(:body) { { refresh_token: [ "a" ] } }

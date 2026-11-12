@@ -3,7 +3,7 @@ module Api
     # A visit from a guest page (RAA-290), counted once per browser per day for the admin
     # overview. Open to anyone, so limited per IP like sign-in.
     class VisitsController < ApplicationController
-      rate_limit to: 30, within: 1.minute, with: :render_too_many_requests, only: :create
+      limit_requests({ to: 30, within: 1.minute }, only: :create)
 
       def create
         Visits::Record.call(params[:visitor_id])

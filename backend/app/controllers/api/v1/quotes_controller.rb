@@ -2,6 +2,8 @@ module Api
   module V1
     # What a stay costs (RAA-104): public, like the listing page it's shown on.
     class QuotesController < ApplicationController
+      limit_browsing only: :show
+
       def show
         render json: Stays::QuoteFor.call(params.slice(:listing_id, :starts_on, :ends_on, :guests, :adults, :children, :infants, :pets, :room_guests, :fee_ids))
       end
