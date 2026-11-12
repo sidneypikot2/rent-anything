@@ -15,8 +15,13 @@ RSpec.describe "Partner availability blocks", type: :request do
     get "A listing's blocked days" do
       tags "Partner"
       produces "application/json"
+      paginated_list
       description "Partner-only (RAA-118). The listing's blocks ending today or later, by start date."
       security [ { bearer: [] } ]
+
+      it_behaves_like "a paginated list", total: 3 do
+        before { (1..3).each { |n| create(:availability_block, listing:, starts_on: today + (n * 3), ends_on: today + (n * 3)) } }
+      end
 
       response "200", "the blocks still to come" do
         schema type: :array, items: { "$ref" => "#/components/schemas/availability_block" }

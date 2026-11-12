@@ -22,6 +22,7 @@ RSpec.describe "Business listings", type: :request do
     get "A business's listings, with what is free on some dates" do
       tags "Discovery"
       produces "application/json"
+      paginated_list
       description "Public. A business's active listings (RAA-191), by title, for the shop pop-up: a group picks " \
         "how many of each of a motorbike shop's models. `category` (a slug) narrows them. With both dates, " \
         "`units_free` is how many of each one's units are free on all of them, as the partner's calendar has it; " \
@@ -41,6 +42,8 @@ RSpec.describe "Business listings", type: :request do
       let(:category) { "motorcycle" }
       let(:starts_on) { day.iso8601 }
       let(:ends_on) { (day + 1).iso8601 }
+
+      include_examples "a paginated list", total: 2
 
       response "200", "the shop's motorbikes, each with its units free on the dates" do
         schema type: :object, properties: {

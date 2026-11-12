@@ -16,9 +16,14 @@ RSpec.describe "Bookings", type: :request do
     get "The guest's bookings" do
       tags "Bookings"
       produces "application/json"
+      paginated_list
       description "Guest-only (RAA-132). Upcoming bookings (those holding their days, pending ones too) first by " \
         "date, then past, cancelled, declined and expired ones, newest first."
       security [ { bearer: [] } ]
+
+      it_behaves_like "a paginated list", total: 3 do
+        before { (1..3).each { |n| guest_booking(starts_on: today + (n * 3), ends_on: today + (n * 3) + 1) } }
+      end
 
       response "200", "upcoming first, then the rest" do
         schema type: :array, items: { "$ref" => "#/components/schemas/guest_booking" }

@@ -41,8 +41,11 @@ RSpec.describe "Areas", type: :request do
     get "Destinations with something to book" do
       tags "Discovery"
       produces "application/json"
+      paginated_list
       description "Areas with at least one active listing, most listings first, each with its top three " \
         "activities (by how many published landmarks carry them)."
+
+      include_examples "a paginated list", total: 2
 
       response "200", "bookable areas" do
         schema type: :array, items: { "$ref" => "#/components/schemas/area_card" }

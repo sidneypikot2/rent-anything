@@ -5,6 +5,7 @@ import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
 import { useSession } from "@/lib/auth/session";
 import { partnerBusinessesKey } from "./use-partner-businesses";
+import { allPages } from "@/api/pages";
 
 // Where the partner's payouts can go (RAA-145): a bank account, GCash or Maya, with the
 // businesses paid out to it. Only the last four digits of a number ever reach the browser.
@@ -37,7 +38,9 @@ export function usePayoutAccounts() {
   return useQuery({
     queryKey: payoutAccountsKey(userId),
     queryFn: async () => {
-      const { data, response } = await apiClient().GET("/api/v1/partner/payout_accounts");
+      const { data, response } = await allPages((query) =>
+        apiClient().GET("/api/v1/partner/payout_accounts", { params: { query } }),
+      );
       if (!data) throw new Error(`payout accounts request failed (${response.status})`);
       return data;
     },

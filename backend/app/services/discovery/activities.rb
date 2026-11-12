@@ -2,7 +2,8 @@ module Discovery
   # "Browse by activity": activity tags with how many bookable areas and published landmarks
   # have them, and how many active listings in bookable areas there are to book for them — a
   # listing's tags come from its category (CategoryTag). Most to book first. An activity with
-  # no published landmark in a bookable area is left out.
+  # no published landmark in a bookable area is left out. The caller pages them: the block gets
+  # the ordered relation and returns the page to show.
   class Activities < ApplicationService
     LISTING_COUNT = <<~SQL.squish.freeze
       (SELECT COUNT(*) FROM listings
@@ -13,18 +14,18 @@ module Discovery
 
     def call
       bookable = Area.bookable.select(:id)
-      Tag.activity
+      tags = Tag.activity
         .joins(:landmarks).merge(Landmark.published)
         .where(landmarks: { area_id: bookable })
         .group("tags.id")
         .select("tags.slug, tags.name",
           "COUNT(DISTINCT landmarks.area_id) AS area_count", "COUNT(DISTINCT landmarks.id) AS landmark_count",
           format(LISTING_COUNT, bookable.to_sql))
-        .order(Arel.sql("listing_count DESC, area_count DESC, landmark_count DESC"), "tags.name")
-        .map do |tag|
-          { slug: tag.slug, name: tag.name, area_count: tag.area_count, landmark_count: tag.landmark_count,
-            listing_count: tag.listing_count }
-        end
+        .order(Arel.sql("listing_count DESC, area_count DESC, landmark_count DESC"), "tags.name", "tags.id")
+      yield(tags).map do |tag|
+        { slug: tag.slug, name: tag.name, area_count: tag.area_count, landmark_count: tag.landmark_count,
+          listing_count: tag.listing_count }
+      end
     end
   end
 end

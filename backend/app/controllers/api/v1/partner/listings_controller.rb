@@ -14,7 +14,8 @@ module Api
         before_action :set_listing, only: %i[show update destroy]
 
         def index
-          listings = with_landmarks.order("businesses.name", "categories.name", :title).to_a
+          ordered = current_user.listings.joins(:business, :category).order("businesses.name", "categories.name", :title, :id)
+          listings = paginate(ordered).preload(*PartnerListingSerializer::ASSOCIATIONS).to_a
           destinations = PartnerLandmarkSerializer.destinations_for(listings.flat_map(&:visited_landmarks))
           render json: listings.map { |listing| PartnerListingSerializer.call(listing, destinations:) }
         end
