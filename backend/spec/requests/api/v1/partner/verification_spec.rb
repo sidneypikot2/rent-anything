@@ -102,7 +102,7 @@ RSpec.describe "Partner ID verification", type: :request do
           expect(response.parsed_body["url"]).to eq("https://verify.didit.me/session/abc")
           expect(response.parsed_body["verification"]).to include("status" => "not_started", "attempts_left" => 3)
           expect(Didit).to have_received(:create_session)
-            .with(vendor_data: user.id.to_s, callback: "#{ENV.fetch('FRONTEND_ORIGIN', 'http://localhost:8100')}/partner/verify")
+            .with(vendor_data: user.id.to_s, callback: "#{Rails.configuration.x.frontend_origins.first}/partner/verify")
           expect(user.reload.partner_verification)
             .to have_attributes(didit_session_id: session["session_id"], status: "not_started")
         end
