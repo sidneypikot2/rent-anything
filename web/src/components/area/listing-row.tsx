@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { markLeaving } from "@/components/discovery/back-link";
 import { newTabProps, useOpensInNewTab } from "@/components/discovery/business-row";
 import { ListingCard } from "@/components/discovery/cards";
 import { ChevronGlyph } from "@/components/discovery/tag-glyphs";
@@ -88,7 +87,6 @@ export function ListingRow({
               trust={card.trust}
               linkProps={{
                 ...newTabProps(newTab),
-                onClick: () => !newTab && markLeaving(),
                 "aria-label": newTab ? `${card.title} (opens in a new tab)` : undefined,
               }}
             />

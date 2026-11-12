@@ -21,7 +21,6 @@ import { ListingPhotos } from "./listing-photos";
 import { TourStops } from "./landmark-tours";
 import { ListingRowDetails } from "./listing-row-details";
 import type { Photo } from "./photo-card";
-import { markLeaving } from "./back-link";
 import { useShopModels } from "./shop-models";
 import { StayMixPicker, type MixOffer } from "./stay-mix-picker";
 import { ArrowGlyph, CategoryGlyph, MapGlyph, PlaceGlyph } from "./tag-glyphs";
@@ -170,7 +169,6 @@ export function BusinessRow({
             <Link
               href={pageHref}
               {...target}
-              onClick={() => !newTab && markLeaving()}
               data-testid="business-open"
               // A business can be in several groups: its label says which, for a screen reader's list.
               aria-label={`${label}, ${groupTitle}${newTab ? " (opens in a new tab)" : ""}`}
@@ -243,7 +241,6 @@ export function BusinessRow({
         <ButtonLink
           href={pageHref}
           {...target}
-          onClick={() => !newTab && markLeaving()}
           variant="soft"
           size="touch"
           arrow
@@ -312,10 +309,7 @@ export function BusinessOptions({
     offer.stay
       ? [{ ...offer.stay, thumb: <Thumb offer={offer} />, apart: apart(offer), open: () => {
             if (newTab) window.open(tripHref(offer.href), "_blank", "opener");
-            else {
-              markLeaving();
-              router.push(tripHref(offer.href));
-            }
+            else router.push(tripHref(offer.href));
           } }]
       : [],
   );
@@ -337,7 +331,6 @@ export function BusinessOptions({
                   data-testid="business-offer"
                   {...newTabProps(newTab)}
                   aria-label={newTab ? `${offer.title} (opens in a new tab)` : undefined}
-                  onClick={() => !newTab && markLeaving()}
                   className="flex items-start gap-2 text-lg leading-snug font-semibold text-link underline-offset-4 after:absolute after:inset-0 after:rounded-card after:content-[''] hover:underline"
                 >
                   {offer.title}

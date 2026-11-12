@@ -56,6 +56,12 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   await page.goto("/");
   await page.getByTestId("plan-whole-trip").click();
   await expect(page).toHaveURL(/\/plan$/);
+  // Step 1's way back leaves the planner, so it asks first; Stay keeps the guest here.
+  await page.getByTestId("plan-back").click();
+  await expect(page.getByTestId("leave-plan")).toBeVisible();
+  await page.getByTestId("leave-plan-stay").click();
+  await expect(page.getByTestId("leave-plan")).toBeHidden();
+  await expect(page).toHaveURL(/\/plan$/);
   await page.getByTestId("plan-dates").click();
   const days = page.locator("[role=grid] button:not([disabled])");
   await days.nth(10).click();
@@ -107,6 +113,12 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   await expect(page).toHaveURL(/\/$/);
   await page.getByTestId("trip-choice-go").click();
   await expect(page).toHaveURL(new RegExp(`/plan/bantayan-island\\?trip=${tripId}$`));
+  // The browser's Back from the step the planner was entered on asks too; Leave goes home.
+  await page.goBack();
+  await expect(page.getByTestId("leave-plan")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/plan/bantayan-island\\?trip=${tripId}$`));
+  await page.getByTestId("leave-plan-leave").click();
+  await expect(page).toHaveURL(/\/$/);
   // A place page's Plan a trip asks too, with the trip here picked; New trip goes to step 1 on it.
   await page.goto("/bantayan-island");
   await page.getByTestId("area-trip-band-plan").click();

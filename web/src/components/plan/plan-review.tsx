@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
 import { CheckoutSheet } from "@/components/bookings/checkout-sheet";
-import { markLeaving } from "@/components/discovery/back-link";
 import { useOpensInNewTab } from "@/components/discovery/business-row";
 import { ChevronGlyph, HeartGlyph, PlusGlyph } from "@/components/discovery/tag-glyphs";
 import { BOOKING_STATE } from "@/components/landing/launch-area";
@@ -96,10 +95,7 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
   const setListing = (id: number) => {
     const href = `/listings/${id}?trip=${trip.id}&plan=1&place=${place.area.slug}`;
     if (newTab) window.open(href, "_blank", "opener");
-    else {
-      markLeaving();
-      router.push(href);
-    }
+    else router.push(href);
   };
   const stay = stayPoint(trip);
   const days = planDays(trip, place, stay?.point ?? null);
