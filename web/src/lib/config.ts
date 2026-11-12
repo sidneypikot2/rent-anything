@@ -34,3 +34,24 @@ export function cableUrl(): string {
   const scheme = protocol === "https:" ? "wss:" : "ws:";
   return `${scheme}//${hostname}:${CABLE_BASE_PORT + portOffset(port)}/cable`;
 }
+
+// The site's own public origin (RAA-249), for anything that needs an absolute URL: the
+// sitemap, robots.txt, metadataBase (canonical, Open Graph) and JSON-LD. NEXT_PUBLIC_SITE_URL
+// is a build arg (web/Dockerfile), https://staging.tripkonext.com on staging; locally the main
+// stack's address. No trailing slash.
+export function siteUrl(): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:8100").replace(/\/+$/, "");
+}
+
+// An absolute URL on this site for a path ("/about" → "https://…/about").
+export function absoluteUrl(path: string): string {
+  return `${siteUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+// Whether search engines may index this deployment (RAA-247). Only a deployment built with
+// NEXT_PUBLIC_SITE_INDEXABLE=true is (production, once it exists): staging sets it to false,
+// and anything that leaves it out (local stacks, CI) is kept out too, so a missing setting
+// can never put a test site in the index. Decided by this flag, never by the hostname.
+export function siteIndexable(): boolean {
+  return process.env.NEXT_PUBLIC_SITE_INDEXABLE === "true";
+}

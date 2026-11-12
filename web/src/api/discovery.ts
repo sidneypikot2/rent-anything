@@ -24,6 +24,7 @@ export type PlanGroup = keyof PlanBusinessesPage["counts"];
 export type BookCardsPage = components["schemas"]["book_cards"];
 export type GroupCounts = components["schemas"]["group_counts"];
 export type MapPinsPage = components["schemas"]["map_pins"];
+export type ListingPin = components["schemas"]["listing_pin"];
 
 // Cached per request: the home page's hero card and its sections share one fetch (RAA-125).
 export const getDestinations = cache(async (): Promise<AreaCard[]> => {
@@ -32,6 +33,14 @@ export const getDestinations = cache(async (): Promise<AreaCard[]> => {
   if (error || !data) throw new Error("Couldn't load destinations");
   return data;
 });
+
+// Every active listing, for the sitemap (RAA-232). allPages caps it at 2,000.
+export async function getActiveListings(): Promise<ListingPin[]> {
+  await connection();
+  const { data, error } = await allPages((query) => serverApiClient().GET("/api/v1/listings", { params: { query } }));
+  if (error || !data) throw new Error("Couldn't load listings");
+  return data;
+}
 
 export const getActivities = cache(async (): Promise<Activity[]> => {
   await connection();

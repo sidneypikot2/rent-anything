@@ -64,6 +64,8 @@ jobs:
       # NEXT_PUBLIC_* are baked into the bundle: they are repository variables (Settings →
       # Secrets and variables → Actions → Variables), and changing one needs a redeploy.
       # The web app reports errors to Sentry as "staging", like the API's RAILS_ENV.
+      # Staging is never indexable (RAA-247): robots.txt disallows everything and every page
+      # says noindex; Caddy adds X-Robots-Tag on both hosts.
       - name: Build and push the web app
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -71,6 +73,8 @@ jobs:
           push: true
           build-args: |
             NEXT_PUBLIC_API_URL=${{ env.API_URL }}
+            NEXT_PUBLIC_SITE_URL=${{ env.WEB_URL }}
+            NEXT_PUBLIC_SITE_INDEXABLE=false
             NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
             NEXT_PUBLIC_FACEBOOK_APP_ID=${{ vars.NEXT_PUBLIC_FACEBOOK_APP_ID }}
             NEXT_PUBLIC_SENTRY_DSN=${{ vars.NEXT_PUBLIC_SENTRY_DSN }}

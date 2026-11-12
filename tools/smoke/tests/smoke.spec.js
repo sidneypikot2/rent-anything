@@ -286,6 +286,34 @@ for (const [path, heading, testId] of [
   });
 }
 
+// robots.txt and sitemap.xml (RAA-244, RAA-232, RAA-247). This stack, like staging, isn't
+// indexable (no NEXT_PUBLIC_SITE_INDEXABLE=true), so robots.txt shuts crawlers out and every page
+// says noindex; the sitemap still lists the public pages, the areas and the listings, and each
+// of its pages opens.
+test("robots.txt, sitemap.xml and noindex", async ({ page, request }) => {
+  const robots = await request.get("/robots.txt");
+  expect(robots.status()).toBe(200);
+  expect(await robots.text()).toMatch(/^Disallow: \/$/m);
+
+  const sitemap = await request.get("/sitemap.xml");
+  expect(sitemap.status()).toBe(200);
+  const xml = await sitemap.text();
+  expect(xml).toContain("<urlset");
+  const paths = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => new URL(match[1]).pathname);
+  for (const path of ["/", "/about", "/terms", "/privacy", "/refunds", "/partner-terms", "/bantayan-island"]) {
+    expect(paths).toContain(path);
+  }
+  const listings = paths.filter((path) => path.startsWith("/listings/"));
+  expect(listings.length).toBeGreaterThan(0);
+  // Every page but the listings past the first few (each renders the same way).
+  for (const path of [...paths.filter((path) => !path.startsWith("/listings/")), ...listings.slice(0, 3)]) {
+    expect((await request.get(path)).status(), path).toBe(200);
+  }
+
+  await page.goto("/");
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow");
+});
+
 // Sign-up through the real API (email and password only), and the /partner guard: signed
 // out goes to /partner/login, a guest is sent home, a partner gets the dashboard.
 // Sent before the page's JavaScript loads, the browser posts the form itself (RAA-269): a GET
