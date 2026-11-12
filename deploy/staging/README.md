@@ -56,8 +56,8 @@ Put `deploy_staging.pub` into `/home/deploy/.ssh/authorized_keys` on the instanc
 
 As `deploy` (`sudo -iu deploy`):
 
-1. Fill in `/opt/tripkonext/db.env` from `db.env.example` in this folder, with a new password (`openssl rand -hex 24`).
-2. Fill in `/opt/tripkonext/backend.env` from `backend.env.example`, using the same password in the three database URLs.
+1. Fill in `/opt/tripkonext/db.env` from `db.env.example` in this folder, with three new passwords (`openssl rand -hex 24` each).
+2. Fill in `/opt/tripkonext/backend.env` from `backend.env.example`: the app role's password in the three runtime database URLs, the owner's in the three `MIGRATION_*` ones. Leave the `MIGRATION_*` lines out until the first deploy has run `./db-roles.sh` (see "Database roles" below).
 3. Create `/opt/tripkonext/anycable.env` (`anycable.env.example`) with a new secret, without printing it: `printf 'ANYCABLE_SECRET=%s\n' "$(openssl rand -hex 32)" > anycable.env`. Then run `chmod 600 db.env backend.env anycable.env`.
 4. Let the instance pull the private images: create a GitHub personal access token (classic) with only `read:packages`, then:
 
@@ -99,9 +99,32 @@ docker compose exec backend bin/rails console
 
 **Rolling back**: set an earlier commit's images in `.env` (`IMAGE_TAG=<full commit SHA>`, from a previous deploy run), then run `docker compose up -d`. The next deploy goes back to the newest commit. A migration is not rolled back this way.
 
-**Postgres**: `docker compose exec db psql -U postgres rent_anything_staging`. The data lives in the `postgres_data` volume. `docker compose down -v` deletes it, so never run that here.
+**Postgres**: `docker compose exec db psql -U postgres rent_anything_staging` (the superuser; the API itself connects as `rent_anything_app`, see "Database roles"). The data lives in the `postgres_data` volume. `docker compose down -v` deletes it, so never run that here.
 
 **Changing a secret**: edit `backend.env`, then run `docker compose up -d backend` (for `anycable.env`, `docker compose up -d backend anycable`). A `NEXT_PUBLIC_*` value is a GitHub variable baked into the web image, so it only takes effect after the workflow runs again.
+
+## Database roles (RAA-217)
+
+The API doesn't connect as the `postgres` superuser. `db-roles.sh` (copied here by every deploy) sets up two roles, neither a superuser nor able to bypass row level security:
+
+- `rent_anything_owner` owns the three databases and everything in them. `db:prepare` runs as it on every boot, through the `MIGRATION_*` URLs in `backend.env`.
+- `rent_anything_app` is what the API runs as: it reads and writes rows (and refreshes the `search_terms` view, through `MAINTAIN`) but can't create, alter or drop anything. PostGIS's `spatial_ref_sys` is read only for it. Tables the owner creates later get the same grants by default.
+
+The script is idempotent: run it again after a restore, after changing either password, or whenever in doubt. It reads the passwords from `db.env` and never prints them. As `deploy` in `/opt/tripkonext`, with `db` up: `./db-roles.sh`, then `docker compose up -d backend`.
+
+**Switching an existing instance over** (once, before the PR that brings this merges):
+
+1. `scp deploy/staging/db-roles.sh deploy@<static IP>:/opt/tripkonext/` from a checkout of the PR branch (later deploys copy it themselves).
+2. Add `RENT_ANYTHING_OWNER_PASSWORD` and `RENT_ANYTHING_APP_PASSWORD` to `db.env` (`openssl rand -hex 24` each, written without printing them).
+3. Run the nightly backup line below by hand, so there is a dump from just before.
+4. `./db-roles.sh`. Every database should print `ok`. The running API is unaffected, because it still connects as `postgres`.
+5. In `backend.env`, add the three `MIGRATION_*` URLs and change the three runtime URLs to `rent_anything_app` (`backend.env.example`). Keep the old lines commented out for the rollback.
+6. Merge. The deploy restarts the API with the new image and URLs. Then check:
+   - `curl -fsS https://api.staging.tripkonext.com/api/v1/health`
+   - `docker compose exec backend bin/rails runner 'p ActiveRecord::Base.connection.select_rows("SELECT current_user, usesuper FROM pg_user WHERE usename = current_user")'` prints `[["rent_anything_app", false]]`
+   - a booking can still be made and paid end to end.
+
+**Rolling back**: put the `postgres` URLs back in `backend.env`, remove the three `MIGRATION_*` lines and run `docker compose up -d backend`. The roles and ownership can stay, since `postgres` is a superuser. Nothing has to be undone in the database.
 
 ## Database backups
 

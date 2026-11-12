@@ -3,8 +3,18 @@ set -e
 
 # db:prepare is idempotent — safe to re-run on every boot, including the restart
 # on every staging deploy, since it's a no-op once the schema is already up to date.
+# It runs as the database owner when MIGRATION_DATABASE_URL is set (RAA-217): the app itself
+# connects as rent_anything_app, which can't change the schema. The three MIGRATION_* URLs
+# replace the runtime ones for this one command only, and go together.
 if [ "${RAILS_ENV}" = "production" ] || [ "${RAILS_ENV}" = "staging" ]; then
-  ./bin/rails db:prepare
+  if [ -n "${MIGRATION_DATABASE_URL}" ]; then
+    DATABASE_URL="${MIGRATION_DATABASE_URL}" \
+      CACHE_DATABASE_URL="${MIGRATION_CACHE_DATABASE_URL:?set it with MIGRATION_DATABASE_URL}" \
+      QUEUE_DATABASE_URL="${MIGRATION_QUEUE_DATABASE_URL:?set it with MIGRATION_DATABASE_URL}" \
+      ./bin/rails db:prepare
+  else
+    ./bin/rails db:prepare
+  fi
 fi
 
 exec "$@"
