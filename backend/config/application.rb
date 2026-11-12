@@ -46,5 +46,13 @@ module Backend
     config.active_record.encryption.primary_key = ENV["ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY"]
     config.active_record.encryption.deterministic_key = ENV["ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY"]
     config.active_record.encryption.key_derivation_salt = ENV["ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT"]
+
+    # The web app's origin (FRONTEND_ORIGIN), exactly, no trailing slash, or a comma-separated
+    # list: CORS allows each (config/initializers/cors.rb), and links back to the web app (emails,
+    # PayMongo's and Didit's return URLs) use the first. Staging and production have no default
+    # (RAA-218): without it the boot fails, rather than allowing localhost or linking elsewhere.
+    # docker-compose.yml sets it for the local stack.
+    frontend_origin = Rails.env.local? ? ENV.fetch("FRONTEND_ORIGIN", "http://localhost:8100") : ENV.fetch("FRONTEND_ORIGIN")
+    config.x.frontend_origins = frontend_origin.split(",").map(&:strip).reject(&:empty?)
   end
 end
