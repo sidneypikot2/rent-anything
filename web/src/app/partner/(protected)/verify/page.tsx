@@ -4,6 +4,7 @@ import { type ReactNode, useEffect } from "react";
 import {
   type PartnerVerification,
   usePartnerVerification,
+  UnsafeRedirectError,
   useStartVerification,
 } from "@/components/partner/use-partner-verification";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -123,7 +124,7 @@ function StartButton({ label, disabled = false }: { label: string; disabled?: bo
       <Button data-testid="verify-start" disabled={disabled || busy} onClick={() => start.mutate()}>
         {busy ? "Opening Didit…" : label}
       </Button>
-      {start.error && (
+      {start.error && !(start.error instanceof UnsafeRedirectError) && (
         <p role="alert" className="text-sm text-danger">
           {start.error.message}
         </p>
