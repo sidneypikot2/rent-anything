@@ -86,6 +86,17 @@ RSpec.describe "Sessions", type: :request do
         run_test!
       end
 
+      response "401", "an unknown email: the same answer as a wrong password" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:body) { super().merge(email: "nobody@example.com") }
+
+        run_test! do |unknown_email|
+          unknown = [ unknown_email.status, unknown_email.body ]
+          post "/api/v1/session", params: { email: "ana@example.com", password: "wrong-password", role: "guest" }, as: :json
+          expect([ response.status, response.body ]).to eq(unknown)
+        end
+      end
+
       response "401", "an account made with Google has no password" do
         schema "$ref" => "#/components/schemas/error"
         let!(:user) { create(:user, :oauth_only, email: "ana@example.com") }
@@ -107,8 +118,22 @@ RSpec.describe "Sessions", type: :request do
         run_test!
       end
 
-      response "429", "too many attempts from one IP" do
+      response "429", "too many attempts: 10 in 3 minutes from one IP, or 10 in 15 minutes on one email from any IP" do
         schema "$ref" => "#/components/schemas/error"
+        header "Retry-After", schema: { type: :integer }, description: "Seconds until the limit resets"
+        before { exceed_rate_limit(Api::V1::SessionsController, ApplicationController::SIGN_IN_PER_EMAIL_LIMIT, name: "per_email") }
+
+        run_test! do |response|
+          expect(response.headers["Retry-After"]).to eq("900")
+          # Counted on the email as typed, trimmed and in lower case.
+          expect(Api::V1::SessionsController.cache_store).to have_received(:increment)
+            .with("rate-limit:api/v1/sessions:per_email:ana@example.com", 1, expires_in: 15.minutes)
+        end
+      end
+
+      response "429", "too many attempts: 10 in 3 minutes from one IP, or 10 in 15 minutes on one email from any IP" do
+        schema "$ref" => "#/components/schemas/error"
+        header "Retry-After", schema: { type: :integer }, description: "Seconds until the limit resets"
         before { exceed_auth_rate_limit(Api::V1::SessionsController) }
 
         run_test!

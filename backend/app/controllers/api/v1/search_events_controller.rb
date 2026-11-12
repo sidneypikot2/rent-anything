@@ -4,7 +4,7 @@ module Api
     class SearchEventsController < ApplicationController
       RATE_LIMIT = { to: 60, within: 1.minute }.freeze
 
-      rate_limit(**RATE_LIMIT, with: :render_too_many_requests, only: :create)
+      limit_requests(RATE_LIMIT, only: :create)
 
       def create
         SearchEvents::Record.call(params.slice(:q, :result_count, :session_id, :target))

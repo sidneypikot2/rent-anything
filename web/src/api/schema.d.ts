@@ -2621,6 +2621,17 @@ export interface paths {
                         "application/json": components["schemas"]["validation_errors"];
                     };
                 };
+                /** @description too many from one visitor's IP (60 a minute); the web app's own server isn't limited */
+                429: {
+                    headers: {
+                        /** @description Seconds until the limit resets */
+                        "Retry-After"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
             };
         };
         put?: never;
@@ -3322,6 +3333,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+                /** @description too many attempts from one IP */
+                429: {
+                    headers: {
+                        /** @description Seconds until the limit resets */
+                        "Retry-After"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
                     };
                 };
             };
@@ -6949,6 +6971,17 @@ export interface paths {
                         "application/json": components["schemas"]["validation_errors"];
                     };
                 };
+                /** @description too many from one visitor's IP (60 a minute); the web app's own server isn't limited */
+                429: {
+                    headers: {
+                        /** @description Seconds until the limit resets */
+                        "Retry-After"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
             };
         };
         put?: never;
@@ -7144,6 +7177,17 @@ export interface paths {
                         "application/json": components["schemas"]["validation_errors"];
                     };
                 };
+                /** @description too many from one visitor's IP (60 a minute); the web app's own server isn't limited */
+                429: {
+                    headers: {
+                        /** @description Seconds until the limit resets */
+                        "Retry-After"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
+                    };
+                };
             };
         };
         put?: never;
@@ -7215,9 +7259,11 @@ export interface paths {
                         "application/json": components["schemas"]["validation_errors"];
                     };
                 };
-                /** @description too many attempts from one IP */
+                /** @description too many attempts: 10 in 3 minutes from one IP, or 10 in 15 minutes on one email from any IP */
                 429: {
                     headers: {
+                        /** @description Seconds until the limit resets */
+                        "Retry-After"?: number;
                         [name: string]: unknown;
                     };
                     content: {
@@ -7518,6 +7564,17 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["validation_errors"];
+                    };
+                };
+                /** @description too many from one IP (30 a minute) */
+                429: {
+                    headers: {
+                        /** @description Seconds until the limit resets */
+                        "Retry-After"?: number;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["error"];
                     };
                 };
             };
@@ -9041,6 +9098,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description a flood from one IP (120 a minute) */
+                429: {
+                    headers: {
+                        /** @description Seconds until the limit resets */
+                        "Retry-After"?: number;
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
                 /** @description Didit can't be asked for the status: Didit retries the delivery */
                 502: {
                     headers: {
@@ -9103,6 +9169,15 @@ export interface paths {
                 /** @description a bad signature */
                 401: {
                     headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description a flood from one IP (120 a minute) */
+                429: {
+                    headers: {
+                        /** @description Seconds until the limit resets */
+                        "Retry-After"?: number;
                         [name: string]: unknown;
                     };
                     content?: never;

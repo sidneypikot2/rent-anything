@@ -62,6 +62,16 @@ RSpec.describe "Me: register", type: :request do
         run_test!
       end
 
+      response "429", "too many attempts from one IP" do
+        schema "$ref" => "#/components/schemas/error"
+        header "Retry-After", schema: { type: :integer }, description: "Seconds until the limit resets"
+        before { exceed_rate_limit(Api::V1::Me::RegistrationsController, ApplicationController::AUTH_RATE_LIMIT) }
+
+        run_test! do |response|
+          expect(response.headers["Retry-After"]).to eq("180")
+        end
+      end
+
       response "403", "a partner" do
         schema "$ref" => "#/components/schemas/error"
         let(:Authorization) { bearer_for(create(:user, :partner, password: nil)) }

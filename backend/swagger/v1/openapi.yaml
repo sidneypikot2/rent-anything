@@ -2080,6 +2080,18 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/validation_errors"
+        '429':
+          description: too many from one visitor's IP (60 a minute); the web app's
+            own server isn't limited
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the limit resets
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/guest_sessions":
     post:
       summary: Start as a guest without an account
@@ -2705,6 +2717,17 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/validation_errors"
+        '429':
+          description: too many attempts from one IP
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the limit resets
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
         '403':
           description: a partner
           content:
@@ -5457,6 +5480,18 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/validation_errors"
+        '429':
+          description: too many from one visitor's IP (60 a minute); the web app's
+            own server isn't limited
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the limit resets
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
   "/api/v1/registrations":
     post:
       summary: Sign up with email and password
@@ -5611,6 +5646,18 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/search_results"
+        '429':
+          description: too many from one visitor's IP (60 a minute); the web app's
+            own server isn't limited
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the limit resets
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
         '422':
           description: query missing
           content:
@@ -5653,7 +5700,13 @@ paths:
               schema:
                 "$ref": "#/components/schemas/validation_errors"
         '429':
-          description: too many attempts from one IP
+          description: 'too many attempts: 10 in 3 minutes from one IP, or 10 in 15
+            minutes on one email from any IP'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the limit resets
           content:
             application/json:
               schema:
@@ -5880,6 +5933,17 @@ paths:
                 "$ref": "#/components/schemas/auth_tokens"
         '401':
           description: an unknown token
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '429':
+          description: too many from one IP (30 a minute)
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the limit resets
           content:
             application/json:
               schema:
@@ -7288,6 +7352,13 @@ paths:
           description: 'Didit can''t be asked for the status: Didit retries the delivery'
         '503':
           description: no webhook secret configured
+        '429':
+          description: a flood from one IP (120 a minute)
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the limit resets
         '401':
           description: no signature
       requestBody:
@@ -7323,6 +7394,13 @@ paths:
       responses:
         '200':
           description: 'a checkout we don''t know: ignored'
+        '429':
+          description: a flood from one IP (120 a minute)
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until the limit resets
         '401':
           description: a bad signature
         '502':
