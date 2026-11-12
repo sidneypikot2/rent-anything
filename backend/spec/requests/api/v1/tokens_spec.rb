@@ -13,8 +13,7 @@ RSpec.describe "Tokens", type: :request do
         type: :object,
         properties: { refresh_token: { type: :string, description: "Required unless the cookie carries it" } }
       }
-      parameter name: "X-Refresh-Cookie", in: :header, required: false, schema: { type: :string, enum: %w[1] },
-        description: "Read and set the refresh token as the HttpOnly `raa_refresh` cookie (RAA-306)"
+      refresh_cookie_header
 
       let(:user) { create(:user) }
       let(:refresh_token) { Auth::IssueTokens.call(user)[:refresh_token] }

@@ -79,6 +79,17 @@ RSpec.describe "Refresh token cookie", type: :request do
       expect(RefreshToken.find_by_token(cookies[:raa_refresh])).to be_active
     end
 
+    it "takes a body token over a dead cookie" do
+      sign_in
+      RefreshToken.find_by_token(cookies[:raa_refresh]).revoke!
+      body_token = Auth::IssueTokens.call(user)[:refresh_token]
+
+      post "/api/v1/tokens/refresh", params: { refresh_token: body_token }, headers: cookie_headers, as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(RefreshToken.find_by_token(cookies[:raa_refresh])).to be_active
+    end
+
     it "is a 422 with neither cookie nor body token" do
       post "/api/v1/tokens/refresh", headers: cookie_headers, as: :json
 
@@ -114,6 +125,12 @@ RSpec.describe "Refresh token cookie", type: :request do
       expect(set_cookie_header).to match(/raa_refresh=; path=\/api\/v1; max-age=0/i)
     end
 
+    it "succeeds with the cookie already gone" do
+      delete "/api/v1/session", headers: cookie_headers, as: :json
+
+      expect(response).to have_http_status(:no_content)
+    end
+
     it "keeps the cookie when a body-token session (a trip link's tab) signs out" do
       sign_in
       token = cookies[:raa_refresh]
@@ -138,6 +155,30 @@ RSpec.describe "Refresh token cookie", type: :request do
 
       expect(response).to have_http_status(:no_content)
       expect(set_cookie_header).to match(/raa_refresh=; path=\/api\/v1; max-age=0/i)
+    end
+  end
+
+  describe "CORS" do
+    def preflight(origin)
+      process :options, "/api/v1/tokens/refresh", headers: {
+        "Origin" => origin, "Access-Control-Request-Method" => "POST",
+        "Access-Control-Request-Headers" => "x-refresh-cookie, content-type"
+      }
+    end
+
+    it "lets the web app send the header with credentials" do
+      preflight(origin)
+
+      expect(response.headers["Access-Control-Allow-Origin"]).to eq(origin)
+      expect(response.headers["Access-Control-Allow-Credentials"]).to eq("true")
+      expect(response.headers["Access-Control-Allow-Headers"]).to match(/x-refresh-cookie/i)
+    end
+
+    it "gives another origin nothing" do
+      preflight("https://evil.example")
+
+      expect(response.headers["Access-Control-Allow-Origin"]).to be_nil
+      expect(response.headers["Access-Control-Allow-Credentials"]).to be_nil
     end
   end
 end

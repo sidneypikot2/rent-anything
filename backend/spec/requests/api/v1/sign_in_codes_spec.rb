@@ -53,6 +53,7 @@ RSpec.describe "Sign-in codes", type: :request do
   path "/api/v1/sign_in_codes/verify" do
     post "Sign in with an emailed code" do
       tags "Auth"
+      refresh_cookie_header
       consumes "application/json"
       produces "application/json"
       description "RAA-175. A code works once, for 10 minutes and 5 tries. Sent by a guest with no email yet (the " \

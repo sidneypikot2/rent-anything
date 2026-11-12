@@ -2097,6 +2097,18 @@ paths:
       summary: Start as a guest without an account
       tags:
       - Auth
+      parameters:
+      - name: X-Refresh-Cookie
+        in: header
+        required: false
+        schema:
+          type: string
+          enum:
+          - '1'
+        description: "`1` (the web app): the refresh token is the HttpOnly `raa_refresh`
+          cookie (Path=/api/v1, SameSite=Strict) instead of `refresh_token` in the
+          body, and an Origin other than FRONTEND_ORIGIN is a 403. Never from a trip
+          link's tab-only session, whose token stays in the body."
       description: RAA-175. Makes a guest with no email, so a trip made before signing
         in has an owner, and signs them in. They give name, email and phone at their
         first checkout (`contact` on POST /checkouts), and come back later through
@@ -2822,17 +2834,25 @@ paths:
       summary: Delete the signed-in guest's account
       tags:
       - Auth
+      parameters:
+      - name: X-Refresh-Cookie
+        in: header
+        required: false
+        schema:
+          type: string
+          enum:
+          - '1'
+        description: "`1`: also delete the `raa_refresh` cookie (RAA-306)"
+      - name: Authorization
+        in: header
+        schema:
+          type: string
       description: 'Guests only: deletes the account, its trips, sign-ins and sessions
         at once, and emails a confirmation. Partners'' records of past bookings stay.
         409 while a booking is still open; 403 for partners and admins, whose accounts
         the team closes on request.'
       security:
       - bearer: []
-      parameters:
-      - name: Authorization
-        in: header
-        schema:
-          type: string
       responses:
         '204':
           description: account deleted
@@ -2997,13 +3017,18 @@ paths:
       summary: Sign in or sign up with Google or Facebook
       tags:
       - Auth
-      description: "`token` is a Google Identity Services ID token or a Facebook Login
-        access token. It signs in to, links or creates an account of `role` only,
-        so one Google account can have a guest and a partner account. Creating an
-        account needs `terms_accepted: true` (the web app sends it: sign-up asks first,
-        and a sign-in page says that continuing agrees); signing in to or linking
-        an existing account doesn't."
       parameters:
+      - name: X-Refresh-Cookie
+        in: header
+        required: false
+        schema:
+          type: string
+          enum:
+          - '1'
+        description: "`1` (the web app): the refresh token is the HttpOnly `raa_refresh`
+          cookie (Path=/api/v1, SameSite=Strict) instead of `refresh_token` in the
+          body, and an Origin other than FRONTEND_ORIGIN is a 403. Never from a trip
+          link's tab-only session, whose token stays in the body."
       - name: provider
         in: path
         schema:
@@ -3019,6 +3044,12 @@ paths:
           type: string
         description: 'A guest with no account yet (RAA-175): their trips move into
           the account signed in to'
+      description: "`token` is a Google Identity Services ID token or a Facebook Login
+        access token. It signs in to, links or creates an account of `role` only,
+        so one Google account can have a guest and a partner account. Creating an
+        account needs `terms_accepted: true` (the web app sends it: sign-up asks first,
+        and a sign-in page says that continuing agrees); signing in to or linking
+        an existing account doesn't."
       responses:
         '200':
           description: an existing account signs in without the terms flag
@@ -5497,12 +5528,18 @@ paths:
       summary: Sign up with email and password
       tags:
       - Auth
-      description: "`role` is the entry point: `guest` from /login, `partner` from
-        /partner/login. Admin accounts are never self-made. `name` and `phone` are
-        optional; the account starts with `registration_complete: false` until PUT
-        /api/v1/me/complete_profile. `terms_accepted` must be true: the account records
-        when it agreed to the Terms and Privacy policy, and which version."
       parameters:
+      - name: X-Refresh-Cookie
+        in: header
+        required: false
+        schema:
+          type: string
+          enum:
+          - '1'
+        description: "`1` (the web app): the refresh token is the HttpOnly `raa_refresh`
+          cookie (Path=/api/v1, SameSite=Strict) instead of `refresh_token` in the
+          body, and an Origin other than FRONTEND_ORIGIN is a 403. Never from a trip
+          link's tab-only session, whose token stays in the body."
       - name: Authorization
         in: header
         required: false
@@ -5510,6 +5547,11 @@ paths:
           type: string
         description: 'A guest with no account yet (RAA-175): their trips move into
           the account signed in to'
+      description: "`role` is the entry point: `guest` from /login, `partner` from
+        /partner/login. Admin accounts are never self-made. `name` and `phone` are
+        optional; the account starts with `registration_complete: false` until PUT
+        /api/v1/me/complete_profile. `terms_accepted` must be true: the account records
+        when it agreed to the Terms and Privacy policy, and which version."
       responses:
         '201':
           description: a sign-up from /partner makes a partner
@@ -5687,9 +5729,10 @@ paths:
           type: string
           enum:
           - '1'
-        description: 'The web app (RAA-306): the refresh token comes as the HttpOnly
-          `raa_refresh` cookie (Path=/api/v1, SameSite=Strict), not in the body; Origin
-          must be FRONTEND_ORIGIN. Every endpoint that signs in takes it.'
+        description: "`1` (the web app): the refresh token is the HttpOnly `raa_refresh`
+          cookie (Path=/api/v1, SameSite=Strict) instead of `refresh_token` in the
+          body, and an Origin other than FRONTEND_ORIGIN is a 403. Never from a trip
+          link's tab-only session, whose token stays in the body."
       responses:
         '200':
           description: signed in
@@ -5755,7 +5798,8 @@ paths:
           type: string
           enum:
           - '1'
-        description: Sign out the cookie's session (RAA-306)
+        description: "`1`: revoke the `raa_refresh` cookie's token and delete the
+          cookie (RAA-306)"
       responses:
         '204':
           description: an unknown token is ignored
@@ -5802,16 +5846,27 @@ paths:
       summary: Sign in with an emailed code
       tags:
       - Auth
-      description: RAA-175. A code works once, for 10 minutes and 5 tries. Sent by
-        a guest with no email yet (the 409 at checkout), their trips move into this
-        account and that emailless guest is deleted. From this session the guest can
-        reset their trip link and PIN (POST /trip_access/rotate).
       parameters:
+      - name: X-Refresh-Cookie
+        in: header
+        required: false
+        schema:
+          type: string
+          enum:
+          - '1'
+        description: "`1` (the web app): the refresh token is the HttpOnly `raa_refresh`
+          cookie (Path=/api/v1, SameSite=Strict) instead of `refresh_token` in the
+          body, and an Origin other than FRONTEND_ORIGIN is a 403. Never from a trip
+          link's tab-only session, whose token stays in the body."
       - name: Authorization
         in: header
         required: false
         schema:
           type: string
+      description: RAA-175. A code works once, for 10 minutes and 5 tries. Sent by
+        a guest with no email yet (the 409 at checkout), their trips move into this
+        account and that emailless guest is deleted. From this session the guest can
+        reset their trip link and PIN (POST /trip_access/rotate).
       responses:
         '200':
           description: 'a password account: signed in, but its email isn''t confirmed
@@ -5951,8 +6006,10 @@ paths:
           type: string
           enum:
           - '1'
-        description: Read and set the refresh token as the HttpOnly `raa_refresh`
-          cookie (RAA-306)
+        description: "`1` (the web app): the refresh token is the HttpOnly `raa_refresh`
+          cookie (Path=/api/v1, SameSite=Strict) instead of `refresh_token` in the
+          body, and an Origin other than FRONTEND_ORIGIN is a 403. Never from a trip
+          link's tab-only session, whose token stays in the body."
       responses:
         '200':
           description: 'a trip link''s session keeps its end: refreshing doesn''t
@@ -5998,13 +6055,23 @@ paths:
       summary: Open a trip link with its PIN
       tags:
       - Auth
+      parameters:
+      - name: X-Refresh-Cookie
+        in: header
+        required: false
+        schema:
+          type: string
+          enum:
+          - '1'
+        description: 'Taken as on any sign-in, but the web app never sends it here:
+          a trip link''s session lives in one tab, and the cookie would replace the
+          browser''s own session (RAA-306).'
       description: 'RAA-175. Every open of the trip link asks for its PIN. The session
         lasts one open: its refresh token stops working 12 hours after the unlock,
         refreshes included, and the web app keeps it only in that tab. An unknown
         link and a wrong PIN get the same 401. Five wrong PINs in a row lock the link
         (423) until the guest resets it after signing in with an emailed code (POST
         /sign_in_codes).'
-      parameters: []
       responses:
         '200':
           description: 'opened: a session that ends with this open'

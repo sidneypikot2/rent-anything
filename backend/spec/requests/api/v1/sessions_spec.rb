@@ -19,10 +19,7 @@ RSpec.describe "Sessions", type: :request do
       }
       parameter name: :Authorization, in: :header, required: false, schema: { type: :string },
         description: "A guest with no account yet (RAA-175): their trips move into the account signed in to"
-      parameter name: "X-Refresh-Cookie", in: :header, required: false, schema: { type: :string, enum: %w[1] },
-        description: "The web app (RAA-306): the refresh token comes as the HttpOnly `raa_refresh` cookie " \
-          "(Path=/api/v1, SameSite=Strict), not in the body; Origin must be FRONTEND_ORIGIN. Every endpoint " \
-          "that signs in takes it."
+      refresh_cookie_header
 
       let!(:user) { create(:user, email: "ana@example.com", password: "password123") }
       let(:body) { { email: "ANA@example.com ", password: "password123", role: "guest" } }
@@ -153,8 +150,7 @@ RSpec.describe "Sessions", type: :request do
         type: :object,
         properties: { refresh_token: { type: :string, description: "Required unless the cookie carries it" } }
       }
-      parameter name: "X-Refresh-Cookie", in: :header, required: false, schema: { type: :string, enum: %w[1] },
-        description: "Sign out the cookie's session (RAA-306)"
+      refresh_cookie_header "`1`: revoke the `raa_refresh` cookie's token and delete the cookie (RAA-306)"
 
       let(:user) { create(:user) }
       let(:refresh_token) { Auth::IssueTokens.call(user)[:refresh_token] }

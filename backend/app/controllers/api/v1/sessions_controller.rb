@@ -15,7 +15,9 @@ module Api
       end
 
       def destroy
-        Auth::SignOut.call(refresh_token_from_request)
+        token = refresh_token_from_request
+        # In cookie mode a cookie already gone is signed out already; otherwise a token is required.
+        Auth::SignOut.call(token) unless token.nil? && refresh_cookie_mode?
         clear_refresh_cookie
         head :no_content
       end

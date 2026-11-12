@@ -8,8 +8,13 @@
 # The cookie is host-only on the API's host, SameSite=Strict, Path=/api/v1 and Secure outside
 # development and test. The web and API hosts are same-site (staging.tripkonext.com and
 # api.staging.tripkonext.com; localhost:8100 and :3100), so the web app's credentialed fetches
-# send it. CSRF: the custom header forces a CORS preflight, which only FRONTEND_ORIGIN passes,
-# and in cookie mode a request whose Origin isn't FRONTEND_ORIGIN gets a 403.
+# send it. CSRF: a cross-site request never carries the cookie (SameSite=Strict); the custom
+# header forces a CORS preflight, which only FRONTEND_ORIGIN passes; and in cookie mode a request
+# with an Origin other than FRONTEND_ORIGIN's gets a 403. A request with no Origin passes: browsers
+# send one on every POST and DELETE, and a client that sends none has no one else's cookie.
+#
+# The client must never send the header from a trip link's tab-only session: the cookie is the
+# browser's, so it would replace (or sign out) the browser's own session.
 module RefreshCookie
   extend ActiveSupport::Concern
   include ActionController::Cookies
@@ -44,10 +49,13 @@ module RefreshCookie
     render json: tokens, status:
   end
 
-  # In cookie mode the cookie, else the body. A body token in cookie mode is a session from
-  # before the cookie (localStorage), which this refresh moves into the cookie.
+  # The body's token when one is sent, else in cookie mode the cookie. A body token in cookie mode
+  # is a session from before the cookie (localStorage), which this refresh moves into the cookie,
+  # even over a dead cookie left from an earlier session.
   def refresh_token_from_request
-    (refresh_cookie_mode? && cookies[COOKIE].presence) || params[:refresh_token]
+    return params[:refresh_token] if params.key?(:refresh_token)
+
+    cookies[COOKIE].presence if refresh_cookie_mode?
   end
 
   # Only in cookie mode: a trip-link tab signing out must not end the browser's own session.
@@ -58,7 +66,7 @@ module RefreshCookie
   def set_refresh_cookie(token)
     cookies[COOKIE] = {
       value: token,
-      expires: RefreshToken.find_by_token(token).expires_at,
+      expires: RefreshToken.find_by_token(token)&.expires_at,
       path: PATH,
       httponly: true,
       secure: !Rails.env.local?,

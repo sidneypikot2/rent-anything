@@ -4,6 +4,7 @@ RSpec.describe "OAuth", type: :request do
   path "/api/v1/oauth/{provider}" do
     post "Sign in or sign up with Google or Facebook" do
       tags "Auth"
+      refresh_cookie_header
       consumes "application/json"
       produces "application/json"
       description "`token` is a Google Identity Services ID token or a Facebook Login access token. " \
