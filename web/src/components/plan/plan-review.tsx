@@ -3,16 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CheckoutSheet } from "@/components/bookings/checkout-sheet";
-import { useOpensInNewTab } from "@/components/discovery/business-row";
 import { guestsLabel, formatDateRange, thingCount } from "@/components/trips/format";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { bookable } from "@/components/trips/trip-details";
 import { useTripHere } from "@/components/trips/use-trip-here";
 import { itemProblem, itemQuote, pickedTotal, useTripQuote, type Trip } from "@/components/trips/use-trips";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { openOverPlan } from "./over-plan";
 import { stayPoint, type PlanPlace } from "./plan-data";
 import { planDays } from "./plan-days";
 import { PlanFoot, PlanHeading } from "./plan-frame";
+import { PlanOver, type PlanOverView } from "./plan-over";
 import { PlanReviewBody } from "./plan-review-body";
 import { PlanReviewSkeleton } from "./plan-skeletons";
 import { PlanSteps } from "./plan-steps";
@@ -21,8 +22,9 @@ import { planSteps, planStops, reviewStepHref, tripStepHref, useSkipped } from "
 // Step 3 (the team's A6; revamped in RAA-263): the trip day by day (`PlanReviewBody`, which the
 // cart and /trips show too, RAA-305), with every picked place and how it is settled beside it from
 // lg, under a tab below that. A row opens its listing's details. Send to partners is the cart's
-// checkout for every item that can be sent.
-export function PlanReview({ place }: { place: PlanPlace }) {
+// checkout for every item that can be sent. `over`: a listing opened from a row (`?listing=`), shown
+// in place of the days under the same track (RAA-309).
+export function PlanReview({ place, over }: { place: PlanPlace; over?: PlanOverView | null }) {
   const { session, trips, trip } = useTripHere(place.places);
   if (session === undefined || (session && trips.isPending))
     return <PlanReviewSkeleton />;
@@ -37,23 +39,17 @@ export function PlanReview({ place }: { place: PlanPlace }) {
     );
   return (
     <TripAddProvider places={place.places}>
-      <Review place={place} trip={trip} />
+      <Review place={place} trip={trip} over={over ?? null} />
     </TripAddProvider>
   );
 }
 
-function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
+function Review({ place, trip, over }: { place: PlanPlace; trip: Trip; over: PlanOverView | null }) {
   const quote = useTripQuote(trip.id);
   const [sending, setSending] = useState(false);
   const router = useRouter();
-  const newTab = useOpensInNewTab();
-  // A listing opens its own page, whose way back returns to this plan (`plan=1`): in a new tab
-  // on a laptop, in this one on a phone.
-  const setListing = (id: number) => {
-    const href = `/listings/${id}?trip=${trip.id}&plan=1&place=${place.area.slug}`;
-    if (newTab) window.open(href, "_blank", "opener");
-    else router.push(href);
-  };
+  // A listing opens in the planner's frame, under the track, at every width (RAA-309).
+  const setListing = (id: number) => openOverPlan(router, `/listings/${id}?trip=${trip.id}&plan=1&place=${place.area.slug}`);
   const stay = stayPoint(trip);
   const days = planDays(trip, place, stay?.point ?? null);
   const toSend = trip.items.filter((item) => bookable(item) && !itemProblem(item, itemQuote(quote.data, item)));
@@ -81,6 +77,10 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
   return (
     <>
       <PlanSteps stops={stops} active="review" />
+      {over ? (
+        <PlanOver over={over} backLabel="Back to review" />
+      ) : (
+      <>
       <div className="pb-2">
         <PlanHeading
           eyebrow={missing ? "Your plan so far" : "Your plan is ready"}
@@ -111,6 +111,8 @@ function Review({ place, trip }: { place: PlanPlace; trip: Trip }) {
           Send to partners
         </Button>
       </PlanFoot>
+      </>
+      )}
       {sending && <CheckoutSheet trip={trip} items={toSend} onClose={() => setSending(false)} />}
     </>
   );
