@@ -6,7 +6,9 @@ module ListingPhotos
   # partner's home, which guests only learn after a paid booking. Then its two sizes are made
   # next to it from that copy: image_card fills 800 by 600 for cards, image_large fits
   # within 1600 for its page, in the original's format. Guests see the photo only once this
-  # is done (sized_at). Run again, it does nothing.
+  # is done (sized_at). Run again, it does nothing. A file libvips can't read, or one over
+  # StoredPhoto::MAX_PIXELS (a decompression bomb), is deleted, row and all, before anything is
+  # decoded (RAA-221): it never becomes ready, and the partner no longer sees it.
   class ResizeJob < ApplicationJob
     queue_as :default
 
@@ -26,16 +28,29 @@ module ListingPhotos
       return if photo.sized_at
 
       original = PhotoStorage.download(photo.key)
+      return photo.reject! unless decodable?(original)
+
       # The original is replaced first, so a retry after a failure starts from the clean copy.
       VERSIONS.each do |field, (resize, quality)|
-        version = resize.call(ImageProcessing::Vips.source(original).saver(strip: true, quality:)).call
+        source = ImageProcessing::Vips.source(original).loader(fail: true)
+        version = resize.call(source.saver(strip: true, quality:)).call
         PhotoStorage.upload(photo.key(field), version, content_type: photo.content_type)
       ensure
         version&.close!
       end
       photo.update!(sized_at: Time.current)
+    rescue Vips::Error
+      photo.reject!
     ensure
       original&.close!
+    end
+
+    private
+
+    # Opening reads only the header, so the size is known before any pixel is decoded.
+    def decodable?(file)
+      image = Vips::Image.new_from_file(file.path, access: :sequential, fail: true)
+      image.width * image.height <= StoredPhoto::MAX_PIXELS
     end
   end
 end
