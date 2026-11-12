@@ -10,7 +10,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
-import { clearSession } from "@/lib/auth/session";
+import { clearSession, getSession, REFRESH_COOKIE } from "@/lib/auth/session";
 
 const CONFIRM_WORD = "DELETE";
 
@@ -20,7 +20,12 @@ const CONFIRM_WORD = "DELETE";
 function useDeleteAccount() {
   return useMutation({
     mutationFn: async () => {
-      const { error, response } = await apiClient().DELETE("/api/v1/me");
+      // The browser's own session deletes its refresh cookie too (RAA-226). A trip link's tab
+      // never sends it: the cookie is the browser's session, maybe someone else's.
+      const cookie = getSession()?.tabOnly
+        ? {}
+        : { params: { header: REFRESH_COOKIE.headers }, credentials: REFRESH_COOKIE.credentials };
+      const { error, response } = await apiClient().DELETE("/api/v1/me", cookie);
       if (!response.ok) throw new Error(error?.error ?? "Couldn't delete your account. Try again.");
     },
   });

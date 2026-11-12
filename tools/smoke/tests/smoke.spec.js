@@ -387,6 +387,14 @@ test("sign-up and the partner guard", async ({ page }) => {
   // No name yet: the header shows the email.
   await expect(page.getByTestId("nav-user")).toHaveText(`guest-${stamp}@example.com`);
 
+  // The refresh token is the API's HttpOnly cookie and the access token lives in memory
+  // (RAA-226): localStorage keeps only the user, and a reload stays signed in by refreshing.
+  const stored = await page.evaluate(() => localStorage.getItem("raa.session"));
+  expect(Object.keys(JSON.parse(stored))).toEqual(["user"]);
+  await page.reload();
+  await expect(page.getByTestId("guest-dashboard")).toBeVisible();
+  await expect(page.getByTestId("nav-user")).toHaveText(`guest-${stamp}@example.com`);
+
   // A guest on a partner page is sent to their own dashboard.
   await page.goto("/partner");
   await expect(page).toHaveURL(/\/dashboard$/);

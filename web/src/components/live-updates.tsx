@@ -52,8 +52,9 @@ function urlFor(token: string) {
 export function LiveUpdates() {
   const session = useSession();
   const queryClient = useQueryClient();
-  const accessToken = session?.accessToken;
+  const accessToken = session?.accessToken ?? undefined;
   const userId = session?.user.id;
+  const hasToken = Boolean(accessToken);
 
   const cableRef = useRef<Cable | null>(null);
   const tokenRef = useRef(accessToken);
@@ -71,8 +72,13 @@ export function LiveUpdates() {
     if (cable.state === "closed") void cable.connect().catch(() => {});
   }, [accessToken]);
 
+  // After a reload the access token is gone (it lives only in memory, RAA-226): get one.
   useEffect(() => {
-    if (userId === undefined || !tokenRef.current) return;
+    if (userId !== undefined && !hasToken) refreshQuietly();
+  }, [userId, hasToken]);
+
+  useEffect(() => {
+    if (userId === undefined || !hasToken || !tokenRef.current) return;
 
     const refetch = () => {
       for (const queryKey of [
@@ -125,7 +131,8 @@ export function LiveUpdates() {
       cableRef.current = null;
       cable.disconnect();
     };
-  }, [userId, queryClient]);
+    // hasToken: the first token after a reload opens it; later ones only change the URL (above).
+  }, [userId, hasToken, queryClient]);
 
   return null;
 }

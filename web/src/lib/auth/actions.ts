@@ -1,7 +1,16 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import { refreshSession } from "./middleware";
-import { clearSession, getSession, isAnonymous, saveSession, saveSessionUser, type AuthTokens, type User } from "./session";
+import {
+  clearSession,
+  getSession,
+  isAnonymous,
+  REFRESH_COOKIE,
+  saveSession,
+  saveSessionUser,
+  type AuthTokens,
+  type User,
+} from "./session";
 
 // The entry point a form is on decides the account's role (SPEC: three entry points).
 export type Role = User["role"];
@@ -11,6 +20,9 @@ export type OauthProvider = "google" | "facebook";
 type Result = { ok: true; user: User } | { ok: false; error: string };
 
 type ErrorBody = { error?: string; errors?: string[] } | undefined;
+
+// Every sign-in but a trip link's asks for the refresh token as the HttpOnly cookie (RAA-226).
+const cookie = { params: { header: REFRESH_COOKIE.headers }, credentials: REFRESH_COOKIE.credentials };
 
 function finish(data: AuthTokens | undefined, error: ErrorBody): Result {
   if (data) {
@@ -30,7 +42,7 @@ async function sendGuestToken() {
 
 export async function signIn(body: { email: string; password: string; role: Role }) {
   await sendGuestToken();
-  const { data, error } = await apiClient().POST("/api/v1/session", { body });
+  const { data, error } = await apiClient().POST("/api/v1/session", { ...cookie, body });
   return finish(data, error);
 }
 
@@ -38,14 +50,18 @@ export async function signIn(body: { email: string; password: string; role: Role
 // Called once the form's required ConsentField is ticked, so the agreement goes with it.
 export async function signUp(body: { email: string; password: string; role: SelfServeRole }) {
   await sendGuestToken();
-  const { data, error } = await apiClient().POST("/api/v1/registrations", { body: { ...body, terms_accepted: true } });
+  const { data, error } = await apiClient().POST("/api/v1/registrations", {
+    ...cookie,
+    body: { ...body, terms_accepted: true },
+  });
   return finish(data, error);
 }
 
 export async function oauthSignIn(provider: OauthProvider, token: string, role: SelfServeRole) {
   await sendGuestToken();
   const { data, error } = await apiClient().POST("/api/v1/oauth/{provider}", {
-    params: { path: { provider } },
+    ...cookie,
+    params: { ...cookie.params, path: { provider } },
     // Needed only if this makes a new account: sign-up enables the buttons once ConsentField is
     // ticked, and a sign-in page says under them that continuing agrees (ConsentNote).
     body: { token, role, terms_accepted: true },
@@ -56,7 +72,7 @@ export async function oauthSignIn(provider: OauthProvider, token: string, role: 
 // A guest with no account yet (RAA-175), made by a signed-out first add so the trip has an
 // owner. Kept like any session: this is the guest's own browser.
 export async function startGuestSession() {
-  const { data, error } = await apiClient().POST("/api/v1/guest_sessions");
+  const { data, error } = await apiClient().POST("/api/v1/guest_sessions", cookie);
   return finish(data, error);
 }
 
@@ -83,7 +99,10 @@ export async function requestSignInCode(email: string) {
 // from a trip link, whose sessions last one tab.
 export async function verifySignInCode(email: string, code: string, { tabOnly = false } = {}) {
   await sendGuestToken();
-  const { data, error } = await apiClient().POST("/api/v1/sign_in_codes/verify", { body: { email, code } });
+  const { data, error } = await apiClient().POST("/api/v1/sign_in_codes/verify", {
+    ...(!tabOnly && cookie),
+    body: { email, code },
+  });
   if (data) {
     saveSession(data, { tabOnly });
     return { ok: true as const, user: data.user };
@@ -105,7 +124,9 @@ export async function signOut(queryClient: QueryClient) {
   const session = getSession();
   clearSession({ all: true });
   queryClient.clear();
-  if (session) {
-    await apiClient().DELETE("/api/v1/session", { body: { refresh_token: session.refreshToken } });
-  }
+  if (!session) return;
+  // A trip link's session ends with its own token; the browser's with the cookie, and with a
+  // stored token too if it is from before the cookie.
+  const body = session.refreshToken ? { refresh_token: session.refreshToken } : {};
+  await apiClient().DELETE("/api/v1/session", session.tabOnly ? { body } : { ...cookie, body });
 }
