@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ComponentType } from "react";
@@ -52,6 +53,7 @@ const LINK = cn(MENU_ROW, "text-foreground");
 // click outside it and when the page changes.
 export function AccountMenu({ section }: { section: MenuSection }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const pathname = usePathname();
   const session = useSession();
   const [open, setOpen] = useState(false);
@@ -95,7 +97,7 @@ export function AccountMenu({ section }: { section: MenuSection }) {
 
   async function onSignOut() {
     setOpen(false);
-    await signOut();
+    await signOut(queryClient);
     router.replace(tripLink ? "/" : LOGIN_PATHS[section]);
   }
 

@@ -1,3 +1,4 @@
+import type { QueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import { refreshSession } from "./middleware";
 import { clearSession, getSession, isAnonymous, saveSession, saveSessionUser, type AuthTokens, type User } from "./session";
@@ -97,9 +98,13 @@ export async function refreshSessionUser() {
   if (data) saveSessionUser(data);
 }
 
-export async function signOut() {
+// Ends the session and drops every cached query (RAA-223), so on a shared device the next
+// user never sees the last one's trips or bookings while theirs load. Callers pass
+// `useQueryClient()`.
+export async function signOut(queryClient: QueryClient) {
   const session = getSession();
   clearSession({ all: true });
+  queryClient.clear();
   if (session) {
     await apiClient().DELETE("/api/v1/session", { body: { refresh_token: session.refreshToken } });
   }
