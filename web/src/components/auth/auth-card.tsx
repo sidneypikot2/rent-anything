@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Card, CardBody } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { PasswordField } from "@/components/ui/password-field";
 import { oauthSignIn, signIn, signUp, type OauthProvider, type Role } from "@/lib/auth/actions";
-import { DASHBOARD_PATHS, LOGIN_PATHS, REGISTER_PATHS, withNext } from "@/lib/auth/paths";
+import { DASHBOARD_PATHS, FORGOT_PASSWORD_PATHS, LOGIN_PATHS, REGISTER_PATHS, RESET_DONE_FLAG, withNext } from "@/lib/auth/paths";
 import { isAnonymous, useSession } from "@/lib/auth/session";
 import { ConsentField, ConsentNote } from "@/components/legal/consent-field";
 import { OauthButtons, hasOauthProviders, oauthProviderNames } from "./oauth-buttons";
@@ -47,9 +47,11 @@ type Props = {
   // own, compact fields, the link to the other form under the heading, and on a guest's a way to
   // the partner pages at its foot.
   plain?: boolean;
+  // A line over the form, e.g. after a password reset (RAA-215).
+  notice?: ReactNode;
 };
 
-export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = true, headingLevel = "h2", plain = false }: Props) {
+export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = true, headingLevel = "h2", plain = false, notice }: Props) {
   const Heading = headingLevel;
   const router = useRouter();
   const redirectTo = next ?? DASHBOARD_PATHS[role];
@@ -71,6 +73,16 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
   useEffect(() => {
     if (signedInHere && !onSignedIn) router.replace(redirectTo);
   }, [signedInHere, onSignedIn, redirectTo, router]);
+
+  // The notice's flag (?reset=1) leaves the URL once read: one-shot, so sign-in's `next` and a
+  // reload don't bring it back (web.md).
+  useEffect(() => {
+    if (!notice) return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has(RESET_DONE_FLAG)) return;
+    url.searchParams.delete(RESET_DONE_FLAG);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [notice]);
 
   async function run(action: () => ReturnType<typeof signIn>) {
     setPending(true);
@@ -118,10 +130,9 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
     );
   }
 
-  // Password reset isn't built yet; a guest's emailed code signs them in without one (RAA-177).
-  // A partner has no code, so they see nothing rather than a link that goes nowhere.
-  const forgotPassword = role === "guest" && !signup && (
-    <Link href={withNext("/login/code", next)} className="tap-target text-xs font-medium text-link hover:underline">
+  // An emailed link to choose a new password (RAA-215). Admins have none.
+  const forgotPassword = role !== "admin" && !signup && (
+    <Link href={FORGOT_PASSWORD_PATHS[role]} data-testid="forgot-password-link" className="tap-target text-xs font-medium text-link hover:underline">
       Forgot password?
     </Link>
   );
@@ -165,6 +176,11 @@ export function AuthCard({ role, mode, next, onSignedIn, title, switchLink = tru
           )}
         </div>
         {signup && <ConsentField partner={role === "partner"} checked={agreed} onChange={(event) => setAgreed(event.target.checked)} />}
+        {notice && !error && (
+          <p role="status" data-testid="auth-notice" className="text-sm font-medium text-emerald">
+            {notice}
+          </p>
+        )}
         {error && (
           <p role="alert" data-testid="auth-error" className="text-sm text-danger">
             {error}
