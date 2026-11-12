@@ -10,32 +10,16 @@ import { partnerCalendarKey, partnerRequestsKey } from "@/components/partner/use
 import { partnerDashboardKey } from "@/components/partner/use-partner-dashboard";
 import { tripsKey } from "@/components/trips/use-trips";
 import { refreshSession } from "@/lib/auth/middleware";
-import { useSession } from "@/lib/auth/session";
+import { getSession, useSession } from "@/lib/auth/session";
 import { cableUrl } from "@/lib/config";
 
 // What the API's UserChannel sends (RAA-201): only what changed, so the page refetches it
 // through the API, which decides what this user may see.
 type LiveMessage = { type?: string; notification_id?: number };
 
-// Whether a JWT's exp has passed (read, not verified: the server checks it).
-function expired(token: string | undefined): boolean {
-  if (!token) return false;
-  try {
-    const part = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const { exp } = JSON.parse(atob(part)) as { exp?: unknown };
-    return typeof exp === "number" && exp * 1000 <= Date.now();
-  } catch {
-    return false;
-  }
-}
-
 // A refresh that can't reach the API (offline) changes nothing here; the next one will.
 function refreshQuietly() {
   refreshSession().catch(() => {});
-}
-
-function urlFor(token: string) {
-  return `${cableUrl()}?token=${encodeURIComponent(token)}`;
 }
 
 // Keeps the signed-in user's WebSocket open (anycable, RAA-203) and refreshes what a booking
@@ -43,39 +27,39 @@ function urlFor(token: string) {
 // bell's notifications when one comes in (notification.created), with a sound. Inactive
 // queries are only marked stale. Renders nothing; a page works the same without it.
 //
-// One connection per user. The server checks the access token only when a connection opens,
-// so a new token just becomes the URL the next reconnect uses. A reconnect that couldn't
-// restore its session (a long outage) refetches, since messages may have been missed. A drop
-// with an expired token, or the server closing the connection, refreshes the session (the
-// latter once until a connection succeeds), and the new token reconnects; a failed refresh
-// signs out as it does for the API.
+// One connection per user, identified by the session's cable token (RAA-304), which anycable-go
+// checks itself. It goes as a WebSocket sub-protocol, so it is never in the URL. The server
+// checks it only when a connection opens, so a new token is just what the next reconnect sends.
+// A reconnect that couldn't restore its session (a long outage) refetches, since messages may
+// have been missed. When the token has expired (the server closes connections then, and refuses
+// to reopen them, with `token_expired`) the session is refreshed and the new token reconnects;
+// a failed refresh signs out as it does for the API. No cable token (an API without AnyCable):
+// no connection.
 export function LiveUpdates() {
   const session = useSession();
   const queryClient = useQueryClient();
-  const accessToken = session?.accessToken ?? undefined;
+  const signedInWithoutToken = Boolean(session && !session.accessToken);
+  const cableToken = session?.cableToken ?? undefined;
   const userId = session?.user.id;
-  const hasToken = Boolean(accessToken);
+  const hasToken = Boolean(cableToken);
 
   const cableRef = useRef<Cable | null>(null);
-  const tokenRef = useRef(accessToken);
-  // Set once a refused connection has refreshed the session, cleared when one connects: a
-  // server that refuses fresh tokens too (no secret set) gets one refresh, not a loop.
-  const refreshedRef = useRef(false);
+  const tokenRef = useRef(cableToken);
 
-  // A new token: the URL the next reconnect uses, and a reconnect now if the server had closed
+  // A new token: what the next reconnect sends, and a reconnect now if the server had closed
   // it. First, so the connection below opens with the token of the same render.
   useEffect(() => {
-    tokenRef.current = accessToken;
+    tokenRef.current = cableToken;
     const cable = cableRef.current;
-    if (!cable || !accessToken) return;
-    cable.transport.setURL(urlFor(accessToken));
+    if (!cable || !cableToken) return;
+    cable.transport.setToken(cableToken);
     if (cable.state === "closed") void cable.connect().catch(() => {});
-  }, [accessToken]);
+  }, [cableToken]);
 
-  // After a reload the access token is gone (it lives only in memory, RAA-226): get one.
+  // After a reload the tokens are gone (they live only in memory, RAA-226): get them.
   useEffect(() => {
-    if (userId !== undefined && !hasToken) refreshQuietly();
-  }, [userId, hasToken]);
+    if (signedInWithoutToken) refreshQuietly();
+  }, [signedInWithoutToken]);
 
   useEffect(() => {
     if (userId === undefined || !hasToken || !tokenRef.current) return;
@@ -93,10 +77,19 @@ export function LiveUpdates() {
       }
     };
 
-    const cable = createCable(urlFor(tokenRef.current), {
+    const cable = createCable(cableUrl(), {
       // Each reconnect gets the messages it missed, in order, while the server still has them.
       protocol: "actioncable-v1-ext-json",
       logLevel: "error",
+      websocketAuthStrategy: "sub-protocol",
+      auth: { token: tokenRef.current },
+      // On `token_expired` (once until a connection succeeds); the reconnect sends the new token.
+      tokenRefresher: async (transport) => {
+        await refreshSession();
+        const token = getSession()?.cableToken;
+        if (!token) throw new Error("no cable token");
+        transport.setToken(token);
+      },
     });
     cableRef.current = cable;
     const refetchNotifications = () => void queryClient.invalidateQueries({ queryKey: notificationsKey(userId) });
@@ -110,28 +103,16 @@ export function LiveUpdates() {
       }
     });
     cable.on("connect", (event) => {
-      refreshedRef.current = false;
       if (event.reconnect && !event.restored) {
         refetch();
         refetchNotifications();
       }
     });
-    // Dropped: anycable refuses an expired token at the handshake (a 403 the client takes for
-    // a network failure and retries), so renew it first; the retry then uses the new one.
-    cable.on("disconnect", () => {
-      if (expired(tokenRef.current)) refreshQuietly();
-    });
-    // An event means the server closed it (no event: our own disconnect below).
-    cable.on("close", (event) => {
-      if (!event || refreshedRef.current) return;
-      refreshedRef.current = true;
-      refreshQuietly();
-    });
     return () => {
       cableRef.current = null;
       cable.disconnect();
     };
-    // hasToken: the first token after a reload opens it; later ones only change the URL (above).
+    // hasToken: the first token after a reload opens it; later ones are only set (above).
   }, [userId, hasToken, queryClient]);
 
   return null;
