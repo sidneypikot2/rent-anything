@@ -4,7 +4,8 @@
    trips, slate neutrals on white, glass over photos; light-only. Components use the semantic
    tokens below (bg-surface, text-muted, border-line, bg-primary, ...) and the primitives in
    src/components/ui/; /admin/ui-kit shows them all. The full system, with usage notes, is the
-   Sky & Forest design system (https://claude.ai/artifact/EHtuf5t9vYx8ygEhKEZJ4Z). */
+   Sky & Forest design system (https://claude.ai/artifact/EHtuf5t9vYx8ygEhKEZJ4Z). Images made
+   with next/og can't read these: src/lib/og.tsx mirrors the ones they use, so change both. */
 @theme {
   /* Primary blue: buttons, links, prices. White on it is 5.2:1. */
   --color-cerulean: #2563eb;

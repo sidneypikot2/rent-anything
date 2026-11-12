@@ -360,6 +360,37 @@ test("page titles, descriptions and canonical links", async ({ request }) => {
   expect((await head("/search?q=boat")).robots).toContain("noindex");
 });
 
+// Shared links and structured data (RAA-233, RAA-241): the home, an area and a listing each
+// have Open Graph and Twitter tags with an image that loads, and server-rendered JSON-LD that
+// parses — the home naming the business and the site's search, an area its place and
+// breadcrumbs, a listing itself and its breadcrumbs.
+test("Open Graph tags and JSON-LD", async ({ request }) => {
+  const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1]).pathname;
+  const expected = { "/": ["Organization", "WebSite"], "/bantayan-island": ["BreadcrumbList"], [listing]: ["BreadcrumbList"] };
+  for (const [path, types] of Object.entries(expected)) {
+    const html = await (await request.get(path)).text();
+    const meta = (attribute, name) => html.match(new RegExp(`<meta ${attribute}="${name}" content="([^"]*)"`))?.[1];
+    expect(meta("property", "og:title"), path).toBeTruthy();
+    expect(meta("property", "og:description"), path).toBeTruthy();
+    expect(meta("property", "og:site_name"), path).toBeTruthy();
+    expect(meta("name", "twitter:card"), path).toBe("summary_large_image");
+    const image = new URL(meta("property", "og:image"));
+    // The default image is this site's own; a cover photo is the storage's.
+    if (image.pathname.startsWith("/opengraph-image")) {
+      const response = await request.get(image.pathname);
+      expect(response.status(), path).toBe(200);
+      expect(response.headers()["content-type"], path).toBe("image/png");
+    }
+    const nodes = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([^<]*)<\/script>/g)].flatMap((match) => {
+      const data = JSON.parse(match[1]);
+      return data["@graph"] ?? [data];
+    });
+    const found = nodes.flatMap((node) => [node["@type"]].flat());
+    for (const type of types) expect(found, path).toContain(type);
+  }
+  expect((await request.get("/logo.png")).status()).toBe(200);
+});
+
 // Sign-up through the real API (email and password only), and the /partner guard: signed
 // out goes to /partner/login, a guest is sent home, a partner gets the dashboard.
 // Sent before the page's JavaScript loads, the browser posts the form itself (RAA-269): a GET

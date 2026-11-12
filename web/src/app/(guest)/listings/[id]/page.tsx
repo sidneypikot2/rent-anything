@@ -14,7 +14,9 @@ import { DisplayTitle } from "@/components/ui/typography";
 import { BRAND } from "@/lib/brand";
 import { formatPeso } from "@/lib/money";
 import { pricedByText, priceUnitText } from "@/lib/pricing";
-import { canonical, listingPath, metaDescription } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/json-ld";
+import { breadcrumbJsonLd, listingJsonLd } from "@/lib/json-ld";
+import { canonical, listingCrumbs, listingPath, metaDescription, openGraph } from "@/lib/seo";
 
 export async function generateMetadata(props: PageProps<"/listings/[id]">): Promise<Metadata> {
   const id = listingId((await props.params).id);
@@ -24,6 +26,8 @@ export async function generateMetadata(props: PageProps<"/listings/[id]">): Prom
     title: listingTitle(listing),
     description: metaDescription(listing.summary || listingFallbackDescription(listing)),
     alternates: canonical(listingPath(listing)),
+    // Shared with its cover photo (RAA-233).
+    openGraph: openGraph(listingPath(listing), listing.photos[0] && { url: listing.photos[0].large_url, alt: listing.title }),
   };
 }
 
@@ -73,6 +77,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   return (
     <main className="flex flex-1 flex-col">
       <CurrentPlace name={from.name} slug={from.slug} />
+      <JsonLd nodes={[listingJsonLd(listing), breadcrumbJsonLd(listingCrumbs(listing))]} />
       {tripId && <AdoptTrip id={tripId} />}
       <PageBanner
         compact

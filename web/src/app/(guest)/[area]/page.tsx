@@ -60,7 +60,9 @@ import { DisplayTitle } from "@/components/ui/typography";
 import { formatDateRange } from "@/lib/dates";
 import { formatPeso } from "@/lib/money";
 import { pricedByText, priceUnitText } from "@/lib/pricing";
-import { canonical, metaDescription } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/json-ld";
+import { breadcrumbJsonLd, placeJsonLd } from "@/lib/json-ld";
+import { areaCrumbs, canonical, metaDescription, openGraph } from "@/lib/seo";
 
 type Listing = BrowseListing;
 // The rows' groups, each fetched as What to book's first page (book_cards).
@@ -71,7 +73,7 @@ const ROW_SIZE = 10;
 export async function generateMetadata(props: PageProps<"/[area]">): Promise<Metadata> {
   const detail = await getAreaPlaces((await props.params).area);
   if (!detail) return { title: "Not found" };
-  const { area, groups, guide, landmarks } = detail;
+  const { area, groups, guide, landmarks, photos } = detail;
   // What a search result shows (Klook's "Singapore 2026: Top places to visit…"): the year and
   // what the page holds; the description the team's tagline, then what there is to book here
   // (RAA-229), so no two places share one.
@@ -85,6 +87,8 @@ export async function generateMetadata(props: PageProps<"/[area]">): Promise<Met
     description: metaDescription(`${lead.replace(/[.!]$/, "")}. ${toBook}`),
     // The place itself, without trip dates, a trip or a search (RAA-238).
     alternates: canonical(`/${area.slug}`),
+    // Shared, its own banner photo once the team has added one, never a sample (RAA-233).
+    openGraph: openGraph(`/${area.slug}`, photos[0] && { url: photos[0].large_url, alt: area.name }),
   };
 }
 
@@ -384,6 +388,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   return (
     <main className="flex flex-1 flex-col">
       <CurrentPlace name={area.name} slug={area.slug} />
+      <JsonLd nodes={[placeJsonLd(detail), breadcrumbJsonLd(areaCrumbs(area))]} />
       {tripId && <AdoptTrip id={tripId} />}
       {listingCount > 0 ? (
         // The place's banner, with the guest's trip here at its foot.

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BRAND, TAGLINE } from "@/lib/brand";
 
 // Page metadata helpers (RAA-227, RAA-229, RAA-238). Conventions in .claude/rules/seo.md.
 
@@ -26,4 +27,31 @@ export function metaDescription(text: string, max = 160): string {
   const cut = clean.slice(0, max - 1);
   const atWord = cut.slice(0, cut.lastIndexOf(" "));
   return `${(atWord || cut).replace(/[\s,.;:–-]+$/, "")}…`;
+}
+
+// Open Graph (RAA-233). The root layout sets these for every page and the default share image
+// (app/opengraph-image.tsx); og:title and og:description follow each page's own title and
+// description, so a page never writes them twice. A page with its own image or URL sets
+// `openGraph(path, image)`: metadata merges shallowly, so its openGraph replaces the layout's
+// whole, and this keeps the shared fields and the default image with it.
+export const OPEN_GRAPH = { siteName: BRAND, type: "website", locale: "en_PH" } as const;
+export const DEFAULT_OG_IMAGE = { url: "/opengraph-image", width: 1200, height: 630, alt: `${BRAND}: ${TAGLINE}` };
+
+export function openGraph(path: string, image?: { url: string; alt: string } | null): Metadata["openGraph"] {
+  return { ...OPEN_GRAPH, url: path, images: [image ?? DEFAULT_OG_IMAGE] };
+}
+
+// A trail from the home page down to a page (RAA-241): the BreadcrumbList JSON-LD now, the
+// visible breadcrumbs later (RAA-237), from the same list. Paths, made absolute where needed.
+export type Crumb = { name: string; path: string };
+
+export function areaCrumbs(area: { slug: string; name: string }): Crumb[] {
+  return [
+    { name: "Home", path: "/" },
+    { name: area.name, path: `/${area.slug}` },
+  ];
+}
+
+export function listingCrumbs(listing: { id: number; title: string; area: { slug: string; name: string } }): Crumb[] {
+  return [...areaCrumbs(listing.area), { name: listing.title, path: listingPath(listing) }];
 }
