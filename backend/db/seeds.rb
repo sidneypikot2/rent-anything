@@ -182,15 +182,18 @@ end
 # Accounts to sign in with while developing (RAA-132): every sample partner, so a guest's
 # booking can be seen from the partner side, and one guest. All share DEV_PASSWORD.
 # Development only: the data migrations above leave the sample partners without a password
-# on purpose, so nobody can sign in as them anywhere else.
+# on purpose, so nobody can sign in as them anywhere else. Their emails count as confirmed
+# (RAA-214), so the sample guest can check out.
 if Rails.env.development?
   DEV_PASSWORD = "password123".freeze
 
   partner_emails = SeedDiscoverySampleData::PARTNERS.map(&:first) + [ "santa-fe-adventures@example.com" ]
   User.where(role: "partner", email: partner_emails).find_each do |partner|
-    partner.update!(password: DEV_PASSWORD, phone: partner.phone || "+63 917 555 0100", registration_complete: true)
+    partner.update!(password: DEV_PASSWORD, phone: partner.phone || "+63 917 555 0100", registration_complete: true,
+      email_confirmed_at: partner.email_confirmed_at || Time.current)
   end
 
   guest = User.find_or_initialize_by(role: "guest", email: "guest@example.com")
-  guest.update!(name: "Sample Guest", phone: "+63 917 555 0199", password: DEV_PASSWORD, registration_complete: true)
+  guest.update!(name: "Sample Guest", phone: "+63 917 555 0199", password: DEV_PASSWORD, registration_complete: true,
+    email_confirmed_at: guest.email_confirmed_at || Time.current)
 end

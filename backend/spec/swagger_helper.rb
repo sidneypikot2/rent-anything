@@ -217,9 +217,15 @@ RSpec.configure do |config|
                 type: :boolean,
                 description: "Has a password or a Google or Facebook sign-in. A guest who isn't has their trips deleted " \
                   "60 days after each ends; POST /api/v1/me/register sets a password"
+              },
+              email_confirmed: {
+                type: :boolean,
+                description: "Has proved it owns its email (RAA-214): the emailed link, a password reset, an emailed " \
+                  "sign-in code or Google. A password account needs it to check out or pay; " \
+                  "POST /api/v1/email_confirmation sends the link again"
               }
             },
-            required: %w[id email name phone role registration_complete registered]
+            required: %w[id email name phone role registration_complete registered email_confirmed]
           },
           # A profile's address; fields are null until the profile is first saved.
           profile_address: {
@@ -297,6 +303,16 @@ RSpec.configure do |config|
             type: :object,
             properties: { error: { type: :string } },
             required: %w[error]
+          },
+          # The 403 a password account gets checking out or paying before it confirms its email
+          # (RAA-214): the code tells the client to offer the link again (POST /email_confirmation).
+          email_unconfirmed_error: {
+            type: :object,
+            properties: {
+              error: { type: :string },
+              code: { type: :string, enum: [ EmailUnconfirmedError::CODE ] }
+            },
+            required: %w[error code]
           },
           validation_errors: {
             type: :object,

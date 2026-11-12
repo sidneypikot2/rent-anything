@@ -48,7 +48,10 @@ RSpec.describe "Registrations", type: :request do
           expect(User.last).to have_attributes(terms_version: User::TERMS_VERSION, terms_accepted_at: be_within(1.minute).of(Time.current))
           json = response.parsed_body
           expect(json["user"]).to include("email" => "ana@example.com", "role" => "guest")
-          expect(User.find_by(email: "ana@example.com")).to be_present
+          expect(User.find_by(email: "ana@example.com")).to have_attributes(email_confirmed_at: nil)
+          expect(json["user"]).to include("email_confirmed" => false)
+          expect(ActionMailer::MailDeliveryJob).to have_been_enqueued
+            .with("AccountMailer", "email_confirmation", "deliver_now", a_hash_including(args: array_including(User.last)))
         end
       end
 

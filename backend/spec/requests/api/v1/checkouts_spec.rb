@@ -27,7 +27,8 @@ RSpec.describe "Checkouts", type: :request do
         "checked against the calendar as it is now, all or nothing. An instant-book listing's booking is held for " \
         "payment; a request-to-book one's is a request its partner answers within 24 hours. Both hold their days " \
         "at once. Requests wait for their partner's answer (RAA-134). Nothing is paid here: the guest pays for " \
-        "bookings held for payment afterwards (POST /bookings/pay, RAA-143). Sending the same `idempotency_key` again returns the same checkout."
+        "bookings held for payment afterwards (POST /bookings/pay, RAA-143). Sending the same `idempotency_key` again returns the same checkout. " \
+        "A password account must have confirmed its email first (403 `email_unconfirmed`, RAA-214)."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
       parameter name: :body, in: :body, schema: { "$ref" => "#/components/schemas/checkout_body" }
@@ -388,6 +389,17 @@ RSpec.describe "Checkouts", type: :request do
         let(:trip) { create(:trip, starts_on: day, ends_on: day + 3) }
 
         run_test! { expect(Booking.count).to eq(0) }
+      end
+
+      response "403", "a password account whose email isn't confirmed (RAA-214)" do
+        schema "$ref" => "#/components/schemas/email_unconfirmed_error"
+
+        let(:user) { create(:user, :unconfirmed) }
+
+        run_test! do |response|
+          expect(response.parsed_body).to include("code" => "email_unconfirmed")
+          expect(Booking.count).to eq(0)
+        end
       end
 
       response "403", "a partner" do

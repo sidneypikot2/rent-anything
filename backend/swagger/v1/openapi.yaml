@@ -1617,7 +1617,8 @@ paths:
         pays on; they come back to /cart?payment=<id>, and the bookings are confirmed
         once PayMongo reports the payment. Bookings paid already, or priced at nothing,
         are confirmed at once with no charge. Without PayMongo a stub pays at once,
-        one payment per checkout, and payment is null.'
+        one payment per checkout, and payment is null. A password account must have
+        confirmed its email first (403 `email_unconfirmed`, RAA-214).'
       security:
       - bearer: []
       parameters: []
@@ -1635,6 +1636,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+        '403':
+          description: a password account whose email isn't confirmed (RAA-214)
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/email_unconfirmed_error"
         '422':
           description: no bookings
           content:
@@ -1880,7 +1887,8 @@ paths:
         hold their days at once. Requests wait for their partner''s answer (RAA-134).
         Nothing is paid here: the guest pays for bookings held for payment afterwards
         (POST /bookings/pay, RAA-143). Sending the same `idempotency_key` again returns
-        the same checkout.'
+        the same checkout. A password account must have confirmed its email first
+        (403 `email_unconfirmed`, RAA-214).'
       security:
       - bearer: []
       parameters:
@@ -1932,6 +1940,69 @@ paths:
           application/json:
             schema:
               "$ref": "#/components/schemas/checkout_body"
+  "/api/v1/email_confirmation":
+    post:
+      summary: Email the signed-in user a link to confirm their email
+      tags:
+      - Auth
+      description: 'RAA-214. Sends again the link sign-up sends: it opens /confirm-email?token=…
+        on the web app and works for 24 hours, until the email changes. Answers 202
+        and sends nothing when the email is confirmed already. Limited per IP and
+        per user.'
+      security:
+      - bearer: []
+      parameters:
+      - name: Authorization
+        in: header
+        schema:
+          type: string
+      responses:
+        '202':
+          description: 'confirmed already: nothing is sent'
+        '422':
+          description: a guest with no email yet
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
+        '401':
+          description: signed out
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+        '429':
+          description: too many from one IP
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/error"
+  "/api/v1/email_confirmation/verify":
+    post:
+      summary: Confirm an email with the emailed link's token
+      tags:
+      - Auth
+      description: 'RAA-214. No sign-in needed: the link may open on another device.
+        A token works for 24 hours, and only while the account''s email is still the
+        one it was sent to. Confirming again is harmless.'
+      parameters: []
+      responses:
+        '204':
+          description: confirmed
+        '422':
+          description: no token
+        '429':
+          description: too many from one IP
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+              required:
+              - token
   "/api/v1/explore":
     get:
       summary: Listings, nearby destinations and recommendations for a destination
@@ -5041,6 +5112,70 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/error"
+  "/api/v1/password_reset":
+    post:
+      summary: Email a link to choose a new password
+      tags:
+      - Auth
+      description: 'RAA-214. `role` is the page''s, as at sign-in. Answers 202 whether
+        or not the email has an account of that role, and only an account with a password
+        gets a link: it opens /reset-password?token=… on the web app and works for
+        30 minutes, once. Limited per IP and per email.'
+      parameters: []
+      responses:
+        '202':
+          description: 'an account with no password (Google, or a guest without one):
+            nothing sent'
+        '422':
+          description: an admin
+        '429':
+          description: too many from one IP
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                role:
+                  type: string
+                  enum:
+                  - guest
+                  - partner
+              required:
+              - email
+              - role
+    patch:
+      summary: Choose a new password with the emailed link's token
+      tags:
+      - Auth
+      description: 'RAA-214. The token works for 30 minutes and only until the password
+        changes, so once. Every session of the account is signed out, and the email
+        counts as confirmed: the link proved it. The account then signs in with the
+        new password.'
+      parameters: []
+      responses:
+        '204':
+          description: the password is changed and every session ends
+        '422':
+          description: no password
+        '429':
+          description: too many from one IP
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+              required:
+              - token
+              - password
   "/api/v1/payments/{id}":
     parameters:
     - name: Authorization
@@ -5599,8 +5734,8 @@ paths:
           type: string
       responses:
         '200':
-          description: 'from a guest with no email yet: their trips move into this
-            account'
+          description: 'a password account: signed in, but its email isn''t confirmed
+            by the code (RAA-214)'
           content:
             application/json:
               schema:
@@ -7233,6 +7368,12 @@ components:
           description: Has a password or a Google or Facebook sign-in. A guest who
             isn't has their trips deleted 60 days after each ends; POST /api/v1/me/register
             sets a password
+        email_confirmed:
+          type: boolean
+          description: 'Has proved it owns its email (RAA-214): the emailed link,
+            a password reset, an emailed sign-in code or Google. A password account
+            needs it to check out or pay; POST /api/v1/email_confirmation sends the
+            link again'
       required:
       - id
       - email
@@ -7241,6 +7382,7 @@ components:
       - role
       - registration_complete
       - registered
+      - email_confirmed
     profile_address:
       type: object
       properties:
@@ -7394,6 +7536,18 @@ components:
           type: string
       required:
       - error
+    email_unconfirmed_error:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          enum:
+          - email_unconfirmed
+      required:
+      - error
+      - code
     validation_errors:
       type: object
       properties:
