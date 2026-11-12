@@ -1,6 +1,8 @@
 module Api
   module V1
     class MeController < ApplicationController
+      include RefreshCookie
+
       before_action :authenticate_user!
 
       def show
@@ -13,6 +15,7 @@ module Api
 
       def destroy
         Users::DeleteAccount.call(current_user)
+        clear_refresh_cookie
         head :no_content
       end
     end

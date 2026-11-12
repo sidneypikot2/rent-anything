@@ -40,6 +40,8 @@ module Backend
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+    # The refresh token's HttpOnly cookie (RAA-306, RefreshCookie); there is no cookie session.
+    config.middleware.use ActionDispatch::Cookies
 
     # Active Record Encryption (RAA-145: payout account numbers). The keys come from the
     # environment on staging; development and test set fixed, non-secret ones of their own.

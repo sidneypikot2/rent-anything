@@ -2658,7 +2658,10 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: never;
+                header?: {
+                    /** @description `1` (the web app): the refresh token is the HttpOnly `raa_refresh` cookie (Path=/api/v1, SameSite=Strict) instead of `refresh_token` in the body, and an Origin other than FRONTEND_ORIGIN is a 403. Never from a trip link's tab-only session, whose token stays in the body. */
+                    "X-Refresh-Cookie"?: "1";
+                };
                 path?: never;
                 cookie?: never;
             };
@@ -3403,6 +3406,8 @@ export interface paths {
             parameters: {
                 query?: never;
                 header?: {
+                    /** @description `1`: also delete the `raa_refresh` cookie (RAA-306) */
+                    "X-Refresh-Cookie"?: "1";
                     Authorization?: string;
                 };
                 path?: never;
@@ -3760,6 +3765,8 @@ export interface paths {
             parameters: {
                 query?: never;
                 header?: {
+                    /** @description `1` (the web app): the refresh token is the HttpOnly `raa_refresh` cookie (Path=/api/v1, SameSite=Strict) instead of `refresh_token` in the body, and an Origin other than FRONTEND_ORIGIN is a 403. Never from a trip link's tab-only session, whose token stays in the body. */
+                    "X-Refresh-Cookie"?: "1";
                     /** @description A guest with no account yet (RAA-175): their trips move into the account signed in to */
                     Authorization?: string;
                 };
@@ -7009,6 +7016,8 @@ export interface paths {
             parameters: {
                 query?: never;
                 header?: {
+                    /** @description `1` (the web app): the refresh token is the HttpOnly `raa_refresh` cookie (Path=/api/v1, SameSite=Strict) instead of `refresh_token` in the body, and an Origin other than FRONTEND_ORIGIN is a 403. Never from a trip link's tab-only session, whose token stays in the body. */
+                    "X-Refresh-Cookie"?: "1";
                     /** @description A guest with no account yet (RAA-175): their trips move into the account signed in to */
                     Authorization?: string;
                 };
@@ -7217,6 +7226,8 @@ export interface paths {
                 header?: {
                     /** @description A guest with no account yet (RAA-175): their trips move into the account signed in to */
                     Authorization?: string;
+                    /** @description `1` (the web app): the refresh token is the HttpOnly `raa_refresh` cookie (Path=/api/v1, SameSite=Strict) instead of `refresh_token` in the body, and an Origin other than FRONTEND_ORIGIN is a 403. Never from a trip link's tab-only session, whose token stays in the body. */
+                    "X-Refresh-Cookie"?: "1";
                 };
                 path?: never;
                 cookie?: never;
@@ -7272,18 +7283,25 @@ export interface paths {
                 };
             };
         };
-        /** Sign out (revoke a refresh token) */
+        /**
+         * Sign out (revoke a refresh token)
+         * @description With `X-Refresh-Cookie: 1` the `raa_refresh` cookie's token is revoked and the cookie deleted; otherwise the body's.
+         */
         delete: {
             parameters: {
                 query?: never;
-                header?: never;
+                header?: {
+                    /** @description `1`: revoke the `raa_refresh` cookie's token and delete the cookie (RAA-306) */
+                    "X-Refresh-Cookie"?: "1";
+                };
                 path?: never;
                 cookie?: never;
             };
             requestBody?: {
                 content: {
                     "application/json": {
-                        refresh_token: string;
+                        /** @description Required unless the cookie carries it */
+                        refresh_token?: string;
                     };
                 };
             };
@@ -7383,6 +7401,8 @@ export interface paths {
             parameters: {
                 query?: never;
                 header?: {
+                    /** @description `1` (the web app): the refresh token is the HttpOnly `raa_refresh` cookie (Path=/api/v1, SameSite=Strict) instead of `refresh_token` in the body, and an Origin other than FRONTEND_ORIGIN is a 403. Never from a trip link's tab-only session, whose token stays in the body. */
+                    "X-Refresh-Cookie"?: "1";
                     Authorization?: string;
                 };
                 path?: never;
@@ -7522,19 +7542,23 @@ export interface paths {
         put?: never;
         /**
          * Trade a refresh token for new tokens
-         * @description Each refresh token works once. Reusing one revokes every session of that user.
+         * @description Each refresh token works once. Reusing one revokes every session of that user. With `X-Refresh-Cookie: 1` the token is read from the `raa_refresh` cookie (or, once, from the body: a session from before the cookie) and the new one set as the cookie.
          */
         post: {
             parameters: {
                 query?: never;
-                header?: never;
+                header?: {
+                    /** @description `1` (the web app): the refresh token is the HttpOnly `raa_refresh` cookie (Path=/api/v1, SameSite=Strict) instead of `refresh_token` in the body, and an Origin other than FRONTEND_ORIGIN is a 403. Never from a trip link's tab-only session, whose token stays in the body. */
+                    "X-Refresh-Cookie"?: "1";
+                };
                 path?: never;
                 cookie?: never;
             };
             requestBody?: {
                 content: {
                     "application/json": {
-                        refresh_token: string;
+                        /** @description Required unless the cookie carries it */
+                        refresh_token?: string;
                     };
                 };
             };
@@ -7601,7 +7625,10 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: never;
+                header?: {
+                    /** @description Taken as on any sign-in, but the web app never sends it here: a trip link's session lives in one tab, and the cookie would replace the browser's own session (RAA-306). */
+                    "X-Refresh-Cookie"?: "1";
+                };
                 path?: never;
                 cookie?: never;
             };
@@ -9268,7 +9295,8 @@ export interface components {
         };
         auth_tokens: {
             access_token: string;
-            refresh_token: string;
+            /** @description Absent when the request sent `X-Refresh-Cookie: 1`: the token is then set as the HttpOnly `raa_refresh` cookie instead (RAA-306). */
+            refresh_token?: string;
             /** @description Opens the WebSocket (anycable-go JWT, sent as the `anycable-token.<token>` sub-protocol, never in the URL); expires with the access token. Null when real-time is off. */
             cable_token: string | null;
             /** @description Seconds until the access token expires */

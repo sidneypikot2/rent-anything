@@ -6,12 +6,14 @@ RSpec.describe "Tokens", type: :request do
       tags "Auth"
       consumes "application/json"
       produces "application/json"
-      description "Each refresh token works once. Reusing one revokes every session of that user."
+      description "Each refresh token works once. Reusing one revokes every session of that user. With " \
+        "`X-Refresh-Cookie: 1` the token is read from the `raa_refresh` cookie (or, once, from the body: a session " \
+        "from before the cookie) and the new one set as the cookie."
       parameter name: :body, in: :body, schema: {
         type: :object,
-        properties: { refresh_token: { type: :string } },
-        required: %w[refresh_token]
+        properties: { refresh_token: { type: :string, description: "Required unless the cookie carries it" } }
       }
+      refresh_cookie_header
 
       let(:user) { create(:user) }
       let(:refresh_token) { Auth::IssueTokens.call(user)[:refresh_token] }

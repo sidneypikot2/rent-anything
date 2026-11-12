@@ -4,6 +4,7 @@ RSpec.describe "Guest sessions", type: :request do
   path "/api/v1/guest_sessions" do
     post "Start as a guest without an account" do
       tags "Auth"
+      refresh_cookie_header
       produces "application/json"
       description "RAA-175. Makes a guest with no email, so a trip made before signing in has an owner, and signs " \
         "them in. They give name, email and phone at their first checkout (`contact` on POST /checkouts), and come " \

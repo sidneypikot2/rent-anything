@@ -150,6 +150,7 @@ RSpec.describe "Me", type: :request do
   path "/api/v1/me" do
     delete "Delete the signed-in guest's account" do
       tags "Auth"
+      refresh_cookie_header "`1`: also delete the `raa_refresh` cookie (RAA-306)"
       produces "application/json"
       description "Guests only: deletes the account, its trips, sign-ins and sessions at once, and emails a " \
         "confirmation. Partners' records of past bookings stay. 409 while a booking is still open; 403 for " \

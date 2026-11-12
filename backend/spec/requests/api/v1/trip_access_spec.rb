@@ -7,6 +7,8 @@ RSpec.describe "Trip access", type: :request do
   path "/api/v1/trip_access/unlock" do
     post "Open a trip link with its PIN" do
       tags "Auth"
+      refresh_cookie_header "Taken as on any sign-in, but the web app never sends it here: a trip link's session " \
+        "lives in one tab, and the cookie would replace the browser's own session (RAA-306)."
       consumes "application/json"
       produces "application/json"
       description "RAA-175. Every open of the trip link asks for its PIN. The session lasts one open: its refresh " \

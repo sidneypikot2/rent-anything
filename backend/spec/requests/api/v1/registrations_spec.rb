@@ -4,6 +4,7 @@ RSpec.describe "Registrations", type: :request do
   path "/api/v1/registrations" do
     post "Sign up with email and password" do
       tags "Auth"
+      refresh_cookie_header
       consumes "application/json"
       produces "application/json"
       description "`role` is the entry point: `guest` from /login, `partner` from /partner/login. " \

@@ -19,6 +19,7 @@ RSpec.describe "Sessions", type: :request do
       }
       parameter name: :Authorization, in: :header, required: false, schema: { type: :string },
         description: "A guest with no account yet (RAA-175): their trips move into the account signed in to"
+      refresh_cookie_header
 
       let!(:user) { create(:user, email: "ana@example.com", password: "password123") }
       let(:body) { { email: "ANA@example.com ", password: "password123", role: "guest" } }
@@ -143,11 +144,13 @@ RSpec.describe "Sessions", type: :request do
     delete "Sign out (revoke a refresh token)" do
       tags "Auth"
       consumes "application/json"
+      description "With `X-Refresh-Cookie: 1` the `raa_refresh` cookie's token is revoked and the cookie deleted; " \
+        "otherwise the body's."
       parameter name: :body, in: :body, schema: {
         type: :object,
-        properties: { refresh_token: { type: :string } },
-        required: %w[refresh_token]
+        properties: { refresh_token: { type: :string, description: "Required unless the cookie carries it" } }
       }
+      refresh_cookie_header "`1`: revoke the `raa_refresh` cookie's token and delete the cookie (RAA-306)"
 
       let(:user) { create(:user) }
       let(:refresh_token) { Auth::IssueTokens.call(user)[:refresh_token] }

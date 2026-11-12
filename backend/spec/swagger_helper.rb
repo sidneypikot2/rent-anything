@@ -293,7 +293,11 @@ RSpec.configure do |config|
             type: :object,
             properties: {
               access_token: { type: :string },
-              refresh_token: { type: :string },
+              refresh_token: {
+                type: :string,
+                description: "Absent when the request sent `X-Refresh-Cookie: 1`: the token is then set as the " \
+                  "HttpOnly `raa_refresh` cookie instead (RAA-306)."
+              },
               cable_token: {
                 type: :string, nullable: true,
                 description: "Opens the WebSocket (anycable-go JWT, sent as the `anycable-token.<token>` " \
@@ -302,7 +306,7 @@ RSpec.configure do |config|
               expires_in: { type: :integer, description: "Seconds until the access token expires" },
               user: { "$ref" => "#/components/schemas/user" }
             },
-            required: %w[access_token refresh_token cable_token expires_in user]
+            required: %w[access_token cable_token expires_in user]
           },
           error: {
             type: :object,
