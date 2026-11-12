@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Runs shellcheck on every shell script in the repo: the Claude Code hooks, the git hooks
-# and script/. Uses a local shellcheck when there is one (CI), otherwise the official
+# Runs shellcheck on every shell script in the repo: the Claude Code hooks, the git hooks,
+# script/ and deploy/. Uses a local shellcheck when there is one (CI), otherwise the official
 # container. Run from anywhere.
 set -euo pipefail
 
@@ -10,7 +10,7 @@ files=()
 while IFS= read -r file; do
   # Shell scripts only: script/ and .githooks/ have no extensions, so go by the shebang.
   head -n1 "$file" | grep -Eq '^#!.*\b(ba)?sh\b' && files+=("$file")
-done < <(git ls-files --cached --others --exclude-standard -- .claude/hooks .claude/cloud-setup.sh '.claude/skills/*/scripts' .githooks script)
+done < <(git ls-files --cached --others --exclude-standard -- .claude/hooks .claude/cloud-setup.sh '.claude/skills/*/scripts' .githooks script deploy)
 
 if command -v shellcheck >/dev/null; then
   shellcheck --severity=warning "${files[@]}"
