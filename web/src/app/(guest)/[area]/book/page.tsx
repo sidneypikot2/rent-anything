@@ -19,6 +19,7 @@ import { AdoptTrip, TripLinkProvider } from "@/components/trips/trip-link";
 import { readTripDates, tripDatesQuery, tripParam } from "@/components/trips/trip-dates";
 import { cn } from "@/components/ui/cn";
 import { DisplayTitle } from "@/components/ui/typography";
+import { canonical } from "@/lib/seo";
 
 export async function generateMetadata(props: PageProps<"/[area]/book">): Promise<Metadata> {
   const detail = await getAreaPlaces((await props.params).area);
@@ -26,7 +27,9 @@ export async function generateMetadata(props: PageProps<"/[area]/book">): Promis
   const { area } = detail;
   return {
     title: `What to book on ${area.name}`,
-    description: `Stays, tours, transfers and rentals on ${area.name} from local partners, booked in one cart.`,
+    description: `Stays, tours, transfers, vehicle rental and gear on ${area.name} from local partners: compare them on the map, pick your dates and book in one cart.`,
+    // Without the dates, the search or the page (RAA-238).
+    alternates: canonical(`/${area.slug}/book`),
   };
 }
 

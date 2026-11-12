@@ -314,6 +314,52 @@ test("robots.txt, sitemap.xml and noindex", async ({ page, request }) => {
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow");
 });
 
+// Page metadata (RAA-227, RAA-228, RAA-229, RAA-238): each public page has its own description
+// and one canonical link, absolute and without the query; a search's results stay out of the index.
+test("page titles, descriptions and canonical links", async ({ request }) => {
+  const head = async (path) => {
+    const response = await request.get(path, { headers: { "User-Agent": "Googlebot" } });
+    expect(response.status(), path).toBe(200);
+    const html = await response.text();
+    const canonicals = [...html.matchAll(/<link rel="canonical" href="([^"]+)"/g)].map((match) => match[1]);
+    return {
+      title: html.match(/<title>([^<]*)<\/title>/)?.[1],
+      description: html.match(/<meta name="description" content="([^"]*)"/)?.[1],
+      robots: html.match(/<meta name="robots" content="([^"]*)"/)?.[1],
+      canonicals,
+    };
+  };
+
+  const listing = (await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1];
+  const pages = {
+    "/": "/",
+    "/bantayan-island?from=2030-01-01&utm_source=test": "/bantayan-island",
+    "/bantayan-island/book": "/bantayan-island/book",
+    [new URL(listing).pathname]: new URL(listing).pathname,
+    "/search": "/search",
+    "/about": "/about",
+    "/terms": "/terms",
+    "/privacy": "/privacy",
+    "/refunds": "/refunds",
+    "/partner-terms": "/partner-terms",
+  };
+  const descriptions = new Set();
+  for (const [path, canonicalPath] of Object.entries(pages)) {
+    const { description, canonicals } = await head(path);
+    expect(description, path).toBeTruthy();
+    descriptions.add(description);
+    expect(canonicals, path).toHaveLength(1);
+    const url = new URL(canonicals[0]);
+    expect(url.protocol, path).toMatch(/^https?:$/);
+    expect(url.pathname, path).toBe(canonicalPath);
+    expect(url.search, path).toBe("");
+  }
+  expect(descriptions.size).toBe(Object.keys(pages).length);
+
+  expect((await head("/bantayan-island")).title).toContain("Bantayan Island");
+  expect((await head("/search?q=boat")).robots).toContain("noindex");
+});
+
 // Sign-up through the real API (email and password only), and the /partner guard: signed
 // out goes to /partner/login, a guest is sent home, a partner gets the dashboard.
 // Sent before the page's JavaScript loads, the browser posts the form itself (RAA-269): a GET

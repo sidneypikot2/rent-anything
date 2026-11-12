@@ -60,6 +60,7 @@ import { DisplayTitle } from "@/components/ui/typography";
 import { formatDateRange } from "@/lib/dates";
 import { formatPeso } from "@/lib/money";
 import { pricedByText, priceUnitText } from "@/lib/pricing";
+import { canonical, metaDescription } from "@/lib/seo";
 
 type Listing = BrowseListing;
 // The rows' groups, each fetched as What to book's first page (book_cards).
@@ -70,16 +71,26 @@ const ROW_SIZE = 10;
 export async function generateMetadata(props: PageProps<"/[area]">): Promise<Metadata> {
   const detail = await getAreaPlaces((await props.params).area);
   if (!detail) return { title: "Not found" };
-  const { area, guide, landmarks } = detail;
+  const { area, groups, guide, landmarks } = detail;
   // What a search result shows (Klook's "Singapore 2026: Top places to visit…"): the year and
-  // what the page holds, then the team's words about the place.
+  // what the page holds; the description the team's tagline, then what there is to book here
+  // (RAA-229), so no two places share one.
   const year = new Date().getFullYear();
   const what = landmarks.length > 0 ? "places to see, stays and tours" : "stays, tours and transfers";
-  const description = guide.tagline || guide.description || `Plan a trip to ${area.name}: ${what}, booked in one cart.`;
+  const kinds = TRIP_ORDER_GROUPS.filter(({ group }) => groups[group].listings > 0).map(({ short }) => short.toLowerCase());
+  const toBook = kinds.length > 0 ? `Book ${listText(kinds)} from local partners, in one cart.` : `Plan your trip, ${what}, in one cart.`;
+  const lead = guide.tagline ?? `Plan a trip to ${area.name}${area.parent_name ? `, ${area.parent_name}` : ""}`;
   return {
     title: `${area.name} ${year}: ${what}`,
-    description: description.length > 160 ? `${description.slice(0, 157).trimEnd()}…` : description,
+    description: metaDescription(`${lead.replace(/[.!]$/, "")}. ${toBook}`),
+    // The place itself, without trip dates, a trip or a search (RAA-238).
+    alternates: canonical(`/${area.slug}`),
   };
+}
+
+// "a, b and c".
+function listText(items: string[]) {
+  return items.length > 1 ? `${items.slice(0, -1).join(", ")} and ${items.at(-1)}` : items[0];
 }
 
 // A destination: everything to book there, the places to see, and the destinations around

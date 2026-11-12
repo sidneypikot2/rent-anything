@@ -7,8 +7,10 @@ import { PlanReview } from "@/components/plan/plan-review";
 import { PlanTripChange, PlanTripLabel } from "@/components/plan/plan-trip-bar";
 import { tripParam } from "@/components/trips/trip-dates";
 import { AdoptTrip } from "@/components/trips/trip-link";
+import { NOINDEX } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Review your trip" };
+// One guest's trip (`?trip=`), nothing to find in a search (RAA-227).
+export const metadata: Metadata = { title: "Review your trip", robots: NOINDEX };
 
 // Plan a whole trip, the track's last stop: the trip day by day, then Send to partners.
 export default async function PlanReviewPage(props: PageProps<"/plan/[area]/review">) {

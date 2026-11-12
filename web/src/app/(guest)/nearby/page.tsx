@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { NearbyMap } from "@/components/discovery/nearby-map";
 import { DisplayTitle } from "@/components/ui/typography";
 import { PageSheet } from "@/components/landing/page-sheet";
+import { NOINDEX } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Nearby (test)" };
+export const metadata: Metadata = { title: "Nearby (test)", robots: NOINDEX };
 
-// A testing page (RAA-53): pin a spot, confirm it, and see the listings and destinations
+// A testing page (RAA-53), kept out of search results (RAA-248): pin a spot, confirm it, and see the listings and destinations
 // within a chosen distance of it, from the explore endpoint (RAA-57).
 export default function NearbyPage() {
   return (
