@@ -48,7 +48,7 @@ module Verifications
 
     # Didit sends the partner back here when they finish.
     def callback_url
-      "#{ENV.fetch('FRONTEND_ORIGIN', 'http://localhost:8100')}/partner/verify"
+      "#{Rails.configuration.x.frontend_origins.first}/partner/verify"
     end
 
     def refuse(verification, message)
