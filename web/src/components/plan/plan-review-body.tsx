@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { BookingStatusBadge } from "@/components/bookings/booking-status";
 import { ChevronGlyph, PlusGlyph } from "@/components/discovery/tag-glyphs";
+import { itemAmount } from "@/components/trips/format";
 import { itemPriceLabel, itemProblem, itemQuote, type Trip, type TripItem, type TripQuote } from "@/components/trips/use-trips";
 import { cn } from "@/components/ui/cn";
 import { formatDateRange } from "@/lib/dates";
@@ -195,7 +196,7 @@ function EventRow({ item, priced, quote, onOpen }: { item: TripItem; priced: boo
     >
       <span className="flex min-w-0 flex-1 flex-col gap-0.5" data-testid="plan-event-open">
         <span className="font-semibold text-navy">{item.listing.title}</span>
-        <span className="text-small text-muted">{dates}</span>
+        <span className="text-small text-muted">{dates} · {itemAmount(item)}</span>
         {problem && (
           <span className="text-small font-semibold text-warning" data-testid="plan-event-problem">
             {problem}
