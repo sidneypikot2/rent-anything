@@ -1078,6 +1078,11 @@ test("TEMP axe audit", async ({ browser, baseURL, request }) => {
   const axeSource = await (await request.get("https://cdn.jsdelivr.net/npm/axe-core@4.10.2/axe.min.js")).text();
   const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1]).pathname;
   const paths = ["/", "/bantayan-island", "/bantayan-island/book", "/bantayan-island/book/gear", listing, "/search", "/search?q=boat", "/about", "/terms", "/privacy", "/refunds", "/partner-terms", "/no-such-place", "/listings/999999999", "/businesses/999999999", "/no/such/page"];
+  for (const path of ["/no-such-place", "/listings/999999999"]) {
+    const html = await (await request.get(path)).text();
+    const body = html.slice(html.indexOf("<body"));
+    console.log(`AXEHTML ${path} ${body.replace(/<script[\s\S]*?<\/script>/g, "").replace(/\s+/g, " ").slice(0, 6000)}`);
+  }
   for (const path of paths) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
