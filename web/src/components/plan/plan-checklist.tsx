@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import { businessHref, titleCardHref } from "@/components/discovery/browse-offers";
 import { BOOKING_GROUPS } from "@/components/discovery/categories";
@@ -16,6 +17,8 @@ import {
   picksApartKm,
   rowHolds,
   stayPoint,
+  PLACES_ROW,
+  PLAN_ROWS,
   type PlanBusiness,
   type PlanLandmark,
   type PlanPlace,
@@ -91,8 +94,18 @@ function Checklist({
   const [tripOpen, setTripOpen] = useState(false);
   const closeMapView = useCallback(() => setMapView(null), [setMapView]);
   const [skipped, toggleSkip] = useSkipped(trip.id);
-  // The step shown under the stepper: the one the guest tapped, else the first still open.
-  const [picked, setPicked] = useState<StepKey | null>(choose ?? null);
+  // The step shown under the stepper: the one the guest tapped, else the first still open. It is
+  // kept in the URL (`?choose=`, replaced, never a new entry), so Back from a page opened here (a
+  // listing, the shop sheet over the plan) lands on the same step. Read from the live URL: a Back
+  // can show the server's render from before the step was picked, whose `choose` is stale.
+  const searchParams = useSearchParams();
+  const [picked, setPickedState] = useState<StepKey | null>(() => stepParam(searchParams.get("choose")) ?? choose ?? null);
+  const setPicked = useCallback((key: StepKey) => {
+    setPickedState(key);
+    const url = new URL(window.location.href);
+    url.searchParams.set("choose", key);
+    window.history.replaceState(window.history.state, "", url);
+  }, []);
   const quote = useTripQuote(trip.id);
   const hasPlaces = place.landmarks.length > 0;
   const { rows, done, picks } = planSteps(place, trip);
@@ -509,4 +522,9 @@ function subscribeWide(onChange: () => void) {
 }
 function useWide() {
   return useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches, () => false);
+}
+
+// A step named in the URL (`?choose=`), or null for anything else.
+function stepParam(value: string | null): StepKey | null {
+  return [PLACES_ROW, ...PLAN_ROWS].find((row) => row.key === value)?.key ?? null;
 }

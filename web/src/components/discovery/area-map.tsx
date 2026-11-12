@@ -25,7 +25,6 @@ import { listingPin, placePins, rowPanelInfo, type AreaPin, type LandmarkInfo, t
 import { DetailPanelButton, LandmarkPanel, PanelPhoto } from "./detail-panel";
 import { ListingTitleLink } from "./listing-link";
 import { businessHref } from "./browse-offers";
-import { markLeaving } from "./back-link";
 import { newTabProps, useOpensInNewTab } from "./business-row";
 import { useTripHref } from "@/components/trips/trip-link";
 import { InstantBookBadge } from "./instant-book-badge";
@@ -1015,7 +1014,6 @@ function MapPopup({
     <ButtonLink
       href={tripHref(businessPage)}
       {...newTabProps(newTab)}
-      onClick={() => !newTab && markLeaving()}
       variant="soft"
       arrow
       tabIndex={-1}
