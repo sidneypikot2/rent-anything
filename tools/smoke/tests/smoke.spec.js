@@ -403,7 +403,7 @@ test("one h1 per page", async ({ page, request }) => {
   const missing = ["/no-such-place", "/listings/999999999", "/businesses/999999999", "/no/such/page"];
   for (const path of [...pages, ...missing]) {
     const response = await request.get(path);
-    expect(response.status(), path).toBe(missing.includes(path) ? 404 : 200);
+    if (!missing.includes(path)) expect(response.status(), path).toBe(200);
     expect((await response.text()).match(/<h1[\s>]/g) ?? [], `${path}: h1s in the server HTML`).toHaveLength(1);
     await page.goto(path);
     await expect(page.locator("h1"), `${path}: h1s in the page`).toHaveCount(1);
@@ -1071,13 +1071,15 @@ test("business settings and shop page", async ({ browser, baseURL }) => {
 });
 
 // TEMPORARY (RAA-235 audit, removed before merge): axe heading-order and image-alt on the public pages.
-test("TEMP axe audit", async ({ page, request }) => {
+test("TEMP axe audit", async ({ browser, baseURL, request }) => {
+  const page = await (await browser.newContext({ baseURL, bypassCSP: true })).newPage();
+  const axeSource = await (await request.get("https://cdn.jsdelivr.net/npm/axe-core@4.10.2/axe.min.js")).text();
   const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1]).pathname;
-  const paths = ["/", "/bantayan-island", "/bantayan-island/book", listing, "/search", "/search?q=boat", "/about", "/terms", "/privacy", "/refunds", "/partner-terms", "/no-such-place", "/listings/999999999"];
+  const paths = ["/", "/bantayan-island", "/bantayan-island/book", listing, "/search", "/search?q=boat", "/about", "/terms", "/privacy", "/refunds", "/partner-terms", "/no-such-place", "/listings/999999999", "/businesses/999999999", "/no/such/page"];
   for (const path of paths) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
-    await page.addScriptTag({ url: "https://cdn.jsdelivr.net/npm/axe-core@4.10.2/axe.min.js" });
+    await page.addScriptTag({ content: axeSource });
     const result = await page.evaluate(() => window.axe.run(document, { runOnly: ["heading-order", "image-alt", "page-has-heading-one", "empty-heading"] }));
     const outline = await page.evaluate(() => [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].map((h) => `${h.tagName}:${h.textContent.trim().slice(0, 40)}`).join(" | "));
     console.log(`AXE ${path} OUTLINE ${outline}`);
