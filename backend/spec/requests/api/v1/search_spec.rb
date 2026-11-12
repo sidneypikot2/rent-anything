@@ -187,6 +187,20 @@ RSpec.describe "Search", type: :request do
         end
       end
 
+      response "429", "too many from one visitor's IP (60 a minute); the web app's own server isn't limited" do
+        schema "$ref" => "#/components/schemas/error"
+        header "Retry-After", schema: { type: :integer }, description: "Seconds until the limit resets"
+        let(:q) { "bantayan" }
+        before do
+          from_public_ip
+          exceed_rate_limit(Api::V1::SearchController, ApplicationController::BROWSE_RATE_LIMIT)
+        end
+
+        run_test! do |response|
+          expect(response.headers["Retry-After"]).to eq("60")
+        end
+      end
+
       response "422", "query too short" do
         schema "$ref" => "#/components/schemas/validation_errors"
         let(:q) { "k" }
@@ -201,6 +215,13 @@ RSpec.describe "Search", type: :request do
         run_test!
       end
     end
+  end
+
+  it "doesn't limit the web app's own server, which renders every visitor's search page" do
+    exceed_rate_limit(Api::V1::SearchController, ApplicationController::BROWSE_RATE_LIMIT)
+    get "/api/v1/search", params: { q: "bantayan" }
+
+    expect(response).to have_http_status(:ok)
   end
 
   # rswag sends a list as one comma-joined string, so these go through plain requests.

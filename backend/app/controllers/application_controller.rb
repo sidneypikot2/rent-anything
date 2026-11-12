@@ -14,11 +14,35 @@ class ApplicationController < ActionController::API
   rescue_from Paymongo::Error, with: :render_payments_unavailable
   rescue_from Paymongo::NotConfiguredError, with: :render_service_unavailable
 
-  # Sign-in and sign-up attempts per IP, counted per endpoint in config.cache_store.
+  # Request limits, counted per IP and per endpoint in config.cache_store (solid_cache in
+  # staging and production). Over a limit, a 429 with Retry-After (render_too_many_requests).
+  # Sign-in and sign-up attempts, and a guest setting a password.
   AUTH_RATE_LIMIT = { to: 10, within: 3.minutes }.freeze
+  # Password sign-ins per email, from any IP: one account can't be guessed at from many.
+  SIGN_IN_PER_EMAIL_LIMIT = { to: 10, within: 15.minutes }.freeze
+  # Refreshing an access token: every open tab refreshes every 15 minutes.
+  REFRESH_RATE_LIMIT = { to: 30, within: 1.minute }.freeze
+  # Didit and PayMongo webhooks: signed, so this only keeps a flood from tying up the workers.
+  WEBHOOK_RATE_LIMIT = { to: 120, within: 1.minute }.freeze
+  # Public search, explore and stay quotes. The web app's search box waits 250ms after the
+  # last key, so typing stays well under it.
+  BROWSE_RATE_LIMIT = { to: 60, within: 1.minute }.freeze
+
+  def self.limit_requests(limit, **options)
+    rate_limit(**limit, with: -> { render_too_many_requests(retry_after: limit[:within]) }, **options)
+  end
 
   def self.limit_auth_attempts(**options)
-    rate_limit(**AUTH_RATE_LIMIT, with: :render_too_many_requests, **options)
+    limit_requests(AUTH_RATE_LIMIT, **options)
+  end
+
+  # The web app renders public pages on its server, which calls the API inside Docker
+  # (API_INTERNAL_URL), so all those calls come from its one private address: limited per
+  # IP, one busy minute would refuse every visitor. Browsers reach the API through Caddy,
+  # which sets X-Forwarded-For to their own address (it ignores one the client sends), and
+  # Rails trusts private addresses as proxies, so their remote_ip is public and limited.
+  def self.limit_browsing(**options)
+    limit_requests(BROWSE_RATE_LIMIT, unless: :internal_request?, **options)
   end
 
   private
@@ -89,8 +113,16 @@ class ApplicationController < ActionController::API
     render json: { error: exception.message }, status: :service_unavailable
   end
 
-  def render_too_many_requests
+  def render_too_many_requests(retry_after:)
+    response.set_header("Retry-After", retry_after.to_i.to_s)
     render json: { error: "Too many attempts. Try again in a few minutes." }, status: :too_many_requests
+  end
+
+  def internal_request?
+    ip = IPAddr.new(request.remote_ip)
+    ip.private? || ip.loopback?
+  rescue IPAddr::InvalidAddressError
+    false
   end
 
   # An exception raised without a message carries its class name; show the generic text.

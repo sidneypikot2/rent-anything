@@ -2,6 +2,8 @@ module Api
   module V1
     class SessionsController < ApplicationController
       limit_auth_attempts only: :create
+      # Per email too, from any IP, so one account can't be guessed at from many addresses.
+      limit_requests SIGN_IN_PER_EMAIL_LIMIT, by: -> { email_key }, name: "per_email", only: :create
       # A guest with no account yet, whose trips move into the account (RAA-175).
       before_action :authenticate_user, only: :create
 
@@ -13,6 +15,13 @@ module Api
       def destroy
         Auth::SignOut.call(params[:refresh_token])
         head :no_content
+      end
+
+      private
+
+      def email_key
+        email = params[:email]
+        email.is_a?(String) ? email.strip.downcase : ""
       end
     end
   end

@@ -9,6 +9,8 @@ module Api
       class PaymongoController < ApplicationController
         PAID = "checkout_session.payment.paid".freeze
 
+        limit_requests WEBHOOK_RATE_LIMIT, only: :create
+
         def create
           unless Paymongo.valid_signature?(request.raw_post, request.headers["Paymongo-Signature"])
             raise NotAuthenticatedError, "Invalid signature"

@@ -4,6 +4,7 @@ module Api
       # "Create an account to keep this trip" (RAA-175, Guests::Register): a guest who booked
       # without an account sets a password.
       class RegistrationsController < ApplicationController
+        limit_auth_attempts only: :create
         before_action :authenticate_user!
         before_action -> { require_role!("guest") }
 
