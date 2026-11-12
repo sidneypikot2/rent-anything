@@ -86,6 +86,13 @@ export function PlanTripLink({
 // filled from it. Its place is the destination its first item or saved place is in, else the one
 // it is named after ("Bantayan Island · 4–7 Dec", as step 1 names it), else the launch area.
 function planHref(trip: Trip, areas: AreaCard[]) {
+  const slug = tripPlaceSlug(trip, areas);
+  return trip.starts_on && trip.ends_on ? `/plan/${slug}?trip=${trip.id}` : `/plan?where=${slug}&trip=${trip.id}`;
+}
+
+// The place a trip is planned in: the top-most destination of its first item or saved place, else
+// the one it is named after, else the launch area. The cart's review reads this place too.
+export function tripPlaceSlug(trip: Trip, areas: AreaCard[]) {
   const bySlug = new Map(areas.map((area) => [area.slug, area]));
   const root = (slug: string) => {
     let area = bySlug.get(slug);
@@ -96,12 +103,12 @@ function planHref(trip: Trip, areas: AreaCard[]) {
     }
     return area?.slug;
   };
-  const slug =
+  return (
     [...trip.items.map((item) => item.area.slug), ...trip.saved_landmarks.map((saved) => saved.area_slug)]
       .map(root)
       .find(Boolean) ??
     areas.find((area) => !(area.parent_slug && bySlug.has(area.parent_slug)) && trip.name.startsWith(`${area.name} ·`))
       ?.slug ??
-    LAUNCH_AREA.slug;
-  return trip.starts_on && trip.ends_on ? `/plan/${slug}?trip=${trip.id}` : `/plan?where=${slug}&trip=${trip.id}`;
+    LAUNCH_AREA.slug
+  );
 }

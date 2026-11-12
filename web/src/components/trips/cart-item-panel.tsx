@@ -104,14 +104,20 @@ export function CartItemPanel({
   } else {
     foot = (
       <>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => actions.removeItem(trip, item)}
-          data-testid="item-panel-remove"
-        >
-          Remove
-        </Button>
+        {/* What the cart's item menu did before the trip became the plan's review (RAA-305). */}
+        <span className="flex flex-wrap gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => actions.removeItem(trip, item)}
+            data-testid="item-panel-remove"
+          >
+            Remove
+          </Button>
+          <Button type="button" variant="ghost" onClick={() => actions.moveItem(trip, item)} data-testid="item-panel-move">
+            Move
+          </Button>
+        </span>
         <span className="flex flex-wrap gap-2">
           <Button
             type="button"

@@ -752,17 +752,16 @@ test("add to trip without an account", async ({ page, browser }) => {
   await expect(page.getByTestId("cart-trip-nav")).toHaveCount(0);
   await expect(page.getByTestId("cart-trip").first()).toContainText(`Smoke trip ${stamp}`);
   const trip = page.getByTestId("cart-trip").filter({ hasText: `Smoke trip ${stamp}` });
-  await expect(trip.getByTestId("cart-item")).toHaveCount(2);
-  await trip.getByTestId("cart-item-menu").first().click();
-  await trip.getByTestId("item-action-remove").click();
+  // The trip as the plan reviews it (RAA-305): a row opens the item's panel, which removes it.
+  await expect(trip.getByTestId("plan-event").first()).toBeVisible();
+  await trip.getByTestId("plan-event-open").first().click();
+  await page.getByTestId("cart-item-panel").getByTestId("item-panel-remove").click();
   await page.getByTestId("remove-item-confirm").click();
-  await expect(trip.getByTestId("cart-item")).toHaveCount(1);
   await expect(page.getByTestId("cart-toast")).toContainText("Removed");
   await expect(page.getByTestId("nav-cart-count")).toHaveText("1");
 
-  // Checkout (RAA-133): the item left is ticked; sending it makes a request that waits for its
-  // partner (RAA-134), and the cart then shows its booking.
-  await expect(trip.getByTestId("cart-item-pick")).toBeChecked();
+  // Checkout (RAA-133): the foot sends every item that can be sent; sending makes a request that
+  // waits for its partner (RAA-134), and the cart then shows its booking.
   await trip.getByTestId("cart-checkout").click();
   const checkout = page.getByTestId("checkout-sheet");
   await expect(checkout.getByTestId("checkout-item-price")).toHaveCount(1);
@@ -782,11 +781,11 @@ test("add to trip without an account", async ({ page, browser }) => {
   expect(tripLink).toMatch(/\/trips\/open\/[\w-]+$/);
   expect(pin).toMatch(/^\d{6}$/);
   await checkout.getByRole("button", { name: "Done" }).click();
-  await expect(trip.getByTestId("cart-item").getByTestId("booking-status")).toHaveText("Request sent");
-  await expect(trip.getByTestId("cart-item-pick")).toHaveCount(0);
+  await expect(trip.getByTestId("plan-event").getByTestId("booking-status").first()).toHaveText("Request sent");
+  await expect(trip.getByTestId("cart-checkout")).toHaveCount(0);
 
   // The item's panel (RAA-135) shows its booking, and editing it sends the change to the partner.
-  await trip.getByTestId("cart-item-open").click();
+  await trip.getByTestId("plan-event-open").first().click();
   const panel = page.getByTestId("cart-item-panel");
   await expect(panel.getByTestId("item-panel-booking").getByTestId("booking-status")).toHaveText("Request sent");
   await panel.getByTestId("item-panel-edit").click();
@@ -807,9 +806,8 @@ test("add to trip without an account", async ({ page, browser }) => {
   await expect(page.getByTestId("trip-group").first()).toHaveText("Upcoming");
   const booked = page.getByTestId("cart-trip").filter({ hasText: `Smoke trip ${stamp}` });
   await expect(booked.getByTestId("trip-status")).toHaveText("Booked");
-  await expect(booked.getByTestId("itinerary-day").first()).toBeVisible();
-  await booked.getByTestId("trip-view-items").click();
-  await expect(booked.getByTestId("cart-item").getByTestId("booking-status")).toHaveText("Request sent");
+  await expect(booked.getByTestId("plan-day").first()).toBeVisible();
+  await expect(booked.getByTestId("plan-event").getByTestId("booking-status").first()).toHaveText("Request sent");
 
   // Past and Cancelled are tabs over the sidebar; nothing is past or cancelled yet.
   await page.getByTestId("trips-tab-past").click();

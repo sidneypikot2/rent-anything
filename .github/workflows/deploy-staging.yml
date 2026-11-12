@@ -105,8 +105,10 @@ jobs:
           SHA: ${{ github.sha }}
         # The commit SHA is meant to expand here, on the runner (SC2029). `up -d` leaves Caddy
         # running when only the Caddyfile changed, so it is reloaded on every deploy (RAA-206).
+        # db-roles.sh is copied for running by hand (README), never run here (RAA-217).
         run: |
-          scp deploy/staging/compose.yml deploy/staging/Caddyfile "deploy@$HOST:/opt/tripkonext/"
+          scp deploy/staging/compose.yml deploy/staging/Caddyfile deploy/staging/db-roles.sh \
+            "deploy@$HOST:/opt/tripkonext/"
           # shellcheck disable=SC2029
           ssh "deploy@$HOST" "cd /opt/tripkonext \
             && echo IMAGE_TAG=$SHA > .env \
