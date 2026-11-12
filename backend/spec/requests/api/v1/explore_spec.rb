@@ -328,6 +328,19 @@ RSpec.describe "Explore", type: :request do
         end
       end
 
+      response "429", "too many from one visitor's IP (60 a minute); the web app's own server isn't limited" do
+        schema "$ref" => "#/components/schemas/error"
+        header "Retry-After", schema: { type: :integer }, description: "Seconds until the limit resets"
+        before do
+          from_public_ip
+          exceed_rate_limit(Api::V1::ExploreController, ApplicationController::BROWSE_RATE_LIMIT)
+        end
+
+        run_test! do |response|
+          expect(response.headers["Retry-After"]).to eq("60")
+        end
+      end
+
       response "422", "values out of range or not numbers" do
         schema "$ref" => "#/components/schemas/validation_errors"
         let(:lat) { "north" }

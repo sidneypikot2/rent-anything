@@ -7,7 +7,7 @@ module Api
       PER_EMAIL_LIMIT = { to: 5, within: 15.minutes }.freeze
 
       limit_auth_attempts only: %i[create verify]
-      rate_limit(**PER_EMAIL_LIMIT, by: -> { "#{action_name}:#{email_key}" }, with: :render_too_many_requests,
+      limit_requests(PER_EMAIL_LIMIT, by: -> { "#{action_name}:#{email_key}" },
         name: "per_email", only: %i[create verify])
       before_action :authenticate_user, only: :verify
 

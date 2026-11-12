@@ -6,6 +6,8 @@ module Api
       # body only says which session to look at. A session we don't know (one a partner
       # replaced) is acknowledged and ignored, so Didit stops retrying it.
       class DiditController < ApplicationController
+        limit_requests WEBHOOK_RATE_LIMIT, only: :create
+
         def create
           unless Didit.valid_signature?(request.raw_post, request.headers["X-Signature"], request.headers["X-Timestamp"])
             raise NotAuthenticatedError, "Invalid signature"

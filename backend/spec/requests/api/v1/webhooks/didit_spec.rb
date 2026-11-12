@@ -69,6 +69,16 @@ RSpec.describe "Didit webhook", type: :request do
         run_test!
       end
 
+      response "429", "a flood from one IP (120 a minute)" do
+        schema "$ref" => "#/components/schemas/error"
+        header "Retry-After", schema: { type: :integer }, description: "Seconds until the limit resets"
+        before { exceed_rate_limit(Api::V1::Webhooks::DiditController, ApplicationController::WEBHOOK_RATE_LIMIT) }
+
+        run_test! do |response|
+          expect(response.headers["Retry-After"]).to eq("60")
+        end
+      end
+
       response "401", "a wrong signature" do
         schema "$ref" => "#/components/schemas/error"
         let(:'X-Signature') { OpenSSL::HMAC.hexdigest("SHA256", "another-secret", body.to_json) }
