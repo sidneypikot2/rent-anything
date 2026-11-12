@@ -86,6 +86,17 @@ RSpec.describe "Sessions", type: :request do
         run_test!
       end
 
+      response "401", "an unknown email: the same answer as a wrong password" do
+        schema "$ref" => "#/components/schemas/error"
+        let(:body) { super().merge(email: "nobody@example.com") }
+
+        run_test! do |unknown_email|
+          unknown = [ unknown_email.status, unknown_email.body ]
+          post "/api/v1/session", params: { email: "ana@example.com", password: "wrong-password", role: "guest" }, as: :json
+          expect([ response.status, response.body ]).to eq(unknown)
+        end
+      end
+
       response "401", "an account made with Google has no password" do
         schema "$ref" => "#/components/schemas/error"
         let!(:user) { create(:user, :oauth_only, email: "ana@example.com") }
