@@ -131,7 +131,8 @@ RSpec.describe "Partner listing photos", type: :request do
       tags "Partner"
       consumes "application/json"
       produces "application/json"
-      description "Partner-only (RAA-106). Once the browser's `PUT` has finished: checks the file is in storage, " \
+      description "Partner-only (RAA-106). Once the browser's `PUT` has finished: checks the file is in storage " \
+        "and that its first bytes are the declared type's (RAA-221; if not, the photo is deleted and this is a 422), " \
         "then guests see the photo and its card and large sizes are made (until then both URLs are the " \
         "original's). Sending it again is harmless."
       security [ { bearer: [] } ]
@@ -165,6 +166,17 @@ RSpec.describe "Partner listing photos", type: :request do
         run_test! do |response|
           expect(response.parsed_body["errors"]).to eq([ "Photo must finish uploading first" ])
           expect(photo.reload.uploaded_at).to be_nil
+        end
+      end
+
+      response "422", "a file whose first bytes aren't the type declared: it is deleted, row and all" do
+        schema "$ref" => "#/components/schemas/validation_errors"
+
+        before { stub_photo_in_storage("<html><body>not a photo</body></html>") }
+
+        run_test! do |response|
+          expect(response.parsed_body["errors"]).to eq([ "photo.jpg isn't a JPEG, PNG or WebP image" ])
+          expect(ListingPhoto.exists?(photo.id)).to be(false)
         end
       end
 

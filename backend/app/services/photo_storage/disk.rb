@@ -24,6 +24,10 @@ module PhotoStorage
       root.join(key).file?
     end
 
+    def read_start(key, length)
+      File.binread(root.join(key), length) || "".b if exist?(key)
+    end
+
     def download(key)
       file = Tempfile.new([ "photo", File.extname(key) ], binmode: true)
       IO.copy_stream(root.join(key).to_s, file)

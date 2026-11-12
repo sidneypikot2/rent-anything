@@ -201,7 +201,7 @@ RSpec.describe "Partner business photos and logo", type: :request do
 
         before do
           create_logo(uploaded: false)
-          stub_photo_in_storage
+          stub_photo_in_storage(Vips::Image.black(1, 1).pngsave_buffer)
         end
 
         run_test! { |response| expect(response.parsed_body).to include("uploaded" => true, "ready" => false) }
