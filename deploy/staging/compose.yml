@@ -149,8 +149,9 @@ services:
       ANYCABLE_SESSIONS_TTL: "0"
       # JWT identification is on, since ANYCABLE_SECRET is its key (RAA-224): a client sending
       # the API's cable_token as the `anycable-token.<token>` sub-protocol is identified here,
-      # and an expired one refused. Not enforced yet: the web still sends `?token=`, which
-      # Rails checks (ApplicationCable::Connection), until RAA-304; then ANYCABLE_ENFORCE_JWT.
+      # and an expired one refused. Enforced since the web sends it (RAA-304): a connection
+      # without a valid one is refused here, and Rails never takes a token in the URL.
+      ANYCABLE_ENFORCE_JWT: "true"
       # The web host without a scheme ("https://..." is refused with a 403).
       ANYCABLE_ALLOWED_ORIGINS: staging.tripkonext.com
     mem_limit: 128m
