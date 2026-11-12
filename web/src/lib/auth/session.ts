@@ -3,21 +3,36 @@ import type { components } from "@/api/schema";
 
 export type User = components["schemas"]["user"];
 export type AuthTokens = components["schemas"]["auth_tokens"];
-// tabOnly: a trip link's session (RAA-177), kept in this tab's sessionStorage only, so
-// closing the tab ends it and the next open of the link asks for the PIN again.
-export type Session = { accessToken: string; refreshToken: string; user: User; tabOnly?: boolean };
+// accessToken: null until this tab has one (after a reload, the first API call refreshes it).
+// refreshToken: only a trip link's session, and a session from before the refresh cookie until
+// its first refresh moves it into the cookie. tabOnly: a trip link's session (RAA-177), kept in
+// this tab's sessionStorage only, so closing the tab ends it and the next open of the link asks
+// for the PIN again.
+export type Session = { accessToken: string | null; refreshToken?: string; user: User; tabOnly?: boolean };
 
-// The signed-in session lives in this browser's localStorage: an access token (15 min),
-// the refresh token that renews it, and the user. A trip link's session lives in this tab's
-// sessionStorage instead, and while there is one it is the session. Storage can throw
-// (private windows, blocked site data); then the session is kept in memory and lasts until
-// the page reloads.
+// The browser's own session (RAA-226): its refresh token is the API's HttpOnly `raa_refresh`
+// cookie, which no script can read, the 15-minute access token lives only in this tab's memory,
+// and localStorage keeps just the user, so every tab knows who is signed in. A trip link's
+// session lives whole in this tab's sessionStorage instead (it never uses the cookie, which is
+// the browser's), and while there is one it is the session. Storage can throw (private windows,
+// blocked site data); then it is kept in memory and lasts until the page reloads.
 const KEY = "raa.session";
 const CHANGE_EVENT = "raa:session";
 
 type Store = "local" | "tab";
 const memory: Record<Store, string | null> = { local: null, tab: null };
 let storageFailed = false;
+// This tab's access token for the browser's own session, and whose it is: another tab signing
+// in as someone else changes the stored user, and this token is then not theirs.
+let access: { userId: number; token: string } | null = null;
+
+// What the web app sends to get, use or end the refresh cookie (RAA-306): the header asks for
+// the cookie, and only a credentialed request sends and stores it. Never from a trip link's
+// session.
+export const REFRESH_COOKIE = {
+  headers: { "X-Refresh-Cookie": "1" },
+  credentials: "include",
+} as const;
 
 function storage(store: Store) {
   return store === "tab" ? window.sessionStorage : window.localStorage;
@@ -43,43 +58,57 @@ function writeStore(store: Store, value: string | null) {
   }
 }
 
-function readRaw(): string | null {
-  return readStore("tab") ?? readStore("local");
-}
+type Stored = { user: User; refreshToken?: string; accessToken?: string; tabOnly?: boolean };
 
-function parse(raw: string | null): Session | null {
+function parse(raw: string | null): Stored | null {
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as Session;
+    const stored = JSON.parse(raw) as Stored;
+    return stored?.user ? stored : null;
   } catch {
     return null;
   }
 }
 
 export function getSession(): Session | null {
-  return parse(readRaw());
+  const tab = parse(readStore("tab"));
+  if (tab) return { accessToken: tab.accessToken ?? null, refreshToken: tab.refreshToken, user: tab.user, tabOnly: true };
+
+  const local = parse(readStore("local"));
+  if (!local) {
+    access = null;
+    return null;
+  }
+  return {
+    accessToken: access?.userId === local.user.id ? access.token : null,
+    // Only a session saved before the cookie (RAA-226) still has one here.
+    ...(local.refreshToken && { refreshToken: local.refreshToken }),
+    user: local.user,
+  };
 }
 
 // A refresh keeps the session where it was: a trip link's stays in the tab. Any other
 // sign-in ends a trip link's session in this tab.
 export function saveSession(tokens: AuthTokens, { tabOnly = getSession()?.tabOnly ?? false } = {}) {
-  const session: Session = {
-    accessToken: tokens.access_token,
-    // In the body until the web half (RAA-226) asks for the cookie (X-Refresh-Cookie, RAA-306).
-    refreshToken: tokens.refresh_token ?? "",
-    user: tokens.user,
-    ...(tabOnly && { tabOnly }),
-  };
-  if (!tabOnly) writeStore("tab", null);
-  writeStore(tabOnly ? "tab" : "local", JSON.stringify(session));
+  if (tabOnly) {
+    const stored: Stored = { accessToken: tokens.access_token, refreshToken: tokens.refresh_token, user: tokens.user, tabOnly };
+    writeStore("tab", JSON.stringify(stored));
+  } else {
+    writeStore("tab", null);
+    access = { userId: tokens.user.id, token: tokens.access_token };
+    // The refresh token went into the cookie; a body one means the API didn't set it.
+    const stored: Stored = { user: tokens.user, ...(tokens.refresh_token && { refreshToken: tokens.refresh_token }) };
+    writeStore("local", JSON.stringify(stored));
+  }
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
 // The user changed (POST /me/register): the same tokens, wherever they are kept.
 export function saveSessionUser(user: User) {
-  const session = getSession();
-  if (!session) return;
-  writeStore(session.tabOnly ? "tab" : "local", JSON.stringify({ ...session, user }));
+  const store: Store = getSession()?.tabOnly ? "tab" : "local";
+  const stored = parse(readStore(store));
+  if (!stored) return;
+  writeStore(store, JSON.stringify({ ...stored, user }));
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
@@ -88,7 +117,10 @@ export function saveSessionUser(user: User) {
 export function clearSession({ all = false } = {}) {
   const tabOnly = getSession()?.tabOnly;
   if (all || tabOnly) writeStore("tab", null);
-  if (all || !tabOnly) writeStore("local", null);
+  if (all || !tabOnly) {
+    writeStore("local", null);
+    access = null;
+  }
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
@@ -107,10 +139,17 @@ function subscribe(onChange: () => void) {
   };
 }
 
+// A string, so React sees the same snapshot until the session or this tab's token changes.
+function snapshot(): string | null {
+  const session = getSession();
+  return session && JSON.stringify(session);
+}
+
 // The current session: `undefined` while it can't be known yet (the server render and
 // hydration), then the session or `null` when signed out. Guards must wait out
 // `undefined` rather than treat it as signed out.
 export function useSession(): Session | null | undefined {
-  const raw = useSyncExternalStore<string | null | undefined>(subscribe, readRaw, () => undefined);
-  return raw === undefined ? undefined : parse(raw);
+  const raw = useSyncExternalStore<string | null | undefined>(subscribe, snapshot, () => undefined);
+  if (raw === undefined) return undefined;
+  return raw === null ? null : (JSON.parse(raw) as Session);
 }
