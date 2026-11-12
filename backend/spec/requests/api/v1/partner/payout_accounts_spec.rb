@@ -8,10 +8,15 @@ RSpec.describe "Partner payout accounts", type: :request do
     get "The signed-in partner's payout accounts" do
       tags "Partner"
       produces "application/json"
+      paginated_list
       description "Partner-only. Where the partner's payouts can go (RAA-145) — bank accounts, GCash and Maya — " \
         "oldest first, each with the businesses paid out to it. Only the last four digits of a number are returned."
       security [ { bearer: [] } ]
       parameter name: :Authorization, in: :header, schema: { type: :string }
+
+      it_behaves_like "a paginated list", total: 3 do
+        before { create_list(:payout_account, 3, partner: user) }
+      end
 
       response "200", "only the partner's own accounts, with the businesses that use them" do
         schema type: :array, items: { "$ref" => "#/components/schemas/payout_account" }

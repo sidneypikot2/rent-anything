@@ -17,7 +17,12 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Which page, from 1. A page past the end is an empty list. */
+                    page?: number;
+                    /** @description How many a page */
+                    per_page?: number;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -27,10 +32,27 @@ export interface paths {
                 /** @description activities with counts */
                 200: {
                     headers: {
+                        /** @description How many there are across every page */
+                        "X-Total-Count"?: number;
+                        /** @description This page */
+                        "X-Page"?: number;
+                        /** @description How many a page */
+                        "X-Per-Page"?: number;
+                        /** @description The next and previous pages (rel="next", rel="prev") where they exist */
+                        Link?: string;
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": components["schemas"]["activity"][];
+                    };
+                };
+                /** @description a page or per_page out of range */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
                     };
                 };
             };
@@ -1541,7 +1563,12 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Which page, from 1. A page past the end is an empty list. */
+                    page?: number;
+                    /** @description How many a page */
+                    per_page?: number;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -1551,10 +1578,27 @@ export interface paths {
                 /** @description bookable areas */
                 200: {
                     headers: {
+                        /** @description How many there are across every page */
+                        "X-Total-Count"?: number;
+                        /** @description This page */
+                        "X-Page"?: number;
+                        /** @description How many a page */
+                        "X-Per-Page"?: number;
+                        /** @description The next and previous pages (rel="next", rel="prev") where they exist */
+                        Link?: string;
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": components["schemas"]["area_card"][];
+                    };
+                };
+                /** @description a page or per_page out of range */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
                     };
                 };
             };
@@ -1798,7 +1842,12 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Which page, from 1. A page past the end is an empty list. */
+                    page?: number;
+                    /** @description How many a page */
+                    per_page?: number;
+                };
                 header?: {
                     Authorization?: string;
                 };
@@ -1810,6 +1859,14 @@ export interface paths {
                 /** @description upcoming first, then the rest */
                 200: {
                     headers: {
+                        /** @description How many there are across every page */
+                        "X-Total-Count"?: number;
+                        /** @description This page */
+                        "X-Page"?: number;
+                        /** @description How many a page */
+                        "X-Per-Page"?: number;
+                        /** @description The next and previous pages (rel="next", rel="prev") where they exist */
+                        Link?: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -1832,6 +1889,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a page or per_page out of range */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
                     };
                 };
             };
@@ -2142,6 +2208,10 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    /** @description Which page, from 1. A page past the end is an empty list. */
+                    page?: number;
+                    /** @description How many a page */
+                    per_page?: number;
                     /** @description A category slug, e.g. motorcycle */
                     category?: string;
                     /**
@@ -2172,6 +2242,14 @@ export interface paths {
                 /** @description every active listing without a category; no dates, nothing free counted */
                 200: {
                     headers: {
+                        /** @description How many there are across every page */
+                        "X-Total-Count"?: number;
+                        /** @description This page */
+                        "X-Page"?: number;
+                        /** @description How many a page */
+                        "X-Per-Page"?: number;
+                        /** @description The next and previous pages (rel="next", rel="prev") where they exist */
+                        Link?: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -2641,11 +2719,16 @@ export interface paths {
         };
         /**
          * Published landmarks with their location
-         * @description Every published landmark, by name, with its exact location: landmarks are public places.
+         * @description Published landmarks a page at a time, by name, each with its exact location: landmarks are public places.
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Which page, from 1. A page past the end is an empty list. */
+                    page?: number;
+                    /** @description How many a page */
+                    per_page?: number;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -2655,10 +2738,27 @@ export interface paths {
                 /** @description published landmarks */
                 200: {
                     headers: {
+                        /** @description How many there are across every page */
+                        "X-Total-Count"?: number;
+                        /** @description This page */
+                        "X-Page"?: number;
+                        /** @description How many a page */
+                        "X-Per-Page"?: number;
+                        /** @description The next and previous pages (rel="next", rel="prev") where they exist */
+                        Link?: string;
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": components["schemas"]["landmark_pin"][];
+                    };
+                };
+                /** @description a page or per_page out of range */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
                     };
                 };
             };
@@ -2760,11 +2860,16 @@ export interface paths {
         };
         /**
          * Active listings with their approximate location
-         * @description Every active listing, by title, with its location rounded to two decimals (about 1 km). The exact point is revealed only after a paid booking.
+         * @description Active listings a page at a time, by title, each with its location rounded to two decimals (about 1 km). The exact point is revealed only after a paid booking.
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Which page, from 1. A page past the end is an empty list. */
+                    page?: number;
+                    /** @description How many a page */
+                    per_page?: number;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -2774,10 +2879,27 @@ export interface paths {
                 /** @description a priced stay's pin carries its nightly price */
                 200: {
                     headers: {
+                        /** @description How many there are across every page */
+                        "X-Total-Count"?: number;
+                        /** @description This page */
+                        "X-Page"?: number;
+                        /** @description How many a page */
+                        "X-Per-Page"?: number;
+                        /** @description The next and previous pages (rel="next", rel="prev") where they exist */
+                        Link?: string;
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": components["schemas"]["listing_pin"][];
+                    };
+                };
+                /** @description a page or per_page out of range */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
                     };
                 };
             };
@@ -3697,7 +3819,12 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Which page, from 1. A page past the end is an empty list. */
+                    page?: number;
+                    /** @description How many a page */
+                    per_page?: number;
+                };
                 header?: {
                     Authorization?: string;
                 };
@@ -3711,6 +3838,14 @@ export interface paths {
                 /** @description the blocks still to come */
                 200: {
                     headers: {
+                        /** @description How many there are across every page */
+                        "X-Total-Count"?: number;
+                        /** @description This page */
+                        "X-Page"?: number;
+                        /** @description How many a page */
+                        "X-Per-Page"?: number;
+                        /** @description The next and previous pages (rel="next", rel="prev") where they exist */
+                        Link?: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -3742,6 +3877,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a page or per_page out of range */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
                     };
                 };
             };
@@ -3929,7 +4073,12 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Which page, from 1. A page past the end is an empty list. */
+                    page?: number;
+                    /** @description How many a page */
+                    per_page?: number;
+                };
                 header?: {
                     Authorization?: string;
                 };
@@ -3943,6 +4092,14 @@ export interface paths {
                 /** @description a stay's guests room by room, and its pets (RAA-182) */
                 200: {
                     headers: {
+                        /** @description How many there are across every page */
+                        "X-Total-Count"?: number;
+                        /** @description This page */
+                        "X-Page"?: number;
+                        /** @description How many a page */
+                        "X-Per-Page"?: number;
+                        /** @description The next and previous pages (rel="next", rel="prev") where they exist */
+                        Link?: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -3974,6 +4131,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a page or per_page out of range */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
                     };
                 };
             };
@@ -4534,7 +4700,12 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Which page, from 1. A page past the end is an empty list. */
+                    page?: number;
+                    /** @description How many a page */
+                    per_page?: number;
+                };
                 header?: {
                     Authorization?: string;
                 };
@@ -4546,6 +4717,14 @@ export interface paths {
                 /** @description only the partner's own businesses, by name, with their listing counts */
                 200: {
                     headers: {
+                        /** @description How many there are across every page */
+                        "X-Total-Count"?: number;
+                        /** @description This page */
+                        "X-Page"?: number;
+                        /** @description How many a page */
+                        "X-Per-Page"?: number;
+                        /** @description The next and previous pages (rel="next", rel="prev") where they exist */
+                        Link?: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -4568,6 +4747,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a page or per_page out of range */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
                     };
                 };
             };
@@ -5506,7 +5694,12 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Which page, from 1. A page past the end is an empty list. */
+                    page?: number;
+                    /** @description How many a page */
+                    per_page?: number;
+                };
                 header?: {
                     Authorization?: string;
                 };
@@ -5518,6 +5711,14 @@ export interface paths {
                 /** @description only the partner's own listings, by business, then category, then title */
                 200: {
                     headers: {
+                        /** @description How many there are across every page */
+                        "X-Total-Count"?: number;
+                        /** @description This page */
+                        "X-Page"?: number;
+                        /** @description How many a page */
+                        "X-Per-Page"?: number;
+                        /** @description The next and previous pages (rel="next", rel="prev") where they exist */
+                        Link?: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -5540,6 +5741,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a page or per_page out of range */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
                     };
                 };
             };
@@ -5823,7 +6033,12 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Which page, from 1. A page past the end is an empty list. */
+                    page?: number;
+                    /** @description How many a page */
+                    per_page?: number;
+                };
                 header?: {
                     Authorization?: string;
                 };
@@ -5835,6 +6050,14 @@ export interface paths {
                 /** @description only the partner's own accounts, with the businesses that use them */
                 200: {
                     headers: {
+                        /** @description How many there are across every page */
+                        "X-Total-Count"?: number;
+                        /** @description This page */
+                        "X-Page"?: number;
+                        /** @description How many a page */
+                        "X-Per-Page"?: number;
+                        /** @description The next and previous pages (rel="next", rel="prev") where they exist */
+                        Link?: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -5857,6 +6080,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["error"];
+                    };
+                };
+                /** @description a page or per_page out of range */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["validation_errors"];
                     };
                 };
             };
@@ -8151,6 +8383,10 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    /** @description Which page, from 1. A page past the end is an empty list. */
+                    page?: number;
+                    /** @description How many a page */
+                    per_page?: number;
                     view?: "booked";
                 };
                 header?: {
@@ -8164,6 +8400,14 @@ export interface paths {
                 /** @description each item with the most guests it can be for */
                 200: {
                     headers: {
+                        /** @description How many there are across every page */
+                        "X-Total-Count"?: number;
+                        /** @description This page */
+                        "X-Page"?: number;
+                        /** @description How many a page */
+                        "X-Per-Page"?: number;
+                        /** @description The next and previous pages (rel="next", rel="prev") where they exist */
+                        Link?: string;
                         [name: string]: unknown;
                     };
                     content: {

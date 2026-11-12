@@ -9,6 +9,7 @@ import { useSession } from "@/lib/auth/session";
 import { formatPeso } from "@/lib/money";
 import type { Room, StayRules } from "./party";
 import { deliveryBody, type Delivery, type DeliveryFees } from "./delivery-options";
+import { allPages } from "@/api/pages";
 
 export type Trip = components["schemas"]["trip"];
 export type TripItem = components["schemas"]["trip_item"];
@@ -122,7 +123,7 @@ function tripsQuery(userId: number | undefined) {
   return {
     queryKey: tripsKey(userId),
     queryFn: async () => {
-      const { data } = await apiClient().GET("/api/v1/trips");
+      const { data } = await allPages((query) => apiClient().GET("/api/v1/trips", { params: { query } }));
       if (!data) throw new Error("Couldn't load your trips. Try again.");
       return data;
     },
@@ -148,7 +149,9 @@ export function useBookedTrips() {
   return useQuery({
     queryKey: [...tripsKey(userId), "booked"],
     queryFn: async () => {
-      const { data } = await apiClient().GET("/api/v1/trips", { params: { query: { view: "booked" } } });
+      const { data } = await allPages((query) =>
+        apiClient().GET("/api/v1/trips", { params: { query: { view: "booked", ...query } } }),
+      );
       if (!data) throw new Error("Couldn't load your trips. Try again.");
       return data;
     },

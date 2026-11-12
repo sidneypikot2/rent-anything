@@ -35,9 +35,12 @@ RSpec.describe "Activities", type: :request do
     get "Activities guests can do in bookable areas" do
       tags "Discovery"
       produces "application/json"
+      paginated_list
       description "Activity tags with the number of bookable areas and published landmarks that have them, " \
         "and of active listings in bookable areas whose category carries the tag; most listings first. " \
         "Activities with no published landmark in a bookable area are left out."
+
+      include_examples "a paginated list", total: 2
 
       response "200", "activities with counts" do
         schema type: :array, items: { "$ref" => "#/components/schemas/activity" }

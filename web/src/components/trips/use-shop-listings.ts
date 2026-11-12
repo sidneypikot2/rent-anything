@@ -1,5 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
+import { MAX_PER_PAGE } from "@/api/pages";
 
 export type ShopGroup = "rental" | "gear";
 
@@ -20,7 +21,7 @@ export function useShopListings(
       const { data, error } = await apiClient().GET("/api/v1/businesses/{business_id}/listings", {
         params: {
           path: { business_id: businessId },
-          query: { category, group, ...(from && to ? { starts_on: from, ends_on: to } : {}), ...(pickupTime ? { pickup_time: pickupTime } : {}) },
+          query: { category, group, per_page: MAX_PER_PAGE, ...(from && to ? { starts_on: from, ends_on: to } : {}), ...(pickupTime ? { pickup_time: pickupTime } : {}) },
         },
       });
       if (error || !data) throw new Error("Couldn't load this shop's rentals");

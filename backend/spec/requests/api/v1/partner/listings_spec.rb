@@ -5,6 +5,7 @@ RSpec.describe "Partner listings", type: :request do
     get "The signed-in partner's listings" do
       tags "Partner"
       produces "application/json"
+      paginated_list
       description "Partner-only. Every listing the partner owns, in any status, ordered by business name, then " \
         "category name, then title. The exact location is included: the reader owns the listing."
       security [ { bearer: [] } ]
@@ -12,6 +13,10 @@ RSpec.describe "Partner listings", type: :request do
 
       let(:user) { create(:user, :partner) }
       let(:Authorization) { bearer_for(user) }
+
+      it_behaves_like "a paginated list", total: 3 do
+        before { create_list(:listing, 3, partner: user) }
+      end
 
       response "200", "only the partner's own listings, by business, then category, then title" do
         schema type: :array, items: { "$ref" => "#/components/schemas/partner_listing" }

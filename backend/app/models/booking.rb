@@ -55,6 +55,14 @@ class Booking < ApplicationRecord
   before_validation :assign_rental_period
 
   scope :holding, -> { where(status: HOLDING) }
+  # Upcoming (holding and not over yet) first by date, then the rest newest first: a guest's list.
+  scope :upcoming_first, lambda {
+    upcoming = sanitize_sql_array([ "(bookings.status IN (?) AND bookings.ends_on >= ?)", HOLDING, Date.current ])
+    order(Arel.sql("CASE WHEN #{upcoming} THEN 0 ELSE 1 END"),
+      Arel.sql("CASE WHEN #{upcoming} THEN bookings.starts_on END ASC"),
+      Arel.sql("CASE WHEN #{upcoming} THEN bookings.id END ASC"),
+      starts_on: :desc, id: :desc)
+  }
   scope :unsettled, -> { where(status: UNSETTLED) }
   # A partner's, through their listings: a booking's own user is its guest.
   scope :of_partner, ->(partner) { joins(:listing).where(listings: { partner_id: partner.id }) }

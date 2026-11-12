@@ -1,4 +1,6 @@
 class ApplicationController < ActionController::API
+  include Paginated
+
   rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
   rescue_from NotAuthenticatedError, with: :render_unauthorized
   rescue_from NotAuthorizedError, with: :render_forbidden

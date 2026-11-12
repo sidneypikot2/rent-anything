@@ -9,6 +9,24 @@ paths:
       summary: Activities guests can do in bookable areas
       tags:
       - Discovery
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Which page, from 1. A page past the end is an empty list.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        description: How many a page
       description: Activity tags with the number of bookable areas and published landmarks
         that have them, and of active listings in bookable areas whose category carries
         the tag; most listings first. Activities with no published landmark in a bookable
@@ -16,12 +34,36 @@ paths:
       responses:
         '200':
           description: activities with counts
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: How many there are across every page
+            X-Page:
+              schema:
+                type: integer
+              description: This page
+            X-Per-Page:
+              schema:
+                type: integer
+              description: How many a page
+            Link:
+              schema:
+                type: string
+              description: The next and previous pages (rel="next", rel="prev") where
+                they exist
           content:
             application/json:
               schema:
                 type: array
                 items:
                   "$ref": "#/components/schemas/activity"
+        '422':
+          description: a page or per_page out of range
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
   "/api/v1/admin/areas/{area_slug}/photos":
     parameters:
     - name: area_slug
@@ -1108,17 +1150,59 @@ paths:
       summary: Destinations with something to book
       tags:
       - Discovery
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Which page, from 1. A page past the end is an empty list.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        description: How many a page
       description: Areas with at least one active listing, most listings first, each
         with its top three activities (by how many published landmarks carry them).
       responses:
         '200':
           description: bookable areas
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: How many there are across every page
+            X-Page:
+              schema:
+                type: integer
+              description: This page
+            X-Per-Page:
+              schema:
+                type: integer
+              description: How many a page
+            Link:
+              schema:
+                type: string
+              description: The next and previous pages (rel="next", rel="prev") where
+                they exist
           content:
             application/json:
               schema:
                 type: array
                 items:
                   "$ref": "#/components/schemas/area_card"
+        '422':
+          description: a page or per_page out of range
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
   "/api/v1/areas/{slug}":
     get:
       summary: 'A destination: its landmarks and what to book there'
@@ -1374,6 +1458,24 @@ paths:
       summary: The guest's bookings
       tags:
       - Bookings
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Which page, from 1. A page past the end is an empty list.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        description: How many a page
       description: Guest-only (RAA-132). Upcoming bookings (those holding their days,
         pending ones too) first by date, then past, cancelled, declined and expired
         ones, newest first.
@@ -1382,12 +1484,36 @@ paths:
       responses:
         '200':
           description: upcoming first, then the rest
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: How many there are across every page
+            X-Page:
+              schema:
+                type: integer
+              description: This page
+            X-Per-Page:
+              schema:
+                type: integer
+              description: How many a page
+            Link:
+              schema:
+                type: string
+              description: The next and previous pages (rel="next", rel="prev") where
+                they exist
           content:
             application/json:
               schema:
                 type: array
                 items:
                   "$ref": "#/components/schemas/guest_booking"
+        '422':
+          description: a page or per_page out of range
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
         '403':
           description: a partner
           content:
@@ -1596,12 +1722,24 @@ paths:
       summary: A business's listings, with what is free on some dates
       tags:
       - Discovery
-      description: 'Public. A business''s active listings (RAA-191), by title, for
-        the shop pop-up: a group picks how many of each of a motorbike shop''s models.
-        `category` (a slug) narrows them. With both dates, `units_free` is how many
-        of each one''s units are free on all of them, as the partner''s calendar has
-        it; a model with none free is sold out. Money is in centavos.'
       parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Which page, from 1. A page past the end is an empty list.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        description: How many a page
       - name: business_id
         in: path
         schema:
@@ -1646,10 +1784,33 @@ paths:
           default for the day
         schema:
           type: string
+      description: 'Public. A business''s active listings (RAA-191), by title, for
+        the shop pop-up: a group picks how many of each of a motorbike shop''s models.
+        `category` (a slug) narrows them. With both dates, `units_free` is how many
+        of each one''s units are free on all of them, as the partner''s calendar has
+        it; a model with none free is sold out. Money is in centavos.'
       responses:
         '200':
           description: every active listing without a category; no dates, nothing
             free counted
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: How many there are across every page
+            X-Page:
+              schema:
+                type: integer
+              description: This page
+            X-Per-Page:
+              schema:
+                type: integer
+              description: How many a page
+            Link:
+              schema:
+                type: string
+              description: The next and previous pages (rel="next", rel="prev") where
+                they exist
           content:
             application/json:
               schema:
@@ -1961,17 +2122,59 @@ paths:
       summary: Published landmarks with their location
       tags:
       - Discovery
-      description: 'Every published landmark, by name, with its exact location: landmarks
-        are public places.'
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Which page, from 1. A page past the end is an empty list.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        description: How many a page
+      description: 'Published landmarks a page at a time, by name, each with its exact
+        location: landmarks are public places.'
       responses:
         '200':
           description: published landmarks
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: How many there are across every page
+            X-Page:
+              schema:
+                type: integer
+              description: This page
+            X-Per-Page:
+              schema:
+                type: integer
+              description: How many a page
+            Link:
+              schema:
+                type: string
+              description: The next and previous pages (rel="next", rel="prev") where
+                they exist
           content:
             application/json:
               schema:
                 type: array
                 items:
                   "$ref": "#/components/schemas/landmark_pin"
+        '422':
+          description: a page or per_page out of range
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
   "/api/v1/listings/{listing_id}/price":
     get:
       summary: What adding a listing to a trip would cost
@@ -2084,17 +2287,60 @@ paths:
       summary: Active listings with their approximate location
       tags:
       - Discovery
-      description: Every active listing, by title, with its location rounded to two
-        decimals (about 1 km). The exact point is revealed only after a paid booking.
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Which page, from 1. A page past the end is an empty list.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        description: How many a page
+      description: Active listings a page at a time, by title, each with its location
+        rounded to two decimals (about 1 km). The exact point is revealed only after
+        a paid booking.
       responses:
         '200':
           description: a priced stay's pin carries its nightly price
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: How many there are across every page
+            X-Page:
+              schema:
+                type: integer
+              description: This page
+            X-Per-Page:
+              schema:
+                type: integer
+              description: How many a page
+            Link:
+              schema:
+                type: string
+              description: The next and previous pages (rel="next", rel="prev") where
+                they exist
           content:
             application/json:
               schema:
                 type: array
                 items:
                   "$ref": "#/components/schemas/listing_pin"
+        '422':
+          description: a page or per_page out of range
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
   "/api/v1/listings/{id}":
     get:
       summary: One active listing, as a traveller sees it
@@ -2809,6 +3055,24 @@ paths:
       summary: A listing's blocked days
       tags:
       - Partner
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Which page, from 1. A page past the end is an empty list.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        description: How many a page
       description: Partner-only (RAA-118). The listing's blocks ending today or later,
         by start date.
       security:
@@ -2816,12 +3080,36 @@ paths:
       responses:
         '200':
           description: the blocks still to come
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: How many there are across every page
+            X-Page:
+              schema:
+                type: integer
+              description: This page
+            X-Per-Page:
+              schema:
+                type: integer
+              description: How many a page
+            Link:
+              schema:
+                type: string
+              description: The next and previous pages (rel="next", rel="prev") where
+                they exist
           content:
             application/json:
               schema:
                 type: array
                 items:
                   "$ref": "#/components/schemas/availability_block"
+        '422':
+          description: a page or per_page out of range
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
         '404':
           description: another partner's listing
           content:
@@ -2947,6 +3235,24 @@ paths:
       summary: A listing's bookings
       tags:
       - Partner
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Which page, from 1. A page past the end is an empty list.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        description: How many a page
       description: Partner-only (RAA-118). The listing's bookings ending today or
         later, cancelled ones too, by start date.
       security:
@@ -2954,12 +3260,36 @@ paths:
       responses:
         '200':
           description: a stay's guests room by room, and its pets (RAA-182)
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: How many there are across every page
+            X-Page:
+              schema:
+                type: integer
+              description: This page
+            X-Per-Page:
+              schema:
+                type: integer
+              description: How many a page
+            Link:
+              schema:
+                type: string
+              description: The next and previous pages (rel="next", rel="prev") where
+                they exist
           content:
             application/json:
               schema:
                 type: array
                 items:
                   "$ref": "#/components/schemas/booking"
+        '422':
+          description: a page or per_page out of range
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
         '404':
           description: another partner's listing
           content:
@@ -3379,25 +3709,66 @@ paths:
       summary: The signed-in partner's businesses
       tags:
       - Partner
-      description: Partner-only. The businesses the partner runs (RAA-100), by name.
-        Each listing belongs to one of them, and guests see its name.
-      security:
-      - bearer: []
       parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Which page, from 1. A page past the end is an empty list.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        description: How many a page
       - name: Authorization
         in: header
         schema:
           type: string
+      description: Partner-only. The businesses the partner runs (RAA-100), by name.
+        Each listing belongs to one of them, and guests see its name.
+      security:
+      - bearer: []
       responses:
         '200':
           description: only the partner's own businesses, by name, with their listing
             counts
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: How many there are across every page
+            X-Page:
+              schema:
+                type: integer
+              description: This page
+            X-Per-Page:
+              schema:
+                type: integer
+              description: How many a page
+            Link:
+              schema:
+                type: string
+              description: The next and previous pages (rel="next", rel="prev") where
+                they exist
           content:
             application/json:
               schema:
                 type: array
                 items:
                   "$ref": "#/components/schemas/partner_business"
+        '422':
+          description: a page or per_page out of range
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
         '403':
           description: a guest
           content:
@@ -4042,26 +4413,67 @@ paths:
       summary: The signed-in partner's listings
       tags:
       - Partner
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Which page, from 1. A page past the end is an empty list.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        description: How many a page
+      - name: Authorization
+        in: header
+        schema:
+          type: string
       description: 'Partner-only. Every listing the partner owns, in any status, ordered
         by business name, then category name, then title. The exact location is included:
         the reader owns the listing.'
       security:
       - bearer: []
-      parameters:
-      - name: Authorization
-        in: header
-        schema:
-          type: string
       responses:
         '200':
           description: only the partner's own listings, by business, then category,
             then title
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: How many there are across every page
+            X-Page:
+              schema:
+                type: integer
+              description: This page
+            X-Per-Page:
+              schema:
+                type: integer
+              description: How many a page
+            Link:
+              schema:
+                type: string
+              description: The next and previous pages (rel="next", rel="prev") where
+                they exist
           content:
             application/json:
               schema:
                 type: array
                 items:
                   "$ref": "#/components/schemas/partner_listing"
+        '422':
+          description: a page or per_page out of range
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
         '403':
           description: a guest
           content:
@@ -4255,26 +4667,67 @@ paths:
       summary: The signed-in partner's payout accounts
       tags:
       - Partner
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Which page, from 1. A page past the end is an empty list.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        description: How many a page
+      - name: Authorization
+        in: header
+        schema:
+          type: string
       description: Partner-only. Where the partner's payouts can go (RAA-145) — bank
         accounts, GCash and Maya — oldest first, each with the businesses paid out
         to it. Only the last four digits of a number are returned.
       security:
       - bearer: []
-      parameters:
-      - name: Authorization
-        in: header
-        schema:
-          type: string
       responses:
         '200':
           description: only the partner's own accounts, with the businesses that use
             them
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: How many there are across every page
+            X-Page:
+              schema:
+                type: integer
+              description: This page
+            X-Per-Page:
+              schema:
+                type: integer
+              description: How many a page
+            Link:
+              schema:
+                type: string
+              description: The next and previous pages (rel="next", rel="prev") where
+                they exist
           content:
             application/json:
               schema:
                 type: array
                 items:
                   "$ref": "#/components/schemas/payout_account"
+        '422':
+          description: a page or per_page out of range
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/validation_errors"
         '403':
           description: a guest
           content:
@@ -6254,15 +6707,24 @@ paths:
       summary: The signed-in guest's trips
       tags:
       - Trips
-      description: 'Guest-only. The cart: every trip whose `deletes_on` hasn''t come,
-        with its items. A trip that has ended, or an undated one with no edits for
-        60 days, shows a deletion notice for 7 days; then a daily job deletes its
-        unbooked items. Dated trips come first, soonest first; then undated ones,
-        most recently edited first. `view=booked` lists instead every trip with a
-        booked item, whenever it was (the Trips page, RAA-139), latest first.'
-      security:
-      - bearer: []
       parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        description: Which page, from 1. A page past the end is an empty list.
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+        description: How many a page
       - name: Authorization
         in: header
         schema:
@@ -6274,9 +6736,35 @@ paths:
           type: string
           enum:
           - booked
+      description: 'Guest-only. The cart: every trip whose `deletes_on` hasn''t come,
+        with its items. A trip that has ended, or an undated one with no edits for
+        60 days, shows a deletion notice for 7 days; then a daily job deletes its
+        unbooked items. Dated trips come first, soonest first; then undated ones,
+        most recently edited first. `view=booked` lists instead every trip with a
+        booked item, whenever it was (the Trips page, RAA-139), latest first.'
+      security:
+      - bearer: []
       responses:
         '200':
           description: each item with the most guests it can be for
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: How many there are across every page
+            X-Page:
+              schema:
+                type: integer
+              description: This page
+            X-Per-Page:
+              schema:
+                type: integer
+              description: How many a page
+            Link:
+              schema:
+                type: string
+              description: The next and previous pages (rel="next", rel="prev") where
+                they exist
           content:
             application/json:
               schema:
