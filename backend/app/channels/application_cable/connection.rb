@@ -1,20 +1,17 @@
 module ApplicationCable
-  # A WebSocket connection, held by anycable-go, which asks Rails to approve it (RAA-201).
-  # A client sending the API's cable_token (a sub-protocol) is identified by anycable-go
-  # itself and never gets here (RAA-224). Until the web does (RAA-304), the access token comes
-  # as the `token` query param; it is checked as `ApplicationController#authenticate_user`
-  # checks the header, once, when the connection opens. Cable::CloseExpiredJob closes it when
-  # the token expires, and signing out or deleting the account closes it
-  # (UserChannel.disconnect); a message only names what changed, and the API it sends the
-  # client back to checks the token again.
+  # A WebSocket connection, held by anycable-go (RAA-201). The client sends the API's
+  # cable_token as a sub-protocol, and anycable-go identifies the user from it itself
+  # (RAA-224, RAA-304), so `connect` is never called for it; with ANYCABLE_ENFORCE_JWT it
+  # refuses a connection without a valid one. Anything that still reaches `connect` came
+  # without an identity and is refused (the `?token=` access token is no longer taken).
+  # Cable::CloseExpiredJob closes a connection when its token expires, and signing out or
+  # deleting the account closes it (UserChannel.disconnect); a message only names what
+  # changed, and the API it sends the client back to checks the token again.
   class Connection < ActionCable::Connection::Base
     identified_by :current_user
 
     def connect
-      token = request.params[:token]
-      payload = token.is_a?(String) && JsonWebToken.decode(token)
-      self.current_user = payload && User.find_by(id: payload[:sub])
-      reject_unauthorized_connection unless current_user
+      reject_unauthorized_connection
     end
   end
 end
