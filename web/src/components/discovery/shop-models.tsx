@@ -315,7 +315,7 @@ export function useShopModels({ business, category, group, dates, people, listin
               <div className="flex items-center gap-3 px-3.5 py-3" data-testid="shop-model">
                 <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-action-tint text-action-ink">
                   {model.cover_photo_url ? (
-                    <Image src={model.cover_photo_url} alt="" fill unoptimized={isApiPhoto(model.cover_photo_url)} sizes="3.5rem" className="object-cover" />
+                    <Image src={model.cover_photo_url} alt={model.title} fill unoptimized={isApiPhoto(model.cover_photo_url)} sizes="3.5rem" className="object-cover" />
                   ) : (
                     <CategoryGlyph name={category.name} className="size-6" />
                   )}

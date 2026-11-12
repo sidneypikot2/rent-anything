@@ -416,7 +416,7 @@ function Thumb({ offer, large = false }: { offer: Offer; large?: boolean }) {
       {photo ? (
         <Image
           src={photo.src}
-          alt=""
+          alt={photo.alt}
           fill
           sizes={large ? "(min-width: 48rem) 144px, 72px" : "64px"}
           unoptimized={isApiPhoto(photo.src)}

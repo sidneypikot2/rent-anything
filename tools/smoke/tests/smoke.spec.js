@@ -391,6 +391,25 @@ test("Open Graph tags and JSON-LD", async ({ request }) => {
   expect((await request.get("/logo.png")).status()).toBe(200);
 });
 
+// One h1 per page (RAA-243, RAA-235): the public pages, sign-in and the not-found pages each have
+// exactly one, in the server's HTML (what a crawler reads) and once the page has run in the browser.
+// The error page (app/(guest)/error.tsx) can't be reached from here: it needs the API to fail.
+test("one h1 per page", async ({ page, request }) => {
+  const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1]).pathname;
+  const pages = [
+    "/", "/bantayan-island", "/bantayan-island/book", listing, "/search", "/search?q=boat", "/about",
+    "/terms", "/privacy", "/refunds", "/partner-terms", "/login", "/register",
+  ];
+  const missing = ["/no-such-place", "/listings/999999999", "/businesses/999999999", "/no/such/page"];
+  for (const path of [...pages, ...missing]) {
+    const response = await request.get(path);
+    expect(response.status(), path).toBe(missing.includes(path) ? 404 : 200);
+    expect((await response.text()).match(/<h1[\s>]/g) ?? [], `${path}: h1s in the server HTML`).toHaveLength(1);
+    await page.goto(path);
+    await expect(page.locator("h1"), `${path}: h1s in the page`).toHaveCount(1);
+  }
+});
+
 // Sign-up through the real API (email and password only), and the /partner guard: signed
 // out goes to /partner/login, a guest is sent home, a partner gets the dashboard.
 // Sent before the page's JavaScript loads, the browser posts the form itself (RAA-269): a GET
@@ -1049,4 +1068,19 @@ test("business settings and shop page", async ({ browser, baseURL }) => {
   await context.close();
 
   expect(errors).toEqual([]);
+});
+
+// TEMPORARY (RAA-235 audit, removed before merge): axe heading-order and image-alt on the public pages.
+test("TEMP axe audit", async ({ page, request }) => {
+  const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1]).pathname;
+  const paths = ["/", "/bantayan-island", "/bantayan-island/book", listing, "/search", "/search?q=boat", "/about", "/terms", "/privacy", "/refunds", "/partner-terms", "/no-such-place", "/listings/999999999"];
+  for (const path of paths) {
+    await page.goto(path);
+    await page.waitForLoadState("networkidle");
+    await page.addScriptTag({ url: "https://cdn.jsdelivr.net/npm/axe-core@4.10.2/axe.min.js" });
+    const result = await page.evaluate(() => window.axe.run(document, { runOnly: ["heading-order", "image-alt", "page-has-heading-one", "empty-heading"] }));
+    const outline = await page.evaluate(() => [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].map((h) => `${h.tagName}:${h.textContent.trim().slice(0, 40)}`).join(" | "));
+    console.log(`AXE ${path} OUTLINE ${outline}`);
+    for (const v of result.violations) for (const n of v.nodes) console.log(`AXE ${path} ${v.id} ${n.target.join(" ")} :: ${n.html.slice(0, 160)}`);
+  }
 });
