@@ -4,6 +4,8 @@ module Api
     # or not the email has an account, and signing in with it. Both are limited per IP, and
     # per email too, so one address can't be flooded or its code guessed from many IPs.
     class SignInCodesController < ApplicationController
+      include RefreshCookie
+
       PER_EMAIL_LIMIT = { to: 5, within: 15.minutes }.freeze
 
       limit_auth_attempts only: %i[create verify]
@@ -17,7 +19,7 @@ module Api
       end
 
       def verify
-        render json: Auth::VerifySignInCode.call(params[:email], params[:code], current_user:)
+        render_tokens Auth::VerifySignInCode.call(params[:email], params[:code], current_user:)
       end
 
       private

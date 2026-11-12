@@ -5680,6 +5680,16 @@ paths:
           type: string
         description: 'A guest with no account yet (RAA-175): their trips move into
           the account signed in to'
+      - name: X-Refresh-Cookie
+        in: header
+        required: false
+        schema:
+          type: string
+          enum:
+          - '1'
+        description: 'The web app (RAA-306): the refresh token comes as the HttpOnly
+          `raa_refresh` cookie (Path=/api/v1, SameSite=Strict), not in the body; Origin
+          must be FRONTEND_ORIGIN. Every endpoint that signs in takes it.'
       responses:
         '200':
           description: signed in
@@ -5735,7 +5745,17 @@ paths:
       summary: Sign out (revoke a refresh token)
       tags:
       - Auth
-      parameters: []
+      description: 'With `X-Refresh-Cookie: 1` the `raa_refresh` cookie''s token is
+        revoked and the cookie deleted; otherwise the body''s.'
+      parameters:
+      - name: X-Refresh-Cookie
+        in: header
+        required: false
+        schema:
+          type: string
+          enum:
+          - '1'
+        description: Sign out the cookie's session (RAA-306)
       responses:
         '204':
           description: an unknown token is ignored
@@ -5749,8 +5769,7 @@ paths:
               properties:
                 refresh_token:
                   type: string
-              required:
-              - refresh_token
+                  description: Required unless the cookie carries it
   "/api/v1/sign_in_codes":
     post:
       summary: Email a guest a sign-in code
@@ -5920,9 +5939,20 @@ paths:
       summary: Trade a refresh token for new tokens
       tags:
       - Auth
-      description: Each refresh token works once. Reusing one revokes every session
-        of that user.
-      parameters: []
+      description: 'Each refresh token works once. Reusing one revokes every session
+        of that user. With `X-Refresh-Cookie: 1` the token is read from the `raa_refresh`
+        cookie (or, once, from the body: a session from before the cookie) and the
+        new one set as the cookie.'
+      parameters:
+      - name: X-Refresh-Cookie
+        in: header
+        required: false
+        schema:
+          type: string
+          enum:
+          - '1'
+        description: Read and set the refresh token as the HttpOnly `raa_refresh`
+          cookie (RAA-306)
       responses:
         '200':
           description: 'a trip link''s session keeps its end: refreshing doesn''t
@@ -5962,8 +5992,7 @@ paths:
               properties:
                 refresh_token:
                   type: string
-              required:
-              - refresh_token
+                  description: Required unless the cookie carries it
   "/api/v1/trip_access/unlock":
     post:
       summary: Open a trip link with its PIN
@@ -7605,6 +7634,8 @@ components:
           type: string
         refresh_token:
           type: string
+          description: 'Absent when the request sent `X-Refresh-Cookie: 1`: the token
+            is then set as the HttpOnly `raa_refresh` cookie instead (RAA-306).'
         cable_token:
           type: string
           nullable: true
@@ -7618,7 +7649,6 @@ components:
           "$ref": "#/components/schemas/user"
       required:
       - access_token
-      - refresh_token
       - cable_token
       - expires_in
       - user

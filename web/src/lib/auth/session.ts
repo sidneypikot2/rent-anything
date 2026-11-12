@@ -65,7 +65,8 @@ export function getSession(): Session | null {
 export function saveSession(tokens: AuthTokens, { tabOnly = getSession()?.tabOnly ?? false } = {}) {
   const session: Session = {
     accessToken: tokens.access_token,
-    refreshToken: tokens.refresh_token,
+    // Always in the body until the web app asks for the cookie (X-Refresh-Cookie, RAA-226).
+    refreshToken: tokens.refresh_token ?? "",
     user: tokens.user,
     ...(tabOnly && { tabOnly }),
   };
