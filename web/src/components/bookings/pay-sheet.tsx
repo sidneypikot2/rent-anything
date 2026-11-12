@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogSummary } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
 import { useSession } from "@/lib/auth/session";
+import { PAYMONGO_HOSTS, safeExternalUrl } from "@/lib/external-url";
 import { formatPeso } from "@/lib/money";
 import { BookingStatusBadge } from "./booking-status";
 import { usePayBookings, type GuestBooking } from "./use-bookings";
@@ -39,14 +40,15 @@ export const TEST_MODE_NOTE =
 // Paying for a trip's accepted bookings (RAA-143), in a sheet: what will be paid and by when.
 // With PayMongo the guest is sent to its checkout page and comes back to the cart
 // (PaymentReturn); without it, or when nothing is charged, the bookings come back confirmed and
-// are shown here. All or nothing: one booking past its pay-by time refuses the lot.
+// are shown here. All or nothing: one booking past its pay-by time refuses the lot. A checkout
+// URL off PayMongo's hosts is never followed (RAA-223): the sheet stays, with an error toast.
 export function PaySheet({ trip, items, onClose }: { trip: Trip; items: TripItem[]; onClose: () => void }) {
   const pay = usePayBookings();
   const session = useSession();
   const toast = useToast();
-  const checkoutUrl = pay.data?.payment?.checkout_url;
-  const result = pay.data && !checkoutUrl ? pay.data.bookings : undefined;
-  const leaving = checkoutUrl !== undefined && checkoutUrl !== null;
+  const sentUrl = pay.data?.payment?.checkout_url;
+  const result = pay.data && !sentUrl ? pay.data.bookings : undefined;
+  const leaving = safeExternalUrl(sentUrl, PAYMONGO_HOSTS) !== undefined;
 
   function close() {
     if (!pay.isPending && !leaving) onClose();
@@ -83,7 +85,13 @@ export function PaySheet({ trip, items, onClose }: { trip: Trip; items: TripItem
                   {
                     onSuccess: ({ bookings, payment }) => {
                       if (payment?.checkout_url) {
-                        window.location.assign(payment.checkout_url);
+                        const url = safeExternalUrl(payment.checkout_url, PAYMONGO_HOSTS);
+                        if (url) window.location.assign(url);
+                        else
+                          toast.show("Couldn't open PayMongo's payment page. Please try again.", {
+                            tone: "danger",
+                            "data-testid": "error-toast",
+                          });
                         return;
                       }
                       toast.show(
