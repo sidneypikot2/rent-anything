@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import { businessHref, titleCardHref } from "@/components/discovery/browse-offers";
 import { BOOKING_GROUPS } from "@/components/discovery/categories";
@@ -26,6 +26,8 @@ import {
   type StepKey,
 } from "./plan-data";
 import { PlanCard } from "./plan-card";
+import { closeOverPlan } from "./over-plan";
+import { PlanOver, type PlanOverView } from "./plan-over";
 import { PlanMapView, PlanResults } from "./plan-results";
 import { Pager } from "@/components/ui/pager";
 import { PlanFoot } from "./plan-frame";
@@ -52,11 +54,23 @@ import { NO_FILTERS, setCount, type Filters } from "@/components/discovery/filte
 // options come from the API a page at a time (usePlanBusinesses): the list and the map show the
 // same page, with a pager. The foot sums the trip and leads to Review.
 // `initial`: page 1 of the step it opens on, fetched on the server.
-export function PlanChecklist({ place, choose, initial }: { place: PlanPlace; choose?: StepKey; initial?: { key: RowKey; data: PlanBusinessesPage } }) {
+// `over`: a business or listing opened from a step (`?business=`, `?listing=`), shown in place of
+// the step under the same stepper (RAA-309).
+export function PlanChecklist({
+  place,
+  choose,
+  initial,
+  over,
+}: {
+  place: PlanPlace;
+  choose?: StepKey;
+  initial?: { key: RowKey; data: PlanBusinessesPage };
+  over?: PlanOverView | null;
+}) {
   const { session, trips, trip } = useTripHere(place.places);
   if (session === undefined || (session && trips.isPending)) return <PlanChecklistSkeleton />;
   if (!trip) return <NoTrip slug={place.area.slug} />;
-  return <Checklist place={place} trip={trip} choose={choose} initial={initial} />;
+  return <Checklist place={place} trip={trip} choose={choose} initial={initial} over={over ?? null} />;
 }
 
 // `choose`: the row to open at once (a gap's Add, or a stop on the review's track).
@@ -65,12 +79,15 @@ function Checklist({
   trip,
   choose,
   initial,
+  over,
 }: {
   place: PlanPlace;
   trip: Trip;
   choose?: StepKey;
   initial?: { key: RowKey; data: PlanBusinessesPage };
+  over: PlanOverView | null;
 }) {
+  const router = useRouter();
   // The page each step is on, kept while the guest moves between steps.
   const [pages, setPages] = useState<Partial<Record<RowKey, number>>>({});
   // Each step's own filters, What to book's for its category (plan-filters.tsx), applied on the
@@ -255,10 +272,16 @@ function Checklist({
         <PlanSteps
           stops={planStops({ rows, done, skipped, tripHref: tripStepHref(trip, place.area.slug), reviewHref })}
           active={active.key}
-          onPick={setPicked}
+          // With a business or listing open, a stop closes it onto that step.
+          onPick={(key) => {
+            setPicked(key);
+            if (over) closeOverPlan(router, key);
+          }}
         />
 
-        {(() => {
+        {over ? (
+          <PlanOver over={over} backLabel={`Back to ${active.title}`} />
+        ) : (() => {
           const row = active;
           const index = rows.indexOf(row);
           const isDone = Boolean(done.get(row.key));
@@ -363,6 +386,7 @@ function Checklist({
         })()}
       </section>
 
+      {!over && (
       <PlanFoot
         row
         float={
@@ -403,6 +427,7 @@ function Checklist({
           </ButtonLink>
         )}
       </PlanFoot>
+      )}
 
       {!noListings && (
         <PlanTripSheet

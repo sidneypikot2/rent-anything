@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import type { MouseEvent } from "react";
 import Link from "next/link";
-import { newTabProps, useOpensInNewTab } from "@/components/discovery/business-row";
 import { ListingPhotos } from "@/components/discovery/listing-photos";
 import { TourStops } from "@/components/discovery/landmark-tours";
 import { BoltGlyph, CloseGlyph, PlaceGlyph } from "@/components/discovery/tag-glyphs";
@@ -59,10 +58,7 @@ export function PlanCard({
   className?: string;
 }) {
   const router = useRouter();
-  const newTab = useOpensInNewTab();
   const overMap = Boolean(onClose);
-  // A stay's business opens over the plan on a phone; a title card's listing page opens in this tab.
-  const overPlan = href.startsWith("/businesses/");
   const price = business.price_from_cents ? formatPeso(business.price_from_cents) : null;
   const far = distanceText(context.stay?.point, business.location);
   const stops = business.goesTo.flatMap((slug) => {
@@ -76,11 +72,11 @@ export function PlanCard({
     const landmark = context.landmarks.get(slug);
     return landmark ? [nearText(km, landmark)] : [];
   });
+  // A stay's business or a title card's listing opens in the planner's frame, at every width
+  // (RAA-309).
   const open = () => {
     onLeave?.();
-    if (newTab) window.open(href, "_blank");
-    else if (overPlan) openOverPlan(router, href);
-    else router.push(href);
+    openOverPlan(router, href);
   };
   const openFromPhoto = (event: MouseEvent) => {
     if ((event.target as HTMLElement).closest("button")) return;
@@ -141,11 +137,9 @@ export function PlanCard({
         <div className="flex items-baseline justify-between gap-2">
           <Link
             href={href}
-            {...newTabProps(newTab)}
             onClick={(event) => {
-              // A plain tap on a phone opens a business over the plan; a listing, a new tab or a
-              // modified click keeps the link.
-              if (newTab || !overPlan || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return onLeave?.();
+              // A plain click opens it in the planner's frame; a modified click keeps the link.
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return onLeave?.();
               event.preventDefault();
               open();
             }}

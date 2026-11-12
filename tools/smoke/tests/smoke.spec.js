@@ -84,6 +84,14 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   await page.getByTestId("plan-stay-find").click();
   await expect(page.getByTestId("plan-options-stay")).toBeVisible();
   await expect(page.getByTestId("plan-near").first()).toBeVisible();
+  // A stay's card opens its shop in the planner's frame, under the same stepper, and its way back
+  // returns to the step (RAA-309).
+  await page.getByTestId("plan-option").first().click();
+  await expect(page).toHaveURL(/[?&]business=\d+/);
+  await expect(page.getByTestId("plan-over")).toBeVisible();
+  await expect(page.getByTestId("plan-step-stay")).toHaveAttribute("aria-current", "step");
+  await page.getByTestId("plan-over-back").click();
+  await expect(page.getByTestId("plan-options-stay")).toBeVisible();
   // The steps sit in a row; picking one shows its options, Things to do with its places.
   await page.getByTestId("plan-step-activity").click();
   await expect(page.getByTestId("plan-places-tours")).toBeVisible();
