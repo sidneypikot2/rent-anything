@@ -1,0 +1,54 @@
+name: Security review
+
+# Claude reviews a pull request's diff for security problems and comments on the lines it
+# flags (anthropics/claude-code-security-review). It is advice, not a required check.
+# Needs the repository secret ANTHROPIC_API_KEY (an API key enabled for Claude Code); every
+# run is billed to it.
+on:
+  pull_request:
+    branches: [ staging ]
+    # A pull request that only touches docs or the generated API contract has nothing to
+    # review. (A pull request touching anything else is reviewed in full.)
+    paths-ignore:
+      - "**/*.md"
+      - "backend/swagger/v1/openapi.yaml"
+      - "web/src/api/schema.d.ts"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# Only the newest commit of a pull request is worth paying for.
+concurrency:
+  group: security-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  security_review:
+    # Not on pull requests from forks (no secrets there, and the action is not hardened
+    # against prompt injection in an untrusted diff), nor Dependabot's (no secrets either).
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+
+      # The action publishes no releases: pinned to a commit on its main branch.
+      # exclude-directories takes directories only: backend/swagger holds nothing but the
+      # generated openapi.yaml; web/src/api/schema.d.ts can't be left out alone without
+      # also skipping the hand-written client next to it.
+      - name: Claude Code security review
+        uses: anthropics/claude-code-security-review@0c6a49f1fa56a1d472575da86a94dbc1edb78eda # main (2026-02-11)
+        with:
+          claude-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude-model: claude-opus-5-5
+          comment-pr: true
+          upload-results: false
+          exclude-directories: backend/swagger
+          claudecode-timeout: 20

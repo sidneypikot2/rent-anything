@@ -3,7 +3,7 @@
 # reports which ones failed.
 #
 #   script/check              everything
-#   script/check frontend     eslint, types, production build, API contract
+#   script/check frontend     npm audit, eslint, types, production build, API contract
 #   script/check backend      rubocop, full rspec suite, API contract
 #   script/check tooling      shellcheck, guard and git-hook tests, instruction files, secret scan
 #
@@ -29,6 +29,8 @@ step() { # name, command...
 }
 
 if [[ "$area" == all || "$area" == frontend ]]; then
+  # Known high or critical advisories in what the web app ships (dev tools left out).
+  step "npm audit" web_do npm audit --audit-level=high --omit=dev
   step "eslint" script/lint frontend
   step "types" web_do npm run --silent typecheck
   step "build" web_do npx next build
