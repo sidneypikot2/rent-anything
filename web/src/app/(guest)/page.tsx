@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { BagGlyph, CompassGlyph, TickGlyph } from "@/components/discovery/tag-glyphs";
@@ -10,6 +11,10 @@ import { HomeClosing, HomeSteps } from "@/components/landing/home-steps";
 import { HomeTabBar } from "@/components/landing/home-tab-bar";
 import { HomeWhy } from "@/components/landing/home-why";
 import { BACKDROP_PHOTO } from "@/components/landing/site-backdrop";
+import { canonical } from "@/lib/seo";
+
+// The root layout's title and description are the home's; it adds its canonical (RAA-238).
+export const metadata: Metadata = { alternates: canonical("/") };
 
 // The two quieter ways in beside Plan a trip: a clear pill with a white hairline on the dark frame.
 const QUIET_WAY =

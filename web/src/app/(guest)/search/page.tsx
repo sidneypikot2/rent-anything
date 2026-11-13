@@ -16,8 +16,20 @@ import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { PillLink } from "@/components/ui/pill";
 import { Section } from "@/components/ui/section";
 import { DisplayTitle } from "@/components/ui/typography";
+import { BRAND } from "@/lib/brand";
+import { canonical } from "@/lib/seo";
 
-export const metadata: Metadata = { title: "Search" };
+// The search page has one canonical, without the query; a page of results for a search stays out
+// of the index (RAA-238), as search engines ask of a site's own search results.
+export async function generateMetadata(props: PageProps<"/search">): Promise<Metadata> {
+  const { q } = await props.searchParams;
+  return {
+    title: "Search",
+    description: `Search places, tours, stays, transfers and rentals across the Philippines on ${BRAND}, and book them from local partners in one cart.`,
+    alternates: canonical("/search"),
+    ...(typeof q === "string" && q.trim() ? { robots: { index: false, follow: true } } : {}),
+  };
+}
 
 // Full search results, grouped like the autocomplete. An activity lists the destinations
 // that have it, most matching places first.

@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getActiveListings, getDestinations } from "@/api/discovery";
 import { absoluteUrl } from "@/lib/config";
+import { listingPath } from "@/lib/seo";
 
 // /sitemap.xml (RAA-232): the public pages, every destination and every active listing, with
 // absolute URLs from NEXT_PUBLIC_SITE_URL. Read from the API on each request (the fetchers call
@@ -13,6 +14,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     ...STATIC_PATHS.map((path) => ({ url: absoluteUrl(path) })),
     ...areas.map((area) => ({ url: absoluteUrl(`/${area.slug}`) })),
-    ...listings.map((listing) => ({ url: absoluteUrl(`/listings/${listing.id}`) })),
+    ...listings.map((listing) => ({ url: absoluteUrl(listingPath(listing)) })),
   ];
 }

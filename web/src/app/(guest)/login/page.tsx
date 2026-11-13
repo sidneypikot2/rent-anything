@@ -3,9 +3,12 @@ import Link from "next/link";
 import { AuthCard } from "@/components/auth/auth-card";
 import { AuthSheet } from "@/components/auth/auth-sheet";
 import { LOGIN_PATHS, RESET_DONE_FLAG, safeNextPath } from "@/lib/auth/paths";
+import { NOINDEX } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Sign in",
+  // Sign-in pages stay out of search results (RAA-227).
+  robots: NOINDEX,
 };
 
 // Guest sign-in; guests sign up at /register, partners use /partner/login.

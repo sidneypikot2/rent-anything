@@ -14,6 +14,7 @@ import { TripLinkProvider } from "@/components/trips/trip-link";
 import { readTripDates, tripDatesQuery } from "@/components/trips/trip-dates";
 import { cn } from "@/components/ui/cn";
 import { DisplayTitle } from "@/components/ui/typography";
+import { canonical } from "@/lib/seo";
 
 const sectionOf = (group: string) => BOOK_SECTIONS.find((section) => section.group === group);
 
@@ -23,7 +24,9 @@ export async function generateMetadata(props: PageProps<"/[area]/book/[group]">)
   if (!detail || !section) return { title: "Not found" };
   return {
     title: `${section.title} on ${detail.area.name}`,
-    description: `Every ${section.title.toLowerCase()} option on ${detail.area.name} from local partners, booked in one cart.`,
+    description: `${section.title} on ${detail.area.name} from local partners: see what is free on your dates and book it with the rest of your trip in one cart.`,
+    // Without the dates, the search or the page (RAA-238).
+    alternates: canonical(`/${detail.area.slug}/book/${section.group}`),
   };
 }
 

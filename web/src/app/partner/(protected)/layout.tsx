@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { RoleGuard } from "@/components/auth/role-guard";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { PartnerShell } from "@/components/partner/partner-shell";
 import { ProfileBanner } from "@/components/partner/profile-banner";
 import { VerificationBanner } from "@/components/partner/verification-banner";
+import { NOINDEX } from "@/lib/seo";
+
+// The partner console never goes in search results (RAA-227).
+export const metadata: Metadata = { robots: NOINDEX };
 
 // Every partner page except /partner/login and /partner/register lives in this group,
 // behind the guard, on a white sheet (RAA-120) rather than the guests' glass, wrapped here once:
