@@ -615,7 +615,6 @@
   --color-warning-tint: #fcd34d;
   --font-sans: var(--font-jakarta);
   --font-display: var(--font-jakarta);
-  --font-mono: var(--font-geist-mono);
 }
 
 body {
@@ -834,26 +833,35 @@ body {
       inset 0 0 0 1px var(--color-lagoon-ink),
       0 4px 10px -8px rgb(10 79 76 / 0.35);
   }
-  /* Pressed, a button settles: its shadow goes and a light shade falls inside its top edge. */
-  .btn:not(:disabled):active {
+  /* Pressed, a button settles: its shadow goes and a light shade falls inside its top edge.
+     Working (`loading`, or a link whose page is on its way: its spinner, `data-spinner`), it stays
+     settled, in its own colour: never the grey disabled pill, which reads as unavailable. */
+  .btn:not(:disabled):active,
+  .btn[aria-busy="true"],
+  .btn:has([data-spinner]) {
     translate: 0 1px;
     background-image: linear-gradient(to bottom, rgb(0 0 0 / 0.06), rgb(0 0 0 / 0));
     box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.2);
   }
-  .btn-soft:not(:disabled):active {
+  .btn-soft:not(:disabled):active,
+  .btn-soft[aria-busy="true"],
+  .btn-soft:has([data-spinner]) {
     background-image: none;
     background-color: var(--color-lagoon-tint);
     box-shadow:
       inset 0 0 0 1px var(--color-lagoon-ink),
       inset 0 1px 3px rgb(10 79 76 / 0.18);
   }
-  .btn-paper:not(:disabled):active {
+  .btn-paper:not(:disabled):active,
+  .btn-paper[aria-busy="true"],
+  .btn-paper:has([data-spinner]) {
     background-image: linear-gradient(to bottom, rgb(241 245 249), rgb(248 250 252));
     box-shadow:
       inset 0 0 0 1px rgb(15 23 42 / 0.16),
       inset 0 1px 3px rgb(15 23 42 / 0.1);
   }
-  .btn[aria-busy="true"] {
+  .btn[aria-busy="true"],
+  .btn:has([data-spinner]) {
     cursor: progress;
     opacity: 1;
   }
