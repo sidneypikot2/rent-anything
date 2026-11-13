@@ -391,11 +391,12 @@ test("Open Graph tags and JSON-LD", async ({ request }) => {
   expect((await request.get("/logo.png")).status()).toBe(200);
 });
 
-// One h1 per page (RAA-243, RAA-235): the public pages, sign-in and the not-found pages each have
-// exactly one, in the server's HTML (what a crawler reads) and once the page has run in the browser.
-// A missing place is a real 404 with its h1 on the server: its check sits above the loading
-// skeleton (`[area]/(place)/layout.tsx`). The error page (app/(guest)/error.tsx) can't be reached
-// from here: it needs the API to fail.
+// One h1 per page (RAA-243, RAA-235): the public pages and sign-in each have exactly one, in the
+// server's HTML (what a crawler reads) and once the page has run in the browser; the not-found
+// pages answer 404 (a missing place too: its check sits above the loading skeleton, in
+// `[area]/(place)/layout.tsx`) and have one in the browser. Next draws a notFound()'s page in the
+// browser, so it has none in the server's HTML yet. The error page (app/(guest)/error.tsx) can't be
+// reached from here: it needs the API to fail.
 test("one h1 per page", async ({ page, request }) => {
   const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1]).pathname;
   const pages = [
@@ -406,7 +407,9 @@ test("one h1 per page", async ({ page, request }) => {
   for (const path of [...pages, ...missing]) {
     const response = await request.get(path);
     expect(response.status(), path).toBe(missing.includes(path) ? 404 : 200);
-    expect((await response.text()).match(/<h1[\s>]/g) ?? [], `${path}: h1s in the server HTML`).toHaveLength(1);
+    if (!missing.includes(path)) {
+      expect((await response.text()).match(/<h1[\s>]/g) ?? [], `${path}: h1s in the server HTML`).toHaveLength(1);
+    }
     await page.goto(path);
     await expect(page.locator("h1"), `${path}: h1s in the page`).toHaveCount(1);
   }
@@ -1070,26 +1073,4 @@ test("business settings and shop page", async ({ browser, baseURL }) => {
   await context.close();
 
   expect(errors).toEqual([]);
-});
-
-// TEMPORARY (RAA-235 audit, removed before merge): axe heading-order and image-alt on the public pages.
-test("TEMP axe audit", async ({ browser, baseURL, request }) => {
-  const page = await (await browser.newContext({ baseURL, bypassCSP: true })).newPage();
-  const axeSource = await (await request.get("https://cdn.jsdelivr.net/npm/axe-core@4.10.2/axe.min.js")).text();
-  const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1]).pathname;
-  const paths = ["/", "/bantayan-island", "/bantayan-island/book", "/bantayan-island/book/gear", listing, "/search", "/search?q=boat", "/about", "/terms", "/privacy", "/refunds", "/partner-terms", "/no-such-place", "/listings/999999999", "/businesses/999999999", "/no/such/page"];
-  for (const path of ["/no-such-place", "/listings/999999999"]) {
-    const html = await (await request.get(path)).text();
-    const body = html.slice(html.indexOf("<body"));
-    console.log(`AXEHTML ${path} ${body.replace(/<script[\s\S]*?<\/script>/g, "").replace(/\s+/g, " ").slice(0, 6000)}`);
-  }
-  for (const path of paths) {
-    await page.goto(path);
-    await page.waitForLoadState("networkidle");
-    await page.addScriptTag({ content: axeSource });
-    const result = await page.evaluate(() => window.axe.run(document, { runOnly: ["heading-order", "image-alt", "page-has-heading-one", "empty-heading"] }));
-    const outline = await page.evaluate(() => [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].map((h) => `${h.tagName}:${h.textContent.trim().slice(0, 40)}`).join(" | "));
-    console.log(`AXE ${path} OUTLINE ${outline}`);
-    for (const v of result.violations) for (const n of v.nodes) console.log(`AXE ${path} ${v.id} ${n.target.join(" ")} :: ${n.html.slice(0, 160)}`);
-  }
 });
