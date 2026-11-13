@@ -7,7 +7,8 @@ import { ComboboxField } from "@/components/ui/combobox-field";
 import { Stepper } from "@/components/ui/stepper-field";
 import { Field } from "@/components/ui/field";
 import { TicketRow } from "@/components/ui/ticket";
-import { reverseGeocode, searchPlaces, type LatLng, type PlaceSuggestion } from "@/lib/map";
+import { type LatLng } from "@/lib/geo";
+import { reverseGeocode, searchPlaces, type PlaceSuggestion } from "@/lib/geocode";
 import { formatPeso } from "@/lib/money";
 import { zonesText, type DeliveryZone } from "./delivery-zones";
 

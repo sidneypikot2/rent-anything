@@ -5,17 +5,9 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
-import {
-  DEFAULT_MAP_CENTER,
-  fromLngLat,
-  geocodeAddress,
-  MAP_STYLE_URL,
-  reverseGeocode,
-  setMapWorker,
-  toLngLat,
-  type LatLng,
-  type ReversePlace,
-} from "@/lib/map";
+import { fromLngLat, MAP_STYLE_URL, setMapWorker, toLngLat } from "@/lib/map";
+import { type LatLng } from "@/lib/geo";
+import { DEFAULT_MAP_CENTER, geocodeAddress, reverseGeocode, type ReversePlace } from "@/lib/geocode";
 
 type Props = {
   value: LatLng | null;
