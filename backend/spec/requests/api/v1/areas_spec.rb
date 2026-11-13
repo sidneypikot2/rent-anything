@@ -157,7 +157,7 @@ RSpec.describe "Areas", type: :request do
           json = response.parsed_body
           expect(json["area"]).to include("slug" => "bantayan-island", "parent_name" => "Cebu", "parent_slug" => "cebu")
           expect(json["photos"]).to eq([ banner, second ].map { ListingPhotoSerializer.call(it).stringify_keys })
-          expect(json["photos"].first["card_url"]).to end_with("/test/area_photos/#{banner.id}/image_card.jpg")
+          expect(json["photos"].first["card_url"]).to end_with("/test/area_photos/#{banner.id}/image_card.webp")
           expect(json["areas"]).to be_empty
           expect(json["landmarks"].pluck("slug")).to eq(%w[kota-beach virgin-island])
           expect(json["landmarks"].pluck("photos")).to eq([ [ ListingPhotoSerializer.call(kota_photo).stringify_keys ], [] ])

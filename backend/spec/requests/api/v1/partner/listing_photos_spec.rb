@@ -214,7 +214,8 @@ RSpec.describe "Partner listing photos", type: :request do
         run_test! do
           expect(ListingPhoto.exists?(photo.id)).to be(false)
           expect(ListingPhotos::DeleteFilesJob).to have_been_enqueued.with(
-            %w[image image_card image_large].map { |field| "test/listing_photos/#{photo.id}/#{field}.jpg" }
+            %w[image.jpg image_card.jpg image_large.jpg image_card.webp image_large.webp]
+            .map { |file| "test/listing_photos/#{photo.id}/#{file}" }
           )
         end
       end

@@ -3,12 +3,12 @@
 # client's calls succeed with empty answers, and PhotoStorage.client.api_requests lists them.
 module PhotoHelpers
   # A photo as ListingPhotos::Create (or GalleryPhotos::Create, for an area or a landmark) leaves
-  # it, then the confirmed upload and ResizeJob.
+  # it, then the confirmed upload and ResizeJob (its sizes as WebP, RAA-240).
   def create_photo(owner, position: owner.photos.maximum(:position).to_i + 1, uploaded: true, ready: uploaded,
     **attributes)
     owner.photos.create!(position:, filename: "photo.jpg", content_type: "image/jpeg", byte_size: 505,
       checksum: "1B2M2Y8AsgTpgAmY7PhCfg==", uploaded_at: (Time.current if uploaded), sized_at: (Time.current if ready),
-      **attributes)
+      versions_content_type: (StoredPhoto::VERSIONS_CONTENT_TYPE if ready), **attributes)
   end
 
   def stub_photo_in_storage(bytes = file_fixture("photo.jpg").binread)
