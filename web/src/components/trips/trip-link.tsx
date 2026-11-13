@@ -76,8 +76,10 @@ export function useRowLink() {
 // A listing's or business's page opened with `?trip=<id>`: that trip, when it is one of the
 // guest's current trips, becomes the one this tab works on (chosen-trip.ts), so its adds go to it;
 // and a URL with no dates or guests takes the trip's own, as a place's banner does. Another
-// account's or a finished trip's id is ignored.
-export function AdoptTrip({ id }: { id: number }) {
+// account's or a finished trip's id is ignored. `urlDates={false}` (the planner) only chooses the
+// trip: its pages carry the trip's dates in their links, and a late `router.replace` there would
+// land after the guest picked a step, dropping `?choose=` and remounting the step (RAA-323).
+export function AdoptTrip({ id, urlDates = true }: { id: number; urlDates?: boolean }) {
   const isGuest = useSession()?.user.role === "guest";
   const trips = useTrips(isGuest);
   const trip = currentTrips(trips.data).find((each) => each.id === id);
@@ -87,11 +89,11 @@ export function AdoptTrip({ id }: { id: number }) {
   useEffect(() => {
     if (!trip) return;
     if (readChosenTrip() !== trip.id) chooseTrip(trip.id);
-    if (!ownQuery) return;
+    if (!urlDates || !ownQuery) return;
     const params = new URLSearchParams(window.location.search);
     if (["from", "to", "guests"].some((key) => params.has(key))) return;
     new URLSearchParams(ownQuery).forEach((value, key) => params.set(key, value));
     router.replace(`${pathname}?${params}${window.location.hash}`, { scroll: false });
-  }, [trip, ownQuery, pathname, router]);
+  }, [trip, ownQuery, urlDates, pathname, router]);
   return null;
 }
