@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { getBusiness } from "@/api/discovery";
-import { BusinessBody, businessCount, businessId, businessView, destinationsOrNone } from "@/components/discovery/business-view";
+import { BusinessBody, businessId, businessView, destinationsOrNone } from "@/components/discovery/business-view";
 import { ListingBody, listingId, loadListingView } from "@/components/discovery/listing-view";
 import type { PlanOverView } from "./plan-over";
 
@@ -16,17 +15,6 @@ export async function loadPlanOver(slug: string, searchParams: SearchParams): Pr
     const view = await loadListingView(listing, params);
     if (!view) return null;
     return {
-      title: view.listing.title,
-      meta: (
-        <>
-          by{" "}
-          <Link href={view.businessHref} className="font-semibold text-link underline underline-offset-4" data-testid="listing-business">
-            {view.listing.business.name}
-          </Link>
-          {" · "}
-          {view.listing.category.name}
-        </>
-      ),
       body: <ListingBody view={view} inPlan />,
     };
   }
@@ -36,8 +24,6 @@ export async function loadPlanOver(slug: string, searchParams: SearchParams): Pr
   if (!detail) return null;
   const view = businessView(detail, destinations, params);
   return {
-    title: view.business.name,
-    meta: [view.town || view.area.name, businessCount(view)].join(" · "),
     body: <BusinessBody view={view} inPlan />,
   };
 }

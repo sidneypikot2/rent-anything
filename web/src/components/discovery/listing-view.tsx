@@ -1,8 +1,11 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { getBusiness, getDestinations, getListing, getQuote, type AreaCard } from "@/api/discovery";
 import { ancestorsOf, descendants, offerOf, rentalShop } from "@/components/discovery/browse-offers";
 import { BusinessGoodToKnow, BusinessIncluded, BusinessTrust, shopFacts } from "@/components/discovery/business-shop";
-import { BusinessWhere, ShopPhotos } from "@/components/discovery/business-view";
+import { BusinessWhere, ShopHeading, ShopPhotos, VerifiedBadge } from "@/components/discovery/business-view";
+import { categoryIcon } from "@/components/discovery/icons";
+import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
 import { TRIP_ORDER_GROUPS } from "@/components/discovery/categories";
 import { MoreFromBusiness, type MoreGroup } from "@/components/discovery/more-from-business";
 import { listingFeatures } from "@/components/discovery/listing-features";
@@ -179,7 +182,37 @@ export function ListingBody({ view, inPlan = false, related }: { view: ListingVi
             inPlan ? "pt-2 pb-page-pad" : "mx-auto max-w-page px-gutter py-page-pad max-sm:px-0",
           )}
         >
-          {photos.length > 0 && <ShopPhotos photos={photos} label={listing.title} category={category.name} testId="listing-photos" />}
+          {/* Its photos, its name close under them (RAA-314). */}
+          <div className="flex flex-col gap-5">
+            {photos.length > 0 && <ShopPhotos photos={photos} label={listing.title} category={category.name} testId="listing-photos" />}
+
+            <ShopHeading
+              title={listing.title}
+              as={inPlan ? "h2" : "h1"}
+              business={{ name: listing.business.name, logo: business?.logo }}
+              overPhotos={photos.length > 0}
+              eyebrow={
+                <>
+                  <span aria-hidden className="text-primary">
+                    {categoryIcon(category.name)}
+                  </span>
+                  {category.name} · {[business?.city, listing.area.name].filter(Boolean).join(", ")}
+                </>
+              }
+              meta={
+                <>
+                  <span>
+                    by{" "}
+                    <Link href={businessHref} className="font-semibold text-link underline underline-offset-4" data-testid="listing-business">
+                      {listing.business.name}
+                    </Link>
+                  </span>
+                  {business?.verified && <VerifiedBadge />}
+                  {listing.instant_book ? <InstantBookBadge /> : <Badge tone="mist">Request to book</Badge>}
+                </>
+              }
+            />
+          </div>
 
           {/* The booking rail from lg: details on the left, the card sticking on the right
               over both rows; below lg one column, the card after the trust strip. */}
