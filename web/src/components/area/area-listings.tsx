@@ -209,6 +209,9 @@ export function WhatToBookList({
 // What to book's sections, in the order the trip's needs come (TRIP_ORDER_GROUPS).
 export const BOOK_SECTIONS: BookSection[] = TRIP_ORDER_GROUPS.map(({ group, id, title, icon }) => ({ group, id, title, icon }));
 
+// The section a Show all page (`/<area>/book/<group>`) is for; undefined for an unknown group.
+export const bookSection = (group: string) => BOOK_SECTIONS.find((section) => section.group === group);
+
 // The pages What to book opens on, fetched on the server for the first paint: every section's
 // first row of cards, or on a section's Show all page (`list`) that section's page.
 export async function bookSeed(

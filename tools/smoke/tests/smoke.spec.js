@@ -312,6 +312,12 @@ test("robots.txt, sitemap.xml and noindex", async ({ page, request }) => {
 
   await page.goto("/");
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow");
+
+  // The /nearby test page (RAA-248) stays up but out of search: noindex of its own (production
+  // too) and not in the sitemap.
+  expect(paths).not.toContain("/nearby");
+  await page.goto("/nearby");
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow");
 });
 
 // Page metadata (RAA-227, RAA-228, RAA-229, RAA-238): each public page has its own description
@@ -393,9 +399,9 @@ test("Open Graph tags and JSON-LD", async ({ request }) => {
 
 // One h1 per page (RAA-243, RAA-235): the public pages and sign-in each have exactly one, in the
 // server's HTML (what a crawler reads) and once the page has run in the browser; the not-found
-// pages answer 404 (a missing place too: its check sits above the loading skeleton, in
-// `[area]/(place)/layout.tsx`) and have one in the browser. Next draws a notFound()'s page in the
-// browser, so it has none in the server's HTML yet. The error page (app/(guest)/error.tsx) can't be
+// pages answer 404 (a missing place, What to book group or plan too, RAA-246: their checks sit
+// above the loading skeletons, in layouts) and have one in the browser. Next draws a notFound()'s
+// page in the browser, so it has none in the server's HTML yet. The error page (app/(guest)/error.tsx) can't be
 // reached from here: it needs the API to fail.
 test("one h1 per page", async ({ page, request }) => {
   const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1]).pathname;
@@ -403,7 +409,10 @@ test("one h1 per page", async ({ page, request }) => {
     "/", "/bantayan-island", "/bantayan-island/book", "/bantayan-island/book/gear", listing, "/search", "/search?q=boat", "/about",
     "/terms", "/privacy", "/refunds", "/partner-terms", "/login", "/register",
   ];
-  const missing = ["/no-such-place", "/listings/999999999", "/businesses/999999999", "/no/such/page"];
+  const missing = [
+    "/no-such-place", "/bantayan-island/book/no-such-group", "/plan/no-such-place", "/plan/no-such-place/review",
+    "/listings/999999999", "/businesses/999999999", "/no/such/page",
+  ];
   for (const path of [...pages, ...missing]) {
     const response = await request.get(path);
     expect(response.status(), path).toBe(missing.includes(path) ? 404 : 200);
@@ -413,6 +422,51 @@ test("one h1 per page", async ({ page, request }) => {
     await page.goto(path);
     await expect(page.locator("h1"), `${path}: h1s in the page`).toHaveCount(1);
   }
+});
+
+// No broken links (RAA-234): from the home page, follow same-origin links in the server's HTML
+// (what a crawler reads), breadth first, and every link found must open (after redirects) below
+// 400. Bounded: at most PAGES pages are read for their links, and at most PER_SHAPE of one shape
+// (`/listings/12` and `/listings/34` are one), so a growing catalogue doesn't grow the test.
+// External links are checked by hand, not here: their sites block or rate-limit robots.
+test("no broken links", async ({ request, baseURL }) => {
+  test.setTimeout(240_000);
+  const PAGES = 40;
+  const PER_SHAPE = 3;
+  const shape = (url) => `${url.pathname.replace(/\d+/g, ":n")}?${[...url.searchParams.keys()].sort().join("&")}`;
+  const linksIn = (html) => [...html.matchAll(/<a\s(?:[^>]*?\s)?href="([^"]*)"/g)].map((match) => match[1].replaceAll("&amp;", "&"));
+  const origin = new URL(baseURL).origin;
+  const seen = new Map(); // url -> the page that linked it first
+  const shapes = new Map();
+  const queue = ["/"];
+  seen.set("/", "(start)");
+  const broken = [];
+  let read = 0;
+  while (queue.length) {
+    const path = queue.shift();
+    const response = await request.get(path);
+    if (response.status() >= 400) {
+      broken.push(`${path} (${response.status()}), linked from ${seen.get(path)}`);
+      continue;
+    }
+    if (read >= PAGES || !(response.headers()["content-type"] ?? "").includes("text/html")) continue;
+    read += 1;
+    for (const href of linksIn(await response.text())) {
+      if (!href || href.startsWith("#") || /^(mailto|tel|javascript):/.test(href)) continue;
+      const url = new URL(href, `${origin}${path}`);
+      if (url.origin !== origin) continue;
+      url.hash = "";
+      const key = `${url.pathname}${url.search}`;
+      if (seen.has(key)) continue;
+      const count = shapes.get(shape(url)) ?? 0;
+      if (count >= PER_SHAPE) continue;
+      shapes.set(shape(url), count + 1);
+      seen.set(key, path);
+      queue.push(key);
+    }
+  }
+  expect(read, "pages read for links").toBeGreaterThan(5);
+  expect(broken).toEqual([]);
 });
 
 // Sign-up through the real API (email and password only), and the /partner guard: signed
