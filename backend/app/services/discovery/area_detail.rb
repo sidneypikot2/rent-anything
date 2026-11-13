@@ -88,12 +88,15 @@ module Discovery
       @landmarks ||= Landmark.published.in_area_tree(@area).includes(:tags, :ready_photos).order(:name).to_a
     end
 
-    # landmark id => the active listings that visit it, as { id:, title:, category: }.
+    # landmark id => the active listings that visit it, as { id:, title:, category:, price_from_cents: }
+    # (the stored from-price, so the planner's chooser lists them without a request each, RAA-322).
     def visitors
       @visitors ||= ListingLandmark.visits.joins(listing: :category).merge(Listing.active)
         .where(landmark_id: landmarks.map(&:id)).order(:listing_id)
-        .pluck(:landmark_id, :listing_id, "listings.title", "categories.name")
-        .group_by(&:first).transform_values { |rows| rows.map { |_, id, title, category| { id:, title:, category: } } }
+        .pluck(:landmark_id, :listing_id, "listings.title", "categories.name", "listings.price_from_cents")
+        .group_by(&:first).transform_values do |rows|
+          rows.map { |_, id, title, category, price_from_cents| { id:, title:, category:, price_from_cents: } }
+        end
     end
 
     def landmark_json(landmark)

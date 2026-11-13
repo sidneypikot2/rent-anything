@@ -11357,7 +11357,8 @@ components:
                 description: The ids of the active listings that visit it
               visits:
                 type: array
-                description: The same listings, named (their title and category)
+                description: The same listings, named (their title and category) and
+                  priced (their from-price, null until priced)
                 items:
                   type: object
                   properties:
@@ -11367,10 +11368,14 @@ components:
                       type: string
                     category:
                       type: string
+                    price_from_cents:
+                      type: integer
+                      nullable: true
                   required:
                   - id
                   - title
                   - category
+                  - price_from_cents
             required:
             - slug
             - name

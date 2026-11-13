@@ -10628,11 +10628,12 @@ export interface components {
                 boat_departure: components["schemas"]["lat_lng"] | null;
                 /** @description The ids of the active listings that visit it */
                 visited_by: number[];
-                /** @description The same listings, named (their title and category) */
+                /** @description The same listings, named (their title and category) and priced (their from-price, null until priced) */
                 visits: {
                     id: number;
                     title: string;
                     category: string;
+                    price_from_cents: number | null;
                 }[];
             }[];
         };
