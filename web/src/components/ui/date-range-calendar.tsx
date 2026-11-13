@@ -124,13 +124,17 @@ export function DateRangeCalendar({
   const pickingEnd = !single && Boolean(from) && (!to || keepsStart);
   const shownEnd = (pickingEnd && hovered && hovered >= from ? hovered : undefined) || to;
   const opensOn = toDate(from && from >= min ? from : min);
+  // A complete range has a hint of its own: "Pick the first day" there read as if nothing was
+  // picked (the planner's When and the When bar keep the calendar open until OK).
   const instruction = keepsStart
     ? "Under way: pick the new last day"
     : pickingEnd
       ? "Now pick the last day"
       : single
         ? undefined
-        : "Pick the first day";
+        : from && to
+          ? "Tap a day to pick new dates"
+          : "Pick the first day";
   const calendar = {
     numberOfMonths: months,
     timeZone: "UTC",
