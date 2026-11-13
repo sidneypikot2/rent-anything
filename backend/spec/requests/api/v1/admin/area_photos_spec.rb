@@ -188,7 +188,7 @@ RSpec.describe "Admin destination photos", type: :request do
         run_test! do
           expect(area.photos.reload.map { [ it.id, it.position ] }).to eq([ [ photos[1].id, 1 ], [ photos[2].id, 2 ] ])
           expect(ListingPhotos::DeleteFilesJob).to have_been_enqueued.with(
-            %w[image image_card image_large].map { "test/area_photos/#{id}/#{it}.jpg" }
+            %w[image.jpg image_card.jpg image_large.jpg image_card.webp image_large.webp].map { "test/area_photos/#{id}/#{it}" }
           )
         end
       end

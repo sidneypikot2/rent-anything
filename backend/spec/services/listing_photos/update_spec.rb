@@ -14,7 +14,7 @@ RSpec.describe ListingPhotos::Update do
     expect(ListingPhoto.exists?(photo.id)).to be(false)
     expect(storage_requests(:get_object).last[:params]).to include(range: "bytes=0-15")
     deleted = storage_requests(:delete_objects).last[:params][:delete][:objects].pluck(:key)
-    expect(deleted).to eq(StoredPhoto::FIELDS.map { |field| photo.key(field) })
+    expect(deleted).to eq(photo.file_keys)
   end
 
   it "takes each type whose bytes say what it is" do

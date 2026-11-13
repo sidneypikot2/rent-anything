@@ -3,11 +3,19 @@ require "rails_helper"
 RSpec.describe ListingPhoto do
   let(:listing) { create(:listing) }
 
-  it "keeps its files in its own folder, under the environment's" do
+  it "keeps its files in its own folder, under the environment's, its sizes as WebP" do
     photo = create_photo(listing, content_type: "image/png")
 
     expect(photo.key).to eq("test/listing_photos/#{photo.id}/image.png")
+    expect(photo.key(:image_card)).to eq("test/listing_photos/#{photo.id}/image_card.webp")
+  end
+
+  # Sized before RAA-240: its sizes were made in the original's format, and keep those keys.
+  it "keeps the keys of sizes made before WebP" do
+    photo = create_photo(listing, content_type: "image/png", versions_content_type: nil)
+
     expect(photo.key(:image_card)).to eq("test/listing_photos/#{photo.id}/image_card.png")
+    expect(photo.key(:image_large)).to eq("test/listing_photos/#{photo.id}/image_large.png")
   end
 
   it "keeps each local stack's files apart in development, where every stack numbers photos from 1" do
@@ -56,9 +64,10 @@ RSpec.describe ListingPhoto do
     expect(listing.cover_photo).to eq(third)
   end
 
-  it "goes with its listing, and its files are deleted from storage" do
+  it "goes with its listing, and its files are deleted from storage, sizes from before WebP too" do
     photo = create_photo(listing)
-    keys = %w[image image_card image_large].map { |field| "test/listing_photos/#{photo.id}/#{field}.jpg" }
+    keys = %w[image.jpg image_card.jpg image_large.jpg image_card.webp image_large.webp]
+      .map { |file| "test/listing_photos/#{photo.id}/#{file}" }
 
     expect { listing.destroy! }.to change(described_class, :count).by(-1)
       .and have_enqueued_job(ListingPhotos::DeleteFilesJob).with(keys)

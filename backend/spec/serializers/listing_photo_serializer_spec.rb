@@ -12,6 +12,12 @@ RSpec.describe ListingPhotoSerializer do
       id: photo.id, uploaded: true, ready: false, card_url: "#{folder}/image.jpg", large_url: "#{folder}/image.jpg"
     )
 
+    photo.update!(sized_at: Time.current, versions_content_type: "image/webp")
+    expect(described_class.call(photo)).to eq(card_url: "#{folder}/image_card.webp", large_url: "#{folder}/image_large.webp")
+  end
+
+  # A photo sized before RAA-240 keeps its old sizes' URLs until it gets WebP ones.
+  it "points a photo sized before WebP at its sizes in the original's format" do
     photo.update!(sized_at: Time.current)
     expect(described_class.call(photo)).to eq(card_url: "#{folder}/image_card.jpg", large_url: "#{folder}/image_large.jpg")
   end

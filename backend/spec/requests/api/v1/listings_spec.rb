@@ -181,11 +181,11 @@ RSpec.describe "Listings", type: :request do
           photos = detail.parsed_body["photos"]
           expect(photos.size).to eq(2)
           expect(photos.first.keys).to contain_exactly("card_url", "large_url")
-          expect(photos.first["large_url"]).to end_with("/listing_photos/#{front.id}/image_large.jpg")
+          expect(photos.first["large_url"]).to end_with("/listing_photos/#{front.id}/image_large.webp")
 
           get "/api/v1/listings"
           pin = response.parsed_body.find { |row| row["id"] == gopro.id }
-          expect(pin["cover_photo_url"]).to end_with("/listing_photos/#{front.id}/image_card.jpg")
+          expect(pin["cover_photo_url"]).to end_with("/listing_photos/#{front.id}/image_card.webp")
           expect(response.parsed_body.find { |row| row["id"] == osmo.id }["cover_photo_url"]).to be_nil
         end
       end
