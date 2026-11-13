@@ -257,14 +257,17 @@ RSpec.describe "Areas", type: :request do
           ListingLandmark.create!(listing: hopping, landmark: virgin, relation: "visits")
           ListingLandmark.create!(listing: paused, landmark: virgin, relation: "visits")
           ListingLandmark.create!(listing: honda, landmark: virgin, relation: "serves")
+          hopping.update_column(:price_from_cents, 150_000)
         end
 
         run_test! do |response|
           landmarks = response.parsed_body["landmarks"].index_by { _1["slug"] }
           expect(landmarks["virgin-island"]["visited_by"]).to eq([ hopping.id ])
           expect(landmarks["kota-beach"]["visited_by"]).to eq([])
-          # Named too, for What to book's map.
-          expect(landmarks["virgin-island"]["visits"]).to eq([ { "id" => hopping.id, "title" => "Island hopping", "category" => "Tour" } ])
+          # Named and priced too, for What to book's map and the planner's chooser (RAA-322).
+          expect(landmarks["virgin-island"]["visits"]).to eq([
+            { "id" => hopping.id, "title" => "Island hopping", "category" => "Tour", "price_from_cents" => 150_000 }
+          ])
           expect(landmarks["kota-beach"]["visits"]).to eq([])
         end
       end

@@ -28,6 +28,8 @@ export type PlanLandmark = {
   description: string;
   photo: { src: string; alt: string } | null;
   visitedBy: number[];
+  // The same tours, named and priced, so the chooser lists them without a request each (RAA-322).
+  tours: { id: number; title: string; priceFromCents: number | null }[];
   location: LatLng | null;
   // Its tags, for the places step's chips and its details.
   tags: { slug: string; name: string }[];
