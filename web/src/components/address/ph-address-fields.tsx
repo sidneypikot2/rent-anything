@@ -6,7 +6,7 @@ import { ComboboxField, type ComboboxOption } from "@/components/ui/combobox-fie
 import { Field } from "@/components/ui/field";
 import { SelectField } from "@/components/ui/select-field";
 import { COUNTRIES, countryFlag, countryName } from "@/lib/countries";
-import type { ReversePlace } from "@/lib/map";
+import type { ReversePlace } from "@/lib/geocode";
 import {
   citiesOf,
   findByName,

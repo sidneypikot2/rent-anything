@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Field } from "@/components/ui/field";
 import { Pill } from "@/components/ui/pill";
-import { distanceKm, type LatLng } from "@/lib/map";
+import { distanceKm, type LatLng } from "@/lib/geo";
 import { usePartnerLandmarks, type PartnerLandmark } from "./use-partner-landmarks";
 
 const DEBOUNCE_MS = 250;

@@ -3,7 +3,8 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { ComboboxField } from "@/components/ui/combobox-field";
-import { reverseGeocode, searchPlaces, type LatLng, type PlaceSuggestion } from "@/lib/map";
+import { type LatLng } from "@/lib/geo";
+import { reverseGeocode, searchPlaces, type PlaceSuggestion } from "@/lib/geocode";
 
 const ZoneMap = dynamic(() => import("@/components/trips/zone-map"), {
   ssr: false,

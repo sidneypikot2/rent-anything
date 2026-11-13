@@ -7,15 +7,9 @@ import type { ExplorePlace } from "@/api/discovery";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardLink } from "@/components/ui/card";
 import { SectionTitle } from "@/components/ui/typography";
-import {
-  circlePolygon,
-  DEFAULT_MAP_CENTER,
-  fromLngLat,
-  MAP_STYLE_URL,
-  setMapWorker,
-  toLngLat,
-  type LatLng,
-} from "@/lib/map";
+import { circlePolygon, fromLngLat, MAP_STYLE_URL, setMapWorker, toLngLat } from "@/lib/map";
+import { type LatLng } from "@/lib/geo";
+import { DEFAULT_MAP_CENTER } from "@/lib/geocode";
 import { useExplore } from "./use-explore";
 
 const RADIUS_SOURCE = "radius";
