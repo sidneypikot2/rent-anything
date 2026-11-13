@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { DisplayTitle } from "@/components/ui/typography";
+import { listingPath } from "@/lib/seo";
 
 type SharedItem = SharedTrip["items"][number];
 
@@ -110,7 +111,7 @@ export default async function SharedTripPage(props: PageProps<"/trips/shared/[to
                     // Items carry no id here, and the list never reorders.
                     <li key={index}>
                       <ListingCard
-                        href={`/listings/${item.listing.id}`}
+                        href={listingPath(item.listing)}
                         title={item.listing.title}
                         category={KINDS[item.booking_type].glyph}
                         kind={item.booking_type}

@@ -1,5 +1,6 @@
+import type { ReactNode } from "react";
 import { getBusiness, getDestinations, getListing, getQuote, type AreaCard } from "@/api/discovery";
-import { descendants, offerOf, rentalShop } from "@/components/discovery/browse-offers";
+import { ancestorsOf, descendants, offerOf, rentalShop } from "@/components/discovery/browse-offers";
 import { BusinessGoodToKnow, BusinessIncluded, BusinessTrust, shopFacts } from "@/components/discovery/business-shop";
 import { BusinessWhere, ShopPhotos } from "@/components/discovery/business-view";
 import { TRIP_ORDER_GROUPS } from "@/components/discovery/categories";
@@ -29,9 +30,12 @@ type SearchParams = Record<string, string | string[] | undefined>;
 
 const FREE_TO_SAVE = "Saving to a trip is free, and there's nothing to pay yet.";
 
-// Only a positive integer can be a listing id; anything else is a 404 without asking the API.
+// A listing's id from its URL segment, `123` or `123-<slug>` (RAA-236; the slug is never read,
+// the page redirects to the current one). Only a positive integer can be an id; anything else is
+// a 404 without asking the API.
 export function listingId(param: string): number | null {
-  return /^[1-9]\d{0,14}$/.test(param) ? Number(param) : null;
+  const match = /^([1-9]\d{0,14})(?:-|$)/.exec(param);
+  return match ? Number(match[1]) : null;
 }
 
 // What a listing's page shows, from its search params (RAA-90, RAA-281): the listing, its
@@ -79,7 +83,9 @@ export async function loadListingView(id: number, searchParams: SearchParams) {
       : undefined;
   const business = shop?.business;
   const businessHref = `/businesses/${listing.business.id}?place=${from.slug}${tripId ? `&trip=${tripId}` : ""}${tripDatesQuery(dates).replace(/^\?/, "&")}`;
-  return { listing, shop, business, dates, from, places, tripId, asked, backHref, backLabel, businessHref, quote };
+  // The listed places its own place sits in, for its breadcrumbs (RAA-237).
+  const ancestors = ancestorsOf(destinations, area.slug).map(({ slug, name }) => ({ slug, name }));
+  return { listing, shop, business, dates, from, places, tripId, asked, backHref, backLabel, businessHref, quote, ancestors };
 }
 
 export type ListingViewData = NonNullable<Awaited<ReturnType<typeof loadListingView>>>;
@@ -93,7 +99,8 @@ export type ListingViewData = NonNullable<Awaited<ReturnType<typeof loadListingV
 // /quotes (RAA-105); a tour its facts and price (RAA-111); a vehicle its rates (RAA-150); a rental
 // or transfer without one says how it is priced. Its chips are all of them, so the page never
 // shows less than the row that led to it.
-export function ListingBody({ view, inPlan = false }: { view: ListingViewData; inPlan?: boolean }) {
+// `related` follows it all: the listing page's other listings of its kind on its place (RAA-237).
+export function ListingBody({ view, inPlan = false, related }: { view: ListingViewData; inPlan?: boolean; related?: ReactNode }) {
   const { listing, shop, business, dates, from, places, tripId, asked, businessHref, quote } = view;
   const { category } = listing;
   const rate = listing.stay_rate;
@@ -260,6 +267,7 @@ export function ListingBody({ view, inPlan = false }: { view: ListingViewData; i
           </div>
 
           {shop && <MoreFromBusiness name={listing.business.name} href={businessHref} groups={more} dates={dates} />}
+          {related}
         </div>
 
         {/* A phone's and tablet's foot: a stay or vehicle points down to its card; anything

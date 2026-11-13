@@ -6,6 +6,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { formatPeso } from "@/lib/money";
 import { BookingStatusBadge } from "./booking-status";
 import { useBookings, type GuestBooking } from "./use-bookings";
+import { listingPath } from "@/lib/seo";
 
 // Ended without taking place: such a booking lets its item go, so no trip shows it. A completed
 // one keeps its item and shows with its past trip.
@@ -52,7 +53,7 @@ function BookingCard({ booking }: { booking: GuestBooking }) {
       <CardBody className="flex flex-col gap-2">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <Link
-            href={`/listings/${booking.listing.id}`}
+            href={listingPath(booking.listing)}
             className="min-w-0 text-lg font-semibold leading-snug hover:text-primary hover:underline"
           >
             {booking.listing.title}

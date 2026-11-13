@@ -30,14 +30,14 @@ import {
   AreaWhenToGo,
 } from "@/components/area/area-sections";
 import type { RowCard } from "@/components/area/listing-row";
+import { rowCardsOf } from "@/components/area/row-cards";
 import { AreaMapProvider, MapHoverTarget } from "@/components/discovery/area-map-context";
 import { placeKey } from "@/components/discovery/area-map-pins";
-import { businessHref, titleCardHref, cardKey, descendants, isTitleCard, islandOf, listingByLine, listingPhotos, type BrowseListing } from "@/components/discovery/browse-offers";
+import { ancestorsOf, descendants, islandOf, listingByLine, listingPhotos, type BrowseListing } from "@/components/discovery/browse-offers";
 import { TRIP_ORDER_GROUPS } from "@/components/discovery/categories";
 import { LandmarkCard } from "@/components/discovery/cards";
 import { ExploreSections, withoutShown } from "@/components/discovery/explore-sections";
 import type { LandmarkTour } from "@/components/discovery/landmark-tours";
-import { listingFeatures } from "@/components/discovery/listing-features";
 import { PlacesGrid } from "@/components/discovery/places-grid";
 import { AreaGlyph } from "@/components/discovery/tag-glyphs";
 import { CurrentPlace } from "@/components/landing/current-place";
@@ -60,9 +60,10 @@ import { DisplayTitle } from "@/components/ui/typography";
 import { formatDateRange } from "@/lib/dates";
 import { formatPeso } from "@/lib/money";
 import { pricedByText, priceUnitText } from "@/lib/pricing";
+import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { JsonLd } from "@/components/seo/json-ld";
 import { breadcrumbJsonLd, placeJsonLd } from "@/lib/json-ld";
-import { areaCrumbs, canonical, metaDescription, openGraph } from "@/lib/seo";
+import { areaCrumbs, canonical, listingPath, metaDescription, openGraph } from "@/lib/seo";
 
 type Listing = BrowseListing;
 // The rows' groups, each fetched as What to book's first page (book_cards).
@@ -174,7 +175,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   const byLine = (listing: Listing) => listingByLine(listing, slug);
   // The listings that visit each place to see, named by the API, and a few of them as rows.
   const visitsOf = (landmark: (typeof landmarks)[number]) =>
-    landmark.visits.map((visit) => ({ ...visit, href: `/listings/${visit.id}${datesQuery}` }));
+    landmark.visits.map((visit) => ({ ...visit, href: `${listingPath(visit)}${datesQuery}` }));
   const listingById = new Map(detail.visitor_rows.map((listing) => [listing.id, listing]));
   // Nearby places that aren't on this page or inside this place (its landmarks, the places
   // inside it, however deep, and their landmarks).
@@ -255,47 +256,9 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   ].filter((way) => way !== false);
   const stays = stayPlaces(areas, landmarks);
   const ownStays = groups.stay.listings;
-  // Where to stay's, Things to do's and Vehicle rental's cards, as What to book shows them (byCard):
-  // a stay's per business (its name, what it sells), any other per listing title of a business
-  // ("Mio 125", "by <business>"), with the lowest price, a stay's opening the business's page on
-  // that group, a title card's its listing's page. Priced cards first, then those with a photo, as What to book
-  // leads. `keep` narrows the group's listings first (Vehicle rental's on-island transfers).
-  const rowCards = (group: PlanGroup, keep: (listing: Listing) => boolean = () => true): RowCard[] =>
-    cardsOf(group)
-      .map((card) => card.filter(keep))
-      .filter((card) => card.length > 0)
-      .map((offered) => {
-        const first = offered[0];
-        const priced = offered.filter((listing) => listing.price_from_cents);
-        const cheapest = priced.sort((a, b) => a.price_from_cents! - b.price_from_cents!)[0];
-        const cover = offered.find((listing) => listing.cover_photo_url);
-        const titled = isTitleCard(first);
-        const forSale = titled
-          ? [`by ${first.business.name}`, offered.length > 1 && `${offered.length} options`].filter(Boolean).join(" · ")
-          : offered.length === 1
-            ? first.title
-            : `${first.title} + ${offered.length - 1} more`;
-        const onePlace = offered.every((listing) => listing.area_slug === first.area_slug) ? first.area_name : null;
-        const trusts = offered.map((listing) => listingFeatures(listing).find((feature) => feature.trust)?.label);
-        return {
-          id: `${group}-${cardKey(first)}`,
-          href: titled
-            ? titleCardHref(offered, dates, slug, true)
-            : businessHref(first.business.id, dates, `need-${group}`, slug),
-          title: titled ? first.title : first.business.name,
-          category: first.category,
-          note: onePlace ? `${forSale} · ${onePlace}` : forSale,
-          photo: cover ? { src: cover.cover_photo_url!, alt: cover.title } : undefined,
-          price: cheapest
-            ? { prefix: "from", amount: formatPeso(cheapest.price_from_cents!), unit: priceUnitText(cheapest.price_unit) }
-            : undefined,
-          unpriced: pricedByText(first.booking_type),
-          instantBook: offered.every((listing) => listing.instant_book),
-          trust: trusts.every((label) => label && label === trusts[0]) ? trusts[0] : undefined,
-          kind: group,
-        };
-      })
-      .sort((a, b) => Number(!a.price) - Number(!b.price) || Number(!a.photo) - Number(!b.photo));
+  // Where to stay's, Things to do's and Vehicle rental's cards, as What to book shows them.
+  const rowCards = (group: PlanGroup, keep?: (listing: Listing) => boolean): RowCard[] =>
+    rowCardsOf(cardsOf(group), group, { dates, slug, fromPlace: true, keep });
   const stayCards = rowCards("stay");
   const activityCards = rowCards("activity");
   // Gear has no row or tab of its own: Things to do leads to it, the gear a guest needs going with
@@ -378,8 +341,11 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
       <span className="min-w-0 flex-1 basis-48">{area.name}</span>
     </DisplayTitle>
   );
+  // Home › its island › it (RAA-237), the same trail as its BreadcrumbList.
+  const crumbs = areaCrumbs(area, destinations ? ancestorsOf(destinations, slug) : []);
   const bannerTitle = (
     <>
+      <Breadcrumbs crumbs={crumbs} />
       {areaTitle}
       <AreaBannerIntro tagline={guide.tagline} description={guide.description} goodFor={notes?.goodFor} vibes={vibesOf(landmarks)} facts={facts} />
     </>
@@ -388,7 +354,7 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   return (
     <main className="flex flex-1 flex-col">
       <CurrentPlace name={area.name} slug={area.slug} />
-      <JsonLd nodes={[placeJsonLd(detail), breadcrumbJsonLd(areaCrumbs(area))]} />
+      <JsonLd nodes={[placeJsonLd(detail), breadcrumbJsonLd(crumbs)]} />
       {tripId && <AdoptTrip id={tripId} />}
       {listingCount > 0 ? (
         // The place's banner, with the guest's trip here at its foot.

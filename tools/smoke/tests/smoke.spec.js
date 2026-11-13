@@ -185,7 +185,7 @@ test("search a landmark and open its destination", async ({ page }) => {
   // which link to the listing's page in the same tab.
   await expect(page.locator('[data-testid="business-open"][href^="/listings/"]').first()).toHaveAttribute(
     "href",
-    /^\/listings\/\d+\?guests=2&place=bantayan-island$/,
+    /^\/listings\/\d+-[a-z0-9-]+\?guests=2&place=bantayan-island$/,
   );
   const stayCard = page.locator('[data-testid="business-open"][href^="/businesses/"]').first();
   const [business] = await Promise.all([page.waitForEvent("popup"), stayCard.click()]);
@@ -204,7 +204,7 @@ test("search a landmark and open its destination", async ({ page }) => {
     listingTitle = (await offer.textContent()).trim();
     [listing] = await Promise.all([business.waitForEvent("popup"), offer.click()]);
   }
-  await expect(listing).toHaveURL(/\/listings\/\d+\?guests=2&place=bantayan-island$/);
+  await expect(listing).toHaveURL(/\/listings\/\d+-[a-z0-9-]+\?guests=2&place=bantayan-island$/);
   await expect(listing.getByRole("heading", { level: 1 })).toHaveText(listingTitle);
   // Laid out as its business's shop (the booking rail): the booking card on the right holds its
   // Add to trip, and the rest of the business follows under "More from".
@@ -336,7 +336,7 @@ test("page titles, descriptions and canonical links", async ({ request }) => {
     };
   };
 
-  const listing = (await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1];
+  const listing = (await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+-[a-z0-9-]+)<\/loc>/)[1];
   const pages = {
     "/": "/",
     "/bantayan-island?from=2030-01-01&utm_source=test": "/bantayan-island",
@@ -371,7 +371,7 @@ test("page titles, descriptions and canonical links", async ({ request }) => {
 // parses — the home naming the business and the site's search, an area its place and
 // breadcrumbs, a listing itself and its breadcrumbs.
 test("Open Graph tags and JSON-LD", async ({ request }) => {
-  const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1]).pathname;
+  const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+-[a-z0-9-]+)<\/loc>/)[1]).pathname;
   const expected = { "/": ["Organization", "WebSite"], "/bantayan-island": ["BreadcrumbList"], [listing]: ["BreadcrumbList"] };
   for (const [path, types] of Object.entries(expected)) {
     const html = await (await request.get(path)).text();
@@ -404,7 +404,7 @@ test("Open Graph tags and JSON-LD", async ({ request }) => {
 // page in the browser, so it has none in the server's HTML yet. The error page (app/(guest)/error.tsx) can't be
 // reached from here: it needs the API to fail.
 test("one h1 per page", async ({ page, request }) => {
-  const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1]).pathname;
+  const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+-[a-z0-9-]+)<\/loc>/)[1]).pathname;
   const pages = [
     "/", "/bantayan-island", "/bantayan-island/book", "/bantayan-island/book/gear", listing, "/search", "/search?q=boat", "/about",
     "/terms", "/privacy", "/refunds", "/partner-terms", "/login", "/register",
@@ -424,16 +424,43 @@ test("one h1 per page", async ({ page, request }) => {
   }
 });
 
+// Readable listing URLs (RAA-236): the sitemap lists `/listings/<id>-<slug>`, and the bare id or
+// an old title answers 308 to it with the query kept, as the guest flow's links need (`?place=`,
+// `&from=place`, the dates). Breadcrumbs (RAA-237): the listing and its place show the trail
+// Home › place (› listing) in the server's HTML, and the footer links every destination.
+test("listing URLs and breadcrumbs", async ({ request, baseURL }) => {
+  const canonical = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+-[a-z0-9-]+)<\/loc>/)[1]).pathname;
+  const id = canonical.match(/^\/listings\/(\d+)-/)[1];
+  const query = "place=bantayan-island&from=place&guests=2";
+  for (const old of [`/listings/${id}`, `/listings/${id}-an-old-title`]) {
+    const response = await request.get(`${old}?${query}`, { maxRedirects: 0 });
+    expect(response.status(), old).toBe(308);
+    const location = new URL(response.headers().location, baseURL);
+    expect(`${location.pathname}${location.search}`, old).toBe(`${canonical}?${query}`);
+  }
+  const listing = await request.get(`${canonical}?${query}`, { maxRedirects: 0 });
+  expect(listing.status()).toBe(200);
+
+  const crumbs = (html) =>
+    [...(html.match(/<nav[^>]*data-testid="breadcrumbs"[^>]*>([\s\S]*?)<\/nav>/)?.[1] ?? "").matchAll(/href="([^"]*)"/g)].map((match) => match[1]);
+  const listingHtml = await listing.text();
+  expect(crumbs(listingHtml)[0]).toBe("/");
+  expect(crumbs(listingHtml)).toContain("/bantayan-island");
+  const placeHtml = await (await request.get("/bantayan-island")).text();
+  expect(crumbs(placeHtml)).toEqual(["/"]);
+  expect(placeHtml).toMatch(/data-testid="footer-nav"[\s\S]*href="\/bantayan-island"/);
+});
+
 // No broken links (RAA-234): from the home page, follow same-origin links in the server's HTML
 // (what a crawler reads), breadth first, and every link found must open (after redirects) below
 // 400. Bounded: at most PAGES pages are read for their links, and at most PER_SHAPE of one shape
-// (`/listings/12` and `/listings/34` are one), so a growing catalogue doesn't grow the test.
+// (`/listings/12-boat-tour` and `/listings/34-kayak` are one), so a growing catalogue doesn't grow the test.
 // External links are checked by hand, not here: their sites block or rate-limit robots.
 test("no broken links", async ({ request, baseURL }) => {
   test.setTimeout(240_000);
   const PAGES = 40;
   const PER_SHAPE = 3;
-  const shape = (url) => `${url.pathname.replace(/\d+/g, ":n")}?${[...url.searchParams.keys()].sort().join("&")}`;
+  const shape = (url) => `${url.pathname.replace(/^\/listings\/\d+-[^/]*/, "/listings/:n").replace(/\d+/g, ":n")}?${[...url.searchParams.keys()].sort().join("&")}`;
   const linksIn = (html) => [...html.matchAll(/<a\s(?:[^>]*?\s)?href="([^"]*)"/g)].map((match) => match[1].replaceAll("&amp;", "&"));
   const origin = new URL(baseURL).origin;
   const seen = new Map(); // url -> the page that linked it first
@@ -864,7 +891,7 @@ test("rent gear from a shop's sheet", async ({ page }) => {
   await page.goto(`/bantayan-island/book?from=${day(offset)}&to=${day(offset + 2)}&guests=2&show=need-gear`);
   const [shop] = await Promise.all([page.waitForEvent("popup"), page.getByTestId("business-details").first().click()]);
   collectErrors(shop, errors);
-  await expect(shop).toHaveURL(/\/listings\/\d+\?/);
+  await expect(shop).toHaveURL(/\/listings\/\d+-[a-z0-9-]+\?/);
   await shop.getByTestId("listing-business").click();
   await expect(shop).toHaveURL(/\/businesses\/\d+\?/);
   const gear = shop.locator("#need-gear");

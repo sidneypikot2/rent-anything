@@ -20,6 +20,7 @@ import type { EditFocus } from "./edit-trip-sheet";
 import { formatDateRange, guestCount, itemCount, thingCount, todayIso } from "./format";
 import { pastOutcome, tripPhase, tripTiming } from "./trip-phase";
 import { itemProblem, itemQuote, pickedTotal, quoteTotal, useTripQuote, type Trip, type TripItem, type TripQuote } from "./use-trips";
+import { listingPath } from "@/lib/seo";
 
 // What the cart does with a trip or one of its items; each opens a sheet, a dialog or the
 // item's panel. The Trips page (RAA-140) only opens items and recreates trips.
@@ -95,7 +96,7 @@ export function TripDetails({
   function openListing(id: number) {
     const item = shown.find((each) => each.listing.id === id);
     if (item) return actions.open(trip, item);
-    const href = `/listings/${id}?trip=${trip.id}${slug ? `&place=${slug}` : ""}`;
+    const href = `${listingPath({ id })}?trip=${trip.id}${slug ? `&place=${slug}` : ""}`;
     if (newTab) window.open(href, "_blank", "opener");
     else router.push(href);
   }

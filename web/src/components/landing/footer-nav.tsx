@@ -65,11 +65,13 @@ function goToSection(event: MouseEvent<HTMLAnchorElement>, id: string) {
 
 const LINK_CLASS = "flex min-h-11 items-center text-sky-mist underline-offset-4 hover:text-white hover:underline sm:min-h-9";
 
-export function FooterNav() {
+// `places` are the destinations' pages (SiteFooter), a column of their own after Explore.
+export function FooterNav({ places = [] }: { places?: FooterLink[] }) {
   const pathname = usePathname();
+  const columns = places.length > 0 ? [COLUMNS[0], { title: "Destinations", links: places }, ...COLUMNS.slice(1)] : COLUMNS;
   return (
-    <nav aria-label="Footer" className="grid grid-cols-2 gap-x-gutter gap-y-4 md:grid-cols-4">
-      {COLUMNS.map((column) => (
+    <nav aria-label="Footer" data-testid="footer-nav" className={`grid grid-cols-2 gap-x-gutter gap-y-4 ${places.length > 0 ? "md:grid-cols-5" : "md:grid-cols-4"}`}>
+      {columns.map((column) => (
         <div key={column.title} className="flex flex-col gap-1">
           <h2 className="font-display text-sm font-semibold text-white">{column.title}</h2>
           <ul className="flex flex-col">

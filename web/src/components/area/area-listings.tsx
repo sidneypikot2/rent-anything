@@ -9,6 +9,7 @@ import { landmarkPhotos } from "@/components/landing/sample-photos";
 import { tripDatesQuery, type TripDates } from "@/components/trips/trip-dates";
 import { cn } from "@/components/ui/cn";
 import { Section } from "@/components/ui/section";
+import { listingPath } from "@/lib/seo";
 
 // What a place's page and its What to book page (`/<area>/book`) build alike from the area
 // response: its places to see, What to book's rows and its map.
@@ -43,7 +44,7 @@ export function bookMapData({
         description: landmark.description,
         tags: landmark.tags,
         photo: photos[index],
-        visits: landmark.visits.map((visit) => ({ ...visit, href: `/listings/${visit.id}${datesQuery}` })),
+        visits: landmark.visits.map((visit) => ({ ...visit, href: `${listingPath(visit)}${datesQuery}` })),
       },
     ]),
   );

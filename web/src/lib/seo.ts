@@ -14,10 +14,34 @@ export function canonical(path: string): Metadata["alternates"] {
   return { canonical: path };
 }
 
-// A listing's public path, the one canonical and the sitemap use. Listing URLs are ids for now;
-// slugs (RAA-236) change only this.
-export function listingPath(listing: { id: number }): string {
-  return `/listings/${listing.id}`;
+// A title as a URL slug (RAA-236): ASCII letters and digits in lowercase joined by single
+// hyphens, accents and apostrophes dropped ("Señora's Café" → "senoras-cafe"), anything else
+// (emoji, other scripts) left out, cut at a word to `max` characters. Empty when nothing in the
+// title survives, and the path is then the id alone. Change it and every listing's URL moves (each
+// old one still 308s to the new).
+export function slugify(text: string, max = 60): string {
+  const slug = text
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/ß/g, "ss")
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (slug.length <= max) return slug;
+  const cut = slug.slice(0, max);
+  if (slug[max] === "-") return cut;
+  const atWord = cut.slice(0, cut.lastIndexOf("-"));
+  return (atWord || cut).replace(/-+$/, "");
+}
+
+// A listing's public path, `/listings/123-island-hopping-tour` (RAA-236): every link to a listing,
+// its canonical and the sitemap use it. The id leads and is all the page reads (`listingId`); the
+// page 308s any other slug (none, an old title) to this one, keeping the query. A caller with only
+// the id gets `/listings/123`, which that redirect turns into this.
+export function listingPath(listing: { id: number; title?: string | null }): string {
+  const slug = listing.title ? slugify(listing.title) : "";
+  return `/listings/${listing.id}${slug ? `-${slug}` : ""}`;
 }
 
 // A meta description cut to what a search result shows (about 160 characters), at a word.
@@ -41,17 +65,19 @@ export function openGraph(path: string, image?: { url: string; alt: string } | n
   return { ...OPEN_GRAPH, url: path, images: [image ?? DEFAULT_OG_IMAGE] };
 }
 
-// A trail from the home page down to a page (RAA-241): the BreadcrumbList JSON-LD now, the
-// visible breadcrumbs later (RAA-237), from the same list. Paths, made absolute where needed.
+// A trail from the home page down to a page (RAA-241): the BreadcrumbList JSON-LD and the
+// visible breadcrumbs (`Breadcrumbs`, RAA-237) take the same list, so they never disagree. Paths,
+// made absolute where needed.
 export type Crumb = { name: string; path: string };
 
-export function areaCrumbs(area: { slug: string; name: string }): Crumb[] {
-  return [
-    { name: "Home", path: "/" },
-    { name: area.name, path: `/${area.slug}` },
-  ];
+// `ancestors` are the listed places it sits in, top-most first (`ancestorsOf`: an island over its
+// town), so a town reads Home › Bantayan Island › Santa Fe.
+type Place = { slug: string; name: string };
+
+export function areaCrumbs(area: Place, ancestors: Place[] = []): Crumb[] {
+  return [{ name: "Home", path: "/" }, ...[...ancestors, area].map((place) => ({ name: place.name, path: `/${place.slug}` }))];
 }
 
-export function listingCrumbs(listing: { id: number; title: string; area: { slug: string; name: string } }): Crumb[] {
-  return [...areaCrumbs(listing.area), { name: listing.title, path: listingPath(listing) }];
+export function listingCrumbs(listing: { id: number; title: string; area: Place }, ancestors: Place[] = []): Crumb[] {
+  return [...areaCrumbs(listing.area, ancestors), { name: listing.title, path: listingPath(listing) }];
 }
