@@ -308,7 +308,7 @@ export function BusinessOptions({
   const stays = offers.flatMap((offer) =>
     offer.stay
       ? [{ ...offer.stay, thumb: <Thumb offer={offer} />, apart: apart(offer), open: () => {
-            if (newTab) window.open(tripHref(offer.href), "_blank", "opener");
+            if (newTab) window.open(tripHref(offer.href), "_blank");
             else router.push(tripHref(offer.href));
           } }]
       : [],

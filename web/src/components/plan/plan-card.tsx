@@ -10,7 +10,8 @@ import { InTripCount } from "@/components/trips/in-trip-badge";
 import { cn } from "@/components/ui/cn";
 import { formatPeso } from "@/lib/money";
 import { priceUnitText, TO_BE_AGREED } from "@/lib/pricing";
-import { openOverPlan } from "./over-plan";
+import { useOpensInNewTab } from "@/components/discovery/business-row";
+import { openOverPlan, openOverPlanInNewTab } from "./over-plan";
 import { distanceText, nearText, type PlanBusiness, type PlanLandmark } from "./plan-data";
 
 export type CardContext = {
@@ -31,9 +32,9 @@ const STOP_CHIPS = 3;
 // (with how far from the stay on the right), what it offers here ("Honda Click 125 + 2 more"), what
 // and where the first is, the trip's dates, the places its tours go to and its lowest price
 // underlined. The whole card opens `href` — a stay's business's page (its options in this step),
-// a title card's listing page: in a new tab on a laptop, so the plan stays as it was; on a phone
-// in this tab — a business over the plan, in the plan's own URL (`?business=`, openOverPlan), so a
-// reload keeps it open; a listing as its own page, whose way back returns to the plan.
+// a title card's listing page — in the planner's frame, in the plan's own URL (`?business=` or
+// `?listing=`, openOverPlan), so a reload keeps it open: in a new tab on a laptop, so the plan
+// stays as it was; in this tab on a phone or tablet (RAA-309, RAA-313).
 export function PlanCard({
   business,
   href,
@@ -72,11 +73,13 @@ export function PlanCard({
     const landmark = context.landmarks.get(slug);
     return landmark ? [nearText(km, landmark)] : [];
   });
+  const newTab = useOpensInNewTab();
   // A stay's business or a title card's listing opens in the planner's frame, at every width
-  // (RAA-309).
+  // (RAA-309): in a new tab on a laptop (RAA-313).
   const open = () => {
     onLeave?.();
-    openOverPlan(router, href);
+    if (newTab) openOverPlanInNewTab(href);
+    else openOverPlan(router, href);
   };
   const openFromPhoto = (event: MouseEvent) => {
     if ((event.target as HTMLElement).closest("button")) return;

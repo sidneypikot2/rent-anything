@@ -97,7 +97,7 @@ export function TripDetails({
     const item = shown.find((each) => each.listing.id === id);
     if (item) return actions.open(trip, item);
     const href = `${listingPath({ id })}?trip=${trip.id}${slug ? `&place=${slug}` : ""}`;
-    if (newTab) window.open(href, "_blank", "opener");
+    if (newTab) window.open(href, "_blank");
     else router.push(href);
   }
 

@@ -44,4 +44,6 @@ Google sign-in works only on port 8100, the one origin registered on the OAuth c
 
 **Forms holding a secret**: a form with a password, PIN, code or account number has `method="post"` (RAA-269). Sent before the page's JavaScript loads, the browser submits it itself, and with no `method` that is a GET, putting every named field in the URL. The POST just reloads the page.
 
+**A new tab from code** (RAA-313): `window.open(url, "_blank")` — never a features string (even `"opener"` opens a popup window, not a tab) and never `noopener` (the new tab would lose this tab's sessionStorage: the chosen trip, a trip link's session). A link does it with `newTabProps` (`target="_blank" rel="opener"`).
+
 **One-shot URL flags** (like `?start=trip`): read them once into client state and drop them with `history.replaceState`. sign-in returns to `pathname + search` (`?next=`), and the header's search rebuilds the query when dates are set, so a flag left in the URL either comes back after sign-in or vanishes then (RAA-80).
