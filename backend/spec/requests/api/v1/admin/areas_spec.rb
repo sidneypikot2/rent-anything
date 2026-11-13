@@ -173,7 +173,7 @@ RSpec.describe "Admin areas", type: :request do
           expect(body).to include("wikidata_id" => "Q806973", "wikidata_aliases" => [ "Pulo sa Bantayan" ], "wikidata_popularity" => 23)
           first, second = bantayan.photos
           expect(body["photos"].pluck("id", "uploaded", "ready")).to eq([ [ first.id, true, true ], [ second.id, false, false ] ])
-          expect(body["photos"].first["card_url"]).to include("/test/area_photos/#{first.id}/image_card.jpg")
+          expect(body["photos"].first["card_url"]).to include("/test/area_photos/#{first.id}/image_card.webp")
         end
       end
 
