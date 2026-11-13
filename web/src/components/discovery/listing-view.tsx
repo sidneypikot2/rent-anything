@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { getBusiness, getDestinations, getListing, getQuote, type AreaCard } from "@/api/discovery";
 import { ancestorsOf, descendants, offerOf, rentalShop } from "@/components/discovery/browse-offers";
 import { BusinessGoodToKnow, BusinessIncluded, BusinessTrust, shopFacts } from "@/components/discovery/business-shop";
-import { BusinessWhere, initials, ShopHeading, ShopPhotos, VerifiedBadge } from "@/components/discovery/business-view";
+import { BusinessWhere, ShopHeading, ShopPhotos, VerifiedBadge } from "@/components/discovery/business-view";
 import { categoryIcon } from "@/components/discovery/icons";
 import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
 import { TRIP_ORDER_GROUPS } from "@/components/discovery/categories";
@@ -189,24 +189,23 @@ export function ListingBody({ view, inPlan = false, related }: { view: ListingVi
             <ShopHeading
               title={listing.title}
               as={inPlan ? "h2" : "h1"}
+              business={{ name: listing.business.name, logo: business?.logo }}
+              overPhotos={photos.length > 0}
+              eyebrow={
+                <>
+                  <span aria-hidden className="text-primary">
+                    {categoryIcon(category.name)}
+                  </span>
+                  {category.name} · {[business?.city, listing.area.name].filter(Boolean).join(", ")}
+                </>
+              }
               meta={
                 <>
-                  <span className="inline-flex items-center gap-1.5">
-                    <span aria-hidden className="text-primary">
-                      {categoryIcon(category.name)}
-                    </span>
-                    {category.name} · {[business?.city, listing.area.name].filter(Boolean).join(", ")}
-                  </span>
-                  <span className="inline-flex items-center gap-2">
-                    <span className="grid size-7 shrink-0 place-items-center rounded-control bg-trip-band text-xs font-extrabold text-white">
-                      {initials(listing.business.name)}
-                    </span>
-                    <span>
-                      by{" "}
-                      <Link href={businessHref} className="font-semibold text-link underline underline-offset-4" data-testid="listing-business">
-                        {listing.business.name}
-                      </Link>
-                    </span>
+                  <span>
+                    by{" "}
+                    <Link href={businessHref} className="font-semibold text-link underline underline-offset-4" data-testid="listing-business">
+                      {listing.business.name}
+                    </Link>
                   </span>
                   {business?.verified && <VerifiedBadge />}
                   {listing.instant_book ? <InstantBookBadge /> : <Badge tone="mist">Request to book</Badge>}

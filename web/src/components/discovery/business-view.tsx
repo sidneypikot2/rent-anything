@@ -128,21 +128,17 @@ export function BusinessBody({ view, inPlan = false }: { view: BusinessViewData;
               <ShopHeading
                 title={business.name}
                 as={inPlan ? "h2" : "h1"}
-                mark={
-                  // Its logo beside its name (RAA-281), else its initials.
-                  business.logo ? (
-                    <Image src={business.logo.card_url} alt={`${business.name} logo`} fill sizes="56px" unoptimized className="object-cover" />
-                  ) : (
-                    initials(business.name)
-                  )
+                business={business}
+                overPhotos={photos.length > 0}
+                eyebrow={
+                  <>
+                    <PlaceGlyph className="size-4 text-primary" />
+                    {[groups.map((group) => group.short).join(" · "), town || area.name].join(" · ")}
+                  </>
                 }
                 meta={
                   <>
-                    <span className="inline-flex items-center gap-1.5">
-                      <PlaceGlyph className="size-4 text-primary" />
-                      {[town || area.name, businessCount(view)].join(" · ")}
-                    </span>
-                    <span>{groups.map((group) => group.short).join(" · ")}</span>
+                    <span>{businessCount(view)}</span>
                     {business.verified && <VerifiedBadge testId="business-verified" />}
                   </>
                 }
@@ -331,24 +327,46 @@ export function VerifiedBadge({ testId }: { testId?: string }) {
   );
 }
 
-// A shop's or a listing's name under its photos (RAA-314), as Klook and Booking.com show it: its
-// mark (a logo or initials) beside the name, then a line of what, where and who. The page's h1;
-// an h2 in the planner's frame, under the plan's own heading.
-export function ShopHeading({ title, as = "h1", mark, meta }: { title: string; as?: "h1" | "h2"; mark?: ReactNode; meta: ReactNode }) {
+// A shop's or a listing's name under its photos (RAA-314, the team's mock): the business's mark
+// — its logo, else its initials as the default — overlapping the photos' foot, then a quiet line
+// of what and where, the name, and a line of who and the trust badges. The page's h1; an h2 in
+// the planner's frame, under the plan's own heading.
+export function ShopHeading({
+  title,
+  as = "h1",
+  business,
+  overPhotos,
+  eyebrow,
+  meta,
+}: {
+  title: string;
+  as?: "h1" | "h2";
+  business: { name: string; logo?: { card_url: string } | null };
+  // Whether photos lead, so the mark rides up over their foot.
+  overPhotos: boolean;
+  eyebrow: ReactNode;
+  meta: ReactNode;
+}) {
   return (
-    <header className="flex flex-col gap-2 max-sm:px-3">
-      <div className="flex items-center gap-3">
-        {mark && (
-          <span className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-control bg-trip-band font-display text-lg font-extrabold text-white max-sm:size-12">
-            {mark}
-          </span>
+    <header className="flex flex-col items-start gap-2 max-sm:px-3">
+      <span
+        className={cn(
+          "relative z-10 mb-1 grid size-20 shrink-0 place-items-center overflow-hidden rounded-card border-4 border-surface bg-trip-band font-display text-2xl font-extrabold text-white shadow-soft max-sm:size-16 max-sm:text-xl",
+          overPhotos && "-mt-16 ml-3 sm:ml-5 max-sm:-mt-14",
         )}
-        {as === "h1" ? (
-          <DisplayTitle className="min-w-0 break-words text-balance text-navy">{title}</DisplayTitle>
+      >
+        {business.logo ? (
+          <Image src={business.logo.card_url} alt={`${business.name} logo`} fill sizes="80px" unoptimized className="object-cover" />
         ) : (
-          <h2 className="min-w-0 font-display text-2xl font-extrabold tracking-tight text-balance break-words text-navy">{title}</h2>
+          <span aria-hidden>{initials(business.name)}</span>
         )}
-      </div>
+      </span>
+      <p className="flex flex-wrap items-center gap-x-1.5 text-muted">{eyebrow}</p>
+      {as === "h1" ? (
+        <DisplayTitle className="break-words text-balance text-navy">{title}</DisplayTitle>
+      ) : (
+        <h2 className="font-display text-2xl font-extrabold tracking-tight text-balance break-words text-navy">{title}</h2>
+      )}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-muted">{meta}</div>
     </header>
   );
