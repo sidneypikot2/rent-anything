@@ -194,10 +194,25 @@ export function ShopPhotos({
   testId?: string;
   className?: string;
 }) {
+  // The first photo is the page's largest paint (RAA-231): a phone shows the swipe's card-sized
+  // one, a wider window the mosaic's large one, and the other is display:none. So each width
+  // preloads only its own, by media query, and the hidden one stays lazy and is never fetched;
+  // next/image's `preload` can't take a media query, and would fetch both everywhere. Rendered
+  // as <link>s (React hoists them into the head), not react-dom's preload(), which from here
+  // reached the browser only as a hint in the RSC payload, once the page's JavaScript ran.
+  const lead = photos[0];
+  const preloads = lead && isApiPhoto(lead.card_url) && (
+    <>
+      <link rel="preload" as="image" href={lead.card_url} media="(width < 40rem)" fetchPriority="high" />
+      <link rel="preload" as="image" href={lead.large_url} media="(width >= 40rem)" fetchPriority="high" />
+    </>
+  );
   return (
     <section aria-label={`${label}: photos`} data-testid={testId}>
+      {preloads}
       <ListingPhotos
         photos={photos.map((photo) => ({ src: photo.card_url, alt: photo.alt }))}
+        lead
         label={label}
         category={category}
         className={cn("aspect-[4/3] rounded-card sm:hidden", className)}
@@ -220,7 +235,7 @@ export function ShopPhotos({
               fill
               sizes={index === 0 ? "(min-width: 80rem) 640px, 50vw" : "(min-width: 80rem) 320px, 25vw"}
               unoptimized={isApiPhoto(photo.large_url)}
-              priority={index === 0}
+              fetchPriority={index === 0 ? "high" : undefined}
               className="object-cover"
             />
           </li>

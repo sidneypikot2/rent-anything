@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getDestinations } from "@/api/discovery";
+import { getFooterDestinations } from "@/api/discovery";
 import { groupDestinations } from "@/components/discovery/cards";
 import { GlassPanel } from "@/components/ui/glass";
 import { BRAND, BUSINESS_ADDRESS, TAGLINE } from "@/lib/brand";
@@ -44,9 +44,10 @@ export function SiteFooter() {
 
 // Every top-most destination (RAA-237: the places inside one are a click on, from its page), in
 // the order the home lists them, so each place's page is linked from every guest page. Without the
-// API the column is left out.
+// API the column is left out. Cached for minutes (getFooterDestinations), so it never makes a
+// static page dynamic (RAA-231).
 async function FooterNavWithPlaces() {
-  const destinations = await getDestinations().catch((error: unknown) => {
+  const destinations = await getFooterDestinations().catch((error: unknown) => {
     console.error(error);
     return [];
   });
