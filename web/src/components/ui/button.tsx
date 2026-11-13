@@ -1,7 +1,8 @@
 import Link from "next/link";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ComponentType } from "react";
 import { ArrowGlyph, CheckGlyph, PlusGlyph } from "@/components/discovery/tag-glyphs";
 import { cn } from "./cn";
+import { LinkPending } from "./link-pending";
 
 // The main action in the action colour, a hairline outline for the quiet ones, no lift; on guest
 // pages they are pills with soft shadows (globals.css). An icon after the label says what the
@@ -68,7 +69,8 @@ function buttonClasses({ variant = "primary", size = "md" }: ButtonStyle) {
     "btn group/button relative inline-flex items-center justify-center gap-2 font-semibold",
     `btn-${variant}`,
     "transition-[background-color,box-shadow,color] duration-150 ease-calm motion-safe:active:translate-y-px",
-    "disabled:pointer-events-none disabled:opacity-50",
+    // A working button keeps pointer events, so it shows the progress cursor (still `disabled`).
+    "disabled:not-aria-busy:pointer-events-none disabled:opacity-50",
     VARIANTS[variant],
     SIZES[size],
   );
@@ -94,9 +96,9 @@ function TrailingGlyph({ glyph, variant = "primary" }: { glyph: Glyph; variant?:
 
 // A ring turning in the label's colour while a button works (its own text says what, "Adding…").
 // With reduced motion it stands still, a broken ring.
-function Spinner() {
+export function Spinner() {
   return (
-    <svg aria-hidden viewBox="0 0 16 16" className="size-4 shrink-0 motion-safe:animate-spin">
+    <svg aria-hidden viewBox="0 0 16 16" className="size-4 shrink-0 motion-safe:animate-spin" data-spinner>
       <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" strokeOpacity="0.3" strokeWidth="2" />
       <path d="M8 2a6 6 0 0 1 6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
@@ -131,8 +133,11 @@ export function Button({
   );
 }
 
-// A link that looks like a Button.
+// A link that looks like a Button. While the page it opens loads, its glyph turns into the spinner
+// (`LinkPending`): the planner's steps keep the old page on screen until the next is ready.
+// `as`: a Link of its own kind to render (the planner's `PlanNavLink`).
 export function ButtonLink({
+  as: As = Link,
   variant,
   size,
   arrow,
@@ -140,12 +145,12 @@ export function ButtonLink({
   className,
   children,
   ...props
-}: ButtonStyle & ComponentProps<typeof Link>) {
+}: ButtonStyle & ComponentProps<typeof Link> & { as?: ComponentType<ComponentProps<typeof Link>> }) {
   const glyph = glyphOf({ arrow, glyph: g });
   return (
-    <Link className={cn(buttonClasses({ variant, size }), className)} {...props}>
+    <As className={cn(buttonClasses({ variant, size }), className)} {...props}>
       {children}
-      {glyph && <TrailingGlyph glyph={glyph} variant={variant} />}
-    </Link>
+      {glyph && <LinkPending idle={<TrailingGlyph glyph={glyph} variant={variant} />} pending={<Spinner />} />}
+    </As>
   );
 }

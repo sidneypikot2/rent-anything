@@ -3,8 +3,9 @@ import { cn } from "@/components/ui/cn";
 import { PlanFoot } from "./plan-frame";
 
 // Each plan step's loading state, laid out as the step itself — heading, fields, stepper, cards,
-// days — so nothing jumps when the step arrives. Shared by the routes' loading.tsx (while the
-// server fetches) and the steps (while the session and trips load). Grey blocks on white
+// days — so nothing jumps when the step arrives. Used by the steps while the session and trips
+// load, and, without the track (`track={false}`, the live one stays), under the track while another
+// planner page is on its way (`PlanPendingSkeleton`). Grey blocks on white
 // (`bg-mist`), pulsing only with motion allowed.
 const BLOCK = "bg-mist motion-safe:animate-pulse";
 
@@ -46,10 +47,10 @@ function TrackSkeleton() {
 }
 
 // Step 1: the track, Where, When, Who's coming, then Next.
-export function PlanStartSkeleton() {
+export function PlanStartSkeleton({ track = true }: { track?: boolean }) {
   return (
     <Status label="Loading…" className="flex flex-1 flex-col">
-      <TrackSkeleton />
+      {track && <TrackSkeleton />}
       <div className="flex flex-col gap-5 pb-8">
         <Heading />
         {[0, 1].map((field) => (
@@ -109,11 +110,11 @@ export function PlanOptionsSkeleton({ map = true }: { map?: boolean }) {
 
 // Step 2: the track, then the open step's panel (its
 // heading, the chips or choices, then the cards beside the map) and the foot.
-export function PlanChecklistSkeleton() {
+export function PlanChecklistSkeleton({ track = true }: { track?: boolean }) {
   return (
     <Status label="Loading your trip…" className="flex flex-1 flex-col">
       <div className="flex flex-col gap-3 pb-8">
-        <TrackSkeleton />
+        {track && <TrackSkeleton />}
         <div className="flex flex-col gap-3 rounded-card border border-line p-3 sm:p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -136,10 +137,10 @@ export function PlanChecklistSkeleton() {
 }
 
 // Review: the track, the trip's heading, its days down a line (a date disc, then event rows), the foot.
-export function PlanReviewSkeleton() {
+export function PlanReviewSkeleton({ track = true }: { track?: boolean }) {
   return (
     <Status label="Loading your plan…" className="flex flex-1 flex-col">
-      <TrackSkeleton />
+      {track && <TrackSkeleton />}
       <div className="pb-2">
         <Heading eyebrow sub />
       </div>

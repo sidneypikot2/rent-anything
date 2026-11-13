@@ -35,6 +35,8 @@ import { PlanPlaces } from "./plan-places";
 import { PlanSee, PlanSeeMapView } from "./plan-see";
 import { PlanChecklistSkeleton, PlanOptionsSkeleton } from "./plan-skeletons";
 import { PlanStayChoice } from "./plan-stay";
+import { PlanNavLink, PlanPending } from "./plan-nav";
+import { PlanPendingSkeleton } from "./plan-pending-skeleton";
 import { PlanSteps } from "./plan-steps";
 import { planSteps, planStops, reviewStepHref, tripStepHref, useSkipped } from "./plan-track";
 import { PlanTripButton, PlanTripSheet } from "./plan-trip-sheet";
@@ -278,7 +280,9 @@ function Checklist({
             if (over) closeOverPlan(router, key);
           }}
         />
+        <PlanPendingSkeleton />
 
+        <PlanPending>
         {over ? (
           <PlanOver over={over} backLabel={`Back to ${active.title}`} />
         ) : (() => {
@@ -384,9 +388,11 @@ function Checklist({
             </div>
           );
         })()}
+        </PlanPending>
       </section>
 
       {!over && (
+      <PlanPending>
       <PlanFoot
         row
         float={
@@ -422,11 +428,12 @@ function Checklist({
             Next: {nextOf(active.key).title}
           </Button>
         ) : (
-          <ButtonLink href={reviewHref} size="md" glyph="arrow" data-testid="plan-review">
+          <ButtonLink as={PlanNavLink} href={reviewHref} size="md" glyph="arrow" data-testid="plan-review">
             Next: Review
           </ButtonLink>
         )}
       </PlanFoot>
+      </PlanPending>
       )}
 
       {!noListings && (
