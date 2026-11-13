@@ -10,7 +10,7 @@ import { closeOverPlan, openOverPlan, openOverPlanInNewTab, overPlanTarget } fro
 // or `?listing=`, over-plan.ts): its name and a line under it, and its body, the business's or
 // listing's own page without the banner. Built on the server, shown by the step's page in place
 // of the step (RAA-309).
-export type PlanOverView = { title: string; meta: ReactNode; body: ReactNode };
+export type PlanOverView = { body: ReactNode };
 
 // A business or a listing in the planner's frame, under the bar and stepper, at every width: a
 // way back to the step, its name, then its body. Any link in it to another business or listing
@@ -41,8 +41,6 @@ export function PlanOver({ over, backLabel }: { over: PlanOverView; backLabel: s
           <ChevronGlyph direction="left" className="size-4" />
           {backLabel}
         </button>
-        <h2 className="font-display text-2xl font-extrabold tracking-tight text-balance break-words text-navy">{over.title}</h2>
-        <div className="text-sm text-muted">{over.meta}</div>
       </div>
       {/* On a phone the bodies' sections pad themselves (`max-sm:px-3`), as on their own pages. */}
       <div className="max-sm:-mx-3">

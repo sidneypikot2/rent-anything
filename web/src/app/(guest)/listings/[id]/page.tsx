@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { getBookCards, getListing, type ListingDetail } from "@/api/discovery";
 import { bookHref } from "@/components/area/area-guide";
 import { rowCardsOf } from "@/components/area/row-cards";
-import { categoryIcon } from "@/components/discovery/icons";
-import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
 import { ListingBody, listingId, loadListingView } from "@/components/discovery/listing-view";
 import { CurrentPlace } from "@/components/landing/current-place";
 import { PageBanner } from "@/components/landing/page-banner";
@@ -15,7 +12,6 @@ import { BackLink } from "@/components/discovery/back-link";
 import { RelatedListings } from "@/components/discovery/related-listings";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { tripDatesQuery } from "@/components/trips/trip-dates";
-import { DisplayTitle } from "@/components/ui/typography";
 import { BRAND } from "@/lib/brand";
 import { formatPeso } from "@/lib/money";
 import { pricedByText, priceUnitText } from "@/lib/pricing";
@@ -57,18 +53,8 @@ function listingFallbackDescription(listing: ListingDetail) {
   return `${title}: ${category.name.toLowerCase()} on ${area.name} by ${business.name}. ${price} Request it with the rest of your trip in one cart on ${BRAND}.`;
 }
 
-// "Kuya Jun Island Tours" → "KJ".
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0].toUpperCase())
-    .join("");
-}
-
 // One listing, for a traveller deciding whether to add it to a trip (RAA-90), laid out as its
-// business's shop page (RAA-281): a compact banner naming who offers it, then ListingBody. Active
+// business's shop page (RAA-281): a compact banner with the way back, then ListingBody (its name under its photos, RAA-314). Active
 // listings only. A plan step opens the same body in the planner's frame instead (`?listing=`).
 // Its URL is `/listings/<id>-<slug of its title>` (RAA-236): any other (the bare id, an old title)
 // answers 308 to that one with the same query, so the place, the trip, the dates and the way back
@@ -85,8 +71,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   if (`/listings/${param}` !== path) permanentRedirect(`${path}${queryOf(searchParams)}`);
   const view = await loadListingView(id, searchParams);
   if (!view) notFound();
-  const { listing, business, from, dates, tripId, backHref, backLabel, businessHref, ancestors } = view;
-  const { area, category } = listing;
+  const { listing, from, dates, tripId, backHref, backLabel, ancestors } = view;
   const crumbs = listingCrumbs(listing, ancestors);
   // A few other cards of its kind on the place it was opened from, not its own business's (More
   // from shows those); the page renders without them.
@@ -101,48 +86,21 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
     listing.group,
     { dates, slug: from.slug },
   ).slice(0, RELATED);
-  const chip = "inline-flex items-center gap-1 rounded-chip bg-glass-fill px-2.5 py-0.5 text-small font-semibold";
 
   return (
     <main className="flex flex-1 flex-col">
       <CurrentPlace name={from.name} slug={from.slug} />
       <JsonLd nodes={[listingJsonLd(listing), breadcrumbJsonLd(crumbs)]} />
       {tripId && <AdoptTrip id={tripId} />}
+      {/* The way back and where it sits; its name follows its photos, in ListingBody (RAA-314). */}
       <PageBanner
         compact
-        eyebrow={
-          <span className="flex items-center gap-2">
-            <span aria-hidden className="text-sky-pale">
-              {categoryIcon(category.name)}
-            </span>
-            {category.name} · {[business?.city, area.name].filter(Boolean).join(", ")}
-          </span>
-        }
         title={
           <>
-            <BackLink href={backHref} className={`${BACK_PILL} -order-1 sm:hidden`}>
+            <BackLink href={backHref} className={`${BACK_PILL} sm:hidden`}>
               <span aria-hidden>←</span> {backLabel}
             </BackLink>
-            {/* On a phone the way back sits over the title instead. */}
             <Breadcrumbs crumbs={crumbs} className="max-sm:hidden" />
-            <DisplayTitle className="break-words text-balance">{listing.title}</DisplayTitle>
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sky-mist">
-              <span className="grid size-8 shrink-0 place-items-center rounded-control border border-white/70 bg-trip-band text-xs font-extrabold text-white">
-                {initials(listing.business.name)}
-              </span>
-              <span>
-                by{" "}
-                <Link href={businessHref} className="font-semibold text-white underline underline-offset-4" data-testid="listing-business">
-                  {listing.business.name}
-                </Link>
-              </span>
-              {business?.verified && (
-                <span className={`${chip} text-mint`}>
-                  <span aria-hidden>✓</span> Verified partner
-                </span>
-              )}
-              {listing.instant_book ? <InstantBookBadge className="w-fit" /> : <span className={`${chip} text-white`}>Request to book</span>}
-            </p>
           </>
         }
       >

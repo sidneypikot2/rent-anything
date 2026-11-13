@@ -13,8 +13,10 @@ import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { AdoptTrip, TripLinkProvider } from "@/components/trips/trip-link";
 import { readTripDates, tripDatesQuery, tripParam } from "@/components/trips/trip-dates";
 import { cn } from "@/components/ui/cn";
+import { Badge } from "@/components/ui/badge";
 import { Section } from "@/components/ui/section";
-import { Price } from "@/components/ui/typography";
+import { DisplayTitle, Price } from "@/components/ui/typography";
+import type { ReactNode } from "react";
 import { formatPeso } from "@/lib/money";
 import { priceUnitText } from "@/lib/pricing";
 
@@ -117,14 +119,35 @@ export function BusinessBody({ view, inPlan = false }: { view: BusinessViewData;
               inPlan ? "pt-2 pb-page-pad" : "mx-auto max-w-page px-gutter py-page-pad max-sm:px-0",
             )}
           >
-            {photos.length > 0 && (
-              <ShopPhotos
-                photos={photos}
-                label={business.name}
-                category={shown[0].category}
-                testId="business-photos"
+            {/* Its photos, its name close under them (RAA-314). */}
+            <div className="flex flex-col gap-5">
+              {photos.length > 0 && (
+                <ShopPhotos photos={photos} label={business.name} category={shown[0].category} testId="business-photos" />
+              )}
+
+              <ShopHeading
+                title={business.name}
+                as={inPlan ? "h2" : "h1"}
+                mark={
+                  // Its logo beside its name (RAA-281), else its initials.
+                  business.logo ? (
+                    <Image src={business.logo.card_url} alt={`${business.name} logo`} fill sizes="56px" unoptimized className="object-cover" />
+                  ) : (
+                    initials(business.name)
+                  )
+                }
+                meta={
+                  <>
+                    <span className="inline-flex items-center gap-1.5">
+                      <PlaceGlyph className="size-4 text-primary" />
+                      {[town || area.name, businessCount(view)].join(" · ")}
+                    </span>
+                    <span>{groups.map((group) => group.short).join(" · ")}</span>
+                    {business.verified && <VerifiedBadge testId="business-verified" />}
+                  </>
+                }
               />
-            )}
+            </div>
 
             <BusinessTrust facts={facts} />
 
@@ -288,4 +311,45 @@ export function BusinessWhere({
 // "Stays · Gear", "2 options": the groups shown and how many.
 export function businessCount(view: BusinessViewData) {
   return `${view.shown.length} ${view.shown.length === 1 ? "option" : "options"}`;
+}
+
+// "Kuya Jun Moto Rentals" → "KJ".
+export function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0].toUpperCase())
+    .join("");
+}
+
+export function VerifiedBadge({ testId }: { testId?: string }) {
+  return (
+    <Badge tone="emerald" data-testid={testId}>
+      <span aria-hidden>✓</span> Verified partner
+    </Badge>
+  );
+}
+
+// A shop's or a listing's name under its photos (RAA-314), as Klook and Booking.com show it: its
+// mark (a logo or initials) beside the name, then a line of what, where and who. The page's h1;
+// an h2 in the planner's frame, under the plan's own heading.
+export function ShopHeading({ title, as = "h1", mark, meta }: { title: string; as?: "h1" | "h2"; mark?: ReactNode; meta: ReactNode }) {
+  return (
+    <header className="flex flex-col gap-2 max-sm:px-3">
+      <div className="flex items-center gap-3">
+        {mark && (
+          <span className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-control bg-trip-band font-display text-lg font-extrabold text-white max-sm:size-12">
+            {mark}
+          </span>
+        )}
+        {as === "h1" ? (
+          <DisplayTitle className="min-w-0 break-words text-balance text-navy">{title}</DisplayTitle>
+        ) : (
+          <h2 className="min-w-0 font-display text-2xl font-extrabold tracking-tight text-balance break-words text-navy">{title}</h2>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-muted">{meta}</div>
+    </header>
+  );
 }
