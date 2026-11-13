@@ -7,7 +7,8 @@ type Router = ReturnType<typeof useRouter>;
 // A business's or a listing's page opened from the planner lives in the plan's own URL
 // (`?business=<id>` or `?listing=<id>`, plus the page's `show`, `place` and dates), so a reload
 // keeps the plan with it open, and the planner shows it in its frame, under the bar and stepper
-// (PlanOver), at every width (RAA-309). These open and close it.
+// (PlanOver), at every width (RAA-309). These open and close it. On a laptop it opens in a new
+// tab, still in the planner's frame, so the step stays where the guest left it (RAA-313).
 // The keys only the business or listing adds; the dates and guests are the plan's too, so they stay.
 const OVER_PLAN_KEYS = ["business", "listing", "show", "place", "item"];
 const PUSHED = "plan-over-pushed";
@@ -42,6 +43,15 @@ export function openOverPlan(router: Router, href: string) {
     sessionStorage.setItem(PUSHED, next);
   } catch {}
   router.push(next);
+}
+
+// The same in a new tab (a laptop, `useOpensInNewTab`). No features string: any one (even
+// "opener") makes the browser open a popup window instead of a tab. Without `noopener` the new
+// tab keeps its opener and a copy of this tab's sessionStorage (the chosen trip, a trip link's
+// session), as `newTabProps` does. Nothing is remembered: the new tab has no entry behind it, so
+// its way back replaces the URL with the step.
+export function openOverPlanInNewTab(href: string) {
+  window.open(overPlanHref(href), "_blank");
 }
 
 // The plan's URL without what is open over it; `choose` opens that step.

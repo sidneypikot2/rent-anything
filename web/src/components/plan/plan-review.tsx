@@ -9,7 +9,8 @@ import { bookable } from "@/components/trips/trip-details";
 import { useTripHere } from "@/components/trips/use-trip-here";
 import { itemProblem, itemQuote, pickedTotal, useTripQuote, type Trip } from "@/components/trips/use-trips";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { openOverPlan } from "./over-plan";
+import { useOpensInNewTab } from "@/components/discovery/business-row";
+import { openOverPlan, openOverPlanInNewTab } from "./over-plan";
 import { stayPoint, type PlanPlace } from "./plan-data";
 import { planDays } from "./plan-days";
 import { PlanFoot, PlanHeading } from "./plan-frame";
@@ -49,8 +50,14 @@ function Review({ place, trip, over }: { place: PlanPlace; trip: Trip; over: Pla
   const quote = useTripQuote(trip.id);
   const [sending, setSending] = useState(false);
   const router = useRouter();
-  // A listing opens in the planner's frame, under the track, at every width (RAA-309).
-  const setListing = (id: number) => openOverPlan(router, `${listingPath({ id })}?trip=${trip.id}&plan=1&place=${place.area.slug}`);
+  const newTab = useOpensInNewTab();
+  // A listing opens in the planner's frame, under the track, at every width (RAA-309): in a new
+  // tab on a laptop (RAA-313).
+  const setListing = (id: number) => {
+    const href = `${listingPath({ id })}?trip=${trip.id}&plan=1&place=${place.area.slug}`;
+    if (newTab) openOverPlanInNewTab(href);
+    else openOverPlan(router, href);
+  };
   const stay = stayPoint(trip);
   const days = planDays(trip, place, stay?.point ?? null);
   const toSend = trip.items.filter((item) => bookable(item) && !itemProblem(item, itemQuote(quote.data, item)));

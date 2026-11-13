@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import type { MouseEvent, ReactNode } from "react";
 import { ChevronGlyph } from "@/components/discovery/tag-glyphs";
-import { closeOverPlan, openOverPlan, overPlanTarget } from "./over-plan";
+import { useOpensInNewTab } from "@/components/discovery/business-row";
+import { closeOverPlan, openOverPlan, openOverPlanInNewTab, overPlanTarget } from "./over-plan";
 
 // What the plan's page puts in its frame for a business or a listing opened from it (`?business=`
 // or `?listing=`, over-plan.ts): its name and a line under it, and its body, the business's or
@@ -13,17 +14,20 @@ export type PlanOverView = { title: string; meta: ReactNode; body: ReactNode };
 
 // A business or a listing in the planner's frame, under the bar and stepper, at every width: a
 // way back to the step, its name, then its body. Any link in it to another business or listing
-// (by <business>, More from, an option's title) opens that one here too, never a new tab; a
-// modified click still goes the link's own way.
+// (by <business>, More from, an option's title) opens that one in the frame too — in a new tab
+// on a laptop (RAA-313), in this one on a phone or tablet; a modified click still goes the link's
+// own way.
 export function PlanOver({ over, backLabel }: { over: PlanOverView; backLabel: string }) {
   const router = useRouter();
+  const newTab = useOpensInNewTab();
   const stayInPlan = (event: MouseEvent) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     const link = (event.target as HTMLElement).closest("a[href]");
     const href = link?.getAttribute("href");
     if (!href || !overPlanTarget(href)) return;
     event.preventDefault();
-    openOverPlan(router, href);
+    if (newTab) openOverPlanInNewTab(href);
+    else openOverPlan(router, href);
   };
   return (
     <div onClickCapture={stayInPlan} className="flex flex-col" data-testid="plan-over">

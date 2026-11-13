@@ -85,12 +85,16 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   await expect(page.getByTestId("plan-options-stay")).toBeVisible();
   await expect(page.getByTestId("plan-near").first()).toBeVisible();
   // A stay's card opens its shop in the planner's frame, under the same stepper, and its way back
-  // returns to the step (RAA-309).
+  // returns to the step (RAA-309) — on a laptop in a new tab, the plan staying as it was (RAA-313).
+  const shopTab = page.waitForEvent("popup");
   await page.getByTestId("plan-option").first().click();
-  await expect(page).toHaveURL(/[?&]business=\d+/);
-  await expect(page.getByTestId("plan-over")).toBeVisible();
-  await expect(page.getByTestId("plan-step-stay")).toHaveAttribute("aria-current", "step");
-  await page.getByTestId("plan-over-back").click();
+  const shop = await shopTab;
+  await expect(shop).toHaveURL(/\/plan\/[^?]+\?.*\bbusiness=\d+/);
+  await expect(shop.getByTestId("plan-over")).toBeVisible();
+  await expect(shop.getByTestId("plan-step-stay")).toHaveAttribute("aria-current", "step");
+  await shop.getByTestId("plan-over-back").click();
+  await expect(shop.getByTestId("plan-options-stay")).toBeVisible();
+  await shop.close();
   await expect(page.getByTestId("plan-options-stay")).toBeVisible();
   // The steps sit in a row; picking one shows its options, Things to do with its places.
   await page.getByTestId("plan-step-activity").click();
