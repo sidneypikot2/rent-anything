@@ -404,6 +404,8 @@ test("Open Graph tags and JSON-LD", async ({ request }) => {
 // page in the browser, so it has none in the server's HTML yet. The error page (app/(guest)/error.tsx) can't be
 // reached from here: it needs the API to fail.
 test("one h1 per page", async ({ page, request }) => {
+  // 21 paths, each read twice, against `next dev` compiling them: 19–32 s in CI, so 30 s was too tight.
+  test.setTimeout(90_000);
   const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+-[a-z0-9-]+)<\/loc>/)[1]).pathname;
   const pages = [
     "/", "/bantayan-island", "/bantayan-island/book", "/bantayan-island/book/gear", listing, "/search", "/search?q=boat", "/about",
