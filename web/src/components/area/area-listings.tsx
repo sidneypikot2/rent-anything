@@ -9,6 +9,7 @@ import { landmarkPhotos } from "@/components/landing/sample-photos";
 import { tripDatesQuery, type TripDates } from "@/components/trips/trip-dates";
 import { cn } from "@/components/ui/cn";
 import { Section } from "@/components/ui/section";
+import { listingPath } from "@/lib/seo";
 
 // What a place's page and its What to book page (`/<area>/book`) build alike from the area
 // response: its places to see, What to book's rows and its map.
@@ -43,7 +44,7 @@ export function bookMapData({
         description: landmark.description,
         tags: landmark.tags,
         photo: photos[index],
-        visits: landmark.visits.map((visit) => ({ ...visit, href: `/listings/${visit.id}${datesQuery}` })),
+        visits: landmark.visits.map((visit) => ({ ...visit, href: `${listingPath(visit)}${datesQuery}` })),
       },
     ]),
   );
@@ -103,9 +104,11 @@ export function WhatToBook({
   island: string | null;
 }) {
   const { area } = detail;
-  // No heading: the banner's title says it, with bookIntro under it.
+  // No visible heading: the banner's title says it, with bookIntro under it. A hidden h2 keeps the
+  // outline whole (RAA-235): the sections' titles are h3, and would otherwise follow the h1.
   return (
     <Section id="listings" surface="paper" label="What to book" className={SEAM_ROOM}>
+      <h2 className="sr-only">What to book</h2>
       <ListingBrowser
         slug={slug}
         sections={BOOK_SECTIONS}
@@ -206,6 +209,9 @@ export function WhatToBookList({
 
 // What to book's sections, in the order the trip's needs come (TRIP_ORDER_GROUPS).
 export const BOOK_SECTIONS: BookSection[] = TRIP_ORDER_GROUPS.map(({ group, id, title, icon }) => ({ group, id, title, icon }));
+
+// The section a Show all page (`/<area>/book/<group>`) is for; undefined for an unknown group.
+export const bookSection = (group: string) => BOOK_SECTIONS.find((section) => section.group === group);
 
 // The pages What to book opens on, fetched on the server for the first paint: every section's
 // first row of cards, or on a section's Show all page (`list`) that section's page.

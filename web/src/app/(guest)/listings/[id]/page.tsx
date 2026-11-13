@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { getListing, type ListingDetail } from "@/api/discovery";
+import { notFound, permanentRedirect } from "next/navigation";
+import { getBookCards, getListing, type ListingDetail } from "@/api/discovery";
+import { bookHref } from "@/components/area/area-guide";
+import { rowCardsOf } from "@/components/area/row-cards";
 import { categoryIcon } from "@/components/discovery/icons";
 import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
 import { ListingBody, listingId, loadListingView } from "@/components/discovery/listing-view";
@@ -10,6 +12,9 @@ import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { AdoptTrip } from "@/components/trips/trip-link";
 import { BackLink } from "@/components/discovery/back-link";
+import { RelatedListings } from "@/components/discovery/related-listings";
+import { Breadcrumbs } from "@/components/seo/breadcrumbs";
+import { tripDatesQuery } from "@/components/trips/trip-dates";
 import { DisplayTitle } from "@/components/ui/typography";
 import { BRAND } from "@/lib/brand";
 import { formatPeso } from "@/lib/money";
@@ -65,19 +70,43 @@ function initials(name: string) {
 // One listing, for a traveller deciding whether to add it to a trip (RAA-90), laid out as its
 // business's shop page (RAA-281): a compact banner naming who offers it, then ListingBody. Active
 // listings only. A plan step opens the same body in the planner's frame instead (`?listing=`).
+// Its URL is `/listings/<id>-<slug of its title>` (RAA-236): any other (the bare id, an old title)
+// answers 308 to that one with the same query, so the place, the trip, the dates and the way back
+// (`?place=`, `&from=place`, `?plan=1`) go along. Redirected here, in the page, not its metadata,
+// so it is a real 308 rather than one replayed after the page has started streaming.
 export default async function ListingPage(props: PageProps<"/listings/[id]">) {
-  const id = listingId((await props.params).id);
+  const param = (await props.params).id;
+  const id = listingId(param);
   if (!id) notFound();
-  const view = await loadListingView(id, await props.searchParams);
+  const searchParams = await props.searchParams;
+  const found = await getListing(id);
+  if (!found) notFound();
+  const path = listingPath(found);
+  if (`/listings/${param}` !== path) permanentRedirect(`${path}${queryOf(searchParams)}`);
+  const view = await loadListingView(id, searchParams);
   if (!view) notFound();
-  const { listing, business, from, tripId, backHref, backLabel, businessHref } = view;
+  const { listing, business, from, dates, tripId, backHref, backLabel, businessHref, ancestors } = view;
   const { area, category } = listing;
+  const crumbs = listingCrumbs(listing, ancestors);
+  // A few other cards of its kind on the place it was opened from, not its own business's (More
+  // from shows those); the page renders without them.
+  const others = await getBookCards(from.slug, listing.group, RELATED + 4, undefined, undefined, undefined, 1, false).catch((error: unknown) => {
+    console.error(error);
+    return null;
+  });
+  const related = rowCardsOf(
+    (others?.cards ?? [])
+      .map((card) => card.listings)
+      .filter((offered) => !offered.some((each) => each.business.id === listing.business.id)),
+    listing.group,
+    { dates, slug: from.slug },
+  ).slice(0, RELATED);
   const chip = "inline-flex items-center gap-1 rounded-chip bg-glass-fill px-2.5 py-0.5 text-small font-semibold";
 
   return (
     <main className="flex flex-1 flex-col">
       <CurrentPlace name={from.name} slug={from.slug} />
-      <JsonLd nodes={[listingJsonLd(listing), breadcrumbJsonLd(listingCrumbs(listing))]} />
+      <JsonLd nodes={[listingJsonLd(listing), breadcrumbJsonLd(crumbs)]} />
       {tripId && <AdoptTrip id={tripId} />}
       <PageBanner
         compact
@@ -94,6 +123,8 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
             <BackLink href={backHref} className={`${BACK_PILL} -order-1 sm:hidden`}>
               <span aria-hidden>←</span> {backLabel}
             </BackLink>
+            {/* On a phone the way back sits over the title instead. */}
+            <Breadcrumbs crumbs={crumbs} className="max-sm:hidden" />
             <DisplayTitle className="break-words text-balance">{listing.title}</DisplayTitle>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sky-mist">
               <span className="grid size-8 shrink-0 place-items-center rounded-control border border-white/70 bg-trip-band text-xs font-extrabold text-white">
@@ -121,10 +152,32 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
       </PageBanner>
 
       <PageSheet tone="paper">
-        <ListingBody view={view} />
+        <ListingBody
+          view={view}
+          related={
+            <RelatedListings
+              cards={related}
+              group={listing.group}
+              place={from.name}
+              allHref={bookHref(from.slug, { show: `need-${listing.group}`, datesQuery: tripDatesQuery(dates) })}
+            />
+          }
+        />
       </PageSheet>
     </main>
   );
+}
+
+// How many other listings of its kind the page offers (RAA-237).
+const RELATED = 6;
+
+// The page's query again, for its redirect: `?place=…&from=place`, the trip and the dates.
+function queryOf(searchParams: Record<string, string | string[] | undefined>) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    for (const each of Array.isArray(value) ? value : value === undefined ? [] : [value]) query.append(key, each);
+  }
+  return query.size ? `?${query}` : "";
 }
 
 const BACK_PILL =

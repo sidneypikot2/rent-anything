@@ -143,7 +143,7 @@ export function LandmarkToursButton({
               <div className="flex min-w-0 items-start gap-3">
                 <span className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-[1.125rem] bg-mist text-primary">
                   {tour.photo ? (
-                    <Image src={tour.photo.src} alt="" fill unoptimized={isApiPhoto(tour.photo.src)} sizes="4rem" className="object-cover" />
+                    <Image src={tour.photo.src} alt={tour.photo.alt} fill unoptimized={isApiPhoto(tour.photo.src)} sizes="4rem" className="object-cover" />
                   ) : (
                     <CategoryGlyph name={tour.category} className="size-6" />
                   )}

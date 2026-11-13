@@ -18,6 +18,7 @@ import { bookable, type TripActions } from "./trip-details";
 import { vehicleNoun } from "./vehicle-party";
 import { tripOwnQuery } from "./trip-dates";
 import { itemProblem, itemQuote, useTripQuote, type Trip, type TripItem } from "./use-trips";
+import { listingPath } from "@/lib/seo";
 
 // A booking that holds its days and hasn't started can be changed (Bookings::Change, RAA-134).
 const CHANGEABLE = new Set(["requested", "accepted", "awaiting_payment", "confirmed"]);
@@ -179,7 +180,7 @@ export function CartItemPanel({
       <ListingPanel
         listingId={item.listing.id}
         // On the trip's own dates and guests, so the listing page prices the stay rather than asking for dates.
-        href={`/listings/${item.listing.id}${tripOwnQuery(trip)}`}
+        href={`${listingPath(item.listing)}${tripOwnQuery(trip)}`}
         category={item.listing.category}
         by=""
         features={[]}

@@ -12,9 +12,9 @@ type Router = ReturnType<typeof useRouter>;
 const OVER_PLAN_KEYS = ["business", "listing", "show", "place", "item"];
 const PUSHED = "plan-over-pushed";
 
-// `/businesses/12?…` → ["business", "12"]; `/listings/7?…` → ["listing", "7"].
+// `/businesses/12?…` → ["business", "12"]; `/listings/7-sunset-tour?…` (or `/listings/7`) → ["listing", "7"].
 export function overPlanTarget(href: string): [key: "business" | "listing", id: string] | null {
-  const match = /^\/(businesses|listings)\/([1-9]\d*)$/.exec(new URL(href, window.location.origin).pathname);
+  const match = /^\/(businesses|listings)\/([1-9]\d*)(?:-[^/]*)?$/.exec(new URL(href, window.location.origin).pathname);
   if (!match) return null;
   return [match[1] === "businesses" ? "business" : "listing", match[2]];
 }

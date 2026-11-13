@@ -32,12 +32,17 @@ export function ListingRow({
   kind,
   noun,
   testId,
+  bleed = "inset",
 }: {
   cards: RowCard[];
-  kind: "stay" | "activity" | "transfer" | "rental";
+  kind: "stay" | "activity" | "transfer" | "rental" | "gear";
   // For the buttons' names: "Earlier stays", "More stays".
   noun: string;
   testId: string;
+  // How far a phone's row runs out to the frame's edge: the place page's sections are padded by
+  // `inset`, the listing page's by 12px (`sheet`, max-sm:px-3), so the first card still lines up
+  // under the heading.
+  bleed?: "inset" | "sheet";
 }) {
   const row = useRef<HTMLUListElement>(null);
   const [ends, setEnds] = useState({ start: true, end: true });
@@ -68,7 +73,10 @@ export function ListingRow({
       <ul
         ref={row}
         data-testid={testId}
-        className="-mx-inset flex snap-x snap-mandatory gap-3.5 overflow-x-auto overscroll-x-contain scroll-px-inset px-inset pb-1 [scrollbar-width:none] sm:mx-0 sm:scroll-px-0 sm:px-0"
+        className={cn(
+          "flex snap-x snap-mandatory gap-3.5 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] sm:mx-0 sm:scroll-px-0 sm:px-0",
+          bleed === "inset" ? "-mx-inset scroll-px-inset px-inset" : "-mx-3 scroll-px-3 px-3",
+        )}
       >
         {cards.map((card) => (
           <li key={card.id} className="@container w-72 shrink-0 snap-start sm:w-[calc((100%-1.75rem)/2.2)] lg:w-[calc((100%-2.625rem)/3.3)]">

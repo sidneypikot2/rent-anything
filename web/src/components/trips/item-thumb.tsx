@@ -23,12 +23,12 @@ const KIND_GLYPH: Record<TripItem["booking_type"], string> = {
 };
 
 type ThumbItem = Pick<TripItem, "booking_type"> & {
-  listing: Pick<TripItem["listing"], "cover_photo_url"> & { category?: string };
+  listing: Pick<TripItem["listing"], "cover_photo_url" | "title"> & { category?: string };
 };
 
 // A trip item's listing at a glance, wherever a trip lists its items: its cover photo, or its
 // category icon in a mist well when it has none or the photo fails, never a stand-in that would
-// show it as something it isn't. Decorative: the title beside it names the listing. `badge` sits
+// show it as something it isn't. Its alt is the listing's title (content, RAA-230). `badge` sits
 // on its corner (the plan's tick for a confirmed booking, a warning for one that can't be had).
 export function ItemThumb({ item, size = "md", badge }: { item: ThumbItem; size?: keyof typeof SIZES; badge?: ReactNode }) {
   const photo = item.listing.cover_photo_url;
@@ -40,7 +40,7 @@ export function ItemThumb({ item, size = "md", badge }: { item: ThumbItem; size?
         {photo && !failed ? (
           <Image
             src={photo}
-            alt=""
+            alt={item.listing.title}
             width={px}
             height={px}
             unoptimized={isApiPhoto(photo)}

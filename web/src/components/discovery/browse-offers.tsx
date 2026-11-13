@@ -8,6 +8,7 @@ import { formatPeso } from "@/lib/money";
 import { pricedByText, priceUnitText } from "@/lib/pricing";
 import { groupText, guestTourTypeLabel } from "@/lib/tours";
 import { listingFeatures, type Feature } from "./listing-features";
+import { listingPath } from "@/lib/seo";
 
 // What the guest's browse pages build their business cards and options from: an area page's
 // What to book and a business's own page, both from the `area_listing` rows.
@@ -79,7 +80,7 @@ export function offerOf(
     text: [listing.title, listing.category, listing.business.name, listing.area_name, listing.summary, groupTitle]
       .filter(Boolean)
       .join(" "),
-    href: `/listings/${listing.id}${tripDatesQuery(dates)}`,
+    href: `${listingPath(listing)}${tripDatesQuery(dates)}`,
     title: listing.title,
     category: listing.category,
     by,
@@ -170,7 +171,7 @@ export function businessHref(id: number, dates: TripDates, show?: string, place?
 // under More from the business there; `place` the place's page it was opened on. From the place
 // page itself (`fromPlace`) the listing's way back is that page, else the place's What to book.
 export function titleCardHref(
-  offered: { id: number; price_from_cents?: number | null }[],
+  offered: { id: number; title?: string; price_from_cents?: number | null }[],
   dates: TripDates,
   place: string,
   fromPlace = false,
@@ -180,7 +181,7 @@ export function titleCardHref(
   const query = new URLSearchParams(tripDatesQuery(dates).replace(/^\?/, ""));
   query.set("place", place);
   if (fromPlace) query.set("from", "place");
-  return `/listings/${opens.id}?${query}`;
+  return `${listingPath(opens)}?${query}`;
 }
 
 // The top-most destination above a place, when the place sits inside one (Santa Fe's Bantayan
@@ -197,6 +198,20 @@ export function islandOf(destinations: AreaCard[], slug: string) {
     parent = bySlug.get(parent)?.parent_slug ?? null;
   }
   return top;
+}
+
+// The listed places this one sits in, top-most first (an island over its town): its breadcrumbs.
+export function ancestorsOf(destinations: AreaCard[], slug: string): AreaCard[] {
+  const bySlug = new Map(destinations.map((each) => [each.slug, each]));
+  const seen = new Set([slug]);
+  const trail: AreaCard[] = [];
+  let parent = bySlug.get(slug)?.parent_slug ?? null;
+  while (parent && bySlug.has(parent) && !seen.has(parent)) {
+    seen.add(parent);
+    trail.unshift(bySlug.get(parent)!);
+    parent = bySlug.get(parent)?.parent_slug ?? null;
+  }
+  return trail;
 }
 
 // Every listed place inside this one, however deep.

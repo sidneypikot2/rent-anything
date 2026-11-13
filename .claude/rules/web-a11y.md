@@ -1,0 +1,15 @@
+---
+paths:
+  - "web/src/components/**"
+  - "web/src/app/**"
+---
+
+# Web: image alt text and the heading outline
+
+**Alt text** (RAA-230). An image is either content or decoration, and its `alt` says which:
+- **Content** — a photo of a particular thing the page shows: a listing, a model, a business's logo or photos, a landmark, a person. Its `alt` names that thing, from the data it came with (the listing's or model's `title`, `<business> logo`, the landmark's name, `Sample photo: …` for a stand-in), even when the same name is printed beside it. A photo object passed between components carries its `alt` (`{ src, alt }`); build it where the name is known, never as `""`.
+- **Decorative** — a photo that only sets the mood behind other content: the site backdrop, a banner's or band's photo under a scrim, the hero's port, a carousel's slides other than the one shown. `alt=""`, so a screen reader skips it.
+
+When in doubt, it is content. A new `alt=""` is for decoration only; grep `alt=""` to review them.
+
+**Headings** (RAA-235, RAA-243): a page has exactly one `h1` — its `DisplayTitle` (repeat the look elsewhere with `as="p"`) — and the outline steps down one level at a time, never skipping one (h1 → h3). A section's title is `SectionTitle` (h2, via `Section`); a card or row title inside it is h3, and one inside that h4. Fix a level by the primitive's `as` (or the tag), never by restyling: the level is the outline, the classes are the look. A heading that is only a styled label (no content under it) is a `p`. A section the banner already names, whose children are h3s, keeps a hidden `<h2 className="sr-only">` (What to book). Not-found and error pages have their own `h1`. A missing record answers 404: a `notFound()` under a `loading.tsx` can't, as once the skeleton has started the response it stays 200, so a route with a skeleton checks its record in a layout above it, as `app/(guest)/[area]/(place)/layout.tsx` does for a place. (Next 16 still draws a thrown `notFound()`'s page in the browser, so its h1 isn't in the server's HTML yet; only an unknown path's default 404 is.) The smoke test "one h1 per page" holds this for the public pages, sign-in and the not-found pages (with their 404s); axe's `heading-order` is the check for skipped levels.

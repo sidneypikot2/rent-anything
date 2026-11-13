@@ -68,7 +68,7 @@ export default async function BusinessPage(props: PageProps<"/businesses/[id]">)
             <div className="flex items-center gap-4">
               <span className="relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-control border-2 border-white/80 bg-trip-band font-display text-xl font-extrabold text-white shadow-float max-sm:size-14">
                 {business.logo ? (
-                  <Image src={business.logo.card_url} alt="" fill sizes="64px" unoptimized className="object-cover" />
+                  <Image src={business.logo.card_url} alt={`${business.name} logo`} fill sizes="64px" unoptimized className="object-cover" />
                 ) : (
                   initials(business.name)
                 )}

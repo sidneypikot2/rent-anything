@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getAreaPlaces, getDestinations } from "@/api/discovery";
-import { BOOK_SECTIONS, bookSeed, WhatToBookList, WhatToBookSkeleton } from "@/components/area/area-listings";
+import { bookSection, bookSeed, WhatToBookList, WhatToBookSkeleton } from "@/components/area/area-listings";
 import { BackLink } from "@/components/discovery/back-link";
 import { BookDatesPending, BookDatesSeam } from "@/components/discovery/book-dates";
 import { descendants, islandOf } from "@/components/discovery/browse-offers";
@@ -16,11 +16,9 @@ import { cn } from "@/components/ui/cn";
 import { DisplayTitle } from "@/components/ui/typography";
 import { canonical } from "@/lib/seo";
 
-const sectionOf = (group: string) => BOOK_SECTIONS.find((section) => section.group === group);
-
 export async function generateMetadata(props: PageProps<"/[area]/book/[group]">): Promise<Metadata> {
   const { area: slug, group } = await props.params;
-  const [detail, section] = [await getAreaPlaces(slug), sectionOf(group)];
+  const [detail, section] = [await getAreaPlaces(slug), bookSection(group)];
   if (!detail || !section) return { title: "Not found" };
   return {
     title: `${section.title} on ${detail.area.name}`,
@@ -35,7 +33,7 @@ export async function generateMetadata(props: PageProps<"/[area]/book/[group]">)
 // the same dates (BookDates: only what is free on them). `?q=` narrows it as on What to book.
 export default async function AreaBookGroupPage(props: PageProps<"/[area]/book/[group]">) {
   const { area: slug, group } = await props.params;
-  const section = sectionOf(group);
+  const section = bookSection(group);
   if (!section) notFound();
   const searchParams = await props.searchParams;
   const dates = readTripDates(searchParams);

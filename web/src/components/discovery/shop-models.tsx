@@ -38,6 +38,7 @@ import { CoverBar } from "@/components/trips/cover-bar";
 import { peopleText, rentalDays, ridesHeld, seatsLabel, shopNoun, vehicleNoun, withArticle, type ShopListing } from "@/components/trips/vehicle-party";
 import { useTripHere } from "@/components/trips/use-trip-here";
 import { useTripHref } from "@/components/trips/trip-link";
+import { listingPath } from "@/lib/seo";
 
 type Options = {
   business: { id: number; name: string };
@@ -315,7 +316,7 @@ export function useShopModels({ business, category, group, dates, people, listin
               <div className="flex items-center gap-3 px-3.5 py-3" data-testid="shop-model">
                 <span className="relative flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-action-tint text-action-ink">
                   {model.cover_photo_url ? (
-                    <Image src={model.cover_photo_url} alt="" fill unoptimized={isApiPhoto(model.cover_photo_url)} sizes="3.5rem" className="object-cover" />
+                    <Image src={model.cover_photo_url} alt={model.title} fill unoptimized={isApiPhoto(model.cover_photo_url)} sizes="3.5rem" className="object-cover" />
                   ) : (
                     <CategoryGlyph name={category.name} className="size-6" />
                   )}
@@ -384,7 +385,7 @@ export function useShopModels({ business, category, group, dates, people, listin
                       {rate.child_helmet_fee_cents !== null && ` · Child helmets: ${childHelmetFeeText(rate.child_helmet_fee_cents).toLowerCase()}`}
                     </p>
                   )}
-                  <Link href={tripHref(`/listings/${model.id}${tripDatesQuery({ ...dates, from, to })}`)} className="w-fit font-semibold text-link underline underline-offset-4" data-testid="listing-link">
+                  <Link href={tripHref(`${listingPath(model)}${tripDatesQuery({ ...dates, from, to })}`)} className="w-fit font-semibold text-link underline underline-offset-4" data-testid="listing-link">
                     See full details
                   </Link>
                 </div>
