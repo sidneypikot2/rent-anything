@@ -132,6 +132,8 @@ services:
     working_dir: /smoke
     volumes:
       - ./tools/smoke:/smoke
+      # The app's routes, which global-setup.js requests once before the tests (RAA-318).
+      - ./web/src/app:/app-routes:ro
     environment:
       FRONTEND_PORT: ${FRONTEND_PORT:-8100}
       BACKEND_PORT: ${BACKEND_PORT:-3100}

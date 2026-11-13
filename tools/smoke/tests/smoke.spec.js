@@ -21,6 +21,13 @@ function collectErrors(page, errors) {
   });
 }
 
+// The planner's way in asks before leaving only once its page has mounted: the route's skeleton
+// shows at the same URL first, and before hydration the ← is a plain link home. Its guard entry
+// (`leave-plan-guard.tsx`) is pushed then, so a Back waits for it (RAA-318).
+async function planGuardSet(page) {
+  await page.waitForFunction(() => window.history.state?.raaPlanGuard === true);
+}
+
 function isGoogle(url) {
   return URL.canParse(url) && new URL(url).hostname === "accounts.google.com";
 }
@@ -57,6 +64,7 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   await page.getByTestId("plan-whole-trip").click();
   await expect(page).toHaveURL(/\/plan$/);
   // Step 1's way back leaves the planner, so it asks first; Stay keeps the guest here.
+  await planGuardSet(page);
   await page.getByTestId("plan-back").click();
   await expect(page.getByTestId("leave-plan")).toBeVisible();
   await page.getByTestId("leave-plan-stay").click();
@@ -126,6 +134,7 @@ test("plan a whole trip: where, when and who, then the checklist", async ({ page
   await page.getByTestId("trip-choice-go").click();
   await expect(page).toHaveURL(new RegExp(`/plan/bantayan-island\\?trip=${tripId}$`));
   // The browser's Back from the step the planner was entered on asks too; Leave goes home.
+  await planGuardSet(page);
   await page.goBack();
   await expect(page.getByTestId("leave-plan")).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/plan/bantayan-island\\?trip=${tripId}$`));
