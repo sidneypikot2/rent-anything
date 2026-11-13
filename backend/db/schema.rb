@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_12_090000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_13_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "pg_catalog.plpgsql"
@@ -109,10 +109,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_12_090000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "position", null: false
+    t.string "versions_content_type"
     t.index ["created_at"], name: "index_area_photos_unfinished", where: "(uploaded_at IS NULL)"
     t.check_constraint "\"position\" >= 1", name: "area_photos_position_check"
     t.check_constraint "byte_size > 0", name: "area_photos_byte_size_check"
     t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying::text, 'image/png'::character varying::text, 'image/webp'::character varying::text])", name: "area_photos_content_type_check"
+    t.check_constraint "versions_content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "area_photos_versions_content_type_check"
     t.unique_constraint ["area_id", "position"], deferrable: :deferred, name: "area_photos_area_id_position_key"
   end
 
@@ -273,10 +275,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_12_090000) do
     t.datetime "sized_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "versions_content_type"
     t.index ["business_id"], name: "index_business_logos_on_business_id", unique: true
     t.index ["created_at"], name: "index_business_logos_unfinished", where: "(uploaded_at IS NULL)"
     t.check_constraint "byte_size > 0", name: "business_logos_byte_size_check"
     t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying::text, 'image/png'::character varying::text, 'image/webp'::character varying::text])", name: "business_logos_content_type_check"
+    t.check_constraint "versions_content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "business_logos_versions_content_type_check"
   end
 
   create_table "business_photos", force: :cascade do |t|
@@ -290,11 +294,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_12_090000) do
     t.datetime "sized_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "versions_content_type"
     t.index ["business_id"], name: "index_business_photos_on_business_id"
     t.index ["created_at"], name: "index_business_photos_unfinished", where: "(uploaded_at IS NULL)"
     t.check_constraint "\"position\" >= 1", name: "business_photos_position_check"
     t.check_constraint "byte_size > 0", name: "business_photos_byte_size_check"
     t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying::text, 'image/png'::character varying::text, 'image/webp'::character varying::text])", name: "business_photos_content_type_check"
+    t.check_constraint "versions_content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "business_photos_versions_content_type_check"
   end
 
   create_table "businesses", force: :cascade do |t|
@@ -440,10 +446,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_12_090000) do
     t.datetime "sized_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "versions_content_type"
     t.index ["created_at"], name: "index_landmark_photos_unfinished", where: "(uploaded_at IS NULL)"
     t.check_constraint "\"position\" >= 1", name: "landmark_photos_position_check"
     t.check_constraint "byte_size > 0", name: "landmark_photos_byte_size_check"
     t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying::text, 'image/png'::character varying::text, 'image/webp'::character varying::text])", name: "landmark_photos_content_type_check"
+    t.check_constraint "versions_content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "landmark_photos_versions_content_type_check"
     t.unique_constraint ["landmark_id", "position"], deferrable: :deferred, name: "landmark_photos_landmark_id_position_key"
   end
 
@@ -529,10 +537,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_12_090000) do
     t.datetime "sized_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "versions_content_type"
     t.index ["created_at"], name: "index_listing_photos_unfinished", where: "(uploaded_at IS NULL)"
     t.check_constraint "\"position\" >= 1", name: "listing_photos_position_check"
     t.check_constraint "byte_size > 0", name: "listing_photos_byte_size_check"
     t.check_constraint "content_type::text = ANY (ARRAY['image/jpeg'::character varying::text, 'image/png'::character varying::text, 'image/webp'::character varying::text])", name: "listing_photos_content_type_check"
+    t.check_constraint "versions_content_type::text = ANY (ARRAY['image/jpeg'::character varying, 'image/png'::character varying, 'image/webp'::character varying]::text[])", name: "listing_photos_versions_content_type_check"
     t.unique_constraint ["listing_id", "position"], deferrable: :deferred, name: "listing_photos_listing_id_position_key"
   end
 

@@ -136,7 +136,7 @@ RSpec.describe "Admin place to see photos", type: :request do
         run_test! do
           expect(landmark.photos.reload.map { [ it.id, it.position ] }).to eq([ [ photos.last.id, 1 ] ])
           expect(ListingPhotos::DeleteFilesJob).to have_been_enqueued.with(
-            %w[image image_card image_large].map { "test/landmark_photos/#{id}/#{it}.jpg" }
+            %w[image.jpg image_card.jpg image_large.jpg image_card.webp image_large.webp].map { "test/landmark_photos/#{id}/#{it}" }
           )
         end
       end
