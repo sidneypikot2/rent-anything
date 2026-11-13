@@ -2026,11 +2026,14 @@ RSpec.configure do |config|
                     },
                     visits: {
                       type: :array,
-                      description: "The same listings, named (their title and category)",
+                      description: "The same listings, named (their title and category) and priced (their from-price, null until priced)",
                       items: {
                         type: :object,
-                        properties: { id: { type: :integer }, title: { type: :string }, category: { type: :string } },
-                        required: %w[id title category]
+                        properties: {
+                          id: { type: :integer }, title: { type: :string }, category: { type: :string },
+                          price_from_cents: { type: :integer, nullable: true }
+                        },
+                        required: %w[id title category price_from_cents]
                       }
                     }
                   },

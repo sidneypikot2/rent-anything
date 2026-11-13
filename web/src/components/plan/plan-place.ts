@@ -35,6 +35,7 @@ export function toPlanPlace(
       description: landmark.description,
       photo: photos[index],
       visitedBy: landmark.visited_by,
+      tours: landmark.visits.map(({ id, title, price_from_cents }) => ({ id, title, priceFromCents: price_from_cents })),
       location: landmark.location,
       tags: landmark.tags.map(({ slug, name }) => ({ slug, name })),
       mustSee: landmark.must_see,

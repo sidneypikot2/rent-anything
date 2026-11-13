@@ -1,8 +1,6 @@
 "use client";
 
-import { useQueries } from "@tanstack/react-query";
 import { useState } from "react";
-import { listingQuery } from "@/components/discovery/listing-query";
 import { ArrowGlyph } from "@/components/discovery/tag-glyphs";
 import { usePlanLandmark, type Trip } from "@/components/trips/use-trips";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +38,7 @@ export function PlanPlaceChooser({
   const plan = usePlanLandmark();
   const { landmark } = pick;
   const boat = Boolean(landmark.boatDeparture);
-  const tours = useQueries({ queries: landmark.visitedBy.map((id) => listingQuery(id)) });
+  const { tours } = landmark;
   const hearted = heartedSlugs(trip);
   const held = new Set(trip.items.map((item) => item.listing.id));
   const hasRide = rowItems(trip, "rental", place).length > 0;
@@ -97,21 +95,20 @@ export function PlanPlaceChooser({
         />
         {way === "tour" && (
           <ul className="flex flex-col gap-2" data-testid="plan-chooser-tours">
-            {tours.map(({ data: tour }, index) => {
-              const id = landmark.visitedBy[index];
+            {tours.map((tour) => {
+              const { id } = tour;
               const also = place.landmarks.filter((each) => each.visitedBy.includes(id) && !hearted.has(each.slug)).map((each) => each.name);
               return (
                 <li key={id}>
                   <button
                     type="button"
                     onClick={() => onListing(id)}
-                    disabled={!tour}
                     data-testid="plan-chooser-tour"
                     className="flex min-h-11 w-full items-center gap-3 rounded-control border border-line bg-surface p-3 text-left transition-colors duration-300 ease-calm hover:border-primary"
                   >
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="text-sm font-semibold break-words text-navy">{tour?.title ?? "Loading…"}</span>
-                      {tour?.price_from_cents ? <span className="text-small text-muted tabular-nums">From {formatPeso(tour.price_from_cents)}</span> : null}
+                      <span className="text-sm font-semibold break-words text-navy">{tour.title}</span>
+                      {tour.priceFromCents ? <span className="text-small text-muted tabular-nums">From {formatPeso(tour.priceFromCents)}</span> : null}
                       {also.length > 0 && <span className="text-small text-muted">Also stops at {also.join(", ")}</span>}
                     </span>
                     {held.has(id) ? <Badge tone="kind">In your trip</Badge> : <ArrowGlyph className="size-4 shrink-0 text-primary" />}
