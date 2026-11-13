@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { businessHref, titleCardHref } from "@/components/discovery/browse-offers";
 import { BOOKING_GROUPS } from "@/components/discovery/categories";
 import type { PlanBusinessesPage } from "@/api/discovery";
@@ -119,10 +119,14 @@ function Checklist({
   const [picked, setPickedState] = useState<StepKey | null>(() => stepParam(searchParams.get("choose")) ?? choose ?? null);
   const setPicked = useCallback((key: StepKey) => {
     setPickedState(key);
-    const url = new URL(window.location.href);
-    url.searchParams.set("choose", key);
-    window.history.replaceState(window.history.state, "", url);
+    writeChoose(key);
   }, []);
+  // A navigation started before the pick (AdoptTrip's dates, built from the URL then) lands after
+  // it and drops `?choose=`: put it back, or a new tab or a Back opens on the wrong step.
+  const chooseInUrl = searchParams.get("choose");
+  useEffect(() => {
+    if (picked && !chooseInUrl) writeChoose(picked);
+  }, [picked, chooseInUrl]);
   const quote = useTripQuote(trip.id);
   const hasPlaces = place.landmarks.length > 0;
   const { rows, done, picks } = planSteps(place, trip);
@@ -547,6 +551,13 @@ function subscribeWide(onChange: () => void) {
 }
 function useWide() {
   return useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches, () => false);
+}
+
+// The step in the URL (`?choose=`), replaced, never a new entry.
+function writeChoose(key: StepKey) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("choose", key);
+  window.history.replaceState(window.history.state, "", url);
 }
 
 // A step named in the URL (`?choose=`), or null for anything else.
