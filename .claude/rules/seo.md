@@ -5,6 +5,11 @@ paths:
   - "web/src/app/layout.tsx"
   - "web/src/lib/config.ts"
   - "web/src/lib/seo.ts"
+  - "web/src/lib/json-ld.ts"
+  - "web/src/lib/og.tsx"
+  - "web/src/components/seo/**"
+  - "web/src/app/opengraph-image.tsx"
+  - "web/src/app/logo.png/**"
   - "web/src/app/**/page.tsx"
   - "web/src/app/**/layout.tsx"
   - "deploy/staging/Caddyfile"
@@ -23,3 +28,9 @@ paths:
 - **Public pages** set a `description` of their own (aim for 120–160 characters, cut with `metaDescription()`; a page built from data has a fallback for an empty field, never the root's) and `alternates: canonical(path)` — the path alone, never the query (dates, filters, `?trip=`, tracking), made absolute by `metadataBase`. Never set `alternates` in a layout: every page under it would inherit that canonical. `/search` keeps one canonical and is `noindex, follow` with a `?q=`.
 - **Titles** are short and say what the page is ("What to book on <place>", "<place> <year>: places to see, stays and tours"); the root template adds ` · <BRAND>`, so keep a page's own part under about 47 characters (a listing adds its place or kind only while it fits, `listingTitle`). The brand comes from `brand.ts`, never typed out.
 - **A listing's URL** is `listingPath()` everywhere SEO needs it (canonical, sitemap), so the move to slugs (RAA-236) changes only that helper.
+
+**Shared links** (Open Graph and Twitter, RAA-233): the root layout sets `OPEN_GRAPH` (site name, `website`, `en_PH`) and `twitter: summary_large_image`; og:title and og:description are never written — Next fills them from the page's own title and description. The default image is `web/src/app/opengraph-image.tsx`. A page with its own photo or URL sets `openGraph: openGraph(path, image)` (`seo.ts`): metadata merges shallowly, so a page's `openGraph` replaces the layout's whole, and the helper puts the shared fields and the default image back. An area shares its first own photo, a listing its cover — never a sample photo. In `next dev` the default image's URL uses the dev server's own port (Next's fallback for file-based images); a build uses `metadataBase`.
+
+**Images made with next/og** (`web/src/app/opengraph-image.tsx`, `/logo.png`) draw from `web/src/lib/og.tsx`: next/og can't read `globals.css`, so the Sky & Forest colours it uses are mirrored there (`OG_PALETTE`, each with its token's name) — change a token, change it there too. Its font is Plus Jakarta Sans from `web/src/assets/fonts/` (OFL, the licence beside it), read at build time; keep both images static (no request data), since the standalone server has no `src/`.
+
+**Structured data** (JSON-LD, RAA-241): built in `web/src/lib/json-ld.ts`, rendered on the server by `<JsonLd nodes>` (`web/src/components/seo/json-ld.tsx`) as one `@graph` — never a `<script type="application/ld+json">` of a page's own, as `jsonLdText` escapes `<`, `>`, `&` and U+2028/9 so text from the API can't close the script. Every URL is absolute (`absoluteUrl`). The home has `Organization` (brand, `/logo.png`, `SOCIALS`) and `WebSite` with a `SearchAction` to `/search?q=`; an area `TouristDestination` (its centre, its own photos); a listing a `Product` with an `Offer` (from-price in PHP, sold by its business) once priced, else a `Service` its business provides; an area and a listing a `BreadcrumbList`. Breadcrumbs come from `areaCrumbs` / `listingCrumbs` (`seo.ts`), the list the visible breadcrumbs (RAA-237) are to use too.

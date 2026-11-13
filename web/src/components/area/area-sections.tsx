@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { PlanTripLink } from "@/components/landing/plan-trip-start";
+import { JsonLd } from "@/components/seo/json-ld";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
@@ -504,8 +505,7 @@ export function AreaSampleDays({ days, planHref, planLabel }: { days: SampleDay[
 // The questions guests ask, open on a grid, and as FAQPage data for search engines.
 export function AreaQuestions({ name, questions }: { name: string; questions: Question[] }) {
   if (questions.length === 0) return null;
-  const data = {
-    "@context": "https://schema.org",
+  const faq = {
     "@type": "FAQPage",
     mainEntity: questions.map(({ question, answer }) => ({
       "@type": "Question",
@@ -515,11 +515,7 @@ export function AreaQuestions({ name, questions }: { name: string; questions: Qu
   };
   return (
     <Part id="faq" title={`Questions about ${name}`}>
-      <script
-        type="application/ld+json"
-        // Escaped so text from the API can't close the script element.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\\u003c") }}
-      />
+      <JsonLd nodes={[faq]} />
       {/* Each answer folds under its question; items-start keeps an open card from stretching its neighbour. */}
       <div className="grid items-start gap-2.5 md:grid-cols-2">
         {questions.map(({ question, answer }) => (

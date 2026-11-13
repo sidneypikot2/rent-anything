@@ -11,10 +11,13 @@ import { HomeClosing, HomeSteps } from "@/components/landing/home-steps";
 import { HomeTabBar } from "@/components/landing/home-tab-bar";
 import { HomeWhy } from "@/components/landing/home-why";
 import { BACKDROP_PHOTO } from "@/components/landing/site-backdrop";
-import { canonical } from "@/lib/seo";
+import { JsonLd } from "@/components/seo/json-ld";
+import { organizationJsonLd, webSiteJsonLd } from "@/lib/json-ld";
+import { canonical, openGraph } from "@/lib/seo";
 
-// The root layout's title and description are the home's; it adds its canonical (RAA-238).
-export const metadata: Metadata = { alternates: canonical("/") };
+// The root layout's title and description are the home's; it adds its canonical (RAA-238) and
+// its URL for shared links (RAA-233).
+export const metadata: Metadata = { alternates: canonical("/"), openGraph: openGraph("/") };
 
 // The two quieter ways in beside Plan a trip: a clear pill with a white hairline on the dark frame.
 const QUIET_WAY =
@@ -37,6 +40,7 @@ export default function Home() {
   const areaHref = `/${LAUNCH_AREA.slug}`;
   return (
     <main data-home-page className="flex flex-1 flex-col px-2 pt-3 pb-2 sm:px-6 sm:pb-6">
+      <JsonLd nodes={[organizationJsonLd(), webSiteJsonLd()]} />
       <div className="mx-auto flex w-full max-w-page flex-col gap-3 sm:gap-4">
         <section
           data-home-hero
