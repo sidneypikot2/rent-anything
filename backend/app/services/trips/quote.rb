@@ -12,9 +12,8 @@ module Trips
     end
 
     def call
-      items = @trip.items.includes(:booking).to_a
-      listing_ids = items.map(&:listing_id).uniq
-      @listings = Listing.where(id: listing_ids).includes(*Checkouts::Create::ASSOCIATIONS).index_by(&:id)
+      items = @trip.items.includes(:booking, listing: Checkouts::Create::ASSOCIATIONS).to_a
+      @listings = items.map(&:listing).uniq.index_by(&:id)
       @ledger = ledger(items)
       lines = items.map { line(_1) }
       priced = lines.select { _1[:problem].nil? }

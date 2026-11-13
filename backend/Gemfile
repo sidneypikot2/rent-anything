@@ -88,3 +88,9 @@ group :development, :test do
   # Generates swagger/v1/openapi.yaml from request specs (rake rswag:specs:swaggerize)
   gem "rswag-specs"
 end
+
+group :test do
+  # Fails a spec that runs an N+1 query (spec/support/prosopite.rb, RAA-321); pg_query parses Postgres' SQL for it
+  gem "prosopite"
+  gem "pg_query"
+end
