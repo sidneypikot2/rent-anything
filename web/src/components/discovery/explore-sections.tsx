@@ -37,7 +37,7 @@ function PlaceGroup({ testId, title, places }: { testId: string; title: string; 
   return (
     // White cards, so a pale sheet under them, as What to book has (RAA-125).
     <Section testId={testId} surface="paper" title={title}>
-      <ul className="grid gap-gutter sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-gutter sm:grid-cols-2">
         {places.map((place) => (
           <li key={`${place.type}-${place.slug}`}>
             <CardLink href={placeHref(place)} className="flex items-center gap-3 p-3">

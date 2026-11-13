@@ -34,6 +34,19 @@ export const getDestinations = cache(async (): Promise<AreaCard[]> => {
   return data;
 });
 
+// The footer's Destinations column (RAA-237), on every guest page. Unlike the fetchers here it
+// skips connection() and caches the answer for FOOTER_REVALIDATE seconds (RAA-231): with
+// connection() the footer made every static page (about, terms, privacy, refunds…) render per
+// request. Those pages are now built once, refreshed in the background at most every 5 minutes
+// (ISR); `next build` has no API, so a built page has no column until its first refresh.
+const FOOTER_REVALIDATE = 300;
+export async function getFooterDestinations(): Promise<AreaCard[]> {
+  const client = serverApiClient({ revalidate: FOOTER_REVALIDATE });
+  const { data, error } = await allPages((query) => client.GET("/api/v1/areas", { params: { query } }));
+  if (error || !data) throw new Error("Couldn't load destinations");
+  return data;
+}
+
 // Every active listing, for the sitemap (RAA-232). allPages caps it at 2,000.
 export async function getActiveListings(): Promise<ListingPin[]> {
   await connection();

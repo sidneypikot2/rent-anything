@@ -3,7 +3,7 @@
 // person's browser uses. It is a smoke
 // test — one happy path through the parts everything else depends on, not feature
 // coverage. Extend it as the core path grows (payments next).
-import { test, expect } from "@playwright/test";
+import { test, expect, devices } from "@playwright/test";
 
 // Uncaught exceptions and console errors: a page that renders but logs errors is broken.
 // Except Google sign-in's own failed requests: Google answers 403 to any origin not
@@ -421,6 +421,31 @@ test("one h1 per page", async ({ page, request }) => {
     }
     await page.goto(path);
     await expect(page.locator("h1"), `${path}: h1s in the page`).toHaveCount(1);
+  }
+});
+
+// No sideways scroll on a phone (RAA-245), at 360 and 390px, emulated as a device: a page wider
+// than the phone grows its layout viewport to fit, so innerWidth follows it and only the screen's
+// width shows it (setViewportSize would hide it altogether). /search's results once pushed it to 442px.
+test("no sideways scroll on a phone", async ({ browser, baseURL, request }) => {
+  test.setTimeout(120_000);
+  const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+-[a-z0-9-]+)<\/loc>/)[1]).pathname;
+  const pages = ["/", "/bantayan-island", "/bantayan-island/book", listing, "/search?q=boat", "/about", "/login"];
+  for (const name of ["Galaxy S8", "iPhone 12"]) {
+    const { defaultBrowserType: _, ...device } = devices[name];
+    const context = await browser.newContext({ ...device, baseURL });
+    const page = await context.newPage();
+    for (const path of pages) {
+      await page.goto(path);
+      await expect(page.locator("h1")).toHaveCount(1);
+      const widths = await page.evaluate(() => ({
+        screen: screen.width,
+        inner: window.innerWidth,
+        scroll: document.documentElement.scrollWidth,
+      }));
+      expect(Math.max(widths.inner, widths.scroll), `${path} at ${widths.screen}px`).toBeLessThanOrEqual(widths.screen);
+    }
+    await context.close();
   }
 });
 

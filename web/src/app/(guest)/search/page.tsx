@@ -173,7 +173,7 @@ function Results({
             </Link>
           }
         >
-          <ul className="grid gap-gutter sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-gutter sm:grid-cols-2">
             {place.listings.map((listing) => (
               <li key={listing.id}>
                 {/* Its own cover or none (the short row, led by its icon), never a stand-in. */}
@@ -230,7 +230,7 @@ function LinkGroup({ title, items }: { title: string; items: Item[] }) {
   if (items.length === 0) return null;
   return (
     <Section title={title}>
-      <ul className="grid gap-gutter sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-gutter sm:grid-cols-2">
         {items.map((item) => (
           <li key={item.key}>
             <CardLink href={item.href} className="flex items-center gap-3 p-3">
