@@ -17,6 +17,10 @@ COPY . .
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
 ARG NEXT_PUBLIC_FACEBOOK_APP_ID
+# The site's public origin and whether search engines may index it (src/lib/config.ts): staging
+# is never indexable, so a missing flag keeps the site noindex.
+ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_SITE_INDEXABLE
 # Sentry (src/lib/sentry.ts): the web project's DSN, "staging" on the instance, and the commit.
 ARG NEXT_PUBLIC_SENTRY_DSN
 ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getListing } from "@/api/discovery";
+import { getListing, type ListingDetail } from "@/api/discovery";
 import { categoryIcon } from "@/components/discovery/icons";
 import { InstantBookBadge } from "@/components/discovery/instant-book-badge";
 import { ListingBody, listingId, loadListingView } from "@/components/discovery/listing-view";
@@ -11,12 +11,45 @@ import { PageSheet } from "@/components/landing/page-sheet";
 import { AdoptTrip } from "@/components/trips/trip-link";
 import { BackLink } from "@/components/discovery/back-link";
 import { DisplayTitle } from "@/components/ui/typography";
+import { BRAND } from "@/lib/brand";
+import { formatPeso } from "@/lib/money";
+import { pricedByText, priceUnitText } from "@/lib/pricing";
+import { JsonLd } from "@/components/seo/json-ld";
+import { breadcrumbJsonLd, listingJsonLd } from "@/lib/json-ld";
+import { canonical, listingCrumbs, listingPath, metaDescription, openGraph } from "@/lib/seo";
 
 export async function generateMetadata(props: PageProps<"/listings/[id]">): Promise<Metadata> {
   const id = listingId((await props.params).id);
   const listing = id ? await getListing(id) : null;
   if (!listing) return { title: "Not found" };
-  return { title: listing.title, description: listing.summary || undefined };
+  return {
+    title: listingTitle(listing),
+    description: metaDescription(listing.summary || listingFallbackDescription(listing)),
+    alternates: canonical(listingPath(listing)),
+    // Shared with its cover photo (RAA-233).
+    openGraph: openGraph(listingPath(listing), listing.photos[0] && { url: listing.photos[0].large_url, alt: listing.title }),
+  };
+}
+
+// The title with where it is, or else what it is, while that keeps it short enough for a search
+// result (about 60 characters with the brand; RAA-228): "Island hopping tour in Bantayan Island".
+const TITLE_ROOM = 60 - ` · ${BRAND}`.length;
+
+function listingTitle(listing: ListingDetail) {
+  const { title, area, category } = listing;
+  const inArea = `${title} in ${area.name}`;
+  if (!title.toLowerCase().includes(area.name.toLowerCase()) && inArea.length <= TITLE_ROOM) return inArea;
+  const kind = `${title} · ${category.name}`;
+  return kind.length <= TITLE_ROOM && !title.toLowerCase().includes(category.name.toLowerCase()) ? kind : title;
+}
+
+// Kind · place · price when the partner wrote no description (RAA-229).
+function listingFallbackDescription(listing: ListingDetail) {
+  const { title, area, category, business, price_from_cents, price_unit, booking_type } = listing;
+  const price = price_from_cents
+    ? `From ${formatPeso(price_from_cents)}${price_unit ? ` ${priceUnitText(price_unit)}` : ""}.`
+    : `${pricedByText(booking_type) ?? "Price on request"}.`;
+  return `${title}: ${category.name.toLowerCase()} on ${area.name} by ${business.name}. ${price} Request it with the rest of your trip in one cart on ${BRAND}.`;
 }
 
 // "Kuya Jun Island Tours" → "KJ".
@@ -44,6 +77,7 @@ export default async function ListingPage(props: PageProps<"/listings/[id]">) {
   return (
     <main className="flex flex-1 flex-col">
       <CurrentPlace name={from.name} slug={from.slug} />
+      <JsonLd nodes={[listingJsonLd(listing), breadcrumbJsonLd(listingCrumbs(listing))]} />
       {tripId && <AdoptTrip id={tripId} />}
       <PageBanner
         compact

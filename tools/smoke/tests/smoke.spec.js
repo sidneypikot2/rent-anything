@@ -286,6 +286,111 @@ for (const [path, heading, testId] of [
   });
 }
 
+// robots.txt and sitemap.xml (RAA-244, RAA-232, RAA-247). This stack, like staging, isn't
+// indexable (no NEXT_PUBLIC_SITE_INDEXABLE=true), so robots.txt shuts crawlers out and every page
+// says noindex; the sitemap still lists the public pages, the areas and the listings, and each
+// of its pages opens.
+test("robots.txt, sitemap.xml and noindex", async ({ page, request }) => {
+  const robots = await request.get("/robots.txt");
+  expect(robots.status()).toBe(200);
+  expect(await robots.text()).toMatch(/^Disallow: \/$/m);
+
+  const sitemap = await request.get("/sitemap.xml");
+  expect(sitemap.status()).toBe(200);
+  const xml = await sitemap.text();
+  expect(xml).toContain("<urlset");
+  const paths = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => new URL(match[1]).pathname);
+  for (const path of ["/", "/about", "/terms", "/privacy", "/refunds", "/partner-terms", "/bantayan-island"]) {
+    expect(paths).toContain(path);
+  }
+  const listings = paths.filter((path) => path.startsWith("/listings/"));
+  expect(listings.length).toBeGreaterThan(0);
+  // Every page but the listings past the first few (each renders the same way).
+  for (const path of [...paths.filter((path) => !path.startsWith("/listings/")), ...listings.slice(0, 3)]) {
+    expect((await request.get(path)).status(), path).toBe(200);
+  }
+
+  await page.goto("/");
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow");
+});
+
+// Page metadata (RAA-227, RAA-228, RAA-229, RAA-238): each public page has its own description
+// and one canonical link, absolute and without the query; a search's results stay out of the index.
+test("page titles, descriptions and canonical links", async ({ request }) => {
+  const head = async (path) => {
+    const response = await request.get(path, { headers: { "User-Agent": "Googlebot" } });
+    expect(response.status(), path).toBe(200);
+    const html = await response.text();
+    const canonicals = [...html.matchAll(/<link rel="canonical" href="([^"]+)"/g)].map((match) => match[1]);
+    return {
+      title: html.match(/<title>([^<]*)<\/title>/)?.[1],
+      description: html.match(/<meta name="description" content="([^"]*)"/)?.[1],
+      robots: html.match(/<meta name="robots" content="([^"]*)"/)?.[1],
+      canonicals,
+    };
+  };
+
+  const listing = (await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1];
+  const pages = {
+    "/": "/",
+    "/bantayan-island?from=2030-01-01&utm_source=test": "/bantayan-island",
+    "/bantayan-island/book": "/bantayan-island/book",
+    [new URL(listing).pathname]: new URL(listing).pathname,
+    "/search": "/search",
+    "/about": "/about",
+    "/terms": "/terms",
+    "/privacy": "/privacy",
+    "/refunds": "/refunds",
+    "/partner-terms": "/partner-terms",
+  };
+  const descriptions = new Set();
+  for (const [path, canonicalPath] of Object.entries(pages)) {
+    const { description, canonicals } = await head(path);
+    expect(description, path).toBeTruthy();
+    descriptions.add(description);
+    expect(canonicals, path).toHaveLength(1);
+    const url = new URL(canonicals[0]);
+    expect(url.protocol, path).toMatch(/^https?:$/);
+    expect(url.pathname, path).toBe(canonicalPath);
+    expect(url.search, path).toBe("");
+  }
+  expect(descriptions.size).toBe(Object.keys(pages).length);
+
+  expect((await head("/bantayan-island")).title).toContain("Bantayan Island");
+  expect((await head("/search?q=boat")).robots).toContain("noindex");
+});
+
+// Shared links and structured data (RAA-233, RAA-241): the home, an area and a listing each
+// have Open Graph and Twitter tags with an image that loads, and server-rendered JSON-LD that
+// parses — the home naming the business and the site's search, an area its place and
+// breadcrumbs, a listing itself and its breadcrumbs.
+test("Open Graph tags and JSON-LD", async ({ request }) => {
+  const listing = new URL((await (await request.get("/sitemap.xml")).text()).match(/<loc>([^<]*\/listings\/\d+)<\/loc>/)[1]).pathname;
+  const expected = { "/": ["Organization", "WebSite"], "/bantayan-island": ["BreadcrumbList"], [listing]: ["BreadcrumbList"] };
+  for (const [path, types] of Object.entries(expected)) {
+    const html = await (await request.get(path)).text();
+    const meta = (attribute, name) => html.match(new RegExp(`<meta ${attribute}="${name}" content="([^"]*)"`))?.[1];
+    expect(meta("property", "og:title"), path).toBeTruthy();
+    expect(meta("property", "og:description"), path).toBeTruthy();
+    expect(meta("property", "og:site_name"), path).toBeTruthy();
+    expect(meta("name", "twitter:card"), path).toBe("summary_large_image");
+    const image = new URL(meta("property", "og:image"));
+    // The default image is this site's own; a cover photo is the storage's.
+    if (image.pathname.startsWith("/opengraph-image")) {
+      const response = await request.get(image.pathname);
+      expect(response.status(), path).toBe(200);
+      expect(response.headers()["content-type"], path).toBe("image/png");
+    }
+    const nodes = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([^<]*)<\/script>/g)].flatMap((match) => {
+      const data = JSON.parse(match[1]);
+      return data["@graph"] ?? [data];
+    });
+    const found = nodes.flatMap((node) => [node["@type"]].flat());
+    for (const type of types) expect(found, path).toContain(type);
+  }
+  expect((await request.get("/logo.png")).status()).toBe(200);
+});
+
 // Sign-up through the real API (email and password only), and the /partner guard: signed
 // out goes to /partner/login, a guest is sent home, a partner gets the dashboard.
 // Sent before the page's JavaScript loads, the browser posts the form itself (RAA-269): a GET

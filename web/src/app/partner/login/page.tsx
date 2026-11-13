@@ -3,10 +3,13 @@ import { AuthCard } from "@/components/auth/auth-card";
 import { PartnerAuthFrame } from "@/components/auth/auth-sheet";
 import { PartnerPitch } from "@/components/landing/partner-pitch";
 import { BRAND } from "@/lib/brand";
+import { NOINDEX } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Partner sign in",
   description: `List your tours, transfers, rentals and stays with ${BRAND}.`,
+  // Sign-in pages stay out of search results (RAA-227).
+  robots: NOINDEX,
 };
 
 // Partner sign-in; new partners sign up at /partner/register. These two and

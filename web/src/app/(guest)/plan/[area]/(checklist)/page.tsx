@@ -10,10 +10,18 @@ import { PlanTripChange, PlanTripLabel } from "@/components/plan/plan-trip-bar";
 import { TripAddProvider } from "@/components/trips/trip-add-provider";
 import { AdoptTrip } from "@/components/trips/trip-link";
 import { tripParam } from "@/components/trips/trip-dates";
+import { BRAND } from "@/lib/brand";
+import { canonical } from "@/lib/seo";
 
 export async function generateMetadata(props: PageProps<"/plan/[area]">): Promise<Metadata> {
   const place = await loadPlanPlace((await props.params).area);
-  return { title: place ? `Plan your ${place.area.name} trip` : "Not found" };
+  if (!place) return { title: "Not found" };
+  const { name, slug } = place.area;
+  return {
+    title: `Plan your ${name} trip`,
+    description: `Plan your ${name} trip step by step: a stay, getting there, tours, getting around and gear from local partners, all in one cart on ${BRAND}.`,
+    alternates: canonical(`/plan/${slug}`),
+  };
 }
 
 // Plan a whole trip, step 2: the checklist and the places to see for one place. Adds go to the

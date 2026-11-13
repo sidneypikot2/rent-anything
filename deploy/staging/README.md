@@ -76,6 +76,8 @@ Under repository Settings → Secrets and variables → Actions:
 - **Variables**:
   - `NEXT_PUBLIC_GOOGLE_CLIENT_ID` and `NEXT_PUBLIC_FACEBOOK_APP_ID`: same as Vercel's
 
+`NEXT_PUBLIC_SITE_URL` (the web URL) and `NEXT_PUBLIC_SITE_INDEXABLE=false` are set in the workflow itself, not as variables: staging stays out of search results (RAA-247) — robots.txt disallows everything, every page says noindex, and the `Caddyfile` sends `X-Robots-Tag: noindex, nofollow` on both hosts. A production deploy sets its own URL and `NEXT_PUBLIC_SITE_INDEXABLE=true`, and leaves the Caddy header out.
+
 Then deploy for the first time: `gh workflow run deploy-staging.yml --ref staging`.
 
 ### 7. Services that know the URL

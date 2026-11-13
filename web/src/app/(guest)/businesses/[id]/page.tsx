@@ -10,6 +10,8 @@ import { PageBanner } from "@/components/landing/page-banner";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { cn } from "@/components/ui/cn";
 import { DisplayTitle } from "@/components/ui/typography";
+import { BRAND } from "@/lib/brand";
+import { canonical, metaDescription } from "@/lib/seo";
 
 // "Kuya Jun Moto Rentals" → "KJ".
 function initials(name: string) {
@@ -25,7 +27,16 @@ export async function generateMetadata(props: PageProps<"/businesses/[id]">): Pr
   const id = businessId((await props.params).id);
   const detail = id ? await getBusiness(id) : null;
   if (!detail) return { title: "Not found" };
-  return { title: detail.business.name, description: detail.business.description || undefined };
+  const { business } = detail;
+  const town = business.city ? ` in ${business.city}` : "";
+  return {
+    title: business.name,
+    // What it says about itself, or else who it is and what the page offers (RAA-229).
+    description: metaDescription(
+      business.description || `${business.name}, a local partner${town}: see what it offers and request it with the rest of your trip in one cart on ${BRAND}.`,
+    ),
+    alternates: canonical(`/businesses/${business.id}`),
+  };
 }
 
 // A business's own page (Booking.com's property page): its name and town, then BusinessBody.

@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import { CodeSignIn } from "@/components/auth/code-sign-in";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { safeNextPath } from "@/lib/auth/paths";
+import { NOINDEX } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Sign in with a code",
+  // Sign-in pages stay out of search results (RAA-227).
+  robots: NOINDEX,
 };
 
 // Guest sign-in with an emailed code (RAA-177), for guests who booked without a password.

@@ -12,10 +12,12 @@ import { glassClasses } from "@/components/ui/glass";
 import { Section } from "@/components/ui/section";
 import { DisplayTitle } from "@/components/ui/typography";
 import { BRAND, TAGLINE } from "@/lib/brand";
+import { canonical } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "About us",
-  description: `Why we built ${BRAND}: one cart for a whole trip, from local partners, starting on ${LAUNCH_AREA.name}.`,
+  description: `Why we built ${BRAND}: one cart for a whole trip, from local partners, starting on ${LAUNCH_AREA.name}. Tours, transfers, rentals and stays, planned together.`,
+  alternates: canonical("/about"),
 };
 
 // Who we are and why, in the product's voice (PRODUCT.md): plain, local, and only what is true

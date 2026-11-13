@@ -4,10 +4,13 @@
 # HSTS (RAA-222): browsers remember it for max-age seconds, so it starts at 5 minutes and is
 # raised (1 day, then a year with includeSubDomains) once staging is seen working over it.
 # The API host gets HSTS from Rails' force_ssl. -Server drops Caddy's name.
+# X-Robots-Tag (RAA-247): staging stays out of search results on both hosts, alongside the web
+# app's own noindex and robots.txt (NEXT_PUBLIC_SITE_INDEXABLE=false in deploy-staging.yml).
 staging.tripkonext.com {
 	encode zstd gzip
 	header {
 		Strict-Transport-Security "max-age=300"
+		X-Robots-Tag "noindex, nofollow"
 		-Server
 	}
 	reverse_proxy web:3000
@@ -18,6 +21,7 @@ staging.tripkonext.com {
 # No access log.
 api.staging.tripkonext.com {
 	encode zstd gzip
+	header X-Robots-Tag "noindex, nofollow"
 	handle /cable {
 		reverse_proxy anycable:8080
 	}
