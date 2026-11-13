@@ -17,8 +17,8 @@ module Api
           when "booked" then current_user.trips.with_bookings.order(Arel.sql("trips.starts_on DESC NULLS LAST"), :id)
           else return render json: { errors: [ "View must be booked, or left out" ] }, status: :unprocessable_content
           end
-        trips = paginate(trips).with_items
-        destinations = TripSerializer.destination_cache
+        trips = paginate(trips).with_items.to_a
+        destinations = TripSerializer.prefill(TripSerializer.destination_cache, trips)
         render json: trips.map { |trip| TripSerializer.call(trip, destinations:) }
       end
 

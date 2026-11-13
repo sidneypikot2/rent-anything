@@ -22,11 +22,18 @@ class Category < ApplicationRecord
   # A listing's guest group in SQL (`listings.category_id`), null for a category in none: for
   # counting every group in one pass (Discovery::Cards.counts, AreaDetail's groups).
   def self.guest_group_sql
+    ids_of = guest_group_ids
     whens = GUEST_GROUPS.map do |group|
-      ids = in_guest_group(group).pluck(:id).presence || [ 0 ]
+      ids = ids_of[group].presence || [ 0 ]
       "WHEN listings.category_id IN (#{ids.map(&:to_i).join(', ')}) THEN '#{group}'"
     end
     "CASE #{whens.join(' ')} END"
+  end
+
+  # Every guest group's category ids, read in one query (RAA-321): { "stay" => [3, 4], ... }.
+  # The same split as in_guest_group, through #guest_group.
+  def self.guest_group_ids
+    where.not(booking_type: nil).includes(:parent).group_by(&:guest_group).transform_values { _1.map(&:id) }
   end
 
   scope :in_guest_group, ->(group) {

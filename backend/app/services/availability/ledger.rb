@@ -43,7 +43,6 @@ module Availability
       @from = from
       @to = to
       @except = except
-      @rentals = {}
       @listings = listings.index_by(&:id)
       ids = @listings.keys
       @days = ListingDay.where(listing_id: ids, date: from..to).index_by { [ _1.listing_id, _1.date ] }
@@ -172,16 +171,18 @@ module Availability
       time.in_time_zone(Booking::RENTAL_TIME_ZONE).strftime("%-l:%M %p on %b %-d")
     end
 
-    # The listing's rentals that may touch a period from the window's dates, loaded once.
+    # The listing's rentals that may touch a period from the window's dates, loaded once for
+    # every listing in the ledger (RAA-321).
     def rental_bookings(listing)
-      @rentals[listing.id] ||= begin
+      @rentals ||= begin
         zone = ActiveSupport::TimeZone[Booking::RENTAL_TIME_ZONE]
         from = zone.local(@from.year, @from.month, @from.day) - 2.days
         to = zone.local(@to.year, @to.month, @to.day) + 3.days
-        bookings = Booking.holding.where(listing_id: listing.id).where(starts_at: ...to).where("ends_at > ?", from)
+        bookings = Booking.holding.where(listing_id: @listings.keys).where(starts_at: ...to).where("ends_at > ?", from)
         bookings = bookings.where.not(id: @except.id) if @except
-        bookings.to_a
+        bookings.group_by(&:listing_id)
       end
+      @rentals.fetch(listing.id, [])
     end
 
     def count(booking, from, to)

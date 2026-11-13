@@ -8,6 +8,7 @@
 # serializing several trips: each area's destination walks the area tree.
 module TripSerializer
   def self.call(trip, destinations: destination_cache)
+    prefill(destinations, [ trip ])
     ledger = ledger(trip.items)
     {
       id: trip.id,
@@ -36,6 +37,17 @@ module TripSerializer
 
   def self.destination_cache
     Hash.new { |cache, area| cache[area] = Trips::Destination.for(area) }
+  end
+
+  # Fills the cache for the trips' areas in one query (RAA-321), rather than one walk up the
+  # tree per area. Pass every trip of a list at once.
+  def self.prefill(destinations, trips)
+    areas = trips.flat_map { |trip| trip.items.map { _1.listing.area } }.uniq.reject { destinations.key?(_1) }
+    return destinations if areas.empty?
+
+    found = Trips::Destination.for_areas(areas.map(&:id))
+    areas.each { |area| destinations[area] = found[area.id] }
+    destinations
   end
 
   # One calendar read for the trip's items that are still to come and not yet booked.

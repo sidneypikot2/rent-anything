@@ -133,12 +133,13 @@ module Discovery
           id = parents[id] while parents[id] && parents[id] != @area.id
           id
         end
-        stay_ids = Category.in_guest_group("stay").pluck(:id).to_set
-        group_of = Category::GUEST_GROUPS.flat_map { |group| Category.in_guest_group(group).pluck(:id).map { [ _1, group ] } }.to_h
-        Listing.active.in_area_tree(@area).where.not(area_id: @area.id).distinct.pluck(:area_id, :business_id, :category_id)
-          .group_by { |area_id, _, _| child_of.call(area_id) }
+        ids_of = Category.guest_group_ids
+        group_of = ids_of.flat_map { |group, ids| ids.map { [ _1, group ] } }.to_h
+        rows = Listing.active.in_area_tree(@area).where.not(area_id: @area.id).distinct.pluck(:area_id, :business_id, :category_id)
+        stays_in = Listing.active.where(area_id: rows.map(&:first).uniq, category_id: ids_of.fetch("stay", [])).group(:area_id).count
+        rows.group_by { |area_id, _, _| child_of.call(area_id) }
           .transform_values do |rows|
-            { stays: Listing.active.where(area_id: rows.map(&:first).uniq, category_id: stay_ids.to_a).count,
+            { stays: rows.map(&:first).uniq.sum { stays_in.fetch(_1, 0) },
               to_book: rows.map { |_, business_id, category_id| [ business_id, group_of[category_id] ] }.uniq.size }
           end
       end

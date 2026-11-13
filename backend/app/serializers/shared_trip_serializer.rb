@@ -4,7 +4,7 @@
 # ids; the listing's id only links to its public page. Preload with Trip.with_items.
 module SharedTripSerializer
   def self.call(trip)
-    destinations = TripSerializer.destination_cache
+    destinations = TripSerializer.prefill(TripSerializer.destination_cache, [ trip ])
     {
       name: trip.name,
       starts_on: trip.starts_on&.iso8601,
