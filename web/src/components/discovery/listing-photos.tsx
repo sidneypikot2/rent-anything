@@ -13,7 +13,7 @@ type Photo = { src: string; alt: string };
 // photo. Scroll snapping does the moving, so it stays smooth and keyboard scrolling works too.
 // A listing with no photos of its own shows its category's icon, never a stand-in photo, which
 // would show it as something it isn't (web-ui.md).
-export function ListingPhotos({ photos, label, category, count = "top", inset = false, className }: {
+export function ListingPhotos({ photos, label, category, count = "top", inset = false, lead = false, className }: {
   photos: Photo[];
   label: string;
   category: string;
@@ -21,6 +21,10 @@ export function ListingPhotos({ photos, label, category, count = "top", inset = 
   count?: "top" | "bottom";
   // Inside a card's 12px padding: 12px corners, so they nest in the card's 24px ones.
   inset?: boolean;
+  // The page's largest paint (the listing and business pages' photos, RAA-231): the first photo
+  // at high priority. The caller preloads it for a phone only (ShopPhotos), so it stays lazy here:
+  // eager, a wider window, where this swipe is display:none, would fetch it too.
+  lead?: boolean;
   className?: string;
 }) {
   const track = useRef<HTMLDivElement>(null);
@@ -69,6 +73,7 @@ export function ListingPhotos({ photos, label, category, count = "top", inset = 
               alt={many ? `${photo.alt} (${i + 1} of ${photos.length})` : photo.alt}
               fill
               unoptimized={isApiPhoto(photo.src)}
+              fetchPriority={lead && i === 0 ? "high" : undefined}
               sizes="(min-width: 768px) 19rem, 100vw"
               className="object-cover"
             />
