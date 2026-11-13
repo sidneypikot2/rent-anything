@@ -43,7 +43,7 @@ export default async function PlanChecklistPage(props: PageProps<"/plan/[area]">
   const [initialPage, over] = await Promise.all([getPlanBusinesses(slug, initialKey), loadPlanOver(slug, searchParams)]);
   return (
     <PlanFrame back={`/plan?where=${slug}${tripId ? `&trip=${tripId}` : ""}`} backLabel="Back to where, when and who" label={<PlanTripLabel place={place} />} action={<PlanTripChange place={place} />} wide>
-      {tripId && <AdoptTrip id={tripId} />}
+      {tripId && <AdoptTrip id={tripId} urlDates={false} />}
       <TripAddProvider places={place.places}>
         <PlanChecklist place={place} choose={choose} initial={initialPage ? { key: initialKey, data: initialPage } : undefined} over={over} />
       </TripAddProvider>

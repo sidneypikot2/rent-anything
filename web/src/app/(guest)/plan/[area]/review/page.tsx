@@ -22,7 +22,7 @@ export default async function PlanReviewPage(props: PageProps<"/plan/[area]/revi
   if (!place) notFound();
   return (
     <PlanFrame back={`/plan/${slug}${tripId ? `?trip=${tripId}` : ""}`} backLabel="Back to your checklist" label={<PlanTripLabel place={place} />} action={<PlanTripChange place={place} />} wide>
-      {tripId && <AdoptTrip id={tripId} />}
+      {tripId && <AdoptTrip id={tripId} urlDates={false} />}
       <PlanReview place={place} over={over} />
     </PlanFrame>
   );
