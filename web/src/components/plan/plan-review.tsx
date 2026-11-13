@@ -18,6 +18,7 @@ import { PlanReviewBody } from "./plan-review-body";
 import { PlanReviewSkeleton } from "./plan-skeletons";
 import { PlanSteps } from "./plan-steps";
 import { planSteps, planStops, reviewStepHref, tripStepHref, useSkipped } from "./plan-track";
+import { listingPath } from "@/lib/seo";
 
 // Step 3 (the team's A6; revamped in RAA-263): the trip day by day (`PlanReviewBody`, which the
 // cart and /trips show too, RAA-305), with every picked place and how it is settled beside it from
@@ -49,7 +50,7 @@ function Review({ place, trip, over }: { place: PlanPlace; trip: Trip; over: Pla
   const [sending, setSending] = useState(false);
   const router = useRouter();
   // A listing opens in the planner's frame, under the track, at every width (RAA-309).
-  const setListing = (id: number) => openOverPlan(router, `/listings/${id}?trip=${trip.id}&plan=1&place=${place.area.slug}`);
+  const setListing = (id: number) => openOverPlan(router, `${listingPath({ id })}?trip=${trip.id}&plan=1&place=${place.area.slug}`);
   const stay = stayPoint(trip);
   const days = planDays(trip, place, stay?.point ?? null);
   const toSend = trip.items.filter((item) => bookable(item) && !itemProblem(item, itemQuote(quote.data, item)));

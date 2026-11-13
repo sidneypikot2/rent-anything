@@ -40,6 +40,7 @@ import {
 } from "./tag-glyphs";
 import { useExplore } from "./use-explore";
 import { useMapPins, type MapBox } from "./use-map-pins";
+import { listingPath } from "@/lib/seo";
 
 const RADIUS_SOURCE = "radius";
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
@@ -1032,7 +1033,7 @@ function MapPopup({
   const title = businessPage ? (
     <ListingTitleLink href={businessPage} title={pin.title} testId="map-popup-open" />
   ) : pin.kind === "listing" ? (
-      <ListingTitleLink href={`/listings/${pin.id}${datesQuery}`} title={pin.title} testId="map-popup-open" />
+      <ListingTitleLink href={`${listingPath(pin)}${datesQuery}`} title={pin.title} testId="map-popup-open" />
     ) : pin.landmark ? (
       <DetailPanelButton
         title={pin.title}

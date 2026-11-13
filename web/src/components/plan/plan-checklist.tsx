@@ -517,7 +517,7 @@ function planBusinessHref(business: PlanBusiness, key: RowKey, trip: Trip, slug:
     infants: trip.infants,
   };
   const href = business.titled
-    ? titleCardHref([{ id: business.listing_ids[0] }], dates, slug)
+    ? titleCardHref([{ id: business.listing_ids[0], title: business.title }], dates, slug)
     : businessHref(business.id, dates, group?.id, slug);
   return `${href}${href.includes("?") ? "&" : "?"}trip=${trip.id}&plan=1`;
 }

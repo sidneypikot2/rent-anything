@@ -1,3 +1,6 @@
+import { Suspense } from "react";
+import { getDestinations } from "@/api/discovery";
+import { groupDestinations } from "@/components/discovery/cards";
 import { GlassPanel } from "@/components/ui/glass";
 import { BRAND, BUSINESS_ADDRESS, TAGLINE } from "@/lib/brand";
 import { FooterNav } from "./footer-nav";
@@ -24,7 +27,10 @@ export function SiteFooter() {
               </p>
               <SocialLinks className="mt-2 -ml-1" />
             </div>
-            <FooterNav />
+            {/* The destinations column streams in; the page never waits on it. */}
+            <Suspense fallback={<FooterNav />}>
+              <FooterNavWithPlaces />
+            </Suspense>
           </div>
           {/* Who runs the site; Company's Contact us is how to reach us. */}
           <address className="border-t border-glass-edge pt-4 not-italic text-sky-mist" data-testid="footer-business">
@@ -34,4 +40,15 @@ export function SiteFooter() {
       </GlassPanel>
     </footer>
   );
+}
+
+// Every top-most destination (RAA-237: the places inside one are a click on, from its page), in
+// the order the home lists them, so each place's page is linked from every guest page. Without the
+// API the column is left out.
+async function FooterNavWithPlaces() {
+  const destinations = await getDestinations().catch((error: unknown) => {
+    console.error(error);
+    return [];
+  });
+  return <FooterNav places={groupDestinations(destinations).map(({ area }) => ({ href: `/${area.slug}`, label: area.name }))} />;
 }
