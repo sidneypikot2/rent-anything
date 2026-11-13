@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -16,6 +17,7 @@ import {
 } from "@/components/area/area-guide";
 import { placesToSee } from "@/components/area/area-listings";
 import { AreaNav, PlanFoot } from "@/components/area/area-nav";
+import { AreaSheetSkeleton } from "@/components/area/area-sheet-skeleton";
 import { AREA_NOTES, busyMonths } from "@/components/area/area-notes";
 import {
   AreaBannerIntro,
@@ -125,19 +127,165 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     );
     redirect(`/${slug}/book?${query}`);
   }
-  // The place without its listings, and each row's first cards from What to book's own pages
-  // (book_cards), so a place with tens of thousands of listings loads as fast as one with ten.
-  const [detail, explored, destinations, rowPages] = await Promise.all([
+  // The place and the destinations around it are all its banner needs (RAA-231): the rows and
+  // what's nearby load in AreaSheet, under a Suspense of their own, so the banner (the page's
+  // largest paint) streams first instead of waiting for the slowest of those calls.
+  const [detail, destinations] = await Promise.all([
     getAreaPlaces(slug),
-    // What's nearby: without it the page still has everything to book, and says so.
-    getExplore({ area: slug, listings: "0" }).catch((error: unknown) => {
-      console.error(error);
-      return "failed" as const;
-    }),
     // For the places inside this one and its island, so the page still renders without them.
     getDestinations().catch((error: unknown) => {
       console.error(error);
       return null;
+    }),
+  ]);
+  if (!detail) notFound();
+  const { area, areas, guide, groups } = detail;
+  const listingCount = Object.values(groups).reduce((sum, group) => sum + group.listings, 0);
+  // Its own photos once the team has added some (RAA-211), turning in the banner from the first;
+  // until then a stand-in that suits its kind.
+  const ownPhotos = detail.photos.map((photo, index) => ({
+    src: photo.large_url,
+    alt: detail.photos.length > 1 ? `${area.name}, photo ${index + 1} of ${detail.photos.length}` : area.name,
+  }));
+  const banner = ownPhotos[0] ?? areaPhoto(slug, area.kind);
+  // What it offers, in the trip's order (the hero's lead).
+  const offered = TRIP_ORDER_GROUPS.filter(({ group }) => groups[group].listings > 0).map(({ group }) => group);
+  const landmarks = placesToSee(detail);
+  // Nearby places that aren't on this page or inside this place (its landmarks, the places
+  // inside it, however deep, and their landmarks).
+  const inside = new Set([
+    ...areas.map((child) => child.slug),
+    ...(destinations ? descendants(destinations, slug).map((child) => child.slug) : []),
+  ]);
+  // This place and every place inside it: what the trip has "here".
+  const places = [slug, ...inside];
+  // The island this place is a town of (its top-most destination), when it is one: a transfer or
+  // a scooter anywhere on it covers this page too.
+  const island = destinations ? islandOf(destinations, slug) : null;
+  // Getting to know the place (RAA-252): what the team wrote and what the data shows, each part
+  // left out when there is nothing for it, and Plan a trip, which plans the island a town is on.
+  const planPlace = island ? (destinations?.find((each) => each.slug === island) ?? null) : null;
+  const plan = {
+    href: planHref(planPlace?.slug ?? slug, datesQuery),
+    label: `Plan a trip to ${planPlace?.name ?? area.name}`,
+  };
+  // What no data holds yet, written by hand for the place (or, on a town's page, its island).
+  const notes = AREA_NOTES[slug] ?? (island ? AREA_NOTES[island] : undefined);
+  // The banner's quick facts: the place's own, else the best time to go when it is short, with
+  // the typical prices from what is here after the first two (the way there, then the cost).
+  const placeFacts =
+    notes?.facts ??
+    (guide.best_time_to_visit && guide.best_time_to_visit.length <= 24
+      ? [{ label: "Best time", value: guide.best_time_to_visit }]
+      : []);
+  const facts = [...placeFacts.slice(0, 2), ...typicalPrices(detail.typical_prices), ...placeFacts.slice(2)];
+
+  const eyebrow = area.parent_name ? `${area.parent_name}, Philippines` : "Philippines";
+  const areaTitle = (
+    // The name keeps at least 12rem beside its icon; at a large text size (rem grows with
+    // it) that no longer fits on a phone, and the icon goes above the name instead.
+    <DisplayTitle className="flex flex-wrap items-center gap-x-4 gap-y-3">
+      <GlassPanel aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-control sm:size-14">
+        <AreaGlyph kind={area.kind} className="size-6 text-sky-pale sm:size-7" />
+      </GlassPanel>
+      <span className="min-w-0 flex-1 basis-48">{area.name}</span>
+    </DisplayTitle>
+  );
+  // Home › its island › it (RAA-237), the same trail as its BreadcrumbList.
+  const crumbs = areaCrumbs(area, destinations ? ancestorsOf(destinations, slug) : []);
+  const bannerTitle = (
+    <>
+      <Breadcrumbs crumbs={crumbs} />
+      {areaTitle}
+      <AreaBannerIntro tagline={guide.tagline} description={guide.description} goodFor={notes?.goodFor} vibes={vibesOf(landmarks)} facts={facts} />
+    </>
+  );
+
+  return (
+    <main className="flex flex-1 flex-col">
+      <CurrentPlace name={area.name} slug={area.slug} />
+      <JsonLd nodes={[placeJsonLd(detail), breadcrumbJsonLd(crumbs)]} />
+      {tripId && <AdoptTrip id={tripId} />}
+      {listingCount > 0 ? (
+        // The place's banner, with the guest's trip here at its foot.
+        <AreaHero
+          banner={{ photo: banner, carousel: ownPhotos, eyebrow, title: bannerTitle }}
+          areaName={area.name}
+          places={places}
+          island={island}
+          offered={offered}
+          sights={landmarks.map((landmark) => ({ slug: landmark.slug, name: landmark.name, visitedBy: landmark.visited_by }))}
+          starting={starting}
+          plan={plan}
+          book={bookHref(slug, { datesQuery })}
+        />
+      ) : (
+        <PageBanner photo={banner} carousel={ownPhotos} eyebrow={eyebrow} title={bannerTitle} search={false} />
+      )}
+
+      <Suspense fallback={<AreaSheetSkeleton />}>
+        <AreaSheet
+          slug={slug}
+          dates={dates}
+          datesQuery={datesQuery}
+          detail={detail}
+          destinations={destinations}
+          bannerSrc={banner.src}
+          landmarks={landmarks}
+          inside={inside}
+          places={places}
+          island={island}
+          planPlace={planPlace}
+          plan={plan}
+          notes={notes}
+          listingCount={listingCount}
+        />
+      </Suspense>
+    </main>
+  );
+}
+
+type AreaSheetProps = {
+  slug: string;
+  dates: ReturnType<typeof readTripDates>;
+  datesQuery: string;
+  detail: NonNullable<Awaited<ReturnType<typeof getAreaPlaces>>>;
+  destinations: Awaited<ReturnType<typeof getDestinations>> | null;
+  bannerSrc: string;
+  landmarks: ReturnType<typeof placesToSee>;
+  inside: Set<string>;
+  places: string[];
+  island: string | null;
+  planPlace: Awaited<ReturnType<typeof getDestinations>>[number] | null;
+  plan: { href: string; label: string };
+  notes: (typeof AREA_NOTES)[string] | undefined;
+  listingCount: number;
+};
+
+// The page under its banner: each row's first cards from What to book's own pages (book_cards), so
+// a place with tens of thousands of listings loads as fast as one with ten, and what's nearby.
+async function AreaSheet({
+  slug,
+  dates,
+  datesQuery,
+  detail,
+  destinations,
+  bannerSrc,
+  landmarks,
+  inside,
+  places,
+  island,
+  planPlace,
+  plan,
+  notes,
+  listingCount,
+}: AreaSheetProps) {
+  const { area, areas, guide, groups } = detail;
+  const [explored, rowPages] = await Promise.all([
+    // What's nearby: without it the page still has everything to book, and says so.
+    getExplore({ area: slug, listings: "0" }).catch((error: unknown) => {
+      console.error(error);
+      return "failed" as const;
     }),
     // A row without its cards still leaves the page.
     Promise.all(
@@ -151,45 +299,23 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
       ),
     ),
   ]);
-  if (!detail) notFound();
-  const { area, areas, guide, groups } = detail;
-  const listingCount = Object.values(groups).reduce((sum, group) => sum + group.listings, 0);
   // Each row's cards, as What to book groups them: a stay's per business, any other per title.
   const cardsOf = (group: PlanGroup): Listing[][] =>
     rowPages[ROW_GROUPS.indexOf(group)]?.cards.map((card) => card.listings) ?? [];
   const exploreFailed = explored === "failed";
   const explore = exploreFailed ? null : explored;
-  // Its own photos once the team has added some (RAA-211), turning in the banner from the first;
-  // until then a stand-in that suits its kind.
-  const ownPhotos = detail.photos.map((photo, index) => ({
-    src: photo.large_url,
-    alt: detail.photos.length > 1 ? `${area.name}, photo ${index + 1} of ${detail.photos.length}` : area.name,
-  }));
-  const banner = ownPhotos[0] ?? areaPhoto(slug, area.kind);
   // What it offers, in the trip's order (the hero's lead).
   const offered = TRIP_ORDER_GROUPS.filter(({ group }) => groups[group].listings > 0).map(({ group }) => group);
-  const landmarks = placesToSee(detail);
   // A place to see's photo: its own first one (RAA-211), else a stand-in that fits it, never one
   // another place or the banner has.
-  const photos = landmarkPhotos(landmarks, [banner.src]);
+  const photos = landmarkPhotos(landmarks, [bannerSrc]);
   const byLine = (listing: Listing) => listingByLine(listing, slug);
   // The listings that visit each place to see, named by the API, and a few of them as rows.
   const visitsOf = (landmark: (typeof landmarks)[number]) =>
     landmark.visits.map((visit) => ({ ...visit, href: `${listingPath(visit)}${datesQuery}` }));
   const listingById = new Map(detail.visitor_rows.map((listing) => [listing.id, listing]));
-  // Nearby places that aren't on this page or inside this place (its landmarks, the places
-  // inside it, however deep, and their landmarks).
-  const inside = new Set([
-    ...areas.map((child) => child.slug),
-    ...(destinations ? descendants(destinations, slug).map((child) => child.slug) : []),
-  ]);
   const nearby = explore && withoutShown(explore, { landmarks, areas: inside });
   const hasNearby = Boolean(nearby && (nearby.destinations.length > 0 || nearby.recommendations.length > 0));
-  // This place and every place inside it: what the trip has "here".
-  const places = [slug, ...inside];
-  // The island this place is a town of (its top-most destination), when it is one: a transfer or
-  // a scooter anywhere on it covers this page too.
-  const island = destinations ? islandOf(destinations, slug) : null;
   const photosOf = listingPhotos;
   // The same rows as What to book shows them, priced and with Add to trip.
   const toursOf = (landmark: (typeof landmarks)[number]): LandmarkTour[] =>
@@ -218,15 +344,6 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   const landmarkPoints = new Map(
     (explore?.destinations ?? []).filter((place) => place.type === "landmark").map((place) => [place.slug, place.location]),
   );
-  // Getting to know the place (RAA-252): what the team wrote and what the data shows, each part
-  // left out when there is nothing for it, and Plan a trip, which plans the island a town is on.
-  const planPlace = island ? (destinations?.find((each) => each.slug === island) ?? null) : null;
-  const plan = {
-    href: planHref(planPlace?.slug ?? slug, datesQuery),
-    label: `Plan a trip to ${planPlace?.name ?? area.name}`,
-  };
-  // What no data holds yet, written by hand for the place (or, on a town's page, its island).
-  const notes = AREA_NOTES[slug] ?? (island ? AREA_NOTES[island] : undefined);
   const gettingHere = gettingHereText(guide, GETTING_HERE[slug] ?? (island ? GETTING_HERE[island] : undefined));
   const rentals = groups.rental.businesses;
   const transfers = groups.transfer.businesses;
@@ -304,14 +421,6 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
   });
   const year = Number((dates.from ?? new Date().toISOString()).slice(0, 4));
   const datesRange = formatDateRange(dates.from, dates.to);
-  // The banner's quick facts: the place's own, else the best time to go when it is short, with
-  // the typical prices from what is here after the first two (the way there, then the cost).
-  const placeFacts =
-    notes?.facts ??
-    (guide.best_time_to_visit && guide.best_time_to_visit.length <= 24
-      ? [{ label: "Best time", value: guide.best_time_to_visit }]
-      : []);
-  const facts = [...placeFacts.slice(0, 2), ...typicalPrices(detail.typical_prices), ...placeFacts.slice(2)];
 
   // The section bar names a few groups, not every part (Klook's has four): a group's tab goes to
   // its first part on the page, and stays marked through the rest of it. What to book has no tab
@@ -330,170 +439,127 @@ export default async function AreaPage(props: PageProps<"/[area]">) {
     tipsId && { id: tipsId, label: "Tips & questions" },
   ].filter((tab) => !!tab);
 
-  const eyebrow = area.parent_name ? `${area.parent_name}, Philippines` : "Philippines";
-  const areaTitle = (
-    // The name keeps at least 12rem beside its icon; at a large text size (rem grows with
-    // it) that no longer fits on a phone, and the icon goes above the name instead.
-    <DisplayTitle className="flex flex-wrap items-center gap-x-4 gap-y-3">
-      <GlassPanel aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-control sm:size-14">
-        <AreaGlyph kind={area.kind} className="size-6 text-sky-pale sm:size-7" />
-      </GlassPanel>
-      <span className="min-w-0 flex-1 basis-48">{area.name}</span>
-    </DisplayTitle>
-  );
-  // Home › its island › it (RAA-237), the same trail as its BreadcrumbList.
-  const crumbs = areaCrumbs(area, destinations ? ancestorsOf(destinations, slug) : []);
-  const bannerTitle = (
-    <>
-      <Breadcrumbs crumbs={crumbs} />
-      {areaTitle}
-      <AreaBannerIntro tagline={guide.tagline} description={guide.description} goodFor={notes?.goodFor} vibes={vibesOf(landmarks)} facts={facts} />
-    </>
-  );
-
   return (
-    <main className="flex flex-1 flex-col">
-      <CurrentPlace name={area.name} slug={area.slug} />
-      <JsonLd nodes={[placeJsonLd(detail), breadcrumbJsonLd(crumbs)]} />
-      {tripId && <AdoptTrip id={tripId} />}
-      {listingCount > 0 ? (
-        // The place's banner, with the guest's trip here at its foot.
-        <AreaHero
-          banner={{ photo: banner, carousel: ownPhotos, eyebrow, title: bannerTitle }}
-          areaName={area.name}
-          places={places}
-          island={island}
-          offered={offered}
-          sights={landmarks.map((landmark) => ({ slug: landmark.slug, name: landmark.name, visitedBy: landmark.visited_by }))}
-          starting={starting}
-          plan={plan}
-          book={bookHref(slug, { datesQuery })}
-        />
-      ) : (
-        <PageBanner photo={banner} carousel={ownPhotos} eyebrow={eyebrow} title={bannerTitle} search={false} />
-      )}
-
-      <PageSheet tone="clear">
-        <AreaMapProvider>
-          {/* Listing and business links carry this place and the trip here (useTripHref). */}
-          <TripLinkProvider place={area.slug} places={places}>
-          <TripAddProvider places={places}>
-            <div className="mx-auto w-full max-w-page">
-              <div className="page-sections flex min-w-0 flex-col gap-section pt-block pb-page-pad">
-                <AreaNav tabs={tabs} planHref={plan.href} />
-                {landmarks.length > 0 && (
-                  <Section
-                    id="places"
-                    surface="photo"
-                    title="Places to see"
-                    intro="Open one to see which tours go there."
-                  >
-                    <PlacesGrid
-                      items={landmarks.map((landmark, index) => ({
-                        id: landmark.slug,
-                        card: (
-                          <MapHoverTarget pin={placeKey(landmark.slug)}>
-                            <LandmarkCard
-                              landmark={landmark}
-                              photo={photos[index]}
-                              visits={visitsOf(landmark)}
-                              tours={toursOf(landmark)}
-                              dates={dates}
-                              areaName={area.name}
-                              reach={
-                                landmarkPoints.has(landmark.slug) && (
-                                  <ReachYourself key={`reach-${landmark.slug}`} location={landmarkPoints.get(landmark.slug)!} places={places} />
-                                )
-                              }
-                            />
-                          </MapHoverTarget>
-                        ),
-                      }))}
-                    />
-                  </Section>
-                )}
-                <AreaGuideSheet>
-                  <AreaWhenToGo
-                    seasons={notes?.seasons ?? null}
-                    busy={busyMonths(year)}
-                    timing={notes?.timing ?? []}
-                    bestTime={guide.best_time_to_visit}
-                    yourDates={datesSeason(dates.from, notes?.seasons ?? null, datesRange)}
+    <PageSheet tone="clear">
+      <AreaMapProvider>
+        {/* Listing and business links carry this place and the trip here (useTripHref). */}
+        <TripLinkProvider place={area.slug} places={places}>
+        <TripAddProvider places={places}>
+          <div className="mx-auto w-full max-w-page">
+            <div className="page-sections flex min-w-0 flex-col gap-section pt-block pb-page-pad">
+              <AreaNav tabs={tabs} planHref={plan.href} />
+              {landmarks.length > 0 && (
+                <Section
+                  id="places"
+                  surface="photo"
+                  title="Places to see"
+                  intro="Open one to see which tours go there."
+                >
+                  <PlacesGrid
+                    items={landmarks.map((landmark, index) => ({
+                      id: landmark.slug,
+                      card: (
+                        <MapHoverTarget pin={placeKey(landmark.slug)}>
+                          <LandmarkCard
+                            landmark={landmark}
+                            photo={photos[index]}
+                            visits={visitsOf(landmark)}
+                            tours={toursOf(landmark)}
+                            dates={dates}
+                            areaName={area.name}
+                            reach={
+                              landmarkPoints.has(landmark.slug) && (
+                                <ReachYourself key={`reach-${landmark.slug}`} location={landmarkPoints.get(landmark.slug)!} places={places} />
+                              )
+                            }
+                          />
+                        </MapHoverTarget>
+                      ),
+                    }))}
                   />
-                  <AreaGettingHere
-                    name={area.name}
-                    route={notes?.route ?? []}
-                    routeText={gettingHere}
-                    routeSummary={notes?.routeSummary ?? null}
-                    transferHref={transfers > 0 ? bookHref(slug, { show: "need-transfer", datesQuery }) : null}
-                    around={aroundCards.length > 0 && (notes?.route?.length || gettingHere) ? [] : around}
-                  />
-                  <AreaGettingAround name={area.name} cards={aroundCards} intro={aroundIntro} links={aroundLinks} />
-                  <AreaStays
-                    name={area.name}
-                    places={stays}
-                    towns={notes?.towns}
-                    stays={stayCards}
-                    ownHref={bookHref(slug, { show: "need-stay", datesQuery })}
-                  />
-                  <AreaThingsToDo
-                    name={area.name}
-                    partners={tours}
-                    activities={activityCards}
-                    ownHref={bookHref(slug, { show: "need-activity", datesQuery })}
-                    gear={gearCount}
-                    gearHref={bookHref(slug, { show: "need-gear", datesQuery })}
-                  />
-                  <AreaGoodToKnow notes={notes?.know ?? []} />
-                  <AreaSampleDays days={days} planHref={plan.href} planLabel={plan.label} />
-                  <AreaQuestions name={area.name} questions={questions} />
-                </AreaGuideSheet>
-
-                {nearby && <ExploreSections explore={nearby} name={area.name} />}
-
-                {exploreFailed && (
-                  <p role="status" className="text-sm text-sky-mist">
-                    The places around {area.name} couldn&apos;t load. Reload the page to try again.
-                  </p>
-                )}
-
-                {/* The page ends on the trip, or with nothing in it yet, the two ways to fill it. */}
-                <AreaTripBand
-                  places={places}
-                  place={planPlace?.name ?? area.name}
-                  planHref={plan.href}
-                  bookHref={listingCount > 0 ? bookHref(slug, { datesQuery }) : undefined}
+                </Section>
+              )}
+              <AreaGuideSheet>
+                <AreaWhenToGo
+                  seasons={notes?.seasons ?? null}
+                  busy={busyMonths(year)}
+                  timing={notes?.timing ?? []}
+                  bestTime={guide.best_time_to_visit}
+                  yourDates={datesSeason(dates.from, notes?.seasons ?? null, datesRange)}
                 />
-                <PlanFoot
-                  href={plan.href}
-                  place={planPlace?.name ?? area.name}
-                  when={[datesRange ?? "Any dates", guestsLabel(dates.guests)].join(" · ")}
-                  places={places}
+                <AreaGettingHere
+                  name={area.name}
+                  route={notes?.route ?? []}
+                  routeText={gettingHere}
+                  routeSummary={notes?.routeSummary ?? null}
+                  transferHref={transfers > 0 ? bookHref(slug, { show: "need-transfer", datesQuery }) : null}
+                  around={aroundCards.length > 0 && (notes?.route?.length || gettingHere) ? [] : around}
                 />
+                <AreaGettingAround name={area.name} cards={aroundCards} intro={aroundIntro} links={aroundLinks} />
+                <AreaStays
+                  name={area.name}
+                  places={stays}
+                  towns={notes?.towns}
+                  stays={stayCards}
+                  ownHref={bookHref(slug, { show: "need-stay", datesQuery })}
+                />
+                <AreaThingsToDo
+                  name={area.name}
+                  partners={tours}
+                  activities={activityCards}
+                  ownHref={bookHref(slug, { show: "need-activity", datesQuery })}
+                  gear={gearCount}
+                  gearHref={bookHref(slug, { show: "need-gear", datesQuery })}
+                />
+                <AreaGoodToKnow notes={notes?.know ?? []} />
+                <AreaSampleDays days={days} planHref={plan.href} planLabel={plan.label} />
+                <AreaQuestions name={area.name} questions={questions} />
+              </AreaGuideSheet>
 
-                {areas.length === 0 && landmarks.length === 0 && listingCount === 0 && !hasNearby && (
-                  <p className="text-muted">
-                    Nothing here yet. Local partners are still being added.
-                    {slug !== LAUNCH_AREA.slug && (
-                      <>
-                        {" "}
-                        <Link
-                          href={`/${LAUNCH_AREA.slug}${datesQuery}`}
-                          className="font-semibold text-link underline-offset-4 hover:underline"
-                        >
-                          See what to book on {LAUNCH_AREA.name}
-                        </Link>
-                      </>
-                    )}
-                  </p>
-                )}
-              </div>
+              {nearby && <ExploreSections explore={nearby} name={area.name} />}
+
+              {exploreFailed && (
+                <p role="status" className="text-sm text-sky-mist">
+                  The places around {area.name} couldn&apos;t load. Reload the page to try again.
+                </p>
+              )}
+
+              {/* The page ends on the trip, or with nothing in it yet, the two ways to fill it. */}
+              <AreaTripBand
+                places={places}
+                place={planPlace?.name ?? area.name}
+                planHref={plan.href}
+                bookHref={listingCount > 0 ? bookHref(slug, { datesQuery }) : undefined}
+              />
+              <PlanFoot
+                href={plan.href}
+                place={planPlace?.name ?? area.name}
+                when={[datesRange ?? "Any dates", guestsLabel(dates.guests)].join(" · ")}
+                places={places}
+              />
+
+              {areas.length === 0 && landmarks.length === 0 && listingCount === 0 && !hasNearby && (
+                <p className="text-muted">
+                  Nothing here yet. Local partners are still being added.
+                  {slug !== LAUNCH_AREA.slug && (
+                    <>
+                      {" "}
+                      <Link
+                        href={`/${LAUNCH_AREA.slug}${datesQuery}`}
+                        className="font-semibold text-link underline-offset-4 hover:underline"
+                      >
+                        See what to book on {LAUNCH_AREA.name}
+                      </Link>
+                    </>
+                  )}
+                </p>
+              )}
             </div>
-          </TripAddProvider>
-          </TripLinkProvider>
-        </AreaMapProvider>
-      </PageSheet>
-    </main>
+          </div>
+        </TripAddProvider>
+        </TripLinkProvider>
+      </AreaMapProvider>
+    </PageSheet>
   );
 }
 
