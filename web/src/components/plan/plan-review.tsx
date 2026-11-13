@@ -17,6 +17,8 @@ import { PlanFoot, PlanHeading } from "./plan-frame";
 import { PlanOver, type PlanOverView } from "./plan-over";
 import { PlanReviewBody } from "./plan-review-body";
 import { PlanReviewSkeleton } from "./plan-skeletons";
+import { PlanPending } from "./plan-nav";
+import { PlanPendingSkeleton } from "./plan-pending-skeleton";
 import { PlanSteps } from "./plan-steps";
 import { planSteps, planStops, reviewStepHref, tripStepHref, useSkipped } from "./plan-track";
 import { listingPath } from "@/lib/seo";
@@ -85,6 +87,8 @@ function Review({ place, trip, over }: { place: PlanPlace; trip: Trip; over: Pla
   return (
     <>
       <PlanSteps stops={stops} active="review" />
+      <PlanPendingSkeleton />
+      <PlanPending>
       {over ? (
         <PlanOver over={over} backLabel="Back to review" />
       ) : (
@@ -121,6 +125,7 @@ function Review({ place, trip, over }: { place: PlanPlace; trip: Trip; over: Pla
       </PlanFoot>
       </>
       )}
+      </PlanPending>
       {sending && <CheckoutSheet trip={trip} items={toSend} onClose={() => setSending(false)} />}
     </>
   );

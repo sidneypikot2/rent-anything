@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { chooseTrip } from "@/components/trips/chosen-trip";
 import type { TripDates } from "@/components/trips/trip-dates";
@@ -15,6 +14,8 @@ import { useSession } from "@/lib/auth/session";
 import { formatDateRange, localTodayIso } from "@/lib/dates";
 import type { LatLng } from "@/lib/geo";
 import { PlanFoot, PlanHeading } from "./plan-frame";
+import { usePlanNav, PlanPending } from "./plan-nav";
+import { PlanPendingSkeleton } from "./plan-pending-skeleton";
 import { PlanSteps } from "./plan-steps";
 import { PREVIEW_STOPS } from "./plan-track";
 
@@ -35,7 +36,6 @@ export function PlanStart({
   dates: TripDates;
   tripId?: number;
 }) {
-  const router = useRouter();
   const toast = useToast();
   const session = useSession();
   const isGuest = session?.user.role === "guest";
@@ -49,6 +49,7 @@ export function PlanStart({
   const [adults, setAdults] = useState(Math.max(1, dates.guests - (dates.children ?? 0)));
   const [children, setChildren] = useState(dates.children ?? 0);
   const [working, setWorking] = useState(false);
+  const { go, navigating } = usePlanNav();
   const [tried, setTried] = useState(false);
 
   // Back from the checklist: the trip's own answers, once it has loaded.
@@ -97,7 +98,8 @@ export function PlanStart({
             ends_on: range.to,
           });
       chooseTrip(trip.id);
-      router.push(`/plan/${place.slug}?trip=${trip.id}`);
+      // Next keeps its spinner, and past a moment the checklist's skeleton shows, until it has come.
+      go(`/plan/${place.slug}?trip=${trip.id}`);
     } catch {
       // The mutation's toast says what went wrong.
     } finally {
@@ -109,6 +111,8 @@ export function PlanStart({
     <form onSubmit={submit} className="flex flex-1 flex-col" noValidate>
       {/* The planner's whole track from the start, Trip lit; the rest opens once the trip is saved. */}
       <PlanSteps stops={PREVIEW_STOPS} active="trip" />
+      <PlanPendingSkeleton />
+      <PlanPending>
       <div className="flex flex-col gap-5 pb-8">
         <PlanHeading title="Where, when and who?" />
         <SelectField
@@ -152,10 +156,11 @@ export function PlanStart({
       </div>
       {/* The dates field says what's missing itself. */}
       <PlanFoot>
-        <Button type="submit" size="md" glyph="arrow" loading={working} data-testid="plan-next">
+        <Button type="submit" size="md" glyph="arrow" loading={working || navigating} data-testid="plan-next">
           {working ? "Saving…" : "Next"}
         </Button>
       </PlanFoot>
+      </PlanPending>
     </form>
   );
 }

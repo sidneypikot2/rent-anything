@@ -1,10 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { CalendarGlyph, CategoryGlyph, ListGlyph, PlaceGlyph, TickGlyph } from "@/components/discovery/tag-glyphs";
+import { Spinner } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
+import { LinkPending } from "@/components/ui/link-pending";
 import type { RowKey, StepKey } from "./plan-data";
+import { PlanNavLink } from "./plan-nav";
 
 // A stop on the planner's one track (UX-laws review, Gap 2, 2026-11-11): the trip itself (step 1:
 // where, when, who), the checklist's steps, then Review.
@@ -153,9 +155,17 @@ function Stop({ stop, isActive, onPick, children }: { stop: PlanStop; isActive: 
   const testId = `plan-step-${stop.key}`;
   if (stop.href && !isActive)
     return (
-      <Link href={stop.href} aria-current={current} className={className} data-testid={testId}>
+      <PlanNavLink href={stop.href} aria-current={current} className={className} data-testid={testId}>
         {children}
-      </Link>
+        {/* Trip and Review are other pages, with no skeleton: the stop turns while its page loads. */}
+        <LinkPending
+          pending={
+            <span aria-hidden className="absolute top-2 left-1/2 flex size-6 -translate-x-1/2 items-center justify-center rounded-full bg-surface text-primary shadow-sm">
+              <Spinner />
+            </span>
+          }
+        />
+      </PlanNavLink>
     );
   if (!stop.preview && onPick && stop.key !== "trip" && stop.key !== "review") {
     const key = stop.key;

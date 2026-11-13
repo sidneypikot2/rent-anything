@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { PageSheet } from "@/components/landing/page-sheet";
 import { cn } from "@/components/ui/cn";
 import { PlanBackButton } from "./leave-plan-guard";
+import { PlanNavProvider } from "./plan-nav";
 
 // Plan a whole trip (2026-11-02, the team's guided planner with our checklist): each step on the
 // white sheet (on a phone the whole screen: no site header or footer, data-plan-page in
@@ -41,7 +42,7 @@ export function PlanFrame({
             <p className="min-w-0 flex-1 truncate text-sm font-semibold text-muted">{label ?? "Plan a trip"}</p>
             {action}
           </div>
-          {children}
+          <PlanNavProvider>{children}</PlanNavProvider>
         </div>
       </PageSheet>
     </main>
