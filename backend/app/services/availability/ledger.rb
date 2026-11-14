@@ -52,15 +52,19 @@ module Availability
       @bookings = bookings.order(:starts_on, :id).group_by(&:listing_id)
       @booked = Hash.new(0)
       @bookings.each_value { |bookings| bookings.each { count(_1, from, to) } }
+      # Each listing's capacity, counted once: it doesn't change from day to day, and `day` is
+      # asked for every day of the window.
+      @capacity = {}
     end
 
     def blocks(listing) = @blocks.fetch(listing.id, [])
     def bookings(listing) = @bookings.fetch(listing.id, [])
     def booked(listing, date) = @booked[[ listing.id, date ]]
+    def capacity_of(listing) = @capacity[listing.id] ||= self.class.capacity(listing)
 
     def day(listing, date)
       own = @days[[ listing.id, date ]]
-      capacity = self.class.capacity(listing)
+      capacity = capacity_of(listing)
       units = own&.units_available ? [ own.units_available, capacity ].min : capacity
       booked = booked(listing, date)
       block = blocks(listing).find { _1.covers?(date) }
@@ -101,7 +105,7 @@ module Availability
 
       load = 0
       peak = rental_out(listing, period).last.map { load += _2 }.max || 0
-      [ [ free, self.class.capacity(listing) - peak ].min, 0 ].max
+      [ [ free, capacity_of(listing) - peak ].min, 0 ].max
     end
 
     def default_min_nights(listing)
@@ -127,7 +131,7 @@ module Availability
     def rental_refusal(listing, period, quantity)
       return "That pickup time has passed" if period.begin < Time.current
 
-      capacity = self.class.capacity(listing)
+      capacity = capacity_of(listing)
       turnaround = turnaround(listing)
       out, events = rental_out(listing, period)
       load = 0

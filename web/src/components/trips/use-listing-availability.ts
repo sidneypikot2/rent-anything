@@ -8,12 +8,11 @@ import { addDays, todayIso } from "./format";
 const WINDOW_DAYS = 92;
 
 // A listing's units free each day from today (RAA-315, GET /listings/{id}/availability), as
-// "YYYY-MM-DD" => count, for the booking card's calendar; undefined while it loads or off.
-export function useListingAvailability(listingId: number, enabled = true) {
+// "YYYY-MM-DD" => count, for the booking card's calendar; undefined while it loads.
+export function useListingAvailability(listingId: number) {
   const from = todayIso();
   const to = addDays(from, WINDOW_DAYS - 1);
   const query = useQuery({
-    enabled,
     queryKey: ["listing-availability", listingId, from],
     queryFn: async () => {
       const { data, error } = await apiClient().GET("/api/v1/listings/{listing_id}/availability", {
