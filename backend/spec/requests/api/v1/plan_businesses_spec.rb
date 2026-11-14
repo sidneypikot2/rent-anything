@@ -19,6 +19,9 @@ RSpec.describe "Plan businesses", type: :request do
   let(:group) { "activity" }
   let(:page) { nil }
   let(:"hearted[]") { nil }
+  let(:from) { nil }
+  let(:to) { nil }
+  let(:people) { nil }
 
   path "/api/v1/areas/{slug}/plan_businesses" do
     get "A page of one plan step's options in a place" do
@@ -28,13 +31,20 @@ RSpec.describe "Plan businesses", type: :request do
         "inside it, #{Discovery::PlanBusinesses::PER_PAGE} a page, each with what it offers there summed up, its first listing's " \
         "rounded point and the places to see its listings go to. Things to do lead with the businesses whose tours go to the " \
         "most hearted places, then those with a price; stays lead with those closest to the hearted places, and say how far " \
-        "each is; the rest are by name."
+        "each is; the rest are by name. With the trip's dates (`from` and `to`, RAA-315), only listings with a unit free " \
+        "on at least one of them: one booked out on every day is left out, of the cards and the counts alike."
       parameter name: :slug, in: :path, type: :string
       parameter name: :group, in: :query, required: true, schema: { type: :string, enum: Category::GUEST_GROUPS }
       parameter name: :page, in: :query, type: :integer, required: false, description: "From 1 (the default)"
       parameter name: :"hearted[]", in: :query, required: false, style: :form, explode: true,
         schema: { type: :array, items: { type: :string } },
         description: "The slugs of the trip's hearted places to see: Things to do that go there lead, and the stays closest to them"
+      parameter name: :from, in: :query, type: :string, format: :date, required: false,
+        description: "The trip's first day, with `to`: only listings free on some day from it to `to`"
+      parameter name: :to, in: :query, type: :string, format: :date, required: false
+      parameter name: :people, in: :query, type: :integer, required: false,
+        description: "With the dates, the people a rental vehicle must seat (default 1): a vehicle covers the trip when " \
+          "enough of its units for them are free on every day"
       listing_filter_parameters
 
       response "200", "one page, with the totals and every group's count" do
@@ -248,6 +258,83 @@ RSpec.describe "Plan businesses", type: :request do
           expect(json).to include("total" => 1, "counts" => include("rental" => 3))
           expect(json["facets"]).to include("cards" => 2, "free_cancellation" => 1)
         end
+      end
+
+      response "200", "with the trip's dates: a listing booked out on every day of them is left out" do
+        schema "$ref" => "#/components/schemas/plan_businesses"
+        let(:slug) { "bantayan-island" }
+        let(:group) { "rental" }
+        let(:day) { 20.days.from_now.to_date }
+        let(:from) { day.iso8601 }
+        let(:to) { (day + 2).iso8601 }
+
+        let!(:booked) { create(:listing, :vehicle, area: bantayan, title: "Booked out bike") }
+        let!(:partly) { create(:listing, :vehicle, area: bantayan, title: "Partly free bike") }
+        let!(:free_bike) { create(:listing, :vehicle, area: bantayan, title: "Free all days bike") }
+
+        before do
+          create(:booking, listing: booked, starts_on: day, ends_on: day + 2)
+          create(:booking, listing: partly, starts_on: day, ends_on: day + 1)
+        end
+
+        run_test! do |response|
+          titles = response.parsed_body["businesses"].map { _1["title"] }
+          expect(titles).to contain_exactly("Free all days bike", "Partly free bike")
+          expect(response.parsed_body["total"]).to eq(2)
+          expect(response.parsed_body["counts"]["rental"]).to eq(2)
+        end
+      end
+
+      # RAA-315: what covers the whole trip first, then what is free on only some of its days.
+      response "200", "with the trip's dates: whole-trip cards first, then those free on some days, with which" do
+        schema "$ref" => "#/components/schemas/plan_businesses"
+        let(:slug) { "bantayan-island" }
+        let(:group) { "rental" }
+        let(:day) { 20.days.from_now.to_date }
+        let(:from) { day.iso8601 }
+        let(:to) { (day + 3).iso8601 }
+
+        # Named so that by name alone the partly free one would come first.
+        let(:aaa) { create(:business, name: "Aaa Rentals") }
+        let(:zzz) { create(:business, name: "Zzz Rentals") }
+        let!(:partly) { create(:listing, :vehicle, area: bantayan, title: "Aaa partly free bike", business: aaa, partner: aaa.partner) }
+        let!(:whole) { create(:listing, :vehicle, area: bantayan, title: "Zzz whole trip bike", business: zzz, partner: zzz.partner) }
+
+        before { create(:booking, listing: partly, starts_on: day + 1, ends_on: day + 2) }
+
+        context "for 2 people, one 2-seat bike each" do
+          let(:people) { 2 }
+
+          run_test! do |response|
+            cards = response.parsed_body["businesses"]
+            expect(cards.map { _1.slice("title", "covers_trip", "free_days") }).to eq([
+              { "title" => "Zzz whole trip bike", "covers_trip" => true, "free_days" => nil },
+              { "title" => "Aaa partly free bike", "covers_trip" => false,
+                "free_days" => { "from" => day.iso8601, "to" => day.iso8601 } }
+            ])
+          end
+        end
+
+        context "for 3 people, who need 2 bikes: only a shop with 2 free covers them" do
+          let(:people) { 3 }
+
+          before { whole.units.create!(position: 2) }
+
+          run_test! do |response|
+            cards = response.parsed_body["businesses"]
+            expect(cards.map { _1.slice("title", "covers_trip") })
+              .to eq([ { "title" => "Zzz whole trip bike", "covers_trip" => true }, { "title" => "Aaa partly free bike", "covers_trip" => false } ])
+            expect(cards.last["free_days"]).to be_nil
+          end
+        end
+      end
+
+      response "422", "dates that aren't both dates from today" do
+        let(:slug) { "bantayan-island" }
+        let(:from) { "soon" }
+        let(:to) { "later" }
+
+        run_test! { |response| expect(response.parsed_body.to_s).to include("From and to must both be dates") }
       end
 
       response "404", "an unknown or draft place" do

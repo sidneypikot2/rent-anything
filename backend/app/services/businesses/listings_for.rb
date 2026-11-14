@@ -76,6 +76,13 @@ module Businesses
       end
     end
 
+    # None of a timed rental once the shop's last pickup on its start day has gone (RAA-315).
+    def units_free(listing, ledger, days, period, starts_on)
+      return 0 if listing.category.timed_rental? && listing.vehicle_rate && listing.vehicle_rate.pickup_times_on(starts_on).empty?
+
+      ledger.units_free(listing, days, period:)
+    end
+
     def row(listing, ledger, starts_on, ends_on, pickup_time)
       days = ledger && Booking.days_for(listing, starts_on, ends_on)
       period = ledger && listing.rental_period(starts_on, ends_on, pickup_time)
@@ -93,7 +100,7 @@ module Businesses
         unit_name: listing.category.unit_name,
         unit_name_plural: listing.category.unit_name_plural,
         approx_location: { lat: listing.location.y.round(2), lng: listing.location.x.round(2) },
-        units_free: days&.any? ? ledger.units_free(listing, days, period:) : nil,
+        units_free: days&.any? ? units_free(listing, ledger, days, period, starts_on) : nil,
         starts_at: period&.begin,
         ends_at: period&.end
       }

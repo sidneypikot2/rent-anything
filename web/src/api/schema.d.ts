@@ -2794,6 +2794,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/listings/{listing_id}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A listing's units free, day by day
+         * @description Public. How many of a listing's units are free on each day from `from` to `to` (at most 92 days), as the partner's calendar counts them (RAA-315): the booking card's calendar shows them and greys out the days with none. A vehicle or gear rental has none today once the shop's last pickup has gone.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** Format: date */
+                    from: string;
+                    /** Format: date */
+                    to: string;
+                };
+                header?: never;
+                path: {
+                    listing_id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description a rental today once the shop's last pickup has gone: none */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["listing_availability"];
+                    };
+                };
+                /** @description a listing that isn't live */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description dates missing, past, the wrong way round or too far apart */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/listings/{listing_id}/price": {
         parameters: {
             query?: never;
@@ -6841,7 +6901,7 @@ export interface paths {
         };
         /**
          * A page of one plan step's options in a place
-         * @description Plan a whole trip: the businesses with active listings in one guest group here and in the published places inside it, 18 a page, each with what it offers there summed up, its first listing's rounded point and the places to see its listings go to. Things to do lead with the businesses whose tours go to the most hearted places, then those with a price; stays lead with those closest to the hearted places, and say how far each is; the rest are by name.
+         * @description Plan a whole trip: the businesses with active listings in one guest group here and in the published places inside it, 18 a page, each with what it offers there summed up, its first listing's rounded point and the places to see its listings go to. Things to do lead with the businesses whose tours go to the most hearted places, then those with a price; stays lead with those closest to the hearted places, and say how far each is; the rest are by name. With the trip's dates (`from` and `to`, RAA-315), only listings with a unit free on at least one of them: one booked out on every day is left out, of the cards and the counts alike.
          */
         get: {
             parameters: {
@@ -6851,6 +6911,15 @@ export interface paths {
                     page?: number;
                     /** @description The slugs of the trip's hearted places to see: Things to do that go there lead, and the stays closest to them */
                     "hearted[]"?: string[];
+                    /**
+                     * Format: date
+                     * @description The trip's first day, with `to`: only listings free on some day from it to `to`
+                     */
+                    from?: string;
+                    /** Format: date */
+                    to?: string;
+                    /** @description With the dates, the people a rental vehicle must seat (default 1): a vehicle covers the trip when enough of its units for them are free on every day */
+                    people?: number;
                     /** @description Only listings free to cancel, any time or up to some days before */
                     free_cancellation?: boolean;
                     /** @description Only stays that take pets */
@@ -6882,7 +6951,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description filtered listing by listing: a card keeps only those that pass, the totals follow, facets count all */
+                /** @description with the trip's dates: whole-trip cards first, then those free on some days, with which */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -7774,7 +7843,7 @@ export interface paths {
         put?: never;
         /**
          * Add a listing to a trip
-         * @description Guest-only. Adds the listing to `trip_id`, or, without one, to a new trip named after the destination and dates ("Bantayan Island · Nov 12–15"), or `trip_name` if the guest typed one, with `quantity` guests (`guests` when sent). Gear is booked by the count: its `quantity` is how many, and adding gear the trip already holds unbooked on the same dates raises that item's quantity instead of adding a second. The trip's dates grow to cover the item's. Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an undated item can't be checked out until it has one. `quantity` is 1 to 99, default 1. Answers with the trip. A rental vehicle with seats (RAA-191) takes enough of its units for `quantity` people, rounded up, or `units` when the guest chose more (up to one each), and never more people than its whole fleet seats. Several items at once (RAA-187, a mix of room types from `GET /stay_mixes`): `items` instead of one item's fields, all added or none; a new trip is named and dated after the first.
+         * @description Guest-only. Adds the listing to `trip_id`, or, without one, to a new trip named after the destination and dates ("Bantayan Island · Nov 12–15"), or `trip_name` if the guest typed one, with `quantity` guests (`guests` when sent). Gear is booked by the count: its `quantity` is how many, and adding gear the trip already holds unbooked on the same dates raises that item's quantity instead of adding a second. The trip's dates grow to cover the item's. Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an undated item can't be checked out until it has one. `quantity` is 1 to 99, default 1. Answers with the trip. A rental vehicle with seats (RAA-191) takes enough of its units for `quantity` people, rounded up, or `units` when the guest chose more (up to its fleet), and never more people than its whole fleet seats. Several items at once (RAA-187, a mix of room types from `GET /stay_mixes`): `items` instead of one item's fields, all added or none; a new trip is named and dated after the first.
          */
         post: {
             parameters: {
@@ -7805,7 +7874,7 @@ export interface paths {
                         }[] | null;
                         /** @description A stay only, where its listing allows pets (RAA-182) */
                         pets?: number;
-                        /** @description A rental vehicle only: at least quantity ÷ seats rounded up, at most one each; null or omitted derives it */
+                        /** @description A rental vehicle only: at least quantity ÷ seats rounded up, at most its fleet (more vehicles than people is fine); null or omitted derives it */
                         units?: number | null;
                         /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
                         pickup_time?: string | null;
@@ -7840,7 +7909,7 @@ export interface paths {
                             }[] | null;
                             /** @description A stay only, where its listing allows pets (RAA-182) */
                             pets?: number;
-                            /** @description A rental vehicle only: at least quantity ÷ seats rounded up, at most one each; null or omitted derives it */
+                            /** @description A rental vehicle only: at least quantity ÷ seats rounded up, at most its fleet (more vehicles than people is fine); null or omitted derives it */
                             units?: number | null;
                             /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
                             pickup_time?: string | null;
@@ -7997,7 +8066,7 @@ export interface paths {
                         }[] | null;
                         /** @description A stay only, where its listing allows pets (RAA-182) */
                         pets?: number;
-                        /** @description A rental vehicle only: at least quantity ÷ seats rounded up, at most one each; null or omitted derives it */
+                        /** @description A rental vehicle only: at least quantity ÷ seats rounded up, at most its fleet (more vehicles than people is fine); null or omitted derives it */
                         units?: number | null;
                         /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
                         pickup_time?: string | null;
@@ -10176,6 +10245,14 @@ export interface components {
         flat_rate: {
             price_cents: number;
         };
+        listing_availability: {
+            days: {
+                /** Format: date */
+                date: string;
+                /** @description Units free that day; 0 greys it out */
+                units_free: number;
+            }[];
+        };
         listing_price: {
             /** @description What checkout would charge; null when the party can't be had (see unavailable) */
             total_cents: number | null;
@@ -10733,6 +10810,15 @@ export interface components {
             location: components["schemas"]["lat_lng"];
             /** @description The slugs of the published places to see its listings visit */
             goes_to: string[];
+            /** @description Rentals and gear with the trip's dates (RAA-315): whether one of its listings has enough units for the people free on every day of them (those come first); null otherwise */
+            covers_trip: boolean | null;
+            /** @description With dates, a card that doesn't cover the trip: its longest run of days with enough units free (both ends included); null when it covers the trip, has no such day, or without dates */
+            free_days: {
+                /** Format: date */
+                from: string;
+                /** Format: date */
+                to: string;
+            } | null;
             /** @description Stays, with hearted places sent: how far its closest listing is from each, nearest first; empty otherwise */
             near: {
                 slug: string;
@@ -11561,7 +11647,7 @@ export interface components {
             pets?: number;
             /** @description A vehicle rental only: one of the shop's pickup times ("08:30"); it runs 24 hours a day from then. Null or omitted takes the shop's default (9:00, or its first pickup time) */
             pickup_time?: string | null;
-            /** @description A vehicle's: how many it takes, enough to seat the guests and at most one each */
+            /** @description A vehicle's: how many it takes, enough to seat the guests and at most its fleet */
             units?: number;
         };
         offline_booking_body: {

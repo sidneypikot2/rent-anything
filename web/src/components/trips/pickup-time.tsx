@@ -67,6 +67,9 @@ export function PickupTimeRow({
   if (times.length === 0)
     return <TicketRow icon={<ClockGlyph />} label="Pickup time" value="No pickups left that day" data-testid="pickup-row" />;
   const firstFree = times.find((slot) => slot.available);
+  // Every time taken (RAA-315): one line, not a select of nothing but taken times.
+  if (!firstFree)
+    return <TicketRow icon={<ClockGlyph />} label="Pickup time" value="No time free on these dates" data-testid="pickup-row" />;
   const taken = times.length > 0 && !times[0].available && firstFree;
   // "Pickup time" leads; the return is a quiet line under it, so it doesn't wrap in bold beside the select.
   return (

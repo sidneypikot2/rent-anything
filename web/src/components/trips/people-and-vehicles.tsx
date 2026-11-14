@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import { Dialog, DialogSummary } from "@/components/ui/dialog";
 import { StepperField } from "@/components/ui/stepper-field";
-import { peopleText, riders, unitsNeeded, vehicleNoun, vehiclePartyText } from "./vehicle-party";
+import { peopleText, riders, ridersFor, unitsNeeded, vehicleNoun, vehiclePartyText } from "./vehicle-party";
 
 type Props = {
   people: number;
@@ -31,8 +31,9 @@ export const MAX_PEOPLE = 50;
 // People and the vehicles they take (RAA-191, the plan's mock 1): a ticket row summing them up
 // ("10 people · 5 motorbikes") that opens the counters, a popover from sm and a bottom sheet on a
 // phone, as RoomsAndGuests does for a stay. People go from 1 to 50; the vehicles start at what the
-// people need (people ÷ seats, rounded up), − stops there and + at one each or what is free.
-// Under them, how the people ride: "2 riders" a motorbike, "1 rider" for any past the minimum.
+// people need (people ÷ seats, rounded up), said in the hint, and + stops only at what is free
+// (RAA-315: the people never cap it). Under them, how the people ride: "2 riders" a motorbike,
+// "1 rider" for any past the minimum, "+N extra" for those past one each.
 export function PeopleAndVehicles({ people, units, seats, category, free, onChange, fixedPeople, disabled, "data-testid": testId }: Props) {
   const [open, setOpen] = useState<"popover" | "sheet" | null>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -42,7 +43,8 @@ export function PeopleAndVehicles({ people, units, seats, category, free, onChan
   const panelId = useId();
   const nouns = vehicleNoun(category, 2);
   const label = fixedPeople ? nouns[0].toUpperCase() + nouns.slice(1) : `People and ${nouns}`;
-  const summary = vehiclePartyText(people, units, category);
+  // With the people fixed, `people` are those still to ride, and the summary says who these carry.
+  const summary = vehiclePartyText(fixedPeople ? ridersFor(people, seats, units) : people, units, category);
 
   useEffect(() => {
     if (open !== "popover") return;
@@ -140,15 +142,22 @@ export function VehicleCounters({
   fixedPeople = false,
   testId,
 }: Omit<Props, "disabled" | "data-testid"> & { testId?: string; fixedPeople?: boolean }) {
-  const needed = unitsNeeded(people, seats);
-  const most = Math.max(needed, Math.min(people, free ?? people));
+  // What the people need, suggested in the hint. With the trip's people fixed (RAA-315), `people`
+  // are those still without a ride and the vehicles count from 1, so a group can take some here
+  // and the rest elsewhere; either way + stops only at what is free (99 when unknown).
+  const suggested = unitsNeeded(people, seats);
+  const needed = fixedPeople ? 1 : suggested;
+  const most = Math.max(needed, free ?? 99);
+  const carried = fixedPeople ? ridersFor(people, seats, units) : people;
+  const left = people - carried;
+  const loads = riders(carried, seats, units);
+  const extra = loads.filter((load) => load === 0).length;
   const noun = vehicleNoun(category);
   const nouns = vehicleNoun(category, 2);
   // A new head count keeps the vehicles the guest added past the minimum, while they still fit.
   const setPeople = (next: number) => {
-    const extra = units - needed;
     const nextNeeded = unitsNeeded(next, seats);
-    onChange(next, Math.max(nextNeeded, Math.min(nextNeeded + extra, next, free ?? next)));
+    onChange(next, Math.max(nextNeeded, Math.min(nextNeeded + units - needed, free ?? 99)));
   };
   return (
     <>
@@ -165,19 +174,31 @@ export function VehicleCounters({
       )}
       <StepperField
         label={nouns[0].toUpperCase() + nouns.slice(1)}
-        hint={`At least ${needed} for ${peopleText(people)}`}
+        hint={[
+          `${fixedPeople ? "Suggested" : "At least"} ${suggested} for ${peopleText(people)}`,
+          left > 0 && `${left} still without a ride`,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         value={units}
         min={needed}
         max={most}
-        onChange={(value) => onChange(people, value)}
+        onChange={(value) => onChange(fixedPeople ? ridersFor(people, seats, value) : people, value)}
         data-testid={testId && `${testId}-units`}
       />
       <div className="flex flex-wrap gap-1.5" aria-label={`Riders on each ${noun}`} data-testid={testId && `${testId}-riders`}>
-        {riders(people, seats, units).map((load, index) => (
-          <Badge key={index} tone={load < seats && units > needed && index >= units - (units - needed) ? "mist" : "kind"} className={cn("tabular-nums")}>
-            {load} {load === 1 ? (noun === "motorbike" ? "rider" : "person") : noun === "motorbike" ? "riders" : "people"}
+        {loads
+          .filter((load) => load > 0)
+          .map((load, index) => (
+            <Badge key={index} tone={load < seats && index >= unitsNeeded(carried, seats) ? "mist" : "kind"} className={cn("tabular-nums")}>
+              {load} {load === 1 ? (noun === "motorbike" ? "rider" : "person") : noun === "motorbike" ? "riders" : "people"}
+            </Badge>
+          ))}
+        {extra > 0 && (
+          <Badge tone="mist" className="tabular-nums">
+            +{extra} extra
           </Badge>
-        ))}
+        )}
       </div>
     </>
   );

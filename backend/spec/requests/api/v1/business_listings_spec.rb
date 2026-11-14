@@ -1,6 +1,8 @@
 require "swagger_helper"
 
 RSpec.describe "Business listings", type: :request do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:day) { 20.days.from_now.to_date }
   let(:area) { create(:area, name: "Santa Fe") }
   let(:click) { create(:listing, :vehicle, area:, title: "Honda Click 125i") }
@@ -98,6 +100,31 @@ RSpec.describe "Business listings", type: :request do
 
         context "with a pickup once they are back" do
           let(:pickup_time) { "09:00" }
+
+          run_test! { |response| expect(response.parsed_body["listings"].find { _1["id"] == click.id }["units_free"]).to eq(6) }
+        end
+      end
+
+      # RAA-315: once the shop's last pickup today has gone, nothing of it can start today.
+      response "200", "a rental starting today after the last pickup: none free" do
+        let(:starts_on) { Date.new(2026, 11, 2).iso8601 }
+        let(:ends_on) { Date.new(2026, 11, 3).iso8601 }
+
+        before { click }
+
+        context "with the last pickup gone" do
+          # 8:10 PM in Manila.
+          before { travel_to Time.utc(2026, 11, 2, 12, 10) }
+
+          run_test! do |response|
+            expect(response.parsed_body["listings"].find { _1["id"] == click.id }["units_free"]).to eq(0)
+            expect(response.parsed_body["pickup_times"]).to eq([])
+          end
+        end
+
+        context "with pickups still ahead" do
+          # 10:10 AM in Manila.
+          before { travel_to Time.utc(2026, 11, 2, 2, 10) }
 
           run_test! { |response| expect(response.parsed_body["listings"].find { _1["id"] == click.id }["units_free"]).to eq(6) }
         end

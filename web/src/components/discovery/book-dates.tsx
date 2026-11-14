@@ -109,6 +109,7 @@ export function BookDates({ slug, dates }: { slug: string; dates: TripDates }) {
       <DateRangeField
         row
         modal
+        bar
         label="When"
         placeholder="All dates"
         from={range.from}

@@ -17,7 +17,10 @@ import { DateRangeField } from "@/components/ui/date-range-field";
 import { PriceBreakdown, usePriceBreakdown } from "@/components/trips/price-breakdown";
 import { useOptionalTripAdd } from "@/components/trips/trip-add-provider";
 import type { TripDates } from "@/components/trips/trip-dates";
-import { peopleText, rentalDays, seatsLabel, shopNoun, unitsNeeded, vehicleNoun } from "@/components/trips/vehicle-party";
+import { heldOfListing, peopleText, rentalDays, ridersFor, ridesHeld, seatsLabel, shopNoun, unitsNeeded, vehicleNoun } from "@/components/trips/vehicle-party";
+import { CoverBar } from "@/components/trips/cover-bar";
+import { useAddTargetTrip } from "@/components/trips/use-trip-here";
+import { freeRun, useListingAvailability } from "@/components/trips/use-listing-availability";
 import { useShopListings } from "@/components/trips/use-shop-listings";
 import { ShopPopup } from "./shop-popup";
 import { CategoryGlyph } from "./tag-glyphs";
@@ -53,11 +56,12 @@ export function VehicleBookingCard({
   const session = useSession();
   const flow = useOptionalTripAdd();
   const category = listing.category.name;
-  // The people are the trip's (the page's guests: the trip's when one is shown, RAA-191), not asked here.
-  const people = Math.min(Math.max(dates.guests, 1), MAX_PEOPLE);
+  // The page's guests (RAA-191); not asked here.
+  const pageGuests = Math.min(Math.max(dates.guests, 1), MAX_PEOPLE);
   const counted = seats === null;
-  // A vehicle's units, or how many of the gear.
-  const [units, setUnits] = useState(counted ? 1 : unitsNeeded(people, seats));
+  // How many the guest picked (a vehicle's units, or how many of the gear); null until they pick,
+  // while the card suggests what the people still without a ride need (RAA-315).
+  const [pickedUnits, setUnits] = useState<number | null>(null);
   const [shopOpen, setShopOpen] = useState(false);
   // Its pickup time (RAA-195): null takes the shop's default until the guest picks one.
   const [pickupTime, setPickupTime] = useState<string | null>(null);
@@ -69,17 +73,37 @@ export function VehicleBookingCard({
   // A motorcycle's child helmets (RAA-205), one a vehicle at most; the add sheet asks them in a panel.
   const [childHelmets, setChildHelmets] = useState(0);
   // Its own dates, the page's at first: a bike for 1 day of a week-long trip. One date is one day.
-  const [rental, setRental] = useState({ from: dates.from ?? "", to: dates.to ?? "" });
+  // The calendar shows each day's units free and won't let a rental start on, or run through, a
+  // day with none (RAA-315): the dates can't be wrong, so no notes after the fact. Until the guest
+  // picks, the rental is the page's dates cut to the longest run with one free.
+  const availability = useListingAvailability(listing.id);
+  const [chosen, setRental] = useState<{ from: string; to: string } | null>(null);
+  const rental = chosen ?? freeRun(availability, dates.from ?? "", dates.to ?? "") ?? { from: dates.from ?? "", to: dates.to ?? "" };
   const from = rental.from || undefined;
-  const to = rental.from ? rental.to || addDays(rental.from, 1) : undefined;
+  // One date is one day, back the next (a one-day trip's end is its start).
+  const to = rental.from ? (rental.to && rental.to > rental.from ? rental.to : addDays(rental.from, 1)) : undefined;
   const dated = Boolean(from && to);
   const shop = useShopListings(listing.business.id, counted ? { group: "gear" } : { category: listing.category.slug }, from, to, pickupTime);
   const models = shop.data?.listings ?? [];
-  const free = dated ? (models.find((model) => model.id === listing.id)?.units_free ?? null) : null;
   const others = models.filter((model) => model.id !== listing.id).length;
+  // The trip the add goes to (RAA-315): its vehicle rentals on these days already give some of its
+  // people a ride, and its units of this one aren't booked yet, so not out of what is free.
+  const target = useAddTargetTrip(flow?.places, counted ? undefined : listing.id, from, to);
+  const tripItems = target?.items ?? [];
+  // The people are that trip's, as the add sheet counts them (the planner's URL carries no guests);
+  // with no trip yet, the page's. Gear goes by the count.
+  const people = !counted && target ? Math.min(Math.max(target.guests, 1), MAX_PEOPLE) : pageGuests;
+  const held = counted ? null : ridesHeld(tripItems, from, to, people);
+  const shopFree = dated ? (models.find((model) => model.id === listing.id)?.units_free ?? null) : null;
+  const free = shopFree === null ? null : Math.max(shopFree - (counted ? 0 : heldOfListing(tripItems, listing.id, from, to)), 0);
+  // Those still without a ride on these days; with everyone riding, the whole group, from 1 vehicle.
+  const toRide = held && held.least < people ? people - held.least : people;
+  const suggested = counted ? 1 : held && held.least >= people && held.units > 0 ? 1 : unitsNeeded(toRide, seats);
+  // As many as the guest wants, whatever the people (RAA-315), up to what is free (or the fleet).
+  const units = Math.max(1, Math.min(pickedUnits ?? suggested, free ?? listing.units_count ?? 99));
+  const riding = counted ? units : ridersFor(toRide, seats, units);
 
-  const needed = counted ? units : unitsNeeded(people, seats);
-  const short = free !== null && needed > free;
+  const short = free === 0;
   const days = rentalDays(from, to);
   // Priced by the API as checkout will (RAA-191): the vehicles for the days, the deposit apart.
   const helmets = canAdd ? Math.min(childHelmets, units) : 0;
@@ -88,7 +112,7 @@ export function VehicleBookingCard({
       listingId: listing.id,
       startsOn: from,
       endsOn: to,
-      quantity: counted ? units : people,
+      quantity: riding,
       units: counted ? undefined : units,
       pickupTime,
       delivery: chosenDelivery,
@@ -118,7 +142,13 @@ export function VehicleBookingCard({
           </div>
           {(!counted || free !== null) && (
             <p className="text-sm text-muted" data-testid="vehicle-free">
-              {[!counted && `${seats} per ${noun}`, free !== null && `${free} available`, free !== null && span].filter(Boolean).join(" · ")}
+              {[
+                !counted && `${seats} per ${noun}`,
+                free !== null && `${free} available`,
+                free !== null && span,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           )}
         </div>
@@ -132,6 +162,7 @@ export function VehicleBookingCard({
             to={rental.to}
             onChange={setRental}
             placeholder="Pick dates"
+            free={availability}
             hint={from && to ? `${days} ${days === 1 ? "day" : "days"} · back ${formatDateRange(to, to)}` : undefined}
             data-testid="vehicle-dates"
           />
@@ -161,7 +192,7 @@ export function VehicleBookingCard({
             />
           ) : (
             <PeopleAndVehicles
-              people={people}
+              people={toRide}
               units={units}
               seats={seats}
               category={category}
@@ -173,8 +204,7 @@ export function VehicleBookingCard({
           )}
           {short && (
             <TicketNote tone="warning" data-testid="vehicle-short">
-              {counted ? "Only" : `${peopleText(people)} ${people === 1 ? "needs" : "need"} ${needed} ${nouns(needed)}, and only`} {free}{" "}
-              {free === 1 ? "is" : "are"} available. Pick other dates or add another listing.
+              None {shopFree ? "more " : ""}available on these dates. Pick other dates or add another listing.
             </TicketNote>
           )}
           {canAdd && (
@@ -191,6 +221,21 @@ export function VehicleBookingCard({
           {canAdd && <ChildHelmetsRow fee={rate.child_helmet_fee_cents} value={helmets} max={units} onChange={setChildHelmets} />}
           <PriceBreakdown breakdown={breakdown} />
         </Ticket>
+
+        {held && (
+          <CoverBar
+            people={people}
+            covered={Math.min(held.least + (short ? 0 : riding), people)}
+            summary={
+              held.units > 0
+                ? `${peopleText(people)} · ${held.units} ${nouns(held.units)} in your trip, ${units} more here`
+                : `${peopleText(people)} · ${units} ${nouns(units)}, ${units * (seats ?? 1)} seats`
+            }
+            need="a ride"
+            done="Everyone has a seat"
+            data-testid="vehicle-cover"
+          />
+        )}
 
 
         {canAdd && aside}
@@ -209,8 +254,9 @@ export function VehicleBookingCard({
                 bookingType: listing.booking_type,
                 startsOn: from,
                 endsOn: to,
-                // Gear: the page's guests, for a new trip, and how many apart (the sheet's `count`).
-                quantity: people,
+                // A vehicle: the people it carries; gear: the page's guests, for a new trip, and how
+                // many apart (the sheet's `count`).
+                quantity: counted ? people : riding,
                 units: counted ? undefined : units,
                 count: counted ? units : undefined,
                 pickupTime,

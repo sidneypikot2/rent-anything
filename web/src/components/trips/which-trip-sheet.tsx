@@ -14,14 +14,14 @@ import { Ticket, TicketNote, TicketRow } from "@/components/ui/ticket";
 import { formatPeso } from "@/lib/money";
 import { TO_BE_AGREED } from "@/lib/pricing";
 import { chooseTrip, useChosenTrip } from "./chosen-trip";
-import { daysBetween, formatDateRange, guestLimitHint, itemCount, noNightError, rentLimitHint, todayIso, tripDetails } from "./format";
+import { addDays, daysBetween, formatDateRange, guestLimitHint, itemCount, noNightError, rentLimitHint, todayIso, tripDetails } from "./format";
 import { bedsBooked } from "./beds";
 import { evenRooms, headcount, partyFromGuests, partyOf, partySummary, roomGuestsToSend, roomText, type Room } from "./party";
 import { RoomsAndGuests } from "./rooms-and-guests";
 import { PickupTimeRow, rentalClock } from "./pickup-time";
 import { PriceBreakdown, usePriceBreakdown } from "./price-breakdown";
 import { VehicleCounters } from "./people-and-vehicles";
-import { sameGearRental, unitsFor, vehiclePartyText } from "./vehicle-party";
+import { ridersFor, ridesHeld, sameGearRental, unitsFor, unitsNeeded, vehiclePartyText } from "./vehicle-party";
 import { sameItem } from "./trip-missing";
 import { TripOption } from "./trip-option";
 import {
@@ -272,23 +272,40 @@ export function WhichTripSheet({ request, trips, target, places, onClose, onAdde
   // Gear is booked by the count: the sheet asks how many, from the booking card's or one, and the
   // page's guests go along only as a new trip's.
   const gear = Boolean(request.preview?.gear) && !mix;
+  // A rental vehicle (RAA-191): its people and the vehicles they take, from the booking card's
+  // or the page's people, until the guest changes them here.
+  const vehicleSeats = mix ? null : (request.preview?.vehicleSeats ?? null);
+  const vehicle = vehicleSeats !== null;
+  const [typedUnits, setUnits] = useState<number | null>(null);
+  // Going to a trip (RAA-315): its people still without a ride on these days, counting its vehicle
+  // rentals, and the people the vehicles picked carry of them (the booking card's pick, at first).
+  const rideEnds = dated.startsOn && (dated.endsOn && dated.endsOn > dated.startsOn ? dated.endsOn : addDays(dated.startsOn, 1));
+  const rides = vehicle && pickedTrip ? ridesHeld(pickedTrip.items, dated.startsOn, rideEnds, pickedTrip.guests) : null;
+  // A new trip's are the page's guests (the booking card's), all still without a ride.
+  const toRide =
+    rides && pickedTrip
+      ? rides.least < pickedTrip.guests
+        ? pickedTrip.guests - rides.least
+        : pickedTrip.guests
+      : vehicle && !pickedTrip
+        ? (request.guests ?? request.quantity)
+        : null;
+  const riding =
+    vehicleSeats !== null && toRide !== null ? ridersFor(toRide, vehicleSeats, typedUnits ?? request.units ?? unitsNeeded(toRide, vehicleSeats)) : null;
   const quantity = arrangement
     ? String(headcount(partyOf(arrangement.rooms)))
     : mix
       ? String(request.quantity)
       : gear
         ? (typedQuantity ?? String(request.count ?? 1))
-        : ((tripPeople === null ? typedQuantity : null) ??
+        : riding !== null
+          ? String(riding)
+          : ((tripPeople === null ? typedQuantity : null) ??
       String(Math.min(unhoused > 0 ? unhoused : wanted, guestCap(request.preview) ?? Infinity)));
   const quantityNumber = Number(quantity);
   const quantityValid = Number.isInteger(quantityNumber) && quantityNumber >= 1 && quantityNumber <= 99;
-  // A rental vehicle (RAA-191): its people and the vehicles they take, from the booking card's
-  // or the page's people, until the guest changes them here.
-  const vehicleSeats = mix ? null : (request.preview?.vehicleSeats ?? null);
-  const vehicle = vehicleSeats !== null;
   // A rental that runs from a pickup time: a vehicle, or gear (RAA-255).
   const timed = vehicle || gear;
-  const [typedUnits, setUnits] = useState<number | null>(null);
   // Closing asks first once the guest has changed what the sheet opened with. The picked trip
   // isn't counted: it can settle after the first render (the chosen trip is read on mount).
   const dirty = useChanged({ startsOn, endsOn, typedQuantity, typedRooms, typedUnits, tripName });
@@ -545,8 +562,9 @@ export function WhichTripSheet({ request, trips, target, places, onClose, onAdde
               <div className="flex flex-col gap-1 px-3.5 py-3" data-testid="which-trip-vehicles">
                 {tripPeople !== null && <TripPeople people={tripPeople} />}
                 <VehicleCounters
-                  fixedPeople={tripPeople !== null}
-                  people={quantityNumber}
+                  fixedPeople={toRide !== null}
+                  people={toRide ?? quantityNumber}
+                  free={request.preview?.unitsCount}
                   units={vehicleUnits}
                   seats={vehicleSeats}
                   category={preview?.category}

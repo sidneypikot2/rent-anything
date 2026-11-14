@@ -78,7 +78,7 @@ module Trips
       elsif attributes.key?(:quantity)
         check_vehicle_units(@item.listing, guests, nil)
         seats = @item.listing.vehicle_seats
-        attributes[:units] = nil if @item.units && seats && !@item.units.between?(guests.fdiv(seats).ceil, guests)
+        attributes[:units] = nil if @item.units && seats && @item.units < guests.fdiv(seats).ceil
       end
     end
 

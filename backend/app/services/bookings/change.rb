@@ -84,7 +84,7 @@ module Bookings
       elsif @params.key?(:guests)
         check_vehicle_units(listing, guests, nil)
         seats = listing.vehicle_seats
-        chosen = nil if chosen && seats && !chosen.between?(guests.fdiv(seats).ceil, guests)
+        chosen = nil if chosen && seats && chosen < guests.fdiv(seats).ceil
       end
       chosen
     end

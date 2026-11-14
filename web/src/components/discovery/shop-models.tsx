@@ -36,7 +36,7 @@ import { usePriceBreakdown } from "@/components/trips/price-breakdown";
 import { useShopListings, type ShopGroup } from "@/components/trips/use-shop-listings";
 import { CoverBar } from "@/components/trips/cover-bar";
 import { peopleText, rentalDays, ridesHeld, seatsLabel, shopNoun, vehicleNoun, withArticle, type ShopListing } from "@/components/trips/vehicle-party";
-import { useTripHere } from "@/components/trips/use-trip-here";
+import { useAddTargetTrip } from "@/components/trips/use-trip-here";
 import { useTripHref } from "@/components/trips/trip-link";
 import { listingPath } from "@/lib/seo";
 
@@ -76,15 +76,15 @@ const seatsOf = (model: ShopListing) => (typeof model.details.seats === "number"
 // What can be picked of a model: its units free on the dates, or all it has without dates.
 const freeOf = (model: ShopListing) => model.units_free ?? model.units_count;
 
-// The people each model's vehicles carry once added: one a vehicle at least, then the rest of the
-// trip's people in order, up to each model's seats (the API wants at least one rider a vehicle and
-// no more than they seat).
+// The people each model's vehicles carry once added: one a model at least, then the rest of the
+// people in order, up to each model's seats (the API wants someone on each item and no more than
+// its vehicles seat; vehicles past one each are fine, RAA-315).
 export function splitPeople(picked: { units: number; seats: number }[], people: number) {
-  let left = Math.max(people - picked.reduce((sum, model) => sum + model.units, 0), 0);
+  let left = Math.max(people - picked.length, 0);
   return picked.map(({ units, seats }) => {
-    const more = Math.min(left, units * seats - units);
+    const more = Math.min(left, units * seats - 1);
     left -= more;
-    return units + more;
+    return 1 + more;
   });
 }
 
@@ -99,13 +99,16 @@ export function splitPeople(picked: { units: number; seats: number }[], people: 
 // opens its details in place (RAA-205), so the guest compares models without leaving the list.
 // Gear (RAA-255) is the same sheet by the count: no seats, no CoverBar, and each model's quantity
 // is how many of it, with the API's words for them.
-export function useShopModels({ business, category, group, dates, people, listingIds, first = [], place, onAdding }: Options) {
+export function useShopModels({ business, category, group, dates, people: pagePeople, listingIds, first = [], place, onAdding }: Options) {
   const counted = group === "gear";
   const session = useSession();
   const flow = useOptionalTripAdd();
   // The trip the add goes to (the place's banner's, or the chosen one): its vehicle rentals
   // already give some of its people a ride.
-  const tripItems = useTripHere(flow?.places ?? []).trip?.items ?? [];
+  const target = useAddTargetTrip(flow?.places, counted ? undefined : (first[0] ?? listingIds?.[0]), dates.from, dates.to || (dates.from && addDays(dates.from, 1)));
+  const tripItems = target?.items ?? [];
+  // The trip's people when the add goes to one (the planner's URL carries no guests, RAA-315).
+  const people = !counted && target ? Math.max(target.guests, 1) : pagePeople;
   const tripHref = useTripHref();
   // The rental's own dates: until the guest picks some, the trip's days still without a ride for
   // everyone (the longest run of them), or the trip's dates when it has no ride on any day or one
@@ -129,9 +132,10 @@ export function useShopModels({ business, category, group, dates, people, listin
   const picked = models.filter((model) => (counts[model.id] ?? 0) > 0).map((model) => ({ model, units: counts[model.id], seats: seatsOf(model) }));
   const units = picked.reduce((sum, each) => sum + each.units, 0);
   const seats = picked.reduce((sum, each) => sum + each.units * each.seats, 0);
-  const split = counted ? picked.map((each) => each.units) : splitPeople(picked, people);
   // The rides the trip already has on these days, counted with what is picked here.
   const held = ridesHeld(tripItems, from, to, people);
+  // The picked vehicles carry those still without a ride (RAA-315), at least one each.
+  const split = counted ? picked.map((each) => each.units) : splitPeople(picked, Math.max(people - held.least, 0));
   const someDays = held.gaps.length > 0 && !(held.gaps.length === 1 && held.gaps[0].from === from && held.gaps[0].to === to);
   // Delivery and pick-up (RAA-195): offered while every model picked (or, before any is, every
   // model here) offers it; a choice no longer offered isn't sent.

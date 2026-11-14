@@ -67,6 +67,8 @@ Rails.application.routes.draw do
       resources :businesses, only: :show
       # What adding a listing to a trip would cost, for any kind of listing (RAA-191).
       get "listings/:listing_id/price", to: "listing_prices#show", as: :listing_price
+      # Its units free day by day, for the booking card's calendar (RAA-315).
+      get "listings/:listing_id/availability", to: "listing_availabilities#show", as: :listing_availability
       # One destination's listings, nearby destinations and recommendations (RAA-56).
       get "explore", to: "explore#index"
       # What guests search for and pick (RAA-60).

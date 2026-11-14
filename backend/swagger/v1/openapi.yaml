@@ -2206,6 +2206,44 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/validation_errors"
+  "/api/v1/listings/{listing_id}/availability":
+    get:
+      summary: A listing's units free, day by day
+      tags:
+      - Discovery
+      description: 'Public. How many of a listing''s units are free on each day from
+        `from` to `to` (at most 92 days), as the partner''s calendar counts them (RAA-315):
+        the booking card''s calendar shows them and greys out the days with none.
+        A vehicle or gear rental has none today once the shop''s last pickup has gone.'
+      parameters:
+      - name: listing_id
+        in: path
+        schema:
+          type: integer
+        required: true
+      - name: from
+        in: query
+        format: date
+        required: true
+        schema:
+          type: string
+      - name: to
+        in: query
+        format: date
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: 'a rental today once the shop''s last pickup has gone: none'
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/listing_availability"
+        '404':
+          description: a listing that isn't live
+        '422':
+          description: dates missing, past, the wrong way round or too far apart
   "/api/v1/listings/{listing_id}/price":
     get:
       summary: What adding a listing to a trip would cost
@@ -5290,7 +5328,9 @@ paths:
         places to see its listings go to. Things to do lead with the businesses whose
         tours go to the most hearted places, then those with a price; stays lead with
         those closest to the hearted places, and say how far each is; the rest are
-        by name.'
+        by name. With the trip''s dates (`from` and `to`, RAA-315), only listings
+        with a unit free on at least one of them: one booked out on every day is left
+        out, of the cards and the counts alike.'
       parameters:
       - name: slug
         in: path
@@ -5325,6 +5365,28 @@ paths:
             type: string
         description: 'The slugs of the trip''s hearted places to see: Things to do
           that go there lead, and the stays closest to them'
+      - name: from
+        in: query
+        format: date
+        required: false
+        description: 'The trip''s first day, with `to`: only listings free on some
+          day from it to `to`'
+        schema:
+          type: string
+      - name: to
+        in: query
+        format: date
+        required: false
+        schema:
+          type: string
+      - name: people
+        in: query
+        required: false
+        description: 'With the dates, the people a rental vehicle must seat (default
+          1): a vehicle covers the trip when enough of its units for them are free
+          on every day'
+        schema:
+          type: integer
       - name: free_cancellation
         in: query
         required: false
@@ -5405,16 +5467,16 @@ paths:
           type: string
       responses:
         '200':
-          description: 'filtered listing by listing: a card keeps only those that
-            pass, the totals follow, facets count all'
+          description: 'with the trip''s dates: whole-trip cards first, then those
+            free on some days, with which'
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/plan_businesses"
-        '404':
-          description: an unknown or draft place
         '422':
           description: a filter that isn't true or false
+        '404':
+          description: an unknown or draft place
   "/api/v1/quotes":
     get:
       summary: What a stay costs
@@ -6173,7 +6235,7 @@ paths:
         undated item can''t be checked out until it has one. `quantity` is 1 to 99,
         default 1. Answers with the trip. A rental vehicle with seats (RAA-191) takes
         enough of its units for `quantity` people, rounded up, or `units` when the
-        guest chose more (up to one each), and never more people than its whole fleet
+        guest chose more (up to its fleet), and never more people than its whole fleet
         seats. Several items at once (RAA-187, a mix of room types from `GET /stay_mixes`):
         `items` instead of one item''s fields, all added or none; a new trip is named
         and dated after the first.'
@@ -6271,7 +6333,8 @@ paths:
                   minimum: 1
                   maximum: 99
                   description: 'A rental vehicle only: at least quantity ÷ seats rounded
-                    up, at most one each; null or omitted derives it'
+                    up, at most its fleet (more vehicles than people is fine); null
+                    or omitted derives it'
                 pickup_time:
                   type: string
                   nullable: true
@@ -6371,7 +6434,8 @@ paths:
                         minimum: 1
                         maximum: 99
                         description: 'A rental vehicle only: at least quantity ÷ seats
-                          rounded up, at most one each; null or omitted derives it'
+                          rounded up, at most its fleet (more vehicles than people
+                          is fine); null or omitted derives it'
                       pickup_time:
                         type: string
                         nullable: true
@@ -6522,7 +6586,8 @@ paths:
                   minimum: 1
                   maximum: 99
                   description: 'A rental vehicle only: at least quantity ÷ seats rounded
-                    up, at most one each; null or omitted derives it'
+                    up, at most its fleet (more vehicles than people is fine); null
+                    or omitted derives it'
                 pickup_time:
                   type: string
                   nullable: true
@@ -10140,6 +10205,25 @@ components:
           minimum: 0
       required:
       - price_cents
+    listing_availability:
+      type: object
+      properties:
+        days:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              units_free:
+                type: integer
+                description: Units free that day; 0 greys it out
+            required:
+            - date
+            - units_free
+      required:
+      - days
     listing_price:
       type: object
       properties:
@@ -11652,6 +11736,28 @@ components:
           items:
             type: string
           description: The slugs of the published places to see its listings visit
+        covers_trip:
+          type: boolean
+          nullable: true
+          description: 'Rentals and gear with the trip''s dates (RAA-315): whether
+            one of its listings has enough units for the people free on every day
+            of them (those come first); null otherwise'
+        free_days:
+          type: object
+          nullable: true
+          description: 'With dates, a card that doesn''t cover the trip: its longest
+            run of days with enough units free (both ends included); null when it
+            covers the trip, has no such day, or without dates'
+          properties:
+            from:
+              type: string
+              format: date
+            to:
+              type: string
+              format: date
+          required:
+          - from
+          - to
         near:
           type: array
           description: 'Stays, with hearted places sent: how far its closest listing
@@ -11683,6 +11789,8 @@ components:
       - photos
       - location
       - goes_to
+      - covers_trip
+      - free_days
       - near
     listing_facets:
       type: object
@@ -13840,7 +13948,7 @@ components:
           minimum: 1
           maximum: 99
           description: 'A vehicle''s: how many it takes, enough to seat the guests
-            and at most one each'
+            and at most its fleet'
     offline_booking_body:
       type: object
       properties:

@@ -2,7 +2,7 @@
 
 import { useSession } from "@/lib/auth/session";
 import { useChosenTrip, type ChosenTrip } from "./chosen-trip";
-import { currentTrips, useTrips, type Trip } from "./use-trips";
+import { currentTrips, useTripSuggestion, useTrips, type Trip } from "./use-trips";
 
 // The guest's trip on this place's page: the one they chose to work on (on the home page, or
 // with the banner's Switch trip; chosen-trip.ts), even with nothing here yet, as their next add
@@ -38,4 +38,15 @@ export function useTripHere(places: string[]) {
   // Items in the guest's other current trips, which the header's cart badge counts too.
   const others = current.filter((each) => each !== trip).reduce((sum, each) => sum + each.items.length, 0);
   return { session, isGuest, trips, current, chosen, trip, has, others };
+}
+
+// The trip an add of `listingId` on these dates will go to, as the add sheet preselects it
+// (RAA-315): on a place's page its banner's (useTripHere); elsewhere the chosen trip, else the
+// server's suggestion (the same query the sheet runs). Undefined for a new trip.
+export function useAddTargetTrip(places: string[] | undefined, listingId: number | undefined, from: string | undefined, to: string | undefined) {
+  const here = useTripHere(places ?? []);
+  const ask = !places && here.isGuest && here.trip === undefined && here.chosen !== "new" && listingId !== undefined && Boolean(from && to);
+  const suggestion = useTripSuggestion(listingId ?? 0, from, to, ask);
+  const suggested = ask ? suggestion.data?.trip?.id : undefined;
+  return here.trip ?? (suggested === undefined ? undefined : here.current.find((trip) => trip.id === suggested));
 }
