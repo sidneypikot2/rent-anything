@@ -75,8 +75,8 @@ class Booking < ApplicationRecord
   # how many rather than guests (Category#gear?); anything else one unit (a van, a motorbike),
   # as the trip item counts guests, not units. A stay split into rooms by the guest
   # (room_guests, RAA-182) takes those rooms. A vehicle with seats (RAA-191) takes enough for
-  # the guests, rounded up, or the more the guest chose (`chosen`, a trip item's units): a group
-  # of 10 on 2-seat motorbikes takes 5, or 6 if one rides alone.
+  # the guests, rounded up, or the more the guest chose (`chosen`, a trip item's units, RAA-315:
+  # even more than the guests): a group of 10 on 2-seat motorbikes takes 5, or 6 if one rides alone.
   def self.units_for(listing, guests, room_guests: nil, chosen: nil)
     units =
       if (tour = listing.tour_detail)
@@ -86,7 +86,7 @@ class Booking < ApplicationRecord
       elsif listing.category.gear?
         guests
       elsif (seats = listing.vehicle_seats)
-        [ guests.fdiv(seats).ceil, [ chosen || 0, guests ].min ].max
+        [ guests.fdiv(seats).ceil, chosen || 0 ].max
       elsif listing.category.accommodation?
         sleeps = listing.attrs["guests"]
         listing.stay_rate&.per_guest? ? guests : (sleeps.is_a?(Integer) && sleeps.positive? ? guests.fdiv(sleeps).ceil : 1)

@@ -94,9 +94,10 @@ module Trips
       Stays::Arrangement.new(listing, **Stays::Arrangement.party_of(room_guests), room_guests:, pets:).errors.each { error(_1) }
     end
 
-    # How many vehicles a rental vehicle's guests take (RAA-191): at least enough seats for them,
-    # at most one each, and never more people than the whole fleet seats. Units sent for anything
-    # but a vehicle with seats are refused. Nil leaves them derived (Booking.units_for).
+    # How many vehicles a rental vehicle's guests take (RAA-191): at least enough seats for them, as
+    # many more as the guest wants up to the fleet (RAA-315: not one each), and never more people
+    # than the whole fleet seats. Units sent for anything but a vehicle with seats are refused. Nil
+    # leaves them derived (Booking.units_for). Whether they are free on the dates is the Ledger's.
     def check_vehicle_units(listing, guests, units)
       seats = listing.vehicle_seats
       return error("Only a vehicle can be booked by how many") if units && !seats
@@ -109,7 +110,7 @@ module Trips
 
       needed = guests.fdiv(seats).ceil
       error("#{guests} people need at least #{needed} #{noun.pluralize(needed)}") if units < needed
-      error("#{units} #{noun.pluralize(units)} is more than one each for #{guests}") if units > guests
+      error("Only #{fleet} #{noun.pluralize(fleet)} to rent") if units > fleet
     end
 
     # A timed rental's pickup time (RAA-195): "08:30", one of the shop's (VehicleRate#pickup_times).

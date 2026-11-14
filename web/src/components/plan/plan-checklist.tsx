@@ -5,8 +5,9 @@ import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 import { businessHref, titleCardHref } from "@/components/discovery/browse-offers";
 import { BOOKING_GROUPS } from "@/components/discovery/categories";
 import type { PlanBusinessesPage } from "@/api/discovery";
-import { MapGlyph } from "@/components/discovery/tag-glyphs";
-import { formatDateRange } from "@/components/trips/format";
+import { CalendarGlyph, MapGlyph } from "@/components/discovery/tag-glyphs";
+import { addDays, formatDateRange, todayIso } from "@/components/trips/format";
+import { ridesHeld } from "@/components/trips/vehicle-party";
 import { useTripHere } from "@/components/trips/use-trip-here";
 import { pickedTotal, useTripQuote, type Trip } from "@/components/trips/use-trips";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -58,6 +59,15 @@ import { NO_FILTERS, setCount, type Filters } from "@/components/discovery/filte
 // `initial`: page 1 of the step it opens on, fetched on the server.
 // `over`: a business or listing opened from a step (`?business=`, `?listing=`), shown in place of
 // the step under the same stepper (RAA-309).
+// A step's options, all of them, for a step its dates leave empty (RAA-315).
+const ALL_OF: Record<RowKey, string> = {
+  stay: "Every stay",
+  transfer: "Every transfer",
+  rental: "Every vehicle",
+  activity: "Every tour and activity",
+  gear: "All the gear",
+};
+
 export function PlanChecklist({
   place,
   choose,
@@ -142,7 +152,14 @@ function Checklist({
   // Places to see has no options: the query rests on the stays, disabled.
   const optionsKey: RowKey = active.key === "places" ? "stay" : active.key;
   const page = pages[optionsKey] ?? 1;
-  const results = usePlanBusinesses(place.area.slug, optionsKey, page, hearted, initial, !onPlaces, filtersOf(optionsKey));
+  // The people a vehicle must seat (RAA-315): those still without a ride on the trip's days, so the
+  // server lists first what covers them for the whole trip.
+  const riders =
+    optionsKey === "rental" && trip.starts_on && trip.ends_on
+      ? Math.max(trip.guests - ridesHeld(trip.items, trip.starts_on, trip.ends_on, trip.guests).least, 1)
+      : undefined;
+  const tripDates = { from: trip.starts_on, to: trip.ends_on, people: riders };
+  const results = usePlanBusinesses(place.area.slug, optionsKey, page, hearted, initial, !onPlaces, filtersOf(optionsKey), tripDates);
   const shown = results.data;
   // A new page: back to the top of its options, under the header.
   const turnPage = (key: RowKey) => (next: number) => {
@@ -183,6 +200,11 @@ function Checklist({
   const businesses = shown?.businesses ?? [];
   const { toHearted, rest } = active.key === "activity" ? byHearts(businesses, hearted) : { toHearted: [] as PlanBusiness[], rest: businesses };
   const sorted = [...toHearted, ...rest];
+  // Rentals with the trip's dates (RAA-315): what's free for the whole trip, then, under its own
+  // heading, what's free on only some of its days (the server's order). Never stitched together.
+  const partial = businesses.filter((business) => business.covers_trip === false);
+  const whole = partial.length > 0 ? businesses.filter((business) => business.covers_trip !== false) : businesses;
+  const noneWhole = partial.length > 0 && whole.length === 0 && shown?.page === 1;
   const hrefOf = (key: RowKey) => (business: PlanBusiness) => planBusinessHref(business, key, trip, place.area.slug);
   // To another step from its foot: the new panel from its top, as a long list may have scrolled.
   const goTo = (key: StepKey) => {
@@ -208,6 +230,14 @@ function Checklist({
   // swipe on a phone, two across on a tablet (the Map pill floating over the foot opens the map
   // view), four across from lg, or with the map on, beside a map of the page's pins that sticks
   // while they scroll.
+  // The trip's dates still ahead, as usePlanBusinesses sends them.
+  const tripAhead = Boolean(trip.starts_on && trip.ends_on && trip.ends_on >= todayIso());
+  // Nothing free for the whole trip (RAA-315): one quiet line, as Airbnb's, over the similar dates.
+  const wholeNotice = (
+    <p className="text-sm text-muted" data-testid="plan-none-whole">
+      No exact matches for {formatDateRange(trip.starts_on, trip.ends_on)}
+    </p>
+  );
   const options = (key: RowKey) => {
     if (shown?.total === 0)
       return setCount(filtersOf(key)) > 0 ? (
@@ -217,6 +247,22 @@ function Checklist({
             Clear
           </button>
         </p>
+      ) : tripAhead && place.counts[key] > 0 ? (
+        // The place has them, but every one is booked on the trip's dates (RAA-315).
+        <div className="flex flex-col gap-3 rounded-card bg-warning/10 p-card sm:flex-row sm:items-center" data-testid="plan-all-booked">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-surface text-warning">
+            <CalendarGlyph className="size-5" />
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <p className="text-lg font-semibold">
+              {ALL_OF[key]} on {place.area.name} is booked on {formatDateRange(trip.starts_on, trip.ends_on)}
+            </p>
+            <p className="text-sm text-muted">Pick other dates for your trip, or skip this step.</p>
+          </div>
+          <ButtonLink href={`/plan?where=${place.area.slug}&trip=${trip.id}`} variant="soft" glyph="arrow" className="self-start sm:self-center">
+            Change dates
+          </ButtonLink>
+        </div>
       ) : (
         <p className="text-sm text-muted">Nothing to book here yet. Local partners are still being added.</p>
       );
@@ -232,11 +278,19 @@ function Checklist({
     if (showMap) {
       return (
         <div className="flex flex-col gap-3" data-testid={`plan-options-${key}`}>
+          {noneWhole && wholeNotice}
           <PlanResults
-            groups={[
-              { title: toHearted.length > 0 ? "Goes to your hearted places" : undefined, businesses: toHearted, count: shown.heartedTotal },
-              { title: toHearted.length > 0 ? "More things to do" : undefined, businesses: rest, count: shown.total - shown.heartedTotal },
-            ]}
+            groups={
+              partial.length > 0
+                ? [
+                    { title: undefined, businesses: whole },
+                    { title: "Available for similar dates", businesses: partial },
+                  ]
+                : [
+                    { title: toHearted.length > 0 ? "Goes to your hearted places" : undefined, businesses: toHearted, count: shown.heartedTotal },
+                    { title: toHearted.length > 0 ? "More things to do" : undefined, businesses: rest, count: shown.total - shown.heartedTotal },
+                  ]
+            }
             context={cardContext}
             stay={stay}
             hrefOf={href}
@@ -247,19 +301,33 @@ function Checklist({
         </div>
       );
     }
+    const grid = (list: PlanBusiness[], testId?: string) => (
+      <ul
+        aria-busy={busy || undefined}
+        className={cn("grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-4", busy && "opacity-60")}
+        data-testid={testId}
+      >
+        {list.map((business) => (
+          <li key={business.key} className="min-w-0">
+            <PlanCard business={business} href={href(business)} context={cardContext} />
+          </li>
+        ))}
+      </ul>
+    );
     return (
       <div className="flex flex-col gap-3">
-        <ul
-          aria-busy={busy || undefined}
-          className={cn("grid grid-cols-1 gap-x-5 gap-y-8 sm:grid-cols-2 lg:grid-cols-4", busy && "opacity-60")}
-          data-testid={`plan-options-${key}`}
-        >
-          {sorted.map((business) => (
-            <li key={business.key} className="min-w-0">
-              <PlanCard business={business} href={href(business)} context={cardContext} />
-            </li>
-          ))}
-        </ul>
+        {partial.length > 0 ? (
+          <div className="flex flex-col gap-6" data-testid={`plan-options-${key}`}>
+            {noneWhole && wholeNotice}
+            {whole.length > 0 && grid(whole)}
+            <section className="flex flex-col gap-4" data-testid="plan-partly-free">
+              <h3 className="font-display text-lg font-extrabold tracking-tight text-navy">Available for similar dates</h3>
+              {grid(partial)}
+            </section>
+          </div>
+        ) : (
+          grid(sorted, `plan-options-${key}`)
+        )}
         {pager}
       </div>
     );
@@ -475,6 +543,7 @@ function Checklist({
           hearted={hearted}
           facets={shown.facets}
           filters={filtersOf(filtering)}
+          dates={tripDates}
           onApply={(next) => {
             setFiltersOf(filtering, next);
             setFiltering(null);
@@ -516,9 +585,12 @@ function PicksTray({ picks }: { picks: PlanLandmark[] }) {
 // step's What to book group; with the trip's dates and party, the place and the trip, so adds land in it.
 function planBusinessHref(business: PlanBusiness, key: RowKey, trip: Trip, slug: string) {
   const group = BOOKING_GROUPS.find((each) => each.group === key);
+  // A vehicle free on only part of the trip opens on the days it can be had (RAA-315): its run,
+  // back the day after its last.
+  const run = business.free_days;
   const dates = {
-    from: trip.starts_on ?? undefined,
-    to: trip.ends_on ?? undefined,
+    from: run ? run.from : (trip.starts_on ?? undefined),
+    to: run ? addDays(run.to, 1) : (trip.ends_on ?? undefined),
     guests: trip.guests,
     children: trip.children,
     infants: trip.infants,

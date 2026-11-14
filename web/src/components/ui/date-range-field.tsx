@@ -42,6 +42,11 @@ type Props = {
   // range also clears from the bar's own X.
   modal?: boolean;
   autoFocus?: boolean;
+  // A rental's units free each day (RAA-315): the calendar greys out a day with none, so a rental
+  // can't start on, or run through, one.
+  free?: Record<string, number>;
+  // The When bar's taller row (with `row modal`).
+  bar?: boolean;
   className?: string;
   "data-testid"?: string;
   ref?: Ref<DateRangeFieldHandle>;
@@ -75,6 +80,8 @@ export function DateRangeField({
   row = false,
   modal = false,
   autoFocus,
+  free,
+  bar = false,
   className,
   "data-testid": testId,
   ref,
@@ -150,16 +157,16 @@ export function DateRangeField({
           aria-controls={calendarId}
           data-testid={testId}
           onClick={openCalendar}
-          className={cn("flex min-h-16 w-full items-center gap-3 rounded-[inherit] px-3.5 py-3 text-left outline-none transition-colors duration-300 ease-calm hover:bg-surface-2 focus-visible:bg-surface-2", modal && "max-sm:min-h-14 max-sm:py-2 sm:min-h-20 sm:px-4", quickClear && "pr-16")}
+          className={cn("flex min-h-16 w-full items-center gap-3 rounded-[inherit] px-3.5 py-3 text-left outline-none transition-colors duration-300 ease-calm hover:bg-surface-2 focus-visible:bg-surface-2", bar && "max-sm:min-h-14 max-sm:py-2 sm:min-h-20 sm:px-4", quickClear && "pr-16")}
         >
-          <span className={cn("flex size-9.5 shrink-0 items-center justify-center rounded-xl bg-action-tint text-action-ink", modal && "max-sm:size-8")}>
-            <CalendarGlyph className={cn("size-5", modal && "max-sm:size-4.5")} />
+          <span className={cn("flex size-9.5 shrink-0 items-center justify-center rounded-xl bg-action-tint text-action-ink", bar && "max-sm:size-8")}>
+            <CalendarGlyph className={cn("size-5", bar && "max-sm:size-4.5")} />
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
             <span id={labelId} className="text-xs font-semibold text-muted">
               {label}
             </span>
-            <span id={valueId} className={cn("text-control font-bold", modal && "max-sm:text-sm", !value && "text-muted")}>
+            <span id={valueId} className={cn("text-control font-bold", bar && "max-sm:text-sm", !value && "text-muted")}>
               {value ?? placeholder ?? (single ? "Add a date" : "Add dates")}
               {note && (
                 <span id={noteId} className={cn("font-medium", error ? "text-danger" : "text-muted")}>
@@ -231,7 +238,7 @@ export function DateRangeField({
             !row && (inline ? "mt-1" : "absolute left-0 top-full z-20 mt-1 shadow-lift sm:w-80"),
           )}
         >
-          <DateRangeCalendar from={from} to={to} onChange={onChange} min={min} single={single} keepStart={keepStart} onComplete={close} />
+          <DateRangeCalendar from={from} to={to} onChange={onChange} min={min} single={single} keepStart={keepStart} onComplete={close} free={free} />
 
           <div className="flex justify-end gap-1 text-sm">
             {clearable && from && (
@@ -286,7 +293,7 @@ export function DateRangeField({
           data-testid={testId && `${testId}-dialog`}
         >
           <div id={calendarId}>
-            <DateRangeCalendar from={draft.from} to={draft.to} onChange={setDraft} min={min} single={single} keepStart={keepStart} months={2} />
+            <DateRangeCalendar from={draft.from} to={draft.to} onChange={setDraft} min={min} single={single} keepStart={keepStart} months={2} free={free} />
           </div>
         </Dialog>
       )}

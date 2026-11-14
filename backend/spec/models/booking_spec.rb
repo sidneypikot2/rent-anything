@@ -52,11 +52,11 @@ RSpec.describe Booking do
       expect(described_class.units_for(create(:listing, :vehicle), 3)).to eq(2)
     end
 
-    it "takes the more vehicles the guest chose, up to one each" do
+    it "takes the more vehicles the guest chose, even more than the guests (RAA-315)" do
       listing = create(:listing, :vehicle)
       expect(described_class.units_for(listing, 10, chosen: 6)).to eq(6)
       expect(described_class.units_for(listing, 10, chosen: 4)).to eq(5)
-      expect(described_class.units_for(listing, 3, chosen: 9)).to eq(3)
+      expect(described_class.units_for(listing, 3, chosen: 9)).to eq(9)
     end
 
     it "takes one of a vehicle that doesn't say its seats" do

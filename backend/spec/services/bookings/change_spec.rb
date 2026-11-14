@@ -139,13 +139,24 @@ RSpec.describe Bookings::Change do
         expect(item.reload).to have_attributes(quantity: 2, units: 2)
       end
 
-      it "drops chosen vehicles that no longer fit the guests" do
+      it "keeps chosen vehicles past the guests (RAA-315)" do
         item.update!(quantity: 2, units: 2)
         booking = booking_with(status: "confirmed")
 
         change_booking(booking, guests: 1)
 
-        expect(booking.reload).to have_attributes(guests: 1, quantity: 1)
+        # A vehicle booking's quantity is its vehicles.
+        expect(booking.reload).to have_attributes(guests: 1, quantity: 2)
+        expect(item.reload.units).to eq(2)
+      end
+
+      it "drops chosen vehicles too few for the guests" do
+        item.update!(quantity: 1, units: 1)
+        booking = booking_with(status: "confirmed")
+
+        change_booking(booking, guests: 3)
+
+        expect(booking.reload).to have_attributes(guests: 3, quantity: 2)
         expect(item.reload.units).to be_nil
       end
 

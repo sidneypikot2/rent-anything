@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { DayPicker, type DayButtonProps } from "react-day-picker";
+import { DayPicker, type DayButtonProps, type Matcher } from "react-day-picker";
 import { cn } from "./cn";
 import type { DateRange } from "./date-range-field";
 
@@ -19,6 +19,9 @@ export type CalendarProps = {
   keepStart?: boolean;
   months?: number;
   onComplete?: () => void;
+  // A rental's units free each day (RAA-315), "YYYY-MM-DD" => count: a day with none is greyed
+  // out and can't be a rental's first day or one inside it, but can be its return (not taken).
+  free?: Record<string, number>;
 };
 
 // The calendar runs in UTC, like the app's dates ("YYYY-MM-DD", a day with no time zone,
@@ -103,6 +106,7 @@ export function DateRangeCalendar({
   keepStart = true,
   months = 1,
   onComplete,
+  free,
 }: CalendarProps) {
   // The day under the pointer, shown as the end while one is picked.
   const [hovered, setHovered] = useState<string>();
@@ -122,6 +126,12 @@ export function DateRangeCalendar({
   }
 
   const pickingEnd = !single && Boolean(from) && (!to || keepsStart);
+  // With `free`: a start needs a unit free that day; an end, one free on every day before it
+  // from the start (the first day with none can still be the return).
+  const out = (day: string) => free?.[day] === 0;
+  const firstOutAfter = pickingEnd && free ? Object.keys(free).sort().find((day) => day > from && out(day)) : undefined;
+  const outOfReach = (day: string) =>
+    Boolean(free) && (pickingEnd && day >= from ? Boolean(firstOutAfter && day > firstOutAfter) : out(day));
   const shownEnd = (pickingEnd && hovered && hovered >= from ? hovered : undefined) || to;
   const opensOn = toDate(from && from >= min ? from : min);
   // A complete range has a hint of its own: "Pick the first day" there read as if nothing was
@@ -135,6 +145,7 @@ export function DateRangeCalendar({
         : from && to
           ? "Tap a day to pick new dates"
           : "Pick the first day";
+  const disabled: Matcher[] = [{ before: toDate(min) }, (date: Date) => outOfReach(toIso(date))];
   const calendar = {
     numberOfMonths: months,
     timeZone: "UTC",
@@ -142,7 +153,7 @@ export function DateRangeCalendar({
     autoFocus: true,
     defaultMonth: opensOn,
     startMonth: toDate(min),
-    disabled: { before: toDate(min) },
+    disabled,
     classNames: CLASS_NAMES,
     components: { DayButton: Day },
     footer: instruction,

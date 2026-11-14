@@ -54,20 +54,68 @@ module Discovery
       [ from, to ]
     end
 
-    # `scope`, only the listings free on the dates; all of it without them.
-    def self.on(scope, from, to)
+    # `scope`, only the listings free on the dates; all of it without them. `any`: free on at least
+    # one of them rather than all (the planner's steps, RAA-315: a rental free for part of the trip
+    # still shows, and its card says which part).
+    def self.on(scope, from, to, any: false)
       return scope unless from
 
       held = ActiveRecord::Base.sanitize_sql_array([ HELD, { from:, to:, holding: Booking::HOLDING } ])
-      scope.where.not(held).where(HAS_CAPACITY).or(scope.where(id: free_held_ids(scope.where(held), from, to)))
+      scope.where.not(held).where(HAS_CAPACITY).or(scope.where(id: free_held_ids(scope.where(held), from, to, any:)))
     end
 
-    # The listings in `held` (something holds them on the dates) with a unit free on them, read
-    # once from one Ledger.
-    def self.free_held_ids(held, from, to)
+    # A listing's units `people` need (RAA-315): a rental vehicle's enough seats for them,
+    # anything else one.
+    def self.needed(listing, people)
+      seats = listing.vehicle_seats
+      seats ? (people.to_f / seats).ceil : 1
+    end
+
+    # A vehicle's seats in SQL, as Listing#vehicle_seats reads them (1 when it doesn't say).
+    SEATS = <<~SQL.squish.freeze
+      CASE WHEN jsonb_typeof(listings.attrs->'seats') = 'number' AND (listings.attrs->>'seats')::numeric >= 1
+        THEN (listings.attrs->>'seats')::numeric ELSE 1 END
+    SQL
+
+    # `scope`, only the listings with enough units for `people` free on every one of the dates
+    # (RAA-315: what covers the whole trip, which the planner lists first). Nothing holds an unheld
+    # listing, so it covers them when its fleet seats them; a held one goes through the Ledger.
+    def self.covering(scope, from, to, people:)
+      held = ActiveRecord::Base.sanitize_sql_array([ HELD, { from:, to:, holding: Booking::HOLDING } ])
+      fleet = ActiveRecord::Base.sanitize_sql_array([
+        "(SELECT COUNT(*) FROM listing_units WHERE listing_units.listing_id = listings.id) * (#{SEATS}) >= ?", people
+      ])
+      held_listings = Listing.where(id: scope.where(held).select(:id)).includes(:category, :units, :stay_rate, :vehicle_rate, :tour_detail).to_a
+      ledger = Availability::Ledger.new(held_listings, from, to)
+      held_ids = held_listings.select { |listing| ledger.units_free(listing, days_of(listing, from, to)).to_i >= needed(listing, people) }.map(&:id)
+      scope.where.not(held).where(HAS_CAPACITY).where(fleet).or(scope.where(id: held_ids))
+    end
+
+    # The longest run of the dates with enough units for `people` free on each (RAA-315), as
+    # [first, last] (both included), or nil when no day has them.
+    def self.free_run(listing, ledger, from, to, people)
+      want = needed(listing, people)
+      best = run = nil
+      days_of(listing, from, to).each do |day|
+        if ledger.day(listing, day)[:units_left] >= want
+          run = run ? [ run.first, day ] : [ day, day ]
+          best = run if best.nil? || (run.last - run.first) > (best.last - best.first)
+        else
+          run = nil
+        end
+      end
+      best
+    end
+
+    # The listings in `held` (something holds them on the dates) with a unit free on them (on any
+    # of them, with `any`), read once from one Ledger.
+    def self.free_held_ids(held, from, to, any: false)
       listings = Listing.where(id: held.select(:id)).includes(:category, :units, :stay_rate, :vehicle_rate, :tour_detail).to_a
       ledger = Availability::Ledger.new(listings, from, to)
-      listings.select { |listing| ledger.units_free(listing, days_of(listing, from, to)).to_i.positive? }.map(&:id)
+      listings.select do |listing|
+        days = days_of(listing, from, to)
+        any ? days.any? { ledger.units_free(listing, [ _1 ]).to_i.positive? } : ledger.units_free(listing, days).to_i.positive?
+      end.map(&:id)
     end
 
     # The days a booking of these dates would take: a stay's nights and a rental's days out

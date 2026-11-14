@@ -21,7 +21,7 @@ RSpec.describe "Trip items", type: :request do
         "to cover the item's. Dates are optional, both or neither, `YYYY-MM-DD` and not in the past: an " \
         "undated item can't be checked out until it has one. `quantity` is 1 to 99, default 1. Answers with " \
         "the trip. A rental vehicle with seats (RAA-191) takes enough of its units for `quantity` people, rounded " \
-        "up, or `units` when the guest chose more (up to one each), and never more people than its whole fleet " \
+        "up, or `units` when the guest chose more (up to its fleet), and never more people than its whole fleet " \
         "seats. Several items at once (RAA-187, a mix of room types from `GET /stay_mixes`): `items` instead " \
         "of one item's fields, all added or none; a new trip is named and dated after the first."
       security [ { bearer: [] } ]
@@ -320,17 +320,17 @@ RSpec.describe "Trip items", type: :request do
           end
         end
 
-        response "422", "too few motorbikes, more than the people, units on a tour, or more people than the fleet seats" do
+        response "422", "too few motorbikes, more than the fleet, units on a tour, or more people than the fleet seats" do
           let(:body) { { listing_id: click.id, quantity: 10, units: 4 } }
 
           context "with too few" do
             run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "10 people need at least 5 motorbikes" ]) }
           end
 
-          context "with more than one each" do
-            let(:body) { { listing_id: click.id, quantity: 3, units: 4 } }
+          context "with more than the fleet" do
+            let(:body) { { listing_id: click.id, quantity: 3, units: 9 } }
 
-            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "4 motorbikes is more than one each for 3" ]) }
+            run_test! { |response| expect(response.parsed_body["errors"]).to eq([ "Only 8 motorbikes to rent" ]) }
           end
 
           context "with units on a tour" do
@@ -542,11 +542,19 @@ RSpec.describe "Trip items", type: :request do
 
         before { click.units.create!((2..8).map { |position| { position: } }) }
 
-        response "200", "fewer people drop chosen units that no longer fit, back to derived" do
+        response "200", "fewer people keep the chosen units; more than they seat drop them, back to derived" do
           schema "$ref" => "#/components/schemas/trip"
           let(:body) { { quantity: 3 } }
 
-          run_test! { |response| expect(response.parsed_body["items"].sole.slice("units", "units_chosen")).to eq("units" => 2, "units_chosen" => nil) }
+          context "with fewer people" do
+            run_test! { |response| expect(response.parsed_body["items"].sole.slice("units", "units_chosen")).to eq("units" => 4, "units_chosen" => 4) }
+          end
+
+          context "with more people than the units seat" do
+            let(:body) { { quantity: 10 } }
+
+            run_test! { |response| expect(response.parsed_body["items"].sole.slice("units", "units_chosen")).to eq("units" => 5, "units_chosen" => nil) }
+          end
         end
 
         response "200", "new units for the same people" do

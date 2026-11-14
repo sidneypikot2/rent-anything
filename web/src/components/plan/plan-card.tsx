@@ -8,6 +8,7 @@ import { TourStops } from "@/components/discovery/landmark-tours";
 import { BoltGlyph, CloseGlyph, PlaceGlyph } from "@/components/discovery/tag-glyphs";
 import { InTripCount } from "@/components/trips/in-trip-badge";
 import { cn } from "@/components/ui/cn";
+import { formatDateRange } from "@/lib/dates";
 import { formatPeso } from "@/lib/money";
 import { priceUnitText, TO_BE_AGREED } from "@/lib/pricing";
 import { useOpensInNewTab } from "@/components/discovery/business-row";
@@ -121,7 +122,15 @@ export function PlanCard({
             <CloseGlyph className="size-4" />
           </button>
         )}
-        {(best || business.instant_book) && (
+        {business.free_days ? (
+          // Free on only part of the trip (RAA-315): the days it can be had, as Airbnb's similar dates.
+          <span
+            className="pointer-events-none absolute top-3 left-3 rounded-full bg-surface/95 px-2.5 py-1 text-small font-bold text-navy shadow-soft"
+            data-testid="plan-similar-dates"
+          >
+            {formatDateRange(business.free_days.from, business.free_days.to)}
+          </span>
+        ) : (best || business.instant_book) && (
           <span className="pointer-events-none absolute top-3 left-3 flex max-w-[calc(100%-1.5rem)] items-center gap-1 rounded-full bg-surface/95 px-2.5 py-1 text-small font-bold text-navy shadow-soft">
             {best ? (
               <span className="truncate text-forest" data-testid="plan-near-best">
@@ -161,7 +170,7 @@ export function PlanCard({
         <span className="truncate text-muted">
           {business.category} in {business.area_name}
         </span>
-        {context.when && <span className="truncate text-muted">{context.when}</span>}
+        {context.when && !business.free_days && <span className="truncate text-muted">{context.when}</span>}
         {near.length > 0 && (
           <ul className="mt-1.5 flex flex-col gap-1 rounded-control bg-surface-2 px-3 py-2 text-small text-navy" data-testid="plan-near">
             {near.slice(0, NEAR_ROWS).map((line) => (

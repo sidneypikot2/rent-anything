@@ -4,8 +4,8 @@ import { wantsDelivery, type Delivery } from "./delivery-options";
 import { rentalClock } from "./pickup-time";
 
 // A rental vehicle's people and how many vehicles they take (RAA-191): the API books
-// ceil(people / seats) of its units, or the more the guest chose, up to one each, and never more
-// people than the whole fleet seats. These are its words and sums for the booking card, the shop
+// ceil(people / seats) of its units, or the more the guest chose, up to its fleet (RAA-315: even
+// more vehicles than people), and never more people than the whole fleet seats. These are its words and sums for the booking card, the shop
 // pop-up, the add sheet and the cart.
 
 export type ShopListing = components["schemas"]["business_listing"];
@@ -38,14 +38,16 @@ export function unitsNeeded(people: number, seats: number) {
   return Math.max(1, Math.ceil(people / seats));
 }
 
-// The units the people take: at least those they need, at most one each.
+// The units the people take: at least those they need, or the more the guest chose.
 export function unitsFor(people: number, seats: number, chosen?: number | null) {
   const needed = unitsNeeded(people, seats);
-  return chosen ? Math.max(needed, Math.min(chosen, people)) : needed;
+  return chosen ? Math.max(needed, chosen) : needed;
 }
 
-// How the people ride: a full vehicle each until those added past the minimum, which carry one.
-export function riders(people: number, seats: number, units: number) {
+// How the people ride: a full vehicle each until those added past the minimum, which carry one;
+// vehicles past one each (RAA-315) carry no one.
+export function riders(people: number, seats: number, units: number): number[] {
+  if (units > people) return [...riders(people, seats, people), ...Array<number>(units - people).fill(0)];
   const solo = Math.min(Math.max(units * seats - people, 0), units);
   const loads = Array.from({ length: units }, (_, index) => (index >= units - solo ? 1 : seats));
   // The last full vehicle takes whoever is left when the people don't fill it.
@@ -132,4 +134,31 @@ export function ridesHeld(items: RideItem[], from: string | undefined, to: strin
   }
   held.least = least === Infinity ? 0 : least;
   return held;
+}
+
+// The people a pick of vehicles carries (RAA-315): those still to ride, as far as its seats go.
+export function ridersFor(people: number, seats: number, units: number) {
+  return Math.min(people, units * seats);
+}
+
+// The most units of one listing the trip already holds on any of a rental's days (RAA-315): taken
+// by the trip though not booked yet, so not in the API's units free.
+export function heldOfListing(
+  items: (RideItem & { listing: { id: number } })[],
+  listingId: number,
+  from: string | undefined,
+  to: string | undefined,
+) {
+  if (!from || !to) return 0;
+  const mine = items.filter((item) => item.listing.id === listingId && !item.unavailable && item.starts_on);
+  let most = 0;
+  for (let day = from; day < to; day = addDays(day, 1)) {
+    const on = mine.filter((item) => {
+      const starts = item.starts_on as string;
+      const ends = item.ends_on && item.ends_on > starts ? item.ends_on : addDays(starts, 1);
+      return starts <= day && day < ends;
+    });
+    most = Math.max(most, on.reduce((sum, item) => sum + (item.units ?? 1), 0));
+  }
+  return most;
 }

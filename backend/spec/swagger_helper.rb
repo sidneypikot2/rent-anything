@@ -82,7 +82,7 @@ DELIVERY_DISTANCE = {
 
 UNITS_BODY = {
   type: :integer, nullable: true, minimum: 1, maximum: 99,
-  description: "A rental vehicle only: at least quantity ÷ seats rounded up, at most one each; null or omitted derives it"
+  description: "A rental vehicle only: at least quantity ÷ seats rounded up, at most its fleet (more vehicles than people is fine); null or omitted derives it"
 }.freeze
 
 # Where guests find a listing (Category#guest_group): its booking type, except gear.
@@ -1397,6 +1397,24 @@ RSpec.configure do |config|
             properties: { price_cents: { type: :integer, minimum: 0 } },
             required: %w[price_cents]
           },
+          # A listing's units free day by day (RAA-315), for the booking card's calendar.
+          listing_availability: {
+            type: :object,
+            properties: {
+              days: {
+                type: :array,
+                items: {
+                  type: :object,
+                  properties: {
+                    date: { type: :string, format: :date },
+                    units_free: { type: :integer, description: "Units free that day; 0 greys it out" }
+                  },
+                  required: %w[date units_free]
+                }
+              }
+            },
+            required: %w[days]
+          },
           # What adding a listing to a trip would cost (RAA-191), as the add sheet shows it.
           listing_price: {
             type: :object,
@@ -2148,6 +2166,18 @@ RSpec.configure do |config|
                 type: :array, items: { type: :string },
                 description: "The slugs of the published places to see its listings visit"
               },
+              covers_trip: {
+                type: :boolean, nullable: true,
+                description: "Rentals and gear with the trip's dates (RAA-315): whether one of its listings has enough units for the " \
+                  "people free on every day of them (those come first); null otherwise"
+              },
+              free_days: {
+                type: :object, nullable: true,
+                description: "With dates, a card that doesn't cover the trip: its longest run of days with enough units free " \
+                  "(both ends included); null when it covers the trip, has no such day, or without dates",
+                properties: { from: { type: :string, format: :date }, to: { type: :string, format: :date } },
+                required: %w[from to]
+              },
               near: {
                 type: :array,
                 description: "Stays, with hearted places sent: how far its closest listing is from each, nearest first; empty otherwise",
@@ -2161,7 +2191,7 @@ RSpec.configure do |config|
                 }
               }
             },
-            required: %w[key id name title category area_name listings_count listing_ids instant_book price_from_cents price_unit photos location goes_to near]
+            required: %w[key id name title category area_name listings_count listing_ids instant_book price_from_cents price_unit photos location goes_to covers_trip free_days near]
           },
           listing_facets: {
             type: :object,
@@ -2996,7 +3026,7 @@ RSpec.configure do |config|
               pets: PETS_BODY,
               pickup_time: PICKUP_TIME_BODY,
               units: { type: :integer, minimum: 1, maximum: 99,
-                       description: "A vehicle's: how many it takes, enough to seat the guests and at most one each" }
+                       description: "A vehicle's: how many it takes, enough to seat the guests and at most its fleet" }
             }
           },
           offline_booking_body: {

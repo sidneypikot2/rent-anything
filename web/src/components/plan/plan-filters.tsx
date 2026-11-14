@@ -22,10 +22,13 @@ export function PlanFilterDialog({
   hearted,
   facets,
   filters,
+  dates,
   onApply,
   onClose,
 }: {
   title: string;
+  // The trip's dates, so the count matches the step's (RAA-315).
+  dates?: { from?: string | null; to?: string | null };
   slug: string;
   stepKey: RowKey;
   hearted: Set<string>;
@@ -35,7 +38,7 @@ export function PlanFilterDialog({
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState(filters);
-  const matching = usePlanBusinesses(slug, stepKey, 1, hearted, undefined, true, draft);
+  const matching = usePlanBusinesses(slug, stepKey, 1, hearted, undefined, true, draft, dates);
   const count = matching.data?.total;
   return (
     <Dialog
